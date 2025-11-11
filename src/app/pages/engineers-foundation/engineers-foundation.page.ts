@@ -853,18 +853,55 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (onProgress) onProgress(0.5); // 50% before record creation
 
       // STEP 1: Create attachment record immediately (to get AttachID)
-      const createResponse = await this.caspioService.createServicesEFEPointsAttachRecord(
-        parseInt(pointId, 10),
-        drawingsData,
-        data.photoType
-      ).toPromise();
+      // Retry up to 5 times with exponential backoff for database commit delays
+      let createResponse: any;
+      let attachId: any;
+      let lastError: any;
+      const maxRetries = 5;
 
-      const attachId = createResponse?.AttachID || createResponse?.PK_ID;
-      if (!attachId) {
-        throw new Error('No AttachID returned from record creation');
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`[OperationsQueue] Creating attachment record for PointID ${pointId} (attempt ${attempt}/${maxRetries})`);
+
+          createResponse = await this.caspioService.createServicesEFEPointsAttachRecord(
+            parseInt(pointId, 10),
+            drawingsData,
+            data.photoType
+          ).toPromise();
+
+          attachId = createResponse?.AttachID || createResponse?.PK_ID;
+          if (!attachId) {
+            throw new Error('No AttachID returned from record creation');
+          }
+
+          console.log(`[OperationsQueue] Record created with AttachID: ${attachId}`);
+          break; // Success, exit retry loop
+
+        } catch (error: any) {
+          lastError = error;
+          const errorMsg = error?.error?.Message || error?.message || String(error);
+
+          // Check if this is a foreign key constraint error (point doesn't exist yet)
+          if (errorMsg.includes('Incorrect value') && errorMsg.includes('PointID')) {
+            if (attempt < maxRetries) {
+              const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff: 1s, 2s, 4s, 5s, 5s
+              console.log(`[OperationsQueue] Point ${pointId} not committed yet, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue; // Retry
+            } else {
+              console.error(`[OperationsQueue] Point ${pointId} still not committed after ${maxRetries} attempts`);
+              throw new Error(`Point ${pointId} not found in database after ${maxRetries} retry attempts. Database commit delay exceeded.`);
+            }
+          } else {
+            // Non-retryable error, throw immediately
+            throw error;
+          }
+        }
       }
 
-      console.log(`[OperationsQueue] Record created with AttachID: ${attachId}`);
+      if (!attachId) {
+        throw lastError || new Error('Failed to create attachment record');
+      }
 
       if (onProgress) onProgress(0.7); // 70% after record creation
 
@@ -3899,7 +3936,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // If point already exists with valid ID AND is fully created, upload immediately
     if (isValidPointId(initialPointId)) {
-      console.log(`[Photo Queue] Point ${pointKey} already exists with ID ${initialPointId}, uploading immediately`);
+      const timestamp = this.pointCreationTimestamps[pointKey];
+      console.log(`[Photo Queue] ⚠️ IMMEDIATE UPLOAD PATH for ${pointKey} - ID: ${initialPointId}, timestamp: ${timestamp}`);
       try {
         // Get photoType from photoEntry (stored when photo was captured)
         const photoType = photoEntry.photoType;
@@ -4442,6 +4480,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     } catch (error: any) {
       console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Failed to upload room point photo:', error);
       
+      
+      // Check if this is a foreign key error (database commit delay) - don't show alert for these
+      const errorMsg = error?.error?.Message || error?.message || String(error);
+      const isForeignKeyError = errorMsg.includes('Incorrect value') && errorMsg.includes('PointID');
+      
+      if (isForeignKeyError) {
+        console.warn(`[Photo Upload] Foreign key error - point ${pointIdNum} not committed yet. Retrying via queue.`);
+        throw error; // Re-throw for queue retry, no alert shown
+      }
       // Show detailed error debug popup
       const errorAlert = await this.alertController.create({
         header: 'ÃƒÂ¢Ã‚ÂÃ…â€™ Upload Failed',
