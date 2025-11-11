@@ -13677,13 +13677,13 @@ Stack: ${error?.stack}`;
       // Detect slow connection: 2g, slow-2g, or <3 Mbps
       this.isSlowConnection = effectiveType === '2g' || effectiveType === 'slow-2g' || downlink < 3;
 
-      // Adjust concurrency based on connection - VERY aggressive on slow connections
+      // [PERFORMANCE] Adjust concurrency - more aggressive for better UX
       if (effectiveType === '4g' && downlink >= 10) {
-        this.photoLoadConcurrencyAdjusted = 6; // Fast connection: 6 concurrent
+        this.photoLoadConcurrencyAdjusted = 8; // Fast connection: 8 concurrent
       } else if (effectiveType === '3g' || (downlink >= 3 && downlink < 10)) {
-        this.photoLoadConcurrencyAdjusted = 3; // Medium connection: 3 concurrent
+        this.photoLoadConcurrencyAdjusted = 6; // Medium connection (3-10 Mbps): 6 concurrent (was 3)
       } else if (downlink >= 2) {
-        this.photoLoadConcurrencyAdjusted = 2; // Slow connection (2-3 Mbps): 2 concurrent
+        this.photoLoadConcurrencyAdjusted = 3; // Slow connection (2-3 Mbps): 3 concurrent (was 2)
       } else {
         this.photoLoadConcurrencyAdjusted = 1; // VERY slow connection (<2 Mbps): 1 at a time
       }
@@ -13697,8 +13697,8 @@ Stack: ${error?.stack}`;
     } else {
       // Desktop/web without connection API, assume good connection
       this.isSlowConnection = false;
-      this.photoLoadConcurrencyAdjusted = 4;
-      console.log(`🌐 [Connection] Desktop detected, assuming good connection (concurrency: 4)`);
+      this.photoLoadConcurrencyAdjusted = 6; // Increased from 4 for faster loading
+      console.log(`🌐 [Connection] Desktop detected, assuming good connection (concurrency: 6)`);
     }
   }
 
@@ -13741,7 +13741,8 @@ Stack: ${error?.stack}`;
       return;
     }
 
-    // [PERFORMANCE] On faster connections: Load visible photos, queue background
+    // [PERFORMANCE] On faster connections: Load ALL expanded sections immediately
+    // The problem: we were only loading some photos, causing slow "stuck" feeling
     const visibleKeys: string[] = [];
     const backgroundKeys: string[] = [];
 
@@ -13751,11 +13752,19 @@ Stack: ${error?.stack}`;
 
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
         // Extract category from key (format: "category_templateId")
-        const category = key.split('_')[0];
+        const parts = key.split('_');
+        const category = parts[0];
+        const section = parts.length > 1 ? parts.slice(0, 2).join('_') : category;
 
-        // Check if this category is currently expanded/visible
-        if (this.expandedCategories[category] || this.expandedSections[category]) {
+        // [FIX] Check multiple places: expandedCategories, expandedSections, AND if section is "visual" (structural systems)
+        const isExpanded = this.expandedCategories[category] ||
+                          this.expandedSections[category] ||
+                          this.expandedSections[section] ||
+                          this.expandedSections['visual']; // Structural systems section
+
+        if (isExpanded) {
           visibleKeys.push(key);
+          console.log(`📸 [Priority] ${key} → VISIBLE (category: ${category})`);
         } else {
           backgroundKeys.push(key);
         }
@@ -13763,6 +13772,8 @@ Stack: ${error?.stack}`;
     });
 
     console.log(`📸 [Performance] Loading ${visibleKeys.length} visible items first, queuing ${backgroundKeys.length} for background`);
+    console.log(`📸 [Debug] Expanded categories:`, Object.keys(this.expandedCategories).filter(k => this.expandedCategories[k]));
+    console.log(`📸 [Debug] Expanded sections:`, Object.keys(this.expandedSections).filter(k => this.expandedSections[k]));
 
     // P1: Load visible photos immediately (high priority)
     const visiblePromises = visibleKeys.map(key => {
@@ -13840,19 +13851,22 @@ Stack: ${error?.stack}`;
     });
   }
 
-  // [PERFORMANCE] Queue background photo loading using requestIdleCallback
+  // [PERFORMANCE] Queue background photo loading with larger batches
+  // Increased batch size from 3 to 8 for much faster loading
   private queueBackgroundPhotoLoading(keys: string[]): void {
     let currentIndex = 0;
 
     const loadNextBatch = () => {
-      // Load in batches of 3 to avoid overwhelming the browser
-      const batchSize = 3;
+      // [FIX] Increased from 3 to 8 - loads background photos MUCH faster
+      const batchSize = 8;
       const batch = keys.slice(currentIndex, currentIndex + batchSize);
 
       if (batch.length === 0) {
         console.log(`📸 [Background] All background photos loaded`);
         return;
       }
+
+      console.log(`📸 [Background] Loading batch ${Math.floor(currentIndex / batchSize) + 1}: ${batch.join(', ')}`);
 
       const batchPromises = batch.map(key => {
         const rawVisualId = this.visualRecordIds[key];
@@ -13864,14 +13878,16 @@ Stack: ${error?.stack}`;
         this.changeDetectorRef.detectChanges();
         currentIndex += batchSize;
 
-        // Schedule next batch
+        // Schedule next batch with shorter delay (500ms instead of 2000ms)
         if (currentIndex < keys.length) {
           if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(() => loadNextBatch(), { timeout: 2000 });
+            requestIdleCallback(() => loadNextBatch(), { timeout: 500 });
           } else {
-            // Fallback for browsers without requestIdleCallback
-            setTimeout(() => loadNextBatch(), 100);
+            // Fallback for browsers without requestIdleCallback - immediate
+            setTimeout(() => loadNextBatch(), 50);
           }
+        } else {
+          console.log(`📸 [Background] Completed loading all ${keys.length} background items`);
         }
       }).catch(error => {
         console.error(`📸 [Background] Failed to load batch:`, error);
@@ -13879,19 +13895,19 @@ Stack: ${error?.stack}`;
         // Continue with next batch even if this one fails
         if (currentIndex < keys.length) {
           if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(() => loadNextBatch(), { timeout: 2000 });
+            requestIdleCallback(() => loadNextBatch(), { timeout: 500 });
           } else {
-            setTimeout(() => loadNextBatch(), 100);
+            setTimeout(() => loadNextBatch(), 50);
           }
         }
       });
     };
 
-    // Start background loading
+    // Start background loading immediately (no initial delay)
     if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(() => loadNextBatch(), { timeout: 1000 });
+      requestIdleCallback(() => loadNextBatch(), { timeout: 100 });
     } else {
-      setTimeout(() => loadNextBatch(), 100);
+      setTimeout(() => loadNextBatch(), 10);
     }
   }
   
