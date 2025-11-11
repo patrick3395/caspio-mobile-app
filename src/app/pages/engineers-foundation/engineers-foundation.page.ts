@@ -3884,19 +3884,16 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return false;
       }
 
-      // CRITICAL: Add database commit delay check
-      // Even if point is marked 'created', the database transaction might not be fully committed
-      // Wait at least 3 seconds after creation before allowing immediate uploads
+      // CRITICAL: NEVER allow immediate uploads for newly created points
+      // Database commit delays cause foreign key constraint failures
+      // ONLY allow immediate uploads for points loaded from database (timestamp = 0)
       const creationTime = this.pointCreationTimestamps[pointKey];
-      if (creationTime !== undefined && creationTime > 0) {
-        const timeSinceCreation = Date.now() - creationTime;
-        const minDelay = 3000; // 3 seconds
-        if (timeSinceCreation < minDelay) {
-          console.log(`[Photo Queue] Point ${pointKey} created only ${timeSinceCreation}ms ago, waiting for DB commit - will queue`);
-          return false;
-        }
+      if (creationTime === undefined || creationTime > 0) {
+        console.log(`[Photo Queue] Point ${pointKey} was created this session (timestamp: ${creationTime}) - will queue for safety`);
+        return false;
       }
 
+      console.log(`[Photo Queue] Point ${pointKey} loaded from database (timestamp: 0) - safe for immediate upload`);
       return true;
     };
 
