@@ -303,6 +303,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   efePointIds: { [key: string]: string } = {}; // Track Services_EFE_Points IDs
   pointCreationStatus: { [key: string]: 'pending' | 'created' | 'failed' | 'retrying' } = {}; // Track point creation status
   pointCreationErrors: { [key: string]: string } = {}; // Track error messages for failed points
+  pointCreationTimestamps: { [key: string]: number } = {}; // Track when points were created (for database commit delay)
   expandedRooms: { [roomName: string]: boolean } = {}; // Track room expansion state
   roomOperationIds: { [roomName: string]: string } = {}; // Track queued room operation IDs
   pointOperationIds: { [pointKey: string]: string } = {}; // Track queued point operation IDs
@@ -3451,6 +3452,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
           // Mark point as created (since it exists in database)
           this.pointCreationStatus[pointKey] = 'created';
+          this.pointCreationTimestamps[pointKey] = 0; // Loaded from DB, safe for immediate upload
 
           // Find the corresponding point in roomElevationData and mark it as having photos
           if (this.roomElevationData[roomName]?.elevationPoints) {
@@ -3880,6 +3882,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (status !== 'created') {
         console.log(`[Photo Queue] Point ${pointKey} has ID ${id} but status is '${status}' - will queue`);
         return false;
+      }
+
+      // CRITICAL: Add database commit delay check
+      // Even if point is marked 'created', the database transaction might not be fully committed
+      // Wait at least 3 seconds after creation before allowing immediate uploads
+      const creationTime = this.pointCreationTimestamps[pointKey];
+      if (creationTime !== undefined && creationTime > 0) {
+        const timeSinceCreation = Date.now() - creationTime;
+        const minDelay = 3000; // 3 seconds
+        if (timeSinceCreation < minDelay) {
+          console.log(`[Photo Queue] Point ${pointKey} created only ${timeSinceCreation}ms ago, waiting for DB commit - will queue`);
+          return false;
+        }
       }
 
       return true;
@@ -4666,6 +4681,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           console.log(`[Point Queue] Success for ${point.name}:`, result.pointId);
           this.efePointIds[pointKey] = result.pointId;
           this.pointCreationStatus[pointKey] = 'created';
+          this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
           delete this.pointCreationErrors[pointKey];
           this.changeDetectorRef.detectChanges();
 
@@ -4831,6 +4847,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log(`[Ensure Point] Point ${pointName} created successfully with ID ${result.pointId}`);
         this.efePointIds[pointKey] = result.pointId;
         this.pointCreationStatus[pointKey] = 'created';
+        this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
         delete this.pointCreationErrors[pointKey];
         this.changeDetectorRef.detectChanges();
 
@@ -4904,6 +4921,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         if (this.efePointIds[pointKey]) {
           console.log(`[Pre-create Points] Point ${point.name} already exists, skipping`);
           this.pointCreationStatus[pointKey] = 'created';
+          this.pointCreationTimestamps[pointKey] = 0; // Already exists, safe for immediate upload
           return;
         }
 
@@ -4919,6 +4937,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             const pointId = createResponse.PointID || createResponse.PK_ID;
             this.efePointIds[pointKey] = pointId;
             this.pointCreationStatus[pointKey] = 'created';
+            this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
             delete this.pointCreationErrors[pointKey];
             console.log(`[Pre-create Points] Created point ${point.name} with ID ${pointId}`);
           } else {
@@ -4989,6 +5008,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         const pointId = createResponse.PointID || createResponse.PK_ID;
         this.efePointIds[pointKey] = pointId;
         this.pointCreationStatus[pointKey] = 'created';
+        this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
         delete this.pointCreationErrors[pointKey];
         console.log(`[Retry Point] Created point ${point.name} with ID ${pointId}`);
         await this.showToast(`Point "${point.name}" created successfully`, 'success');
@@ -6067,6 +6087,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                       const pointId = response.PointID || response.PK_ID;
                       this.efePointIds[pointKey] = pointId;
                       this.pointCreationStatus[pointKey] = 'created';
+                      this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
                       // Trigger change detection after database save
                       this.changeDetectorRef.detectChanges();
                     }
@@ -8660,6 +8681,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 const pointId = response.PointID || response.PK_ID;
                 this.efePointIds[pointKey] = pointId;
                 this.pointCreationStatus[pointKey] = 'created';
+                this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
                 delete this.pendingPointCreates[pointKey];
               }
             } catch (error) {
