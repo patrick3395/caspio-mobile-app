@@ -760,8 +760,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (data._synthetic) {
         const pointKey = `${data.roomName}_${data.PointName}`;
         const existingPointId = this.efePointIds[pointKey];
-        console.log(`[OperationsQueue] Synthetic CREATE_POINT - point already exists with ID ${existingPointId}`);
-        return { pointId: existingPointId, response: { PointID: existingPointId }, _synthetic: true };
+        console.log(`[OperationsQueue] Synthetic CREATE_POINT - verifying point ${existingPointId} exists...`);
+
+        // CRITICAL: Verify the point actually exists in database
+        // Point creation may have failed or rolled back despite returning an ID
+        const roomId = this.efeRecordIds[data.roomName];
+        if (roomId) {
+          try {
+            const points = await this.foundationData.getEFEPoints(roomId);
+            const pointExists = points && points.some((p: any) => (p.PointID || p.PK_ID) == existingPointId);
+
+            if (!pointExists) {
+              console.error(`[OperationsQueue] Synthetic point ${existingPointId} NOT FOUND in database - will retry creation`);
+              // Point doesn't exist - treat as regular CREATE_POINT to create it properly
+              data._synthetic = false; // Remove synthetic flag to trigger actual creation below
+            } else {
+              console.log(`[OperationsQueue] Synthetic point ${existingPointId} verified in database`);
+              return { pointId: existingPointId, response: { PointID: existingPointId }, _synthetic: true };
+            }
+          } catch (err) {
+            console.warn(`[OperationsQueue] Error verifying synthetic point:`, err);
+            // On error, try to create it properly
+            data._synthetic = false;
+          }
+        }
       }
 
       // If roomName is provided, get the real room ID (in case it was temp when queued)
@@ -867,13 +889,43 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       let lastError: any;
       const maxRetries = 8;
 
-      // CRITICAL: Add initial delay before first attempt
-      // Point dependency ensures it's created, but DB transaction may still be committing
-      // Shorter delay for points created via background (have had more time)
-      // Longer delay for points created via queue (just completed)
-      const initialDelay = 1000; // 1 second - balance between speed and safety
-      console.log(`[OperationsQueue] Waiting ${initialDelay}ms for point ${pointId} database commit before upload...`);
-      await new Promise(resolve => setTimeout(resolve, initialDelay));
+      // CRITICAL: Verify point actually exists in database before attempting upload
+      // Point creation API may return success but DB transaction can fail/rollback
+      console.log(`[OperationsQueue] Verifying point ${pointId} exists in database...`);
+
+      let pointExists = false;
+      let verifyAttempts = 0;
+      const maxVerifyAttempts = 10;
+
+      while (!pointExists && verifyAttempts < maxVerifyAttempts) {
+        try {
+          // Try to fetch the point from database to verify it exists
+          const roomKey = data.roomName;
+          const roomId = this.efeRecordIds[roomKey];
+          if (roomId) {
+            const points = await this.foundationData.getEFEPoints(roomId);
+            pointExists = points && points.some((p: any) => (p.PointID || p.PK_ID) == pointId);
+
+            if (pointExists) {
+              console.log(`[OperationsQueue] Point ${pointId} verified in database`);
+              break;
+            }
+          }
+        } catch (err) {
+          console.warn(`[OperationsQueue] Error verifying point ${pointId}:`, err);
+        }
+
+        verifyAttempts++;
+        if (!pointExists && verifyAttempts < maxVerifyAttempts) {
+          const delay = 1000 * verifyAttempts; // Increasing delay: 1s, 2s, 3s...
+          console.log(`[OperationsQueue] Point ${pointId} not found, retry ${verifyAttempts}/${maxVerifyAttempts} in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+
+      if (!pointExists) {
+        throw new Error(`Point ${pointId} does not exist in database after ${maxVerifyAttempts} verification attempts. Point creation may have failed.`);
+      }
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
