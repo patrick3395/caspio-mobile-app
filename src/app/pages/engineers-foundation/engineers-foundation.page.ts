@@ -6915,9 +6915,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Only proceed if there's an actual change
     if (JSON.stringify(this.expandedAccordions.sort()) !== JSON.stringify(newExpandedAccordions.sort())) {
+      const previouslyExpanded = this.expandedAccordions;
       this.expandedAccordions = newExpandedAccordions;
       needsScrollRestore = true;
       this.markSpacerHeightDirty(); // Mark cache as dirty
+
+      // [PERFORMANCE] Load photos for newly expanded accordions
+      const newlyExpanded = newExpandedAccordions.filter(cat => !previouslyExpanded.includes(cat));
+      if (newlyExpanded.length > 0) {
+        console.log(`📸 [Accordion] Loading photos for newly expanded categories:`, newlyExpanded);
+        this.loadPhotosForExpandedCategories(newlyExpanded);
+      }
     }
 
     // DISABLED: No auto-scrolling per user request
@@ -13741,10 +13749,9 @@ Stack: ${error?.stack}`;
       return;
     }
 
-    // [PERFORMANCE] On faster connections: Load ALL expanded sections immediately
-    // The problem: we were only loading some photos, causing slow "stuck" feeling
-    const visibleKeys: string[] = [];
-    const backgroundKeys: string[] = [];
+    // [PERFORMANCE] Load ALL photos in background, prioritizing visible sections
+    const priorityKeys: string[] = [];
+    const allKeys: string[] = [];
 
     Object.keys(this.visualRecordIds).forEach(key => {
       const rawVisualId = this.visualRecordIds[key];
@@ -13754,47 +13761,35 @@ Stack: ${error?.stack}`;
         // Extract category from key (format: "category_templateId")
         const parts = key.split('_');
         const category = parts[0];
-        const section = parts.length > 1 ? parts.slice(0, 2).join('_') : category;
 
-        // [FIX] Check multiple places: expandedCategories, expandedSections, AND if section is "visual" (structural systems)
-        const isExpanded = this.expandedCategories[category] ||
-                          this.expandedSections[category] ||
-                          this.expandedSections[section] ||
-                          this.expandedSections['visual']; // Structural systems section
+        // Check if this category is expanded (should load first)
+        const isAccordionExpanded = this.expandedAccordions.includes(category);
+        const isSectionExpanded = this.expandedSections['structural'] || this.expandedSections[category];
+        const isPriority = isAccordionExpanded || isSectionExpanded;
 
-        if (isExpanded) {
-          visibleKeys.push(key);
-          console.log(`📸 [Priority] ${key} → VISIBLE (category: ${category})`);
-        } else {
-          backgroundKeys.push(key);
+        if (isPriority) {
+          priorityKeys.push(key);
         }
+
+        // Add ALL keys to load eventually
+        allKeys.push(key);
       }
     });
 
-    console.log(`📸 [Performance] Loading ${visibleKeys.length} visible items first, queuing ${backgroundKeys.length} for background`);
-    console.log(`📸 [Debug] Expanded categories:`, Object.keys(this.expandedCategories).filter(k => this.expandedCategories[k]));
+    console.log(`📸 [Performance] Loading ALL ${allKeys.length} photo sets (${priorityKeys.length} priority, ${allKeys.length - priorityKeys.length} background)`);
+    console.log(`📸 [Debug] Expanded accordions:`, this.expandedAccordions);
     console.log(`📸 [Debug] Expanded sections:`, Object.keys(this.expandedSections).filter(k => this.expandedSections[k]));
 
-    // P1: Load visible photos immediately (high priority)
-    const visiblePromises = visibleKeys.map(key => {
-      const rawVisualId = this.visualRecordIds[key];
-      const visualId = String(rawVisualId);
-      return this.loadPhotosForVisualByKey(key, visualId, rawVisualId);
-    });
+    // Load ALL photos in priority order (priority first, then the rest)
+    const sortedKeys = [
+      ...priorityKeys,
+      ...allKeys.filter(key => !priorityKeys.includes(key))
+    ];
 
-    await Promise.all(visiblePromises);
-
-    const visibleElapsed = performance.now() - startTime;
-    console.log(`📸 [Performance] Loaded ${visibleKeys.length} visible items in ${visibleElapsed.toFixed(0)}ms`);
-    this.changeDetectorRef.detectChanges(); // Update UI with visible photos
-
-    // P2/P3: Queue background photos for idle-time loading
-    if (backgroundKeys.length > 0) {
-      this.queueBackgroundPhotoLoading(backgroundKeys);
-    }
+    this.queueBackgroundPhotoLoading(sortedKeys);
 
     const totalElapsed = performance.now() - startTime;
-    console.log(`📸 [Performance] Initial load complete in ${totalElapsed.toFixed(0)}ms (${backgroundKeys.length} items queued for background)`);
+    console.log(`📸 [Performance] Photo loading started in ${totalElapsed.toFixed(0)}ms (loading ${sortedKeys.length} photo sets in background)`);
   }
 
   // [PERFORMANCE] Set up scroll-based photo loading for very slow connections
@@ -13851,14 +13846,28 @@ Stack: ${error?.stack}`;
     });
   }
 
-  // [PERFORMANCE] Queue background photo loading with larger batches
-  // Increased batch size from 3 to 8 for much faster loading
+  // [PERFORMANCE] Queue photo loading in optimized batches
+  // Loads ALL photos continuously in background until complete
+  // Batch size: 5-15 based on connection speed (faster = larger batches)
+  // Delay: 100ms between batches (fast, but yields to UI)
   private queueBackgroundPhotoLoading(keys: string[]): void {
     let currentIndex = 0;
+    const startTime = performance.now();
 
     const loadNextBatch = () => {
-      // [FIX] Increased from 3 to 8 - loads background photos MUCH faster
-      const batchSize = 8;
+      // [PERFORMANCE] Adjust batch size based on connection speed
+      // Faster connections can handle larger batches
+      let batchSize = 8; // Default
+      if (this.photoLoadConcurrencyAdjusted >= 8) {
+        batchSize = 15; // Very fast connection
+      } else if (this.photoLoadConcurrencyAdjusted >= 6) {
+        batchSize = 10; // Fast connection
+      } else if (this.photoLoadConcurrencyAdjusted >= 3) {
+        batchSize = 8; // Medium connection
+      } else {
+        batchSize = 5; // Slower connection
+      }
+
       const batch = keys.slice(currentIndex, currentIndex + batchSize);
 
       if (batch.length === 0) {
@@ -13866,7 +13875,10 @@ Stack: ${error?.stack}`;
         return;
       }
 
-      console.log(`📸 [Background] Loading batch ${Math.floor(currentIndex / batchSize) + 1}: ${batch.join(', ')}`);
+      const batchNumber = Math.floor(currentIndex / batchSize) + 1;
+      const totalBatches = Math.ceil(keys.length / batchSize);
+      const percentComplete = Math.round((currentIndex / keys.length) * 100);
+      console.log(`📸 [Background] Batch ${batchNumber}/${totalBatches} (${percentComplete}% complete): Loading ${batch.length} photo sets`);
 
       const batchPromises = batch.map(key => {
         const rawVisualId = this.visualRecordIds[key];
@@ -13878,16 +13890,19 @@ Stack: ${error?.stack}`;
         this.changeDetectorRef.detectChanges();
         currentIndex += batchSize;
 
-        // Schedule next batch with shorter delay (500ms instead of 2000ms)
+        // Schedule next batch immediately (no delay - load as fast as possible)
         if (currentIndex < keys.length) {
           if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(() => loadNextBatch(), { timeout: 500 });
+            requestIdleCallback(() => loadNextBatch(), { timeout: 100 });
           } else {
             // Fallback for browsers without requestIdleCallback - immediate
-            setTimeout(() => loadNextBatch(), 50);
+            setTimeout(() => loadNextBatch(), 10);
           }
         } else {
-          console.log(`📸 [Background] Completed loading all ${keys.length} background items`);
+          const totalElapsed = performance.now() - startTime;
+          const totalPhotos = keys.length;
+          const avgTimePerPhoto = (totalElapsed / totalPhotos).toFixed(0);
+          console.log(`📸 [Background] ✅ Completed loading all ${totalPhotos} photo sets in ${(totalElapsed / 1000).toFixed(1)}s (avg ${avgTimePerPhoto}ms per set)`);
         }
       }).catch(error => {
         console.error(`📸 [Background] Failed to load batch:`, error);
@@ -13895,9 +13910,9 @@ Stack: ${error?.stack}`;
         // Continue with next batch even if this one fails
         if (currentIndex < keys.length) {
           if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(() => loadNextBatch(), { timeout: 500 });
+            requestIdleCallback(() => loadNextBatch(), { timeout: 100 });
           } else {
-            setTimeout(() => loadNextBatch(), 50);
+            setTimeout(() => loadNextBatch(), 10);
           }
         }
       });
@@ -13910,7 +13925,40 @@ Stack: ${error?.stack}`;
       setTimeout(() => loadNextBatch(), 10);
     }
   }
-  
+
+  // [PERFORMANCE] Load photos for newly expanded accordion categories
+  private async loadPhotosForExpandedCategories(categories: string[]): Promise<void> {
+    const keysToLoad: string[] = [];
+
+    // Find all keys that match the newly expanded categories
+    Object.keys(this.visualRecordIds).forEach(key => {
+      const parts = key.split('_');
+      const category = parts[0];
+
+      if (categories.includes(category) && !this.visualPhotos[key]?.length) {
+        // This key belongs to a newly expanded category and hasn't been loaded yet
+        keysToLoad.push(key);
+      }
+    });
+
+    if (keysToLoad.length === 0) {
+      console.log(`📸 [Accordion] No photos to load for categories:`, categories);
+      return;
+    }
+
+    console.log(`📸 [Accordion] Loading ${keysToLoad.length} photo sets for categories:`, categories);
+
+    // Load all keys in parallel (up to concurrency limit)
+    const promises = keysToLoad.map(key => {
+      const rawVisualId = this.visualRecordIds[key];
+      const visualId = String(rawVisualId);
+      return this.loadPhotosForVisualByKey(key, visualId, rawVisualId);
+    });
+
+    await Promise.all(promises);
+    this.changeDetectorRef.detectChanges();
+  }
+
   // [v1.4.386] Load photos for a visual and store by KEY for uniqueness
   private async loadPhotosForVisualByKey(key: string, visualId: string, rawVisualId: any): Promise<void> {
     try {

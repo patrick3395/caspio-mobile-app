@@ -1247,13 +1247,13 @@
                         </button>
                       </div>
                       <!-- Skeleton loader while photo is loading -->
-                      <div *ngIf="!roomElevationData[room.RoomName]?.fdfPhotos?.topUrl" class="image-preview fdf-photo-preview skeleton-loader"
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos && !roomElevationData[room.RoomName]?.fdfPhotos?.topUrl" class="image-preview fdf-photo-preview skeleton-loader"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
                         <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
                       </div>
                       <!-- Top Photo Thumbnail - Match Structural Systems structure -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview"
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top && roomElevationData[room.RoomName]?.fdfPhotos?.topUrl" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.topUploading"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
@@ -1301,13 +1301,13 @@
                         </button>
                       </div>
                       <!-- Skeleton loader while photo is loading -->
-                      <div *ngIf="!roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl" class="image-preview fdf-photo-preview skeleton-loader"
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos && !roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl" class="image-preview fdf-photo-preview skeleton-loader"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
                         <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
                       </div>
                       <!-- Bottom Photo Thumbnail - Match Structural Systems structure -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview"
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom && roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUploading"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
@@ -1355,13 +1355,13 @@
                         </button>
                       </div>
                       <!-- Skeleton loader while photo is loading -->
-                      <div *ngIf="!roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl" class="image-preview fdf-photo-preview skeleton-loader"
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos && !roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl" class="image-preview fdf-photo-preview skeleton-loader"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
                         <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
                       </div>
                       <!-- Location Photo Thumbnail - Match Structural Systems structure -->
-                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview"
+                      <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold && roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
                         <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
