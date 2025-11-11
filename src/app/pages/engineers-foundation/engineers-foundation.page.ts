@@ -120,6 +120,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   private blobUrlCache = new Map<string, string>(); // Maps cache key → blob URL
   private fullQualityCache = new Map<string, Promise<Blob>>(); // Maps cache key → full quality blob promise
   private activeBlobUrls = new Set<string>(); // Track active blob URLs for cleanup
+  private isSlowConnection = false; // Detect slow connections to skip compression
+  private photoLoadConcurrencyAdjusted = 4; // Dynamic concurrency based on connection
+  private photoIntersectionObserver?: IntersectionObserver; // Viewport observer for lazy loading
+  private photoContainersToLoad = new Map<string, boolean>(); // Track which containers need loading
 
   // Note: Removed memoization caches - direct lookups are already fast enough
   // and proper unique cache keys were causing complexity issues
@@ -590,6 +594,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('[ngOnInit] ServiceId from route:', this.serviceId);
     console.log('[ngOnInit] isFirstLoad:', this.isFirstLoad);
 
+    // [PERFORMANCE] Detect connection speed and adjust loading strategy
+    this.detectConnectionSpeed();
+
     // Initialize operations queue and register executors
     await this.initializeOperationsQueue();
 
@@ -822,8 +829,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 0.4,  // [PERFORMANCE] Reduced for faster uploads
+        maxWidthOrHeight: 1024, // [PERFORMANCE] Reduced for faster uploads
         useWebWorker: true
       }) as File;
 
@@ -965,8 +972,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 0.4,  // [PERFORMANCE] Reduced for faster uploads
+        maxWidthOrHeight: 1024, // [PERFORMANCE] Reduced for faster uploads
         useWebWorker: true
       }) as File;
 
@@ -1011,8 +1018,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 0.4,  // [PERFORMANCE] Reduced for faster uploads
+        maxWidthOrHeight: 1024, // [PERFORMANCE] Reduced for faster uploads
         useWebWorker: true
       }) as File;
 
@@ -1037,8 +1044,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 0.4,  // [PERFORMANCE] Reduced for faster uploads
+        maxWidthOrHeight: 1024, // [PERFORMANCE] Reduced for faster uploads
         useWebWorker: true
       }) as File;
 
@@ -3981,8 +3988,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // IMPORTANT: This will only execute after point is created, so Step 1 (record creation) will work
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(annotatedResult.file, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 0.4,  // [PERFORMANCE] Reduced for faster uploads
+        maxWidthOrHeight: 1024, // [PERFORMANCE] Reduced for faster uploads
         useWebWorker: true
       }) as File;
 
@@ -4228,8 +4235,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // COMPRESS the file before upload
       const compressedFile = await this.imageCompression.compressImage(file, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 0.4,  // [PERFORMANCE] Reduced for faster uploads
+        maxWidthOrHeight: 1024, // [PERFORMANCE] Reduced for faster uploads
         useWebWorker: true
       }) as File;
 
@@ -12500,8 +12507,9 @@ Stack: ${error?.stack}`;
       photo = latestPhoto;
 
       // [PERFORMANCE] Load full quality if currently showing low-quality thumbnail
+      // On slow connections, we already loaded full blob directly, so skip this
       let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
-      if (photo.isLowQuality && !photo.fullQualityLoaded) {
+      if (photo.isLowQuality && !photo.fullQualityLoaded && !this.isSlowConnection) {
         console.log(`📸 [viewPhoto] Loading full quality for AttachID ${attachId}...`);
         const loadingToast = await this.toastController.create({
           message: 'Loading full quality...',
@@ -13654,18 +13662,59 @@ Stack: ${error?.stack}`;
     }
   }
   
+  // [PERFORMANCE] Detect connection speed and adjust loading strategy
+  private detectConnectionSpeed(): void {
+    // Check if on mobile (native app)
+    const isMobile = !this.platform.isWeb();
+
+    // Check Network Information API (if available)
+    const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+
+    if (connection) {
+      const effectiveType = connection.effectiveType; // '4g', '3g', '2g', 'slow-2g'
+      const downlink = connection.downlink; // Mbps
+
+      // Detect slow connection: 2g, slow-2g, or <3 Mbps
+      this.isSlowConnection = effectiveType === '2g' || effectiveType === 'slow-2g' || downlink < 3;
+
+      // Adjust concurrency based on connection - VERY aggressive on slow connections
+      if (effectiveType === '4g' && downlink >= 10) {
+        this.photoLoadConcurrencyAdjusted = 6; // Fast connection: 6 concurrent
+      } else if (effectiveType === '3g' || (downlink >= 3 && downlink < 10)) {
+        this.photoLoadConcurrencyAdjusted = 3; // Medium connection: 3 concurrent
+      } else if (downlink >= 2) {
+        this.photoLoadConcurrencyAdjusted = 2; // Slow connection (2-3 Mbps): 2 concurrent
+      } else {
+        this.photoLoadConcurrencyAdjusted = 1; // VERY slow connection (<2 Mbps): 1 at a time
+      }
+
+      console.log(`🌐 [Connection] Type: ${effectiveType}, Speed: ${downlink} Mbps, Slow: ${this.isSlowConnection}, Concurrency: ${this.photoLoadConcurrencyAdjusted}`);
+    } else if (isMobile) {
+      // On mobile without connection API, assume slow connection to be safe
+      this.isSlowConnection = true;
+      this.photoLoadConcurrencyAdjusted = 1; // Mobile: 1 at a time (safest)
+      console.log(`🌐 [Connection] Mobile app detected, assuming slow connection (concurrency: 1)`);
+    } else {
+      // Desktop/web without connection API, assume good connection
+      this.isSlowConnection = false;
+      this.photoLoadConcurrencyAdjusted = 4;
+      console.log(`🌐 [Connection] Desktop detected, assuming good connection (concurrency: 4)`);
+    }
+  }
+
   // [PERFORMANCE] Load existing photos with priority-based lazy loading
-  // Hybrid approach: visible photos load immediately, off-screen photos load in background
+  // On slow connections: ONLY show skeletons, load photos on-demand via scroll
   async loadExistingPhotos() {
     const startTime = performance.now();
 
     // [SKELETON] First pass: Get photo counts for skeleton loaders
+    // CRITICAL: Mark ALL items as loading immediately to show skeleton loaders and prevent layout shift
     const countPromises = Object.keys(this.visualRecordIds).map(async key => {
       const rawVisualId = this.visualRecordIds[key];
       const visualId = String(rawVisualId);
 
       if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
-        this.loadingPhotosByKey[key] = true; // Mark as loading
+        this.loadingPhotosByKey[key] = true; // Mark as loading IMMEDIATELY (shows skeleton)
         try {
           const attachments = await this.foundationData.getVisualAttachments(rawVisualId);
           this.photoCountsByKey[key] = Array.isArray(attachments) ? attachments.length : 0;
@@ -13675,11 +13724,24 @@ Stack: ${error?.stack}`;
       }
     });
 
-    // Wait for counts, then trigger UI update to show skeleton loaders
+    // Wait for counts, then trigger UI update to show ALL skeleton loaders (prevents layout shift)
     await Promise.all(countPromises);
-    this.changeDetectorRef.detectChanges(); // Show skeleton loaders
+    this.changeDetectorRef.detectChanges(); // Show skeleton loaders for ALL sections
 
-    // [PERFORMANCE] Priority-based loading: visible first, then background
+    // [PERFORMANCE] On very slow connections (<2 Mbps), load NOTHING upfront
+    // Photos will load on-demand when user scrolls to them
+    if (this.photoLoadConcurrencyAdjusted === 1) {
+      console.log(`📸 [Slow Connection] Detected very slow connection (1.2 Mbps or mobile). Photos will load on-demand as you scroll.`);
+
+      // Set up scroll-based loading after a delay
+      setTimeout(() => this.setupScrollBasedLoading(), 500);
+
+      const totalElapsed = performance.now() - startTime;
+      console.log(`📸 [Performance] Skeleton loaders ready in ${totalElapsed.toFixed(0)}ms. Photos load on scroll.`);
+      return;
+    }
+
+    // [PERFORMANCE] On faster connections: Load visible photos, queue background
     const visibleKeys: string[] = [];
     const backgroundKeys: string[] = [];
 
@@ -13722,6 +13784,60 @@ Stack: ${error?.stack}`;
 
     const totalElapsed = performance.now() - startTime;
     console.log(`📸 [Performance] Initial load complete in ${totalElapsed.toFixed(0)}ms (${backgroundKeys.length} items queued for background)`);
+  }
+
+  // [PERFORMANCE] Set up scroll-based photo loading for very slow connections
+  // Photos load incrementally as user scrolls, preventing overwhelming slow connections
+  private setupScrollBasedLoading(): void {
+    console.log(`📸 [Scroll Loading] Setting up on-demand photo loading...`);
+
+    let scrollTimeout: any;
+    const handleScroll = () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        this.loadPhotosInViewport();
+      }, 300); // Debounce scroll events
+    };
+
+    // Listen to scroll events
+    const content = document.querySelector('ion-content');
+    if (content) {
+      content.addEventListener('scroll', handleScroll);
+
+      // Also load photos in initial viewport
+      setTimeout(() => this.loadPhotosInViewport(), 100);
+    }
+  }
+
+  // [PERFORMANCE] Load photos that are currently in viewport
+  private loadPhotosInViewport(): void {
+    // Get all photo containers with skeleton loaders still showing
+    const containers = document.querySelectorAll('.image-preview-section');
+
+    containers.forEach((container: any) => {
+      const rect = container.getBoundingClientRect();
+      const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+
+      if (isVisible) {
+        // Find the key for this container
+        // This requires parsing the DOM to find associated keys
+        // For now, let's check if we have any keys that haven't been loaded yet
+        Object.keys(this.visualRecordIds).forEach(key => {
+          if (this.loadingPhotosByKey[key] && !this.visualPhotos[key]) {
+            // Not yet loaded, load it now
+            const rawVisualId = this.visualRecordIds[key];
+            const visualId = String(rawVisualId);
+
+            if (visualId && visualId !== 'undefined' && !visualId.startsWith('temp_')) {
+              console.log(`📸 [Viewport] Loading photos for ${key} (in viewport)`);
+              this.loadPhotosForVisualByKey(key, visualId, rawVisualId).then(() => {
+                this.changeDetectorRef.detectChanges();
+              });
+            }
+          }
+        });
+      }
+    });
   }
 
   // [PERFORMANCE] Queue background photo loading using requestIdleCallback
@@ -13874,7 +13990,8 @@ Stack: ${error?.stack}`;
       return;
     }
 
-    const concurrency = Math.min(this.photoLoadConcurrency, records.length);
+    // [PERFORMANCE] Use adjusted concurrency based on connection speed
+    const concurrency = Math.min(this.photoLoadConcurrencyAdjusted, records.length);
     if (concurrency <= 0) {
       return;
     }
@@ -13922,14 +14039,15 @@ Stack: ${error?.stack}`;
 
   // [PERFORMANCE] Compress blob to specified quality level
   // Used to create low-quality thumbnails for fast initial display
-  private async compressBlobToQuality(blob: Blob, quality: number, maxSizeMB: number): Promise<Blob> {
+  // [PERFORMANCE] Compress blob with aggressive settings for slow connections
+  private async compressBlobToQuality(blob: Blob, quality: number, maxSizeMB: number, maxDimension?: number): Promise<Blob> {
     try {
       // Convert blob to File object for compression library
       const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
 
       const compressedFile = await this.imageCompression.compressImage(file, {
         maxSizeMB: maxSizeMB,
-        maxWidthOrHeight: 1280, // Keep same dimensions
+        maxWidthOrHeight: maxDimension || 1024, // Reduced from 1280px for faster loading
         quality: quality,
         fileType: 'image/jpeg'
       });
@@ -13973,6 +14091,7 @@ Stack: ${error?.stack}`;
   }
 
   // [PERFORMANCE] Fetch low-quality thumbnail (fast initial display)
+  // On slow connections: skips compression and uses blob URL directly (much faster!)
   private async fetchPhotoThumbnail(photoPath: string, attachId?: string | number): Promise<string | null> {
     if (!photoPath || typeof photoPath !== 'string') {
       return Promise.resolve(null);
@@ -13990,8 +14109,20 @@ Stack: ${error?.stack}`;
       // Fetch original blob
       const blob = await firstValueFrom(this.caspioService.getImageBlobFromFilesAPI(photoPath));
 
-      // Compress to low quality (0.35 quality, ~150KB max)
-      const lowQualityBlob = await this.compressBlobToQuality(blob, 0.35, 0.15);
+      // [PERFORMANCE] On slow connections (mobile/2g/3g), skip compression for speed
+      // Compression is CPU-intensive and slows down mobile devices significantly
+      if (this.isSlowConnection) {
+        // Just create blob URL directly - NO COMPRESSION
+        const directUrl = this.createBlobUrl(blob, thumbnailKey);
+        this.fullQualityCache.set(cacheKey, Promise.resolve(blob)); // Store for later
+
+        console.log(`📸 [Fast Load] Loaded photo directly (no compression) for ${attachId}: ${(blob.size / 1024).toFixed(0)}KB`);
+        return directUrl;
+      }
+
+      // [PERFORMANCE] On good connections: very aggressive compression for thumbnails
+      // 512px at 0.25 quality = ~60-80KB per thumbnail (was ~150KB)
+      const lowQualityBlob = await this.compressBlobToQuality(blob, 0.25, 0.08, 512);
 
       // Create blob URL for thumbnail
       const thumbnailUrl = this.createBlobUrl(lowQualityBlob, thumbnailKey);
@@ -14033,8 +14164,9 @@ Stack: ${error?.stack}`;
         this.fullQualityCache.set(cacheKey, Promise.resolve(blob));
       }
 
-      // Compress to standard quality (0.8 quality, 0.8MB max - matches upload settings)
-      const fullQualityBlob = await this.compressBlobToQuality(blob, 0.8, 0.8);
+      // [PERFORMANCE] Compress to standard quality - matches new upload settings
+      // 1024px at 0.65 quality = ~300-400KB (was ~600-800KB)
+      const fullQualityBlob = await this.compressBlobToQuality(blob, 0.65, 0.4, 1024);
 
       // Create blob URL
       const fullQualityUrl = this.createBlobUrl(fullQualityBlob, fullQualityKey);
