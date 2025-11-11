@@ -4724,6 +4724,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           delete this.pointCreationErrors[pointKey];
           this.changeDetectorRef.detectChanges();
 
+          // Schedule change detection after 3 seconds to enable camera buttons
+          setTimeout(() => {
+            this.changeDetectorRef.detectChanges();
+          }, 3000);
+
           // Retry any queued photos for this point
           this.retryQueuedPhotosForPoint(roomName, point);
         },
@@ -4891,6 +4896,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         delete this.pointCreationErrors[pointKey];
         this.changeDetectorRef.detectChanges();
 
+        // Schedule change detection after 3 seconds to enable camera buttons
+        setTimeout(() => {
+          this.changeDetectorRef.detectChanges();
+        }, 3000);
+
         // Retry any queued photos for this point
         if (this.roomElevationData[roomName]?.elevationPoints) {
           const point = this.roomElevationData[roomName].elevationPoints.find((p: any) => p.name === pointName);
@@ -4980,6 +4990,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
             delete this.pointCreationErrors[pointKey];
             console.log(`[Pre-create Points] Created point ${point.name} with ID ${pointId}`);
+
+            // Schedule change detection after 3 seconds to enable camera buttons
+            setTimeout(() => {
+              this.changeDetectorRef.detectChanges();
+            }, 3000);
           } else {
             console.error(`[Pre-create Points] Failed to get PointID for ${point.name}`, createResponse);
             this.pointCreationStatus[pointKey] = 'failed';
@@ -5052,6 +5067,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         delete this.pointCreationErrors[pointKey];
         console.log(`[Retry Point] Created point ${point.name} with ID ${pointId}`);
         await this.showToast(`Point "${point.name}" created successfully`, 'success');
+
+        // Schedule change detection after 3 seconds to enable camera buttons
+        setTimeout(() => {
+          this.changeDetectorRef.detectChanges();
+        }, 3000);
       } else {
         console.error(`[Retry Point] Failed to get PointID for ${point.name}`, createResponse);
         this.pointCreationStatus[pointKey] = 'failed';
@@ -5088,8 +5108,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   isPointReady(roomName: string, point: any): boolean {
     const pointKey = `${roomName}_${point.name}`;
     const status = this.pointCreationStatus[pointKey];
+
     // ONLY allow photo capture when point is fully created
-    return status === 'created';
+    if (status !== 'created') {
+      return false;
+    }
+
+    // Additional safety: wait 3 seconds after creation for database commit
+    const creationTime = this.pointCreationTimestamps[pointKey];
+    if (creationTime && creationTime > 0) {
+      const timeSinceCreation = Date.now() - creationTime;
+      if (timeSinceCreation < 3000) {
+        return false; // Still waiting for DB to commit
+      }
+    }
+
+    return true;
   }
 
   isPointPending(roomName: string, point: any): boolean {
