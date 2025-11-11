@@ -3580,25 +3580,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 const cachedPhotosForPoint: any[] = [];
                 for (const [cacheKey, cachedPhoto] of this.localPhotoCache.entries()) {
                   if (cachedPhoto.roomName === roomName && cachedPhoto.pointName === point.PointName) {
-                    // Check if this photo is already in the processedPhotos (upload completed)
-                    const alreadyUploaded = processedPhotos.some(p =>
-                      p.attachId && cachedPhoto.timestamp && Math.abs(p.timestamp - cachedPhoto.timestamp) < 5000
-                    );
-
-                    if (!alreadyUploaded) {
-                      // Photo is still uploading - add it to the display
-                      cachedPhotosForPoint.push({
-                        url: cachedPhoto.base64,
-                        thumbnailUrl: cachedPhoto.base64,
-                        displayUrl: cachedPhoto.base64,
-                        uploading: true,
-                        isLocal: true,
-                        cacheKey: cacheKey,
-                        timestamp: cachedPhoto.timestamp,
-                        name: `Uploading...`
-                      });
-                      console.log(`[Local Cache] Merged cached photo into display: ${cacheKey}`);
-                    }
+                    // If photo is in cache, it means upload hasn't completed yet
+                    // (cache is cleaned up on successful upload)
+                    // Just add it to the display - no need to check if already uploaded
+                    cachedPhotosForPoint.push({
+                      url: cachedPhoto.base64,
+                      thumbnailUrl: cachedPhoto.base64,
+                      displayUrl: cachedPhoto.base64,
+                      uploading: true,
+                      isLocal: true,
+                      cacheKey: cacheKey,
+                      timestamp: cachedPhoto.timestamp,
+                      name: `Uploading...`
+                    });
+                    console.log(`[Local Cache] Merged cached photo into display: ${cacheKey}`);
                   }
                 }
 
