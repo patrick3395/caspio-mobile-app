@@ -3922,16 +3922,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return false;
       }
 
-      // CRITICAL: NEVER allow immediate uploads for newly created points
-      // Database commit delays cause foreign key constraint failures
-      // ONLY allow immediate uploads for points loaded from database (timestamp = 0)
-      const creationTime = this.pointCreationTimestamps[pointKey];
-      if (creationTime === undefined || creationTime > 0) {
-        console.log(`[Photo Queue] Point ${pointKey} was created this session (timestamp: ${creationTime}) - will queue for safety`);
-        return false;
-      }
-
-      console.log(`[Photo Queue] Point ${pointKey} loaded from database (timestamp: 0) - safe for immediate upload`);
+      // Point is created and ready
+      console.log(`[Photo Queue] Point ${pointKey} is created - safe for immediate upload`);
       return true;
     };
 
@@ -5096,12 +5088,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   isPointReady(roomName: string, point: any): boolean {
     const pointKey = `${roomName}_${point.name}`;
     const status = this.pointCreationStatus[pointKey];
-    // Point is ready for photo capture if:
-    // - It's created (best case - immediate upload)
-    // - It's pending (will queue photo with dependencies)
-    // - No status yet (backward compatibility - will queue with dependencies)
-    // Only block if failed
-    return status !== 'failed';
+    // ONLY allow photo capture when point is fully created
+    return status === 'created';
   }
 
   isPointPending(roomName: string, point: any): boolean {
