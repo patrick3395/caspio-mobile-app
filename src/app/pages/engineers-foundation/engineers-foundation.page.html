@@ -1230,13 +1230,19 @@
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Top')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Top')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>
@@ -1272,13 +1278,19 @@
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Bottom')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>
@@ -1314,13 +1326,19 @@
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Threshold')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>
@@ -1774,13 +1792,19 @@
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Bottom')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Bottom')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>
@@ -1816,13 +1840,19 @@
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
                       <div style="display: flex; gap: 4px; margin-bottom: 2px;">
                         <button (click)="takeFDFPhotoCamera(room.RoomName, 'Threshold')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
                           <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
                         </button>
                         <button (click)="takeFDFPhotoGallery(room.RoomName, 'Threshold')"
+                                [disabled]="!isRoomReady(room.RoomName)"
                                 class="fdf-photo-button"
-                                style="flex: 1; padding: 16px 8px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                                [style.opacity]="isRoomReady(room.RoomName) ? '1' : '0.4'"
+                                [style.cursor]="isRoomReady(room.RoomName) ? 'pointer' : 'not-allowed'"
+                                style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
                           <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                         </button>
                       </div>

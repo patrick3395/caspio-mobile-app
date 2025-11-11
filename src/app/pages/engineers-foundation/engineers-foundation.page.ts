@@ -5182,9 +5182,22 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   isRoomSelected(roomName: string): boolean {
     return !!this.selectedRooms[roomName];
   }
-  
+
   isRoomSaving(roomName: string): boolean {
     return !!this.savingRooms[roomName];
+  }
+
+  isRoomReady(roomName: string): boolean {
+    const roomId = this.efeRecordIds[roomName];
+    const roomIdStr = String(roomId || '');
+
+    // Room must exist with a real ID (not temp or pending)
+    if (!roomId || roomIdStr.startsWith('temp_') || roomId === '__pending__') {
+      return false;
+    }
+
+    // Room is ready
+    return true;
   }
   
   // Get list of selected rooms
