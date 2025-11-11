@@ -1617,7 +1617,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               pointCount: template.PointCount || elevationPoints.length,
               notes: '',
               fdf: '', // Initialize FDF with empty for "-- Select --"
-              location: ''
+              location: '',
+              fdfPhotos: {} // [SKELETON FIX] Initialize empty so skeleton logic works
             };
           }
         });
@@ -1782,7 +1783,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     pointCount: template.PointCount || elevationPoints.length,
                     notes: '',
                     fdf: '',
-                    location: ''
+                    location: '',
+                    fdfPhotos: {} // [SKELETON FIX] Initialize empty (will be populated below if photos exist)
                   };
                 }
                 
@@ -1798,9 +1800,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                     this.roomElevationData[roomName].location = room.Location;
                   }
 
-                  // Load FDF photos if they exist - fetch as base64 like other photos
-                  const fdfPhotos: any = {};
-                  
+                  // [SKELETON FIX] fdfPhotos already initialized above, now populate with existing photos
+                  const fdfPhotos = this.roomElevationData[roomName].fdfPhotos;
+
                   if (room.FDFPhotoTop) {
                     fdfPhotos.top = true;
                     fdfPhotos.topPath = room.FDFPhotoTop;
@@ -1867,14 +1869,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                       fdfPhotos.thresholdUrl = null;
                     }
                   }
-                  
-                  if (Object.keys(fdfPhotos).length > 0) {
-                    this.roomElevationData[roomName].fdfPhotos = fdfPhotos;
-                  }
+
+                  // fdfPhotos already assigned above (line 1806) so skeleton logic works
                 }
 
-                // Load existing room points for this room in background
-                this.loadExistingRoomPoints(roomId, roomName);
+                // [POINT READY FIX] Await loading points so they're marked as 'created' before UI renders
+                await this.loadExistingRoomPoints(roomId, roomName);
               }
             }
 
