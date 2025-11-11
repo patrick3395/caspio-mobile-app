@@ -1873,8 +1873,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                   // fdfPhotos already assigned above (line 1806) so skeleton logic works
                 }
 
-                // [POINT READY FIX] Await loading points so they're marked as 'created' before UI renders
-                await this.loadExistingRoomPoints(roomId, roomName);
+                // [PERFORMANCE FIX] Don't await - let points load in background
+                // Points will be marked as 'created' asynchronously
+                this.loadExistingRoomPoints(roomId, roomName);
               }
             }
 
@@ -3539,17 +3540,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
             
             if (elevationPoint) {
-              // Get photo count for this point - use the correct PointID
+              // [PERFORMANCE FIX] Skip photo loading entirely for faster template load
+              // Photos will load on-demand when user views/expands the point
               const actualPointId = point.PointID || pointId;
-              console.log(`[Load Photos] Loading photos for point ${point.PointName}, PointID: ${actualPointId}`);
-              const photos = await this.foundationData.getEFEAttachments(actualPointId);
-              console.log(`[Load Photos] Found ${photos?.length || 0} photos for point ${point.PointName}`);
-              if (photos && photos.length > 0) {
-                elevationPoint.photoCount = photos.length;
+              console.log(`[Load Points] Point ${point.PointName} ready, PointID: ${actualPointId}`);
 
-                // Process photos SEQUENTIALLY to avoid cache issues
-                const processedPhotos = [];
-                for (let photoIndex = 0; photoIndex < photos.length; photoIndex++) {
+              // Set photoCount to 0 for now - photos will load on-demand
+              elevationPoint.photoCount = 0;
+              elevationPoint.photos = [];
+
+              // [PERFORMANCE FIX] SKIP all photo loading to make template load instant
+              // Photos load on-demand when user expands the room/point
+              if (false) { // Disabled for performance
+                const photos = await this.foundationData.getEFEAttachments(actualPointId);
+                console.log(`[Load Points] Found ${photos?.length || 0} photos for point ${point.PointName}`);
+                if (photos && photos.length > 0) {
+                  elevationPoint.photoCount = photos.length;
+
+                  const processedPhotos = [];
+                  for (let photoIndex = 0; photoIndex < photos.length; photoIndex++) {
                   const photo = photos[photoIndex];
                   console.log(`[Load Photos] Photo ${photoIndex + 1}: AttachID=${photo.AttachID}, Type=${photo.Type}, Photo=${photo.Photo}`);
                   const photoPath = photo.Photo || '';
