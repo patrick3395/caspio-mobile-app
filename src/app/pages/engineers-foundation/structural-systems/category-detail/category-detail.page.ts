@@ -307,6 +307,11 @@ export class CategoryDetailPage implements OnInit {
             }
           }
 
+          // CRITICAL: Store the compressed Drawings string, but don't set annotations yet
+          const hasDrawings = !!attach.Drawings;
+
+          console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'Has Drawings:', hasDrawings, 'Drawings length:', attach.Drawings?.length || 0);
+
           return {
             AttachID: attach.AttachID,
             id: attach.AttachID,
@@ -320,9 +325,10 @@ export class CategoryDetailPage implements OnInit {
             caption: attach.Annotation || '',
             annotation: attach.Annotation || '',
             Annotation: attach.Annotation || '',
-            hasAnnotations: !!attach.Drawings,
-            annotations: attach.Drawings || null,
-            rawDrawingsString: attach.Drawings || null,
+            hasAnnotations: hasDrawings,
+            annotations: null,              // Don't set this to compressed string - will be decompressed on view
+            Drawings: attach.Drawings || null,  // CRITICAL: Store original Drawings field
+            rawDrawingsString: attach.Drawings || null,  // CRITICAL: Store for decompression
             uploading: false,
             queued: false,
             isObjectUrl: false
@@ -1033,25 +1039,43 @@ export class CategoryDetailPage implements OnInit {
         photo.Drawings
       ];
 
+      console.log('[VIEW PHOTO] AttachID:', attachId, 'Loading annotations from sources:', {
+        hasAnnotations: !!photo.annotations,
+        hasAnnotationsData: !!photo.annotationsData,
+        hasRawDrawingsString: !!photo.rawDrawingsString,
+        hasDrawings: !!photo.Drawings,
+        rawDrawingsStringLength: photo.rawDrawingsString?.length || 0,
+        drawingsLength: photo.Drawings?.length || 0
+      });
+
       for (const source of annotationSources) {
         if (!source) {
           continue;
         }
         try {
           if (typeof source === 'string') {
+            console.log('[VIEW PHOTO] Decompressing string source, length:', source.length);
             // Import decompression utility
             const { decompressAnnotationData } = await import('../../../../utils/annotation-utils');
             existingAnnotations = decompressAnnotationData(source);
+            console.log('[VIEW PHOTO] Decompressed annotations:', existingAnnotations ? 'SUCCESS' : 'FAILED');
+            if (existingAnnotations && existingAnnotations.objects) {
+              console.log('[VIEW PHOTO] Found', existingAnnotations.objects.length, 'annotation objects');
+            }
           } else {
+            console.log('[VIEW PHOTO] Using object source directly');
             existingAnnotations = source;
           }
           if (existingAnnotations) {
+            console.log('[VIEW PHOTO] Using annotations from source');
             break;
           }
         } catch (e) {
-          // Ignore parse errors
+          console.error('[VIEW PHOTO] Error loading annotations from source:', e);
         }
       }
+
+      console.log('[VIEW PHOTO] Final existingAnnotations:', existingAnnotations ? 'LOADED' : 'NULL');
 
       // Get existing caption
       const existingCaption = photo.caption || photo.annotation || photo.Annotation || '';
@@ -1128,11 +1152,15 @@ export class CategoryDetailPage implements OnInit {
                 caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
                 annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
                 Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
-                // Store annotation data
+                // Store annotation data (uncompressed for immediate re-use)
                 annotations: annotationsData,
-                // CRITICAL: Store the COMPRESSED rawDrawingsString that matches database
+                // CRITICAL: Store the COMPRESSED data that matches what's in the database
+                // This is used when reloading or re-editing
+                Drawings: compressedDrawings,
                 rawDrawingsString: compressedDrawings
               };
+
+              console.log('[SAVE] Updated photo object with compressed drawings, length:', compressedDrawings?.length || 0);
 
               this.changeDetectorRef.detectChanges();
               await this.showToast('Annotations saved', 'success');
