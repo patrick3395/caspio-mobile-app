@@ -47,11 +47,16 @@ ion-toolbar {
   ion-toolbar {
     .full-title {
       display: block;
+      text-align: center;
     }
 
     .short-title {
       display: none;
     }
+  }
+
+  ion-title {
+    text-align: center;
   }
 
   // Desktop breadcrumbs: show text instead of icons
