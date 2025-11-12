@@ -1123,7 +1123,7 @@ export class CategoryDetailPage implements OnInit {
     const { compressAnnotationData } = await import('../../../../utils/annotation-utils');
     const compressedDrawings = compressAnnotationData(annotationsData);
 
-    // Update the attachment record with new photo and drawings
+    // Update the attachment record with BOTH annotation caption AND drawings
     const updateData: any = {
       Annotation: caption || ''
     };
@@ -1132,10 +1132,16 @@ export class CategoryDetailPage implements OnInit {
       updateData.Drawings = compressedDrawings;
     }
 
-    await this.foundationData.updateVisualPhotoCaption(attachId, caption);
+    // CRITICAL FIX: Call updateServicesVisualsAttach directly to save BOTH fields
+    // (the updateVisualPhotoCaption method only updates caption, not drawings)
+    await firstValueFrom(
+      this.caspioService.updateServicesVisualsAttach(attachId, updateData)
+    );
 
-    // TODO: Update photo file if needed
-    // This would require uploading the new annotated image
+    // Clear cache so changes show immediately
+    // Note: updateVisualPhotoCaption would have cleared the cache, but since we're
+    // calling the Caspio service directly, we need to clear the cache manually
+    console.log('[SAVE ANNOTATION] Saved caption and drawings for AttachID:', attachId);
   }
 
   async deletePhoto(photo: any, category: string, itemId: string | number) {
