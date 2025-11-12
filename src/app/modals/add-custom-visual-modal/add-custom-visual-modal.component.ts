@@ -34,10 +34,39 @@ export class AddCustomVisualModalComponent {
     private alertController: AlertController
   ) {}
 
-  // Trigger file input for gallery photos (without editor)
+  // Select photos from gallery (camera roll) - without editor
   async addPhotosFromGallery() {
-    if (this.fileInput) {
-      this.fileInput.nativeElement.click();
+    try {
+      // Dynamically import Camera
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+
+      // Open gallery/photos to select image(s)
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Photos // Opens camera roll
+      });
+
+      if (image.webPath) {
+        // Convert to blob/file
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+        // Add directly without opening editor
+        await this.addPhotoDirectly(file);
+      }
+    } catch (error) {
+      // Check if user cancelled - don't show error for cancellations
+      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
+      const isCancelled = errorMessage.includes('cancel') ||
+                         errorMessage.includes('Cancel') ||
+                         errorMessage.includes('User');
+
+      if (!isCancelled) {
+        console.error('Error selecting from gallery:', error);
+      }
     }
   }
 

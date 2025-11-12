@@ -1203,13 +1203,13 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     // Service header row styling
     &.service-row {
       background: $light-gray;
-      border-bottom: 1px solid $border;
 
       .service-header {
         font-weight: 600;
         font-size: 14px;
         color: $dark;
         padding: 12px;
+        border-bottom: 1px solid $border;
 
         .instance-number {
           margin-left: 6px;
@@ -1223,9 +1223,12 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     // Field row styling with separator lines
     &.field-row {
       background: $white;
-      border-bottom: 1px solid #e8e8e8;
 
-      &:last-child {
+      td {
+        border-bottom: 1px solid #e8e8e8;
+      }
+
+      &:last-child td {
         border-bottom: none;
       }
 

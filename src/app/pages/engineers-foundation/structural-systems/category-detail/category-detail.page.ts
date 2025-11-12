@@ -293,6 +293,13 @@ export class CategoryDetailPage implements OnInit {
         const kind = visual.Kind;
         const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
 
+        // CRITICAL: Only process visuals that belong to the current category
+        // This prevents custom visuals from appearing in other categories
+        if (category !== this.categoryName) {
+          console.log('[LOAD VISUALS] Skipping visual from different category:', category, '(current:', this.categoryName + ')');
+          continue;
+        }
+
         // Find matching template by Name, Category, and Kind
         let item = this.findItemByNameAndCategory(name, category, kind);
 

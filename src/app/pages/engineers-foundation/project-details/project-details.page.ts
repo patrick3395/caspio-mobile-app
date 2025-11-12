@@ -90,12 +90,26 @@ export class ProjectDetailsPage implements OnInit {
         next: (project) => {
           this.projectData = project || {};
 
-          // Ensure dropdown fields have empty string instead of null/undefined for "-- Select --" to show
-          if (!this.projectData.Style) {
-            this.projectData.Style = '';
-          }
-          if (!this.projectData.TypeOfBuilding) {
+          // Check if TypeOfBuilding is a custom value (not in predefined options)
+          if (this.projectData.TypeOfBuilding) {
+            if (!this.typeOfBuildingOptions.includes(this.projectData.TypeOfBuilding)) {
+              // This is a custom value - set "Other" in dropdown and populate the text field
+              this.typeOfBuildingOtherValue = this.projectData.TypeOfBuilding;
+              this.projectData.TypeOfBuilding = 'Other';
+            }
+          } else {
             this.projectData.TypeOfBuilding = '';
+          }
+
+          // Check if Style is a custom value (not in predefined options)
+          if (this.projectData.Style) {
+            if (!this.styleOptions.includes(this.projectData.Style)) {
+              // This is a custom value - set "Other" in dropdown and populate the text field
+              this.styleOtherValue = this.projectData.Style;
+              this.projectData.Style = 'Other';
+            }
+          } else {
+            this.projectData.Style = '';
           }
 
           this.changeDetectorRef.detectChanges();
@@ -110,38 +124,130 @@ export class ProjectDetailsPage implements OnInit {
         next: (service) => {
           this.serviceData = service || {};
 
-          // Ensure dropdown fields have empty string instead of null/undefined for "-- Select --" to show
-          if (!this.serviceData.OccupancyFurnishings) {
+          // Check if OccupancyFurnishings is a custom value
+          if (this.serviceData.OccupancyFurnishings) {
+            if (!this.occupancyFurnishingsOptions.includes(this.serviceData.OccupancyFurnishings)) {
+              this.occupancyFurnishingsOtherValue = this.serviceData.OccupancyFurnishings;
+              this.serviceData.OccupancyFurnishings = 'Other';
+            }
+          } else {
             this.serviceData.OccupancyFurnishings = '';
           }
-          if (!this.serviceData.WeatherConditions) {
+
+          // Check if WeatherConditions is a custom value
+          if (this.serviceData.WeatherConditions) {
+            if (!this.weatherConditionsOptions.includes(this.serviceData.WeatherConditions)) {
+              this.weatherConditionsOtherValue = this.serviceData.WeatherConditions;
+              this.serviceData.WeatherConditions = 'Other';
+            }
+          } else {
             this.serviceData.WeatherConditions = '';
           }
-          if (!this.serviceData.OutdoorTemperature) {
+
+          // Check if OutdoorTemperature is a custom value
+          if (this.serviceData.OutdoorTemperature) {
+            if (!this.outdoorTemperatureOptions.includes(this.serviceData.OutdoorTemperature)) {
+              this.outdoorTemperatureOtherValue = this.serviceData.OutdoorTemperature;
+              this.serviceData.OutdoorTemperature = 'Other';
+            }
+          } else {
             this.serviceData.OutdoorTemperature = '';
           }
-          if (!this.serviceData.FirstFoundationType) {
+
+          // Check if FirstFoundationType is a custom value
+          if (this.serviceData.FirstFoundationType) {
+            if (!this.firstFoundationTypeOptions.includes(this.serviceData.FirstFoundationType)) {
+              this.firstFoundationTypeOtherValue = this.serviceData.FirstFoundationType;
+              this.serviceData.FirstFoundationType = 'Other';
+            }
+          } else {
             this.serviceData.FirstFoundationType = '';
           }
-          if (!this.serviceData.SecondFoundationType) {
+
+          // Check if SecondFoundationType is a custom value
+          if (this.serviceData.SecondFoundationType) {
+            if (!this.secondFoundationTypeOptions.includes(this.serviceData.SecondFoundationType)) {
+              this.secondFoundationTypeOtherValue = this.serviceData.SecondFoundationType;
+              this.serviceData.SecondFoundationType = 'Other';
+            }
+          } else {
             this.serviceData.SecondFoundationType = '';
           }
-          if (!this.serviceData.ThirdFoundationType) {
+
+          // Check if ThirdFoundationType is a custom value
+          if (this.serviceData.ThirdFoundationType) {
+            if (!this.thirdFoundationTypeOptions.includes(this.serviceData.ThirdFoundationType)) {
+              this.thirdFoundationTypeOtherValue = this.serviceData.ThirdFoundationType;
+              this.serviceData.ThirdFoundationType = 'Other';
+            }
+          } else {
             this.serviceData.ThirdFoundationType = '';
           }
-          if (!this.serviceData.OwnerOccupantInterview) {
+
+          // Check if OwnerOccupantInterview is a custom value
+          if (this.serviceData.OwnerOccupantInterview) {
+            if (!this.ownerOccupantInterviewOptions.includes(this.serviceData.OwnerOccupantInterview)) {
+              this.ownerOccupantInterviewOtherValue = this.serviceData.OwnerOccupantInterview;
+              this.serviceData.OwnerOccupantInterview = 'Other';
+            }
+          } else {
             this.serviceData.OwnerOccupantInterview = '';
           }
 
           // Initialize multi-select arrays from stored comma-separated strings
           if (this.serviceData.InAttendance) {
             this.inAttendanceSelections = this.serviceData.InAttendance.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+
+            // Check if any selection is a custom value (not in predefined options)
+            const customValues = this.inAttendanceSelections.filter((val: string) =>
+              !this.inAttendanceOptions.includes(val)
+            );
+            if (customValues.length > 0) {
+              // Replace custom values with "Other" in selections and store in otherValue
+              this.inAttendanceOtherValue = customValues.join(', ');
+              this.inAttendanceSelections = this.inAttendanceSelections.filter((val: string) =>
+                this.inAttendanceOptions.includes(val) || val === 'Other'
+              );
+              if (!this.inAttendanceSelections.includes('Other')) {
+                this.inAttendanceSelections.push('Other');
+              }
+            }
           }
+
           if (this.serviceData.SecondFoundationRooms) {
             this.secondFoundationRoomsSelections = this.serviceData.SecondFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+
+            // Check if any selection is a custom value
+            const customValues = this.secondFoundationRoomsSelections.filter((val: string) =>
+              !this.secondFoundationRoomsOptions.includes(val)
+            );
+            if (customValues.length > 0) {
+              this.secondFoundationRoomsOtherValue = customValues.join(', ');
+              this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.filter((val: string) =>
+                this.secondFoundationRoomsOptions.includes(val) || val === 'Other'
+              );
+              if (!this.secondFoundationRoomsSelections.includes('Other')) {
+                this.secondFoundationRoomsSelections.push('Other');
+              }
+            }
           }
+
           if (this.serviceData.ThirdFoundationRooms) {
             this.thirdFoundationRoomsSelections = this.serviceData.ThirdFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+
+            // Check if any selection is a custom value
+            const customValues = this.thirdFoundationRoomsSelections.filter((val: string) =>
+              !this.thirdFoundationRoomsOptions.includes(val)
+            );
+            if (customValues.length > 0) {
+              this.thirdFoundationRoomsOtherValue = customValues.join(', ');
+              this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.filter((val: string) =>
+                this.thirdFoundationRoomsOptions.includes(val) || val === 'Other'
+              );
+              if (!this.thirdFoundationRoomsSelections.includes('Other')) {
+                this.thirdFoundationRoomsSelections.push('Other');
+              }
+            }
           }
 
           this.changeDetectorRef.detectChanges();

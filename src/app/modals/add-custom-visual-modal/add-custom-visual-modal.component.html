@@ -41,15 +41,13 @@
       <h3>Photos</h3>
 
       <!-- Camera and Gallery Buttons -->
-      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-        <ion-button expand="block" (click)="addPhotoFromCamera()" color="primary" style="flex: 1;">
-          <ion-icon name="camera" slot="start"></ion-icon>
-          Camera
-        </ion-button>
-        <ion-button expand="block" (click)="addPhotosFromGallery()" color="primary" style="flex: 1;">
-          <ion-icon name="images" slot="start"></ion-icon>
-          Gallery
-        </ion-button>
+      <div style="display: flex; gap: 16px; margin-bottom: 16px; justify-content: center;">
+        <button class="camera-button-structural" (click)="addPhotoFromCamera()" title="Take photo from camera">
+          <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+        </button>
+        <button class="camera-button-structural" (click)="addPhotosFromGallery()" title="Select from gallery">
+          <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+        </button>
       </div>
 
       <!-- Hidden File Input -->
