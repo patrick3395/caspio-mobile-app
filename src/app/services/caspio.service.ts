@@ -1990,7 +1990,9 @@ export class CaspioService {
     return new Promise<string>((resolve, reject) => {
       this.imageWorkerCallbacks.set(taskId, { resolve, reject });
       try {
-        worker.postMessage({ id: taskId, type: 'BLOB_TO_DATA_URL', blob }, [blob]);
+        // IMPORTANT: Blobs are NOT transferable - don't include in transfer list
+        // Only ArrayBuffer, MessagePort, and ImageBitmap can be transferred
+        worker.postMessage({ id: taskId, type: 'BLOB_TO_DATA_URL', blob });
       } catch (error) {
         this.imageWorkerCallbacks.delete(taskId);
         console.error('Failed to post message to image worker:', error);
