@@ -155,10 +155,6 @@ export class ProjectDetailsPage implements OnInit {
     }
   }
 
-  goBack() {
-    this.router.navigate(['..'], { relativeTo: this.route });
-  }
-
   // Year Built handlers
   onYearBuiltChange(value: string) {
     // Remove non-numeric characters

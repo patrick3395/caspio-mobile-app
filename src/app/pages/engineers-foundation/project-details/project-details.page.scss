@@ -6,27 +6,6 @@
   min-height: 100vh;
 }
 
-.header-section {
-  margin-bottom: 20px;
-
-  ion-button {
-    margin-bottom: 10px;
-  }
-
-  h1 {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--ion-color-primary);
-    margin: 0 0 8px 0;
-  }
-
-  .subtitle {
-    font-size: 16px;
-    color: #666;
-    margin: 0;
-  }
-}
-
 .content-section {
   background: white;
   border-radius: 16px;
