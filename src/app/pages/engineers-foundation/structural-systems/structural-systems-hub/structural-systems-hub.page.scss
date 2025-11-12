@@ -77,63 +77,93 @@
 }
 
 .categories-container {
-  display: grid;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.category-card {
+.navigation-card {
   margin: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  transition: box-shadow 0.2s, background-color 0.2s;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  background: white;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    background: #fafafa;
   }
 
   ion-card-header {
     padding: 16px;
-    background: white;
-  }
-
-  ion-card-content {
-    padding: 0 16px 16px 16px;
-    color: #666;
-    font-size: 14px;
-
-    p {
-      margin: 0;
-    }
   }
 
   .card-header-content {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 16px;
+  }
+
+  .icon-container {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background: var(--ion-color-primary-tint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 28px;
+      color: var(--ion-color-primary);
+    }
+  }
+
+  .title-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 
     ion-card-title {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 600;
       color: #333;
       margin: 0;
-      flex: 1;
     }
 
-    .card-meta {
+    ion-badge {
+      align-self: flex-start;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 4px;
 
-      ion-badge {
-        font-size: 12px;
-        padding: 4px 8px;
+      ion-icon {
+        font-size: 14px;
       }
+    }
+  }
 
-      .chevron-icon {
-        font-size: 20px;
-        color: var(--ion-color-medium);
+  ion-card-content {
+    padding: 0 16px 16px 80px;
+
+    p {
+      color: #666;
+      font-size: 13px;
+      margin: 0 0 8px 0;
+      line-height: 1.4;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+
+      ion-icon {
+        font-size: 22px;
+        color: #999;
       }
     }
   }

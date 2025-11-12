@@ -25,22 +25,28 @@
     <div *ngIf="!loading && !isStructuralSystemsDisabled() && categories.length > 0" class="categories-container">
       <ion-card
         *ngFor="let category of categories"
-        class="category-card"
+        class="navigation-card"
         button="true"
         (click)="navigateToCategory(category.name)">
         <ion-card-header>
           <div class="card-header-content">
-            <ion-card-title>{{ category.name }}</ion-card-title>
-            <div class="card-meta">
+            <div class="icon-container">
+              <ion-icon name="construct-outline"></ion-icon>
+            </div>
+            <div class="title-container">
+              <ion-card-title>{{ category.name }}</ion-card-title>
               <ion-badge *ngIf="category.deficiencyCount > 0" color="warning">
                 {{ category.deficiencyCount }} {{ category.deficiencyCount === 1 ? 'deficiency' : 'deficiencies' }}
               </ion-badge>
-              <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
             </div>
           </div>
         </ion-card-header>
+
         <ion-card-content>
-          <p>Visual assessment items for {{ category.name }}</p>
+          <p>Visual assessment items</p>
+          <div class="card-footer">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </div>
         </ion-card-content>
       </ion-card>
     </div>

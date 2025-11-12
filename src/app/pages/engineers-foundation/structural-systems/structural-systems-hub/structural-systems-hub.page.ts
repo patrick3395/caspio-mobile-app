@@ -43,10 +43,8 @@ export class StructuralSystemsHubPage implements OnInit {
         next: async (service) => {
           this.serviceData = service || {};
 
-          // Only load categories if status is "Completed Here"
-          if (this.serviceData.StructStat === 'Completed Here') {
-            await this.loadCategories();
-          }
+          // Always load categories - just disable if needed
+          await this.loadCategories();
 
           this.loading = false;
         },
@@ -67,6 +65,8 @@ export class StructuralSystemsHubPage implements OnInit {
       const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
       const visualTemplates = (allTemplates || []).filter((template: any) => template.TypeID === 1);
 
+      console.log('Loaded templates:', visualTemplates.length);
+
       // Extract unique categories in order
       const categoriesSet = new Set<string>();
       const categoriesOrder: string[] = [];
@@ -75,8 +75,12 @@ export class StructuralSystemsHubPage implements OnInit {
         if (template.Category && !categoriesSet.has(template.Category)) {
           categoriesSet.add(template.Category);
           categoriesOrder.push(template.Category);
+          console.log('Found category:', template.Category);
         }
       });
+
+      console.log('Total unique categories:', categoriesOrder.length);
+      console.log('Categories:', categoriesOrder);
 
       // Get deficiency counts for each category
       // TODO: Load actual deficiency counts from saved visuals
