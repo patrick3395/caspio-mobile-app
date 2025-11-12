@@ -1,25 +1,20 @@
+// Header title responsive display
+ion-header {
+  ion-toolbar {
+    .full-title {
+      display: none;
+    }
+
+    .short-title {
+      display: block;
+    }
+  }
+}
+
 .main-container {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
-}
-
-.header-section {
-  text-align: center;
-  margin-bottom: 30px;
-
-  h1 {
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--ion-color-primary);
-    margin-bottom: 8px;
-  }
-
-  .subtitle {
-    font-size: 16px;
-    color: #666;
-    margin: 0;
-  }
 }
 
 .cards-container {
@@ -58,16 +53,12 @@
 
   .icon-container {
     flex-shrink: 0;
-    width: 48px;
-    height: 48px;
-    border-radius: 8px;
-    background: var(--ion-color-primary-tint);
     display: flex;
     align-items: center;
     justify-content: center;
 
     ion-icon {
-      font-size: 28px;
+      font-size: 32px;
       color: var(--ion-color-primary);
     }
   }
@@ -97,27 +88,6 @@
     }
   }
 
-  ion-card-content {
-    padding: 0 16px 16px 80px;
-
-    p {
-      color: #666;
-      font-size: 13px;
-      margin: 0 0 8px 0;
-      line-height: 1.4;
-    }
-
-    .card-footer {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-
-      ion-icon {
-        font-size: 22px;
-        color: #999;
-      }
-    }
-  }
 }
 
 .footer-section {
@@ -139,6 +109,19 @@
 
 // Keep stacked bar layout on all screen sizes
 @media (min-width: 768px) {
+  // Show full title on web
+  ion-header {
+    ion-toolbar {
+      .full-title {
+        display: block;
+      }
+
+      .short-title {
+        display: none;
+      }
+    }
+  }
+
   .cards-container {
     gap: 10px;
   }
