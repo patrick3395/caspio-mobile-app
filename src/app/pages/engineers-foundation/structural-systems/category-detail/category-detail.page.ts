@@ -1142,10 +1142,7 @@ export class CategoryDetailPage implements OnInit {
       const { data } = await modal.onWillDismiss();
 
       if (!data) {
-        // User cancelled - restore scroll position
-        setTimeout(() => {
-          this.restoreScrollPosition();
-        }, 100);
+        // User cancelled
         return;
       }
 
@@ -1210,14 +1207,9 @@ export class CategoryDetailPage implements OnInit {
               this.foundationData.clearVisualAttachmentsCache(); // Clear all caches
               console.log('[SAVE] Cleared ALL attachment caches to ensure fresh data on navigation');
 
-              // Trigger change detection first
-              this.changeDetectorRef.detectChanges();
-
-              // CRITICAL: Restore scroll position AFTER detectChanges completes
-              // Use setTimeout to ensure DOM has fully updated before restoring scroll
-              setTimeout(() => {
-                this.restoreScrollPosition();
-              }, 100);
+              // DON'T manually call detectChanges() - let Angular handle it automatically
+              // Manual detectChanges() was causing scroll position to reset
+              // Angular will automatically detect the change when the modal dismisses
 
               // Success toast removed per user request
             } catch (error) {
