@@ -30,9 +30,14 @@ export class ProjectDetailsPage implements OnInit {
   firstFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
   secondFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
   thirdFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
-  secondFoundationRoomsOptions: string[] = ['Kitchen', 'Living Room', 'Bedroom', 'Bathroom', 'Garage', 'Other'];
-  thirdFoundationRoomsOptions: string[] = ['Kitchen', 'Living Room', 'Bedroom', 'Bathroom', 'Garage', 'Other'];
-  ownerOccupantInterviewOptions: string[] = ['Yes', 'No', 'Not Available', 'Other'];
+  secondFoundationRoomsOptions: string[] = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
+  thirdFoundationRoomsOptions: string[] = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
+  ownerOccupantInterviewOptions: string[] = [
+    'Owner/occupant not available for discussion',
+    'Owner/occupant not aware of any previous foundation work',
+    'Owner/occupant provided the information documented in Support Documents',
+    'Other'
+  ];
 
   // Multi-select arrays
   inAttendanceSelections: string[] = [];
@@ -84,6 +89,15 @@ export class ProjectDetailsPage implements OnInit {
       this.caspioService.getProject(this.projectId).subscribe({
         next: (project) => {
           this.projectData = project || {};
+
+          // Ensure dropdown fields have empty string instead of null/undefined for "-- Select --" to show
+          if (!this.projectData.Style) {
+            this.projectData.Style = '';
+          }
+          if (!this.projectData.TypeOfBuilding) {
+            this.projectData.TypeOfBuilding = '';
+          }
+
           this.changeDetectorRef.detectChanges();
         },
         error: (error) => {
@@ -95,6 +109,29 @@ export class ProjectDetailsPage implements OnInit {
       this.caspioService.getService(this.serviceId).subscribe({
         next: (service) => {
           this.serviceData = service || {};
+
+          // Ensure dropdown fields have empty string instead of null/undefined for "-- Select --" to show
+          if (!this.serviceData.OccupancyFurnishings) {
+            this.serviceData.OccupancyFurnishings = '';
+          }
+          if (!this.serviceData.WeatherConditions) {
+            this.serviceData.WeatherConditions = '';
+          }
+          if (!this.serviceData.OutdoorTemperature) {
+            this.serviceData.OutdoorTemperature = '';
+          }
+          if (!this.serviceData.FirstFoundationType) {
+            this.serviceData.FirstFoundationType = '';
+          }
+          if (!this.serviceData.SecondFoundationType) {
+            this.serviceData.SecondFoundationType = '';
+          }
+          if (!this.serviceData.ThirdFoundationType) {
+            this.serviceData.ThirdFoundationType = '';
+          }
+          if (!this.serviceData.OwnerOccupantInterview) {
+            this.serviceData.OwnerOccupantInterview = '';
+          }
 
           // Initialize multi-select arrays from stored comma-separated strings
           if (this.serviceData.InAttendance) {
