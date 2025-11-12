@@ -9,7 +9,6 @@ import { OfflineService } from '../../../../services/offline.service';
 import { CameraService } from '../../../../services/camera.service';
 import { ImageCompressionService } from '../../../../services/image-compression.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
-import { PhotoViewerComponent } from '../../../../components/photo-viewer/photo-viewer.component';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
@@ -953,10 +952,24 @@ export class CategoryDetailPage implements OnInit {
   // ============================================
 
   async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event) {
-    console.log('[VIEW PHOTO] Opening photo viewer for', photo.AttachID);
+    console.log('[VIEW PHOTO] Opening photo annotator for', photo.AttachID);
 
     try {
-      // Try to get a valid image URL (EXACTLY like original at line 7205)
+      const key = `${category}_${itemId}`;
+
+      // Check if photo is still uploading
+      if (photo.uploading || photo.queued) {
+        await this.showToast('Photo is still uploading. Please try again once it finishes.', 'warning');
+        return;
+      }
+
+      const attachId = photo.AttachID || photo.id;
+      if (!attachId || String(attachId).startsWith('temp_')) {
+        await this.showToast('Photo is still processing. Please try again in a moment.', 'warning');
+        return;
+      }
+
+      // Try to get a valid image URL (EXACTLY like original at line 12179)
       let imageUrl = photo.url || photo.thumbnailUrl || photo.displayUrl;
 
       // If no valid URL and we have a file path, try to fetch it
@@ -984,33 +997,145 @@ export class CategoryDetailPage implements OnInit {
         imageUrl = 'assets/img/photo-placeholder.png';
       }
 
-      // PhotoViewerComponent expects photoUrl as a string, not a photo object!
+      // Try to load existing annotations (EXACTLY like original at line 12184-12208)
+      let existingAnnotations: any = null;
+      const annotationSources = [
+        photo.annotations,
+        photo.annotationsData,
+        photo.rawDrawingsString,
+        photo.Drawings
+      ];
+
+      for (const source of annotationSources) {
+        if (!source) {
+          continue;
+        }
+        try {
+          if (typeof source === 'string') {
+            // Import decompression utility
+            const { decompressAnnotationData } = await import('../../utils/annotation-utils');
+            existingAnnotations = decompressAnnotationData(source);
+          } else {
+            existingAnnotations = source;
+          }
+          if (existingAnnotations) {
+            break;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+
+      // Get existing caption
+      const existingCaption = photo.caption || photo.annotation || photo.Annotation || '';
+
+      // Open FabricPhotoAnnotatorComponent (EXACTLY like original at line 12443)
       const modal = await this.modalController.create({
-        component: PhotoViewerComponent,
+        component: FabricPhotoAnnotatorComponent,
         componentProps: {
-          photoUrl: imageUrl,
-          photoName: photo.name || 'Photo',
-          canAnnotate: false,
-          photoData: photo,
-          photoCaption: photo.caption || photo.annotation || '',
-          enableCaption: true
+          imageUrl: imageUrl,
+          existingAnnotations: existingAnnotations,
+          existingCaption: existingCaption,
+          photoData: {
+            ...photo,
+            AttachID: attachId,
+            id: attachId,
+            caption: existingCaption
+          },
+          isReEdit: !!existingAnnotations
         },
-        cssClass: 'photo-viewer-modal'
+        cssClass: 'fullscreen-modal'
       });
 
       await modal.present();
 
+      // Handle annotated photo returned from annotator
       const { data } = await modal.onWillDismiss();
 
-      if (data?.action === 'delete') {
-        await this.deletePhoto(photo, category, itemId);
-      } else if (data?.action === 'caption') {
-        await this.openCaptionPopup(photo, category, itemId);
+      if (!data) {
+        return; // User cancelled
+      }
+
+      if (data && data.annotatedBlob) {
+        // Update photo with new annotations
+        const annotatedBlob = data.blob || data.annotatedBlob;
+        const annotationsData = data.annotationData || data.annotationsData;
+
+        const newUrl = URL.createObjectURL(annotatedBlob);
+
+        // Find photo in array and update it
+        const photos = this.visualPhotos[key] || [];
+        const photoIndex = photos.findIndex(p =>
+          (p.AttachID || p.id) === attachId
+        );
+
+        if (photoIndex !== -1) {
+          const targetPhoto = photos[photoIndex];
+
+          if (!targetPhoto.originalUrl) {
+            targetPhoto.originalUrl = targetPhoto.url;
+          }
+
+          targetPhoto.displayUrl = newUrl;
+          targetPhoto.url = newUrl;
+          targetPhoto.thumbnailUrl = newUrl;
+          targetPhoto.hasAnnotations = !!annotationsData;
+
+          if (data.caption !== undefined) {
+            targetPhoto.caption = data.caption;
+            targetPhoto.annotation = data.caption;
+            targetPhoto.Annotation = data.caption;
+          }
+
+          if (annotationsData) {
+            targetPhoto.annotations = annotationsData;
+            targetPhoto.rawDrawingsString = typeof annotationsData === 'object'
+              ? JSON.stringify(annotationsData)
+              : annotationsData;
+          }
+
+          this.changeDetectorRef.detectChanges();
+
+          // Save annotations to database
+          if (attachId && !String(attachId).startsWith('temp_')) {
+            try {
+              await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, data.caption);
+              await this.showToast('Annotations saved', 'success');
+            } catch (error) {
+              console.error('[VIEW PHOTO] Error saving annotations:', error);
+              await this.showToast('Failed to save annotations', 'danger');
+            }
+          }
+        }
       }
 
     } catch (error) {
-      console.error('Error opening photo viewer:', error);
+      console.error('Error opening photo annotator:', error);
+      await this.showToast('Failed to open photo annotator', 'danger');
     }
+  }
+
+  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string) {
+    // Convert blob to file
+    const file = new File([annotatedBlob], 'annotated.jpg', { type: 'image/jpeg' });
+
+    // Compress annotation data
+    const { compressAnnotationData } = await import('../../utils/annotation-utils');
+    const compressedDrawings = compressAnnotationData(annotationsData);
+
+    // Update the attachment record with new photo and drawings
+    const updateData: any = {
+      Annotation: caption || ''
+    };
+
+    if (compressedDrawings) {
+      updateData.Drawings = compressedDrawings;
+    }
+
+    await this.foundationData.updateVisualPhotoCaption(attachId, caption);
+
+    // TODO: Update photo file if needed
+    // This would require uploading the new annotated image
   }
 
   async deletePhoto(photo: any, category: string, itemId: string | number) {
