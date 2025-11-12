@@ -305,64 +305,87 @@ export class CategoryDetailPage implements OnInit {
       if (attachments.length > 0) {
         this.photoCountsByKey[key] = attachments.length;
 
-        // Process each attachment and convert file paths to displayable URLs
-        const photoPromises = attachments.map(async (attach) => {
-          const filePath = attach.Photo;
-          let imageUrl = '';
+        // Initialize photo array with placeholders (shows skeleton loaders)
+        this.visualPhotos[key] = [];
 
-          // Convert file path to base64 image using Files API (EXACTLY like original)
-          if (filePath) {
-            try {
-              const imageData = await firstValueFrom(
-                this.caspioService.getImageFromFilesAPI(filePath)
-              );
-              if (imageData && imageData.startsWith('data:')) {
-                imageUrl = imageData;
-              }
-            } catch (err) {
-              console.error('[LOAD PHOTOS] Failed to load image:', filePath, err);
-              imageUrl = 'assets/img/photo-placeholder.png';
-            }
-          }
+        // Load each photo progressively - show as soon as ready instead of waiting for all
+        for (let i = 0; i < attachments.length; i++) {
+          const attach = attachments[i];
 
-          // CRITICAL: Store the compressed Drawings string, but don't set annotations yet
-          const hasDrawings = !!attach.Drawings;
-
-          console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'Has Drawings:', hasDrawings, 'Drawings length:', attach.Drawings?.length || 0);
-
-          return {
-            AttachID: attach.AttachID,
-            id: attach.AttachID,
-            name: attach.Photo || 'photo.jpg',
-            filePath: filePath,
-            Photo: filePath,
-            url: imageUrl,
-            originalUrl: imageUrl,        // CRITICAL: Set originalUrl to base image
-            thumbnailUrl: imageUrl,
-            displayUrl: imageUrl,          // Will be overwritten with annotated version if user annotates
-            caption: attach.Annotation || '',
-            annotation: attach.Annotation || '',
-            Annotation: attach.Annotation || '',
-            hasAnnotations: hasDrawings,
-            annotations: null,              // Don't set this to compressed string - will be decompressed on view
-            Drawings: attach.Drawings || null,  // CRITICAL: Store original Drawings field
-            rawDrawingsString: attach.Drawings || null,  // CRITICAL: Store for decompression
-            uploading: false,
-            queued: false,
-            isObjectUrl: false
-          };
-        });
-
-        this.visualPhotos[key] = await Promise.all(photoPromises);
+          // Process this photo in the background
+          this.loadSinglePhoto(attach, key).catch(err => {
+            console.error('[LOAD PHOTOS] Failed to load photo:', attach.AttachID, err);
+          });
+        }
+      } else {
+        this.loadingPhotosByKey[key] = false;
+        this.changeDetectorRef.detectChanges();
       }
-
-      this.loadingPhotosByKey[key] = false;
-      this.changeDetectorRef.detectChanges();
 
     } catch (error) {
       console.error('[LOAD PHOTOS] Error loading photos for visual', visualId, error);
       this.loadingPhotosByKey[key] = false;
     }
+  }
+
+  private async loadSinglePhoto(attach: any, key: string) {
+    const filePath = attach.Photo;
+    let imageUrl = '';
+
+    // Convert file path to base64 image using Files API
+    if (filePath) {
+      try {
+        const imageData = await firstValueFrom(
+          this.caspioService.getImageFromFilesAPI(filePath)
+        );
+        if (imageData && imageData.startsWith('data:')) {
+          imageUrl = imageData;
+        }
+      } catch (err) {
+        console.error('[LOAD PHOTOS] Failed to load image:', filePath, err);
+        imageUrl = 'assets/img/photo-placeholder.png';
+      }
+    }
+
+    const hasDrawings = !!attach.Drawings;
+    console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'Has Drawings:', hasDrawings, 'Drawings length:', attach.Drawings?.length || 0);
+
+    const photoData = {
+      AttachID: attach.AttachID,
+      id: attach.AttachID,
+      name: attach.Photo || 'photo.jpg',
+      filePath: filePath,
+      Photo: filePath,
+      url: imageUrl,
+      originalUrl: imageUrl,        // CRITICAL: Set originalUrl to base image
+      thumbnailUrl: imageUrl,
+      displayUrl: imageUrl,          // Will be overwritten with annotated version if user annotates
+      caption: attach.Annotation || '',
+      annotation: attach.Annotation || '',
+      Annotation: attach.Annotation || '',
+      hasAnnotations: hasDrawings,
+      annotations: null,              // Don't set this to compressed string - will be decompressed on view
+      Drawings: attach.Drawings || null,  // CRITICAL: Store original Drawings field
+      rawDrawingsString: attach.Drawings || null,  // CRITICAL: Store for decompression
+      uploading: false,
+      queued: false,
+      isObjectUrl: false
+    };
+
+    // Add photo to array as soon as it's ready
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+    this.visualPhotos[key].push(photoData);
+
+    // Check if all photos for this item are loaded
+    if (this.visualPhotos[key].length === this.photoCountsByKey[key]) {
+      this.loadingPhotosByKey[key] = false;
+      console.log('[LOAD PHOTOS] All photos loaded for', key);
+    }
+
+    // Trigger change detection to show this photo
+    this.changeDetectorRef.detectChanges();
   }
 
   // Item selection for checkbox-based items (answerType 0)
