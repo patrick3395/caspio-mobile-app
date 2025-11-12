@@ -1,0 +1,33 @@
+<div class="page-container">
+  <div class="header-section">
+    <ion-button fill="clear" (click)="goBack()">
+      <ion-icon slot="start" name="arrow-back"></ion-icon>
+      Back
+    </ion-button>
+    <h1>Structural Systems</h1>
+    <p class="subtitle">Visual assessment of structural components</p>
+  </div>
+
+  <div class="cards-container">
+    <ion-card
+      *ngFor="let category of categories"
+      class="category-card"
+      button="true"
+      (click)="navigateToCategory(category)">
+      <ion-card-header>
+        <div class="card-header-content">
+          <div class="icon-container">
+            <ion-icon [name]="category.icon"></ion-icon>
+          </div>
+          <ion-card-title>{{ category.title }}</ion-card-title>
+        </div>
+      </ion-card-header>
+      <ion-card-content>
+        <p>{{ category.description }}</p>
+        <div class="card-footer">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</div>

@@ -1,0 +1,55 @@
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+
+const routes: Routes = [
+  {
+    path: '',
+    loadComponent: () => import('./engineers-foundation-container/engineers-foundation-container.page').then(m => m.EngineersFoundationContainerPage),
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./engineers-foundation-main/engineers-foundation-main.page').then(m => m.EngineersFoundationMainPage)
+      },
+      {
+        path: 'project-details',
+        loadComponent: () => import('./project-details/project-details.page').then(m => m.ProjectDetailsPage)
+      },
+      {
+        path: 'structural',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./structural-systems-hub/structural-systems-hub.page').then(m => m.StructuralSystemsHubPage)
+          },
+          {
+            path: ':category',
+            loadComponent: () => import('./structural-category/structural-category.page').then(m => m.StructuralCategoryPage)
+          }
+        ]
+      },
+      {
+        path: 'elevation',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./elevation-plot-hub/elevation-plot-hub.page').then(m => m.ElevationPlotHubPage)
+          },
+          {
+            path: 'base-station',
+            loadComponent: () => import('./base-station/base-station.page').then(m => m.BaseStationPage)
+          },
+          {
+            path: 'room/:roomName',
+            loadComponent: () => import('./room-elevation/room-elevation.page').then(m => m.RoomElevationPage)
+          }
+        ]
+      }
+    ]
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class EngineersFoundationRoutingModule { }

@@ -1,0 +1,161 @@
+.main-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header-section {
+  text-align: center;
+  margin-bottom: 30px;
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ion-color-primary);
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 16px;
+    color: #666;
+    margin: 0;
+  }
+}
+
+.cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.navigation-card {
+  margin: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  &.completed {
+    border-left: 4px solid var(--ion-color-success);
+  }
+
+  ion-card-header {
+    padding: 20px;
+  }
+
+  .card-header-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .icon-container {
+    flex-shrink: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--ion-color-primary-tint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 32px;
+      color: var(--ion-color-primary);
+    }
+  }
+
+  .title-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    ion-card-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      margin: 0;
+    }
+
+    ion-badge {
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      ion-icon {
+        font-size: 14px;
+      }
+    }
+  }
+
+  ion-card-content {
+    padding: 0 20px 20px 96px;
+
+    p {
+      color: #666;
+      font-size: 14px;
+      margin: 0 0 12px 0;
+      line-height: 1.5;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: flex-end;
+
+      ion-icon {
+        font-size: 20px;
+        color: var(--ion-color-primary);
+      }
+    }
+  }
+}
+
+.footer-section {
+  margin-top: 40px;
+  text-align: center;
+
+  ion-button {
+    --border-radius: 8px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .footer-note {
+    font-size: 14px;
+    color: #999;
+    margin: 0;
+  }
+}
+
+// Responsive design
+@media (min-width: 768px) {
+  .cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+  }
+
+  .navigation-card ion-card-content {
+    padding-left: 20px;
+  }
+
+  .navigation-card .card-header-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .navigation-card .title-container {
+    align-items: center;
+  }
+
+  .navigation-card .title-container ion-badge {
+    align-self: center;
+  }
+}

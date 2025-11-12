@@ -1,0 +1,27 @@
+<div class="page-container">
+  <div class="header-section">
+    <ion-button fill="clear" (click)="goBack()">
+      <ion-icon slot="start" name="arrow-back"></ion-icon>
+      Back to Elevation Plot
+    </ion-button>
+    <h1>{{ roomName }}</h1>
+    <p class="subtitle">Elevation points and photos</p>
+  </div>
+
+  <div class="content-section">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Page Placeholder</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p>Project ID: {{ projectId }}</p>
+        <p>Service ID: {{ serviceId }}</p>
+        <p>Room: {{ roomName }}</p>
+        <p class="placeholder-text">
+          This page will contain the elevation points for this room, with the ability
+          to add new points, capture photos, and record measurements.
+        </p>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</div>

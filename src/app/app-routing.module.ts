@@ -41,7 +41,7 @@ const routes: Routes = [
   },
   {
     path: 'engineers-foundation/:projectId/:serviceId',
-    loadComponent: () => import('./pages/engineers-foundation/engineers-foundation.page').then( m => m.EngineersFoundationPage),
+    loadChildren: () => import('./pages/engineers-foundation/engineers-foundation-routing.module').then( m => m.EngineersFoundationRoutingModule),
     canActivate: [AuthGuard],
     data: { preload: false }
   },

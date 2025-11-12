@@ -1,0 +1,60 @@
+<div class="page-container">
+  <div class="header-section">
+    <ion-button fill="clear" (click)="goBack()">
+      <ion-icon slot="start" name="arrow-back"></ion-icon>
+      Back
+    </ion-button>
+    <h1>Elevation Plot</h1>
+    <p class="subtitle">Floor elevation measurements and photos</p>
+  </div>
+
+  <div class="content-section">
+    <!-- Base Station Card -->
+    <ion-card class="action-card" button="true" (click)="navigateToBaseStation()">
+      <ion-card-header>
+        <div class="card-header-content">
+          <div class="icon-container">
+            <ion-icon name="location-outline"></ion-icon>
+          </div>
+          <ion-card-title>Base Station</ion-card-title>
+        </div>
+      </ion-card-header>
+      <ion-card-content>
+        <p>Set up reference point for elevation measurements</p>
+        <div class="card-footer">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Rooms Section -->
+    <div class="section-header">
+      <h2>Rooms</h2>
+      <p *ngIf="rooms.length === 0" class="empty-message">
+        No rooms added yet. Rooms will appear here once you start adding elevation points.
+      </p>
+    </div>
+
+    <div class="cards-container" *ngIf="rooms.length > 0">
+      <ion-card
+        *ngFor="let room of rooms"
+        class="room-card"
+        button="true"
+        (click)="navigateToRoom(room)">
+        <ion-card-header>
+          <div class="card-header-content">
+            <ion-card-title>{{ room.name }}</ion-card-title>
+            <ion-badge *ngIf="room.pointCount" color="primary">
+              {{ room.pointCount }} points
+            </ion-badge>
+          </div>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="card-footer">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </div>
+</div>

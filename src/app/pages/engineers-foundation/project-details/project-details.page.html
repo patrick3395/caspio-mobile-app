@@ -1,0 +1,25 @@
+<div class="page-container">
+  <div class="header-section">
+    <ion-button fill="clear" (click)="goBack()">
+      <ion-icon slot="start" name="arrow-back"></ion-icon>
+      Back
+    </ion-button>
+    <h1>Project Details</h1>
+  </div>
+
+  <div class="content-section">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Page Placeholder</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p>Project ID: {{ projectId }}</p>
+        <p>Service ID: {{ serviceId }}</p>
+        <p class="placeholder-text">
+          This page will contain all project details including property information,
+          people, and environmental conditions.
+        </p>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</div>
