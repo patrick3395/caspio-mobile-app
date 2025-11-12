@@ -8,7 +8,7 @@ export interface ProjectData {
   clientName?: string;
   agentName?: string;
   inspectorName?: string;
-  inAttendance?: string[];
+  inAttendance?: string | string[];
   yearBuilt?: string;
   squareFeet?: string;
   buildingType?: string;
