@@ -29,7 +29,8 @@
       <ng-container *ngFor="let crumb of breadcrumbs; let last = last">
         <ion-icon name="chevron-forward-outline" class="breadcrumb-arrow"></ion-icon>
         <div class="breadcrumb-item" [class.active]="last" (click)="navigateToCrumb(crumb)">
-          {{ crumb.label }}
+          <ion-icon *ngIf="crumb.icon" [name]="crumb.icon" class="breadcrumb-icon-mobile"></ion-icon>
+          <span class="breadcrumb-text-desktop">{{ crumb.label }}</span>
         </div>
       </ng-container>
     </div>

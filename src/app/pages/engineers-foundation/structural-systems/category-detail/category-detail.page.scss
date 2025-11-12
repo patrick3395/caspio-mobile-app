@@ -6,22 +6,11 @@
   min-height: 100vh;
 }
 
-.header-section {
-  margin-bottom: 20px;
-
-  h1 {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--ion-color-primary);
-    margin: 0;
-  }
-}
-
 .content-section {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  padding: 24px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
   min-height: 200px;
 }
 
@@ -32,6 +21,9 @@
   justify-content: center;
   padding: 60px 20px;
   color: #666;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 
   ion-spinner {
     margin-bottom: 16px;
@@ -58,7 +50,7 @@
       // Keeping this for any legacy references
       font-size: 18px;
       font-weight: 600;
-      color: var(--noble-orange, #F15A27);
+      color: #333;
       margin: 0;
     }
 
@@ -543,24 +535,41 @@
   }
 }
 
-// Accordion styles
+// Accordion styles - matching category card design
 ion-accordion-group {
   ion-accordion {
-    margin-bottom: 16px;
+    margin-bottom: 8px;
     border: none;
-    border-radius: 0;
+    border-radius: 4px;
     overflow: visible;
-    background: transparent;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.2s, background-color 0.2s;
+
+    &:hover {
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+      background: #fafafa;
+    }
 
     ion-item {
-      --padding-start: 0;
-      --padding-end: 0;
-      --padding-top: 0;
-      --padding-bottom: 0;
+      --padding-start: 16px;
+      --padding-end: 16px;
+      --padding-top: 16px;
+      --padding-bottom: 16px;
       --min-height: auto;
       --background: transparent;
       cursor: pointer;
-      margin-bottom: 12px;
+
+      ion-label {
+        margin: 0;
+
+        .type-header {
+          font-size: 18px;
+          font-weight: 600;
+          color: #333;
+          margin: 0;
+        }
+      }
 
       .add-visual-btn {
         background: transparent !important;
@@ -577,7 +586,7 @@ ion-accordion-group {
         transition: all 0.3s ease;
 
         ion-icon {
-          font-size: 28px;
+          font-size: 24px;
           background: transparent !important;
         }
 
@@ -594,10 +603,10 @@ ion-accordion-group {
     }
 
     .accordion-content {
-      padding: 0;
+      padding: 16px;
+      background: white;
 
       .type-section {
-        // Remove any extra margin/padding - let the original styles apply
         margin: 0;
       }
     }

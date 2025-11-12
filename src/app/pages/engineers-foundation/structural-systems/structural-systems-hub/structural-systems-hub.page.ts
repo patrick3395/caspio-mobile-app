@@ -121,7 +121,14 @@ export class StructuralSystemsHubPage implements OnInit {
       'Floor Framing': 'grid-outline',
       'Wall Framing': 'apps-outline',
       'Attic': 'triangle-outline',
-      'Crawlspace': 'arrow-down-outline'
+      'Crawlspace': 'arrow-down-outline',
+      'Crawlspaces': 'arrow-down-outline',
+      'Walls (Interior and Exterior)': 'square-outline',
+      'Ceilings and Floors': 'layers-outline',
+      'Doors (Interior and Exterior)': 'enter-outline',
+      'Windows': 'stop-outline',
+      'Other': 'ellipsis-horizontal-circle-outline',
+      'Basements': 'cube-outline'
     };
 
     return iconMap[categoryName] || 'construct-outline';

@@ -2,13 +2,6 @@
   <!-- Hidden file input for camera/gallery -->
   <input #fileInput type="file" style="display: none;" (change)="onFileSelected($event)" accept="image/*">
 
-  <div class="header-section">
-    <div style="display: flex; align-items: center; gap: 12px;">
-      <ion-icon name="arrow-back" style="font-size: 28px; color: var(--noble-orange, #F15A27); cursor: pointer;" (click)="goBack()"></ion-icon>
-      <h1 style="margin: 0;">{{ categoryName }}</h1>
-    </div>
-  </div>
-
   <div class="content-section">
     <!-- Loading State -->
     <div *ngIf="loading" class="loading-container">

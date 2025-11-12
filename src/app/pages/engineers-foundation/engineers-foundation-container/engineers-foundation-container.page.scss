@@ -27,6 +27,17 @@ ion-toolbar {
       display: none;
     }
   }
+
+  // Desktop breadcrumbs: show text instead of icons
+  .breadcrumb-item {
+    .breadcrumb-icon-mobile {
+      display: none !important;
+    }
+
+    .breadcrumb-text-desktop {
+      display: inline !important;
+    }
+  }
 }
 
 // Breadcrumb Footer
@@ -86,6 +97,16 @@ ion-toolbar {
 
   ion-icon {
     font-size: 20px;
+  }
+
+  // Mobile: show icons only
+  .breadcrumb-icon-mobile {
+    display: block;
+    font-size: 20px;
+  }
+
+  .breadcrumb-text-desktop {
+    display: none;
   }
 }
 

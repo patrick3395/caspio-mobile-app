@@ -8,6 +8,7 @@ import { filter } from 'rxjs/operators';
 interface Breadcrumb {
   label: string;
   path: string;
+  icon?: string;
 }
 
 @Component({
@@ -71,11 +72,11 @@ export class EngineersFoundationContainerPage implements OnInit {
     // URL format: /engineers-foundation/{projectId}/{serviceId}/...
 
     if (url.includes('/project-details')) {
-      this.breadcrumbs.push({ label: 'Project Details', path: 'project-details' });
+      this.breadcrumbs.push({ label: 'Project Details', path: 'project-details', icon: 'document-text-outline' });
       this.currentPageTitle = 'Project Details';
       this.currentPageShortTitle = 'Project Details';
     } else if (url.includes('/structural')) {
-      this.breadcrumbs.push({ label: 'Structural Systems', path: 'structural' });
+      this.breadcrumbs.push({ label: 'Structural Systems', path: 'structural', icon: 'construct-outline' });
       this.currentPageTitle = 'Structural Systems';
       this.currentPageShortTitle = 'Structural';
 
@@ -83,25 +84,26 @@ export class EngineersFoundationContainerPage implements OnInit {
       const categoryMatch = url.match(/\/category\/([^\/]+)/);
       if (categoryMatch) {
         const categoryName = decodeURIComponent(categoryMatch[1]);
-        this.breadcrumbs.push({ label: categoryName, path: `structural/category/${categoryMatch[1]}` });
+        const categoryIcon = this.getCategoryIcon(categoryName);
+        this.breadcrumbs.push({ label: categoryName, path: `structural/category/${categoryMatch[1]}`, icon: categoryIcon });
         this.currentPageTitle = categoryName;
         this.currentPageShortTitle = categoryName;
       }
     } else if (url.includes('/elevation')) {
-      this.breadcrumbs.push({ label: 'Elevation Plot', path: 'elevation' });
+      this.breadcrumbs.push({ label: 'Elevation Plot', path: 'elevation', icon: 'analytics-outline' });
       this.currentPageTitle = 'Elevation Plot';
       this.currentPageShortTitle = 'Elevation';
 
       // Check for base-station or room
       if (url.includes('/base-station')) {
-        this.breadcrumbs.push({ label: 'Base Station', path: 'elevation/base-station' });
+        this.breadcrumbs.push({ label: 'Base Station', path: 'elevation/base-station', icon: 'navigate-outline' });
         this.currentPageTitle = 'Base Station';
         this.currentPageShortTitle = 'Base Station';
       } else {
         const roomMatch = url.match(/\/room\/([^\/]+)/);
         if (roomMatch) {
           const roomName = decodeURIComponent(roomMatch[1]);
-          this.breadcrumbs.push({ label: roomName, path: `elevation/room/${roomMatch[1]}` });
+          this.breadcrumbs.push({ label: roomName, path: `elevation/room/${roomMatch[1]}`, icon: 'location-outline' });
           this.currentPageTitle = roomName;
           this.currentPageShortTitle = roomName;
         }
@@ -120,5 +122,27 @@ export class EngineersFoundationContainerPage implements OnInit {
   goBack() {
     // Navigate back to project detail
     this.router.navigate(['/project', this.projectId]);
+  }
+
+  private getCategoryIcon(categoryName: string): string {
+    const iconMap: { [key: string]: string } = {
+      'Foundations': 'business-outline',
+      'Grading and Drainage': 'water-outline',
+      'General Conditions': 'document-text-outline',
+      'Roof Structure': 'home-outline',
+      'Floor Framing': 'grid-outline',
+      'Wall Framing': 'apps-outline',
+      'Attic': 'triangle-outline',
+      'Crawlspace': 'arrow-down-outline',
+      'Crawlspaces': 'arrow-down-outline',
+      'Walls (Interior and Exterior)': 'square-outline',
+      'Ceilings and Floors': 'layers-outline',
+      'Doors (Interior and Exterior)': 'enter-outline',
+      'Windows': 'stop-outline',
+      'Other': 'ellipsis-horizontal-circle-outline',
+      'Basements': 'cube-outline'
+    };
+
+    return iconMap[categoryName] || 'construct-outline';
   }
 }
