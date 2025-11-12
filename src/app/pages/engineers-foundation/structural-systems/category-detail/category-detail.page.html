@@ -12,7 +12,7 @@
     <!-- Category Content -->
     <div *ngIf="!loading" class="category-content">
 
-      <ion-accordion-group>
+      <ion-accordion-group (ionChange)="onAccordionChange($event)">
         <!-- General Information Section -->
         <ion-accordion *ngIf="organizedData.comments">
           <ion-item slot="header" lines="none" class="accordion-header-item">

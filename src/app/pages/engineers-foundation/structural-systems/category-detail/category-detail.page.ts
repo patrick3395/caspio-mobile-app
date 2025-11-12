@@ -2182,4 +2182,17 @@ export class CategoryDetailPage implements OnInit {
     });
     await toast.present();
   }
+
+  async onAccordionChange(event: any) {
+    // Prevent automatic scrolling when accordion expands/collapses
+    if (this.content) {
+      const scrollElement = await this.content.getScrollElement();
+      const currentScrollTop = scrollElement.scrollTop;
+
+      // Restore scroll position after a brief delay to override Ionic's scroll behavior
+      setTimeout(() => {
+        scrollElement.scrollTop = currentScrollTop;
+      }, 0);
+    }
+  }
 }

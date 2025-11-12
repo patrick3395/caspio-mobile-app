@@ -23,7 +23,10 @@ ion-toolbar {
   ion-title {
     display: flex;
     align-items: center;
+    justify-content: center;
     height: 100%;
+    padding: 0;
+    margin: 0;
   }
 
   ion-buttons {

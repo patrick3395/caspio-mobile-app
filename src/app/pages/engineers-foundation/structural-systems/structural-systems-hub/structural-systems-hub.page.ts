@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../../../services/caspio.service';
@@ -9,7 +10,7 @@ import { CaspioService } from '../../../../services/caspio.service';
   templateUrl: './structural-systems-hub.page.html',
   styleUrls: ['./structural-systems-hub.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, FormsModule]
 })
 export class StructuralSystemsHubPage implements OnInit {
   projectId: string = '';
@@ -21,7 +22,8 @@ export class StructuralSystemsHubPage implements OnInit {
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
@@ -132,5 +134,36 @@ export class StructuralSystemsHubPage implements OnInit {
     };
 
     return iconMap[categoryName] || 'construct-outline';
+  }
+
+  onStructuralSystemsStatusChange(value: string) {
+    // Store in local serviceData
+    this.serviceData.StructStat = value;
+
+    // Trigger change detection for conditional content visibility
+    this.changeDetectorRef.detectChanges();
+
+    // Save to Services table using the database column name "StructStat"
+    this.autoSaveServiceField('StructStat', value);
+  }
+
+  private autoSaveServiceField(fieldName: string, value: any) {
+    if (!this.serviceId) {
+      console.error('Cannot save: serviceId is missing');
+      return;
+    }
+
+    console.log(`Saving service field ${fieldName}:`, value);
+
+    const updateData = { [fieldName]: value };
+
+    this.caspioService.updateService(this.serviceId, updateData).subscribe({
+      next: () => {
+        console.log(`Successfully saved ${fieldName}`);
+      },
+      error: (error) => {
+        console.error(`Error saving ${fieldName}:`, error);
+      }
+    });
   }
 }

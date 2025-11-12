@@ -6,6 +6,26 @@
       <p>Loading categories...</p>
     </div>
 
+    <!-- Visual Assessment Location Question -->
+    <div *ngIf="!loading" class="visual-location-section">
+      <div class="form-group" [class.filled]="serviceData.StructStat">
+        <label>
+          Where will you provide the Visuals<span class="required">*</span>
+        </label>
+        <p class="field-description">
+          If you are providing the visuals in the inspection report select "Provided in Property Inspection Report"
+        </p>
+        <select
+          [(ngModel)]="serviceData.StructStat"
+          (ngModelChange)="onStructuralSystemsStatusChange($event)"
+          class="styled-input">
+          <option value="">-- Select --</option>
+          <option value="Provided in Property Inspection Report">Provided in Property Inspection Report</option>
+          <option value="Completed Here">Completed Here</option>
+        </select>
+      </div>
+    </div>
+
     <!-- Disabled State -->
     <div *ngIf="!loading && isStructuralSystemsDisabled()" class="disabled-message">
       <ion-icon name="information-circle-outline"></ion-icon>
@@ -13,7 +33,7 @@
     </div>
 
     <!-- Categories List -->
-    <div *ngIf="!loading && !isStructuralSystemsDisabled() && categories.length > 0" class="categories-container">
+    <div *ngIf="!loading && serviceData.StructStat === 'Completed Here' && categories.length > 0" class="categories-container">
       <ion-card
         *ngFor="let category of categories"
         class="navigation-card"
@@ -36,7 +56,7 @@
     </div>
 
     <!-- Empty State -->
-    <div *ngIf="!loading && !isStructuralSystemsDisabled() && categories.length === 0" class="empty-message">
+    <div *ngIf="!loading && serviceData.StructStat === 'Completed Here' && categories.length === 0" class="empty-message">
       <ion-icon name="folder-open-outline"></ion-icon>
       <p>No categories available</p>
     </div>
