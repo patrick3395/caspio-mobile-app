@@ -3939,8 +3939,20 @@ Troubleshooting:
           } else {
             console.warn(`⚠️ [Icon Loading] Invalid image data for ${offer.TypeName}:`, imageData?.substring(0, 50));
           }
-        } catch (error) {
-          console.warn(`⚠️ [Icon Loading] Icon file not found for ${offer.TypeName} (${offer.TypeIcon}) - skipping. Error:`, error);
+        } catch (error: any) {
+          console.error(`❌ [Icon Loading] FAILED to load icon for service "${offer.TypeName}"`);
+          console.error(`   Service Type ID: ${offer.TypeID}`);
+          console.error(`   Service Type Name: ${offer.TypeName}`);
+          console.error(`   Icon Path: "${offer.TypeIcon}"`);
+          console.error(`   Offer ID: ${offer.OffersID || offer.PK_ID}`);
+          console.error(`   Error Message:`, error?.message || error);
+          console.error(`   Full Error:`, error);
+
+          // Count 403 errors specifically
+          if (error?.message?.includes('403')) {
+            console.error(`   ⚠️ 403 FORBIDDEN - Check if the file exists in Caspio Files or if there are permission issues`);
+          }
+
           // Don't fail the entire process - just skip this icon
           offer.TypeIconUrl = ''; // Explicitly set to empty so we know it was attempted
         }
@@ -3948,7 +3960,22 @@ Troubleshooting:
 
     // Wait for all icons to load in parallel
     await Promise.all(iconPromises);
+
+    // Provide summary of icon loading results
+    const successCount = offersWithIcons.filter(o => o.TypeIconUrl && o.TypeIconUrl.startsWith('data:')).length;
+    const failedCount = offersWithIcons.filter(o => o.TypeIconUrl === '').length;
     console.log('🎨 [Icon Loading] Icon loading complete');
+    console.log(`   ✅ Successfully loaded: ${successCount} icons`);
+    console.log(`   ❌ Failed to load: ${failedCount} icons`);
+
+    if (failedCount > 0) {
+      console.error('❌ [Icon Loading] Failed icons details:');
+      offersWithIcons
+        .filter(o => o.TypeIconUrl === '')
+        .forEach(offer => {
+          console.error(`   - ${offer.TypeName} (ID: ${offer.TypeID}): "${offer.TypeIcon}"`);
+        });
+    }
   }
 
   getIconUrl(iconPath: string): string {

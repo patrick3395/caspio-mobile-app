@@ -820,51 +820,39 @@ export class CategoryDetailPage implements OnInit {
           }
 
           if (visualId) {
-            // Upload the ORIGINAL photo WITHOUT annotations baked in
-            await this.uploadPhotoForVisual(visualId, originalFile, key, true, null, null, caption);
+            // Upload the ORIGINAL photo WITHOUT annotations baked in and get the AttachID
+            const attachId = await this.uploadPhotoForVisual(visualId, originalFile, key, true, null, null, caption);
 
-            // If there are annotations, save them separately after upload
-            if (annotationsData) {
-              // Wait a moment for the photo to be uploaded and get its AttachID
-              setTimeout(async () => {
-                try {
-                  // Find the uploaded photo in the array (it will have a real AttachID now)
-                  const photos = this.visualPhotos[key] || [];
-                  const uploadedPhoto = photos.find(p =>
-                    !String(p.AttachID).startsWith('temp_') &&
-                    p.caption === caption &&
-                    !p.uploading
-                  );
+            // If there are annotations and we got an AttachID, save them immediately
+            if (annotationsData && attachId) {
+              try {
+                console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', attachId);
 
-                  if (uploadedPhoto && uploadedPhoto.AttachID) {
-                    console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', uploadedPhoto.AttachID);
+                // Save annotations to database
+                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, caption);
 
-                    // Save annotations to database
-                    await this.saveAnnotationToDatabase(uploadedPhoto.AttachID, annotatedBlob, annotationsData, caption);
+                // Create display URL with annotations
+                const displayUrl = URL.createObjectURL(annotatedBlob);
 
-                    // Create display URL with annotations
-                    const displayUrl = URL.createObjectURL(annotatedBlob);
-
-                    // Update photo object to show annotations
-                    const photoIndex = photos.findIndex(p => p.AttachID === uploadedPhoto.AttachID);
-                    if (photoIndex !== -1) {
-                      this.visualPhotos[key][photoIndex] = {
-                        ...this.visualPhotos[key][photoIndex],
-                        displayUrl: displayUrl,
-                        hasAnnotations: true,
-                        annotations: annotationsData,
-                        annotationsData: annotationsData
-                      };
-                      this.changeDetectorRef.detectChanges();
-                      console.log('[CAMERA UPLOAD] Annotations saved and display updated');
-                    }
-                  } else {
-                    console.warn('[CAMERA UPLOAD] Could not find uploaded photo to attach annotations');
-                  }
-                } catch (error) {
-                  console.error('[CAMERA UPLOAD] Error saving annotations:', error);
+                // Update photo object to show annotations
+                const photos = this.visualPhotos[key] || [];
+                const photoIndex = photos.findIndex(p => p.AttachID === attachId);
+                if (photoIndex !== -1) {
+                  this.visualPhotos[key][photoIndex] = {
+                    ...this.visualPhotos[key][photoIndex],
+                    displayUrl: displayUrl,
+                    hasAnnotations: true,
+                    annotations: annotationsData,
+                    annotationsData: annotationsData
+                  };
+                  this.changeDetectorRef.detectChanges();
+                  console.log('[CAMERA UPLOAD] Annotations saved and display updated');
+                } else {
+                  console.warn('[CAMERA UPLOAD] Could not find photo at index for AttachID:', attachId);
                 }
-              }, 2000); // Wait 2 seconds for upload to complete
+              } catch (error) {
+                console.error('[CAMERA UPLOAD] Error saving annotations:', error);
+              }
             }
           }
         }
@@ -916,63 +904,37 @@ export class CategoryDetailPage implements OnInit {
             this.visualPhotos[key] = [];
           }
 
-          // First, add all photos as loading placeholders immediately
-          const uploadPromises = [];
+          console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
 
-          for (let i = 0; i < images.photos.length; i++) {
-            const image = images.photos[i];
-
+          // First, fetch all blobs in parallel
+          const fetchPromises = images.photos.map((image, i) => {
             if (image.webPath) {
-              // Create temp ID for this photo
-              const tempId = `temp_gallery_${Date.now()}_${i}`;
-
-              // Add placeholder immediately to show loading state
-              this.visualPhotos[key].push({
-                id: tempId,
-                AttachID: tempId,
-                url: 'assets/img/photo-placeholder.png',
-                thumbnailUrl: 'assets/img/photo-placeholder.png',
-                caption: '',
-                uploading: true,
-                queued: false
-              });
-
-              // Trigger change detection to show all loading placeholders
-              this.changeDetectorRef.detectChanges();
-
-              // Start upload in background (don't await)
-              const uploadPromise = (async () => {
-                try {
-                  const response = await fetch(image.webPath);
-                  const blob = await response.blob();
-                  const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
-
-                  const processedFile = {
-                    file: file,
-                    annotationData: null,
-                    originalFile: undefined,
-                    caption: ''
-                  };
-
-                  // Upload photo - this will replace the placeholder when complete
-                  await this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile, processedFile.caption);
-
-                  // Remove the temp placeholder after successful upload
-                  this.visualPhotos[key] = this.visualPhotos[key].filter(p => p.AttachID !== tempId);
-                  this.changeDetectorRef.detectChanges();
-                } catch (error) {
-                  console.error('[GALLERY UPLOAD] Error uploading photo:', error);
-                  // Remove failed placeholder
-                  this.visualPhotos[key] = this.visualPhotos[key].filter(p => p.AttachID !== tempId);
-                  this.changeDetectorRef.detectChanges();
-                }
-              })();
-
-              uploadPromises.push(uploadPromise);
+              return fetch(image.webPath)
+                .then(response => response.blob())
+                .then(blob => ({
+                  file: new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' }),
+                  index: i
+                }));
             }
-          }
+            return null;
+          });
 
-          // Wait for all uploads to complete in background
+          // Wait for all fetches to complete
+          const files = await Promise.all(fetchPromises);
+
+          // Now upload all photos - this creates all loading states at once
+          const uploadPromises = files
+            .filter(item => item !== null)
+            .map(async (item) => {
+              try {
+                console.log('[GALLERY UPLOAD] Uploading photo', item.index + 1);
+                await this.uploadPhotoForVisual(visualId, item.file, key, true, null, null, '');
+              } catch (error) {
+                console.error('[GALLERY UPLOAD] Error uploading photo:', error);
+              }
+            });
+
+          // Wait for all uploads to complete
           Promise.all(uploadPromises).then(() => {
             console.log('[GALLERY UPLOAD] All photos uploaded');
           });
@@ -1053,7 +1015,7 @@ export class CategoryDetailPage implements OnInit {
   // PHOTO UPLOAD METHODS
   // ============================================
 
-  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null, caption: string = '') {
+  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null, caption: string = ''): Promise<string | null> {
     const category = key.split('_')[0];
 
     // Compress the photo before upload
@@ -1109,7 +1071,7 @@ export class CategoryDetailPage implements OnInit {
         });
 
         this.showToast('Photo queued and will upload when syncing resumes.', 'warning');
-        return;
+        return null;
       }
     }
 
@@ -1120,15 +1082,17 @@ export class CategoryDetailPage implements OnInit {
         throw new Error(`Invalid VisualID: ${actualVisualId}`);
       }
 
-      await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, true, annotationData, originalPhoto, tempId, caption);
+      const attachId = await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, true, annotationData, originalPhoto, tempId, caption);
+      return attachId;
 
     } catch (error) {
       console.error('Failed to prepare upload:', error);
       await this.showToast('Failed to prepare photo upload', 'danger');
+      return null;
     }
   }
 
-  private async performVisualPhotoUpload(visualId: number, photo: File, key: string, isBatchUpload: boolean, annotationData: any, originalPhoto: File | null, tempId: string | undefined, caption: string) {
+  private async performVisualPhotoUpload(visualId: number, photo: File, key: string, isBatchUpload: boolean, annotationData: any, originalPhoto: File | null, tempId: string | undefined, caption: string): Promise<string | null> {
     try {
       console.log(`[PHOTO UPLOAD] Starting upload for VisualID ${visualId}`);
 
@@ -1205,6 +1169,9 @@ export class CategoryDetailPage implements OnInit {
         await this.showToast('Photo uploaded successfully', 'success');
       }
 
+      // Return the AttachID for immediate use (e.g., saving annotations)
+      return result.AttachID;
+
     } catch (error) {
       console.error('[PHOTO UPLOAD] Upload failed:', error);
 
@@ -1217,6 +1184,7 @@ export class CategoryDetailPage implements OnInit {
       }
 
       await this.showToast('Failed to upload photo', 'danger');
+      return null;
     }
   }
 

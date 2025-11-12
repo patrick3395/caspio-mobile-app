@@ -1917,8 +1917,19 @@ export class CaspioService {
         })
       .then(response => {
         if (!response.ok) {
-          console.error(`❌ [Files API] Failed to fetch "${cleanPath}": ${response.status} ${response.statusText}`);
-          throw new Error(`Failed to fetch image: ${response.status}`);
+          const errorDetails = {
+            originalPath: filePath,
+            cleanPath: cleanPath,
+            fullUrl: fullUrl,
+            status: response.status,
+            statusText: response.statusText
+          };
+          console.error(`❌ [Files API] Failed to fetch image - Details:`, errorDetails);
+          console.error(`   Original path: "${filePath}"`);
+          console.error(`   Clean path: "${cleanPath}"`);
+          console.error(`   Full URL: ${fullUrl}`);
+          console.error(`   HTTP Status: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to fetch image: ${response.status} ${response.statusText} - Path: "${filePath}"`);
         }
         console.log(`✅ [Files API] Successfully fetched "${cleanPath}"`);
         return response.blob();
@@ -1929,7 +1940,8 @@ export class CaspioService {
         observer.complete();
       })
       .catch(error => {
-        console.error('Error fetching image:', error);
+        console.error(`❌ [Files API] Error fetching image for path "${filePath}":`, error);
+        console.error(`   Full URL was: ${fullUrl}`);
         observer.error(error);
       });
       }))
@@ -1957,8 +1969,19 @@ export class CaspioService {
         })
         .then(response => {
           if (!response.ok) {
-            console.error(`❌ [Files API Blob] Failed to fetch "${cleanPath}": ${response.status} ${response.statusText}`);
-            throw new Error(`Failed to fetch image: ${response.status}`);
+            const errorDetails = {
+              originalPath: filePath,
+              cleanPath: cleanPath,
+              fullUrl: fullUrl,
+              status: response.status,
+              statusText: response.statusText
+            };
+            console.error(`❌ [Files API Blob] Failed to fetch image - Details:`, errorDetails);
+            console.error(`   Original path: "${filePath}"`);
+            console.error(`   Clean path: "${cleanPath}"`);
+            console.error(`   Full URL: ${fullUrl}`);
+            console.error(`   HTTP Status: ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText} - Path: "${filePath}"`);
           }
           console.log(`✅ [Files API Blob] Successfully fetched "${cleanPath}"`);
           return response.blob();
@@ -1968,7 +1991,8 @@ export class CaspioService {
           observer.complete();
         })
         .catch(error => {
-          console.error('Error fetching image blob:', error);
+          console.error(`❌ [Files API Blob] Error fetching image for path "${filePath}":`, error);
+          console.error(`   Full URL was: ${fullUrl}`);
           observer.error(error);
         });
       }))
