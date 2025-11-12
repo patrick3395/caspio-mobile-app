@@ -1191,8 +1191,6 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   }
 
   .deliverable-row {
-    border-bottom: 1px solid $border;
-
     &:last-child {
       border-bottom: none;
     }
@@ -1205,6 +1203,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     // Service header row styling
     &.service-row {
       background: $light-gray;
+      border-bottom: 1px solid $border;
 
       .service-header {
         font-weight: 600;
@@ -1221,9 +1220,14 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       }
     }
 
-    // Field row styling
+    // Field row styling with separator lines
     &.field-row {
       background: $white;
+      border-bottom: 1px solid #e8e8e8;
+
+      &:last-child {
+        border-bottom: none;
+      }
 
       @media (hover: hover) and (pointer: fine) {
         &:hover {
@@ -1334,12 +1338,15 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   }
 
   &.deliverable-file-cell {
+    text-align: center;
+
     .file-upload-container {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 4px;
       flex-wrap: wrap;
+      width: 100%;
 
       .deliverable-actions {
         display: flex;

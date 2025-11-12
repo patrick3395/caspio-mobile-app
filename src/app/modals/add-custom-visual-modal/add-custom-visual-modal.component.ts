@@ -34,21 +34,57 @@ export class AddCustomVisualModalComponent {
     private alertController: AlertController
   ) {}
 
-  // Trigger file input
-  async addPhotos() {
+  // Trigger file input for gallery photos (without editor)
+  async addPhotosFromGallery() {
     if (this.fileInput) {
       this.fileInput.nativeElement.click();
     }
   }
 
-  // Handle file selection - open photo editor for each file
+  // Capture photo from camera and open editor
+  async addPhotoFromCamera() {
+    try {
+      // Dynamically import Camera
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+
+      // Capture photo with camera
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera
+      });
+
+      if (image.webPath) {
+        // Convert to blob/file
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+        // Process through photo editor
+        await this.processPhotoWithEditor(file);
+      }
+    } catch (error) {
+      // Check if user cancelled - don't show error for cancellations
+      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
+      const isCancelled = errorMessage.includes('cancel') ||
+                         errorMessage.includes('Cancel') ||
+                         errorMessage.includes('User');
+
+      if (!isCancelled) {
+        console.error('Error capturing photo:', error);
+      }
+    }
+  }
+
+  // Handle file selection from gallery - do NOT open editor
   async onFileSelected(event: any) {
     const files = event.target.files;
     if (files && files.length > 0) {
-      // Process each file through the photo editor
+      // Add photos directly without opening editor
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        await this.processPhoto(file);
+        await this.addPhotoDirectly(file);
       }
 
       // Clear the input so the same file can be selected again
@@ -56,8 +92,30 @@ export class AddCustomVisualModalComponent {
     }
   }
 
-  // Process photo through annotation editor
-  async processPhoto(file: File) {
+  // Add photo directly without opening editor
+  async addPhotoDirectly(file: File) {
+    try {
+      const previewUrl = await this.fileToDataUrl(file);
+
+      console.log('[ADD MODAL] Adding photo directly (no editor), preview URL length:', previewUrl.length);
+
+      this.processedPhotos.push({
+        file: file,
+        previewUrl: previewUrl,
+        annotationData: null,
+        originalFile: undefined,
+        caption: '',
+        hasAnnotations: false
+      });
+
+      console.log('[ADD MODAL] Total photos:', this.processedPhotos.length);
+    } catch (error) {
+      console.error('Error adding photo:', error);
+    }
+  }
+
+  // Process photo through annotation editor (for camera captures)
+  async processPhotoWithEditor(file: File) {
     try {
       // Dynamically import the photo annotator
       const { FabricPhotoAnnotatorComponent } = await import('../../components/fabric-photo-annotator/fabric-photo-annotator.component');

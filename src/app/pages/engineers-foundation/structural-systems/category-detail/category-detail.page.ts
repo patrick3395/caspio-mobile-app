@@ -362,6 +362,11 @@ export class CategoryDetailPage implements OnInit {
           }
         }
 
+        // CRITICAL: Set loading state and placeholder count IMMEDIATELY so skeletons show right away
+        // This prevents the page from jumping as photos load
+        this.loadingPhotosByKey[key] = true;
+        this.photoCountsByKey[key] = 1; // Placeholder - will be updated with real count
+
         // Load photos for this visual in background (don't await)
         this.loadPhotosForVisual(visualId, key).catch(err => {
           console.error('[LOAD VISUALS] Error loading photos for visual:', visualId, err);
@@ -369,6 +374,9 @@ export class CategoryDetailPage implements OnInit {
       }
 
       console.log('[LOAD VISUALS] Finished processing existing visuals');
+
+      // Trigger change detection immediately so skeletons appear right away
+      this.changeDetectorRef.detectChanges();
 
     } catch (error) {
       console.error('[LOAD VISUALS] Error loading existing visuals:', error);
@@ -1980,8 +1988,44 @@ export class CategoryDetailPage implements OnInit {
       if (files && files.length > 0) {
         console.log('[CREATE CUSTOM] Uploading', files.length, 'photos for visual:', visualId);
 
+        // Initialize photos array if not exists
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        // Add placeholder photos immediately so user sees them uploading
+        const tempPhotos = Array.from(files).map((file, index) => {
+          const photoData = processedPhotos[index] || {};
+          const objectUrl = URL.createObjectURL(file);
+          const tempId = `temp_${Date.now()}_${index}`;
+
+          return {
+            AttachID: tempId,
+            id: tempId,
+            name: file.name,
+            url: objectUrl,
+            thumbnailUrl: objectUrl,
+            displayUrl: photoData.previewUrl || objectUrl, // Use preview from modal if available
+            isObjectUrl: true,
+            uploading: true,
+            hasAnnotations: !!photoData.annotationData,
+            annotations: photoData.annotationData || null,
+            caption: photoData.caption || '',
+            annotation: photoData.caption || ''
+          };
+        });
+
+        // Add all temp photos to the array at once
+        this.visualPhotos[key].push(...tempPhotos);
+
+        // Trigger change detection so photos show immediately
+        this.changeDetectorRef.detectChanges();
+
+        console.log('[CREATE CUSTOM] Added', tempPhotos.length, 'placeholder photos to UI');
+
         // Upload photos in background with annotation data
         const uploadPromises = Array.from(files).map(async (file, index) => {
+          const tempId = tempPhotos[index].AttachID;
           try {
             // Get annotation data and caption for this photo from processedPhotos
             const photoData = processedPhotos[index] || {};
@@ -2003,6 +2047,13 @@ export class CategoryDetailPage implements OnInit {
 
             if (!attachId) {
               console.error(`[CREATE CUSTOM] No AttachID returned for photo ${index + 1}`);
+              // Mark this photo as failed
+              const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === tempId);
+              if (photoIndex !== -1 && this.visualPhotos[key]) {
+                this.visualPhotos[key][photoIndex].uploading = false;
+                this.visualPhotos[key][photoIndex].uploadFailed = true;
+                this.changeDetectorRef.detectChanges();
+              }
               return { success: false, error: new Error('No AttachID returned') };
             }
 
@@ -2025,9 +2076,26 @@ export class CategoryDetailPage implements OnInit {
               }
             }
 
+            // Mark this specific photo as done uploading
+            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === tempId);
+            if (photoIndex !== -1 && this.visualPhotos[key]) {
+              this.visualPhotos[key][photoIndex].uploading = false;
+              this.visualPhotos[key][photoIndex].AttachID = attachId;
+              this.visualPhotos[key][photoIndex].id = attachId;
+              this.changeDetectorRef.detectChanges();
+              console.log(`[CREATE CUSTOM] Photo ${index + 1} upload complete, UI updated`);
+            }
+
             return { success: true, error: null };
           } catch (error: any) {
             console.error(`Failed to upload file ${index + 1}:`, error);
+            // Mark this photo as failed
+            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === tempId);
+            if (photoIndex !== -1 && this.visualPhotos[key]) {
+              this.visualPhotos[key][photoIndex].uploading = false;
+              this.visualPhotos[key][photoIndex].uploadFailed = true;
+              this.changeDetectorRef.detectChanges();
+            }
             return { success: false, error };
           }
         });
@@ -2046,9 +2114,23 @@ export class CategoryDetailPage implements OnInit {
             this.showToast('Failed to upload photos', 'danger');
           }
 
-          // Add a small delay before reloading photos to ensure database has processed all uploads
+          // Reload photos from database to get full data with annotations
+          // Small delay to ensure database has processed all uploads
           setTimeout(() => {
             console.log('[CREATE CUSTOM] Reloading photos after upload delay');
+
+            // Clean up temp blob URLs before reloading
+            if (this.visualPhotos[key]) {
+              this.visualPhotos[key].forEach(photo => {
+                if (photo.isObjectUrl && photo.url) {
+                  URL.revokeObjectURL(photo.url);
+                }
+                if (photo.isObjectUrl && photo.thumbnailUrl && photo.thumbnailUrl !== photo.url) {
+                  URL.revokeObjectURL(photo.thumbnailUrl);
+                }
+              });
+            }
+
             this.loadPhotosForVisual(visualId!, key);
           }, 500);
         });

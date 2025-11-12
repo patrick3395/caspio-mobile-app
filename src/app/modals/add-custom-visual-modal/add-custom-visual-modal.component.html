@@ -40,11 +40,17 @@
     <div class="photos-section">
       <h3>Photos</h3>
 
-      <!-- Add Photos Button -->
-      <ion-button expand="block" (click)="addPhotos()" color="primary">
-        <ion-icon name="camera" slot="start"></ion-icon>
-        Add Photos
-      </ion-button>
+      <!-- Camera and Gallery Buttons -->
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <ion-button expand="block" (click)="addPhotoFromCamera()" color="primary" style="flex: 1;">
+          <ion-icon name="camera" slot="start"></ion-icon>
+          Camera
+        </ion-button>
+        <ion-button expand="block" (click)="addPhotosFromGallery()" color="primary" style="flex: 1;">
+          <ion-icon name="images" slot="start"></ion-icon>
+          Gallery
+        </ion-button>
+      </div>
 
       <!-- Hidden File Input -->
       <input
