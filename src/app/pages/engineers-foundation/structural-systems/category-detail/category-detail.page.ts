@@ -124,13 +124,18 @@ export class CategoryDetailPage implements OnInit {
     this.loading = true;
 
     try {
-      // Load templates for this category
+      // Load templates for this category (fast - just structure)
       await this.loadCategoryTemplates();
 
-      // Load existing visuals for this service
-      await this.loadExistingVisuals();
-
+      // Show page immediately after templates load
       this.loading = false;
+
+      // Load existing visuals in background (photos will show skeleton loaders)
+      // Don't await - let this happen in the background
+      this.loadExistingVisuals().catch(error => {
+        console.error('Error loading existing visuals:', error);
+      });
+
     } catch (error) {
       console.error('Error loading category data:', error);
       this.loading = false;
