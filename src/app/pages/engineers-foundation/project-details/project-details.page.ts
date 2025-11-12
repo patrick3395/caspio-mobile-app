@@ -1,9 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ToastController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { EngineersFoundationStateService, ProjectData } from '../services/engineers-foundation-state.service';
+import { CaspioService } from '../../../services/caspio.service';
+import { OfflineService } from '../../../services/offline.service';
 
 @Component({
   selector: 'app-project-details',
@@ -15,7 +17,8 @@ import { EngineersFoundationStateService, ProjectData } from '../services/engine
 export class ProjectDetailsPage implements OnInit {
   projectId: string = '';
   serviceId: string = '';
-  projectData: ProjectData = {};
+  projectData: any = {};  // Use any to match original structure
+  serviceData: any = {};  // Add serviceData for Services table fields
 
   // Dropdown options
   inAttendanceOptions: string[] = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
@@ -50,66 +53,90 @@ export class ProjectDetailsPage implements OnInit {
   thirdFoundationRoomsOtherValue: string = '';
   ownerOccupantInterviewOtherValue: string = '';
 
+  // Save status
+  saveStatus: string = '';
+  saveStatusType: 'info' | 'success' | 'error' = 'info';
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private stateService: EngineersFoundationStateService
+    private stateService: EngineersFoundationStateService,
+    private caspioService: CaspioService,
+    private toastController: ToastController,
+    private offlineService: OfflineService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
-  ngOnInit() {
+  async ngOnInit() {
     // Get IDs from parent route
     this.route.parent?.params.subscribe(params => {
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
+
+      // Load project and service data
+      this.loadData();
     });
+  }
 
-    // Subscribe to project data from state service
-    this.stateService.projectData$.subscribe(data => {
-      this.projectData = { ...data };
-
-      // Initialize multi-select arrays from stored data
-      if (this.projectData.inAttendance) {
-        // Handle both string and array formats
-        if (typeof this.projectData.inAttendance === 'string') {
-          this.inAttendanceSelections = this.projectData.inAttendance.split(',').map((s: string) => s.trim()).filter((s: string) => s);
-        } else if (Array.isArray(this.projectData.inAttendance)) {
-          this.inAttendanceSelections = this.projectData.inAttendance.map((s: string) => s.trim()).filter((s: string) => s);
+  private async loadData() {
+    try {
+      // Load project data
+      this.caspioService.getProject(this.projectId).subscribe({
+        next: (project) => {
+          this.projectData = project || {};
+          this.changeDetectorRef.detectChanges();
+        },
+        error: (error) => {
+          console.error('Error loading project:', error);
         }
-      }
-      if (this.projectData.secondFoundationRooms) {
-        this.secondFoundationRoomsSelections = this.projectData.secondFoundationRooms.map((s: string) => s.trim()).filter((s: string) => s);
-      }
-      if (this.projectData.thirdFoundationRooms) {
-        this.thirdFoundationRoomsSelections = this.projectData.thirdFoundationRooms.map((s: string) => s.trim()).filter((s: string) => s);
-      }
-    });
+      });
+
+      // Load service data
+      this.caspioService.getService(this.serviceId).subscribe({
+        next: (service) => {
+          this.serviceData = service || {};
+
+          // Initialize multi-select arrays from stored comma-separated strings
+          if (this.serviceData.InAttendance) {
+            this.inAttendanceSelections = this.serviceData.InAttendance.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+          }
+          if (this.serviceData.SecondFoundationRooms) {
+            this.secondFoundationRoomsSelections = this.serviceData.SecondFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+          }
+          if (this.serviceData.ThirdFoundationRooms) {
+            this.thirdFoundationRoomsSelections = this.serviceData.ThirdFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+          }
+
+          this.changeDetectorRef.detectChanges();
+        },
+        error: (error) => {
+          console.error('Error loading service:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error in loadData:', error);
+    }
   }
 
   goBack() {
     this.router.navigate(['..'], { relativeTo: this.route });
   }
 
-  // Generic field change handler
-  onProjectFieldChange(field: string, value: any) {
-    this.stateService.updateProjectData({ [field]: value });
-    this.stateService.saveProjectField(field, value);
-  }
-
   // Year Built handlers
   onYearBuiltChange(value: string) {
     // Remove non-numeric characters
     const cleaned = value.replace(/[^0-9]/g, '');
-    this.projectData.yearBuilt = cleaned;
-    this.onProjectFieldChange('yearBuilt', cleaned);
+    this.projectData.YearBuilt = cleaned;
+    this.autoSaveProjectField('YearBuilt', cleaned);
   }
 
   formatYearBuilt() {
-    if (this.projectData.yearBuilt) {
+    if (this.projectData.YearBuilt) {
       // Ensure 4 digits
-      const year = this.projectData.yearBuilt.replace(/[^0-9]/g, '');
+      const year = this.projectData.YearBuilt.replace(/[^0-9]/g, '');
       if (year.length === 4) {
-        this.projectData.yearBuilt = year;
-        this.onProjectFieldChange('yearBuilt', year);
+        this.projectData.YearBuilt = year;
+        this.autoSaveProjectField('YearBuilt', year);
       }
     }
   }
@@ -118,20 +145,41 @@ export class ProjectDetailsPage implements OnInit {
   onSquareFeetChange(value: string) {
     // Remove non-numeric characters except comma
     const cleaned = value.replace(/[^0-9,]/g, '');
-    this.projectData.squareFeet = cleaned;
-    this.onProjectFieldChange('squareFeet', cleaned);
+    this.projectData.SquareFeet = cleaned;
+    this.autoSaveProjectField('SquareFeet', cleaned);
   }
 
   formatSquareFeet() {
-    if (this.projectData.squareFeet) {
+    if (this.projectData.SquareFeet) {
       // Remove existing commas and add thousands separator
-      const number = this.projectData.squareFeet.replace(/,/g, '');
+      const number = this.projectData.SquareFeet.replace(/,/g, '');
       if (number) {
         const formatted = parseInt(number, 10).toLocaleString('en-US');
-        this.projectData.squareFeet = formatted;
-        this.onProjectFieldChange('squareFeet', formatted);
+        this.projectData.SquareFeet = formatted;
       }
     }
+  }
+
+  // Project field change handler (for Projects table)
+  async onProjectFieldChange(fieldName: string, value: any) {
+    // If "Other" is selected, wait for user to fill in the inline input field
+    if (value === 'Other') {
+      return;
+    }
+
+    this.projectData[fieldName] = value;
+    this.autoSaveProjectField(fieldName, value);
+  }
+
+  // Service field change handler (for Services table)
+  async onServiceFieldChange(fieldName: string, value: any) {
+    // If "Other" is selected, wait for user to fill in the inline input field
+    if (value === 'Other') {
+      return;
+    }
+
+    this.serviceData[fieldName] = value;
+    this.autoSaveServiceField(fieldName, value);
   }
 
   // In Attendance multi-select methods
@@ -146,7 +194,7 @@ export class ProjectDetailsPage implements OnInit {
     return this.inAttendanceSelections.includes(option);
   }
 
-  onInAttendanceToggle(option: string, event: any) {
+  async onInAttendanceToggle(option: string, event: any) {
     if (!this.inAttendanceSelections) {
       this.inAttendanceSelections = [];
     }
@@ -165,10 +213,10 @@ export class ProjectDetailsPage implements OnInit {
       }
     }
 
-    this.saveInAttendance();
+    await this.saveInAttendance();
   }
 
-  onInAttendanceOtherChange() {
+  async onInAttendanceOtherChange() {
     if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
       if (!this.inAttendanceSelections) {
         this.inAttendanceSelections = [];
@@ -194,12 +242,14 @@ export class ProjectDetailsPage implements OnInit {
         this.inAttendanceSelections[customIndex] = 'Other';
       }
     }
-    this.saveInAttendance();
+    await this.saveInAttendance();
   }
 
-  private saveInAttendance() {
+  private async saveInAttendance() {
     const attendanceText = this.inAttendanceSelections.join(', ');
-    this.onProjectFieldChange('inAttendance', attendanceText);
+    this.serviceData.InAttendance = attendanceText;
+    await this.autoSaveServiceField('InAttendance', attendanceText);
+    this.changeDetectorRef.detectChanges();
   }
 
   // Second Foundation Rooms multi-select methods
@@ -214,7 +264,7 @@ export class ProjectDetailsPage implements OnInit {
     return this.secondFoundationRoomsSelections.includes(option);
   }
 
-  onSecondFoundationRoomsToggle(option: string, event: any) {
+  async onSecondFoundationRoomsToggle(option: string, event: any) {
     if (!this.secondFoundationRoomsSelections) {
       this.secondFoundationRoomsSelections = [];
     }
@@ -233,10 +283,10 @@ export class ProjectDetailsPage implements OnInit {
       }
     }
 
-    this.saveSecondFoundationRooms();
+    await this.saveSecondFoundationRooms();
   }
 
-  onSecondFoundationRoomsOtherChange() {
+  async onSecondFoundationRoomsOtherChange() {
     if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
       const otherIndex = this.secondFoundationRoomsSelections.indexOf('Other');
       if (otherIndex > -1) {
@@ -245,11 +295,14 @@ export class ProjectDetailsPage implements OnInit {
         this.secondFoundationRoomsSelections.push(this.secondFoundationRoomsOtherValue.trim());
       }
     }
-    this.saveSecondFoundationRooms();
+    await this.saveSecondFoundationRooms();
   }
 
-  private saveSecondFoundationRooms() {
-    this.onProjectFieldChange('secondFoundationRooms', this.secondFoundationRoomsSelections);
+  private async saveSecondFoundationRooms() {
+    const roomsText = this.secondFoundationRoomsSelections.join(', ');
+    this.serviceData.SecondFoundationRooms = roomsText;
+    await this.autoSaveServiceField('SecondFoundationRooms', roomsText);
+    this.changeDetectorRef.detectChanges();
   }
 
   // Third Foundation Rooms multi-select methods
@@ -264,7 +317,7 @@ export class ProjectDetailsPage implements OnInit {
     return this.thirdFoundationRoomsSelections.includes(option);
   }
 
-  onThirdFoundationRoomsToggle(option: string, event: any) {
+  async onThirdFoundationRoomsToggle(option: string, event: any) {
     if (!this.thirdFoundationRoomsSelections) {
       this.thirdFoundationRoomsSelections = [];
     }
@@ -283,10 +336,10 @@ export class ProjectDetailsPage implements OnInit {
       }
     }
 
-    this.saveThirdFoundationRooms();
+    await this.saveThirdFoundationRooms();
   }
 
-  onThirdFoundationRoomsOtherChange() {
+  async onThirdFoundationRoomsOtherChange() {
     if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
       const otherIndex = this.thirdFoundationRoomsSelections.indexOf('Other');
       if (otherIndex > -1) {
@@ -295,74 +348,159 @@ export class ProjectDetailsPage implements OnInit {
         this.thirdFoundationRoomsSelections.push(this.thirdFoundationRoomsOtherValue.trim());
       }
     }
-    this.saveThirdFoundationRooms();
+    await this.saveThirdFoundationRooms();
   }
 
-  private saveThirdFoundationRooms() {
-    this.onProjectFieldChange('thirdFoundationRooms', this.thirdFoundationRoomsSelections);
+  private async saveThirdFoundationRooms() {
+    const roomsText = this.thirdFoundationRoomsSelections.join(', ');
+    this.serviceData.ThirdFoundationRooms = roomsText;
+    await this.autoSaveServiceField('ThirdFoundationRooms', roomsText);
+    this.changeDetectorRef.detectChanges();
   }
 
   // "Other" value change handlers for dropdowns
-  onTypeOfBuildingOtherChange() {
+  async onTypeOfBuildingOtherChange() {
     if (this.typeOfBuildingOtherValue && this.typeOfBuildingOtherValue.trim()) {
       const customValue = this.typeOfBuildingOtherValue.trim();
-      this.onProjectFieldChange('buildingType', customValue);
+      this.autoSaveProjectField('TypeOfBuilding', customValue);
     }
   }
 
-  onStyleOtherChange() {
+  async onStyleOtherChange() {
     if (this.styleOtherValue && this.styleOtherValue.trim()) {
       const customValue = this.styleOtherValue.trim();
-      this.onProjectFieldChange('style', customValue);
+      this.autoSaveProjectField('Style', customValue);
     }
   }
 
-  onOccupancyFurnishingsOtherChange() {
+  async onOccupancyFurnishingsOtherChange() {
     if (this.occupancyFurnishingsOtherValue && this.occupancyFurnishingsOtherValue.trim()) {
       const customValue = this.occupancyFurnishingsOtherValue.trim();
-      this.onProjectFieldChange('occupancyStatus', customValue);
+      this.autoSaveServiceField('OccupancyFurnishings', customValue);
     }
   }
 
-  onWeatherConditionsOtherChange() {
+  async onWeatherConditionsOtherChange() {
     if (this.weatherConditionsOtherValue && this.weatherConditionsOtherValue.trim()) {
       const customValue = this.weatherConditionsOtherValue.trim();
-      this.onProjectFieldChange('weatherConditions', customValue);
+      this.autoSaveServiceField('WeatherConditions', customValue);
     }
   }
 
-  onOutdoorTemperatureOtherChange() {
+  async onOutdoorTemperatureOtherChange() {
     if (this.outdoorTemperatureOtherValue && this.outdoorTemperatureOtherValue.trim()) {
       const customValue = this.outdoorTemperatureOtherValue.trim();
-      this.onProjectFieldChange('outdoorTemp', customValue);
+      this.autoSaveServiceField('OutdoorTemperature', customValue);
     }
   }
 
-  onFirstFoundationTypeOtherChange() {
+  async onFirstFoundationTypeOtherChange() {
     if (this.firstFoundationTypeOtherValue && this.firstFoundationTypeOtherValue.trim()) {
       const customValue = this.firstFoundationTypeOtherValue.trim();
-      this.onProjectFieldChange('firstFoundationType', customValue);
+      this.autoSaveServiceField('FirstFoundationType', customValue);
     }
   }
 
-  onSecondFoundationTypeOtherChange() {
+  async onSecondFoundationTypeOtherChange() {
     if (this.secondFoundationTypeOtherValue && this.secondFoundationTypeOtherValue.trim()) {
       const customValue = this.secondFoundationTypeOtherValue.trim();
-      this.onProjectFieldChange('secondFoundationType', customValue);
+      this.autoSaveServiceField('SecondFoundationType', customValue);
     }
   }
 
-  onThirdFoundationTypeOtherChange() {
+  async onThirdFoundationTypeOtherChange() {
     if (this.thirdFoundationTypeOtherValue && this.thirdFoundationTypeOtherValue.trim()) {
       const customValue = this.thirdFoundationTypeOtherValue.trim();
-      this.onProjectFieldChange('thirdFoundationType', customValue);
+      this.autoSaveServiceField('ThirdFoundationType', customValue);
     }
   }
 
-  onOwnerOccupantInterviewOtherChange() {
+  async onOwnerOccupantInterviewOtherChange() {
     if (this.ownerOccupantInterviewOtherValue && this.ownerOccupantInterviewOtherValue.trim()) {
       const customValue = this.ownerOccupantInterviewOtherValue.trim();
-      this.onProjectFieldChange('ownerInterview', customValue);
+      this.autoSaveServiceField('OwnerOccupantInterview', customValue);
     }
+  }
+
+  // Auto-save to Projects table
+  private autoSaveProjectField(fieldName: string, value: any) {
+    if (!this.projectId || this.projectId === 'new') return;
+
+    const isCurrentlyOnline = this.offlineService.isOnline();
+    const manualOfflineMode = this.offlineService.isManualOffline();
+
+    if (isCurrentlyOnline) {
+      this.showSaveStatus(`Saving ${fieldName}...`, 'info');
+    } else {
+      const queuedMessage = manualOfflineMode
+        ? `${fieldName} queued (manual offline mode)`
+        : `${fieldName} queued until connection returns`;
+      this.showSaveStatus(queuedMessage, 'info');
+    }
+
+    // Update the Projects table directly
+    this.caspioService.updateProject(this.projectId, { [fieldName]: value }).subscribe({
+      next: () => {
+        if (this.offlineService.isOnline()) {
+          this.showSaveStatus(`${fieldName} saved`, 'success');
+        }
+      },
+      error: (error) => {
+        console.error(`Error saving project field ${fieldName}:`, error);
+        this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
+      }
+    });
+  }
+
+  // Auto-save to Services table
+  private autoSaveServiceField(fieldName: string, value: any) {
+    if (!this.serviceId) {
+      console.error(`Cannot save ${fieldName} - No ServiceID! ServiceID is: ${this.serviceId}`);
+      return;
+    }
+
+    const isCurrentlyOnline = this.offlineService.isOnline();
+    const manualOfflineMode = this.offlineService.isManualOffline();
+
+    if (isCurrentlyOnline) {
+      this.showSaveStatus(`Saving ${fieldName}...`, 'info');
+    } else {
+      const queuedMessage = manualOfflineMode
+        ? `${fieldName} queued (manual offline mode)`
+        : `${fieldName} queued until connection returns`;
+      this.showSaveStatus(queuedMessage, 'info');
+    }
+
+    // Update the Services table directly
+    this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
+      next: (response) => {
+        if (this.offlineService.isOnline()) {
+          this.showSaveStatus(`${fieldName} saved`, 'success');
+        }
+      },
+      error: (error) => {
+        console.error(`Error saving service field ${fieldName}:`, error);
+        this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
+      }
+    });
+  }
+
+  showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
+    this.saveStatus = message;
+    this.saveStatusType = type;
+
+    setTimeout(() => {
+      this.saveStatus = '';
+    }, 3000);
+  }
+
+  async showToast(message: string, color: string = 'primary') {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      color,
+      position: 'bottom'
+    });
+    await toast.present();
   }
 }

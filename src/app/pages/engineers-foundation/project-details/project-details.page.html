@@ -17,38 +17,38 @@
       </h3>
       <div class="form-grid three-col">
         <!-- Client Name -->
-        <div class="form-group" [class.filled]="projectData.clientName">
+        <div class="form-group" [class.filled]="projectData.ClientName">
           <label>
             <ion-icon name="person-outline"></ion-icon>
             Client Name<span class="required">*</span>
           </label>
-          <input type="text" [(ngModel)]="projectData.clientName" name="clientName"
-                 (ngModelChange)="onProjectFieldChange('clientName', $event)"
+          <input type="text" [(ngModel)]="projectData.ClientName" name="clientName"
+                 (ngModelChange)="onProjectFieldChange('ClientName', $event)"
                  placeholder="Enter client name"
                  required
                  class="styled-input">
         </div>
 
         <!-- Agent Name -->
-        <div class="form-group" [class.filled]="projectData.agentName">
+        <div class="form-group" [class.filled]="projectData.AgentName">
           <label>
             <ion-icon name="briefcase-outline"></ion-icon>
             Agent Name
           </label>
-          <input type="text" [(ngModel)]="projectData.agentName" name="agentName"
-                 (ngModelChange)="onProjectFieldChange('agentName', $event)"
+          <input type="text" [(ngModel)]="projectData.AgentName" name="agentName"
+                 (ngModelChange)="onProjectFieldChange('AgentName', $event)"
                  placeholder="Enter agent name"
                  class="styled-input">
         </div>
 
         <!-- Inspector Name -->
-        <div class="form-group" [class.filled]="projectData.inspectorName">
+        <div class="form-group" [class.filled]="projectData.InspectorName">
           <label>
             <ion-icon name="clipboard-outline"></ion-icon>
             Inspector Name<span class="required">*</span>
           </label>
-          <input type="text" [(ngModel)]="projectData.inspectorName" name="inspectorName"
-                 (ngModelChange)="onProjectFieldChange('inspectorName', $event)"
+          <input type="text" [(ngModel)]="projectData.InspectorName" name="inspectorName"
+                 (ngModelChange)="onProjectFieldChange('InspectorName', $event)"
                  placeholder="Enter inspector name"
                  required
                  class="styled-input">
@@ -92,12 +92,12 @@
       </h3>
       <div class="form-grid three-col">
         <!-- Year Built -->
-        <div class="form-group" [class.filled]="projectData.yearBuilt">
+        <div class="form-group" [class.filled]="projectData.YearBuilt">
           <label>
             <ion-icon name="calendar-outline"></ion-icon>
             Year Built<span class="required">*</span>
           </label>
-          <input type="tel" [(ngModel)]="projectData.yearBuilt" name="yearBuilt"
+          <input type="tel" [(ngModel)]="projectData.YearBuilt" name="yearBuilt"
                  (ngModelChange)="onYearBuiltChange($event)"
                  (blur)="formatYearBuilt()"
                  placeholder="e.g., 1985"
@@ -109,12 +109,12 @@
         </div>
 
         <!-- Square Feet -->
-        <div class="form-group" [class.filled]="projectData.squareFeet">
+        <div class="form-group" [class.filled]="projectData.SquareFeet">
           <label>
             <ion-icon name="resize-outline"></ion-icon>
             Square Feet<span class="required">*</span>
           </label>
-          <input type="tel" [(ngModel)]="projectData.squareFeet" name="squareFeet"
+          <input type="tel" [(ngModel)]="projectData.SquareFeet" name="squareFeet"
                  (ngModelChange)="onSquareFeetChange($event)"
                  (blur)="formatSquareFeet()"
                  placeholder="e.g., 2,500"
@@ -125,21 +125,21 @@
         </div>
 
         <!-- Type of Building -->
-        <div class="form-group" [class.filled]="projectData.buildingType">
+        <div class="form-group" [class.filled]="projectData.TypeOfBuilding">
           <label>
             <ion-icon name="business-outline"></ion-icon>
             Building Type<span class="required">*</span>
           </label>
-          <div class="dropdown-with-other-container" [class.has-other]="projectData.buildingType === 'Other'">
-            <select [(ngModel)]="projectData.buildingType" name="buildingType"
-                    (ngModelChange)="onProjectFieldChange('buildingType', $event)"
+          <div class="dropdown-with-other-container" [class.has-other]="projectData.TypeOfBuilding === 'Other'">
+            <select [(ngModel)]="projectData.TypeOfBuilding" name="buildingType"
+                    (ngModelChange)="onProjectFieldChange('TypeOfBuilding', $event)"
                     required
                     class="styled-input">
               <option value="">-- Select --</option>
               <option *ngFor="let option of typeOfBuildingOptions" [value]="option">{{ option }}</option>
             </select>
             <!-- Custom input for "Other" option -->
-            <div class="other-input-container" *ngIf="projectData.buildingType === 'Other'">
+            <div class="other-input-container" *ngIf="projectData.TypeOfBuilding === 'Other'">
               <input type="text"
                      [(ngModel)]="typeOfBuildingOtherValue"
                      (blur)="onTypeOfBuildingOtherChange()"
@@ -151,21 +151,21 @@
         </div>
 
         <!-- Style -->
-        <div class="form-group" [class.filled]="projectData.style">
+        <div class="form-group" [class.filled]="projectData.Style">
           <label>
             <ion-icon name="home-outline"></ion-icon>
             Style<span class="required">*</span>
           </label>
-          <div class="dropdown-with-other-container" [class.has-other]="projectData.style === 'Other'">
-            <select [(ngModel)]="projectData.style" name="style"
-                    (ngModelChange)="onProjectFieldChange('style', $event)"
+          <div class="dropdown-with-other-container" [class.has-other]="projectData.Style === 'Other'">
+            <select [(ngModel)]="projectData.Style" name="style"
+                    (ngModelChange)="onProjectFieldChange('Style', $event)"
                     required
                     class="styled-input">
               <option value="">-- Select --</option>
               <option *ngFor="let option of styleOptions" [value]="option">{{ option }}</option>
             </select>
             <!-- Custom input for "Other" option -->
-            <div class="other-input-container" *ngIf="projectData.style === 'Other'">
+            <div class="other-input-container" *ngIf="projectData.Style === 'Other'">
               <input type="text"
                      [(ngModel)]="styleOtherValue"
                      (blur)="onStyleOtherChange()"
@@ -177,21 +177,21 @@
         </div>
 
         <!-- Occupancy Furnishings -->
-        <div class="form-group" [class.filled]="projectData.occupancyStatus">
+        <div class="form-group" [class.filled]="serviceData.OccupancyFurnishings">
           <label>
             <ion-icon name="bed-outline"></ion-icon>
             Occupancy Status<span class="required">*</span>
           </label>
-          <div class="dropdown-with-other-container" [class.has-other]="projectData.occupancyStatus === 'Other'">
-            <select [(ngModel)]="projectData.occupancyStatus" name="occupancyStatus"
-                    (ngModelChange)="onProjectFieldChange('occupancyStatus', $event)"
+          <div class="dropdown-with-other-container" [class.has-other]="serviceData.OccupancyFurnishings === 'Other'">
+            <select [(ngModel)]="serviceData.OccupancyFurnishings" name="occupancyStatus"
+                    (ngModelChange)="onServiceFieldChange('OccupancyFurnishings', $event)"
                     required
                     class="styled-input">
               <option value="">-- Select --</option>
               <option *ngFor="let option of occupancyFurnishingsOptions" [value]="option">{{ option }}</option>
             </select>
             <!-- Custom input for "Other" option -->
-            <div class="other-input-container" *ngIf="projectData.occupancyStatus === 'Other'">
+            <div class="other-input-container" *ngIf="serviceData.OccupancyFurnishings === 'Other'">
               <input type="text"
                      [(ngModel)]="occupancyFurnishingsOtherValue"
                      (blur)="onOccupancyFurnishingsOtherChange()"
@@ -212,21 +212,21 @@
       </h3>
       <div class="form-grid two-col">
         <!-- Weather Conditions -->
-        <div class="form-group" [class.filled]="projectData.weatherConditions">
+        <div class="form-group" [class.filled]="serviceData.WeatherConditions">
           <label>
             <ion-icon name="cloud-outline"></ion-icon>
             Weather Conditions<span class="required">*</span>
           </label>
-          <div class="dropdown-with-other-container" [class.has-other]="projectData.weatherConditions === 'Other'">
-            <select [(ngModel)]="projectData.weatherConditions" name="weatherConditions"
-                    (ngModelChange)="onProjectFieldChange('weatherConditions', $event)"
+          <div class="dropdown-with-other-container" [class.has-other]="serviceData.WeatherConditions === 'Other'">
+            <select [(ngModel)]="serviceData.WeatherConditions" name="weatherConditions"
+                    (ngModelChange)="onServiceFieldChange('WeatherConditions', $event)"
                     required
                     class="styled-input">
               <option value="">-- Select --</option>
               <option *ngFor="let option of weatherConditionsOptions" [value]="option">{{ option }}</option>
             </select>
             <!-- Custom input for "Other" option -->
-            <div class="other-input-container" *ngIf="projectData.weatherConditions === 'Other'">
+            <div class="other-input-container" *ngIf="serviceData.WeatherConditions === 'Other'">
               <input type="text"
                      [(ngModel)]="weatherConditionsOtherValue"
                      (blur)="onWeatherConditionsOtherChange()"
@@ -238,21 +238,21 @@
         </div>
 
         <!-- Outdoor Temperature -->
-        <div class="form-group" [class.filled]="projectData.outdoorTemp">
+        <div class="form-group" [class.filled]="serviceData.OutdoorTemperature">
           <label>
             <ion-icon name="thermometer-outline"></ion-icon>
             Outdoor Temperature<span class="required">*</span>
           </label>
-          <div class="dropdown-with-other-container" [class.has-other]="projectData.outdoorTemp === 'Other'">
-            <select [(ngModel)]="projectData.outdoorTemp" name="outdoorTemp"
-                    (ngModelChange)="onProjectFieldChange('outdoorTemp', $event)"
+          <div class="dropdown-with-other-container" [class.has-other]="serviceData.OutdoorTemperature === 'Other'">
+            <select [(ngModel)]="serviceData.OutdoorTemperature" name="outdoorTemp"
+                    (ngModelChange)="onServiceFieldChange('OutdoorTemperature', $event)"
                     required
                     class="styled-input">
               <option value="">-- Select --</option>
               <option *ngFor="let option of outdoorTemperatureOptions" [value]="option">{{ option }}</option>
             </select>
             <!-- Custom input for "Other" option -->
-            <div class="other-input-container" *ngIf="projectData.outdoorTemp === 'Other'">
+            <div class="other-input-container" *ngIf="serviceData.OutdoorTemperature === 'Other'">
               <input type="text"
                      [(ngModel)]="outdoorTemperatureOtherValue"
                      (blur)="onOutdoorTemperatureOtherChange()"
@@ -273,20 +273,20 @@
       </h3>
       <div class="form-grid two-col">
         <!-- First Foundation Type -->
-        <div class="form-group" [class.filled]="projectData.firstFoundationType">
+        <div class="form-group" [class.filled]="serviceData.FirstFoundationType">
           <label>
             <ion-icon name="construct-outline"></ion-icon>
             First Foundation Type
           </label>
-          <div class="dropdown-with-other-container" [class.has-other]="projectData.firstFoundationType === 'Other'">
-            <select [(ngModel)]="projectData.firstFoundationType" name="firstFoundationType"
-                    (ngModelChange)="onProjectFieldChange('firstFoundationType', $event)"
+          <div class="dropdown-with-other-container" [class.has-other]="serviceData.FirstFoundationType === 'Other'">
+            <select [(ngModel)]="serviceData.FirstFoundationType" name="firstFoundationType"
+                    (ngModelChange)="onServiceFieldChange('FirstFoundationType', $event)"
                     class="styled-input">
               <option value="">-- Select --</option>
               <option *ngFor="let option of firstFoundationTypeOptions" [value]="option">{{ option }}</option>
             </select>
             <!-- Custom input for "Other" option -->
-            <div class="other-input-container" *ngIf="projectData.firstFoundationType === 'Other'">
+            <div class="other-input-container" *ngIf="serviceData.FirstFoundationType === 'Other'">
               <input type="text"
                      [(ngModel)]="firstFoundationTypeOtherValue"
                      (blur)="onFirstFoundationTypeOtherChange()"
@@ -298,20 +298,20 @@
         </div>
 
         <!-- Second Foundation Type -->
-        <div class="form-group" [class.filled]="projectData.secondFoundationType">
+        <div class="form-group" [class.filled]="serviceData.SecondFoundationType">
           <label>
             <ion-icon name="construct-outline"></ion-icon>
             Second Foundation Type
           </label>
-          <div class="dropdown-with-other-container" [class.has-other]="projectData.secondFoundationType === 'Other'">
-            <select [(ngModel)]="projectData.secondFoundationType" name="secondFoundationType"
-                    (ngModelChange)="onProjectFieldChange('secondFoundationType', $event)"
+          <div class="dropdown-with-other-container" [class.has-other]="serviceData.SecondFoundationType === 'Other'">
+            <select [(ngModel)]="serviceData.SecondFoundationType" name="secondFoundationType"
+                    (ngModelChange)="onServiceFieldChange('SecondFoundationType', $event)"
                     class="styled-input">
               <option value="">-- None --</option>
               <option *ngFor="let option of secondFoundationTypeOptions" [value]="option">{{ option }}</option>
             </select>
             <!-- Custom input for "Other" option -->
-            <div class="other-input-container" *ngIf="projectData.secondFoundationType === 'Other'">
+            <div class="other-input-container" *ngIf="serviceData.SecondFoundationType === 'Other'">
               <input type="text"
                      [(ngModel)]="secondFoundationTypeOtherValue"
                      (blur)="onSecondFoundationTypeOtherChange()"
@@ -324,7 +324,7 @@
 
         <!-- Second Foundation Rooms - Multi-Select -->
         <div class="form-group full-width" [class.filled]="secondFoundationRoomsSelections && secondFoundationRoomsSelections.length > 0"
-             *ngIf="projectData.secondFoundationType && projectData.secondFoundationType !== 'None' && projectData.secondFoundationType !== ''">
+             *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== ''">
           <label>
             <ion-icon name="home-outline"></ion-icon>
             Second Foundation Rooms
@@ -352,21 +352,21 @@
         </div>
 
         <!-- Third Foundation Type -->
-        <div class="form-group" [class.filled]="projectData.thirdFoundationType"
-             *ngIf="projectData.secondFoundationType && projectData.secondFoundationType !== 'None' && projectData.secondFoundationType !== ''">
+        <div class="form-group" [class.filled]="serviceData.ThirdFoundationType"
+             *ngIf="serviceData.SecondFoundationType && serviceData.SecondFoundationType !== 'None' && serviceData.SecondFoundationType !== ''">
           <label>
             <ion-icon name="construct-outline"></ion-icon>
             Third Foundation Type
           </label>
-          <div class="dropdown-with-other-container" [class.has-other]="projectData.thirdFoundationType === 'Other'">
-            <select [(ngModel)]="projectData.thirdFoundationType" name="thirdFoundationType"
-                    (ngModelChange)="onProjectFieldChange('thirdFoundationType', $event)"
+          <div class="dropdown-with-other-container" [class.has-other]="serviceData.ThirdFoundationType === 'Other'">
+            <select [(ngModel)]="serviceData.ThirdFoundationType" name="thirdFoundationType"
+                    (ngModelChange)="onServiceFieldChange('ThirdFoundationType', $event)"
                     class="styled-input">
               <option value="">-- None --</option>
               <option *ngFor="let option of thirdFoundationTypeOptions" [value]="option">{{ option }}</option>
             </select>
             <!-- Custom input for "Other" option -->
-            <div class="other-input-container" *ngIf="projectData.thirdFoundationType === 'Other'">
+            <div class="other-input-container" *ngIf="serviceData.ThirdFoundationType === 'Other'">
               <input type="text"
                      [(ngModel)]="thirdFoundationTypeOtherValue"
                      (blur)="onThirdFoundationTypeOtherChange()"
@@ -379,7 +379,7 @@
 
         <!-- Third Foundation Rooms - Multi-Select -->
         <div class="form-group full-width" [class.filled]="thirdFoundationRoomsSelections && thirdFoundationRoomsSelections.length > 0"
-             *ngIf="projectData.thirdFoundationType && projectData.thirdFoundationType !== 'None' && projectData.thirdFoundationType !== ''">
+             *ngIf="serviceData.ThirdFoundationType && serviceData.ThirdFoundationType !== 'None' && serviceData.ThirdFoundationType !== ''">
           <label>
             <ion-icon name="home-outline"></ion-icon>
             Third Foundation Rooms
@@ -407,20 +407,20 @@
         </div>
 
         <!-- Owner/Occupant Interview -->
-        <div class="form-group full-width" [class.filled]="projectData.ownerInterview">
+        <div class="form-group full-width" [class.filled]="serviceData.OwnerOccupantInterview">
           <label>
             <ion-icon name="chatbubbles-outline"></ion-icon>
             Owner/occupant foundation history interview
           </label>
-          <div class="dropdown-with-other-container" [class.has-other]="projectData.ownerInterview === 'Other'">
-            <select [(ngModel)]="projectData.ownerInterview" name="ownerInterview"
-                    (ngModelChange)="onProjectFieldChange('ownerInterview', $event)"
+          <div class="dropdown-with-other-container" [class.has-other]="serviceData.OwnerOccupantInterview === 'Other'">
+            <select [(ngModel)]="serviceData.OwnerOccupantInterview" name="ownerInterview"
+                    (ngModelChange)="onServiceFieldChange('OwnerOccupantInterview', $event)"
                     class="styled-input">
               <option value="">-- Select --</option>
               <option *ngFor="let option of ownerOccupantInterviewOptions" [value]="option">{{ option }}</option>
             </select>
             <!-- Custom input for "Other" option -->
-            <div class="other-input-container" *ngIf="projectData.ownerInterview === 'Other'">
+            <div class="other-input-container" *ngIf="serviceData.OwnerOccupantInterview === 'Other'">
               <input type="text"
                      [(ngModel)]="ownerOccupantInterviewOtherValue"
                      (blur)="onOwnerOccupantInterviewOtherChange()"
