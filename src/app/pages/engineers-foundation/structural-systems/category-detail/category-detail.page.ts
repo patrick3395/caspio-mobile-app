@@ -1013,7 +1013,7 @@ export class CategoryDetailPage implements OnInit {
         try {
           if (typeof source === 'string') {
             // Import decompression utility
-            const { decompressAnnotationData } = await import('../../utils/annotation-utils');
+            const { decompressAnnotationData } = await import('../../../../utils/annotation-utils');
             existingAnnotations = decompressAnnotationData(source);
           } else {
             existingAnnotations = source;
@@ -1120,7 +1120,7 @@ export class CategoryDetailPage implements OnInit {
     const file = new File([annotatedBlob], 'annotated.jpg', { type: 'image/jpeg' });
 
     // Compress annotation data
-    const { compressAnnotationData } = await import('../../utils/annotation-utils');
+    const { compressAnnotationData } = await import('../../../../utils/annotation-utils');
     const compressedDrawings = compressAnnotationData(annotationsData);
 
     // Update the attachment record with new photo and drawings
