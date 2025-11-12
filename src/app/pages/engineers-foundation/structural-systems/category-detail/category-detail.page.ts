@@ -865,6 +865,7 @@ export class CategoryDetailPage implements OnInit {
               if (imageData && imageData.startsWith('data:')) {
                 displayableUrl = imageData;
                 console.log('[PHOTO UPLOAD] Successfully converted to data URL, length:', imageData.length);
+                console.log('[PHOTO UPLOAD] Data URL prefix:', imageData.substring(0, 100));
               } else {
                 console.warn('[PHOTO UPLOAD] Files API returned invalid data:', imageData?.substring(0, 50));
               }
@@ -895,7 +896,15 @@ export class CategoryDetailPage implements OnInit {
             Annotation: caption || ''
           };
 
+          console.log('[PHOTO UPLOAD] Updated photo object:', {
+            AttachID: this.visualPhotos[key][photoIndex].AttachID,
+            displayUrl: this.visualPhotos[key][photoIndex].displayUrl?.substring(0, 50),
+            url: this.visualPhotos[key][photoIndex].url?.substring(0, 50),
+            thumbnailUrl: this.visualPhotos[key][photoIndex].thumbnailUrl?.substring(0, 50)
+          });
+
           this.changeDetectorRef.detectChanges();
+          console.log('[PHOTO UPLOAD] Called detectChanges()');
         }
       }
 
