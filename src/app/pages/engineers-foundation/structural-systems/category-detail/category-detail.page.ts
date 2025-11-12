@@ -314,10 +314,12 @@ export class CategoryDetailPage implements OnInit {
             filePath: filePath,
             Photo: filePath,
             url: imageUrl,
+            originalUrl: imageUrl,        // CRITICAL: Set originalUrl to base image
             thumbnailUrl: imageUrl,
-            displayUrl: imageUrl,
+            displayUrl: imageUrl,          // Will be overwritten with annotated version if user annotates
             caption: attach.Annotation || '',
             annotation: attach.Annotation || '',
+            Annotation: attach.Annotation || '',
             hasAnnotations: !!attach.Drawings,
             annotations: attach.Drawings || null,
             rawDrawingsString: attach.Drawings || null,
@@ -822,16 +824,40 @@ export class CategoryDetailPage implements OnInit {
             URL.revokeObjectURL(oldUrl);
           }
 
+          // CRITICAL: Get the uploaded photo URL from the result
+          const uploadedPhotoUrl = result.thumbnailUrl || result.url || result.Photo;
+          let displayableUrl = uploadedPhotoUrl;
+
+          // If we got a file path, convert it to a displayable URL
+          if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+            try {
+              const imageData = await firstValueFrom(
+                this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
+              );
+              if (imageData && imageData.startsWith('data:')) {
+                displayableUrl = imageData;
+              }
+            } catch (err) {
+              console.error('[PHOTO UPLOAD] Failed to load uploaded image:', err);
+              displayableUrl = 'assets/img/photo-placeholder.png';
+            }
+          }
+
           this.visualPhotos[key][photoIndex] = {
             ...this.visualPhotos[key][photoIndex],
             AttachID: result.AttachID,
             id: result.AttachID,
             uploading: false,
             queued: false,
-            url: result.thumbnailUrl || result.url,
-            thumbnailUrl: result.thumbnailUrl || result.url,
-            displayUrl: result.thumbnailUrl || result.url,
-            caption: caption || ''
+            filePath: uploadedPhotoUrl,
+            Photo: uploadedPhotoUrl,
+            url: displayableUrl,
+            originalUrl: displayableUrl,      // CRITICAL: Set originalUrl to base image
+            thumbnailUrl: displayableUrl,
+            displayUrl: displayableUrl,        // Will be overwritten if user annotates
+            caption: caption || '',
+            annotation: caption || '',
+            Annotation: caption || ''
           };
 
           this.changeDetectorRef.detectChanges();
@@ -969,8 +995,9 @@ export class CategoryDetailPage implements OnInit {
         return;
       }
 
-      // Try to get a valid image URL (EXACTLY like original at line 12179)
-      let imageUrl = photo.url || photo.thumbnailUrl || photo.displayUrl;
+      // CRITICAL FIX v1.4.340: Always use the original URL (base image without annotations)
+      // The originalUrl is set during loadPhotosForVisual to the base image
+      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
 
       // If no valid URL and we have a file path, try to fetch it
       if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo)) {
@@ -983,6 +1010,7 @@ export class CategoryDetailPage implements OnInit {
             imageUrl = fetchedImage;
             // Update the photo object for future use
             photo.url = fetchedImage;
+            photo.originalUrl = fetchedImage;  // CRITICAL: Set originalUrl to base image
             photo.thumbnailUrl = fetchedImage;
             photo.displayUrl = fetchedImage;
             this.changeDetectorRef.detectChanges();
@@ -992,10 +1020,9 @@ export class CategoryDetailPage implements OnInit {
         }
       }
 
-      // Fallback to placeholder if still no URL
-      if (!imageUrl) {
-        imageUrl = 'assets/img/photo-placeholder.png';
-      }
+      // CRITICAL: Always use the original URL (base image without annotations) for editing
+      // This ensures annotations are applied to the original image, not a previously annotated version
+      const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
 
       // Try to load existing annotations (EXACTLY like original at line 12184-12208)
       let existingAnnotations: any = null;
@@ -1033,7 +1060,7 @@ export class CategoryDetailPage implements OnInit {
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
-          imageUrl: imageUrl,
+          imageUrl: originalImageUrl,  // CRITICAL: Always use original, not display URL
           existingAnnotations: existingAnnotations,
           existingCaption: existingCaption,
           photoData: {
@@ -1061,6 +1088,7 @@ export class CategoryDetailPage implements OnInit {
         const annotatedBlob = data.blob || data.annotatedBlob;
         const annotationsData = data.annotationData || data.annotationsData;
 
+        // CRITICAL: Create blob URL for the annotated image (for display only)
         const newUrl = URL.createObjectURL(annotatedBlob);
 
         // Find photo in array and update it
@@ -1070,42 +1098,43 @@ export class CategoryDetailPage implements OnInit {
         );
 
         if (photoIndex !== -1) {
-          const targetPhoto = photos[photoIndex];
+          const currentPhoto = photos[photoIndex];
 
-          if (!targetPhoto.originalUrl) {
-            targetPhoto.originalUrl = targetPhoto.url;
-          }
-
-          targetPhoto.displayUrl = newUrl;
-          targetPhoto.url = newUrl;
-          targetPhoto.thumbnailUrl = newUrl;
-          targetPhoto.hasAnnotations = !!annotationsData;
-
-          if (data.caption !== undefined) {
-            targetPhoto.caption = data.caption;
-            targetPhoto.annotation = data.caption;
-            targetPhoto.Annotation = data.caption;
-          }
-
-          if (annotationsData) {
-            targetPhoto.annotations = annotationsData;
-            // Note: rawDrawingsString will be updated after save with the compressed version
-          }
-
-          this.changeDetectorRef.detectChanges();
-
-          // Save annotations to database
+          // Save annotations to database FIRST
           if (attachId && !String(attachId).startsWith('temp_')) {
             try {
               // CRITICAL: Save and get back the compressed drawings that were saved
               const compressedDrawings = await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, data.caption);
 
-              // CRITICAL: Update rawDrawingsString with the COMPRESSED data that was saved to database
-              // This ensures local state matches database state (original code line 12034)
-              if (compressedDrawings) {
-                targetPhoto.rawDrawingsString = compressedDrawings;
-              }
+              // CRITICAL: Create NEW photo object (immutable update pattern from original line 12518-12542)
+              // This ensures proper change detection and maintains separation between original and annotated
+              this.visualPhotos[key][photoIndex] = {
+                ...currentPhoto,
+                // PRESERVE originalUrl - this is the base image without annotations
+                originalUrl: currentPhoto.originalUrl || currentPhoto.url,
+                // UPDATE displayUrl - this is the annotated version for display
+                displayUrl: newUrl,
+                // Keep url pointing to base image (not the annotated version)
+                url: currentPhoto.url,
+                // Update thumbnailUrl if it was a placeholder or blob URL
+                thumbnailUrl: (currentPhoto.thumbnailUrl &&
+                              !currentPhoto.thumbnailUrl.startsWith('blob:') &&
+                              currentPhoto.thumbnailUrl !== 'assets/img/photo-placeholder.png')
+                              ? currentPhoto.thumbnailUrl
+                              : currentPhoto.url,
+                // Mark as having annotations
+                hasAnnotations: !!annotationsData,
+                // Store caption
+                caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
+                annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
+                Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
+                // Store annotation data
+                annotations: annotationsData,
+                // CRITICAL: Store the COMPRESSED rawDrawingsString that matches database
+                rawDrawingsString: compressedDrawings
+              };
 
+              this.changeDetectorRef.detectChanges();
               await this.showToast('Annotations saved', 'success');
             } catch (error) {
               console.error('[VIEW PHOTO] Error saving annotations:', error);
