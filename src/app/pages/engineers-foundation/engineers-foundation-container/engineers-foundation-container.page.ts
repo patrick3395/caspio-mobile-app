@@ -69,18 +69,26 @@ export class EngineersFoundationContainerPage implements OnInit {
     this.currentPageTitle = 'Engineers Foundation Evaluation';
     this.currentPageShortTitle = 'EFE';
 
-    // Always start with Project Details as the first breadcrumb
-    this.breadcrumbs.push({
-      label: 'Project Details',
-      path: 'project-details',
-      icon: 'document-text-outline'
-    });
-
     // Parse URL to build breadcrumbs and set page title
     // URL format: /engineers-foundation/{projectId}/{serviceId}/...
 
+    // Check if we're on a sub-page (not the main EFE hub)
+    const isSubPage = url.includes('/project-details') ||
+                      url.includes('/structural') ||
+                      url.includes('/elevation');
+
+    if (isSubPage) {
+      // Add EFE main page as first breadcrumb when on sub-pages
+      this.breadcrumbs.push({
+        label: 'Engineers Foundation Evaluation',
+        path: '',
+        icon: 'clipboard-outline'
+      });
+    }
+
     if (url.includes('/project-details')) {
-      // We're on project details page - it's the only breadcrumb after home
+      // Add Project Details breadcrumb
+      this.breadcrumbs.push({ label: 'Project Details', path: 'project-details', icon: 'document-text-outline' });
       this.currentPageTitle = 'Project Details';
       this.currentPageShortTitle = 'Project Details';
     } else if (url.includes('/structural')) {
@@ -122,7 +130,8 @@ export class EngineersFoundationContainerPage implements OnInit {
   }
 
   navigateToHome() {
-    this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId]);
+    // Navigate back to the project page (one step back from EFE main page)
+    this.router.navigate(['/projects', this.projectId]);
   }
 
   navigateToCrumb(crumb: Breadcrumb) {

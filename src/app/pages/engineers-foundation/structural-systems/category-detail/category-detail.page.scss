@@ -1,5 +1,5 @@
 .page-container {
-  padding: 20px;
+  padding: 16px;
   max-width: 1200px;
   margin: 0 auto;
   background: #f5f5f5;
@@ -543,13 +543,13 @@ ion-accordion-group {
   background: transparent;
 
   ion-accordion {
-    // Match .navigation-card styles exactly - clean white cards with borders
-    margin: 0 0 16px 0;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    // Match .navigation-card styles exactly - clean white cards with minimal spacing
+    margin: 0 0 8px 0;
+    border: none;
+    border-radius: 4px;
     overflow: hidden;
     background: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     transition: all 0.2s ease;
     cursor: pointer;
 
@@ -560,8 +560,8 @@ ion-accordion-group {
     // Only apply hover effects on devices with hover capability (desktop)
     @media (hover: hover) and (pointer: fine) {
       &:hover {
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
-        border-color: #d0d0d0;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        background: #fafafa;
       }
     }
 
