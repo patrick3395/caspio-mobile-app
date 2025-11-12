@@ -1163,7 +1163,7 @@ export class CategoryDetailPage implements OnInit {
               console.log('[SAVE] Updated photo object with compressed drawings, length:', compressedDrawings?.length || 0);
 
               this.changeDetectorRef.detectChanges();
-              await this.showToast('Annotations saved', 'success');
+              // Success toast removed per user request
             } catch (error) {
               console.error('[VIEW PHOTO] Error saving annotations:', error);
               await this.showToast('Failed to save annotations', 'danger');
@@ -1381,9 +1381,161 @@ export class CategoryDetailPage implements OnInit {
   // HELPER METHODS
   // ============================================
 
-  addCustomVisual(category: string, type: string) {
-    console.log('Add custom visual:', category, type);
-    // TODO: Implement custom visual creation
+  async addCustomVisual(category: string, kind: string) {
+    // Dynamically import the modal component
+    const { AddCustomVisualModalComponent } = await import('../../../modals/add-custom-visual-modal/add-custom-visual-modal.component');
+
+    const modal = await this.modalController.create({
+      component: AddCustomVisualModalComponent,
+      componentProps: {
+        kind: kind,
+        category: category
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+
+    if (data && data.name) {
+      // Get processed photos with annotation data and captions
+      const processedPhotos = data.processedPhotos || [];
+      const files = data.files && data.files.length > 0 ? data.files : null;
+
+      // Create the visual with photos
+      await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', files, processedPhotos);
+    }
+  }
+
+  // Create custom visual with photos
+  async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null, processedPhotos: any[] = []) {
+    try {
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        await this.showToast('Invalid Service ID', 'danger');
+        return;
+      }
+
+      const visualData = {
+        ServiceID: serviceIdNum,
+        Category: category,
+        Kind: kind,
+        Name: name,
+        Text: text,
+        Notes: ''
+      };
+
+      console.log('[CREATE CUSTOM] Creating visual:', visualData);
+
+      // Create the visual record
+      const response = await this.foundationData.createVisual(visualData);
+
+      // Extract VisualID
+      let visualId: string | null = null;
+
+      if (Array.isArray(response) && response.length > 0) {
+        visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
+      } else if (response && typeof response === 'object') {
+        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+          visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
+        } else {
+          visualId = String(response.VisualID || response.PK_ID || response.id || '');
+        }
+      } else if (response) {
+        visualId = String(response);
+      }
+
+      if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
+        throw new Error('No VisualID returned from server');
+      }
+
+      console.log('[CREATE CUSTOM] Created visual with ID:', visualId);
+
+      // Add to local data structure
+      const customItem: VisualItem = {
+        id: visualId,
+        templateId: parseInt(visualId, 10),
+        name: name,
+        text: text,
+        originalText: text,
+        answerType: 0,
+        required: false,
+        type: kind
+      };
+
+      // Add to appropriate array
+      const kindKey = kind.toLowerCase() + 's';
+      if (kindKey === 'comments') {
+        this.organizedData.comments.push(customItem);
+      } else if (kindKey === 'limitations') {
+        this.organizedData.limitations.push(customItem);
+      } else if (kindKey === 'deficiencys' || kindKey === 'deficiencies') {
+        this.organizedData.deficiencies.push(customItem);
+      }
+
+      // Store the visual ID for photo uploads
+      const key = `${category}_${visualId}`;
+      this.visualRecordIds[key] = String(visualId);
+
+      // Mark as selected
+      this.selectedItems[key] = true;
+
+      console.log('[CREATE CUSTOM] Stored visualId in visualRecordIds:', key, '=', visualId);
+
+      // Upload photos if provided
+      if (files && files.length > 0) {
+        console.log('[CREATE CUSTOM] Uploading', files.length, 'photos for visual:', visualId);
+
+        // Upload photos in background
+        const uploadPromises = Array.from(files).map((file, index) => {
+          // Get annotation data and caption for this photo from processedPhotos
+          const photoData = processedPhotos[index] || {};
+          const annotationData = photoData.annotationData || null;
+          const originalFile = photoData.originalFile || null;
+          const caption = photoData.caption || '';
+
+          return this.foundationData.uploadVisualPhoto(parseInt(visualId!, 10), file, caption)
+            .then(() => ({ success: true, error: null }))
+            .catch((error: any) => {
+              console.error(`Failed to upload file ${index + 1}:`, error);
+              return { success: false, error };
+            });
+        });
+
+        // Monitor uploads in background
+        Promise.all(uploadPromises).then(results => {
+          const uploadSuccessCount = results.filter((r: { success: boolean }) => r.success).length;
+          const failCount = results.filter((r: { success: boolean }) => !r.success).length;
+
+          if (failCount > 0 && uploadSuccessCount > 0) {
+            this.showToast(
+              `Uploaded ${uploadSuccessCount} of ${files.length} photos. ${failCount} failed.`,
+              'warning'
+            );
+          } else if (failCount > 0 && uploadSuccessCount === 0) {
+            this.showToast('Failed to upload photos', 'danger');
+          }
+
+          // Reload photos after upload
+          this.loadPhotosForVisual(visualId!, key);
+        });
+      }
+
+      // Trigger change detection
+      this.changeDetectorRef.detectChanges();
+
+      return {
+        itemId: customItem.id,
+        visualId: String(visualId),
+        key: key
+      };
+
+    } catch (error: any) {
+      console.error('[CREATE CUSTOM] Error creating custom visual:', error);
+      const errorMsg = error?.error?.Message || error?.message || 'Failed to add visual';
+      await this.showToast(errorMsg, 'danger');
+      return null;
+    }
   }
 
   showFullText(item: VisualItem) {

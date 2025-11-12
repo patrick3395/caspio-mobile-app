@@ -3,12 +3,10 @@
   <input #fileInput type="file" style="display: none;" (change)="onFileSelected($event)" accept="image/*">
 
   <div class="header-section">
-    <ion-button fill="clear" (click)="goBack()">
-      <ion-icon slot="start" name="arrow-back"></ion-icon>
-      Back
-    </ion-button>
-    <h1>{{ categoryName }}</h1>
-    <p class="subtitle">Visual assessment items</p>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <ion-icon name="arrow-back" style="font-size: 28px; color: var(--noble-orange, #F15A27); cursor: pointer;" (click)="goBack()"></ion-icon>
+      <h1 style="margin: 0;">{{ categoryName }}</h1>
+    </div>
   </div>
 
   <div class="content-section">
@@ -21,18 +19,24 @@
     <!-- Category Content -->
     <div *ngIf="!loading" class="category-content">
 
-      <!-- General Information Section -->
-      <div class="type-section" *ngIf="organizedData.comments">
-        <h4 class="type-header">
-          General Information
-          <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Comment')" title="Add custom general information">
-            <ion-icon name="add-circle-outline"></ion-icon>
-          </button>
-        </h4>
-        <div *ngIf="organizedData.comments.length === 0" class="no-items-message">
-          No general information yet. Click + to add one.
-        </div>
-        <div class="template-item" *ngFor="let item of organizedData.comments; trackBy: trackByItemId">
+      <ion-accordion-group>
+        <!-- General Information Section -->
+        <ion-accordion *ngIf="organizedData.comments">
+          <ion-item slot="header" lines="none" style="--background: transparent;">
+            <ion-label>
+              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: var(--noble-orange, #F15A27);">
+                General Information
+              </h4>
+            </ion-label>
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom general information">
+              <ion-icon name="add-circle-outline"></ion-icon>
+            </button>
+          </ion-item>
+          <div slot="content" class="accordion-content">
+            <div *ngIf="organizedData.comments.length === 0" class="no-items-message">
+              No general information yet. Click + to add one.
+            </div>
+            <div class="template-item" *ngFor="let item of organizedData.comments; trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
             <!-- Yes/No questions - vertical layout with dropdown below -->
@@ -188,20 +192,27 @@
             </div>
           </div>
         </div>
-      </div>
+            </div>
+          </div>
+        </ion-accordion>
 
-      <!-- Limitations Section -->
-      <div class="type-section" *ngIf="organizedData.limitations">
-        <h4 class="type-header">
-          Limitations
-          <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Limitation')" title="Add custom limitation">
-            <ion-icon name="add-circle-outline"></ion-icon>
-          </button>
-        </h4>
-        <div *ngIf="organizedData.limitations.length === 0" class="no-items-message">
-          No limitations yet. Click + to add one.
-        </div>
-        <div class="template-item" *ngFor="let item of organizedData.limitations; trackBy: trackByItemId">
+        <!-- Limitations Section -->
+        <ion-accordion *ngIf="organizedData.limitations">
+          <ion-item slot="header" lines="none" style="--background: transparent;">
+            <ion-label>
+              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: var(--noble-orange, #F15A27);">
+                Limitations
+              </h4>
+            </ion-label>
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Limitation'); $event.stopPropagation()" title="Add custom limitation">
+              <ion-icon name="add-circle-outline"></ion-icon>
+            </button>
+          </ion-item>
+          <div slot="content" class="accordion-content">
+            <div *ngIf="organizedData.limitations.length === 0" class="no-items-message">
+              No limitations yet. Click + to add one.
+            </div>
+            <div class="template-item" *ngFor="let item of organizedData.limitations; trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
             <!-- Yes/No questions -->
@@ -348,20 +359,27 @@
             </div>
           </div>
         </div>
-      </div>
+            </div>
+          </div>
+        </ion-accordion>
 
-      <!-- Deficiencies Section -->
-      <div class="type-section" *ngIf="organizedData.deficiencies">
-        <h4 class="type-header">
-          Deficiencies
-          <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Deficiency')" title="Add custom deficiency">
-            <ion-icon name="add-circle-outline"></ion-icon>
-          </button>
-        </h4>
-        <div *ngIf="organizedData.deficiencies.length === 0" class="no-items-message">
-          No deficiencies yet. Click + to add one.
-        </div>
-        <div class="template-item" *ngFor="let item of organizedData.deficiencies; trackBy: trackByItemId">
+        <!-- Deficiencies Section -->
+        <ion-accordion *ngIf="organizedData.deficiencies">
+          <ion-item slot="header" lines="none" style="--background: transparent;">
+            <ion-label>
+              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: var(--noble-orange, #F15A27);">
+                Deficiencies
+              </h4>
+            </ion-label>
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Deficiency'); $event.stopPropagation()" title="Add custom deficiency">
+              <ion-icon name="add-circle-outline"></ion-icon>
+            </button>
+          </ion-item>
+          <div slot="content" class="accordion-content">
+            <div *ngIf="organizedData.deficiencies.length === 0" class="no-items-message">
+              No deficiencies yet. Click + to add one.
+            </div>
+            <div class="template-item" *ngFor="let item of organizedData.deficiencies; trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
             <!-- Yes/No questions -->
@@ -508,7 +526,11 @@
             </div>
           </div>
         </div>
-      </div>
+            </div>
+          </div>
+        </ion-accordion>
+
+      </ion-accordion-group>
 
     </div>
   </div>

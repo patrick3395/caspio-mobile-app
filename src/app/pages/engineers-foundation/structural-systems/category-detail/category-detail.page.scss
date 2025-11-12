@@ -580,3 +580,25 @@
     }
   }
 }
+
+// Accordion styles
+ion-accordion-group {
+  ion-accordion {
+    margin-bottom: 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+
+    ion-item {
+      --padding-start: 16px;
+      --padding-end: 16px;
+      --min-height: 56px;
+      cursor: pointer;
+    }
+
+    .accordion-content {
+      padding: 0 0 16px 0;
+    }
+  }
+}
