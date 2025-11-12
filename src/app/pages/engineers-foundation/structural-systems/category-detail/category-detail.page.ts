@@ -622,6 +622,21 @@ export class CategoryDetailPage implements OnInit {
     }
   }
 
+  // Restore scroll position after UI updates
+  private restoreScrollPosition(): void {
+    if (this.lockedScrollY > 0) {
+      // Use setTimeout to ensure DOM has updated before scrolling
+      setTimeout(() => {
+        const ionContent = document.querySelector('ion-content');
+        const scrollElement = ionContent?.shadowRoot?.querySelector('.inner-scroll');
+        if (scrollElement) {
+          scrollElement.scrollTop = this.lockedScrollY;
+          console.log('[SCROLL] Restored scroll position:', this.lockedScrollY);
+        }
+      }, 50); // Small delay to ensure DOM is ready
+    }
+  }
+
   // ============================================
   // CAMERA AND GALLERY CAPTURE METHODS
   // ============================================
@@ -1172,15 +1187,15 @@ export class CategoryDetailPage implements OnInit {
 
               console.log('[SAVE] Updated photo object with compressed drawings, length:', compressedDrawings?.length || 0);
 
-              // CRITICAL: Clear the cache for this visual's attachments
-              // This ensures when the user navigates away and back, fresh data is loaded from database
-              const visualId = this.visualRecordIds[key];
-              if (visualId) {
-                this.foundationData.clearVisualAttachmentsCache(visualId);
-                console.log('[SAVE] Cleared attachment cache for VisualID:', visualId);
-              }
+              // CRITICAL: Clear ALL visual attachment caches (not just this one)
+              // This ensures when the user navigates away and back, ALL fresh data is loaded from database
+              // Clearing only the specific visualId wasn't working reliably on navigation
+              this.foundationData.clearVisualAttachmentsCache(); // Clear all caches
+              console.log('[SAVE] Cleared ALL attachment caches to ensure fresh data on navigation');
 
+              // Trigger change detection and restore scroll position
               this.changeDetectorRef.detectChanges();
+              this.restoreScrollPosition(); // Restore scroll to prevent jumping to top
 
               // Success toast removed per user request
             } catch (error) {
