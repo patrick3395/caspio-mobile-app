@@ -1612,9 +1612,153 @@ export class CategoryDetailPage implements OnInit {
     }
   }
 
-  showFullText(item: VisualItem) {
-    // TODO: Show modal with full text
-    console.log('Show full text:', item.name);
+  async showFullText(item: VisualItem) {
+    // Build inputs based on AnswerType
+    const inputs: any[] = [
+      {
+        name: 'title',
+        type: 'text',
+        placeholder: 'Title' + (item.required ? ' *' : ''),
+        value: item.name || '',
+        cssClass: 'editor-title-input'
+      }
+    ];
+
+    // Add appropriate input based on AnswerType
+    if (item.answerType === 1) {
+      // Yes/No toggle - use originalText for display text
+      const currentText = item.originalText || item.text || '';
+
+      // Add a read-only textarea showing the original text
+      if (currentText) {
+        inputs.push({
+          name: 'originalDescription',
+          type: 'textarea',
+          placeholder: 'Description',
+          value: currentText,
+          cssClass: 'editor-text-input',
+          attributes: {
+            rows: 6,
+            readonly: true
+          }
+        });
+      }
+
+      // Add Yes/No radio buttons for the answer
+      inputs.push({
+        name: 'description',
+        type: 'radio',
+        label: 'Yes',
+        value: 'Yes',
+        checked: item.answer === 'Yes'
+      });
+      inputs.push({
+        name: 'description',
+        type: 'radio',
+        label: 'No',
+        value: 'No',
+        checked: item.answer === 'No'
+      });
+    } else if (item.answerType === 2) {
+      // Dropdown from Services_Visuals_Drop
+      const options = this.visualDropdownOptions[item.templateId] || [];
+      if (options.length > 0) {
+        // Add each option as a radio button
+        options.forEach(option => {
+          inputs.push({
+            name: 'description',
+            type: 'radio',
+            label: option,
+            value: option,
+            checked: item.text === option
+          });
+        });
+      } else {
+        // Fallback to text if no options available
+        inputs.push({
+          name: 'description',
+          type: 'textarea',
+          placeholder: 'Description' + (item.required ? ' *' : ''),
+          value: item.text || '',
+          cssClass: 'editor-text-input',
+          attributes: {
+            rows: 8
+          }
+        });
+      }
+    } else {
+      // Default text input (AnswerType 0 or undefined)
+      inputs.push({
+        name: 'description',
+        type: 'textarea',
+        placeholder: 'Description' + (item.required ? ' *' : ''),
+        value: item.text || '',
+        cssClass: 'editor-text-input',
+        attributes: {
+          rows: 8
+        }
+      });
+    }
+
+    const alert = await this.alertController.create({
+      header: 'View Details' + (item.required ? ' (Required)' : ''),
+      cssClass: 'text-editor-modal',
+      inputs: inputs,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'editor-cancel-btn'
+        },
+        {
+          text: 'Save',
+          cssClass: 'editor-save-btn',
+          handler: async (data) => {
+            // Validate required fields
+            if (item.required && (!data.title || !data.description)) {
+              await this.showToast('Please fill in all required fields', 'warning');
+              return false;
+            }
+
+            // Update the item with new values
+            if (data.title !== item.name || data.description !== item.text) {
+              const oldName = item.name;
+              const oldText = item.text;
+
+              item.name = data.title;
+              item.text = data.description;
+
+              // Save to database if this visual is already created
+              const key = `${item.category}_${item.id}`;
+              const visualId = this.visualRecordIds[key];
+
+              if (visualId && !String(visualId).startsWith('temp_')) {
+                try {
+                  await this.foundationData.updateVisual(visualId, {
+                    Name: data.title,
+                    Text: data.description
+                  });
+                  console.log('[TEXT EDIT] Updated visual:', visualId);
+                  this.changeDetectorRef.detectChanges();
+                } catch (error) {
+                  console.error('[TEXT EDIT] Error updating visual:', error);
+                  // Revert changes on error
+                  item.name = oldName;
+                  item.text = oldText;
+                  await this.showToast('Failed to save changes', 'danger');
+                  return false;
+                }
+              } else {
+                // Just update UI if visual doesn't exist yet
+                this.changeDetectorRef.detectChanges();
+              }
+            }
+            return true;
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   trackByItemId(index: number, item: VisualItem): any {

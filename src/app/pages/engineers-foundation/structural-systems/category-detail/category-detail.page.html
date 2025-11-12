@@ -61,7 +61,7 @@
             <!-- Multi-select questions - show checkboxes for each option -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
               <ion-item lines="none" class="checkbox-item">
-                <ion-label class="item-label">
+                <ion-label class="item-label" (click)="showFullText(item)">
                   <h3>
                     {{ item.name }}
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -238,7 +238,7 @@
             <!-- Multi-select questions -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
               <ion-item lines="none" class="checkbox-item">
-                <ion-label class="item-label">
+                <ion-label class="item-label" (click)="showFullText(item)">
                   <h3>
                     {{ item.name }}
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -406,7 +406,7 @@
             <!-- Multi-select questions -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
               <ion-item lines="none" class="checkbox-item">
-                <ion-label class="item-label">
+                <ion-label class="item-label" (click)="showFullText(item)">
                   <h3>
                     {{ item.name }}
                     <span class="required-indicator" *ngIf="item.required">*</span>

@@ -1470,3 +1470,178 @@ textarea.styled-input {
     transform: none !important;
   }
 }
+
+/* Text Editor Modal Styles for Engineers Foundation */
+.text-editor-modal {
+  --width: 90%;
+  --max-width: 600px;
+
+  .alert-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  .alert-head {
+    padding: 20px 20px 16px;
+    background: linear-gradient(135deg, var(--noble-orange, #F15A27) 0%, #D84315 100%);
+    color: white;
+    border-radius: 12px 12px 0 0;
+
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      color: white;
+      margin: 0;
+    }
+  }
+
+  .alert-message {
+    padding: 20px;
+    font-size: 15px;
+    color: #666;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .alert-input-group {
+    padding: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .alert-input {
+    margin-bottom: 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 15px;
+    transition: border-color 0.3s ease;
+
+    &:focus {
+      border-color: var(--noble-orange, #F15A27);
+      outline: none;
+    }
+
+    &.editor-title-input {
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    &.editor-text-input {
+      font-family: inherit;
+      line-height: 1.6;
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    &[readonly] {
+      background-color: #f5f5f5;
+      color: #666;
+      cursor: not-allowed;
+    }
+  }
+
+  .alert-radio-group {
+    padding: 12px 0;
+
+    .alert-radio-button {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: #f5f5f5;
+      }
+
+      &[aria-checked="true"] {
+        background-color: rgba(241, 90, 39, 0.1);
+        border: 2px solid var(--noble-orange, #F15A27);
+      }
+
+      .alert-radio-label {
+        font-size: 15px;
+        color: #333;
+        padding-left: 12px;
+      }
+
+      .alert-radio-icon {
+        border-color: var(--noble-orange, #F15A27);
+
+        .alert-radio-inner {
+          background-color: var(--noble-orange, #F15A27);
+        }
+      }
+    }
+  }
+
+  .alert-button-group {
+    padding: 16px 20px 20px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    border-top: 1px solid #e0e0e0;
+
+    button {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.3s ease;
+      min-width: 100px;
+
+      &.editor-cancel-btn {
+        background-color: transparent;
+        color: #666;
+        border: 2px solid #e0e0e0;
+
+        &:hover {
+          background-color: #f5f5f5;
+          border-color: #bdbdbd;
+        }
+      }
+
+      &.editor-save-btn {
+        background: linear-gradient(135deg, var(--noble-orange, #F15A27) 0%, #D84315 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(241, 90, 39, 0.4);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+      }
+    }
+  }
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 767px) {
+  .text-editor-modal {
+    --width: 95%;
+
+    .alert-head h2 {
+      font-size: 18px;
+    }
+
+    .alert-input {
+      font-size: 14px;
+      padding: 10px;
+
+      &.editor-text-input {
+        min-height: 100px;
+      }
+    }
+
+    .alert-button-group button {
+      font-size: 14px;
+      padding: 10px 20px;
+      min-width: 80px;
+    }
+  }
+}
