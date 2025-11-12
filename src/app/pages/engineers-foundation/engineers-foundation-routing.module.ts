@@ -19,11 +19,11 @@ const routes: Routes = [
         children: [
           {
             path: '',
-            loadComponent: () => import('./structural-systems-hub/structural-systems-hub.page').then(m => m.StructuralSystemsHubPage)
+            loadComponent: () => import('./structural-systems/structural-systems-hub/structural-systems-hub.page').then(m => m.StructuralSystemsHubPage)
           },
           {
-            path: ':category',
-            loadComponent: () => import('./structural-category/structural-category.page').then(m => m.StructuralCategoryPage)
+            path: 'category/:category',
+            loadComponent: () => import('./structural-systems/category-detail/category-detail.page').then(m => m.CategoryDetailPage)
           }
         ]
       },

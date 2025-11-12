@@ -1,0 +1,170 @@
+.page-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.header-section {
+  margin-bottom: 20px;
+
+  ion-button {
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ion-color-primary);
+    margin: 0 0 8px 0;
+  }
+
+  .subtitle {
+    font-size: 16px;
+    color: #666;
+    margin: 0;
+  }
+}
+
+.content-section {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 24px;
+  min-height: 200px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+
+  ion-spinner {
+    margin-bottom: 16px;
+    --color: var(--ion-color-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.disabled-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  color: #666;
+
+  ion-icon {
+    font-size: 32px;
+    color: var(--ion-color-medium);
+    flex-shrink: 0;
+  }
+
+  p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+}
+
+.categories-container {
+  display: grid;
+  gap: 16px;
+}
+
+.category-card {
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  }
+
+  ion-card-header {
+    padding: 16px;
+    background: white;
+  }
+
+  ion-card-content {
+    padding: 0 16px 16px 16px;
+    color: #666;
+    font-size: 14px;
+
+    p {
+      margin: 0;
+    }
+  }
+
+  .card-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+
+    ion-card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin: 0;
+      flex: 1;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      ion-badge {
+        font-size: 12px;
+        padding: 4px 8px;
+      }
+
+      .chevron-icon {
+        font-size: 20px;
+        color: var(--ion-color-medium);
+      }
+    }
+  }
+}
+
+.empty-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #999;
+
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    color: #ccc;
+  }
+
+  p {
+    margin: 0;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 12px;
+  }
+
+  .content-section {
+    padding: 16px;
+  }
+}

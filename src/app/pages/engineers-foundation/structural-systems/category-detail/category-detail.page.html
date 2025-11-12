@@ -1,0 +1,316 @@
+<div class="page-container">
+  <div class="header-section">
+    <ion-button fill="clear" (click)="goBack()">
+      <ion-icon slot="start" name="arrow-back"></ion-icon>
+      Back
+    </ion-button>
+    <h1>{{ categoryName }}</h1>
+    <p class="subtitle">Visual assessment items</p>
+  </div>
+
+  <div class="content-section">
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading items...</p>
+    </div>
+
+    <!-- Category Content -->
+    <div *ngIf="!loading" class="category-content">
+
+      <!-- General Information Section -->
+      <div class="type-section" *ngIf="organizedData.comments">
+        <h4 class="type-header">
+          General Information
+          <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Comment')" title="Add custom general information">
+            <ion-icon name="add-circle-outline"></ion-icon>
+          </button>
+        </h4>
+        <div *ngIf="organizedData.comments.length === 0" class="no-items-message">
+          No general information yet. Click + to add one.
+        </div>
+        <div class="template-item" *ngFor="let item of organizedData.comments; trackBy: trackByItemId">
+          <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
+
+            <!-- Yes/No questions - vertical layout with dropdown below -->
+            <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+              <div class="item-header" (click)="showFullText(item)">
+                <h3 class="item-name">
+                  {{ item.name }}
+                  <span class="required-indicator" *ngIf="item.required">*</span>
+                </h3>
+              </div>
+              <div class="item-text-wrapper" (click)="showFullText(item)">
+                <p class="item-text">{{ item.originalText }}</p>
+              </div>
+              <div class="dropdown-container" (click)="$event.stopPropagation()">
+                <select
+                  [(ngModel)]="item.answer"
+                  (ngModelChange)="onAnswerChange(categoryName, item)"
+                  [disabled]="isItemSaving(categoryName, item.id)"
+                  class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+                <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
+              </div>
+            </div>
+
+            <!-- Multi-select questions - show checkboxes for each option -->
+            <div class="multi-select-container" *ngIf="item.answerType === 2">
+              <ion-item lines="none" class="checkbox-item">
+                <ion-label class="item-label">
+                  <h3>
+                    {{ item.name }}
+                    <span class="required-indicator" *ngIf="item.required">*</span>
+                  </h3>
+                  <div class="item-text-wrapper">
+                    <p class="item-text">{{ item.text }}</p>
+                  </div>
+                </ion-label>
+                <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
+              </ion-item>
+              <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
+                <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
+                  <ion-checkbox
+                    slot="start"
+                    [checked]="isOptionSelectedV1(item, option)"
+                    (ionChange)="onOptionToggle(categoryName, item, option, $event)"
+                    [disabled]="isItemSaving(categoryName, item.id)">
+                  </ion-checkbox>
+                  <ion-label>{{ option }}</ion-label>
+                </ion-item>
+              </div>
+              <!-- Custom input for "Other" option -->
+              <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                <input type="text"
+                       [(ngModel)]="item.otherValue"
+                       (blur)="onMultiSelectOtherChange(categoryName, item)"
+                       (click)="$event.stopPropagation()"
+                       placeholder="Please specify..."
+                       class="styled-input other-input">
+              </div>
+              <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
+                <p>No options available for this item</p>
+              </div>
+            </div>
+
+            <!-- Text questions - checkbox behavior (default) -->
+            <ion-item lines="none"
+                      class="checkbox-item"
+                      *ngIf="!item.answerType || item.answerType === 0">
+              <ion-checkbox
+                slot="start"
+                [checked]="isItemSelected(categoryName, item.id)"
+                [disabled]="isItemSaving(categoryName, item.id)"
+                (ionChange)="toggleItemSelection(categoryName, item.id)">
+              </ion-checkbox>
+              <ion-label class="item-label" (click)="showFullText(item)">
+                <h3>
+                  {{ item.name }}
+                  <span class="required-indicator" *ngIf="item.required">*</span>
+                </h3>
+                <p class="item-text">{{ item.text }}</p>
+              </ion-label>
+              <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
+            </ion-item>
+          </div>
+        </div>
+      </div>
+
+      <!-- Limitations Section -->
+      <div class="type-section" *ngIf="organizedData.limitations">
+        <h4 class="type-header">
+          Limitations
+          <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Limitation')" title="Add custom limitation">
+            <ion-icon name="add-circle-outline"></ion-icon>
+          </button>
+        </h4>
+        <div *ngIf="organizedData.limitations.length === 0" class="no-items-message">
+          No limitations yet. Click + to add one.
+        </div>
+        <div class="template-item" *ngFor="let item of organizedData.limitations; trackBy: trackByItemId">
+          <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
+
+            <!-- Yes/No questions -->
+            <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+              <div class="item-header" (click)="showFullText(item)">
+                <h3 class="item-name">
+                  {{ item.name }}
+                  <span class="required-indicator" *ngIf="item.required">*</span>
+                </h3>
+              </div>
+              <div class="item-text-wrapper" (click)="showFullText(item)">
+                <p class="item-text">{{ item.originalText }}</p>
+              </div>
+              <div class="dropdown-container">
+                <select
+                  [(ngModel)]="item.answer"
+                  (ngModelChange)="onAnswerChange(categoryName, item)"
+                  [disabled]="isItemSaving(categoryName, item.id)"
+                  class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+                <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
+              </div>
+            </div>
+
+            <!-- Multi-select questions -->
+            <div class="multi-select-container" *ngIf="item.answerType === 2">
+              <ion-item lines="none" class="checkbox-item">
+                <ion-label class="item-label">
+                  <h3>
+                    {{ item.name }}
+                    <span class="required-indicator" *ngIf="item.required">*</span>
+                  </h3>
+                  <div class="item-text-wrapper">
+                    <p class="item-text">{{ item.text }}</p>
+                  </div>
+                </ion-label>
+                <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
+              </ion-item>
+              <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
+                <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
+                  <ion-checkbox
+                    slot="start"
+                    [checked]="isOptionSelectedV1(item, option)"
+                    (ionChange)="onOptionToggle(categoryName, item, option, $event)"
+                    [disabled]="isItemSaving(categoryName, item.id)">
+                  </ion-checkbox>
+                  <ion-label>{{ option }}</ion-label>
+                </ion-item>
+              </div>
+              <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                <input type="text"
+                       [(ngModel)]="item.otherValue"
+                       (blur)="onMultiSelectOtherChange(categoryName, item)"
+                       placeholder="Please specify..."
+                       class="styled-input other-input">
+              </div>
+            </div>
+
+            <!-- Text questions -->
+            <ion-item lines="none"
+                      class="checkbox-item"
+                      *ngIf="!item.answerType || item.answerType === 0">
+              <ion-checkbox
+                slot="start"
+                [checked]="isItemSelected(categoryName, item.id)"
+                [disabled]="isItemSaving(categoryName, item.id)"
+                (ionChange)="toggleItemSelection(categoryName, item.id)">
+              </ion-checkbox>
+              <ion-label class="item-label" (click)="showFullText(item)">
+                <h3>
+                  {{ item.name }}
+                  <span class="required-indicator" *ngIf="item.required">*</span>
+                </h3>
+                <p class="item-text">{{ item.text }}</p>
+              </ion-label>
+              <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
+            </ion-item>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deficiencies Section -->
+      <div class="type-section" *ngIf="organizedData.deficiencies">
+        <h4 class="type-header">
+          Deficiencies
+          <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Deficiency')" title="Add custom deficiency">
+            <ion-icon name="add-circle-outline"></ion-icon>
+          </button>
+        </h4>
+        <div *ngIf="organizedData.deficiencies.length === 0" class="no-items-message">
+          No deficiencies yet. Click + to add one.
+        </div>
+        <div class="template-item" *ngFor="let item of organizedData.deficiencies; trackBy: trackByItemId">
+          <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
+
+            <!-- Yes/No questions -->
+            <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+              <div class="item-header" (click)="showFullText(item)">
+                <h3 class="item-name">
+                  {{ item.name }}
+                  <span class="required-indicator" *ngIf="item.required">*</span>
+                </h3>
+              </div>
+              <div class="item-text-wrapper" (click)="showFullText(item)">
+                <p class="item-text">{{ item.originalText }}</p>
+              </div>
+              <div class="dropdown-container">
+                <select
+                  [(ngModel)]="item.answer"
+                  (ngModelChange)="onAnswerChange(categoryName, item)"
+                  [disabled]="isItemSaving(categoryName, item.id)"
+                  class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+                <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
+              </div>
+            </div>
+
+            <!-- Multi-select questions -->
+            <div class="multi-select-container" *ngIf="item.answerType === 2">
+              <ion-item lines="none" class="checkbox-item">
+                <ion-label class="item-label">
+                  <h3>
+                    {{ item.name }}
+                    <span class="required-indicator" *ngIf="item.required">*</span>
+                  </h3>
+                  <div class="item-text-wrapper">
+                    <p class="item-text">{{ item.text }}</p>
+                  </div>
+                </ion-label>
+                <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
+              </ion-item>
+              <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
+                <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
+                  <ion-checkbox
+                    slot="start"
+                    [checked]="isOptionSelectedV1(item, option)"
+                    (ionChange)="onOptionToggle(categoryName, item, option, $event)"
+                    [disabled]="isItemSaving(categoryName, item.id)">
+                  </ion-checkbox>
+                  <ion-label>{{ option }}</ion-label>
+                </ion-item>
+              </div>
+              <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                <input type="text"
+                       [(ngModel)]="item.otherValue"
+                       (blur)="onMultiSelectOtherChange(categoryName, item)"
+                       placeholder="Please specify..."
+                       class="styled-input other-input">
+              </div>
+            </div>
+
+            <!-- Text questions -->
+            <ion-item lines="none"
+                      class="checkbox-item"
+                      *ngIf="!item.answerType || item.answerType === 0">
+              <ion-checkbox
+                slot="start"
+                [checked]="isItemSelected(categoryName, item.id)"
+                [disabled]="isItemSaving(categoryName, item.id)"
+                (ionChange)="toggleItemSelection(categoryName, item.id)">
+              </ion-checkbox>
+              <ion-label class="item-label" (click)="showFullText(item)">
+                <h3>
+                  {{ item.name }}
+                  <span class="required-indicator" *ngIf="item.required">*</span>
+                </h3>
+                <p class="item-text">{{ item.text }}</p>
+              </ion-label>
+              <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
+            </ion-item>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

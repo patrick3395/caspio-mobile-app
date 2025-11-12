@@ -1,0 +1,373 @@
+.page-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.header-section {
+  margin-bottom: 20px;
+
+  ion-button {
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ion-color-primary);
+    margin: 0 0 8px 0;
+  }
+
+  .subtitle {
+    font-size: 16px;
+    color: #666;
+    margin: 0;
+  }
+}
+
+.content-section {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 24px;
+  min-height: 200px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+
+  ion-spinner {
+    margin-bottom: 16px;
+    --color: var(--ion-color-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.category-content {
+  .type-section {
+    margin-bottom: 20px;
+    overflow: visible;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .type-header {
+      font-size: 14px;
+      font-weight: 700;
+      color: #666;
+      margin-bottom: 12px;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
+      border-radius: 8px;
+      border-left: 4px solid var(--ion-color-primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .add-visual-btn {
+        background: var(--ion-color-primary);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        ion-icon {
+          font-size: 20px;
+        }
+
+        &:active {
+          transform: scale(0.95);
+        }
+      }
+    }
+
+    .no-items-message {
+      padding: 20px;
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+      font-style: italic;
+      background: rgba(0, 0, 0, 0.02);
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .template-item {
+      margin-bottom: 12px;
+      overflow: visible;
+
+      .visual-item-container {
+        position: relative;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        display: block;
+        width: 100%;
+        margin-bottom: 12px;
+        overflow: visible;
+
+        &.selected {
+          border: 2px solid #000000;
+          box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1);
+          background: transparent;
+          border-radius: 12px 12px 0 0;
+
+          .checkbox-item {
+            border-color: transparent;
+            --background: #f8f8f8;
+            background: #f8f8f8 !important;
+          }
+        }
+      }
+
+      .checkbox-item {
+        --background: white;
+        --inner-border-width: 0;
+        --border-width: 0;
+        --highlight-height: 0;
+        padding: 12px;
+        border-radius: 9px;
+        transition: all 0.3s ease;
+        border: none;
+        overflow: visible;
+        background: white;
+
+        ion-checkbox {
+          --size: 22px;
+          --checkbox-background-checked: var(--ion-color-primary);
+          --border-color-checked: var(--ion-color-primary);
+          margin-right: 12px;
+        }
+
+        .item-label {
+          flex: 1;
+
+          h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+
+            .required-indicator {
+              color: var(--ion-color-danger);
+              font-weight: bold;
+              margin-left: 4px;
+            }
+          }
+
+          .item-text {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+            max-height: 39px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            pointer-events: none;
+          }
+        }
+      }
+
+      // Multi-select container styling
+      .multi-select-container {
+        margin-bottom: 4px;
+        border: 1px solid #f0f0f0;
+        border-radius: 8px;
+        background: white;
+        transition: all 0.3s ease;
+        overflow: visible;
+
+        .checkbox-item {
+          --background: white;
+          --inner-border-width: 0;
+          --border-width: 0;
+          --highlight-height: 0;
+          border: none !important;
+          border-radius: 8px 8px 0 0;
+          padding: 10px 12px 6px 12px !important;
+          background: white;
+
+          .item-label {
+            h3 {
+              margin-bottom: 0 !important;
+            }
+
+            .item-text-wrapper {
+              margin-top: 4px;
+
+              .item-text {
+                font-size: 13px;
+                color: #666;
+                line-height: 1.5;
+              }
+            }
+          }
+        }
+
+        .multi-select-options {
+          padding-left: 16px;
+          padding-right: 12px;
+          padding-top: 4px;
+          padding-bottom: 8px;
+
+          .option-item {
+            --background: white;
+            --inner-border-width: 0;
+            --border-width: 0;
+            --highlight-height: 0;
+            --padding-start: 0;
+            --padding-end: 0;
+            --min-height: 36px;
+            margin-bottom: 6px;
+
+            ion-checkbox {
+              --size: 20px;
+              --checkbox-background-checked: var(--ion-color-primary);
+              --border-color-checked: var(--ion-color-primary);
+              margin-right: 10px;
+            }
+
+            ion-label {
+              font-size: 14px;
+              color: #333;
+              margin: 0;
+            }
+          }
+        }
+
+        .other-input-container {
+          padding: 8px 16px 12px 16px;
+          border-top: 1px solid #f0f0f0;
+
+          .other-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+
+            &:focus {
+              outline: none;
+              border-color: var(--ion-color-primary);
+              box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb), 0.1);
+            }
+
+            &::placeholder {
+              color: #999;
+              font-style: italic;
+            }
+          }
+        }
+
+        .no-options-message {
+          padding: 16px;
+          text-align: center;
+          color: #999;
+          font-size: 13px;
+          font-style: italic;
+
+          p {
+            margin: 0;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Answer type 1 (Yes/No dropdown) container
+.answer-type-1-container {
+  padding: 12px;
+  background: #fff;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #e0e0e0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  .item-header {
+    margin-bottom: 8px;
+
+    .item-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #333;
+      margin: 0;
+
+      .required-indicator {
+        color: var(--ion-color-danger);
+        font-weight: bold;
+        margin-left: 4px;
+      }
+    }
+  }
+
+  .item-text-wrapper {
+    margin-bottom: 12px;
+
+    .item-text {
+      margin: 0;
+      color: #666;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+  }
+
+  .dropdown-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .styled-input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+      background: white;
+      transition: all 0.2s ease;
+
+      &:focus {
+        outline: none;
+        border-color: var(--ion-color-primary);
+        box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb), 0.1);
+      }
+    }
+
+    .saving-spinner {
+      --color: var(--ion-color-primary);
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 12px;
+  }
+
+  .content-section {
+    padding: 16px;
+  }
+}

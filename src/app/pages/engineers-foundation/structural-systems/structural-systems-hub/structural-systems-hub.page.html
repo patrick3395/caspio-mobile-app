@@ -1,0 +1,54 @@
+<div class="page-container">
+  <div class="header-section">
+    <ion-button fill="clear" (click)="goBack()">
+      <ion-icon slot="start" name="arrow-back"></ion-icon>
+      Back
+    </ion-button>
+    <h1>Structural Systems</h1>
+    <p class="subtitle">Visual assessment categories</p>
+  </div>
+
+  <div class="content-section">
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading categories...</p>
+    </div>
+
+    <!-- Disabled State -->
+    <div *ngIf="!loading && isStructuralSystemsDisabled()" class="disabled-message">
+      <ion-icon name="information-circle-outline"></ion-icon>
+      <p>Structural Systems assessment is provided in Home Inspection Report</p>
+    </div>
+
+    <!-- Categories List -->
+    <div *ngIf="!loading && !isStructuralSystemsDisabled() && categories.length > 0" class="categories-container">
+      <ion-card
+        *ngFor="let category of categories"
+        class="category-card"
+        button="true"
+        (click)="navigateToCategory(category.name)">
+        <ion-card-header>
+          <div class="card-header-content">
+            <ion-card-title>{{ category.name }}</ion-card-title>
+            <div class="card-meta">
+              <ion-badge *ngIf="category.deficiencyCount > 0" color="warning">
+                {{ category.deficiencyCount }} {{ category.deficiencyCount === 1 ? 'deficiency' : 'deficiencies' }}
+              </ion-badge>
+              <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
+            </div>
+          </div>
+        </ion-card-header>
+        <ion-card-content>
+          <p>Visual assessment items for {{ category.name }}</p>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading && !isStructuralSystemsDisabled() && categories.length === 0" class="empty-message">
+      <ion-icon name="folder-open-outline"></ion-icon>
+      <p>No categories available</p>
+    </div>
+  </div>
+</div>
