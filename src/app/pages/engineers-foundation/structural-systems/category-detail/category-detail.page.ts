@@ -984,13 +984,16 @@ export class CategoryDetailPage implements OnInit {
         imageUrl = 'assets/img/photo-placeholder.png';
       }
 
+      // PhotoViewerComponent expects photoUrl as a string, not a photo object!
       const modal = await this.modalController.create({
         component: PhotoViewerComponent,
         componentProps: {
-          photo: photo,
-          allPhotos: this.getPhotosForVisual(category, itemId),
-          canDelete: true,
-          canEdit: true
+          photoUrl: imageUrl,
+          photoName: photo.name || 'Photo',
+          canAnnotate: false,
+          photoData: photo,
+          photoCaption: photo.caption || photo.annotation || '',
+          enableCaption: true
         },
         cssClass: 'photo-viewer-modal'
       });
