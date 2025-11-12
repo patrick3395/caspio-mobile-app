@@ -259,4 +259,16 @@ export class EngineersFoundationDataService {
 
     return result;
   }
+
+  // Clear cache for a specific visual's attachments
+  clearVisualAttachmentsCache(visualId?: string | number): void {
+    if (visualId) {
+      const key = String(visualId);
+      this.visualAttachmentsCache.delete(key);
+      console.log('[Visual Photo] Cleared cache for VisualID:', visualId);
+    } else {
+      this.visualAttachmentsCache.clear();
+      console.log('[Visual Photo] Cleared all attachment caches');
+    }
+  }
 }

@@ -170,20 +170,30 @@ export class CategoryDetailPage implements OnInit {
           }
         }
 
-        // Add to appropriate section
-        if (template.Type === 'Comment') {
+        // Add to appropriate section based on Kind field (not Type field)
+        const kind = template.Kind || template.Type || 'Comment';
+        console.log('[LOAD TEMPLATES] Item:', template.Name, 'Kind:', kind, 'Type:', template.Type);
+
+        if (kind === 'Comment') {
           this.organizedData.comments.push(templateData);
-        } else if (template.Type === 'Limitation') {
+        } else if (kind === 'Limitation') {
           this.organizedData.limitations.push(templateData);
-        } else if (template.Type === 'Deficiency') {
+        } else if (kind === 'Deficiency') {
           this.organizedData.deficiencies.push(templateData);
         } else {
           // Default to comments if type is unknown
+          console.warn('[LOAD TEMPLATES] Unknown kind:', kind, 'for item:', template.Name);
           this.organizedData.comments.push(templateData);
         }
 
         // Initialize selected state
         this.selectedItems[`${this.categoryName}_${template.PK_ID}`] = false;
+      });
+
+      console.log('[LOAD TEMPLATES] Organized data:', {
+        comments: this.organizedData.comments.length,
+        limitations: this.organizedData.limitations.length,
+        deficiencies: this.organizedData.deficiencies.length
       });
 
     } catch (error) {
@@ -1162,7 +1172,16 @@ export class CategoryDetailPage implements OnInit {
 
               console.log('[SAVE] Updated photo object with compressed drawings, length:', compressedDrawings?.length || 0);
 
+              // CRITICAL: Clear the cache for this visual's attachments
+              // This ensures when the user navigates away and back, fresh data is loaded from database
+              const visualId = this.visualRecordIds[key];
+              if (visualId) {
+                this.foundationData.clearVisualAttachmentsCache(visualId);
+                console.log('[SAVE] Cleared attachment cache for VisualID:', visualId);
+              }
+
               this.changeDetectorRef.detectChanges();
+
               // Success toast removed per user request
             } catch (error) {
               console.error('[VIEW PHOTO] Error saving annotations:', error);
