@@ -1128,14 +1128,12 @@ export class CategoryDetailPage implements OnInit {
       // Handle annotated photo returned from annotator
       const { data } = await modal.onWillDismiss();
 
-      // CRITICAL: Always restore scroll position after modal closes, regardless of save or cancel
-      // Use setTimeout to ensure modal has fully dismissed before restoring
-      setTimeout(() => {
-        this.restoreScrollPosition();
-      }, 100);
-
       if (!data) {
-        return; // User cancelled
+        // User cancelled - restore scroll position
+        setTimeout(() => {
+          this.restoreScrollPosition();
+        }, 100);
+        return;
       }
 
       if (data && data.annotatedBlob) {
@@ -1199,8 +1197,14 @@ export class CategoryDetailPage implements OnInit {
               this.foundationData.clearVisualAttachmentsCache(); // Clear all caches
               console.log('[SAVE] Cleared ALL attachment caches to ensure fresh data on navigation');
 
-              // Trigger change detection (scroll restoration happens at top level after modal dismiss)
+              // Trigger change detection first
               this.changeDetectorRef.detectChanges();
+
+              // CRITICAL: Restore scroll position AFTER detectChanges completes
+              // Use setTimeout to ensure DOM has fully updated before restoring scroll
+              setTimeout(() => {
+                this.restoreScrollPosition();
+              }, 100);
 
               // Success toast removed per user request
             } catch (error) {
