@@ -1,0 +1,10 @@
+This file documents the photo methods that need to be added to category-detail.page.ts.
+Due to the massive size (139 properties + 57 methods from original 15,522-line file),
+I'm creating this as a reference document.
+
+PHASE 1: Core photo storage and tracking properties
+PHASE 2: Photo upload and camera methods
+PHASE 3: Photo viewing and deletion methods
+PHASE 4: Helper and utility methods
+
+The complete implementation will be added in the next update.

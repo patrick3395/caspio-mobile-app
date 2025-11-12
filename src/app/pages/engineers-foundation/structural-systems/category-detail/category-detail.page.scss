@@ -362,6 +362,207 @@
   }
 }
 
+// ============================================
+// PHOTO STYLES - EXACT COPY FROM ORIGINAL
+// ============================================
+
+.image-preview-section {
+  padding: 12px;
+  background: #f8f8f8;
+  border-top: 1px solid #e0e0e0;
+  border-radius: 0 0 12px 12px;
+  clear: both;
+  display: block;
+  width: 100%;
+  overflow: visible;
+
+  .upload-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(241, 90, 39, 0.1);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    color: #F15A27;
+    font-size: 14px;
+
+    ion-spinner {
+      --color: #F15A27;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .image-preview-container {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    min-height: 0;
+    overflow: visible;
+
+    .image-preview.structural-photo-preview {
+      position: relative !important;
+      width: 90px !important;
+      min-height: 90px !important;
+      display: inline-block !important;
+      vertical-align: top !important;
+      overflow: visible !important;
+      margin: 4px !important;
+      padding-bottom: 35px !important;
+      background: transparent !important;
+      flex-shrink: 0;
+
+      &.uploading img {
+        opacity: 0.6;
+      }
+
+      .upload-indicator {
+        position: absolute;
+        top: 45px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+
+        ion-spinner {
+          --color: #F15A27;
+        }
+      }
+
+      img {
+        width: 90px !important;
+        height: 90px !important;
+        border-radius: 20px !important;
+        object-fit: cover !important;
+        display: block !important;
+        border: 2px solid #ddd !important;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #f5f5f5;
+
+        &:hover {
+          transform: scale(1.02);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+      }
+
+      .delete-btn {
+        position: absolute !important;
+        top: 4px !important;
+        right: 4px !important;
+        width: 22px !important;
+        height: 22px !important;
+        border-radius: 50% !important;
+        background: white !important;
+        border: 2px solid #333333 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+        z-index: 1000 !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+        transition: all 0.2s ease !important;
+        padding: 0 !important;
+
+        ion-icon {
+          font-size: 12px !important;
+          color: #333333 !important;
+          font-weight: 600 !important;
+        }
+
+        &:active {
+          transform: scale(1.0) !important;
+        }
+      }
+
+      .room-photo-caption {
+        width: 90px !important;
+        padding: 6px 8px !important;
+        font-size: 11px !important;
+        text-align: center !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 6px !important;
+        background: white !important;
+        color: #666 !important;
+        transition: all 0.2s ease !important;
+        margin-top: 8px !important;
+        display: block !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+        cursor: pointer;
+
+        &::placeholder {
+          color: #ccc !important;
+          font-size: 10px !important;
+        }
+
+        &:focus {
+          outline: none !important;
+          border-color: #F15A27 !important;
+          background: #fffbf8 !important;
+        }
+      }
+    }
+  }
+}
+
+// Skeleton loaders for photos
+.skeleton-loader {
+  pointer-events: none;
+  cursor: default;
+
+  .skeleton-image {
+    width: 90px;
+    height: 90px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    display: block;
+  }
+
+  .skeleton-caption {
+    width: 90px;
+    height: 24px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 4px;
+    margin-top: 8px;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+// Camera button styling
+.camera-button-structural {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  ion-icon {
+    transition: transform 0.2s ease;
+  }
+}
+
 @media (max-width: 768px) {
   .page-container {
     padding: 12px;
@@ -369,5 +570,13 @@
 
   .content-section {
     padding: 16px;
+  }
+
+  .image-preview-section {
+    padding: 8px;
+
+    .image-preview-container {
+      gap: 8px;
+    }
   }
 }

@@ -184,4 +184,79 @@ export class EngineersFoundationDataService {
     // Note: Can't easily clear EFE points/attachments without knowing all room IDs
     // Better to use clearAllCaches() when returning to page
   }
+
+  // ============================================
+  // VISUAL MANAGEMENT METHODS
+  // ============================================
+
+  async createVisual(visualData: any): Promise<any> {
+    console.log('[Visual Data] Creating new visual:', visualData);
+    const result = await firstValueFrom(this.caspioService.createServicesVisual(visualData));
+
+    // Clear cache for this service to force reload
+    if (visualData.ServiceID) {
+      this.visualsCache.delete(String(visualData.ServiceID));
+    }
+
+    return result;
+  }
+
+  async updateVisual(visualId: string, visualData: any): Promise<any> {
+    console.log('[Visual Data] Updating visual:', visualId);
+    const result = await firstValueFrom(this.caspioService.updateServicesVisual(visualId, visualData));
+
+    // Clear cache to force reload (we don't know which service this visual belongs to)
+    this.visualsCache.clear();
+
+    return result;
+  }
+
+  async deleteVisual(visualId: string): Promise<any> {
+    console.log('[Visual Data] Deleting visual:', visualId);
+    const result = await firstValueFrom(this.caspioService.deleteServicesVisual(visualId));
+
+    // Clear cache to force reload
+    this.visualsCache.clear();
+
+    return result;
+  }
+
+  // ============================================
+  // VISUAL PHOTO METHODS
+  // ============================================
+
+  async uploadVisualPhoto(visualId: number, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
+    console.log('[Visual Photo] Uploading photo for VisualID:', visualId);
+    const result = await firstValueFrom(
+      this.caspioService.createServicesVisualsAttachWithFile(visualId, caption, file, drawings, originalFile)
+    );
+
+    // Clear attachment cache for this visual
+    const key = String(visualId);
+    this.visualAttachmentsCache.delete(key);
+
+    return result;
+  }
+
+  async deleteVisualPhoto(attachId: string): Promise<any> {
+    console.log('[Visual Photo] Deleting photo:', attachId);
+    const result = await firstValueFrom(this.caspioService.deleteServiceVisualsAttach(attachId));
+
+    // Clear all attachment caches since we don't know which visual this belongs to
+    this.visualAttachmentsCache.clear();
+
+    return result;
+  }
+
+  async updateVisualPhotoCaption(attachId: string, caption: string): Promise<any> {
+    console.log('[Visual Photo] Updating caption for AttachID:', attachId);
+    const result = await firstValueFrom(
+      this.caspioService.updateServicesVisualsAttach(attachId, { Annotation: caption })
+    );
+
+    // Clear all attachment caches
+    this.visualAttachmentsCache.clear();
+
+    return result;
+  }
 }
