@@ -1128,6 +1128,12 @@ export class CategoryDetailPage implements OnInit {
       // Handle annotated photo returned from annotator
       const { data } = await modal.onWillDismiss();
 
+      // CRITICAL: Always restore scroll position after modal closes, regardless of save or cancel
+      // Use setTimeout to ensure modal has fully dismissed before restoring
+      setTimeout(() => {
+        this.restoreScrollPosition();
+      }, 100);
+
       if (!data) {
         return; // User cancelled
       }
@@ -1193,9 +1199,8 @@ export class CategoryDetailPage implements OnInit {
               this.foundationData.clearVisualAttachmentsCache(); // Clear all caches
               console.log('[SAVE] Cleared ALL attachment caches to ensure fresh data on navigation');
 
-              // Trigger change detection and restore scroll position
+              // Trigger change detection (scroll restoration happens at top level after modal dismiss)
               this.changeDetectorRef.detectChanges();
-              this.restoreScrollPosition(); // Restore scroll to prevent jumping to top
 
               // Success toast removed per user request
             } catch (error) {
