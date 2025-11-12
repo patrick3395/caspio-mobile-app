@@ -109,11 +109,13 @@ ion-toolbar {
   font-weight: 500;
   padding: 4px 8px;
   border-radius: 4px;
-  transition: background-color 0.2s;
   flex-shrink: 0;
 
-  &:hover {
-    background-color: rgba(var(--ion-color-primary-rgb), 0.1);
+  // Only apply hover effects on devices with hover capability (desktop)
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background-color: rgba(var(--ion-color-primary-rgb), 0.1);
+    }
   }
 
   &.active {
@@ -121,8 +123,11 @@ ion-toolbar {
     cursor: default;
     font-weight: 600;
 
-    &:hover {
-      background-color: transparent;
+    // Only apply hover effects on devices with hover capability (desktop)
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background-color: transparent;
+      }
     }
   }
 

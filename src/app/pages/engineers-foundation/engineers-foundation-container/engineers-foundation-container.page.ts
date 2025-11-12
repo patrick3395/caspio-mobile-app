@@ -69,14 +69,22 @@ export class EngineersFoundationContainerPage implements OnInit {
     this.currentPageTitle = 'Engineers Foundation Evaluation';
     this.currentPageShortTitle = 'EFE';
 
+    // Always start with Project Details as the first breadcrumb
+    this.breadcrumbs.push({
+      label: 'Project Details',
+      path: 'project-details',
+      icon: 'document-text-outline'
+    });
+
     // Parse URL to build breadcrumbs and set page title
     // URL format: /engineers-foundation/{projectId}/{serviceId}/...
 
     if (url.includes('/project-details')) {
-      this.breadcrumbs.push({ label: 'Project Details', path: 'project-details', icon: 'document-text-outline' });
+      // We're on project details page - it's the only breadcrumb after home
       this.currentPageTitle = 'Project Details';
       this.currentPageShortTitle = 'Project Details';
     } else if (url.includes('/structural')) {
+      // Add structural systems breadcrumb
       this.breadcrumbs.push({ label: 'Structural Systems', path: 'structural', icon: 'construct-outline' });
       this.currentPageTitle = 'Structural Systems';
       this.currentPageShortTitle = 'Structural';
@@ -91,6 +99,7 @@ export class EngineersFoundationContainerPage implements OnInit {
         this.currentPageShortTitle = categoryName;
       }
     } else if (url.includes('/elevation')) {
+      // Add elevation plot breadcrumb
       this.breadcrumbs.push({ label: 'Elevation Plot', path: 'elevation', icon: 'analytics-outline' });
       this.currentPageTitle = 'Elevation Plot';
       this.currentPageShortTitle = 'Elevation';

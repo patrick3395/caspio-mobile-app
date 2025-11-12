@@ -223,18 +223,49 @@ export class CategoryDetailPage implements OnInit {
         const category = visual.Category;
         const name = visual.Name;
         const kind = visual.Kind;
+        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
 
         // Find matching template by Name, Category, and Kind
-        const item = this.findItemByNameAndCategory(name, category, kind);
+        let item = this.findItemByNameAndCategory(name, category, kind);
+
+        // If no template match found, this is a custom visual - create dynamic item
         if (!item) {
-          console.warn('[LOAD VISUALS] Template not found for:', name, category, kind);
-          continue;
+          console.log('[LOAD VISUALS] Creating dynamic item for custom visual:', name, category, kind);
+
+          // Create a dynamic VisualItem for custom visuals
+          const customItem: VisualItem = {
+            id: `custom_${visualId}`, // Use visual ID as item ID
+            templateId: 0, // No template
+            name: visual.Name || 'Custom Item',
+            text: visual.Text || '',
+            originalText: visual.Text || '',
+            type: visual.Kind || 'Comment',
+            category: visual.Category,
+            answerType: 0, // Default to text type
+            required: false,
+            answer: visual.Answers || '',
+            isSelected: true, // Custom visuals are always selected
+            photos: []
+          };
+
+          // Add to appropriate section based on Kind
+          if (kind === 'Comment') {
+            this.organizedData.comments.push(customItem);
+          } else if (kind === 'Limitation') {
+            this.organizedData.limitations.push(customItem);
+          } else if (kind === 'Deficiency') {
+            this.organizedData.deficiencies.push(customItem);
+          } else {
+            // Default to comments if kind is unknown
+            this.organizedData.comments.push(customItem);
+          }
+
+          item = customItem;
         }
 
         const key = `${category}_${item.id}`;
 
         // Store the visual record ID (extract from response)
-        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
         this.visualRecordIds[key] = visualId;
 
         // CRITICAL: Restore edited Name and Text from saved visual
@@ -1532,31 +1563,35 @@ export class CategoryDetailPage implements OnInit {
 
       console.log('[CREATE CUSTOM] Created visual with ID:', visualId);
 
-      // Add to local data structure
+      // Add to local data structure (must match loadExistingVisuals structure)
       const customItem: VisualItem = {
-        id: visualId,
-        templateId: parseInt(visualId, 10),
+        id: `custom_${visualId}`, // Use consistent ID format with prefix
+        templateId: 0, // No template for custom visuals
         name: name,
         text: text,
         originalText: text,
         answerType: 0,
         required: false,
         type: kind,
-        category: category
+        category: category,
+        isSelected: true, // Custom visuals are always selected
+        photos: []
       };
 
-      // Add to appropriate array
-      const kindKey = kind.toLowerCase() + 's';
-      if (kindKey === 'comments') {
+      // Add to appropriate array based on Kind
+      if (kind === 'Comment') {
         this.organizedData.comments.push(customItem);
-      } else if (kindKey === 'limitations') {
+      } else if (kind === 'Limitation') {
         this.organizedData.limitations.push(customItem);
-      } else if (kindKey === 'deficiencys' || kindKey === 'deficiencies') {
+      } else if (kind === 'Deficiency') {
         this.organizedData.deficiencies.push(customItem);
+      } else {
+        // Default to comments if kind is unknown
+        this.organizedData.comments.push(customItem);
       }
 
-      // Store the visual ID for photo uploads
-      const key = `${category}_${visualId}`;
+      // Store the visual ID for photo uploads using consistent key
+      const key = `${category}_${customItem.id}`;
       this.visualRecordIds[key] = String(visualId);
 
       // Mark as selected

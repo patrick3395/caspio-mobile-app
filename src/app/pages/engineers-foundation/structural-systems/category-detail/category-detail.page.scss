@@ -565,11 +565,11 @@ ion-accordion-group {
       }
     }
 
-    ion-item {
-      --padding-start: 20px;
-      --padding-end: 20px;
-      --padding-top: 18px;
-      --padding-bottom: 18px;
+    ion-item.accordion-header-item {
+      --padding-start: 16px;
+      --padding-end: 16px;
+      --padding-top: 16px;
+      --padding-bottom: 16px;
       --min-height: auto;
       --background: transparent;
       --border-width: 0;
@@ -582,15 +582,34 @@ ion-accordion-group {
         border: none;
       }
 
-      ion-label {
-        margin: 0;
+      .accordion-header-content {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex: 1;
 
-        .type-header {
-          font-size: 17px;
-          font-weight: 600;
-          color: #2c2c2c;
+        .icon-container {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          ion-icon {
+            font-size: 32px;
+            color: var(--noble-orange, #F15A27);
+          }
+        }
+
+        ion-label.accordion-label {
+          flex: 1;
           margin: 0;
-          letter-spacing: 0.2px;
+
+          .type-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+          }
         }
       }
 
@@ -607,7 +626,6 @@ ion-accordion-group {
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: all 0.2s ease;
 
         ion-icon {
           font-size: 26px;

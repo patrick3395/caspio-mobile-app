@@ -15,14 +15,17 @@
       <ion-accordion-group>
         <!-- General Information Section -->
         <ion-accordion *ngIf="organizedData.comments">
-          <ion-item slot="header" lines="none" style="--background: transparent;">
-            <ion-label>
-              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: #333;">
-                Information
-              </h4>
-            </ion-label>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom information" style="background: transparent !important;">
-              <ion-icon name="add-circle-outline" style="color: var(--noble-orange, #F15A27);"></ion-icon>
+          <ion-item slot="header" lines="none" class="accordion-header-item">
+            <div class="accordion-header-content">
+              <div class="icon-container">
+                <ion-icon name="information-circle-outline"></ion-icon>
+              </div>
+              <ion-label class="accordion-label">
+                <h4 class="type-header">Information</h4>
+              </ion-label>
+            </div>
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom information">
+              <ion-icon name="add-circle-outline"></ion-icon>
             </button>
           </ion-item>
           <div slot="content" class="accordion-content">
@@ -192,14 +195,17 @@
 
         <!-- Limitations Section -->
         <ion-accordion *ngIf="organizedData.limitations">
-          <ion-item slot="header" lines="none" style="--background: transparent;">
-            <ion-label>
-              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: #333;">
-                Limitations
-              </h4>
-            </ion-label>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Limitation'); $event.stopPropagation()" title="Add custom limitation" style="background: transparent !important;">
-              <ion-icon name="add-circle-outline" style="color: var(--noble-orange, #F15A27);"></ion-icon>
+          <ion-item slot="header" lines="none" class="accordion-header-item">
+            <div class="accordion-header-content">
+              <div class="icon-container">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+              </div>
+              <ion-label class="accordion-label">
+                <h4 class="type-header">Limitations</h4>
+              </ion-label>
+            </div>
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Limitation'); $event.stopPropagation()" title="Add custom limitation">
+              <ion-icon name="add-circle-outline"></ion-icon>
             </button>
           </ion-item>
           <div slot="content" class="accordion-content">
@@ -360,14 +366,17 @@
 
         <!-- Deficiencies Section -->
         <ion-accordion *ngIf="organizedData.deficiencies">
-          <ion-item slot="header" lines="none" style="--background: transparent;">
-            <ion-label>
-              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: #333;">
-                Deficiencies
-              </h4>
-            </ion-label>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Deficiency'); $event.stopPropagation()" title="Add custom deficiency" style="background: transparent !important;">
-              <ion-icon name="add-circle-outline" style="color: var(--noble-orange, #F15A27);"></ion-icon>
+          <ion-item slot="header" lines="none" class="accordion-header-item">
+            <div class="accordion-header-content">
+              <div class="icon-container">
+                <ion-icon name="warning-outline"></ion-icon>
+              </div>
+              <ion-label class="accordion-label">
+                <h4 class="type-header">Deficiencies</h4>
+              </ion-label>
+            </div>
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Deficiency'); $event.stopPropagation()" title="Add custom deficiency">
+              <ion-icon name="add-circle-outline"></ion-icon>
             </button>
           </ion-item>
           <div slot="content" class="accordion-content">
