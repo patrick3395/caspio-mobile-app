@@ -24,18 +24,18 @@
         <ion-accordion *ngIf="organizedData.comments">
           <ion-item slot="header" lines="none" style="--background: transparent;">
             <ion-label>
-              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: var(--noble-orange, #F15A27);">
-                General Information
+              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: #333;">
+                Information
               </h4>
             </ion-label>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom general information" style="background: transparent !important;">
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom information" style="background: transparent !important;">
               <ion-icon name="add-circle-outline" style="color: var(--noble-orange, #F15A27);"></ion-icon>
             </button>
           </ion-item>
           <div slot="content" class="accordion-content">
             <div class="type-section">
               <div *ngIf="organizedData.comments.length === 0" class="no-items-message">
-                No general information yet. Click + to add one.
+                No information yet. Click + to add one.
               </div>
               <div class="template-item" *ngFor="let item of organizedData.comments; trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
@@ -201,7 +201,7 @@
         <ion-accordion *ngIf="organizedData.limitations">
           <ion-item slot="header" lines="none" style="--background: transparent;">
             <ion-label>
-              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: var(--noble-orange, #F15A27);">
+              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: #333;">
                 Limitations
               </h4>
             </ion-label>
@@ -369,7 +369,7 @@
         <ion-accordion *ngIf="organizedData.deficiencies">
           <ion-item slot="header" lines="none" style="--background: transparent;">
             <ion-label>
-              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: var(--noble-orange, #F15A27);">
+              <h4 class="type-header" style="margin: 8px 0; font-size: 18px; font-weight: 600; color: #333;">
                 Deficiencies
               </h4>
             </ion-label>

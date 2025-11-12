@@ -65,6 +65,7 @@
                height="90"
                [alt]="'Photo ' + (i + 1)"
                (click)="editPhoto(i)"
+               (error)="onImageError($event, i)"
                [class.has-annotations]="photo.hasAnnotations">
 
           <button class="delete-btn"

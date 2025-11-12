@@ -76,7 +76,11 @@ export class AddCustomVisualModalComponent {
       if (data && data.blob) {
         // Photo was annotated/edited
         const annotatedFile = new File([data.blob], file.name, { type: 'image/jpeg' });
-        const previewUrl = URL.createObjectURL(data.blob);
+
+        // Use FileReader to create base64 URL (more reliable than blob URLs)
+        const previewUrl = await this.fileToDataUrl(data.blob);
+
+        console.log('[ADD MODAL] Photo annotated, preview URL length:', previewUrl.length);
 
         this.processedPhotos.push({
           file: annotatedFile,
@@ -87,8 +91,11 @@ export class AddCustomVisualModalComponent {
           hasAnnotations: !!(data.annotationData || data.annotationsData)
         });
       } else {
-        // User cancelled - add original photo without annotations
-        const previewUrl = URL.createObjectURL(file);
+        // User cancelled or no blob - add original photo without annotations
+        const previewUrl = await this.fileToDataUrl(file);
+
+        console.log('[ADD MODAL] Using original photo, preview URL length:', previewUrl.length);
+
         this.processedPhotos.push({
           file: file,
           previewUrl: previewUrl,
@@ -98,10 +105,12 @@ export class AddCustomVisualModalComponent {
           hasAnnotations: false
         });
       }
+
+      console.log('[ADD MODAL] Total photos:', this.processedPhotos.length);
     } catch (error) {
       console.error('Error processing photo:', error);
       // Still add the photo even if annotation fails
-      const previewUrl = URL.createObjectURL(file);
+      const previewUrl = await this.fileToDataUrl(file);
       this.processedPhotos.push({
         file: file,
         previewUrl: previewUrl,
@@ -111,6 +120,16 @@ export class AddCustomVisualModalComponent {
         hasAnnotations: false
       });
     }
+  }
+
+  // Convert File/Blob to base64 data URL
+  private fileToDataUrl(file: File | Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e: any) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
   // Edit photo annotations
@@ -138,10 +157,10 @@ export class AddCustomVisualModalComponent {
         // Update with new annotations
         const annotatedFile = new File([data.blob], photo.file.name, { type: 'image/jpeg' });
 
-        // Revoke old preview URL
-        URL.revokeObjectURL(photo.previewUrl);
+        // Use base64 data URL for preview (more reliable than blob URLs)
+        const previewUrl = await this.fileToDataUrl(data.blob);
 
-        const previewUrl = URL.createObjectURL(data.blob);
+        console.log('[ADD MODAL] Photo re-edited, preview URL length:', previewUrl.length);
 
         this.processedPhotos[index] = {
           file: annotatedFile,
@@ -190,17 +209,35 @@ export class AddCustomVisualModalComponent {
 
   // Remove a photo
   removePhoto(index: number) {
-    // Revoke the object URL to free memory
-    URL.revokeObjectURL(this.processedPhotos[index].previewUrl);
+    // Since we're using base64 data URLs now (not blob URLs), no need to revoke
     this.processedPhotos.splice(index, 1);
+  }
+
+  // Handle image loading errors
+  async onImageError(event: any, index: number) {
+    console.error('[ADD MODAL] Image failed to load:', {
+      index,
+      previewUrl: this.processedPhotos[index]?.previewUrl?.substring(0, 50),
+      error: event
+    });
+
+    // Try to regenerate the data URL from the file
+    const photo = this.processedPhotos[index];
+    if (photo && photo.file) {
+      console.log('[ADD MODAL] Attempting to regenerate data URL from file');
+      try {
+        const newUrl = await this.fileToDataUrl(photo.file);
+        this.processedPhotos[index].previewUrl = newUrl;
+        console.log('[ADD MODAL] New data URL length:', newUrl.length);
+      } catch (err) {
+        console.error('[ADD MODAL] Failed to regenerate data URL:', err);
+      }
+    }
   }
 
   // Dismiss modal without saving
   async dismiss() {
-    // Clean up object URLs
-    this.processedPhotos.forEach(photo => {
-      URL.revokeObjectURL(photo.previewUrl);
-    });
+    // Since we're using base64 data URLs now (not blob URLs), no cleanup needed
     await this.modalController.dismiss();
   }
 
