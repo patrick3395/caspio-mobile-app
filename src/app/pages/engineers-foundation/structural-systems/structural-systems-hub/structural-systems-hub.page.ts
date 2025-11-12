@@ -108,11 +108,22 @@ export class StructuralSystemsHubPage implements OnInit {
     this.router.navigate(['category', categoryName], { relativeTo: this.route });
   }
 
-  goBack() {
-    this.router.navigate(['..'], { relativeTo: this.route });
-  }
-
   isStructuralSystemsDisabled(): boolean {
     return this.serviceData.StructStat === 'Provided in Home Inspection Report';
+  }
+
+  getCategoryIcon(categoryName: string): string {
+    const iconMap: { [key: string]: string } = {
+      'Foundations': 'business-outline',
+      'Grading and Drainage': 'water-outline',
+      'General Conditions': 'document-text-outline',
+      'Roof Structure': 'home-outline',
+      'Floor Framing': 'grid-outline',
+      'Wall Framing': 'apps-outline',
+      'Attic': 'triangle-outline',
+      'Crawlspace': 'arrow-down-outline'
+    };
+
+    return iconMap[categoryName] || 'construct-outline';
   }
 }

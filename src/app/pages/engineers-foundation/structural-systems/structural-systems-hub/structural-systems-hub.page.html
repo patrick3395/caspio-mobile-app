@@ -1,13 +1,4 @@
 <div class="page-container">
-  <div class="header-section">
-    <ion-button fill="clear" (click)="goBack()">
-      <ion-icon slot="start" name="arrow-back"></ion-icon>
-      Back
-    </ion-button>
-    <h1>Structural Systems</h1>
-    <p class="subtitle">Visual assessment categories</p>
-  </div>
-
   <div class="content-section">
     <!-- Loading State -->
     <div *ngIf="loading" class="loading-container">
@@ -31,7 +22,7 @@
         <ion-card-header>
           <div class="card-header-content">
             <div class="icon-container">
-              <ion-icon name="construct-outline"></ion-icon>
+              <ion-icon [name]="getCategoryIcon(category.name)"></ion-icon>
             </div>
             <div class="title-container">
               <ion-card-title>{{ category.name }}</ion-card-title>
@@ -41,13 +32,6 @@
             </div>
           </div>
         </ion-card-header>
-
-        <ion-card-content>
-          <p>Visual assessment items</p>
-          <div class="card-footer">
-            <ion-icon name="chevron-forward-outline"></ion-icon>
-          </div>
-        </ion-card-content>
       </ion-card>
     </div>
 
