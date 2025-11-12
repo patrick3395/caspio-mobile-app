@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
 import { OfflineService } from '../../../../services/offline.service';
 import { CameraService } from '../../../../services/camera.service';
@@ -278,26 +279,56 @@ export class CategoryDetailPage implements OnInit {
   private async loadPhotosForVisual(visualId: string, key: string) {
     try {
       this.loadingPhotosByKey[key] = true;
+      this.photoCountsByKey[key] = 0;
 
       const attachments = await this.foundationData.getVisualAttachments(visualId);
 
       console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for visual', visualId);
 
       if (attachments.length > 0) {
-        this.visualPhotos[key] = attachments.map(attach => ({
-          AttachID: attach.AttachID,
-          id: attach.AttachID,
-          name: attach.Photo || 'photo.jpg',
-          url: attach.Photo,
-          thumbnailUrl: attach.Photo,
-          displayUrl: attach.Photo,
-          caption: attach.Annotation || '',
-          annotation: attach.Annotation || '',
-          hasAnnotations: !!attach.Drawings,
-          annotations: attach.Drawings || null,
-          uploading: false,
-          queued: false
-        }));
+        this.photoCountsByKey[key] = attachments.length;
+
+        // Process each attachment and convert file paths to displayable URLs
+        const photoPromises = attachments.map(async (attach) => {
+          const filePath = attach.Photo;
+          let imageUrl = '';
+
+          // Convert file path to base64 image using Files API (EXACTLY like original)
+          if (filePath) {
+            try {
+              const imageData = await firstValueFrom(
+                this.caspioService.getImageFromFilesAPI(filePath)
+              );
+              if (imageData && imageData.startsWith('data:')) {
+                imageUrl = imageData;
+              }
+            } catch (err) {
+              console.error('[LOAD PHOTOS] Failed to load image:', filePath, err);
+              imageUrl = 'assets/img/photo-placeholder.png';
+            }
+          }
+
+          return {
+            AttachID: attach.AttachID,
+            id: attach.AttachID,
+            name: attach.Photo || 'photo.jpg',
+            filePath: filePath,
+            Photo: filePath,
+            url: imageUrl,
+            thumbnailUrl: imageUrl,
+            displayUrl: imageUrl,
+            caption: attach.Annotation || '',
+            annotation: attach.Annotation || '',
+            hasAnnotations: !!attach.Drawings,
+            annotations: attach.Drawings || null,
+            rawDrawingsString: attach.Drawings || null,
+            uploading: false,
+            queued: false,
+            isObjectUrl: false
+          };
+        });
+
+        this.visualPhotos[key] = await Promise.all(photoPromises);
       }
 
       this.loadingPhotosByKey[key] = false;
@@ -925,6 +956,34 @@ export class CategoryDetailPage implements OnInit {
     console.log('[VIEW PHOTO] Opening photo viewer for', photo.AttachID);
 
     try {
+      // Try to get a valid image URL (EXACTLY like original at line 7205)
+      let imageUrl = photo.url || photo.thumbnailUrl || photo.displayUrl;
+
+      // If no valid URL and we have a file path, try to fetch it
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo)) {
+        try {
+          const filePath = photo.filePath || photo.Photo;
+          const fetchedImage = await firstValueFrom(
+            this.caspioService.getImageFromFilesAPI(filePath)
+          );
+          if (fetchedImage && fetchedImage.startsWith('data:')) {
+            imageUrl = fetchedImage;
+            // Update the photo object for future use
+            photo.url = fetchedImage;
+            photo.thumbnailUrl = fetchedImage;
+            photo.displayUrl = fetchedImage;
+            this.changeDetectorRef.detectChanges();
+          }
+        } catch (err) {
+          console.error('[VIEW PHOTO] Failed to fetch image from file path:', err);
+        }
+      }
+
+      // Fallback to placeholder if still no URL
+      if (!imageUrl) {
+        imageUrl = 'assets/img/photo-placeholder.png';
+      }
+
       const modal = await this.modalController.create({
         component: PhotoViewerComponent,
         componentProps: {
