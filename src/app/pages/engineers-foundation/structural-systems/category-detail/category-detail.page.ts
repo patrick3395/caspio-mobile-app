@@ -1383,7 +1383,7 @@ export class CategoryDetailPage implements OnInit {
 
   async addCustomVisual(category: string, kind: string) {
     // Dynamically import the modal component
-    const { AddCustomVisualModalComponent } = await import('../../../modals/add-custom-visual-modal/add-custom-visual-modal.component');
+    const { AddCustomVisualModalComponent } = await import('../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component');
 
     const modal = await this.modalController.create({
       component: AddCustomVisualModalComponent,
@@ -1460,7 +1460,8 @@ export class CategoryDetailPage implements OnInit {
         originalText: text,
         answerType: 0,
         required: false,
-        type: kind
+        type: kind,
+        category: category
       };
 
       // Add to appropriate array
