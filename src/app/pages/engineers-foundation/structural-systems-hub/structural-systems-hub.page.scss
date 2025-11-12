@@ -28,22 +28,24 @@
 .cards-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 .category-card {
   margin: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  transition: box-shadow 0.2s, background-color 0.2s;
   cursor: pointer;
+  background: white;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    background: #fafafa;
   }
 
   ion-card-header {
-    padding: 20px;
+    padding: 16px;
   }
 
   .card-header-content {
@@ -54,62 +56,52 @@
 
   .icon-container {
     flex-shrink: 0;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
     background: var(--ion-color-primary-tint);
     display: flex;
     align-items: center;
     justify-content: center;
 
     ion-icon {
-      font-size: 28px;
+      font-size: 24px;
       color: var(--ion-color-primary);
     }
   }
 
   ion-card-title {
-    font-size: 18px;
+    flex: 1;
+    font-size: 16px;
     font-weight: 600;
     color: #333;
     margin: 0;
   }
 
+  .chevron-icon {
+    flex-shrink: 0;
+    font-size: 22px;
+    color: #999;
+  }
+
   ion-card-content {
-    padding: 0 20px 20px 86px;
+    padding: 0 16px 16px 76px;
 
     p {
       color: #666;
-      font-size: 14px;
-      margin: 0 0 12px 0;
-      line-height: 1.5;
+      font-size: 13px;
+      margin: 0;
+      line-height: 1.4;
     }
 
     .card-footer {
-      display: flex;
-      justify-content: flex-end;
-
-      ion-icon {
-        font-size: 20px;
-        color: var(--ion-color-primary);
-      }
+      display: none;
     }
   }
 }
 
 @media (min-width: 768px) {
   .cards-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-  }
-
-  .category-card ion-card-content {
-    padding-left: 20px;
-  }
-
-  .category-card .card-header-content {
-    flex-direction: column;
-    text-align: center;
+    gap: 10px;
   }
 }
