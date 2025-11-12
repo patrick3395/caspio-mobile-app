@@ -130,8 +130,8 @@ export class EngineersFoundationContainerPage implements OnInit {
   }
 
   navigateToHome() {
-    // Navigate back to the project page (one step back from EFE main page)
-    this.router.navigate(['/projects', this.projectId]);
+    // Navigate back to the project detail page (where reports, deliverables, services are)
+    this.router.navigate(['/project', this.projectId]);
   }
 
   navigateToCrumb(crumb: Breadcrumb) {

@@ -765,35 +765,96 @@ export class CategoryDetailPage implements OnInit {
   // ============================================
 
   async addPhotoFromCamera(category: string, itemId: string | number) {
-    // Clear any pending context-clearing timer
-    if (this.contextClearTimer) {
-      clearTimeout(this.contextClearTimer);
-      this.contextClearTimer = null;
-    }
-
-    this.currentUploadContext = {
-      category,
-      itemId: String(itemId),
-      action: 'add'
-    };
-
-    this.triggerFileInput('camera', { allowMultiple: false });
-  }
-
-  async addPhotoFromGallery(category: string, itemId: string | number) {
     try {
+      // Capture photo with camera
       const image = await Camera.getPhoto({
         quality: 90,
         allowEditing: false,
         resultType: CameraResultType.Uri,
-        source: CameraSource.Photos
+        source: CameraSource.Camera
       });
 
       if (image.webPath) {
+        // Convert to blob/file
         const response = await fetch(image.webPath);
         const blob = await response.blob();
-        const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const imageUrl = URL.createObjectURL(blob);
 
+        // Open photo editor directly
+        const modal = await this.modalController.create({
+          component: FabricPhotoAnnotatorComponent,
+          componentProps: {
+            imageUrl: imageUrl,
+            existingAnnotations: null,
+            existingCaption: '',
+            photoData: {
+              id: 'new',
+              caption: ''
+            },
+            isReEdit: false
+          },
+          cssClass: 'fullscreen-modal'
+        });
+
+        await modal.present();
+
+        // Handle annotated photo returned from annotator
+        const { data } = await modal.onWillDismiss();
+
+        if (data && data.annotatedBlob) {
+          // User saved the annotated photo - upload it
+          const annotatedBlob = data.blob || data.annotatedBlob;
+          const annotationsData = data.annotationData || data.annotationsData;
+          const caption = data.caption || '';
+
+          // Convert blob to File
+          const file = new File([annotatedBlob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+          // Get or create visual ID
+          const key = `${category}_${itemId}`;
+          let visualId = this.visualRecordIds[key];
+
+          if (!visualId) {
+            await this.saveVisualSelection(category, itemId);
+            visualId = this.visualRecordIds[key];
+          }
+
+          if (visualId) {
+            // Convert original blob to File for originalPhoto parameter
+            const originalFile = new File([blob], `camera-original-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+            // Upload the annotated photo with annotation data
+            await this.uploadPhotoForVisual(visualId, file, key, true, annotationsData, originalFile, caption);
+          }
+        }
+
+        // Clean up blob URL
+        URL.revokeObjectURL(imageUrl);
+      }
+    } catch (error) {
+      // Check if user cancelled - don't show error for cancellations
+      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
+      const isCancelled = errorMessage.includes('cancel') ||
+                         errorMessage.includes('Cancel') ||
+                         errorMessage.includes('User') ||
+                         error === 'User cancelled photos app';
+
+      if (!isCancelled) {
+        console.error('Error capturing photo from camera:', error);
+        await this.showToast('Failed to capture photo', 'danger');
+      }
+    }
+  }
+
+  async addPhotoFromGallery(category: string, itemId: string | number) {
+    try {
+      // Use pickImages to allow multiple photo selection
+      const images = await Camera.pickImages({
+        quality: 90,
+        limit: 0 // 0 = no limit on number of photos
+      });
+
+      if (images.photos && images.photos.length > 0) {
         this.currentUploadContext = {
           category,
           itemId: String(itemId),
@@ -809,20 +870,36 @@ export class CategoryDetailPage implements OnInit {
         }
 
         if (visualId) {
-          const processedFile = {
-            file: file,
-            annotationData: null,
-            originalFile: undefined,
-            caption: ''
-          };
+          // Process each selected image
+          for (const image of images.photos) {
+            if (image.webPath) {
+              const response = await fetch(image.webPath);
+              const blob = await response.blob();
+              const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-          await this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile, processedFile.caption);
+              const processedFile = {
+                file: file,
+                annotationData: null,
+                originalFile: undefined,
+                caption: ''
+              };
+
+              await this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile, processedFile.caption);
+            }
+          }
         }
 
         this.currentUploadContext = null;
       }
     } catch (error) {
-      if (error !== 'User cancelled photos app') {
+      // Check if user cancelled - don't show error for cancellations
+      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
+      const isCancelled = errorMessage.includes('cancel') ||
+                         errorMessage.includes('Cancel') ||
+                         errorMessage.includes('User') ||
+                         error === 'User cancelled photos app';
+
+      if (!isCancelled) {
         console.error('Error selecting photo from gallery:', error);
         await this.showToast('Failed to select photo', 'danger');
       }
@@ -1599,7 +1676,7 @@ export class CategoryDetailPage implements OnInit {
                 }
 
                 this.changeDetectorRef.detectChanges();
-                await this.showToast('Caption updated', 'success');
+                // Remove success toast - silent update
                 this.isCaptionPopupOpen = false;
                 return true;
               } catch (error) {
