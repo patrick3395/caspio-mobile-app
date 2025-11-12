@@ -25,12 +25,22 @@ export class StructuralSystemsHubPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    // Get IDs from parent route
-    this.route.parent?.params.subscribe(params => {
+    // Get IDs from parent route (container level)
+    // Route structure: engineers-foundation/:projectId/:serviceId -> structural -> (hub is here)
+    // So we need to go up 2 levels: route.parent.parent
+    this.route.parent?.parent?.params.subscribe(params => {
+      console.log('Route params from parent.parent:', params);
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
 
-      this.loadData();
+      console.log('ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+
+      if (this.projectId && this.serviceId) {
+        this.loadData();
+      } else {
+        console.error('Missing projectId or serviceId');
+        this.loading = false;
+      }
     });
   }
 

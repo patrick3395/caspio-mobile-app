@@ -65,12 +65,21 @@ export class CategoryDetailPage implements OnInit {
     this.route.params.subscribe(params => {
       this.categoryName = params['category'];
 
-      // Get IDs from parent route
-      this.route.parent?.parent?.params.subscribe(parentParams => {
+      // Get IDs from container route
+      // Route structure: engineers-foundation/:projectId/:serviceId -> structural -> category/:category (we are here)
+      // So we need to go up 3 levels to get to container
+      this.route.parent?.parent?.parent?.params.subscribe(parentParams => {
         this.projectId = parentParams['projectId'];
         this.serviceId = parentParams['serviceId'];
 
-        this.loadData();
+        console.log('Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+
+        if (this.projectId && this.serviceId && this.categoryName) {
+          this.loadData();
+        } else {
+          console.error('Missing required route params');
+          this.loading = false;
+        }
       });
     });
   }
