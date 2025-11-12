@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController } from '@ionic/angular';
+import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
@@ -76,6 +76,9 @@ export class CategoryDetailPage implements OnInit {
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+
+  // Ion Content for scroll management
+  @ViewChild(IonContent, { static: false }) content?: IonContent;
 
   constructor(
     private router: Router,
@@ -610,27 +613,8 @@ export class CategoryDetailPage implements OnInit {
   }
 
   saveScrollBeforePhotoClick(event: Event): void {
-    const ionContent = document.querySelector('ion-content');
-    const scrollElement = ionContent?.shadowRoot?.querySelector('.inner-scroll');
-    if (scrollElement) {
-      this.lockedScrollY = scrollElement.scrollTop;
-      console.log('[SCROLL] Saved scroll position:', this.lockedScrollY);
-    }
-  }
-
-  // Restore scroll position after UI updates
-  private restoreScrollPosition(): void {
-    if (this.lockedScrollY > 0) {
-      // Use setTimeout to ensure DOM has updated before scrolling
-      setTimeout(() => {
-        const ionContent = document.querySelector('ion-content');
-        const scrollElement = ionContent?.shadowRoot?.querySelector('.inner-scroll');
-        if (scrollElement) {
-          scrollElement.scrollTop = this.lockedScrollY;
-          console.log('[SCROLL] Restored scroll position:', this.lockedScrollY);
-        }
-      }, 50); // Small delay to ensure DOM is ready
-    }
+    // This method is still called from HTML but now handled in viewPhoto() instead
+    // Keeping the method to avoid template errors
   }
 
   // ============================================
@@ -1039,6 +1023,10 @@ export class CategoryDetailPage implements OnInit {
         return;
       }
 
+      // CRITICAL: Save scroll position BEFORE opening modal using Ionic API
+      const scrollPosition = await this.content?.getScrollElement().then(el => el.scrollTop) || 0;
+      console.log('[SCROLL] Saved scroll position before modal:', scrollPosition);
+
       // CRITICAL FIX v1.4.340: Always use the original URL (base image without annotations)
       // The originalUrl is set during loadPhotosForVisual to the base image
       let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
@@ -1140,6 +1128,15 @@ export class CategoryDetailPage implements OnInit {
 
       // Handle annotated photo returned from annotator
       const { data } = await modal.onWillDismiss();
+
+      // CRITICAL: Restore scroll position AFTER modal dismisses, regardless of save/cancel
+      // Use setTimeout to ensure modal animation completes before restoring
+      setTimeout(async () => {
+        if (this.content) {
+          await this.content.scrollToPoint(0, scrollPosition, 0); // 0ms duration = instant
+          console.log('[SCROLL] Restored scroll position after modal dismiss:', scrollPosition);
+        }
+      }, 100);
 
       if (!data) {
         // User cancelled
