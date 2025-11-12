@@ -202,19 +202,22 @@ export class CategoryDetailPage implements OnInit {
 
       // Process each visual
       for (const visual of visuals) {
-        const templateId = visual.TemplateID;
-        const category = visual.Category || this.categoryName;
-        const key = `${category}_${templateId}`;
+        const category = visual.Category;
+        const name = visual.Name;
+        const kind = visual.Kind;
 
-        // Store the visual record ID
-        this.visualRecordIds[key] = visual.PK_ID;
-
-        // Find the template item in our organized data
-        const item = this.findItemByTemplateId(templateId);
+        // Find matching template by Name, Category, and Kind
+        const item = this.findItemByNameAndCategory(name, category, kind);
         if (!item) {
-          console.warn('[LOAD VISUALS] Template not found for ID:', templateId);
+          console.warn('[LOAD VISUALS] Template not found for:', name, category, kind);
           continue;
         }
+
+        const key = `${category}_${item.id}`;
+
+        // Store the visual record ID (extract from response)
+        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+        this.visualRecordIds[key] = visualId;
 
         // Set selected state for checkbox items
         if (!item.answerType || item.answerType === 0) {
@@ -222,20 +225,20 @@ export class CategoryDetailPage implements OnInit {
         }
 
         // Set answer for Yes/No dropdowns
-        if (item.answerType === 1 && visual.Answer) {
-          item.answer = visual.Answer;
+        if (item.answerType === 1 && visual.Answers) {
+          item.answer = visual.Answers;
         }
 
         // Set selected options for multi-select
-        if (item.answerType === 2 && visual.Answer) {
-          item.answer = visual.Answer;
-          if (visual.OtherValue) {
-            item.otherValue = visual.OtherValue;
+        if (item.answerType === 2 && visual.Answers) {
+          item.answer = visual.Answers;
+          if (visual.Notes) {
+            item.otherValue = visual.Notes;
           }
         }
 
         // Load photos for this visual
-        await this.loadPhotosForVisual(visual.PK_ID, key);
+        await this.loadPhotosForVisual(visualId, key);
       }
 
       console.log('[LOAD VISUALS] Finished loading existing visuals');
@@ -243,6 +246,21 @@ export class CategoryDetailPage implements OnInit {
     } catch (error) {
       console.error('[LOAD VISUALS] Error loading existing visuals:', error);
     }
+  }
+
+  private findItemByNameAndCategory(name: string, category: string, kind: string): VisualItem | undefined {
+    // Search in all three sections for matching name/category/kind
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+
+    return allItems.find(item =>
+      item.name === name &&
+      item.category === category &&
+      item.type === kind
+    );
   }
 
   private findItemByTemplateId(templateId: number): VisualItem | undefined {
@@ -349,22 +367,25 @@ export class CategoryDetailPage implements OnInit {
 
       if (!visualId) {
         // Create new visual
+        const serviceIdNum = parseInt(this.serviceId, 10);
         const visualData = {
-          ServiceID: this.serviceId,
-          TemplateID: item.templateId,
+          ServiceID: serviceIdNum,
           Category: category,
-          Type: item.type,
-          Answer: item.answer || '',
-          Required: item.required ? 'Yes' : 'No'
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: '',
+          Answers: item.answer || ''
         };
 
         const result = await this.foundationData.createVisual(visualData);
-        this.visualRecordIds[key] = result.PK_ID;
-        console.log('[ANSWER] Created visual:', result.PK_ID);
+        const visualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = visualId;
+        console.log('[ANSWER] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual
         await this.foundationData.updateVisual(visualId, {
-          Answer: item.answer || ''
+          Answers: item.answer || ''
         });
         console.log('[ANSWER] Updated visual:', visualId);
       }
@@ -407,24 +428,26 @@ export class CategoryDetailPage implements OnInit {
 
       if (!visualId) {
         // Create new visual
+        const serviceIdNum = parseInt(this.serviceId, 10);
         const visualData = {
-          ServiceID: this.serviceId,
-          TemplateID: item.templateId,
+          ServiceID: serviceIdNum,
           Category: category,
-          Type: item.type,
-          Answer: item.answer,
-          OtherValue: item.otherValue || '',
-          Required: item.required ? 'Yes' : 'No'
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: item.otherValue || '',  // Store "Other" value in Notes
+          Answers: item.answer
         };
 
         const result = await this.foundationData.createVisual(visualData);
-        this.visualRecordIds[key] = result.PK_ID;
-        console.log('[OPTION] Created visual:', result.PK_ID);
+        const visualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = visualId;
+        console.log('[OPTION] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual
         await this.foundationData.updateVisual(visualId, {
-          Answer: item.answer,
-          OtherValue: item.otherValue || ''
+          Answers: item.answer,
+          Notes: item.otherValue || ''
         });
         console.log('[OPTION] Updated visual:', visualId);
       }
@@ -453,23 +476,25 @@ export class CategoryDetailPage implements OnInit {
 
       if (!visualId) {
         // Create new visual
+        const serviceIdNum = parseInt(this.serviceId, 10);
         const visualData = {
-          ServiceID: this.serviceId,
-          TemplateID: item.templateId,
+          ServiceID: serviceIdNum,
           Category: category,
-          Type: item.type,
-          Answer: item.answer || '',
-          OtherValue: item.otherValue || '',
-          Required: item.required ? 'Yes' : 'No'
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: item.otherValue || '',  // Store "Other" value in Notes
+          Answers: item.answer || ''
         };
 
         const result = await this.foundationData.createVisual(visualData);
-        this.visualRecordIds[key] = result.PK_ID;
-        console.log('[OTHER] Created visual:', result.PK_ID);
+        const visualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = visualId;
+        console.log('[OTHER] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual
         await this.foundationData.updateVisual(visualId, {
-          OtherValue: item.otherValue || ''
+          Notes: item.otherValue || ''
         });
         console.log('[OTHER] Updated visual:', visualId);
       }
@@ -815,23 +840,48 @@ export class CategoryDetailPage implements OnInit {
 
       console.log('[SAVE VISUAL] Creating visual record for', key);
 
-      // Create the Services_Visuals record
-      const visualData = {
-        ServiceID: this.serviceId,
-        TemplateID: Number(itemId),
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        console.error('[SAVE VISUAL] Invalid ServiceID:', this.serviceId);
+        return;
+      }
+
+      // Create the Services_Visuals record using EXACT same structure as original
+      const visualData: any = {
+        ServiceID: serviceIdNum,
         Category: category,
-        Type: item.type,
-        Answer: item.answer || '',
-        OtherValue: item.otherValue || '',
-        Required: item.required ? 'Yes' : 'No'
+        Kind: item.type,      // Use "Kind" not "Type"
+        Name: item.name,
+        Text: item.text || item.originalText || '',
+        Notes: ''
       };
+
+      // Add Answers field if there are answers to store
+      if (item.answer) {
+        visualData.Answers = item.answer;
+      }
 
       const result = await this.foundationData.createVisual(visualData);
 
-      console.log('[SAVE VISUAL] Created visual with ID:', result.PK_ID);
+      // Extract VisualID using the SAME logic as original (line 8518-8524)
+      let visualId: string | null = null;
+      if (result.VisualID) {
+        visualId = String(result.VisualID);
+      } else if (result.PK_ID) {
+        visualId = String(result.PK_ID);
+      } else if (result.id) {
+        visualId = String(result.id);
+      }
+
+      if (!visualId) {
+        console.error('[SAVE VISUAL] No VisualID in response:', result);
+        throw new Error('VisualID not found in response');
+      }
+
+      console.log('[SAVE VISUAL] Created visual with ID:', visualId);
 
       // Store the visual ID for photo uploads
-      this.visualRecordIds[key] = result.PK_ID;
+      this.visualRecordIds[key] = visualId;
 
       // Process any pending photo uploads for this item
       if (this.pendingPhotoUploads[key] && this.pendingPhotoUploads[key].length > 0) {
