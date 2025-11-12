@@ -1,5 +1,5 @@
 .page-container {
-  padding: 16px;
+  padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
   background: #f5f5f5;
@@ -7,10 +7,10 @@
 }
 
 .content-section {
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 0;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 24px;
   min-height: 200px;
 }
 
@@ -21,9 +21,6 @@
   justify-content: center;
   padding: 60px 20px;
   color: #666;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 
   ion-spinner {
     margin-bottom: 16px;
@@ -656,5 +653,16 @@ ion-accordion-group {
         margin: 0;
       }
     }
+  }
+}
+
+// Mobile responsive adjustments matching structural-systems-hub
+@media (max-width: 768px) {
+  .page-container {
+    padding: 12px;
+  }
+
+  .content-section {
+    padding: 16px;
   }
 }

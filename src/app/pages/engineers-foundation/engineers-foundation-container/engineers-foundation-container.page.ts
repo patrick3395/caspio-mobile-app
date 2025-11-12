@@ -135,7 +135,12 @@ export class EngineersFoundationContainerPage implements OnInit {
   }
 
   navigateToCrumb(crumb: Breadcrumb) {
-    this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, crumb.path]);
+    // If path is empty, navigate to EFE main page (no additional path segment)
+    if (!crumb.path || crumb.path === '') {
+      this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId]);
+    } else {
+      this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, crumb.path]);
+    }
   }
 
   goBack() {
