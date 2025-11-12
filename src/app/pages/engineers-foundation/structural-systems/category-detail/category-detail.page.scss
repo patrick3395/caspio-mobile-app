@@ -9,20 +9,10 @@
 .header-section {
   margin-bottom: 20px;
 
-  ion-button {
-    margin-bottom: 10px;
-  }
-
   h1 {
     font-size: 24px;
     font-weight: 700;
     color: var(--ion-color-primary);
-    margin: 0 0 8px 0;
-  }
-
-  .subtitle {
-    font-size: 16px;
-    color: #666;
     margin: 0;
   }
 }
@@ -64,39 +54,12 @@
     }
 
     .type-header {
-      font-size: 14px;
-      font-weight: 700;
-      color: #666;
-      margin-bottom: 12px;
-      padding: 10px 16px;
-      background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
-      border-radius: 8px;
-      border-left: 4px solid var(--ion-color-primary);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      .add-visual-btn {
-        background: var(--ion-color-primary);
-        color: white;
-        border: none;
-        border-radius: 50%;
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-
-        ion-icon {
-          font-size: 20px;
-        }
-
-        &:active {
-          transform: scale(0.95);
-        }
-      }
+      // Header styling now handled by accordion ion-item
+      // Keeping this for any legacy references
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--noble-orange, #F15A27);
+      margin: 0;
     }
 
     .no-items-message {
@@ -105,8 +68,7 @@
       color: #999;
       font-size: 14px;
       font-style: italic;
-      background: rgba(0, 0, 0, 0.02);
-      border-radius: 8px;
+      background: transparent;
       margin-bottom: 12px;
     }
 
@@ -599,6 +561,32 @@ ion-accordion-group {
       --background: transparent;
       cursor: pointer;
       margin-bottom: 12px;
+
+      .add-visual-btn {
+        background: transparent;
+        color: var(--ion-color-primary);
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        ion-icon {
+          font-size: 28px;
+        }
+
+        &:hover {
+          background: rgba(241, 90, 39, 0.1);
+        }
+
+        &:active {
+          transform: scale(0.95);
+        }
+      }
     }
 
     .accordion-content {
