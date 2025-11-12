@@ -802,13 +802,13 @@ export class CategoryDetailPage implements OnInit {
         const { data } = await modal.onWillDismiss();
 
         if (data && data.annotatedBlob) {
-          // User saved the annotated photo - upload it
+          // User saved the annotated photo - upload ORIGINAL (not annotated) and save annotations separately
           const annotatedBlob = data.blob || data.annotatedBlob;
           const annotationsData = data.annotationData || data.annotationsData;
           const caption = data.caption || '';
 
-          // Convert blob to File
-          const file = new File([annotatedBlob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          // CRITICAL: Upload the ORIGINAL photo, not the annotated one
+          const originalFile = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
           // Get or create visual ID
           const key = `${category}_${itemId}`;
@@ -820,11 +820,52 @@ export class CategoryDetailPage implements OnInit {
           }
 
           if (visualId) {
-            // Convert original blob to File for originalPhoto parameter
-            const originalFile = new File([blob], `camera-original-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            // Upload the ORIGINAL photo WITHOUT annotations baked in
+            await this.uploadPhotoForVisual(visualId, originalFile, key, true, null, null, caption);
 
-            // Upload the annotated photo with annotation data
-            await this.uploadPhotoForVisual(visualId, file, key, true, annotationsData, originalFile, caption);
+            // If there are annotations, save them separately after upload
+            if (annotationsData) {
+              // Wait a moment for the photo to be uploaded and get its AttachID
+              setTimeout(async () => {
+                try {
+                  // Find the uploaded photo in the array (it will have a real AttachID now)
+                  const photos = this.visualPhotos[key] || [];
+                  const uploadedPhoto = photos.find(p =>
+                    !String(p.AttachID).startsWith('temp_') &&
+                    p.caption === caption &&
+                    !p.uploading
+                  );
+
+                  if (uploadedPhoto && uploadedPhoto.AttachID) {
+                    console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', uploadedPhoto.AttachID);
+
+                    // Save annotations to database
+                    await this.saveAnnotationToDatabase(uploadedPhoto.AttachID, annotatedBlob, annotationsData, caption);
+
+                    // Create display URL with annotations
+                    const displayUrl = URL.createObjectURL(annotatedBlob);
+
+                    // Update photo object to show annotations
+                    const photoIndex = photos.findIndex(p => p.AttachID === uploadedPhoto.AttachID);
+                    if (photoIndex !== -1) {
+                      this.visualPhotos[key][photoIndex] = {
+                        ...this.visualPhotos[key][photoIndex],
+                        displayUrl: displayUrl,
+                        hasAnnotations: true,
+                        annotations: annotationsData,
+                        annotationsData: annotationsData
+                      };
+                      this.changeDetectorRef.detectChanges();
+                      console.log('[CAMERA UPLOAD] Annotations saved and display updated');
+                    }
+                  } else {
+                    console.warn('[CAMERA UPLOAD] Could not find uploaded photo to attach annotations');
+                  }
+                } catch (error) {
+                  console.error('[CAMERA UPLOAD] Error saving annotations:', error);
+                }
+              }, 2000); // Wait 2 seconds for upload to complete
+            }
           }
         }
 
@@ -870,23 +911,71 @@ export class CategoryDetailPage implements OnInit {
         }
 
         if (visualId) {
-          // Process each selected image
-          for (const image of images.photos) {
+          // Initialize photo array if it doesn't exist
+          if (!this.visualPhotos[key]) {
+            this.visualPhotos[key] = [];
+          }
+
+          // First, add all photos as loading placeholders immediately
+          const uploadPromises = [];
+
+          for (let i = 0; i < images.photos.length; i++) {
+            const image = images.photos[i];
+
             if (image.webPath) {
-              const response = await fetch(image.webPath);
-              const blob = await response.blob();
-              const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
+              // Create temp ID for this photo
+              const tempId = `temp_gallery_${Date.now()}_${i}`;
 
-              const processedFile = {
-                file: file,
-                annotationData: null,
-                originalFile: undefined,
-                caption: ''
-              };
+              // Add placeholder immediately to show loading state
+              this.visualPhotos[key].push({
+                id: tempId,
+                AttachID: tempId,
+                url: 'assets/img/photo-placeholder.png',
+                thumbnailUrl: 'assets/img/photo-placeholder.png',
+                caption: '',
+                uploading: true,
+                queued: false
+              });
 
-              await this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile, processedFile.caption);
+              // Trigger change detection to show all loading placeholders
+              this.changeDetectorRef.detectChanges();
+
+              // Start upload in background (don't await)
+              const uploadPromise = (async () => {
+                try {
+                  const response = await fetch(image.webPath);
+                  const blob = await response.blob();
+                  const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+
+                  const processedFile = {
+                    file: file,
+                    annotationData: null,
+                    originalFile: undefined,
+                    caption: ''
+                  };
+
+                  // Upload photo - this will replace the placeholder when complete
+                  await this.uploadPhotoForVisual(visualId, processedFile.file, key, true, processedFile.annotationData, processedFile.originalFile, processedFile.caption);
+
+                  // Remove the temp placeholder after successful upload
+                  this.visualPhotos[key] = this.visualPhotos[key].filter(p => p.AttachID !== tempId);
+                  this.changeDetectorRef.detectChanges();
+                } catch (error) {
+                  console.error('[GALLERY UPLOAD] Error uploading photo:', error);
+                  // Remove failed placeholder
+                  this.visualPhotos[key] = this.visualPhotos[key].filter(p => p.AttachID !== tempId);
+                  this.changeDetectorRef.detectChanges();
+                }
+              })();
+
+              uploadPromises.push(uploadPromise);
             }
           }
+
+          // Wait for all uploads to complete in background
+          Promise.all(uploadPromises).then(() => {
+            console.log('[GALLERY UPLOAD] All photos uploaded');
+          });
         }
 
         this.currentUploadContext = null;
