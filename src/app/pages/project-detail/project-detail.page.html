@@ -79,8 +79,8 @@
     <div class="info-section" *ngIf="showDeliverablesTable && getDeliverablesServices().length > 0">
       <h2 class="section-title">Deliverables</h2>
 
-      <!-- Desktop/Web View - Full Table (CompanyID = 1) -->
-      <table class="deliverables-table" *ngIf="platform.isWeb() && isCompanyOne">
+      <!-- Full Table (CompanyID = 1) -->
+      <table class="deliverables-table" *ngIf="isCompanyOne">
         <tbody *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-group">
           <!-- Service Header Row -->
           <tr class="deliverable-row service-row">
@@ -175,8 +175,8 @@
         </tbody>
       </table>
 
-      <!-- Desktop/Web View - Reduced Table (Other Companies) -->
-      <table class="deliverables-table" *ngIf="platform.isWeb() && !isCompanyOne">
+      <!-- Reduced Table (Other Companies) -->
+      <table class="deliverables-table" *ngIf="!isCompanyOne">
         <tbody *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-group">
           <!-- Service Header Row -->
           <tr class="deliverable-row service-row">
@@ -234,77 +234,6 @@
                 [readonly]="isReadOnly"
                 placeholder="Enter notes"
                 rows="2"></textarea>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Mobile View - CompanyID = 1 -->
-      <table class="deliverables-table-mobile" *ngIf="!platform.isWeb() && isCompanyOne">
-        <thead>
-          <tr>
-            <th>Service</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-row-mobile">
-            <!-- Service Name (Clickable) -->
-            <td class="service-name-cell-mobile" (click)="openDeliverableModal(service)">
-              <div class="service-name-content">
-                <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
-                <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
-                  #{{ getServiceInstanceNumber(service) }}
-                </span>
-              </div>
-            </td>
-
-            <!-- StatusEng -->
-            <td class="status-cell-mobile">
-              <select
-                class="deliverable-select-mobile"
-                [(ngModel)]="service.StatusEng"
-                (ngModelChange)="updateDeliverableField(service, 'StatusEng', service.StatusEng || '')"
-                [disabled]="isReadOnly"
-                (click)="$event.stopPropagation()">
-                <option value="">--</option>
-                <option *ngFor="let status of statusOptions" [value]="status.Status">
-                  {{ status.Status }}
-                </option>
-              </select>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Mobile View - Other Companies (Deliverable & Inspector Notes only) -->
-      <table class="deliverables-table-mobile" *ngIf="!platform.isWeb() && !isCompanyOne">
-        <thead>
-          <tr>
-            <th>Service</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-row-mobile">
-            <!-- Service Name (Clickable) -->
-            <td class="service-name-cell-mobile" (click)="openDeliverableModal(service)">
-              <div class="service-name-content">
-                <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
-                <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
-                  #{{ getServiceInstanceNumber(service) }}
-                </span>
-              </div>
-            </td>
-
-            <!-- Deliverable Status (Read-only indicator) -->
-            <td class="status-cell-mobile">
-              <span class="deliverable-status-indicator" *ngIf="hasDeliverable(service)">
-                <ion-icon name="checkmark-circle" style="color: #28a745; font-size: 20px;"></ion-icon>
-              </span>
-              <span class="deliverable-status-indicator" *ngIf="!hasDeliverable(service)" style="color: #999;">
-                --
-              </span>
             </td>
           </tr>
         </tbody>
@@ -613,124 +542,6 @@
           </ion-label>
         </ion-item>
       </ion-list>
-    </ion-content>
-  </ng-template>
-</ion-modal>
-
-<!-- Deliverable Edit Modal (Mobile Only) -->
-<ion-modal [isOpen]="isDeliverableModalOpen" (didDismiss)="closeDeliverableModal()">
-  <ng-template>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Edit Deliverable</ion-title>
-        <ion-buttons slot="end">
-          <ion-button (click)="closeDeliverableModal()" style="--color: #F15A27;">
-            <ion-icon name="close" slot="icon-only" style="color: #F15A27;"></ion-icon>
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content class="deliverable-modal-content">
-      <div class="deliverable-modal-body" *ngIf="selectedDeliverableService">
-        <!-- Service Name Header -->
-        <div class="modal-service-header">
-          <h3>
-            <span *ngIf="selectedDeliverableService.typeShort">{{ selectedDeliverableService.typeShort }} - </span>
-            {{ selectedDeliverableService.typeName }}
-            <span *ngIf="getServiceCount(selectedDeliverableService.offersId) > 1" class="instance-badge">
-              #{{ getServiceInstanceNumber(selectedDeliverableService) }}
-            </span>
-          </h3>
-        </div>
-
-        <!-- Status Eng (CompanyID = 1 only) -->
-        <div class="modal-field-group" *ngIf="isCompanyOne">
-          <label>Status Eng</label>
-          <select
-            class="modal-select"
-            [(ngModel)]="selectedDeliverableService.StatusEng"
-            (ngModelChange)="updateDeliverableField(selectedDeliverableService, 'StatusEng', selectedDeliverableService.StatusEng || '')"
-            [disabled]="isReadOnly">
-            <option value="">Select status...</option>
-            <option *ngFor="let status of statusOptions" [value]="status.Status_Admin">
-              {{ status.Status_Admin }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Deliverable File -->
-        <div class="modal-field-group">
-          <label>Deliverable</label>
-          <div class="modal-file-container">
-            <!-- Action buttons when file exists -->
-            <div *ngIf="hasDeliverable(selectedDeliverableService)" class="modal-deliverable-actions">
-              <ion-button size="small" fill="outline" color="primary" (click)="viewDeliverableFile(selectedDeliverableService)">
-                <ion-icon name="eye-outline" slot="start"></ion-icon>
-                View
-              </ion-button>
-              <ion-button size="small" fill="outline" color="primary" (click)="downloadDeliverableFile(selectedDeliverableService)">
-                <ion-icon name="download-outline" slot="start"></ion-icon>
-                Download
-              </ion-button>
-              <ion-button size="small" fill="outline" color="danger" *ngIf="!isReadOnly" (click)="deleteDeliverableFile(selectedDeliverableService)">
-                <ion-icon name="trash-outline" slot="start"></ion-icon>
-                Delete
-              </ion-button>
-            </div>
-
-            <span *ngIf="!hasDeliverable(selectedDeliverableService)" class="no-file-text">
-              No file uploaded
-            </span>
-
-            <!-- Upload button -->
-            <div *ngIf="!isReadOnly">
-              <input
-                #modalDeliverableFileInput
-                type="file"
-                style="display: none"
-                (change)="uploadDeliverableFile(selectedDeliverableService, $event)"
-                accept="*/*">
-              <ion-button size="small" color="primary" (click)="modalDeliverableFileInput.click()">
-                <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
-                {{ hasDeliverable(selectedDeliverableService) ? 'Replace' : 'Upload' }}
-              </ion-button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Eng Notes (CompanyID = 1 only) -->
-        <div class="modal-field-group" *ngIf="isCompanyOne">
-          <label>Eng Notes</label>
-          <textarea
-            class="modal-textarea"
-            [value]="selectedDeliverableService.EngNotes || ''"
-            (blur)="updateDeliverableField(selectedDeliverableService, 'EngNotes', $any($event.target).value)"
-            [disabled]="isReadOnly"
-            [readonly]="isReadOnly"
-            placeholder="Enter engineer notes..."
-            rows="4"></textarea>
-        </div>
-
-        <!-- Inspector Notes -->
-        <div class="modal-field-group">
-          <label>Inspector Notes</label>
-          <textarea
-            class="modal-textarea"
-            [value]="selectedDeliverableService.InspectorNotes || ''"
-            (blur)="updateDeliverableField(selectedDeliverableService, 'InspectorNotes', $any($event.target).value)"
-            [disabled]="isReadOnly"
-            [readonly]="isReadOnly"
-            placeholder="Enter inspector notes..."
-            rows="4"></textarea>
-        </div>
-
-        <!-- Close Button -->
-        <div class="modal-actions">
-          <ion-button expand="block" (click)="closeDeliverableModal()">
-            Done
-          </ion-button>
-        </div>
-      </div>
     </ion-content>
   </ng-template>
 </ion-modal>

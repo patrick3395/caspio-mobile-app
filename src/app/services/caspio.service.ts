@@ -1900,15 +1900,8 @@ export class CaspioService {
     // Use getValidToken to ensure fresh token
     return this.getValidToken().pipe(
       switchMap(accessToken => new Observable<string>(observer => {
-        // Strip .png extension if present - Caspio Files stores without extension
-        let processedPath = filePath;
-        if (filePath.toLowerCase().endsWith('.png')) {
-          processedPath = filePath.substring(0, filePath.length - 4);
-          console.log(`📥 [Files API] Stripped .png extension: "${filePath}" -> "${processedPath}"`);
-        }
-
         // Clean the file path - use exact path, no normalization
-        const cleanPath = processedPath.startsWith('/') ? processedPath : `/${processedPath}`;
+        const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
         const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
 
         console.log(`📥 [Files API] Fetching icon: "${filePath}" -> cleanPath: "${cleanPath}"`);
@@ -1962,14 +1955,7 @@ export class CaspioService {
 
     return this.getValidToken().pipe(
       switchMap(accessToken => new Observable<Blob>(observer => {
-        // Strip .png extension if present - Caspio Files stores without extension
-        let processedPath = filePath;
-        if (filePath.toLowerCase().endsWith('.png')) {
-          processedPath = filePath.substring(0, filePath.length - 4);
-          console.log(`📥 [Files API Blob] Stripped .png extension: "${filePath}" -> "${processedPath}"`);
-        }
-
-        const cleanPath = processedPath.startsWith('/') ? processedPath : `/${processedPath}`;
+        const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
         const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
 
         console.log(`📥 [Files API Blob] Fetching: "${cleanPath}"`);

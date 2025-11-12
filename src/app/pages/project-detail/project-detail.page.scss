@@ -1379,283 +1379,57 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       }
     }
   }
-}
 
-// Mobile-specific deliverables table
-.deliverables-table-mobile {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  background: $white;
-  border: 1px solid $border;
-  border-radius: 8px;
-  overflow: hidden;
-
-  thead {
-    background: $light-gray;
-
-    th {
-      padding: 12px;
-      text-align: left;
-      font-weight: 600;
-      font-size: 13px;
-      color: $dark;
-      border-bottom: 2px solid $border;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-
-      &:first-child {
-        width: 70%;
-      }
-
-      &:last-child {
-        width: 30%;
-      }
-    }
-  }
-
-  tbody {
-    .deliverable-row-mobile {
-      border-bottom: 1px solid $border;
-
-      &:last-child {
-        border-bottom: none;
-      }
-
-      td {
-        padding: 12px;
-        vertical-align: middle;
-      }
-    }
-  }
-
-  .service-name-cell-mobile {
-    cursor: pointer;
-    user-select: none;
-    display: flex;
-    align-items: center;
-    transition: background 0.2s ease;
-
-    &:active {
-      background: rgba(241, 90, 39, 0.05);
-    }
-
-    .service-name-content {
-      flex: 1;
-      font-weight: 500;
-      color: $orange;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-
-      .instance-badge {
-        font-weight: 400;
-        color: $gray;
-        font-size: 12px;
-      }
-    }
-  }
-
-  .status-cell-mobile {
-    text-align: center;
-
-    .deliverable-select-mobile {
-      width: 100%;
-      padding: 6px 8px;
-      border: 1px solid $border;
-      border-radius: 4px;
+  // Mobile responsive styles
+  @media (max-width: 768px) {
+    .field-label-cell {
+      width: 35%;
       font-size: 12px;
-      background: $white;
-      color: $dark;
-      font-family: inherit;
-      cursor: pointer;
-
-      &:focus {
-        outline: none;
-        border-color: $orange;
-      }
-
-      &:disabled {
-        background: $light-gray;
-        color: $gray;
-        cursor: not-allowed;
-      }
+      padding: 10px 8px;
     }
 
-    .deliverable-status-indicator {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-  }
-}
+    .field-value-cell {
+      width: 65%;
+      padding: 10px 8px;
 
-// Deliverable modal styling
-.deliverable-modal-content {
-  --background: #f8f9fa;
-}
-
-.deliverable-modal-body {
-  padding: 20px;
-  max-width: 600px;
-  margin: 0 auto;
-
-  .modal-service-header {
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 2px solid $orange;
-
-    h3 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-      color: $dark;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-
-      .instance-badge {
-        font-weight: 400;
-        color: $gray;
+      .deliverable-select,
+      .deliverable-textarea,
+      .deliverable-input {
         font-size: 14px;
-      }
-    }
-  }
-
-  .modal-field-group {
-    margin-bottom: 20px;
-    background: $white;
-    padding: 16px;
-    border-radius: 8px;
-    border: 1px solid $border;
-
-    label {
-      display: block;
-      font-weight: 600;
-      font-size: 13px;
-      color: $gray;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-
-    .modal-select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid $border;
-      border-radius: 6px;
-      font-size: 14px;
-      background: $white;
-      color: $dark;
-      font-family: inherit;
-      cursor: pointer;
-
-      &:focus {
-        outline: none;
-        border-color: $orange;
-        box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+        padding: 10px;
       }
 
-      &:disabled {
-        background: $light-gray;
-        color: $gray;
-        cursor: not-allowed;
+      .deliverable-textarea {
+        min-height: 80px;
       }
     }
 
-    .modal-textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid $border;
-      border-radius: 6px;
-      font-size: 14px;
-      background: $white;
-      color: $dark;
-      font-family: inherit;
-      line-height: 1.5;
-      resize: vertical;
-
-      &:focus {
-        outline: none;
-        border-color: $orange;
-        box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+    .deliverable-row {
+      td {
+        padding: 10px 8px;
       }
 
-      &:disabled, &:read-only {
-        background: $light-gray;
-        color: $gray;
-        cursor: not-allowed;
-      }
-
-      &::placeholder {
-        color: #999;
-      }
-    }
-
-    .modal-file-container {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-
-      .modal-deliverable-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        color: $orange;
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 14px;
-        padding: 10px 12px;
-        background: rgba(241, 90, 39, 0.05);
-        border-radius: 6px;
-        transition: background 0.2s ease;
-
-        ion-icon {
-          font-size: 20px;
-        }
-
-        &:active {
-          background: rgba(241, 90, 39, 0.1);
+      &.service-row {
+        .service-header {
+          font-size: 13px;
+          padding: 10px 8px;
         }
       }
+    }
 
-      .no-file-text {
-        color: $gray;
-        font-size: 14px;
-        font-style: italic;
-      }
-
-      .modal-deliverable-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-bottom: 12px;
+    &.deliverable-file-cell {
+      .file-upload-container {
+        gap: 6px;
 
         ion-button {
-          margin: 0;
-          width: 100%;
+          height: 36px;
+          width: 36px;
+
+          ion-icon {
+            font-size: 22px;
+          }
         }
       }
-
-      ion-button {
-        margin: 0;
-      }
-    }
-  }
-
-  .modal-actions {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid $border;
-
-    ion-button {
-      --background: $orange;
-      --background-activated: rgba(241, 90, 39, 0.9);
-      --background-hover: rgba(241, 90, 39, 0.9);
-      font-weight: 600;
     }
   }
 }

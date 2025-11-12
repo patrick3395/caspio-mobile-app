@@ -1616,46 +1616,66 @@ export class CategoryDetailPage implements OnInit {
   }
 
   async deletePhoto(photo: any, category: string, itemId: string | number) {
-    const alert = await this.alertController.create({
-      header: 'Delete Photo',
-      message: 'Are you sure you want to delete this photo?',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Delete',
-          role: 'destructive',
-          handler: async () => {
-            try {
-              const key = `${category}_${itemId}`;
+    try {
+      const alert = await this.alertController.create({
+        header: 'Delete Photo',
+        message: 'Are you sure you want to delete this photo?',
+        cssClass: 'custom-document-alert',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
+          },
+          {
+            text: 'Delete',
+            cssClass: 'alert-button-confirm',
+            handler: () => {
+              // Return true to allow alert to dismiss, then process deletion
+              setTimeout(async () => {
+                const loading = await this.loadingController.create({
+                  message: 'Deleting photo...'
+                });
+                await loading.present();
 
-              // Remove from UI immediately
-              if (this.visualPhotos[key]) {
-                const index = this.visualPhotos[key].findIndex(p => p.AttachID === photo.AttachID);
-                if (index !== -1) {
-                  this.visualPhotos[key].splice(index, 1);
+                try {
+                  const key = `${category}_${itemId}`;
+
+                  // Remove from UI immediately using filter for cleaner updates
+                  if (this.visualPhotos[key]) {
+                    this.visualPhotos[key] = this.visualPhotos[key].filter(
+                      (p: any) => p.AttachID !== photo.AttachID
+                    );
+                  }
+
+                  // Delete from database
+                  if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+                    await this.foundationData.deleteVisualPhoto(photo.AttachID);
+                  }
+
+                  // Force UI update
                   this.changeDetectorRef.detectChanges();
+
+                  await loading.dismiss();
+                  await this.showToast('Photo deleted', 'success');
+                } catch (error) {
+                  await loading.dismiss();
+                  console.error('Error deleting photo:', error);
+                  await this.showToast('Failed to delete photo', 'danger');
                 }
-              }
+              }, 100);
 
-              // Delete from database
-              if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
-                await this.foundationData.deleteVisualPhoto(photo.AttachID);
-              }
-
-              await this.showToast('Photo deleted', 'success');
-            } catch (error) {
-              console.error('Error deleting photo:', error);
-              await this.showToast('Failed to delete photo', 'danger');
+              return true; // Allow alert to dismiss immediately
             }
           }
-        }
-      ]
-    });
+        ]
+      });
 
-    await alert.present();
+      await alert.present();
+    } catch (error) {
+      console.error('Error in deletePhoto:', error);
+      await this.showToast('Failed to delete photo', 'danger');
+    }
   }
 
   private isCaptionPopupOpen = false;
@@ -1960,20 +1980,56 @@ export class CategoryDetailPage implements OnInit {
       if (files && files.length > 0) {
         console.log('[CREATE CUSTOM] Uploading', files.length, 'photos for visual:', visualId);
 
-        // Upload photos in background
-        const uploadPromises = Array.from(files).map((file, index) => {
-          // Get annotation data and caption for this photo from processedPhotos
-          const photoData = processedPhotos[index] || {};
-          const annotationData = photoData.annotationData || null;
-          const originalFile = photoData.originalFile || null;
-          const caption = photoData.caption || '';
+        // Upload photos in background with annotation data
+        const uploadPromises = Array.from(files).map(async (file, index) => {
+          try {
+            // Get annotation data and caption for this photo from processedPhotos
+            const photoData = processedPhotos[index] || {};
+            const annotationData = photoData.annotationData || null;
+            const originalFile = photoData.originalFile || null;
+            const caption = photoData.caption || '';
 
-          return this.foundationData.uploadVisualPhoto(parseInt(visualId!, 10), file, caption)
-            .then(() => ({ success: true, error: null }))
-            .catch((error: any) => {
-              console.error(`Failed to upload file ${index + 1}:`, error);
-              return { success: false, error };
+            console.log(`[CREATE CUSTOM] Uploading photo ${index + 1}:`, {
+              hasAnnotations: !!annotationData,
+              hasOriginalFile: !!originalFile,
+              caption: caption
             });
+
+            // Upload the ORIGINAL photo (without annotations baked in)
+            // If we have an originalFile, use that; otherwise use the file as-is
+            const fileToUpload = originalFile || file;
+            const result = await this.foundationData.uploadVisualPhoto(parseInt(visualId!, 10), fileToUpload, caption);
+            const attachId = result?.AttachID || result?.PK_ID || result?.id;
+
+            if (!attachId) {
+              console.error(`[CREATE CUSTOM] No AttachID returned for photo ${index + 1}`);
+              return { success: false, error: new Error('No AttachID returned') };
+            }
+
+            console.log(`[CREATE CUSTOM] Photo ${index + 1} uploaded with AttachID:`, attachId);
+
+            // If there are annotations, save them to the database
+            if (annotationData) {
+              try {
+                console.log(`[CREATE CUSTOM] Saving annotations for photo ${index + 1}`);
+
+                // Use the annotated file as the blob (file contains the annotated version)
+                // The originalFile is what we uploaded, file is the one with annotations baked in
+                const annotatedBlob = file instanceof Blob ? file : new Blob([file]);
+
+                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationData, caption);
+                console.log(`[CREATE CUSTOM] Annotations saved for photo ${index + 1}`);
+              } catch (annotError) {
+                console.error(`[CREATE CUSTOM] Failed to save annotations for photo ${index + 1}:`, annotError);
+                // Don't fail the whole upload if just annotations fail
+              }
+            }
+
+            return { success: true, error: null };
+          } catch (error: any) {
+            console.error(`Failed to upload file ${index + 1}:`, error);
+            return { success: false, error };
+          }
         });
 
         // Monitor uploads in background
@@ -1990,8 +2046,11 @@ export class CategoryDetailPage implements OnInit {
             this.showToast('Failed to upload photos', 'danger');
           }
 
-          // Reload photos after upload
-          this.loadPhotosForVisual(visualId!, key);
+          // Add a small delay before reloading photos to ensure database has processed all uploads
+          setTimeout(() => {
+            console.log('[CREATE CUSTOM] Reloading photos after upload delay');
+            this.loadPhotosForVisual(visualId!, key);
+          }, 500);
         });
       }
 

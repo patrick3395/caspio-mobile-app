@@ -129,8 +129,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   showDeliverablesTable = false;
   currentDeliverableUpload: any = null;
   statusOptions: any[] = [];
-  selectedDeliverableService: ServiceSelection | null = null;
-  isDeliverableModalOpen = false;
   isCompanyOne = false; // Track if this is CompanyID = 1
   
   // Track changes since last submission (by serviceId)
@@ -1829,16 +1827,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   hasDeliverable(service: ServiceSelection): boolean {
     return !!service.Deliverable;
-  }
-
-  openDeliverableModal(service: ServiceSelection) {
-    this.selectedDeliverableService = service;
-    this.isDeliverableModalOpen = true;
-  }
-
-  closeDeliverableModal() {
-    this.isDeliverableModalOpen = false;
-    this.selectedDeliverableService = null;
   }
 
   getDeliverablesServices(): ServiceSelection[] {
