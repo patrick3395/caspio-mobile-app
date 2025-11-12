@@ -33,10 +33,11 @@
             </button>
           </ion-item>
           <div slot="content" class="accordion-content">
-            <div *ngIf="organizedData.comments.length === 0" class="no-items-message">
-              No general information yet. Click + to add one.
-            </div>
-            <div class="template-item" *ngFor="let item of organizedData.comments; trackBy: trackByItemId">
+            <div class="type-section">
+              <div *ngIf="organizedData.comments.length === 0" class="no-items-message">
+                No general information yet. Click + to add one.
+              </div>
+              <div class="template-item" *ngFor="let item of organizedData.comments; trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
             <!-- Yes/No questions - vertical layout with dropdown below -->
@@ -192,7 +193,8 @@
             </div>
           </div>
         </div>
-          </div>
+            </div> <!-- Close type-section -->
+          </div> <!-- Close accordion-content -->
         </ion-accordion>
 
         <!-- Limitations Section -->
@@ -208,10 +210,11 @@
             </button>
           </ion-item>
           <div slot="content" class="accordion-content">
-            <div *ngIf="organizedData.limitations.length === 0" class="no-items-message">
-              No limitations yet. Click + to add one.
-            </div>
-            <div class="template-item" *ngFor="let item of organizedData.limitations; trackBy: trackByItemId">
+            <div class="type-section">
+              <div *ngIf="organizedData.limitations.length === 0" class="no-items-message">
+                No limitations yet. Click + to add one.
+              </div>
+              <div class="template-item" *ngFor="let item of organizedData.limitations; trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
             <!-- Yes/No questions -->
@@ -358,7 +361,8 @@
             </div>
           </div>
         </div>
-          </div>
+            </div> <!-- Close type-section -->
+          </div> <!-- Close accordion-content -->
         </ion-accordion>
 
         <!-- Deficiencies Section -->
@@ -374,10 +378,11 @@
             </button>
           </ion-item>
           <div slot="content" class="accordion-content">
-            <div *ngIf="organizedData.deficiencies.length === 0" class="no-items-message">
-              No deficiencies yet. Click + to add one.
-            </div>
-            <div class="template-item" *ngFor="let item of organizedData.deficiencies; trackBy: trackByItemId">
+            <div class="type-section">
+              <div *ngIf="organizedData.deficiencies.length === 0" class="no-items-message">
+                No deficiencies yet. Click + to add one.
+              </div>
+              <div class="template-item" *ngFor="let item of organizedData.deficiencies; trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
             <!-- Yes/No questions -->
@@ -524,7 +529,8 @@
             </div>
           </div>
         </div>
-          </div>
+            </div> <!-- Close type-section -->
+          </div> <!-- Close accordion-content -->
         </ion-accordion>
 
       </ion-accordion-group>

@@ -585,20 +585,29 @@
 ion-accordion-group {
   ion-accordion {
     margin-bottom: 16px;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    overflow: hidden;
-    background: white;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    background: transparent;
 
     ion-item {
-      --padding-start: 16px;
-      --padding-end: 16px;
-      --min-height: 56px;
+      --padding-start: 0;
+      --padding-end: 0;
+      --padding-top: 0;
+      --padding-bottom: 0;
+      --min-height: auto;
+      --background: transparent;
       cursor: pointer;
+      margin-bottom: 12px;
     }
 
     .accordion-content {
-      padding: 0 0 16px 0;
+      padding: 0;
+
+      .type-section {
+        // Remove any extra margin/padding - let the original styles apply
+        margin: 0;
+      }
     }
   }
 }
