@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
@@ -29,7 +29,8 @@ export class EngineersFoundationContainerPage implements OnInit {
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private stateService: EngineersFoundationStateService
+    private stateService: EngineersFoundationStateService,
+    private location: Location
   ) {}
 
   ngOnInit() {
@@ -120,8 +121,8 @@ export class EngineersFoundationContainerPage implements OnInit {
   }
 
   goBack() {
-    // Navigate back to project detail
-    this.router.navigate(['/project', this.projectId]);
+    // Navigate back one page in browser history
+    this.location.back();
   }
 
   private getCategoryIcon(categoryName: string): string {

@@ -5,6 +5,7 @@ ion-content {
 ion-toolbar {
   --background: var(--ion-color-primary);
   --color: white;
+  --min-height: 56px;
 
   // Mobile: show short title
   .full-title {
@@ -13,6 +14,31 @@ ion-toolbar {
 
   .short-title {
     display: block;
+    padding-top: 0;
+    padding-bottom: 0;
+    --padding-top: 0;
+    --padding-bottom: 0;
+  }
+
+  ion-title {
+    display: flex;
+    align-items: center;
+    height: 100%;
+  }
+
+  ion-buttons {
+    display: flex;
+    align-items: center;
+    height: 100%;
+  }
+
+  ion-button {
+    --padding-top: 0;
+    --padding-bottom: 0;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
