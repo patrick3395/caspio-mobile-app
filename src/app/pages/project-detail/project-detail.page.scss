@@ -1245,7 +1245,6 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     font-weight: 600;
     font-size: 13px;
     color: $dark;
-    border-right: 1px solid $border;
   }
 
   .field-value-cell {
@@ -1342,6 +1341,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
 
   &.deliverable-file-cell {
     text-align: center;
+    vertical-align: middle;
 
     .file-upload-container {
       display: flex;
@@ -1350,11 +1350,19 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
       gap: 4px;
       flex-wrap: wrap;
       width: 100%;
+      margin: 0 auto;
 
       .deliverable-actions {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 4px;
+      }
+
+      > div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .deliverable-link {

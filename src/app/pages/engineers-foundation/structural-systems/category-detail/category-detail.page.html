@@ -12,7 +12,9 @@
     <!-- Category Content -->
     <div *ngIf="!loading" class="category-content">
 
-      <ion-accordion-group (ionChange)="onAccordionChange($event)">
+      <!-- White container wrapper matching other pages -->
+      <div class="white-container">
+        <ion-accordion-group (ionChange)="onAccordionChange($event)">
         <!-- General Information Section -->
         <ion-accordion *ngIf="organizedData.comments">
           <ion-item slot="header" lines="none" class="accordion-header-item">
@@ -535,7 +537,8 @@
           </div> <!-- Close accordion-content -->
         </ion-accordion>
 
-      </ion-accordion-group>
+        </ion-accordion-group>
+      </div> <!-- Close white-container -->
 
     </div>
   </div>

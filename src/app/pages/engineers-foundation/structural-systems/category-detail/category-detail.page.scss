@@ -43,6 +43,24 @@ ion-content {
 }
 
 .category-content {
+  // White container wrapper matching other pages
+  .white-container {
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    padding: 12px;
+    margin-bottom: 20px;
+
+    // Adjust accordion margins inside container
+    ion-accordion-group {
+      ion-accordion {
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
+  }
+
   .type-section {
     margin-bottom: 20px;
     overflow: visible;
@@ -582,7 +600,7 @@ ion-accordion-group {
       --padding-end: 16px;
       --padding-top: 16px;
       --padding-bottom: 16px;
-      --min-height: auto;
+      --min-height: 64px;
       --background: transparent;
       --border-width: 0;
       --inner-border-width: 0;
@@ -661,7 +679,7 @@ ion-accordion-group {
     }
 
     .accordion-content {
-      padding: 0 20px 20px 20px;
+      padding: 20px 20px 20px 20px;
       background: #f8f9fa;
       scroll-margin-top: 0 !important;
       scroll-margin-bottom: 0 !important;
