@@ -237,6 +237,14 @@ export class CategoryDetailPage implements OnInit {
         const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
         this.visualRecordIds[key] = visualId;
 
+        // CRITICAL: Restore edited Name and Text from saved visual
+        if (visual.Name) {
+          item.name = visual.Name;
+        }
+        if (visual.Text) {
+          item.text = visual.Text;
+        }
+
         // Set selected state for checkbox items
         if (!item.answerType || item.answerType === 0) {
           this.selectedItems[key] = true;
@@ -1620,7 +1628,10 @@ export class CategoryDetailPage implements OnInit {
         type: 'text',
         placeholder: 'Title' + (item.required ? ' *' : ''),
         value: item.name || '',
-        cssClass: 'editor-title-input'
+        cssClass: 'editor-title-input',
+        attributes: {
+          readonly: true  // Name is used for matching - should not be edited
+        }
       }
     ];
 
@@ -1701,7 +1712,7 @@ export class CategoryDetailPage implements OnInit {
     }
 
     const alert = await this.alertController.create({
-      header: 'View Details' + (item.required ? ' (Required)' : ''),
+      header: 'Edit Description' + (item.required ? ' (Required)' : ''),
       cssClass: 'text-editor-modal',
       inputs: inputs,
       buttons: [
@@ -1714,18 +1725,16 @@ export class CategoryDetailPage implements OnInit {
           text: 'Save',
           cssClass: 'editor-save-btn',
           handler: async (data) => {
-            // Validate required fields
-            if (item.required && (!data.title || !data.description)) {
-              await this.showToast('Please fill in all required fields', 'warning');
+            // Validate required fields (only check description since title is read-only)
+            if (item.required && !data.description) {
+              await this.showToast('Please fill in the description field', 'warning');
               return false;
             }
 
-            // Update the item with new values
-            if (data.title !== item.name || data.description !== item.text) {
-              const oldName = item.name;
+            // Update the item text if changed (name is read-only)
+            if (data.description !== item.text) {
               const oldText = item.text;
 
-              item.name = data.title;
               item.text = data.description;
 
               // Save to database if this visual is already created
@@ -1734,16 +1743,15 @@ export class CategoryDetailPage implements OnInit {
 
               if (visualId && !String(visualId).startsWith('temp_')) {
                 try {
+                  // Only update the Text field (Name must stay constant for matching)
                   await this.foundationData.updateVisual(visualId, {
-                    Name: data.title,
                     Text: data.description
                   });
-                  console.log('[TEXT EDIT] Updated visual:', visualId);
+                  console.log('[TEXT EDIT] Updated visual text:', visualId);
                   this.changeDetectorRef.detectChanges();
                 } catch (error) {
                   console.error('[TEXT EDIT] Error updating visual:', error);
                   // Revert changes on error
-                  item.name = oldName;
                   item.text = oldText;
                   await this.showToast('Failed to save changes', 'danger');
                   return false;
