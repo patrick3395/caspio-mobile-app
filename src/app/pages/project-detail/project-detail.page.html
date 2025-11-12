@@ -81,27 +81,21 @@
 
       <!-- Desktop/Web View - Full Table (CompanyID = 1) -->
       <table class="deliverables-table" *ngIf="platform.isWeb() && isCompanyOne">
-        <thead>
-          <tr>
-            <th>Service</th>
-            <th>Status Eng</th>
-            <th>Deliverable</th>
-            <th>Eng Notes</th>
-            <th>Inspector Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-row">
-            <!-- Service Name -->
-            <td class="service-name-cell">
+        <tbody *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-group">
+          <!-- Service Header Row -->
+          <tr class="deliverable-row service-row">
+            <td class="service-header" colspan="2">
               <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
-              <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
+              <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-number">
                 #{{ getServiceInstanceNumber(service) }}
               </span>
             </td>
+          </tr>
 
-            <!-- StatusEng -->
-            <td class="field-cell">
+          <!-- Status Row -->
+          <tr class="deliverable-row field-row">
+            <td class="field-label-cell">Status</td>
+            <td class="field-value-cell">
               <select
                 class="deliverable-select"
                 [(ngModel)]="service.StatusEng"
@@ -113,9 +107,12 @@
                 </option>
               </select>
             </td>
+          </tr>
 
-            <!-- Deliverable (File Upload) -->
-            <td class="field-cell deliverable-file-cell">
+          <!-- Deliverable Row -->
+          <tr class="deliverable-row field-row">
+            <td class="field-label-cell">Deliverable</td>
+            <td class="field-value-cell deliverable-file-cell">
               <div class="file-upload-container">
                 <!-- Action buttons when file exists -->
                 <div *ngIf="hasDeliverable(service)" class="deliverable-actions">
@@ -144,9 +141,12 @@
                 </div>
               </div>
             </td>
+          </tr>
 
-            <!-- EngNotes -->
-            <td class="field-cell">
+          <!-- Notes to Engineer Row -->
+          <tr class="deliverable-row field-row">
+            <td class="field-label-cell">Notes to Engineer</td>
+            <td class="field-value-cell">
               <textarea
                 class="deliverable-textarea"
                 [value]="service.EngNotes || ''"
@@ -156,9 +156,12 @@
                 placeholder="Enter notes"
                 rows="2"></textarea>
             </td>
+          </tr>
 
-            <!-- InspectorNotes -->
-            <td class="field-cell">
+          <!-- Notes to Inspector Row -->
+          <tr class="deliverable-row field-row">
+            <td class="field-label-cell">Notes to Inspector</td>
+            <td class="field-value-cell">
               <textarea
                 class="deliverable-textarea"
                 [value]="service.InspectorNotes || ''"
@@ -174,25 +177,21 @@
 
       <!-- Desktop/Web View - Reduced Table (Other Companies) -->
       <table class="deliverables-table" *ngIf="platform.isWeb() && !isCompanyOne">
-        <thead>
-          <tr>
-            <th>Service</th>
-            <th>Deliverable</th>
-            <th>Inspector Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-row">
-            <!-- Service Name -->
-            <td class="service-name-cell">
+        <tbody *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-group">
+          <!-- Service Header Row -->
+          <tr class="deliverable-row service-row">
+            <td class="service-header" colspan="2">
               <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
-              <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-badge">
+              <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-number">
                 #{{ getServiceInstanceNumber(service) }}
               </span>
             </td>
+          </tr>
 
-            <!-- Deliverable (File Upload) -->
-            <td class="field-cell deliverable-file-cell">
+          <!-- Deliverable Row -->
+          <tr class="deliverable-row field-row">
+            <td class="field-label-cell">Deliverable</td>
+            <td class="field-value-cell deliverable-file-cell">
               <div class="file-upload-container">
                 <!-- Action buttons when file exists -->
                 <div *ngIf="hasDeliverable(service)" class="deliverable-actions">
@@ -221,9 +220,12 @@
                 </div>
               </div>
             </td>
+          </tr>
 
-            <!-- InspectorNotes -->
-            <td class="field-cell">
+          <!-- Notes to Inspector Row -->
+          <tr class="deliverable-row field-row">
+            <td class="field-label-cell">Notes to Inspector</td>
+            <td class="field-value-cell">
               <textarea
                 class="deliverable-textarea"
                 [value]="service.InspectorNotes || ''"

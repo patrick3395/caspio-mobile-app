@@ -521,7 +521,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         PK_ID: t.PK_ID,
         TypeID: t.TypeID,
         TypeName: t.TypeName,
-        Icon: t.Icon
+        Icon: t.Icon,
+        IconType: typeof t.Icon,
+        IconLength: t.Icon?.length,
+        HasKB: t.Icon?.includes?.('KB'),
+        HasParens: t.Icon?.includes?.('(')
       })));
 
       this.availableOffers = (offersData || []).map((offer: any) => {
@@ -3922,7 +3926,12 @@ Troubleshooting:
 
     const iconPromises = offersWithIcons.map(async (offer) => {
         try {
-          console.log(`🎨 [Icon Loading] Loading icon for ${offer.TypeName}: "${offer.TypeIcon}"`);
+          console.log(`🎨 [Icon Loading] Loading icon for ${offer.TypeName}`);
+          console.log(`   Raw Icon Value: "${offer.TypeIcon}"`);
+          console.log(`   Icon Type: ${typeof offer.TypeIcon}`);
+          console.log(`   Icon Length: ${offer.TypeIcon?.length}`);
+          console.log(`   Has (KB): ${offer.TypeIcon?.includes('KB')}`);
+          console.log(`   Has parentheses: ${offer.TypeIcon?.includes('(')}`);
           const imageData = await this.caspioService.getImageFromFilesAPI(offer.TypeIcon).toPromise();
           if (imageData && imageData.startsWith('data:')) {
             // Store the base64 data URL

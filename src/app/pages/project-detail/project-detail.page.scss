@@ -1172,73 +1172,77 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   }
 }
 
-// Deliverables table styling (for CompanyID = 1)
+// Deliverables table styling (matches Support Documents layout)
 .deliverables-table {
   width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  background: $white;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
   border: 1px solid $border;
   border-radius: 8px;
   overflow: hidden;
+  margin-top: 10px;
+  background: $white;
 
-  thead {
-    background: $light-gray;
-
-    th {
-      padding: 12px;
-      text-align: left;
-      font-weight: 600;
-      font-size: 13px;
-      color: $dark;
+  tbody.deliverable-group {
+    &:not(:last-child) {
       border-bottom: 2px solid $border;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
   }
 
-  tbody {
-    .deliverable-row {
-      border-bottom: 1px solid $border;
+  .deliverable-row {
+    border-bottom: 1px solid $border;
 
-      &:last-child {
-        border-bottom: none;
+    &:last-child {
+      border-bottom: none;
+    }
+
+    td {
+      padding: 12px;
+      vertical-align: top;
+    }
+
+    // Service header row styling
+    &.service-row {
+      background: $light-gray;
+
+      .service-header {
+        font-weight: 600;
+        font-size: 14px;
+        color: $dark;
+        padding: 12px;
+
+        .instance-number {
+          margin-left: 6px;
+          font-weight: 400;
+          color: $gray;
+          font-size: 12px;
+        }
       }
+    }
+
+    // Field row styling
+    &.field-row {
+      background: $white;
 
       @media (hover: hover) and (pointer: fine) {
         &:hover {
           background: rgba(241, 90, 39, 0.02);
         }
       }
-
-      td {
-        padding: 12px;
-        vertical-align: top;
-        border-right: 1px solid $border;
-
-        &:last-child {
-          border-right: none;
-        }
-      }
     }
   }
 
-  .service-name-cell {
+  .field-label-cell {
+    width: 30%;
     font-weight: 600;
+    font-size: 13px;
     color: $dark;
-    font-size: 14px;
-    min-width: 150px;
-
-    .instance-badge {
-      margin-left: 6px;
-      font-weight: 400;
-      color: $gray;
-      font-size: 12px;
-    }
+    border-right: 1px solid $border;
   }
 
-  .field-cell {
-    min-width: 120px;
+  .field-value-cell {
+    width: 70%;
 
     .deliverable-input {
       width: 100%;
@@ -1329,7 +1333,7 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     }
   }
 
-  .deliverable-file-cell {
+  &.deliverable-file-cell {
     .file-upload-container {
       display: flex;
       align-items: center;
@@ -1371,52 +1375,6 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
 
         ion-icon {
           font-size: 20px;
-        }
-      }
-    }
-  }
-
-  // Mobile responsive adjustments
-  @media (max-width: 1024px) {
-    display: block;
-    overflow-x: auto;
-
-    thead, tbody, th, td, tr {
-      display: block;
-    }
-
-    thead {
-      display: none; // Hide header on mobile
-    }
-
-    tbody .deliverable-row {
-      margin-bottom: 16px;
-      border: 1px solid $border;
-      border-radius: 8px;
-      padding: 12px;
-
-      td {
-        border: none;
-        padding: 8px 0;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-
-        &::before {
-          content: attr(data-label);
-          font-weight: 600;
-          font-size: 11px;
-          color: $gray;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-
-        &.service-name-cell::before {
-          content: 'Service';
-        }
-
-        &:first-child::before {
-          display: none; // Service name doesn't need label
         }
       }
     }
