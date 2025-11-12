@@ -67,15 +67,20 @@ export class ProjectDetailsPage implements OnInit {
     this.stateService.projectData$.subscribe(data => {
       this.projectData = { ...data };
 
-      // Initialize multi-select arrays from stored comma-separated strings
+      // Initialize multi-select arrays from stored data
       if (this.projectData.inAttendance) {
-        this.inAttendanceSelections = this.projectData.inAttendance.split(',').map(s => s.trim()).filter(s => s);
+        // Handle both string and array formats
+        if (typeof this.projectData.inAttendance === 'string') {
+          this.inAttendanceSelections = this.projectData.inAttendance.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+        } else if (Array.isArray(this.projectData.inAttendance)) {
+          this.inAttendanceSelections = this.projectData.inAttendance.map((s: string) => s.trim()).filter((s: string) => s);
+        }
       }
       if (this.projectData.secondFoundationRooms) {
-        this.secondFoundationRoomsSelections = this.projectData.secondFoundationRooms.map(s => s.trim()).filter(s => s);
+        this.secondFoundationRoomsSelections = this.projectData.secondFoundationRooms.map((s: string) => s.trim()).filter((s: string) => s);
       }
       if (this.projectData.thirdFoundationRooms) {
-        this.thirdFoundationRoomsSelections = this.projectData.thirdFoundationRooms.map(s => s.trim()).filter(s => s);
+        this.thirdFoundationRoomsSelections = this.projectData.thirdFoundationRooms.map((s: string) => s.trim()).filter((s: string) => s);
       }
     });
   }
