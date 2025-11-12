@@ -357,10 +357,6 @@ export class CategoryDetailPage implements OnInit {
     }
   }
 
-  goBack() {
-    this.router.navigate(['../..'], { relativeTo: this.route });
-  }
-
   // Item selection for checkbox-based items (answerType 0)
   isItemSelected(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
@@ -862,17 +858,25 @@ export class CategoryDetailPage implements OnInit {
           // If we got a file path, convert it to a displayable URL
           if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
             try {
+              console.log('[PHOTO UPLOAD] Converting file path to displayable URL:', uploadedPhotoUrl);
               const imageData = await firstValueFrom(
                 this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
               );
               if (imageData && imageData.startsWith('data:')) {
                 displayableUrl = imageData;
+                console.log('[PHOTO UPLOAD] Successfully converted to data URL, length:', imageData.length);
+              } else {
+                console.warn('[PHOTO UPLOAD] Files API returned invalid data:', imageData?.substring(0, 50));
               }
             } catch (err) {
               console.error('[PHOTO UPLOAD] Failed to load uploaded image:', err);
               displayableUrl = 'assets/img/photo-placeholder.png';
             }
+          } else {
+            console.log('[PHOTO UPLOAD] Using URL directly (already data/blob URL):', uploadedPhotoUrl?.substring(0, 50));
           }
+
+          console.log('[PHOTO UPLOAD] Updating photo object at index', photoIndex, 'with displayableUrl length:', displayableUrl?.length || 0);
 
           this.visualPhotos[key][photoIndex] = {
             ...this.visualPhotos[key][photoIndex],
