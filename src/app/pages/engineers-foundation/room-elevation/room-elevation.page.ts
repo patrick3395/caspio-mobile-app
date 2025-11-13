@@ -285,6 +285,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
   private async loadFDFPhotos(room: any) {
     const fdfPhotos = this.roomData.fdfPhotos;
+    const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
 
     // Load Top photo
     if (room.FDFPhotoTop) {
@@ -297,7 +298,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         if (imageData) {
           fdfPhotos.topUrl = imageData;
           fdfPhotos.topDisplayUrl = imageData;
-          fdfPhotos.topHasAnnotations = !!(room.FDFPhotoTopDrawings && room.FDFPhotoTopDrawings !== 'null');
+          fdfPhotos.topHasAnnotations = !!(room.FDFPhotoTopDrawings && room.FDFPhotoTopDrawings !== 'null' && room.FDFPhotoTopDrawings !== '' && room.FDFPhotoTopDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
         }
       } catch (error) {
         console.error('Error loading top photo:', error);
@@ -315,7 +316,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         if (imageData) {
           fdfPhotos.bottomUrl = imageData;
           fdfPhotos.bottomDisplayUrl = imageData;
-          fdfPhotos.bottomHasAnnotations = !!(room.FDFPhotoBottomDrawings && room.FDFPhotoBottomDrawings !== 'null');
+          fdfPhotos.bottomHasAnnotations = !!(room.FDFPhotoBottomDrawings && room.FDFPhotoBottomDrawings !== 'null' && room.FDFPhotoBottomDrawings !== '' && room.FDFPhotoBottomDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
         }
       } catch (error) {
         console.error('Error loading bottom photo:', error);
@@ -333,7 +334,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         if (imageData) {
           fdfPhotos.thresholdUrl = imageData;
           fdfPhotos.thresholdDisplayUrl = imageData;
-          fdfPhotos.thresholdHasAnnotations = !!(room.FDFPhotoThresholdDrawings && room.FDFPhotoThresholdDrawings !== 'null');
+          fdfPhotos.thresholdHasAnnotations = !!(room.FDFPhotoThresholdDrawings && room.FDFPhotoThresholdDrawings !== 'null' && room.FDFPhotoThresholdDrawings !== '' && room.FDFPhotoThresholdDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
         }
       } catch (error) {
         console.error('Error loading threshold photo:', error);
@@ -494,6 +495,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             const photoType = attach.PhotoType || 'Measurement';
             console.log(`[RoomElevation]     Processing attachment: Type=${photoType}, Photo=${attach.Photo}`);
 
+            const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
             const photoData: any = {
               attachId: attach.AttachID || attach.PK_ID,
               photoType: photoType,
@@ -501,7 +503,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               displayUrl: null,
               caption: attach.Annotation || '',
               drawings: attach.Drawings || null,
-              hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null'),
+              hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null' && attach.Drawings !== '' && attach.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS),
               path: attach.Photo || null,
               uploading: false
             };
@@ -618,6 +620,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               const photoType = attach.PhotoType || 'Measurement';
               console.log(`[RoomElevation]       Processing attachment: Type=${photoType}`);
 
+              const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
               const photoData: any = {
                 attachId: attach.AttachID || attach.PK_ID,
                 photoType: photoType,
@@ -625,7 +628,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
                 displayUrl: null,
                 caption: attach.Annotation || '',
                 drawings: attach.Drawings || null,
-                hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null'),
+                hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null' && attach.Drawings !== '' && attach.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS),
                 path: attach.Photo || null,
                 uploading: false
               };
@@ -921,52 +924,51 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const { data } = await modal.onDidDismiss();
 
       if (data && data.saved) {
-        // Import compression utility (same as Structural Systems)
+        // Import compression utility (same as hud-template)
         const { compressAnnotationData } = await import('../../../utils/annotation-utils');
 
-        // Prepare annotation data for database (EXACT logic from Structural Systems)
-        const annotationsData = data.annotationData || data.annotationsData;
         const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
 
         console.log('[SAVE FDF Photo] Starting annotation save process');
         console.log('[SAVE FDF Photo] Photo type:', photoType);
-        console.log('[SAVE FDF Photo] Received annotationsData:', annotationsData);
-        console.log('[SAVE FDF Photo] Received caption:', data.caption);
+        console.log('[SAVE FDF Photo] Received data:', {
+          hasCompressedAnnotationData: !!data.compressedAnnotationData,
+          hasAnnotationJson: !!data.annotationJson,
+          hasAnnotationData: !!data.annotationData,
+          caption: data.caption
+        });
 
+        // Use the already-compressed data from the fabric component, or compress if needed
+        let compressed = typeof data.compressedAnnotationData === 'string' ? data.compressedAnnotationData : '';
+
+        if (!compressed && data.annotationJson) {
+          console.log('[SAVE FDF Photo] No compressed data, compressing annotationJson...');
+          compressed = compressAnnotationData(data.annotationJson) || data.annotationJson;
+        }
+
+        if (!compressed && data.annotationData) {
+          console.log('[SAVE FDF Photo] No compressed data or JSON, compressing annotationData...');
+          compressed = compressAnnotationData(data.annotationData) || '';
+        }
+
+        // Determine what to save
         let drawingsDataToSave = EMPTY_COMPRESSED_ANNOTATIONS;
+        if (compressed && compressed !== '' && compressed !== 'null') {
+          console.log('[SAVE FDF Photo] Using compressed data:', {
+            length: compressed.length,
+            preview: compressed.substring(0, 100)
+          });
 
-        if (annotationsData) {
-          console.log('[SAVE FDF Photo] Processing annotations...');
-
-          // DIRECTLY use compressAnnotationData - it handles all the stringification internally
-          try {
-            const compressedDrawings = compressAnnotationData(annotationsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
-
-            console.log('[SAVE FDF Photo] Compression result:', {
-              inputType: typeof annotationsData,
-              hasObjects: annotationsData?.objects ? true : false,
-              objectCount: annotationsData?.objects?.length || 0,
-              compressedLength: compressedDrawings.length,
-              compressedPreview: compressedDrawings.substring(0, 50)
-            });
-
-            // Size check
-            if (compressedDrawings.length > 64000) {
-              console.error('[SAVE FDF Photo] Annotation data exceeds 64KB limit:', compressedDrawings.length, 'bytes');
-              throw new Error('Annotation data exceeds 64KB limit');
-            }
-
-            drawingsDataToSave = compressedDrawings;
-          } catch (e: any) {
-            console.error('[SAVE FDF Photo] Compression error:', e);
-            if (e?.message?.includes('64KB')) {
-              throw e;
-            }
-            // Fallback to empty
-            drawingsDataToSave = EMPTY_COMPRESSED_ANNOTATIONS;
+          // Size check
+          if (compressed.length > 64000) {
+            console.error('[SAVE FDF Photo] Annotation data exceeds 64KB limit:', compressed.length, 'bytes');
+            await this.showToast('Annotation data is too large', 'danger');
+            return;
           }
+
+          drawingsDataToSave = compressed;
         } else {
-          console.log('[SAVE FDF Photo] No annotations data provided, using empty');
+          console.log('[SAVE FDF Photo] No valid annotation data, using empty');
         }
 
         // Save annotation and caption
@@ -1417,54 +1419,53 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const { data } = await modal.onDidDismiss();
 
       if (data && data.saved) {
-        // Import compression utility (same as Structural Systems)
+        // Import compression utility (same as hud-template)
         const { compressAnnotationData } = await import('../../../utils/annotation-utils');
 
-        // Prepare annotation data for database (EXACT logic from Structural Systems)
-        const annotationsData = data.annotationData || data.annotationsData;
         const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
 
         console.log('[SAVE Point Photo] Starting annotation save process');
-        console.log('[SAVE Point Photo] Received annotationsData:', annotationsData);
-        console.log('[SAVE Point Photo] Received caption:', data.caption);
+        console.log('[SAVE Point Photo] Received data:', {
+          hasCompressedAnnotationData: !!data.compressedAnnotationData,
+          hasAnnotationJson: !!data.annotationJson,
+          hasAnnotationData: !!data.annotationData,
+          caption: data.caption
+        });
 
         const updateData: any = {
           Annotation: data.caption || ''
         };
 
-        if (annotationsData) {
-          console.log('[SAVE Point Photo] Processing annotations...');
+        // Use the already-compressed data from the fabric component, or compress if needed
+        let compressed = typeof data.compressedAnnotationData === 'string' ? data.compressedAnnotationData : '';
 
-          // DIRECTLY use compressAnnotationData - it handles all the stringification internally
-          try {
-            const compressedDrawings = compressAnnotationData(annotationsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+        if (!compressed && data.annotationJson) {
+          console.log('[SAVE Point Photo] No compressed data, compressing annotationJson...');
+          compressed = compressAnnotationData(data.annotationJson) || data.annotationJson;
+        }
 
-            console.log('[SAVE Point Photo] Compression result:', {
-              inputType: typeof annotationsData,
-              hasObjects: annotationsData?.objects ? true : false,
-              objectCount: annotationsData?.objects?.length || 0,
-              compressedLength: compressedDrawings.length,
-              compressedPreview: compressedDrawings.substring(0, 50)
-            });
+        if (!compressed && data.annotationData) {
+          console.log('[SAVE Point Photo] No compressed data or JSON, compressing annotationData...');
+          compressed = compressAnnotationData(data.annotationData) || '';
+        }
 
-            // Size check
-            if (compressedDrawings.length > 64000) {
-              console.error('[SAVE Point Photo] Annotation data exceeds 64KB limit:', compressedDrawings.length, 'bytes');
-              throw new Error('Annotation data exceeds 64KB limit');
-            }
+        // Set the Drawings field
+        if (compressed && compressed !== '' && compressed !== 'null') {
+          console.log('[SAVE Point Photo] Using compressed data:', {
+            length: compressed.length,
+            preview: compressed.substring(0, 100)
+          });
 
-            updateData.Drawings = compressedDrawings;
-          } catch (e: any) {
-            console.error('[SAVE Point Photo] Compression error:', e);
-            if (e?.message?.includes('64KB')) {
-              throw e;
-            }
-            // Fallback to empty
-            updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
+          // Size check
+          if (compressed.length > 64000) {
+            console.error('[SAVE Point Photo] Annotation data exceeds 64KB limit:', compressed.length, 'bytes');
+            await this.showToast('Annotation data is too large', 'danger');
+            return;
           }
+
+          updateData.Drawings = compressed;
         } else {
-          // No annotations provided
-          console.log('[SAVE Point Photo] No annotations data provided, using empty');
+          console.log('[SAVE Point Photo] No valid annotation data, using empty');
           updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
         }
 
@@ -1472,12 +1473,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           attachId: photo.attachId,
           hasDrawings: !!updateData.Drawings,
           drawingsLength: updateData.Drawings?.length || 0,
-          drawingsPreview: updateData.Drawings?.substring(0, 50),
+          drawingsPreview: updateData.Drawings?.substring(0, 100),
+          drawingsFull: updateData.Drawings,
           annotation: updateData.Annotation
+        });
+
+        console.log('[SAVE Point Photo] About to call updateServicesEFEPointsAttach with:', {
+          attachId: photo.attachId,
+          updateData: updateData
         });
 
         const result = await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
         console.log('[SAVE Point Photo] Update result:', result);
+        console.log('[SAVE Point Photo] Update successful - Drawings field should now contain:', updateData.Drawings?.substring(0, 200));
 
         // Update local state
         photo.drawings = updateData.Drawings;
