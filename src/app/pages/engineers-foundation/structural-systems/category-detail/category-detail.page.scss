@@ -616,13 +616,14 @@ ion-accordion-group {
       &::part(native) {
         background: transparent !important;
         border: none !important;
-        padding: 12px 16px !important;
+        padding: 0 16px !important;
         height: 56px !important;
         min-height: 56px !important;
         max-height: 56px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: space-between !important;
+        line-height: 56px !important;
       }
 
       // Match EXACTLY the hub page structure
@@ -651,9 +652,19 @@ ion-accordion-group {
           margin: 0 !important;
           padding: 0 !important;
           height: 56px !important;
+          min-height: 56px !important;
+          max-height: 56px !important;
           display: flex !important;
           align-items: center !important;
+          justify-content: flex-start !important;
           transform: none !important;
+          position: relative !important;
+
+          &::part(native) {
+            display: flex !important;
+            align-items: center !important;
+            height: 56px !important;
+          }
 
           h4.type-header {
             font-size: 18px;
@@ -661,7 +672,9 @@ ion-accordion-group {
             color: #333;
             margin: 0 !important;
             padding: 0 !important;
-            line-height: normal !important;
+            line-height: 1 !important;
+            vertical-align: middle !important;
+            align-self: center !important;
           }
         }
       }

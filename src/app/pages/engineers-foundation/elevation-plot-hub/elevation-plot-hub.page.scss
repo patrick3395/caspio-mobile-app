@@ -4,27 +4,6 @@
   margin: 0 auto;
 }
 
-.header-section {
-  margin-bottom: 20px;
-
-  ion-button {
-    margin-bottom: 10px;
-  }
-
-  h1 {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--ion-color-primary);
-    margin: 0 0 8px 0;
-  }
-
-  .subtitle {
-    font-size: 16px;
-    color: #666;
-    margin: 0;
-  }
-}
-
 .content-section {
   display: flex;
   flex-direction: column;
@@ -44,8 +23,7 @@
   transition: all 0.2s;
 
   &.selected {
-    border-left: 4px solid var(--ion-color-success);
-    background: #f8fff8;
+    border: 2px solid #000;
   }
 
   &.saving {
@@ -107,11 +85,6 @@
   flex-shrink: 0;
 }
 
-.status-badge {
-  font-size: 11px;
-  padding: 4px 8px;
-}
-
 .saving-spinner {
   width: 20px;
   height: 20px;
@@ -134,8 +107,9 @@
 .room-action-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 8px;
   background: white;
   border: 1px solid #ddd;
   border-radius: 6px;
@@ -146,7 +120,7 @@
   transition: all 0.2s;
 
   ion-icon {
-    font-size: 18px;
+    font-size: 20px;
     color: var(--ion-color-medium);
   }
 
@@ -161,15 +135,15 @@
   }
 
   &.delete-btn {
-    color: var(--ion-color-danger);
+    color: #F15A27;
 
     ion-icon {
-      color: var(--ion-color-danger);
+      color: #F15A27;
     }
 
     &:hover:not(:disabled) {
-      background: #ffebee;
-      border-color: var(--ion-color-danger);
+      background: #fff5f2;
+      border-color: #F15A27;
     }
   }
 }
@@ -204,10 +178,6 @@
     flex: 1;
     min-width: 0;
     justify-content: center;
-
-    .action-label {
-      display: none;
-    }
   }
 }
 

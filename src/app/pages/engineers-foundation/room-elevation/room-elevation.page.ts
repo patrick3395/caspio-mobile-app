@@ -544,9 +544,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             console.log(`[RoomElevation]   Creating database record for: "${point.name}"...`);
 
             const newPointData = {
-              EFEID: this.roomId,
-              PointName: point.name,
-              Elevation: point.value || ''
+              EFEID: parseInt(this.roomId, 10),
+              PointName: point.name
             };
 
             console.log('[RoomElevation]     Request data:', newPointData);
@@ -1030,9 +1029,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             try {
               // Create point in database
               const pointData = {
-                EFEID: this.roomId,
-                PointName: data.pointName.trim(),
-                Elevation: 0
+                EFEID: parseInt(this.roomId, 10),
+                PointName: data.pointName.trim()
               };
 
               const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();

@@ -20,9 +20,6 @@
             </div>
 
             <div class="room-status-section">
-              <ion-badge *ngIf="room.isSelected" color="success" class="status-badge">
-                Selected
-              </ion-badge>
               <ion-spinner *ngIf="room.isSaving" name="crescent" class="saving-spinner"></ion-spinner>
               <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
             </div>
@@ -36,7 +33,6 @@
               (click)="renameRoom(room.RoomName, $event)"
               title="Rename Room">
               <ion-icon name="create-outline"></ion-icon>
-              <span class="action-label">Rename</span>
             </button>
 
             <button
@@ -46,7 +42,6 @@
               [disabled]="roomTemplates.indexOf(room) === 0"
               title="Move Up">
               <ion-icon name="arrow-up-outline"></ion-icon>
-              <span class="action-label">Up</span>
             </button>
 
             <button
@@ -56,7 +51,6 @@
               [disabled]="roomTemplates.indexOf(room) === roomTemplates.length - 1"
               title="Move Down">
               <ion-icon name="arrow-down-outline"></ion-icon>
-              <span class="action-label">Down</span>
             </button>
 
             <button
@@ -65,7 +59,6 @@
               (click)="deleteRoom(room.RoomName, $event)"
               title="Delete Room">
               <ion-icon name="trash-outline"></ion-icon>
-              <span class="action-label">Delete</span>
             </button>
           </div>
         </div>
