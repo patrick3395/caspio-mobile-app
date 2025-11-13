@@ -623,31 +623,40 @@ ion-accordion-group {
         align-items: center;
         gap: 16px;
         flex: 1;
+        height: 32px;
+        min-height: 32px;
+        max-height: 32px;
 
         .icon-container {
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
+          height: 32px;
 
           ion-icon {
             font-size: 32px;
             color: var(--noble-orange, #F15A27);
+            line-height: 1;
           }
         }
 
         ion-label.accordion-label {
           flex: 1;
           margin: 0;
+          padding: 0;
           display: flex;
           align-items: center;
+          height: 32px;
+          min-height: 32px;
 
           .type-header {
             font-size: 18px;
             font-weight: 600;
             color: #333;
             margin: 0;
-            line-height: 1;
+            padding: 0;
+            line-height: 32px;
           }
         }
       }

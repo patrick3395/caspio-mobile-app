@@ -334,30 +334,83 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   }
 
   private async loadElevationPoints() {
+    console.log('[RoomElevation] loadElevationPoints() called for roomId:', this.roomId);
     try {
       // Load points from Services_EFE_Points
       const points = await this.caspioService.getServicesEFEPoints(this.roomId).toPromise();
+      console.log('[RoomElevation] Loaded', points?.length || 0, 'elevation points');
 
       if (points && points.length > 0) {
+        // Get all point IDs to load attachments in bulk
+        const pointIds = points.map((p: any) => p.PointID || p.PK_ID).filter(id => id);
+        console.log('[RoomElevation] Point IDs:', pointIds);
+
+        // Load all attachments for these points
+        let attachments: any[] = [];
+        if (pointIds.length > 0) {
+          try {
+            attachments = await this.foundationData.getEFEAttachments(pointIds);
+            console.log('[RoomElevation] Loaded', attachments?.length || 0, 'attachments');
+          } catch (error) {
+            console.error('[RoomElevation] Error loading attachments:', error);
+          }
+        }
+
+        // Build point data with photos
         for (const point of points) {
-          const pointData = {
-            pointId: point.PointID,
+          const pointId = point.PointID || point.PK_ID;
+          const pointData: any = {
+            pointId: pointId,
             name: point.PointName,
             value: point.Elevation || '',
             photos: []
           };
 
-          // Load photos for this point from Services_EFE_Points_Attach
-          // Photos will be loaded on-demand for now
-          // TODO: Implement photo loading if needed
+          // Find attachments for this point
+          const pointAttachments = attachments.filter((att: any) => att.PointID === pointId);
+          console.log(`[RoomElevation] Point "${point.PointName}" has ${pointAttachments.length} attachments`);
 
+          // Process each attachment
+          for (const attach of pointAttachments) {
+            const photoType = attach.PhotoType || 'Measurement'; // Default to Measurement if not specified
+
+            const photoData: any = {
+              attachId: attach.AttachID || attach.PK_ID,
+              photoType: photoType,
+              url: null,
+              displayUrl: null,
+              caption: attach.Annotation || '',
+              drawings: attach.Drawings || null,
+              hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null'),
+              path: attach.Photo || null,
+              uploading: false
+            };
+
+            // Load the photo image if path exists
+            if (attach.Photo) {
+              try {
+                const imageData = await this.foundationData.getImage(attach.Photo);
+                if (imageData) {
+                  photoData.url = imageData;
+                  photoData.displayUrl = imageData;
+                }
+              } catch (error) {
+                console.error(`[RoomElevation] Error loading photo for point ${point.PointName}:`, error);
+              }
+            }
+
+            pointData.photos.push(photoData);
+          }
+
+          console.log(`[RoomElevation] Point "${point.PointName}" final photo count:`, pointData.photos.length);
           this.roomData.elevationPoints.push(pointData);
         }
       }
 
+      console.log('[RoomElevation] Final elevationPoints:', this.roomData.elevationPoints);
       this.changeDetectorRef.detectChanges();
     } catch (error) {
-      console.error('Error loading elevation points:', error);
+      console.error('[RoomElevation] Error loading elevation points:', error);
     }
   }
 
