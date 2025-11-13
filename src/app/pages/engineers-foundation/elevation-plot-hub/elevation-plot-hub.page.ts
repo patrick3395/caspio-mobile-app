@@ -115,10 +115,6 @@ export class ElevationPlotHubPage implements OnInit {
     await this.loadRoomTemplates();
   }
 
-  goBack() {
-    this.router.navigate(['..'], { relativeTo: this.route });
-  }
-
   async navigateToRoom(room: RoomDisplayData, event?: Event) {
     console.log('[ElevationPlotHub] navigateToRoom called for room:', room.RoomName);
     console.log('  - Room isSelected:', room.isSelected);

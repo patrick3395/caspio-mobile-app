@@ -570,12 +570,12 @@ ion-accordion-group {
   ion-accordion {
     // Match .navigation-card styles exactly - clean white cards with minimal spacing
     margin: 0 0 8px 0;
-    border: none;
+    border: 1px solid #e8e8e8;
     border-radius: 4px;
-    overflow: hidden;
+    overflow: visible;
     background: #f8f9fa;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    transition: box-shadow 0.2s, background-color 0.2s;
+    transition: box-shadow 0.2s, background-color 0.2s, border-color 0.2s;
     cursor: pointer;
 
     // Remove Ionic defaults
@@ -631,12 +631,14 @@ ion-accordion-group {
         align-items: center;
         gap: 16px;
         flex: 1;
+        height: 56px;
 
         .icon-container {
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
+          height: 56px;
 
           ion-icon {
             font-size: 32px;
@@ -648,15 +650,18 @@ ion-accordion-group {
           flex: 1;
           margin: 0 !important;
           padding: 0 !important;
+          height: 56px !important;
           display: flex !important;
           align-items: center !important;
+          transform: none !important;
 
-          .type-header {
+          h4.type-header {
             font-size: 18px;
             font-weight: 600;
             color: #333;
-            margin: 0;
-            padding: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: normal !important;
           }
         }
       }

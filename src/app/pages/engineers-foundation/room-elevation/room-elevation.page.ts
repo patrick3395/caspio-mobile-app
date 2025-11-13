@@ -530,35 +530,55 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       // STEP 5.5: Auto-create database records for template points that don't exist yet
       // This ensures points have a pointId so photo buttons are enabled
       console.log('\n[RoomElevation] STEP 5.5: Auto-creating missing point records in database...');
+      console.log('[RoomElevation] Current roomId:', this.roomId);
+      console.log('[RoomElevation] Total points in elevationPoints array:', this.roomData.elevationPoints.length);
+
       const pointsNeedingCreation = this.roomData.elevationPoints.filter((p: any) => !p.pointId);
       console.log(`[RoomElevation] Found ${pointsNeedingCreation.length} points without database records`);
 
       if (pointsNeedingCreation.length > 0) {
+        console.log('[RoomElevation] Points needing creation:', pointsNeedingCreation.map((p: any) => ({ name: p.name, pointId: p.pointId })));
+
         for (const point of pointsNeedingCreation) {
           try {
             console.log(`[RoomElevation]   Creating database record for: "${point.name}"...`);
 
-            const pointData = {
+            const newPointData = {
               EFEID: this.roomId,
               PointName: point.name,
               Elevation: point.value || ''
             };
 
-            const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+            console.log('[RoomElevation]     Request data:', newPointData);
+
+            const response = await this.caspioService.createServicesEFEPoint(newPointData).toPromise();
+            console.log('[RoomElevation]     Response received:', response);
+
             const newPointId = response?.PointID || response?.PK_ID;
 
             if (newPointId) {
               point.pointId = newPointId;
               console.log(`[RoomElevation]     ✓ Created with PointID: ${newPointId}`);
+              console.log(`[RoomElevation]     Point now has pointId:`, point.pointId);
             } else {
               console.error(`[RoomElevation]     ❌ Failed to get PointID from response:`, response);
             }
           } catch (error) {
             console.error(`[RoomElevation]     ❌ Error creating point "${point.name}":`, error);
+            console.error('[RoomElevation]     Error details:', error);
           }
         }
+
+        // Trigger change detection after creating all points
+        console.log('[RoomElevation] Triggering change detection after point creation...');
+        this.changeDetectorRef.detectChanges();
       }
       console.log('[RoomElevation] ✓ Auto-creation complete');
+      console.log('[RoomElevation] Final point status:', this.roomData.elevationPoints.map((p: any) => ({
+        name: p.name,
+        pointId: p.pointId,
+        isReady: !!p.pointId
+      })));
 
       // STEP 6: Add any custom points from database that weren't in the template
       // This matches the original behavior where custom points are added dynamically

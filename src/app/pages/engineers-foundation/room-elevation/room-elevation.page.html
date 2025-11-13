@@ -1,13 +1,4 @@
 <div class="page-container">
-  <!-- Header Section -->
-  <div class="header-section">
-    <ion-button fill="clear" (click)="goBack()">
-      <ion-icon slot="start" name="arrow-back"></ion-icon>
-      Back to Elevation Plot
-    </ion-button>
-    <h1>{{ roomName }}</h1>
-  </div>
-
   <div class="content-section" *ngIf="roomData">
     <!-- Loading State -->
     <div *ngIf="loading" style="text-align: center; padding: 40px;">
@@ -308,8 +299,8 @@
                     <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                   </button>
                 </div>
-                <!-- Skeleton loader while photo is loading -->
-                <div *ngIf="!getPointPhotoByType(point, 'Measurement')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                <!-- Skeleton loader - only show when point is ready but photo hasn't loaded yet -->
+                <div *ngIf="isPointReady(point) && !getPointPhotoByType(point, 'Measurement')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
                   <div class="image-preview fdf-photo-preview skeleton-loader">
                     <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
                     <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
@@ -366,8 +357,8 @@
                     <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                   </button>
                 </div>
-                <!-- Skeleton loader while photo is loading -->
-                <div *ngIf="!getPointPhotoByType(point, 'Location')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                <!-- Skeleton loader - only show when point is ready but photo hasn't loaded yet -->
+                <div *ngIf="isPointReady(point) && !getPointPhotoByType(point, 'Location')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
                   <div class="image-preview fdf-photo-preview skeleton-loader">
                     <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
                     <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
