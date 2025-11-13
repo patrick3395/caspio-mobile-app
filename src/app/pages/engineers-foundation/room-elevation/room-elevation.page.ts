@@ -685,18 +685,45 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         console.log('[RoomElevation] First option:', options[0]);
         console.log('[RoomElevation] Keys in first option:', Object.keys(options[0]));
 
-        this.fdfOptions = options.map((opt: any) => opt.FDF).filter((fdf: string) => fdf && fdf.trim() !== '');
-        console.log('[RoomElevation] Processed FDF options:', this.fdfOptions);
-        console.log('[RoomElevation] FDF options count:', this.fdfOptions.length);
+        // Try to extract FDF values from all possible field names
+        const possibleFieldNames = ['FDF', 'fdf', 'Fdf', 'Value', 'value', 'Name', 'name', 'Option', 'option'];
+        let extractedOptions: string[] = [];
+
+        for (const fieldName of possibleFieldNames) {
+          const testOptions = options.map((opt: any) => opt[fieldName]).filter((val: any) => val && typeof val === 'string' && val.trim() !== '');
+          if (testOptions.length > 0) {
+            console.log(`[RoomElevation] Found ${testOptions.length} options using field name: ${fieldName}`);
+            extractedOptions = testOptions;
+            break;
+          }
+        }
+
+        if (extractedOptions.length > 0) {
+          this.fdfOptions = extractedOptions;
+          console.log('[RoomElevation] Successfully loaded FDF options:', this.fdfOptions);
+          console.log('[RoomElevation] FDF options count:', this.fdfOptions.length);
+        } else {
+          console.error('[RoomElevation] Could not extract FDF options from any known field name');
+          console.error('[RoomElevation] Available fields in first record:', Object.keys(options[0]));
+          // Fallback: try to get any string values
+          const allStringValues = Object.entries(options[0])
+            .filter(([key, value]) => typeof value === 'string' && value.trim() !== '')
+            .map(([key, value]) => `${key}: ${value}`);
+          console.error('[RoomElevation] String values in first record:', allStringValues);
+        }
 
         // Trigger change detection
         this.changeDetectorRef.detectChanges();
       } else {
-        console.warn('[RoomElevation] No FDF options returned from database');
+        console.warn('[RoomElevation] No FDF options returned from database or empty array');
         console.warn('[RoomElevation] Options value:', options);
+        console.warn('[RoomElevation] Options === null?', options === null);
+        console.warn('[RoomElevation] Options === undefined?', options === undefined);
+        console.warn('[RoomElevation] Options === []?', JSON.stringify(options) === '[]');
       }
     } catch (error) {
       console.error('[RoomElevation] Error loading FDF options:', error);
+      console.error('[RoomElevation] Error stack:', error);
     }
   }
 

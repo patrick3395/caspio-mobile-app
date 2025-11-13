@@ -884,12 +884,22 @@ export class CaspioService {
 
   // Delete a Services_EFE record
   deleteServicesEFE(efeId: string): Observable<any> {
+    console.log('[CaspioService] deleteServicesEFE called for EFEID:', efeId);
     const query = `EFEID=${efeId}`;
-    return this.delete<any>(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`).pipe(
+    const url = `/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`;
+    console.log('[CaspioService] Delete URL:', url);
+
+    return this.delete<any>(url).pipe(
       tap(response => {
+        console.log('[CaspioService] deleteServicesEFE response:', response);
       }),
       catchError(error => {
-        console.error('Services EFE deletion error:', error);
+        console.error('[CaspioService] Services EFE deletion error:', error);
+        console.error('[CaspioService] Error details:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
         throw error;
       })
     );
@@ -902,13 +912,34 @@ export class CaspioService {
 
   // Update Services_EFE record by EFEID (for FDF annotations/drawings)
   updateServicesEFEByEFEID(efeId: string, data: any): Observable<any> {
+    console.log('[CaspioService] updateServicesEFEByEFEID called:', {
+      efeId,
+      dataKeys: Object.keys(data),
+      data: data
+    });
+
+    // Log any Drawings fields specifically
+    Object.keys(data).forEach(key => {
+      if (key.includes('Drawings')) {
+        console.log(`[CaspioService] ${key}:`, {
+          length: data[key]?.length || 0,
+          preview: data[key]?.substring(0, 100) || 'none'
+        });
+      }
+    });
+
     const url = `/tables/LPS_Services_EFE/records?q.where=EFEID=${efeId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
-        console.log('Services EFE updated:', response);
+        console.log('[CaspioService] updateServicesEFEByEFEID response:', response);
       }),
       catchError(error => {
-        console.error('Failed to update Services EFE record:', error);
+        console.error('[CaspioService] Failed to update Services EFE record:', error);
+        console.error('[CaspioService] Error details:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
         return throwError(() => error);
       })
     );
@@ -1296,13 +1327,26 @@ export class CaspioService {
   
   // Update Services_EFE_Points_Attach record (for caption/annotation updates)
   updateServicesEFEPointsAttach(attachId: string, data: any): Observable<any> {
-    
+    console.log('[CaspioService] updateServicesEFEPointsAttach called:', {
+      attachId,
+      data,
+      drawingsLength: data?.Drawings?.length || 0,
+      drawingsPreview: data?.Drawings?.substring(0, 100) || 'none',
+      annotation: data?.Annotation || 'none'
+    });
+
     const url = `/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
     return this.put<any>(url, data).pipe(
       tap(response => {
+        console.log('[CaspioService] updateServicesEFEPointsAttach response:', response);
       }),
       catchError(error => {
-        console.error('? Failed to update EFE point annotation:', error);
+        console.error('[CaspioService] Failed to update EFE point annotation:', error);
+        console.error('[CaspioService] Error details:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
         return throwError(() => error);
       })
     );

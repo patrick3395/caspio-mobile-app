@@ -378,8 +378,14 @@ export class ElevationPlotHubPage implements OnInit {
         {
           text: 'Delete',
           cssClass: 'alert-button-danger',
-          handler: async () => {
-            await this.removeRoom(roomName);
+          handler: () => {
+            // Return false to prevent auto-dismiss, then handle deletion and manual dismiss
+            this.removeRoom(roomName).then(() => {
+              confirmAlert.dismiss();
+            }).catch(() => {
+              confirmAlert.dismiss();
+            });
+            return false; // Prevent auto-dismiss
           }
         }
       ]
@@ -389,13 +395,17 @@ export class ElevationPlotHubPage implements OnInit {
   }
 
   private async removeRoom(roomName: string) {
+    console.log('[ElevationPlotHub] removeRoom called for:', roomName);
     this.savingRooms[roomName] = true;
     const roomId = this.efeRecordIds[roomName];
+    console.log('[ElevationPlotHub] Room ID:', roomId);
 
     if (roomId && roomId !== '__pending__' && !roomId.startsWith('temp_')) {
       try {
+        console.log('[ElevationPlotHub] Deleting room from database...');
         // Delete the room from Services_EFE table
         await this.caspioService.deleteServicesEFE(roomId).toPromise();
+        console.log('[ElevationPlotHub] Room deleted from database successfully');
 
         // Update local state
         delete this.efeRecordIds[roomName];
@@ -421,15 +431,20 @@ export class ElevationPlotHubPage implements OnInit {
           this.roomElevationData[roomName].location = '';
         }
 
+        console.log('[ElevationPlotHub] Local state updated');
         await this.showToast(`Room "${roomName}" deleted`, 'success');
       } catch (error) {
-        console.error('Error deleting room:', error);
+        console.error('[ElevationPlotHub] Error deleting room:', error);
         await this.showToast('Failed to delete room', 'danger');
+        throw error; // Re-throw to trigger the catch in the handler
       }
+    } else {
+      console.warn('[ElevationPlotHub] Room ID not valid for deletion:', { roomId, roomName });
     }
 
     this.savingRooms[roomName] = false;
     this.changeDetectorRef.detectChanges();
+    console.log('[ElevationPlotHub] removeRoom completed');
   }
 
   isBaseStation(roomName: string): boolean {
