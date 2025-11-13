@@ -56,11 +56,45 @@ export class ElevationPlotHubPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    // Get IDs from parent route
-    this.route.parent?.params.subscribe(params => {
-      this.projectId = params['projectId'];
-      this.serviceId = params['serviceId'];
-    });
+    console.log('========================================');
+    console.log('[ElevationPlotHub] ngOnInit - Starting Route Debug');
+    console.log('========================================');
+
+    // Debug route hierarchy
+    console.log('[ElevationPlotHub] Current route URL:', this.route.snapshot.url);
+    console.log('[ElevationPlotHub] Current route params:', this.route.snapshot.params);
+
+    if (this.route.parent) {
+      console.log('[ElevationPlotHub] Parent route URL:', this.route.parent.snapshot.url);
+      console.log('[ElevationPlotHub] Parent route params:', this.route.parent.snapshot.params);
+      console.log('[ElevationPlotHub] Parent route paramMap keys:', Array.from(this.route.parent.snapshot.paramMap.keys));
+    }
+
+    // Get IDs from parent route using SNAPSHOT (not subscription)
+    // Route structure: /engineers-foundation/:projectId/:serviceId/elevation
+    if (this.route.parent) {
+      this.projectId = this.route.parent.snapshot.paramMap.get('projectId') || '';
+      this.serviceId = this.route.parent.snapshot.paramMap.get('serviceId') || '';
+      console.log('[ElevationPlotHub] Retrieved from parent snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+    }
+
+    // Fallback: try direct snapshot
+    if (!this.projectId || !this.serviceId) {
+      this.projectId = this.route.snapshot.paramMap.get('projectId') || this.projectId;
+      this.serviceId = this.route.snapshot.paramMap.get('serviceId') || this.serviceId;
+      console.log('[ElevationPlotHub] Fallback to direct snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+    }
+
+    console.log('\n[ElevationPlotHub] FINAL VALUES:');
+    console.log('  - ProjectId:', this.projectId);
+    console.log('  - ServiceId:', this.serviceId);
+    console.log('========================================\n');
+
+    if (!this.serviceId || !this.projectId) {
+      console.error('[ElevationPlotHub] ERROR: Missing required IDs!');
+      await this.showToast(`Error: Missing service or project ID. ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`, 'danger');
+      return;
+    }
 
     await this.loadRoomTemplates();
   }
@@ -70,6 +104,11 @@ export class ElevationPlotHubPage implements OnInit {
   }
 
   async navigateToRoom(room: RoomDisplayData, event?: Event) {
+    console.log('[ElevationPlotHub] navigateToRoom called for room:', room.RoomName);
+    console.log('  - Room isSelected:', room.isSelected);
+    console.log('  - Current ServiceId:', this.serviceId);
+    console.log('  - Current ProjectId:', this.projectId);
+
     if (event) {
       event.stopPropagation();
       event.preventDefault();
@@ -77,18 +116,31 @@ export class ElevationPlotHubPage implements OnInit {
 
     // If room is not selected, create it first
     if (!room.isSelected) {
+      console.log('[ElevationPlotHub] Room not selected, creating it first...');
       await this.createAndNavigateToRoom(room.RoomName);
     } else {
       // Room is already selected, just navigate
+      console.log('[ElevationPlotHub] Room already selected, navigating directly...');
       this.router.navigate(['room', room.RoomName], { relativeTo: this.route });
     }
   }
 
   private async createAndNavigateToRoom(roomName: string) {
+    console.log('[ElevationPlotHub] createAndNavigateToRoom called for room:', roomName);
+    console.log('  - Current ServiceId:', this.serviceId);
+    console.log('  - ServiceId type:', typeof this.serviceId);
+
     // Validate ServiceID
     const serviceIdNum = parseInt(this.serviceId, 10);
+    console.log('  - Parsed ServiceId as number:', serviceIdNum);
+    console.log('  - Is NaN?:', isNaN(serviceIdNum));
+
     if (!this.serviceId || isNaN(serviceIdNum)) {
-      await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
+      console.error('[ElevationPlotHub] ERROR: Invalid ServiceID!');
+      console.error('  - ServiceId value:', this.serviceId);
+      console.error('  - ServiceId is empty?:', !this.serviceId);
+      console.error('  - ServiceId is NaN?:', isNaN(serviceIdNum));
+      await this.showToast(`Error: Invalid ServiceID (${this.serviceId}). Ensure you have the correct service ID.`, 'danger');
       return;
     }
 

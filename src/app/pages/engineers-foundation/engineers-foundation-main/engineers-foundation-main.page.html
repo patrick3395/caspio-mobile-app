@@ -1,26 +1,28 @@
 <div class="main-container">
-  <div class="cards-container">
-    <ion-card
-      *ngFor="let card of cards"
-      class="navigation-card"
-      [class.completed]="card.completed"
-      button="true"
-      (click)="navigateTo(card)">
-      <ion-card-header>
-        <div class="card-header-content">
-          <div class="icon-container">
-            <ion-icon [name]="card.icon"></ion-icon>
+  <div class="white-container">
+    <div class="cards-container">
+      <ion-card
+        *ngFor="let card of cards"
+        class="navigation-card"
+        [class.completed]="card.completed"
+        button="true"
+        (click)="navigateTo(card)">
+        <ion-card-header>
+          <div class="card-header-content">
+            <div class="icon-container">
+              <ion-icon [name]="card.icon"></ion-icon>
+            </div>
+            <div class="title-container">
+              <ion-card-title>{{ card.title }}</ion-card-title>
+              <ion-badge *ngIf="card.completed" color="success">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                Complete
+              </ion-badge>
+            </div>
           </div>
-          <div class="title-container">
-            <ion-card-title>{{ card.title }}</ion-card-title>
-            <ion-badge *ngIf="card.completed" color="success">
-              <ion-icon name="checkmark-circle"></ion-icon>
-              Complete
-            </ion-badge>
-          </div>
-        </div>
-      </ion-card-header>
-    </ion-card>
+        </ion-card-header>
+      </ion-card>
+    </div>
   </div>
 
   <div class="footer-section">
