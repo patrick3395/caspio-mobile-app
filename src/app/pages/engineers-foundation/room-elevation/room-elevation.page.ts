@@ -60,23 +60,42 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
-    // Get IDs from parent route
-    this.route.parent?.parent?.params.subscribe(params => {
-      this.projectId = params['projectId'];
-      this.serviceId = params['serviceId'];
-    });
+    // Get IDs from parent route snapshot
+    // Route structure: /engineers-foundation/:projectId/:serviceId/elevation/room/:roomName
+    // So we need to go up 2 levels from room-elevation to get to the engineers-foundation route
 
-    // Get room name from route params or route path
-    this.route.params.subscribe(params => {
-      // If roomName param exists, use it; otherwise check if we're on base-station route
-      if (params['roomName']) {
-        this.roomName = params['roomName'];
-      }
-    });
+    let currentRoute = this.route.parent?.parent; // Go up to container, then to engineers-foundation
+    if (currentRoute) {
+      this.projectId = currentRoute.snapshot.paramMap.get('projectId') || '';
+      this.serviceId = currentRoute.snapshot.paramMap.get('serviceId') || '';
+    }
+
+    // Fallback: try to get from snapshot if not found
+    if (!this.projectId || !this.serviceId) {
+      // Try direct snapshot
+      this.projectId = this.route.snapshot.paramMap.get('projectId') || this.projectId;
+      this.serviceId = this.route.snapshot.paramMap.get('serviceId') || this.serviceId;
+    }
+
+    console.log('[RoomElevation] ProjectId:', this.projectId);
+    console.log('[RoomElevation] ServiceId:', this.serviceId);
+
+    // Get room name from route params
+    this.roomName = this.route.snapshot.paramMap.get('roomName') || '';
 
     // Check if we're on the base-station route
     if (this.route.snapshot.url.some(segment => segment.path === 'base-station')) {
       this.roomName = 'Base Station';
+    }
+
+    console.log('[RoomElevation] RoomName:', this.roomName);
+
+    // Validate we have required IDs
+    if (!this.serviceId || !this.projectId) {
+      console.error('[RoomElevation] Missing serviceId or projectId!');
+      await this.showToast('Error: Missing service or project ID', 'danger');
+      this.loading = false;
+      return;
     }
 
     await this.loadRoomData();
