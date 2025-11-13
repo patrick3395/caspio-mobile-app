@@ -923,37 +923,71 @@ export class CategoryDetailPage implements OnInit {
 
           console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
 
-          // First, fetch all blobs in parallel
-          const fetchPromises = images.photos.map((image, i) => {
-            if (image.webPath) {
-              return fetch(image.webPath)
-                .then(response => response.blob())
-                .then(blob => ({
-                  file: new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' }),
-                  index: i
-                }));
-            }
-            return null;
+          // CRITICAL: Create skeleton placeholders IMMEDIATELY so user sees instant feedback
+          const skeletonPhotos = images.photos.map((image, i) => {
+            const tempId = `temp_skeleton_${Date.now()}_${i}`;
+            return {
+              AttachID: tempId,
+              id: tempId,
+              name: `photo_${i}.jpg`,
+              url: 'assets/img/photo-placeholder.png', // Skeleton state
+              thumbnailUrl: 'assets/img/photo-placeholder.png',
+              isObjectUrl: false,
+              uploading: false, // Will be set to true when we have the actual blob
+              isSkeleton: true, // Mark as skeleton
+              hasAnnotations: false,
+              caption: '',
+              annotation: ''
+            };
           });
 
-          // Wait for all fetches to complete
-          const files = await Promise.all(fetchPromises);
+          // Add all skeleton placeholders to UI immediately
+          this.visualPhotos[key].push(...skeletonPhotos);
+          this.changeDetectorRef.detectChanges();
+          console.log('[GALLERY UPLOAD] Added', skeletonPhotos.length, 'skeleton placeholders');
 
-          // Now upload all photos - this creates all loading states at once
-          const uploadPromises = files
-            .filter(item => item !== null)
-            .map(async (item) => {
+          // Now fetch blobs and upload in the background
+          images.photos.forEach(async (image, i) => {
+            if (image.webPath) {
               try {
-                console.log('[GALLERY UPLOAD] Uploading photo', item.index + 1);
-                await this.uploadPhotoForVisual(visualId, item.file, key, true, null, null, '');
-              } catch (error) {
-                console.error('[GALLERY UPLOAD] Error uploading photo:', error);
-              }
-            });
+                // Fetch the blob
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
 
-          // Wait for all uploads to complete
-          Promise.all(uploadPromises).then(() => {
-            console.log('[GALLERY UPLOAD] All photos uploaded');
+                // Create object URL for preview
+                const objectUrl = URL.createObjectURL(blob);
+
+                // Find the skeleton placeholder and update it to show preview + uploading state
+                const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeletonPhotos[i].AttachID);
+                if (skeletonIndex !== -1 && this.visualPhotos[key]) {
+                  this.visualPhotos[key][skeletonIndex] = {
+                    ...this.visualPhotos[key][skeletonIndex],
+                    url: objectUrl,
+                    thumbnailUrl: objectUrl,
+                    isObjectUrl: true,
+                    uploading: true, // Now show uploading spinner
+                    isSkeleton: false
+                  };
+                  this.changeDetectorRef.detectChanges();
+                  console.log('[GALLERY UPLOAD] Updated skeleton', i, 'to show preview + uploading state');
+                }
+
+                // Upload the photo, passing the skeleton tempId so it updates the existing placeholder
+                console.log('[GALLERY UPLOAD] Uploading photo', i + 1);
+                await this.uploadPhotoForVisual(visualId, file, key, true, null, null, '', skeletonPhotos[i].AttachID);
+              } catch (error) {
+                console.error('[GALLERY UPLOAD] Error uploading photo', i + 1, ':', error);
+
+                // Mark the photo as failed
+                const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeletonPhotos[i].AttachID);
+                if (photoIndex !== -1 && this.visualPhotos[key]) {
+                  this.visualPhotos[key][photoIndex].uploading = false;
+                  this.visualPhotos[key][photoIndex].uploadFailed = true;
+                  this.changeDetectorRef.detectChanges();
+                }
+              }
+            }
           });
         }
 
@@ -1032,7 +1066,7 @@ export class CategoryDetailPage implements OnInit {
   // PHOTO UPLOAD METHODS
   // ============================================
 
-  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null, caption: string = ''): Promise<string | null> {
+  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null, caption: string = '', existingTempId?: string): Promise<string | null> {
     const category = key.split('_')[0];
 
     // Compress the photo before upload
@@ -1053,23 +1087,42 @@ export class CategoryDetailPage implements OnInit {
         this.visualPhotos[key] = [];
       }
 
-      const objectUrl = URL.createObjectURL(photo);
-      tempId = `temp_${Date.now()}_${Math.random()}`;
-      const photoData: any = {
-        AttachID: tempId,
-        id: tempId,
-        name: photo.name,
-        url: objectUrl,
-        thumbnailUrl: objectUrl,
-        isObjectUrl: true,
-        uploading: !isPendingVisual,
-        queued: isPendingVisual,
-        hasAnnotations: !!annotationData,
-        annotations: annotationData || null,
-        caption: caption || '',
-        annotation: caption || ''
-      };
-      this.visualPhotos[key].push(photoData);
+      // CRITICAL: If existingTempId is provided, use that instead of creating a new temp photo
+      // This is used when we already have a skeleton placeholder in the UI
+      if (existingTempId) {
+        tempId = existingTempId;
+        console.log('[UPLOAD] Using existing skeleton placeholder:', tempId);
+
+        // Photo should already be in the array with uploading state from addPhotoFromGallery
+        // Just verify it exists
+        const existingIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
+        if (existingIndex === -1) {
+          console.warn('[UPLOAD] Skeleton not found, will create new temp photo');
+          tempId = undefined; // Fall back to creating new temp photo
+        }
+      }
+
+      // Only create a new temp photo if we don't have an existing one
+      if (!tempId) {
+        const objectUrl = URL.createObjectURL(photo);
+        tempId = `temp_${Date.now()}_${Math.random()}`;
+        const photoData: any = {
+          AttachID: tempId,
+          id: tempId,
+          name: photo.name,
+          url: objectUrl,
+          thumbnailUrl: objectUrl,
+          isObjectUrl: true,
+          uploading: !isPendingVisual,
+          queued: isPendingVisual,
+          hasAnnotations: !!annotationData,
+          annotations: annotationData || null,
+          caption: caption || '',
+          annotation: caption || ''
+        };
+        this.visualPhotos[key].push(photoData);
+        console.log('[UPLOAD] Created new temp photo:', tempId);
+      }
 
       this.changeDetectorRef.detectChanges();
 
@@ -2402,7 +2455,11 @@ export class CategoryDetailPage implements OnInit {
   }
 
   async onAccordionChange(event: any) {
-    // Update the expanded accordions array when user manually toggles
+    // CRITICAL: Prevent accordion state changes from item selections
+    // This handler should ONLY respond to actual accordion header clicks
+    // Item selection events (checkboxes, dropdowns) now have stopPropagation
+    // so they should not trigger this handler at all
+
     if (event.detail && event.detail.value !== undefined) {
       // Only update if there's no active search
       if (!this.searchTerm || this.searchTerm.trim() === '') {

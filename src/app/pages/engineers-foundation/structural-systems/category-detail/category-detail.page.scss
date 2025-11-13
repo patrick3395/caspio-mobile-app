@@ -575,18 +575,34 @@ ion-content {
     background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
     background-size: 200% 100%;
     animation: skeleton-pulse 1.5s ease-in-out infinite;
-    border-radius: 8px;
+    border-radius: 20px; // Match photo border-radius
     border: 2px solid #ddd;
     display: block;
+    position: relative;
+
+    // Add a loading icon in the center
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border: 2px solid #ccc;
+      border-top-color: #999;
+      border-radius: 50%;
+      animation: skeleton-spin 0.8s linear infinite;
+    }
   }
 
   .skeleton-caption {
     width: 90px;
-    height: 24px;
+    height: 28px; // Match caption button height
     background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
     background-size: 200% 100%;
     animation: skeleton-pulse 1.5s ease-in-out infinite;
-    border-radius: 4px;
+    border-radius: 6px; // Match caption border-radius
     margin-top: 8px;
   }
 }
@@ -597,6 +613,15 @@ ion-content {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+@keyframes skeleton-spin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
   }
 }
 
