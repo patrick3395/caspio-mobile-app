@@ -40,6 +40,7 @@ export class ElevationPlotHubPage implements OnInit {
   renamingRooms: { [roomName: string]: boolean } = {};
   roomElevationData: { [roomName: string]: any } = {};
   roomOperationIds: { [roomName: string]: string } = {};
+  loading: boolean = true; // Track loading state
 
   allRoomTemplates: RoomTemplate[] = [];
 
@@ -603,6 +604,9 @@ export class ElevationPlotHubPage implements OnInit {
     } catch (error) {
       console.error('Error loading room templates:', error);
       await this.showToast('Failed to load room templates', 'danger');
+    } finally {
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 

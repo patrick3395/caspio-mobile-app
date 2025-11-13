@@ -65,8 +65,14 @@
       </div>
     </div>
 
-    <!-- Empty State -->
-    <div class="empty-state" *ngIf="roomTemplates.length === 0">
+    <!-- Loading State -->
+    <div class="empty-state" *ngIf="loading && roomTemplates.length === 0">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading rooms...</p>
+    </div>
+
+    <!-- Empty State (only show if not loading) -->
+    <div class="empty-state" *ngIf="!loading && roomTemplates.length === 0">
       <ion-icon name="analytics-outline"></ion-icon>
       <p>No room templates available</p>
     </div>

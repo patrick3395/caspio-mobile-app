@@ -402,7 +402,15 @@ export class CategoryDetailPage implements OnInit {
       // Trigger change detection so skeleton counts are set
       this.changeDetectorRef.detectChanges();
 
+      // CRITICAL: Add a delay to ensure all skeletons render before photos start loading
+      // Without this, photos load so fast they replace skeletons before user sees them all
+      console.log('[LOAD VISUALS] Waiting for skeletons to render...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      console.log('[LOAD VISUALS] Starting background photo loading...');
+
       // Now load the actual photos in background (don't await - let them load progressively)
+      // Use staggered delays to prevent overwhelming the UI and ensure skeletons stay visible
+      let delayMs = 0;
       for (const visual of visuals) {
         const category = visual.Category;
         const name = visual.Name;
@@ -422,10 +430,15 @@ export class CategoryDetailPage implements OnInit {
 
         const key = `${category}_${item.id}`;
 
-        // Load photos for this visual in background (don't await)
-        this.loadPhotosForVisual(visualId, key).catch(err => {
-          console.error('[LOAD VISUALS] Error loading photos for visual:', visualId, err);
-        });
+        // Stagger photo loading with small delays to keep skeletons visible longer
+        setTimeout(() => {
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.error('[LOAD VISUALS] Error loading photos for visual:', visualId, err);
+          });
+        }, delayMs);
+
+        // Increment delay by 50ms for each visual (so with 50 visuals, last one starts after 2.5 seconds)
+        delayMs += 50;
       }
 
       console.log('[LOAD VISUALS] Finished processing existing visuals, photos loading in background');
