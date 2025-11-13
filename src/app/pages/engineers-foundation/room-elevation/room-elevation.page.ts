@@ -288,58 +288,96 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     const fdfPhotos = this.roomData.fdfPhotos;
     const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
 
-    // Load Top photo
+    // CRITICAL: Load photo metadata IMMEDIATELY (don't wait for images)
+    // This allows skeletons to show while images load in background
+
+    // Load Top photo metadata
     if (room.FDFPhotoTop) {
       fdfPhotos.top = true;
       fdfPhotos.topPath = room.FDFPhotoTop;
       fdfPhotos.topCaption = room.FDFPhotoTopAnnotation || '';
       fdfPhotos.topDrawings = room.FDFPhotoTopDrawings || null;
-      try {
-        const imageData = await this.foundationData.getImage(room.FDFPhotoTop);
-        if (imageData) {
-          fdfPhotos.topUrl = imageData;
-          fdfPhotos.topDisplayUrl = imageData;
-          fdfPhotos.topHasAnnotations = !!(room.FDFPhotoTopDrawings && room.FDFPhotoTopDrawings !== 'null' && room.FDFPhotoTopDrawings !== '' && room.FDFPhotoTopDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
-        }
-      } catch (error) {
-        console.error('Error loading top photo:', error);
-      }
+      fdfPhotos.topLoading = true; // Skeleton state
+      fdfPhotos.topUrl = 'assets/img/photo-placeholder.png'; // Placeholder
+      fdfPhotos.topDisplayUrl = 'assets/img/photo-placeholder.png';
+      fdfPhotos.topHasAnnotations = !!(room.FDFPhotoTopDrawings && room.FDFPhotoTopDrawings !== 'null' && room.FDFPhotoTopDrawings !== '' && room.FDFPhotoTopDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
+
+      // Load actual image in background
+      this.loadFDFPhotoImage(room.FDFPhotoTop, 'top').catch(err => {
+        console.error('Error loading top photo:', err);
+      });
     }
 
-    // Load Bottom photo
+    // Load Bottom photo metadata
     if (room.FDFPhotoBottom) {
       fdfPhotos.bottom = true;
       fdfPhotos.bottomPath = room.FDFPhotoBottom;
       fdfPhotos.bottomCaption = room.FDFPhotoBottomAnnotation || '';
       fdfPhotos.bottomDrawings = room.FDFPhotoBottomDrawings || null;
-      try {
-        const imageData = await this.foundationData.getImage(room.FDFPhotoBottom);
-        if (imageData) {
-          fdfPhotos.bottomUrl = imageData;
-          fdfPhotos.bottomDisplayUrl = imageData;
-          fdfPhotos.bottomHasAnnotations = !!(room.FDFPhotoBottomDrawings && room.FDFPhotoBottomDrawings !== 'null' && room.FDFPhotoBottomDrawings !== '' && room.FDFPhotoBottomDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
-        }
-      } catch (error) {
-        console.error('Error loading bottom photo:', error);
-      }
+      fdfPhotos.bottomLoading = true; // Skeleton state
+      fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
+      fdfPhotos.bottomDisplayUrl = 'assets/img/photo-placeholder.png';
+      fdfPhotos.bottomHasAnnotations = !!(room.FDFPhotoBottomDrawings && room.FDFPhotoBottomDrawings !== 'null' && room.FDFPhotoBottomDrawings !== '' && room.FDFPhotoBottomDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
+
+      // Load actual image in background
+      this.loadFDFPhotoImage(room.FDFPhotoBottom, 'bottom').catch(err => {
+        console.error('Error loading bottom photo:', err);
+      });
     }
 
-    // Load Threshold (Location) photo
+    // Load Threshold (Location) photo metadata
     if (room.FDFPhotoThreshold) {
       fdfPhotos.threshold = true;
       fdfPhotos.thresholdPath = room.FDFPhotoThreshold;
       fdfPhotos.thresholdCaption = room.FDFPhotoThresholdAnnotation || '';
       fdfPhotos.thresholdDrawings = room.FDFPhotoThresholdDrawings || null;
-      try {
-        const imageData = await this.foundationData.getImage(room.FDFPhotoThreshold);
-        if (imageData) {
-          fdfPhotos.thresholdUrl = imageData;
-          fdfPhotos.thresholdDisplayUrl = imageData;
-          fdfPhotos.thresholdHasAnnotations = !!(room.FDFPhotoThresholdDrawings && room.FDFPhotoThresholdDrawings !== 'null' && room.FDFPhotoThresholdDrawings !== '' && room.FDFPhotoThresholdDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
-        }
-      } catch (error) {
-        console.error('Error loading threshold photo:', error);
+      fdfPhotos.thresholdLoading = true; // Skeleton state
+      fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
+      fdfPhotos.thresholdDisplayUrl = 'assets/img/photo-placeholder.png';
+      fdfPhotos.thresholdHasAnnotations = !!(room.FDFPhotoThresholdDrawings && room.FDFPhotoThresholdDrawings !== 'null' && room.FDFPhotoThresholdDrawings !== '' && room.FDFPhotoThresholdDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
+
+      // Load actual image in background
+      this.loadFDFPhotoImage(room.FDFPhotoThreshold, 'threshold').catch(err => {
+        console.error('Error loading threshold photo:', err);
+      });
+    }
+  }
+
+  // New helper method to load FDF photo images in background
+  private async loadFDFPhotoImage(photoPath: string, photoKey: string) {
+    try {
+      const imageData = await this.foundationData.getImage(photoPath);
+      if (imageData) {
+        const fdfPhotos = this.roomData.fdfPhotos;
+        fdfPhotos[`${photoKey}Url`] = imageData;
+        fdfPhotos[`${photoKey}DisplayUrl`] = imageData;
+        fdfPhotos[`${photoKey}Loading`] = false;
+        this.changeDetectorRef.detectChanges();
+        console.log(`[FDF Photo] Loaded ${photoKey} image`);
       }
+    } catch (error) {
+      console.error(`[FDF Photo] Error loading ${photoKey} image:`, error);
+      const fdfPhotos = this.roomData.fdfPhotos;
+      fdfPhotos[`${photoKey}Loading`] = false;
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  // New helper method to load elevation point photo images in background
+  private async loadPointPhotoImage(photoPath: string, photoData: any) {
+    try {
+      const imageData = await this.foundationData.getImage(photoPath);
+      if (imageData) {
+        photoData.url = imageData;
+        photoData.displayUrl = imageData;
+        photoData.loading = false;
+        this.changeDetectorRef.detectChanges();
+        console.log(`[Point Photo] Loaded image for ${photoPath}`);
+      }
+    } catch (error) {
+      console.error(`[Point Photo] Error loading image:`, error);
+      photoData.loading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
@@ -493,7 +531,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
           // Process each attachment
           for (const attach of pointAttachments) {
-            const photoType = attach.PhotoType || 'Measurement';
+            // CRITICAL: Database column is "Type", not "PhotoType"
+            const photoType = attach.Type || 'Measurement';
             console.log(`[RoomElevation]     Processing attachment: Type=${photoType}, Photo=${attach.Photo}`);
 
             const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
@@ -509,21 +548,23 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               uploading: false
             };
 
-            // Load the photo image if path exists
+            // CRITICAL: Set loading state and placeholder immediately
+            // Load actual image in background
             if (attach.Photo) {
-              try {
-                const imageData = await this.foundationData.getImage(attach.Photo);
-                if (imageData) {
-                  photoData.url = imageData;
-                  photoData.displayUrl = imageData;
-                  console.log(`[RoomElevation]       ✓ Loaded photo image`);
-                }
-              } catch (error) {
-                console.error(`[RoomElevation]       ❌ Error loading photo:`, error);
-              }
+              photoData.url = 'assets/img/photo-placeholder.png';
+              photoData.displayUrl = 'assets/img/photo-placeholder.png';
+              photoData.loading = true;
+              console.log(`[RoomElevation]       Setting photo to skeleton state`);
             }
 
             pointData.photos.push(photoData);
+
+            // Load the actual image in background (non-blocking)
+            if (attach.Photo) {
+              this.loadPointPhotoImage(attach.Photo, photoData).catch(err => {
+                console.error(`[RoomElevation]       ❌ Error loading photo:`, err);
+              });
+            }
           }
         }
 
@@ -618,7 +659,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             console.log(`[RoomElevation]     Found ${pointAttachments.length} attachments for custom point`);
 
             for (const attach of pointAttachments) {
-              const photoType = attach.PhotoType || 'Measurement';
+              // CRITICAL: Database column is "Type", not "PhotoType"
+              const photoType = attach.Type || 'Measurement';
               console.log(`[RoomElevation]       Processing attachment: Type=${photoType}`);
 
               const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
@@ -634,21 +676,23 @@ export class RoomElevationPage implements OnInit, OnDestroy {
                 uploading: false
               };
 
-              // Load the photo image if path exists
+              // CRITICAL: Set loading state and placeholder immediately
+              // Load actual image in background
               if (attach.Photo) {
-                try {
-                  const imageData = await this.foundationData.getImage(attach.Photo);
-                  if (imageData) {
-                    photoData.url = imageData;
-                    photoData.displayUrl = imageData;
-                    console.log(`[RoomElevation]         ✓ Loaded photo image`);
-                  }
-                } catch (error) {
-                  console.error(`[RoomElevation]         ❌ Error loading photo:`, error);
-                }
+                photoData.url = 'assets/img/photo-placeholder.png';
+                photoData.displayUrl = 'assets/img/photo-placeholder.png';
+                photoData.loading = true;
+                console.log(`[RoomElevation]         Setting photo to skeleton state`);
               }
 
               customPointData.photos.push(photoData);
+
+              // Load the actual image in background (non-blocking)
+              if (attach.Photo) {
+                this.loadPointPhotoImage(attach.Photo, photoData).catch(err => {
+                  console.error(`[RoomElevation]         ❌ Error loading photo:`, err);
+                });
+              }
             }
 
             console.log(`[RoomElevation]     ✓ Custom point "${existingPoint.PointName}" added:`, {
