@@ -336,7 +336,7 @@
                   <!-- Caption text underneath photo -->
                   <button
                     class="room-photo-caption"
-                    (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Measurement'), point); $event.stopPropagation()">
+                    (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Measurement'), point, $event)">
                     {{ getPointPhotoByType(point, 'Measurement').caption || 'Caption' }}
                   </button>
                 </div>
@@ -394,7 +394,7 @@
                   <!-- Caption text underneath photo -->
                   <button
                     class="room-photo-caption"
-                    (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Location'), point); $event.stopPropagation()">
+                    (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Location'), point, $event)">
                     {{ getPointPhotoByType(point, 'Location').caption || 'Caption' }}
                   </button>
                 </div>
