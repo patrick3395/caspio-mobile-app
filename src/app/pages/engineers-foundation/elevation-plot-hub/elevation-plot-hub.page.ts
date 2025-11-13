@@ -68,17 +68,33 @@ export class ElevationPlotHubPage implements OnInit {
       console.log('[ElevationPlotHub] Parent route URL:', this.route.parent.snapshot.url);
       console.log('[ElevationPlotHub] Parent route params:', this.route.parent.snapshot.params);
       console.log('[ElevationPlotHub] Parent route paramMap keys:', Array.from(this.route.parent.snapshot.paramMap.keys));
+
+      if (this.route.parent.parent) {
+        console.log('[ElevationPlotHub] Parent.Parent route URL:', this.route.parent.parent.snapshot.url);
+        console.log('[ElevationPlotHub] Parent.Parent route params:', this.route.parent.parent.snapshot.params);
+        console.log('[ElevationPlotHub] Parent.Parent route paramMap keys:', Array.from(this.route.parent.parent.snapshot.paramMap.keys));
+      }
     }
 
-    // Get IDs from parent route using SNAPSHOT (not subscription)
-    // Route structure: /engineers-foundation/:projectId/:serviceId/elevation
-    if (this.route.parent) {
-      this.projectId = this.route.parent.snapshot.paramMap.get('projectId') || '';
-      this.serviceId = this.route.parent.snapshot.paramMap.get('serviceId') || '';
-      console.log('[ElevationPlotHub] Retrieved from parent snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+    // Get IDs from parent.parent route using SNAPSHOT (not subscription)
+    // Route structure: /engineers-foundation/:projectId/:serviceId/elevation (hub is at empty path '')
+    // So: parent = 'elevation', parent.parent = 'engineers-foundation' with params
+    if (this.route.parent?.parent) {
+      this.projectId = this.route.parent.parent.snapshot.paramMap.get('projectId') || '';
+      this.serviceId = this.route.parent.parent.snapshot.paramMap.get('serviceId') || '';
+      console.log('[ElevationPlotHub] Retrieved from parent.parent snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
     }
 
-    // Fallback: try direct snapshot
+    // Fallback: try parent snapshot
+    if (!this.projectId || !this.serviceId) {
+      if (this.route.parent) {
+        this.projectId = this.route.parent.snapshot.paramMap.get('projectId') || this.projectId;
+        this.serviceId = this.route.parent.snapshot.paramMap.get('serviceId') || this.serviceId;
+        console.log('[ElevationPlotHub] Fallback to parent snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+      }
+    }
+
+    // Second fallback: try direct snapshot
     if (!this.projectId || !this.serviceId) {
       this.projectId = this.route.snapshot.paramMap.get('projectId') || this.projectId;
       this.serviceId = this.route.snapshot.paramMap.get('serviceId') || this.serviceId;
