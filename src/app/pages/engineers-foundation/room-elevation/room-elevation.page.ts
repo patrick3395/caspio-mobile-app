@@ -336,17 +336,60 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   private async loadElevationPoints() {
     console.log('[RoomElevation] loadElevationPoints() called for roomId:', this.roomId);
     try {
-      // Load points from Services_EFE_Points
-      const points = await this.caspioService.getServicesEFEPoints(this.roomId).toPromise();
-      console.log('[RoomElevation] Loaded', points?.length || 0, 'elevation points');
+      // STEP 1: Load the template to get point names (Point1Name, Point2Name, etc.)
+      const templateId = this.roomData.templateId;
+      console.log('[RoomElevation] TemplateID:', templateId);
 
-      if (points && points.length > 0) {
-        // Get all point IDs to load attachments in bulk
-        const pointIds = points.map((p: any) => p.PointID || p.PK_ID).filter(id => id);
+      if (!templateId) {
+        console.error('[RoomElevation] ERROR: No TemplateID found for room!');
+        return;
+      }
+
+      // Load all templates
+      const allTemplates = await this.foundationData.getEFETemplates();
+      console.log('[RoomElevation] Loaded', allTemplates?.length || 0, 'templates');
+
+      // Find the matching template
+      const template = allTemplates.find((t: any) =>
+        t.TemplateID === templateId || t.PK_ID === templateId
+      );
+
+      if (!template) {
+        console.error('[RoomElevation] ERROR: Template not found for TemplateID:', templateId);
+        return;
+      }
+
+      console.log('[RoomElevation] Found template:', template.RoomName);
+
+      // STEP 2: Extract elevation points from template (Point1Name through Point20Name)
+      const templatePoints: any[] = [];
+      for (let i = 1; i <= 20; i++) {
+        const pointColumnName = `Point${i}Name`;
+        const pointName = template[pointColumnName];
+
+        if (pointName && pointName.trim() !== '') {
+          templatePoints.push({
+            pointNumber: i,
+            name: pointName,
+            pointId: null,  // Will be filled if point exists in database
+            value: '',
+            photos: []
+          });
+        }
+      }
+
+      console.log('[RoomElevation] Template has', templatePoints.length, 'predefined points');
+
+      // STEP 3: Load existing points from Services_EFE_Points
+      const existingPoints = await this.caspioService.getServicesEFEPoints(this.roomId).toPromise();
+      console.log('[RoomElevation] Found', existingPoints?.length || 0, 'existing points in database');
+
+      // STEP 4: Load all attachments for existing points
+      let attachments: any[] = [];
+      if (existingPoints && existingPoints.length > 0) {
+        const pointIds = existingPoints.map((p: any) => p.PointID || p.PK_ID).filter(id => id);
         console.log('[RoomElevation] Point IDs:', pointIds);
 
-        // Load all attachments for these points
-        let attachments: any[] = [];
         if (pointIds.length > 0) {
           try {
             attachments = await this.foundationData.getEFEAttachments(pointIds);
@@ -355,24 +398,30 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             console.error('[RoomElevation] Error loading attachments:', error);
           }
         }
+      }
 
-        // Build point data with photos
-        for (const point of points) {
-          const pointId = point.PointID || point.PK_ID;
-          const pointData: any = {
-            pointId: pointId,
-            name: point.PointName,
-            value: point.Elevation || '',
-            photos: []
-          };
+      // STEP 5: Merge template points with existing database points
+      for (const templatePoint of templatePoints) {
+        // Find matching existing point by name
+        const existingPoint = existingPoints?.find((p: any) => p.PointName === templatePoint.name);
 
-          // Find attachments for this point
+        const pointData: any = {
+          pointNumber: templatePoint.pointNumber,
+          name: templatePoint.name,
+          pointId: existingPoint ? (existingPoint.PointID || existingPoint.PK_ID) : null,
+          value: existingPoint ? (existingPoint.Elevation || '') : '',
+          photos: []
+        };
+
+        // If point exists in database, load its photos
+        if (existingPoint) {
+          const pointId = existingPoint.PointID || existingPoint.PK_ID;
           const pointAttachments = attachments.filter((att: any) => att.PointID === pointId);
-          console.log(`[RoomElevation] Point "${point.PointName}" has ${pointAttachments.length} attachments`);
+          console.log(`[RoomElevation] Point "${templatePoint.name}" has ${pointAttachments.length} attachments`);
 
           // Process each attachment
           for (const attach of pointAttachments) {
-            const photoType = attach.PhotoType || 'Measurement'; // Default to Measurement if not specified
+            const photoType = attach.PhotoType || 'Measurement';
 
             const photoData: any = {
               attachId: attach.AttachID || attach.PK_ID,
@@ -395,16 +444,16 @@ export class RoomElevationPage implements OnInit, OnDestroy {
                   photoData.displayUrl = imageData;
                 }
               } catch (error) {
-                console.error(`[RoomElevation] Error loading photo for point ${point.PointName}:`, error);
+                console.error(`[RoomElevation] Error loading photo for point ${templatePoint.name}:`, error);
               }
             }
 
             pointData.photos.push(photoData);
           }
-
-          console.log(`[RoomElevation] Point "${point.PointName}" final photo count:`, pointData.photos.length);
-          this.roomData.elevationPoints.push(pointData);
         }
+
+        console.log(`[RoomElevation] Point "${templatePoint.name}" final - ID: ${pointData.pointId}, Photos: ${pointData.photos.length}`);
+        this.roomData.elevationPoints.push(pointData);
       }
 
       console.log('[RoomElevation] Final elevationPoints:', this.roomData.elevationPoints);
