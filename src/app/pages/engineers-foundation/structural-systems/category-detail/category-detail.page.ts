@@ -946,49 +946,53 @@ export class CategoryDetailPage implements OnInit {
           this.changeDetectorRef.detectChanges();
           console.log('[GALLERY UPLOAD] Added', skeletonPhotos.length, 'skeleton placeholders');
 
-          // Now fetch blobs and upload in the background
-          images.photos.forEach(async (image, i) => {
-            if (image.webPath) {
-              try {
-                // Fetch the blob
-                const response = await fetch(image.webPath);
-                const blob = await response.blob();
-                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+          // CRITICAL: Use setTimeout to ensure skeletons render before we start fetching blobs
+          // Without this delay, the fetch is so fast that skeletons get replaced immediately
+          setTimeout(() => {
+            // Now fetch blobs and upload in the background
+            images.photos.forEach(async (image, i) => {
+              if (image.webPath) {
+                try {
+                  // Fetch the blob
+                  const response = await fetch(image.webPath);
+                  const blob = await response.blob();
+                  const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
 
-                // Create object URL for preview
-                const objectUrl = URL.createObjectURL(blob);
+                  // Create object URL for preview
+                  const objectUrl = URL.createObjectURL(blob);
 
-                // Find the skeleton placeholder and update it to show preview + uploading state
-                const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeletonPhotos[i].AttachID);
-                if (skeletonIndex !== -1 && this.visualPhotos[key]) {
-                  this.visualPhotos[key][skeletonIndex] = {
-                    ...this.visualPhotos[key][skeletonIndex],
-                    url: objectUrl,
-                    thumbnailUrl: objectUrl,
-                    isObjectUrl: true,
-                    uploading: true, // Now show uploading spinner
-                    isSkeleton: false
-                  };
-                  this.changeDetectorRef.detectChanges();
-                  console.log('[GALLERY UPLOAD] Updated skeleton', i, 'to show preview + uploading state');
-                }
+                  // Find the skeleton placeholder and update it to show preview + uploading state
+                  const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeletonPhotos[i].AttachID);
+                  if (skeletonIndex !== -1 && this.visualPhotos[key]) {
+                    this.visualPhotos[key][skeletonIndex] = {
+                      ...this.visualPhotos[key][skeletonIndex],
+                      url: objectUrl,
+                      thumbnailUrl: objectUrl,
+                      isObjectUrl: true,
+                      uploading: true, // Now show uploading spinner
+                      isSkeleton: false
+                    };
+                    this.changeDetectorRef.detectChanges();
+                    console.log('[GALLERY UPLOAD] Updated skeleton', i, 'to show preview + uploading state');
+                  }
 
-                // Upload the photo, passing the skeleton tempId so it updates the existing placeholder
-                console.log('[GALLERY UPLOAD] Uploading photo', i + 1);
-                await this.uploadPhotoForVisual(visualId, file, key, true, null, null, '', skeletonPhotos[i].AttachID);
-              } catch (error) {
-                console.error('[GALLERY UPLOAD] Error uploading photo', i + 1, ':', error);
+                  // Upload the photo, passing the skeleton tempId so it updates the existing placeholder
+                  console.log('[GALLERY UPLOAD] Uploading photo', i + 1);
+                  await this.uploadPhotoForVisual(visualId, file, key, true, null, null, '', skeletonPhotos[i].AttachID);
+                } catch (error) {
+                  console.error('[GALLERY UPLOAD] Error uploading photo', i + 1, ':', error);
 
-                // Mark the photo as failed
-                const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeletonPhotos[i].AttachID);
-                if (photoIndex !== -1 && this.visualPhotos[key]) {
-                  this.visualPhotos[key][photoIndex].uploading = false;
-                  this.visualPhotos[key][photoIndex].uploadFailed = true;
-                  this.changeDetectorRef.detectChanges();
+                  // Mark the photo as failed
+                  const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeletonPhotos[i].AttachID);
+                  if (photoIndex !== -1 && this.visualPhotos[key]) {
+                    this.visualPhotos[key][photoIndex].uploading = false;
+                    this.visualPhotos[key][photoIndex].uploadFailed = true;
+                    this.changeDetectorRef.detectChanges();
+                  }
                 }
               }
-            }
-          });
+            });
+          }, 150); // 150ms delay ensures skeletons render before blob fetching starts
         }
 
         this.currentUploadContext = null;

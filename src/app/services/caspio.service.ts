@@ -884,8 +884,8 @@ export class CaspioService {
 
   // Delete a Services_EFE record
   deleteServicesEFE(efeId: string): Observable<any> {
-    console.log('[CaspioService] deleteServicesEFE called for ID:', efeId);
-    const url = `/tables/LPS_Services_EFE/records?q.where=PK_ID=${efeId}`;
+    console.log('[CaspioService] deleteServicesEFE called for EFEID:', efeId);
+    const url = `/tables/LPS_Services_EFE/records?q.where=EFEID=${efeId}`;
     console.log('[CaspioService] Delete URL:', url);
 
     return this.delete<any>(url).pipe(
@@ -906,7 +906,7 @@ export class CaspioService {
   
   // Update Services_EFE record
   updateServicesEFE(efeId: string, data: any): Observable<any> {
-    return this.put<any>(`/tables/LPS_Services_EFE/records?q.where=PK_ID=${efeId}`, data);
+    return this.put<any>(`/tables/LPS_Services_EFE/records?q.where=EFEID=${efeId}`, data);
   }
 
   // Update Services_EFE record by EFEID (for FDF annotations/drawings)

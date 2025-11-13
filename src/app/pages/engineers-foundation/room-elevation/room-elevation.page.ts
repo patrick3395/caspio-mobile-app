@@ -10,6 +10,7 @@ import { EngineersFoundationDataService } from '../engineers-foundation-data.ser
 import { CaspioService } from '../../../services/caspio.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { ImageCompressionService } from '../../../services/image-compression.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-room-elevation',
@@ -821,7 +822,13 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   }
 
   // FDF Photo Methods
+  // Take FDF photo from camera - EXACT implementation from engineers-foundation
   async takeFDFPhotoCamera(photoType: 'Top' | 'Bottom' | 'Threshold') {
+    if (!this.roomId) {
+      await this.showToast('Please save the room first', 'warning');
+      return;
+    }
+
     try {
       const image = await Camera.getPhoto({
         quality: 90,
@@ -831,7 +838,11 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       });
 
       if (image.webPath) {
-        await this.processFDFPhoto(image.webPath, photoType);
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const file = new File([blob], `fdf-${photoType.toLowerCase()}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+        await this.processFDFPhoto(file, photoType);
       }
     } catch (error) {
       if (error !== 'User cancelled photos app') {
@@ -841,7 +852,13 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
   }
 
+  // Take FDF photo from gallery - EXACT implementation from engineers-foundation
   async takeFDFPhotoGallery(photoType: 'Top' | 'Bottom' | 'Threshold') {
+    if (!this.roomId) {
+      await this.showToast('Please save the room first', 'warning');
+      return;
+    }
+
     try {
       const image = await Camera.getPhoto({
         quality: 90,
@@ -851,7 +868,11 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       });
 
       if (image.webPath) {
-        await this.processFDFPhoto(image.webPath, photoType);
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const file = new File([blob], `fdf-${photoType.toLowerCase()}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+        await this.processFDFPhoto(file, photoType);
       }
     } catch (error) {
       if (error !== 'User cancelled photos app') {
@@ -861,43 +882,138 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
   }
 
-  private async processFDFPhoto(webPath: string, photoType: 'Top' | 'Bottom' | 'Threshold') {
+  // Process FDF photo - EXACT implementation from engineers-foundation
+  private async processFDFPhoto(file: File, photoType: 'Top' | 'Bottom' | 'Threshold') {
+    const photoKey = photoType.toLowerCase();
+    const fdfPhotos = this.roomData.fdfPhotos;
+
+    console.log(`[FDF Upload] Processing photo: ${photoType}`);
+
+    try {
+      // Initialize fdfPhotos structure if needed
+      if (!fdfPhotos) {
+        this.roomData.fdfPhotos = {};
+      }
+
+      // Set uploading flag to show loading spinner IMMEDIATELY
+      fdfPhotos[`${photoKey}Uploading`] = true;
+      fdfPhotos[photoKey] = true;
+
+      // Revoke old blob URL if it exists (prevent memory leaks)
+      const oldUrl = fdfPhotos[`${photoKey}Url`];
+      if (oldUrl && oldUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(oldUrl);
+        console.log(`[FDF Upload] Revoked old blob URL for ${photoType}`);
+      }
+
+      // Create new blob URL for instant preview
+      const blobUrl = URL.createObjectURL(file);
+      fdfPhotos[`${photoKey}Url`] = blobUrl;
+
+      // Trigger change detection to show preview with loading spinner
+      this.changeDetectorRef.detectChanges();
+
+      // Upload the photo
+      await this.uploadFDFPhotoToRoom(photoType, file);
+
+      console.log(`[FDF Upload] ✅ Upload completed successfully for ${photoType}`);
+    } catch (error: any) {
+      console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
+      const errorMsg = error?.message || error?.toString() || 'Unknown error';
+      await this.showToast(`Failed to upload ${photoType} photo: ${errorMsg}`, 'danger');
+
+      // Clear uploading flag and photo on error
+      fdfPhotos[`${photoKey}Uploading`] = false;
+      delete fdfPhotos[photoKey];
+      delete fdfPhotos[`${photoKey}Url`];
+
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  // Upload FDF photo to room - EXACT implementation from engineers-foundation
+  private async uploadFDFPhotoToRoom(photoType: 'Top' | 'Bottom' | 'Threshold', file: File): Promise<any> {
+    console.log(`[FDF Upload] Starting upload for ${photoType}`);
+
+    if (!this.roomId) {
+      throw new Error(`Room not ready for upload`);
+    }
+
     const photoKey = photoType.toLowerCase();
     const fdfPhotos = this.roomData.fdfPhotos;
 
     try {
-      // Convert to File
-      const response = await fetch(webPath);
-      const blob = await response.blob();
-      const file = new File([blob], `fdf-${photoKey}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      // Compress the image
+      const compressedFile = await this.imageCompression.compressImage(file);
+      console.log(`[FDF Upload] Compressed ${photoType} image`);
 
-      // Show loading state
-      fdfPhotos[`${photoKey}Uploading`] = true;
-      fdfPhotos[`${photoKey}Url`] = webPath;
-      this.changeDetectorRef.detectChanges();
+      // Upload to Caspio Files API
+      const uploadFormData = new FormData();
+      const fileName = `FDF_${photoType}_${this.roomId}_${Date.now()}.jpg`;
+      uploadFormData.append('file', compressedFile, fileName);
 
-      // Compress image
-      const compressedFile = await this.imageCompression.compressImage(file, {
-        maxSizeMB: 0.4,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true
-      }) as File;
+      const token = await firstValueFrom(this.caspioService.getValidToken());
+      const account = this.caspioService.getAccountID();
 
-      // Upload to database
-      // For now, we'll just keep the local preview
-      // TODO: Implement proper file upload to Caspio
-      // The file upload needs to use Files API or form data upload
-      fdfPhotos[photoKey] = true; // Mark as having a photo
-      fdfPhotos[`${photoKey}Path`] = webPath;
+      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: uploadFormData
+      });
 
-      await this.showToast('Photo saved locally (upload to be implemented)', 'warning');
-    } catch (error) {
-      console.error('Error processing FDF photo:', error);
-      await this.showToast('Failed to upload photo', 'danger');
-    } finally {
+      const uploadResult = await uploadResponse.json();
+      const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
+      const filePath = `/${uploadedFileName}`;
+
+      console.log(`[FDF Upload] Uploaded to Files API: ${filePath}`);
+
+      // Update the room record with file path
+      const columnName = `FDFPhoto${photoType}`;
+      const updateData: any = {};
+      updateData[columnName] = filePath;
+
+      await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
+
+      console.log(`[FDF Upload] Updated room record`);
+
+      // Convert to base64 for display
+      const base64Image = await this.convertFileToBase64(compressedFile);
+
+      // Update local state
+      fdfPhotos[photoKey] = true;
+      fdfPhotos[`${photoKey}Path`] = filePath;
+      fdfPhotos[`${photoKey}Url`] = base64Image;
+      fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
+      fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
+      fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
       fdfPhotos[`${photoKey}Uploading`] = false;
+
       this.changeDetectorRef.detectChanges();
+
+      console.log(`[FDF Upload] Completed ${photoType}`);
+
+      return { filePath, base64Image };
+    } catch (error) {
+      console.error(`[FDF Upload] Error uploading ${photoType}:`, error);
+      throw error;
     }
+  }
+
+  // Helper method to convert File or Blob to base64 string
+  private async convertFileToBase64(file: File | Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const base64Image = e.target.result;
+        resolve(base64Image);
+      };
+      reader.onerror = (error) => {
+        reject(error);
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   async annotateFDFPhoto(photoType: 'Top' | 'Bottom' | 'Threshold') {
