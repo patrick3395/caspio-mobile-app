@@ -35,8 +35,8 @@
         </select>
       </div>
 
-      <!-- FDF Photos Section (hidden for Base Station) -->
-      <div class="fdf-photos-container" *ngIf="!isBaseStation()" style="margin-top: 10px;">
+      <!-- FDF Photos Section (hidden for Base Station and unless Different Elevation is selected) -->
+      <div class="fdf-photos-container" *ngIf="!isBaseStation() && shouldShowFDFPhotos()" style="margin-top: 10px;">
         <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
         <div class="fdf-photos-row" style="display: flex; gap: 8px; flex-wrap: nowrap;">
           <!-- Top Photo Column -->

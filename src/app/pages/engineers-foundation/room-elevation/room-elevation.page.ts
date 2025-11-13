@@ -196,6 +196,11 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     return this.roomName.toLowerCase().includes('garage');
   }
 
+  shouldShowFDFPhotos(): boolean {
+    // Only show FDF photos if "Different Elevation" is selected
+    return this.roomData?.fdf === 'Different Elevation';
+  }
+
   private async loadRoomData() {
     console.log('[RoomElevation] loadRoomData() called');
     console.log('  - ServiceId:', this.serviceId);
@@ -223,6 +228,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       this.roomId = room.EFEID;
       console.log('[RoomElevation] Room ID set to:', this.roomId);
       console.log('[RoomElevation] Room TemplateID from database:', room.TemplateID);
+      console.log('[RoomElevation] Room FDF value from database:', room.FDF);
       console.log('[RoomElevation] Room full record:', room);
 
       // Initialize room data structure
@@ -668,12 +674,18 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
   private async loadFDFOptions() {
     try {
+      console.log('[RoomElevation] Loading FDF options from LPS_Services_EFE_Drop...');
       const options = await this.caspioService.getServicesEFEDrop().toPromise();
+      console.log('[RoomElevation] Raw FDF options from database:', options);
+
       if (options && options.length > 0) {
         this.fdfOptions = options.map((opt: any) => opt.FDF).filter((fdf: string) => fdf && fdf.trim() !== '');
+        console.log('[RoomElevation] Processed FDF options:', this.fdfOptions);
+      } else {
+        console.warn('[RoomElevation] No FDF options returned from database');
       }
     } catch (error) {
-      console.error('Error loading FDF options:', error);
+      console.error('[RoomElevation] Error loading FDF options:', error);
     }
   }
 
@@ -874,15 +886,26 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         // Import compression utility (same as Structural Systems)
         const { compressAnnotationData } = await import('../../../utils/annotation-utils');
 
-        // Prepare annotation data for database (same as Structural Systems)
-        let drawingsData = null;
+        // Prepare annotation data for database (EXACT logic from Structural Systems)
         const annotationsData = data.annotationData || data.annotationsData;
+        const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+
+        let drawingsDataToSave = EMPTY_COMPRESSED_ANNOTATIONS;
 
         if (annotationsData) {
-          // Handle Fabric.js canvas export
+          let drawingsData = '';
+
+          // Handle Fabric.js canvas export (object with 'objects' and 'version' properties)
           if (annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData) {
             try {
               drawingsData = JSON.stringify(annotationsData);
+
+              // Validate the JSON is parseable
+              try {
+                const testParse = JSON.parse(drawingsData);
+              } catch (e) {
+                console.warn('[SAVE] JSON validation failed, but continuing');
+              }
             } catch (e) {
               console.error('[SAVE] Failed to stringify Fabric.js object:', e);
               drawingsData = JSON.stringify({ objects: [], version: annotationsData.version || '5.3.0' });
@@ -894,40 +917,70 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               drawingsData = JSON.stringify(annotationsData);
             } catch (e) {
               console.error('[SAVE] Failed to stringify annotations:', e);
+              drawingsData = '';
             }
           }
 
-          // Compress the data (same as Structural Systems)
+          // Final validation and compression
           if (drawingsData && drawingsData !== '{}' && drawingsData !== '[]') {
             // Clean the data
+            const originalLength = drawingsData.length;
+
             drawingsData = drawingsData
               .replace(/\u0000/g, '')
               .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
               .replace(/undefined/g, 'null');
 
-            // Compress
+            // COMPRESS
             try {
               const parsed = JSON.parse(drawingsData);
-              drawingsData = compressAnnotationData(parsed);
-              console.log('[SAVE] Compressed FDF drawings data, length:', drawingsData?.length || 0);
-            } catch (e) {
-              console.error('[SAVE] Failed to compress annotations:', e);
+
+              // Re-stringify to ensure clean JSON format
+              drawingsData = JSON.stringify(parsed, (key, value) => {
+                return value === undefined ? null : value;
+              });
+
+              // COMPRESS (key step!)
+              const originalSize = drawingsData.length;
+              drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+
+              console.log(`[SAVE] Compressed FDF photo annotations: ${originalSize} → ${drawingsData.length} bytes`);
+
+              // Final size check
+              if (drawingsData.length > 64000) {
+                console.error('[SAVE] Annotation data exceeds 64KB limit:', drawingsData.length, 'bytes');
+                throw new Error('Annotation data exceeds 64KB limit');
+              }
+
+              drawingsDataToSave = drawingsData;
+            } catch (e: any) {
+              if (e?.message?.includes('64KB')) {
+                throw e;
+              }
+              console.warn('[SAVE] Could not re-parse for cleaning, using as-is');
             }
           }
         }
 
+        console.log('[SAVE] Saving FDF photo annotations to database:', {
+          photoType,
+          hasDrawings: !!drawingsDataToSave,
+          drawingsLength: drawingsDataToSave?.length || 0,
+          caption: data.caption || '(empty)'
+        });
+
         // Save annotation and caption
         const columnName = `FDFPhoto${photoType}`;
         const updateData: any = {};
-        updateData[`${columnName}Drawings`] = drawingsData;
+        updateData[`${columnName}Drawings`] = drawingsDataToSave;
         updateData[`${columnName}Annotation`] = data.caption || '';
 
         await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
 
         // Update local state
-        fdfPhotos[`${photoKey}Drawings`] = drawingsData;
+        fdfPhotos[`${photoKey}Drawings`] = drawingsDataToSave;
         fdfPhotos[`${photoKey}Caption`] = data.caption || '';
-        fdfPhotos[`${photoKey}HasAnnotations`] = !!(drawingsData && drawingsData !== 'null');
+        fdfPhotos[`${photoKey}HasAnnotations`] = !!(drawingsDataToSave && drawingsDataToSave !== EMPTY_COMPRESSED_ANNOTATIONS);
 
         // Update display URL if annotated blob is provided
         if (data.annotatedBlob) {
@@ -1321,8 +1374,6 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
       existingPhoto.uploading = false;
       this.changeDetectorRef.detectChanges();
-
-      await this.showToast('Photo uploaded successfully', 'success');
     } catch (error) {
       console.error('Error processing point photo:', error);
       await this.showToast('Failed to upload photo', 'danger');
@@ -1359,15 +1410,28 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         // Import compression utility (same as Structural Systems)
         const { compressAnnotationData } = await import('../../../utils/annotation-utils');
 
-        // Prepare annotation data for database (same as Structural Systems)
-        let drawingsData = null;
+        // Prepare annotation data for database (EXACT logic from Structural Systems)
         const annotationsData = data.annotationData || data.annotationsData;
+        const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+
+        const updateData: any = {
+          Annotation: data.caption || ''
+        };
 
         if (annotationsData) {
-          // Handle Fabric.js canvas export
+          let drawingsData = '';
+
+          // Handle Fabric.js canvas export (object with 'objects' and 'version' properties)
           if (annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData) {
             try {
               drawingsData = JSON.stringify(annotationsData);
+
+              // Validate the JSON is parseable
+              try {
+                const testParse = JSON.parse(drawingsData);
+              } catch (e) {
+                console.warn('[SAVE] JSON validation failed, but continuing');
+              }
             } catch (e) {
               console.error('[SAVE] Failed to stringify Fabric.js object:', e);
               drawingsData = JSON.stringify({ objects: [], version: annotationsData.version || '5.3.0' });
@@ -1379,40 +1443,70 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               drawingsData = JSON.stringify(annotationsData);
             } catch (e) {
               console.error('[SAVE] Failed to stringify annotations:', e);
+              drawingsData = '';
             }
           }
 
-          // Compress the data (same as Structural Systems)
+          // Final validation and compression
           if (drawingsData && drawingsData !== '{}' && drawingsData !== '[]') {
             // Clean the data
+            const originalLength = drawingsData.length;
+
             drawingsData = drawingsData
               .replace(/\u0000/g, '')
               .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
               .replace(/undefined/g, 'null');
 
-            // Compress
+            // COMPRESS
             try {
               const parsed = JSON.parse(drawingsData);
-              drawingsData = compressAnnotationData(parsed);
-              console.log('[SAVE] Compressed drawings data, length:', drawingsData?.length || 0);
-            } catch (e) {
-              console.error('[SAVE] Failed to compress annotations:', e);
+
+              // Re-stringify to ensure clean JSON format
+              drawingsData = JSON.stringify(parsed, (key, value) => {
+                return value === undefined ? null : value;
+              });
+
+              // COMPRESS (key step!)
+              const originalSize = drawingsData.length;
+              drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+
+              console.log(`[SAVE] Compressed point photo annotations: ${originalSize} → ${drawingsData.length} bytes`);
+
+              // Final size check
+              if (drawingsData.length > 64000) {
+                console.error('[SAVE] Annotation data exceeds 64KB limit:', drawingsData.length, 'bytes');
+                throw new Error('Annotation data exceeds 64KB limit');
+              }
+            } catch (e: any) {
+              if (e?.message?.includes('64KB')) {
+                throw e;
+              }
+              console.warn('[SAVE] Could not re-parse for cleaning, using as-is');
             }
+
+            updateData.Drawings = drawingsData;
+          } else {
+            // Empty annotations
+            updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
           }
+        } else {
+          // No annotations provided
+          updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
         }
 
-        // Save annotation and caption
-        const updateData: any = {
-          Drawings: drawingsData,
-          Annotation: data.caption || ''
-        };
+        console.log('[SAVE] Saving point photo annotations to database:', {
+          attachId: photo.attachId,
+          hasDrawings: !!updateData.Drawings,
+          drawingsLength: updateData.Drawings?.length || 0,
+          caption: data.caption || '(empty)'
+        });
 
         await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
 
         // Update local state
-        photo.drawings = drawingsData;
+        photo.drawings = updateData.Drawings;
         photo.caption = data.caption || '';
-        photo.hasAnnotations = !!(drawingsData && drawingsData !== 'null');
+        photo.hasAnnotations = !!(updateData.Drawings && updateData.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
         this.changeDetectorRef.detectChanges();
         await this.showToast('Annotation saved', 'success');

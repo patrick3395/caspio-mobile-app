@@ -20,7 +20,8 @@
             type="text"
             class="search-input"
             placeholder="Search by title or description (e.g., crack, foundation, etc.)"
-            [(ngModel)]="searchTerm">
+            [(ngModel)]="searchTerm"
+            (input)="onSearchChange()">
           <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
             <ion-icon name="close-circle"></ion-icon>
           </button>
@@ -29,9 +30,9 @@
 
       <!-- White container wrapper matching other pages -->
       <div class="white-container">
-        <ion-accordion-group (ionChange)="onAccordionChange($event)">
+        <ion-accordion-group [value]="expandedAccordions" [multiple]="true" (ionChange)="onAccordionChange($event)">
         <!-- General Information Section -->
-        <ion-accordion *ngIf="organizedData.comments">
+        <ion-accordion *ngIf="organizedData.comments" value="information">
           <ion-item slot="header" lines="none" class="accordion-header-item">
             <div class="accordion-header-content">
               <div class="icon-container">
@@ -214,7 +215,7 @@
         </ion-accordion>
 
         <!-- Limitations Section -->
-        <ion-accordion *ngIf="organizedData.limitations">
+        <ion-accordion *ngIf="organizedData.limitations" value="limitations">
           <ion-item slot="header" lines="none" class="accordion-header-item">
             <div class="accordion-header-content">
               <div class="icon-container">
@@ -388,7 +389,7 @@
         </ion-accordion>
 
         <!-- Deficiencies Section -->
-        <ion-accordion *ngIf="organizedData.deficiencies">
+        <ion-accordion *ngIf="organizedData.deficiencies" value="deficiencies">
           <ion-item slot="header" lines="none" class="accordion-header-item">
             <div class="accordion-header-content">
               <div class="icon-container">

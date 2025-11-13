@@ -44,6 +44,7 @@ export class CategoryDetailPage implements OnInit {
 
   loading: boolean = true;
   searchTerm: string = '';
+  expandedAccordions: string[] = [];
   organizedData: {
     comments: VisualItem[];
     limitations: VisualItem[];
@@ -2343,6 +2344,34 @@ export class CategoryDetailPage implements OnInit {
 
   clearSearch(): void {
     this.searchTerm = '';
+    this.updateExpandedAccordions();
+  }
+
+  onSearchChange(): void {
+    this.updateExpandedAccordions();
+  }
+
+  private updateExpandedAccordions(): void {
+    if (!this.searchTerm || this.searchTerm.trim() === '') {
+      // No search term - collapse all accordions
+      this.expandedAccordions = [];
+      return;
+    }
+
+    // Expand accordions that have matching results
+    const expanded: string[] = [];
+
+    if (this.filterItems(this.organizedData.comments).length > 0) {
+      expanded.push('information');
+    }
+    if (this.filterItems(this.organizedData.limitations).length > 0) {
+      expanded.push('limitations');
+    }
+    if (this.filterItems(this.organizedData.deficiencies).length > 0) {
+      expanded.push('deficiencies');
+    }
+
+    this.expandedAccordions = expanded;
   }
 
   async showToast(message: string, color: string = 'primary') {
@@ -2356,6 +2385,16 @@ export class CategoryDetailPage implements OnInit {
   }
 
   async onAccordionChange(event: any) {
+    // Update the expanded accordions array when user manually toggles
+    if (event.detail && event.detail.value !== undefined) {
+      // Only update if there's no active search
+      if (!this.searchTerm || this.searchTerm.trim() === '') {
+        this.expandedAccordions = Array.isArray(event.detail.value)
+          ? event.detail.value
+          : [event.detail.value].filter(v => v);
+      }
+    }
+
     // Prevent automatic scrolling when accordion expands/collapses
     if (this.content) {
       const scrollElement = await this.content.getScrollElement();
