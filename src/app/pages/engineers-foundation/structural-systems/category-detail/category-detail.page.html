@@ -61,12 +61,12 @@
             <div class="answer-type-1-container" *ngIf="item.answerType === 1">
               <div class="item-header" (click)="showFullText(item)">
                 <h3 class="item-name">
-                  {{ item.name }}
+                  <span [innerHTML]="highlightText(item.name)"></span>
                   <span class="required-indicator" *ngIf="item.required">*</span>
                 </h3>
               </div>
               <div class="item-text-wrapper" (click)="showFullText(item)">
-                <p class="item-text">{{ item.originalText }}</p>
+                <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
               </div>
               <div class="dropdown-container" (click)="$event.stopPropagation()">
                 <select
@@ -87,11 +87,11 @@
               <ion-item lines="none" class="checkbox-item">
                 <ion-label class="item-label" (click)="showFullText(item)">
                   <h3>
-                    {{ item.name }}
+                    <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
                   </h3>
                   <div class="item-text-wrapper">
-                    <p class="item-text">{{ item.text }}</p>
+                    <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                   </div>
                 </ion-label>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
@@ -137,10 +137,10 @@
               <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
                 <ion-label class="item-label" (click)="showFullText(item)">
                   <h3>
-                    {{ item.name }}
+                    <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
                   </h3>
-                  <p class="item-text">{{ item.text }}</p>
+                  <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                 </ion-label>
                 <!-- Camera and Gallery buttons below text -->
                 <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
@@ -244,12 +244,12 @@
             <div class="answer-type-1-container" *ngIf="item.answerType === 1">
               <div class="item-header" (click)="showFullText(item)">
                 <h3 class="item-name">
-                  {{ item.name }}
+                  <span [innerHTML]="highlightText(item.name)"></span>
                   <span class="required-indicator" *ngIf="item.required">*</span>
                 </h3>
               </div>
               <div class="item-text-wrapper" (click)="showFullText(item)">
-                <p class="item-text">{{ item.originalText }}</p>
+                <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
               </div>
               <div class="dropdown-container">
                 <select
@@ -270,11 +270,11 @@
               <ion-item lines="none" class="checkbox-item">
                 <ion-label class="item-label" (click)="showFullText(item)">
                   <h3>
-                    {{ item.name }}
+                    <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
                   </h3>
                   <div class="item-text-wrapper">
-                    <p class="item-text">{{ item.text }}</p>
+                    <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                   </div>
                 </ion-label>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
@@ -315,10 +315,10 @@
               <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
                 <ion-label class="item-label" (click)="showFullText(item)">
                   <h3>
-                    {{ item.name }}
+                    <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
                   </h3>
-                  <p class="item-text">{{ item.text }}</p>
+                  <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                 </ion-label>
                 <!-- Camera and Gallery buttons -->
                 <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
@@ -418,12 +418,12 @@
             <div class="answer-type-1-container" *ngIf="item.answerType === 1">
               <div class="item-header" (click)="showFullText(item)">
                 <h3 class="item-name">
-                  {{ item.name }}
+                  <span [innerHTML]="highlightText(item.name)"></span>
                   <span class="required-indicator" *ngIf="item.required">*</span>
                 </h3>
               </div>
               <div class="item-text-wrapper" (click)="showFullText(item)">
-                <p class="item-text">{{ item.originalText }}</p>
+                <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
               </div>
               <div class="dropdown-container">
                 <select
@@ -444,11 +444,11 @@
               <ion-item lines="none" class="checkbox-item">
                 <ion-label class="item-label" (click)="showFullText(item)">
                   <h3>
-                    {{ item.name }}
+                    <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
                   </h3>
                   <div class="item-text-wrapper">
-                    <p class="item-text">{{ item.text }}</p>
+                    <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                   </div>
                 </ion-label>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
@@ -489,10 +489,10 @@
               <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
                 <ion-label class="item-label" (click)="showFullText(item)">
                   <h3>
-                    {{ item.name }}
+                    <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
                   </h3>
-                  <p class="item-text">{{ item.text }}</p>
+                  <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                 </ion-label>
                 <!-- Camera and Gallery buttons -->
                 <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">

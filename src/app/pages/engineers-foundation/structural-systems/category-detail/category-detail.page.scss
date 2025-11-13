@@ -43,6 +43,15 @@ ion-content {
 }
 
 .category-content {
+  // Highlight styling for search results
+  ::ng-deep .highlight {
+    background-color: #fff3cd;
+    color: #856404;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+
   // Search container
   .search-container {
     margin-bottom: 16px;

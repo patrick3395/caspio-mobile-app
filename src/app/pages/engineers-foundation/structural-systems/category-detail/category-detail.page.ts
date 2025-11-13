@@ -2342,6 +2342,23 @@ export class CategoryDetailPage implements OnInit {
     });
   }
 
+  highlightText(text: string | undefined): string {
+    if (!text || !this.searchTerm || this.searchTerm.trim() === '') {
+      return text || '';
+    }
+
+    const term = this.searchTerm.trim();
+    // Create a case-insensitive regex to find all matches
+    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
+
+    // Replace matches with highlighted span
+    return text.replace(regex, '<span class="highlight">$1</span>');
+  }
+
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   clearSearch(): void {
     this.searchTerm = '';
     this.updateExpandedAccordions();
