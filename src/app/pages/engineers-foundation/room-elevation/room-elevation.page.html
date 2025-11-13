@@ -1,27 +1,433 @@
 <div class="page-container">
+  <!-- Header Section -->
   <div class="header-section">
     <ion-button fill="clear" (click)="goBack()">
       <ion-icon slot="start" name="arrow-back"></ion-icon>
       Back to Elevation Plot
     </ion-button>
     <h1>{{ roomName }}</h1>
-    <p class="subtitle">Elevation points and photos</p>
   </div>
 
-  <div class="content-section">
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title>Page Placeholder</ion-card-title>
-      </ion-card-header>
-      <ion-card-content>
-        <p>Project ID: {{ projectId }}</p>
-        <p>Service ID: {{ serviceId }}</p>
-        <p>Room: {{ roomName }}</p>
-        <p class="placeholder-text">
-          This page will contain the elevation points for this room, with the ability
-          to add new points, capture photos, and record measurements.
-        </p>
-      </ion-card-content>
-    </ion-card>
+  <div class="content-section" *ngIf="roomData">
+    <!-- Loading State -->
+    <div *ngIf="loading" style="text-align: center; padding: 40px;">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p style="margin-top: 12px; color: #666;">Loading room data...</p>
+    </div>
+
+    <!-- Main Content -->
+    <div *ngIf="!loading">
+      <!-- Flooring Difference Factor Section (hidden for Base Station) -->
+      <div class="room-section-delimiter" *ngIf="!isBaseStation()">
+        <span class="delimiter-label">Flooring Difference Factor</span>
+        <button type="button"
+                (click)="openHelp(1, 'FDF')"
+                title="FDF"
+                style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
+          <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+        </button>
+      </div>
+
+      <!-- Flooring Difference Factor dropdown (hidden for Base Station) -->
+      <div class="fdf-dropdown-container" *ngIf="!isBaseStation()">
+        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
+          FDF:<span style="color: #F15A27; margin-left: 2px;">*</span>
+        </label>
+        <select [(ngModel)]="roomData.fdf"
+                (ngModelChange)="onFDFChange()"
+                class="styled-input"
+                style="max-width: 100%;">
+          <option value="">-- Select --</option>
+          <option *ngFor="let option of fdfOptions; trackBy: trackByOption" [value]="option">
+            {{ option }}
+          </option>
+        </select>
+      </div>
+
+      <!-- FDF Photos Section (hidden for Base Station) -->
+      <div class="fdf-photos-container" *ngIf="!isBaseStation()" style="margin-top: 10px;">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
+        <div class="fdf-photos-row" style="display: flex; gap: 8px; flex-wrap: nowrap;">
+          <!-- Top Photo Column -->
+          <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
+            <div style="display: flex; gap: 4px; margin-bottom: 2px;">
+              <button (click)="takeFDFPhotoCamera('Top')"
+                      [disabled]="!isRoomReady()"
+                      class="fdf-photo-button"
+                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
+                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
+                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+              </button>
+              <button (click)="takeFDFPhotoGallery('Top')"
+                      [disabled]="!isRoomReady()"
+                      class="fdf-photo-button"
+                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
+                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
+                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+              </button>
+            </div>
+            <!-- Skeleton loader while photo is loading -->
+            <div *ngIf="fdfPhotos.top && !fdfPhotos.topUrl" class="image-preview fdf-photo-preview skeleton-loader"
+                 style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+              <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
+              <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
+            </div>
+            <!-- Top Photo Thumbnail -->
+            <div *ngIf="fdfPhotos.top && fdfPhotos.topUrl" class="image-preview fdf-photo-preview"
+                 [class.uploading]="fdfPhotos.topUploading"
+                 style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+              <img [src]="fdfPhotos.topDisplayUrl || fdfPhotos.topUrl || 'assets/img/photo-placeholder.png'"
+                   width="90" height="90"
+                   (click)="annotateFDFPhoto('Top')"
+                   alt="Top"
+                   [class.has-annotations]="fdfPhotos.topHasAnnotations">
+              <div class="upload-indicator" *ngIf="fdfPhotos.topUploading">
+                <ion-spinner name="crescent" color="light"></ion-spinner>
+              </div>
+              <button class="delete-btn"
+                      *ngIf="!fdfPhotos.topUploading"
+                      (click)="deleteFDFPhoto('Top', $event); $event.stopPropagation()"
+                      title="Delete">
+                <ion-icon name="close"></ion-icon>
+              </button>
+              <!-- Caption text underneath FDF Top photo -->
+              <button
+                class="room-photo-caption"
+                (click)="openFDFCaptionPopup('Top'); $event.stopPropagation()">
+                {{ fdfPhotos.topCaption || 'Caption' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottom Photo Column -->
+          <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
+            <div style="display: flex; gap: 4px; margin-bottom: 2px;">
+              <button (click)="takeFDFPhotoCamera('Bottom')"
+                      [disabled]="!isRoomReady()"
+                      class="fdf-photo-button"
+                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
+                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
+                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+              </button>
+              <button (click)="takeFDFPhotoGallery('Bottom')"
+                      [disabled]="!isRoomReady()"
+                      class="fdf-photo-button"
+                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
+                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
+                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+              </button>
+            </div>
+            <!-- Skeleton loader while photo is loading -->
+            <div *ngIf="fdfPhotos.bottom && !fdfPhotos.bottomUrl" class="image-preview fdf-photo-preview skeleton-loader"
+                 style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+              <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
+              <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
+            </div>
+            <!-- Bottom Photo Thumbnail -->
+            <div *ngIf="fdfPhotos.bottom && fdfPhotos.bottomUrl" class="image-preview fdf-photo-preview"
+                 [class.uploading]="fdfPhotos.bottomUploading"
+                 style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+              <img [src]="fdfPhotos.bottomDisplayUrl || fdfPhotos.bottomUrl || 'assets/img/photo-placeholder.png'"
+                   width="90" height="90"
+                   (click)="annotateFDFPhoto('Bottom')"
+                   alt="Bottom"
+                   [class.has-annotations]="fdfPhotos.bottomHasAnnotations">
+              <div class="upload-indicator" *ngIf="fdfPhotos.bottomUploading">
+                <ion-spinner name="crescent" color="light"></ion-spinner>
+              </div>
+              <button class="delete-btn"
+                      *ngIf="!fdfPhotos.bottomUploading"
+                      (click)="deleteFDFPhoto('Bottom', $event); $event.stopPropagation()"
+                      title="Delete">
+                <ion-icon name="close"></ion-icon>
+              </button>
+              <!-- Caption text underneath FDF Bottom photo -->
+              <button
+                class="room-photo-caption"
+                (click)="openFDFCaptionPopup('Bottom'); $event.stopPropagation()">
+                {{ fdfPhotos.bottomCaption || 'Caption' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Location Photo Column (Threshold) -->
+          <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
+            <div style="display: flex; gap: 4px; margin-bottom: 2px;">
+              <button (click)="takeFDFPhotoCamera('Threshold')"
+                      [disabled]="!isRoomReady()"
+                      class="fdf-photo-button"
+                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
+                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
+                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; position: relative;">
+                <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+              </button>
+              <button (click)="takeFDFPhotoGallery('Threshold')"
+                      [disabled]="!isRoomReady()"
+                      class="fdf-photo-button"
+                      [style.opacity]="isRoomReady() ? '1' : '0.4'"
+                      [style.cursor]="isRoomReady() ? 'pointer' : 'not-allowed'"
+                      style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center;">
+                <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+              </button>
+            </div>
+            <!-- Skeleton loader while photo is loading -->
+            <div *ngIf="fdfPhotos.threshold && !fdfPhotos.thresholdUrl" class="image-preview fdf-photo-preview skeleton-loader"
+                 style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+              <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
+              <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
+            </div>
+            <!-- Location Photo Thumbnail -->
+            <div *ngIf="fdfPhotos.threshold && fdfPhotos.thresholdUrl" class="image-preview fdf-photo-preview"
+                 [class.uploading]="fdfPhotos.thresholdUploading"
+                 style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
+              <img [src]="fdfPhotos.thresholdDisplayUrl || fdfPhotos.thresholdUrl || 'assets/img/photo-placeholder.png'"
+                   width="90" height="90"
+                   (click)="annotateFDFPhoto('Threshold')"
+                   alt="Location"
+                   [class.has-annotations]="fdfPhotos.thresholdHasAnnotations">
+              <div class="upload-indicator" *ngIf="fdfPhotos.thresholdUploading">
+                <ion-spinner name="crescent" color="light"></ion-spinner>
+              </div>
+              <button class="delete-btn"
+                      *ngIf="!fdfPhotos.thresholdUploading"
+                      (click)="deleteFDFPhoto('Threshold', $event); $event.stopPropagation()"
+                      title="Delete">
+                <ion-icon name="close"></ion-icon>
+              </button>
+              <!-- Caption text underneath FDF Location photo -->
+              <button
+                class="room-photo-caption"
+                (click)="openFDFCaptionPopup('Threshold'); $event.stopPropagation()">
+                {{ fdfPhotos.thresholdCaption || 'Caption' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Location Field for Base Station (above Measurements) -->
+      <div class="location-field-container" *ngIf="isBaseStation()" style="margin-top: 15px;">
+        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
+          Location:
+        </label>
+        <input type="text"
+               [(ngModel)]="roomData.location"
+               (ngModelChange)="onLocationChange()"
+               class="styled-input location-input"
+               placeholder="Enter or select location"
+               style="max-width: 100%; margin-bottom: 8px;">
+        <div class="location-buttons">
+          <button type="button" class="location-btn" (click)="addLocationText('Entry')">Entry</button>
+          <button type="button" class="location-btn" (click)="addLocationText('Middle of Home')">Middle of Home</button>
+          <button type="button" class="location-btn location-delete-btn" (click)="deleteLastLocationWord()">Delete</button>
+        </div>
+      </div>
+
+      <!-- Type Dropdown (only for Garage rooms) - saves to location field -->
+      <div class="location-field-container" *ngIf="isGarage()" style="margin-top: 15px;">
+        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
+          Type:
+        </label>
+        <select [(ngModel)]="roomData.location"
+                (ngModelChange)="onLocationChange()"
+                class="styled-input"
+                style="max-width: 100%;">
+          <option value="">-- Select Type --</option>
+          <option value="Sunken">Sunken</option>
+          <option value="Raised Edge(s)">Raised Edge(s)</option>
+          <option value="Sunken and Sloped">Sunken and Sloped</option>
+          <option value="Flat Across">Flat Across</option>
+        </select>
+      </div>
+
+      <!-- Measurements Section -->
+      <div class="room-section-delimiter measurement-header" style="margin-top: 15px;">
+        <span class="delimiter-label">Measurements</span>
+        <div class="delimiter-actions">
+          <button type="button"
+                  [attr.data-help-id]="isBaseStation() ? 2 : 3"
+                  (click)="openHelp(isBaseStation() ? 2 : 3, isBaseStation() ? 'Base Station Location' : 'Elevation Measurements')"
+                  [title]="isBaseStation() ? 'Base Station Location' : 'Elevation Measurements'"
+                  [attr.aria-label]="isBaseStation() ? 'Base Station Location Help' : 'Elevation Measurements Help'"
+                  style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
+            <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- Elevation Points with Location and Measurement photos -->
+      <div class="elevation-points-container" *ngIf="elevationPoints?.length > 0">
+        <div class="elevation-points-grid">
+          <div class="elevation-point-card" *ngFor="let point of elevationPoints; trackBy: trackByPointName">
+            <div class="point-header">
+              <span class="point-label" [title]="point.name">{{ point.name }}</span>
+              <div class="point-actions">
+                <button class="edit-point-btn"
+                        (click)="editElevationPointName(point)"
+                        title="Edit Point Name">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="delete-point-btn"
+                        (click)="deleteElevationPoint(point)"
+                        title="Delete Point">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Measurement and Location Photos -->
+            <div style="margin-top: 10px; display: flex; gap: 8px;">
+              <!-- Measurement Photo Container -->
+              <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
+                  Measurement
+                  <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
+                </div>
+                <div style="display: flex; gap: 6px; margin-bottom: 2px;">
+                  <button (click)="capturePointPhotoCamera(point, 'Measurement', $event)"
+                          [disabled]="!isPointReady(point)"
+                          class="fdf-photo-button measurement-photo-btn"
+                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
+                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
+                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                    <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+                  </button>
+                  <button (click)="capturePointPhotoGallery(point, 'Measurement', $event)"
+                          [disabled]="!isPointReady(point)"
+                          class="fdf-photo-button measurement-photo-btn"
+                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
+                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
+                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                    <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+                  </button>
+                </div>
+                <!-- Skeleton loader while photo is loading -->
+                <div *ngIf="!getPointPhotoByType(point, 'Measurement')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                  <div class="image-preview fdf-photo-preview skeleton-loader">
+                    <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
+                    <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
+                  </div>
+                </div>
+                <!-- Measurement Photo Thumbnail -->
+                <div *ngIf="getPointPhotoByType(point, 'Measurement')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                  <div class="image-preview fdf-photo-preview"
+                       [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading">
+                    <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
+                         width="90" height="90"
+                         (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), point)"
+                         alt="Measurement">
+                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
+                      <ion-spinner name="crescent" color="light"></ion-spinner>
+                    </div>
+                    <button class="delete-btn"
+                            *ngIf="!getPointPhotoByType(point, 'Measurement').uploading"
+                            (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), point); $event.stopPropagation()"
+                            title="Delete">
+                      <ion-icon name="close"></ion-icon>
+                    </button>
+                  </div>
+                  <!-- Caption text underneath photo -->
+                  <button
+                    class="room-photo-caption"
+                    (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Measurement'), point); $event.stopPropagation()">
+                    {{ getPointPhotoByType(point, 'Measurement').caption || 'Caption' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Location Photo Container -->
+              <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
+                  Location
+                  <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
+                </div>
+                <div style="display: flex; gap: 6px; margin-bottom: 2px;">
+                  <button (click)="capturePointPhotoCamera(point, 'Location', $event)"
+                          [disabled]="!isPointReady(point)"
+                          class="fdf-photo-button measurement-photo-btn"
+                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
+                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
+                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
+                    <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
+                  </button>
+                  <button (click)="capturePointPhotoGallery(point, 'Location', $event)"
+                          [disabled]="!isPointReady(point)"
+                          class="fdf-photo-button measurement-photo-btn"
+                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
+                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
+                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                    <ion-icon name="images" style="font-size: 28px;"></ion-icon>
+                  </button>
+                </div>
+                <!-- Skeleton loader while photo is loading -->
+                <div *ngIf="!getPointPhotoByType(point, 'Location')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                  <div class="image-preview fdf-photo-preview skeleton-loader">
+                    <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
+                    <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
+                  </div>
+                </div>
+                <!-- Location Photo Thumbnail -->
+                <div *ngIf="getPointPhotoByType(point, 'Location')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
+                  <div class="image-preview fdf-photo-preview"
+                       [class.uploading]="getPointPhotoByType(point, 'Location').uploading">
+                    <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
+                         width="90" height="90"
+                         (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), point)"
+                         alt="Location">
+                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
+                      <ion-spinner name="crescent" color="light"></ion-spinner>
+                    </div>
+                    <button class="delete-btn"
+                            *ngIf="!getPointPhotoByType(point, 'Location').uploading"
+                            (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), point); $event.stopPropagation()"
+                            title="Delete">
+                      <ion-icon name="close"></ion-icon>
+                    </button>
+                  </div>
+                  <!-- Caption text underneath photo -->
+                  <button
+                    class="room-photo-caption"
+                    (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Location'), point); $event.stopPropagation()">
+                    {{ getPointPhotoByType(point, 'Location').caption || 'Caption' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add point button at bottom right (hidden for Base Station) -->
+      <div style="display: flex; justify-content: flex-end; margin-top: 10px;" *ngIf="!isBaseStation()">
+        <button class="add-point-button" (click)="addCustomPoint()"
+                style="background: white; border: 1px solid #ddd; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; color: #000;">
+          <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle; color: #000;"></ion-icon>
+          Add Measurement
+        </button>
+      </div>
+
+      <!-- Notes Section -->
+      <div class="room-section-delimiter" style="margin-top: 15px;">
+        <span class="delimiter-label">Notes</span>
+      </div>
+
+      <!-- Room-specific notes -->
+      <div class="room-notes">
+        <ion-textarea [(ngModel)]="roomData.notes"
+                      rows="2"
+                      placeholder="Notes for {{ roomName }}..."
+                      (ionBlur)="onRoomNotesChange()"
+                      autocapitalize="sentences"
+                      style="font-size: 13px;">
+        </ion-textarea>
+      </div>
+    </div>
   </div>
 </div>

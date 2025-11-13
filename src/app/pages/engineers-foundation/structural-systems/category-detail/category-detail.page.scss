@@ -598,9 +598,10 @@ ion-accordion-group {
     ion-item.accordion-header-item {
       --padding-start: 16px;
       --padding-end: 16px;
-      --padding-top: 16px;
-      --padding-bottom: 16px;
+      --padding-top: 0;
+      --padding-bottom: 0;
       --min-height: 64px;
+      height: 64px;
       --background: transparent;
       --border-width: 0;
       --inner-border-width: 0;
@@ -610,6 +611,8 @@ ion-accordion-group {
       &::part(native) {
         background: transparent;
         border: none;
+        padding-top: 16px;
+        padding-bottom: 16px;
       }
 
       .accordion-header-content {

@@ -32,3 +32,558 @@
     margin-top: 12px;
   }
 }
+
+// ========================================
+// ROOM SECTION DELIMITERS
+// ========================================
+.room-section-delimiter {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 0;
+
+  .delimiter-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #333;
+    margin-right: auto;
+  }
+
+  .delimiter-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+// ========================================
+// STYLED INPUTS (FDF DROPDOWN, LOCATION FIELD, ETC.)
+// ========================================
+.styled-input {
+  width: 100%;
+  max-width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e8e8e8;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #000;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  letter-spacing: normal;
+  line-height: 1.5;
+
+  &:focus {
+    outline: none;
+    border-color: #F15A27;
+    background: #ffffff;
+  }
+
+  &::placeholder {
+    color: #b0b0b0;
+    font-size: 14px;
+  }
+}
+
+select.styled-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23F15A27' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+// ========================================
+// FDF PHOTO BUTTONS
+// ========================================
+.fdf-photo-button {
+  color: #333 !important;
+  margin-bottom: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  transition-duration: 0.15s !important;
+  transition-timing-function: ease-out !important;
+
+  ion-icon {
+    color: #333;
+  }
+
+  &:hover:not(:disabled) {
+    opacity: 0.7;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+}
+
+// Add spacing below button when photo exists
+.fdf-photo-column:has(.fdf-photo-preview) .fdf-photo-button {
+  margin-bottom: 12px !important;
+}
+
+// ========================================
+// LOCATION BUTTONS
+// ========================================
+.location-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+
+  .location-btn {
+    flex: 0 1 auto;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+
+    &:hover {
+      background: #f8f8f8;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    &:active {
+      transform: scale(0.98);
+      background: #f0f0f0;
+    }
+
+    &.location-delete-btn {
+      color: var(--ion-color-primary);
+      border-color: var(--ion-color-primary);
+
+      &:hover {
+        background: #fff3e0;
+      }
+    }
+  }
+}
+
+// ========================================
+// ELEVATION POINTS GRID
+// ========================================
+.elevation-points-container {
+  .elevation-points-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    margin-bottom: 30px;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .elevation-point-card {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 18px;
+      transition: all 0.3s ease;
+
+      &:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border-color: #d0d0d0;
+      }
+
+      .point-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+
+        .point-label {
+          font-size: 15px;
+          font-weight: 700;
+          color: #333;
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          margin-right: 12px;
+        }
+
+        .point-actions {
+          display: flex;
+          gap: 8px;
+          flex-shrink: 0;
+
+          button {
+            background: transparent;
+            border: none;
+            padding: 6px;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+
+            &:hover {
+              background: #f0f0f0;
+              color: #333;
+            }
+
+            &:active {
+              transform: scale(0.95);
+            }
+
+            ion-icon {
+              font-size: 18px;
+            }
+          }
+
+          .delete-point-btn {
+            &:hover {
+              color: #ff4444;
+              background: #ffebee;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// ========================================
+// IMAGE PREVIEW / PHOTO CONTAINERS
+// ========================================
+.image-preview {
+  position: relative !important;
+  width: 90px !important;
+  min-height: 90px !important;
+  margin: 0 auto;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  transition-duration: 0.15s !important;
+  transition-timing-function: ease-out !important;
+
+  img {
+    width: 90px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 20px !important;
+    clip-path: inset(0 round 20px) !important;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid #ddd;
+
+    &:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+
+  &.has-annotations img {
+    border-color: #F15A27;
+  }
+
+  &.uploading {
+    pointer-events: none;
+
+    img {
+      opacity: 0.5;
+    }
+  }
+
+  .upload-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.5);
+    border-radius: 50%;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-spinner {
+      --color: var(--ion-color-primary);
+    }
+  }
+
+  .delete-btn {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    width: 22px !important;
+    height: 22px !important;
+    background: white !important;
+    border: 1px solid #000 !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    z-index: 10 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+
+    ion-icon {
+      font-size: 14px !important;
+      color: #000 !important;
+    }
+
+    &:hover {
+      background: #ff4444 !important;
+      border-color: #ff4444 !important;
+      transform: scale(1.1) !important;
+
+      ion-icon {
+        color: white !important;
+      }
+    }
+
+    &:active {
+      transform: scale(1.0) !important;
+    }
+  }
+}
+
+// Caption styling
+.room-photo-caption {
+  width: 90px !important;
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+  text-align: center !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: 6px !important;
+  background: white !important;
+  color: #333 !important;
+  cursor: pointer !important;
+  display: block !important;
+  margin: 6px auto 0 auto !important;
+  transition: all 0.2s ease !important;
+  font-weight: 500 !important;
+  max-width: 90px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+
+  &:hover {
+    background: #f8f8f8 !important;
+    border-color: #F15A27 !important;
+  }
+
+  &:active {
+    background: #f0f0f0 !important;
+  }
+}
+
+// ========================================
+// SKELETON LOADERS
+// ========================================
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.skeleton-loader {
+  pointer-events: none;
+  cursor: default;
+
+  .skeleton-image {
+    width: 90px;
+    height: 90px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    display: block;
+  }
+
+  .skeleton-caption {
+    width: 90px;
+    height: 24px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 6px;
+    margin-top: 8px;
+    display: block;
+  }
+}
+
+// ========================================
+// NOTES SECTION
+// ========================================
+.room-notes {
+  ion-textarea {
+    --background: white;
+    --color: #333;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    border: 2px solid #e8e8e8;
+    border-radius: 8px;
+    font-size: 13px;
+
+    &:focus-within {
+      border-color: #F15A27;
+    }
+  }
+}
+
+// ========================================
+// MOBILE RESPONSIVE STYLES
+// ========================================
+@media (max-width: 768px) {
+  .fdf-photo-column {
+    border: 2px solid #ddd !important;
+    border-radius: 8px !important;
+    padding: 8px !important;
+    background: #f9f9f9 !important;
+
+    > div {
+      gap: 2px !important;
+    }
+
+    .fdf-photo-button {
+      padding: 2px 1px !important;
+      font-size: 10px !important;
+      margin-bottom: 4px !important;
+      border-radius: 2px !important;
+      min-height: unset !important;
+
+      ion-icon {
+        font-size: 28px !important;
+      }
+    }
+  }
+
+  .elevation-point-card .fdf-photo-button.measurement-photo-btn {
+    margin-bottom: 6px !important;
+
+    ion-icon {
+      font-size: 36px !important;
+    }
+  }
+
+  .image-preview,
+  .fdf-photo-preview {
+    width: 70px !important;
+    max-width: 70px !important;
+    min-width: 70px !important;
+
+    img {
+      width: 70px !important;
+      height: 70px !important;
+      max-width: 70px !important;
+      min-width: 70px !important;
+    }
+
+    .delete-btn {
+      width: 16px !important;
+      height: 16px !important;
+      top: 3px !important;
+      right: 3px !important;
+
+      ion-icon {
+        font-size: 12px !important;
+      }
+    }
+  }
+
+  .room-photo-caption {
+    width: 70px !important;
+    max-width: 70px !important;
+    min-width: 70px !important;
+    font-size: 10px !important;
+    padding: 3px 4px !important;
+  }
+
+  .skeleton-loader {
+    .skeleton-image {
+      width: 70px !important;
+      height: 70px !important;
+    }
+
+    .skeleton-caption {
+      width: 70px !important;
+      height: 20px !important;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .fdf-photo-column {
+    .fdf-photo-button {
+      padding: 16px 8px !important;
+      margin-bottom: 12px !important;
+
+      span {
+        font-size: 8px !important;
+      }
+    }
+  }
+
+  .image-preview,
+  .fdf-photo-preview {
+    width: 60px !important;
+    max-width: 60px !important;
+    min-width: 60px !important;
+
+    img {
+      width: 60px !important;
+      height: 60px !important;
+      max-width: 60px !important;
+      min-width: 60px !important;
+    }
+
+    .delete-btn {
+      width: 14px !important;
+      height: 14px !important;
+      top: 2px !important;
+      right: 2px !important;
+
+      ion-icon {
+        font-size: 10px !important;
+      }
+    }
+  }
+
+  .room-photo-caption {
+    width: 60px !important;
+    max-width: 60px !important;
+    min-width: 60px !important;
+    font-size: 9px !important;
+    padding: 2px 3px !important;
+  }
+
+  .skeleton-loader {
+    .skeleton-image {
+      width: 60px !important;
+      height: 60px !important;
+    }
+
+    .skeleton-caption {
+      width: 60px !important;
+      height: 18px !important;
+    }
+  }
+}

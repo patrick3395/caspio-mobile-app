@@ -1337,62 +1337,62 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
         color: #999;
       }
     }
-  }
 
-  &.deliverable-file-cell {
-    text-align: center;
-    vertical-align: middle;
+    &.deliverable-file-cell {
+      text-align: center;
+      vertical-align: middle;
 
-    .file-upload-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      flex-wrap: wrap;
-      width: 100%;
-      margin: 0 auto;
-
-      .deliverable-actions {
+      .file-upload-container {
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 4px;
-      }
+        flex-wrap: wrap;
+        width: 100%;
+        margin: 0 auto;
 
-      > div {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
+        .deliverable-actions {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+        }
 
-      .deliverable-link {
-        color: $orange;
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 13px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 4px 8px;
-        border-radius: 4px;
-        transition: background 0.2s ease;
+        > div {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
 
-        @media (hover: hover) and (pointer: fine) {
-          &:hover {
-            background: rgba(241, 90, 39, 0.1);
+        .deliverable-link {
+          color: $orange;
+          text-decoration: none;
+          font-weight: 500;
+          font-size: 13px;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 8px;
+          border-radius: 4px;
+          transition: background 0.2s ease;
+
+          @media (hover: hover) and (pointer: fine) {
+            &:hover {
+              background: rgba(241, 90, 39, 0.1);
+            }
           }
         }
-      }
 
-      ion-button {
-        --padding-start: 4px;
-        --padding-end: 4px;
-        height: 32px;
-        width: 32px;
-        margin: 0;
+        ion-button {
+          --padding-start: 4px;
+          --padding-end: 4px;
+          height: 32px;
+          width: 32px;
+          margin: 0;
 
-        ion-icon {
-          font-size: 20px;
+          ion-icon {
+            font-size: 20px;
+          }
         }
       }
     }

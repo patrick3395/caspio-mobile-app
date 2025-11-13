@@ -36,7 +36,7 @@ const routes: Routes = [
           },
           {
             path: 'base-station',
-            loadComponent: () => import('./base-station/base-station.page').then(m => m.BaseStationPage)
+            loadComponent: () => import('./room-elevation/room-elevation.page').then(m => m.RoomElevationPage)
           },
           {
             path: 'room/:roomName',

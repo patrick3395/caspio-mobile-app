@@ -9,46 +9,82 @@
   </div>
 
   <div class="content-section">
-    <!-- Base Station Card -->
-    <ion-card class="action-card" button="true" (click)="navigateToBaseStation()">
-      <ion-card-header>
-        <div class="card-header-content">
-          <div class="icon-container">
-            <ion-icon name="location-outline"></ion-icon>
-          </div>
-          <ion-card-title>Base Station</ion-card-title>
-          <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
-        </div>
-      </ion-card-header>
-      <ion-card-content>
-        <p>Set up reference point for elevation measurements</p>
-      </ion-card-content>
-    </ion-card>
+    <!-- Rooms List -->
+    <div class="rooms-list" *ngIf="roomTemplates.length > 0">
+      <div
+        *ngFor="let room of roomTemplates"
+        class="room-item"
+        [class.selected]="room.isSelected"
+        [class.saving]="room.isSaving">
 
-    <!-- Rooms Section -->
-    <div class="section-header">
-      <h2>Rooms</h2>
-      <p *ngIf="rooms.length === 0" class="empty-message">
-        No rooms added yet. Rooms will appear here once you start adding elevation points.
-      </p>
+        <!-- Room Card -->
+        <div class="room-card" (click)="navigateToRoom(room, $event)">
+          <div class="room-header">
+            <div class="room-title-section">
+              <h3 class="room-name">
+                {{ room.RoomName }}
+                <span class="required-indicator" *ngIf="isBaseStation(room.RoomName)">*</span>
+              </h3>
+              <p class="room-info">{{ room.PointCount || 0 }} elevation points</p>
+            </div>
+
+            <div class="room-status-section">
+              <ion-badge *ngIf="room.isSelected" color="success" class="status-badge">
+                Selected
+              </ion-badge>
+              <ion-spinner *ngIf="room.isSaving" name="crescent" class="saving-spinner"></ion-spinner>
+              <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
+            </div>
+          </div>
+
+          <!-- Room Management Actions -->
+          <div class="room-actions" *ngIf="room.isSelected" (click)="$event.stopPropagation()">
+            <button
+              type="button"
+              class="room-action-btn"
+              (click)="renameRoom(room.RoomName, $event)"
+              title="Rename Room">
+              <ion-icon name="create-outline"></ion-icon>
+              <span class="action-label">Rename</span>
+            </button>
+
+            <button
+              type="button"
+              class="room-action-btn"
+              (click)="moveRoomUp(room.RoomName, $event)"
+              [disabled]="roomTemplates.indexOf(room) === 0"
+              title="Move Up">
+              <ion-icon name="arrow-up-outline"></ion-icon>
+              <span class="action-label">Up</span>
+            </button>
+
+            <button
+              type="button"
+              class="room-action-btn"
+              (click)="moveRoomDown(room.RoomName, $event)"
+              [disabled]="roomTemplates.indexOf(room) === roomTemplates.length - 1"
+              title="Move Down">
+              <ion-icon name="arrow-down-outline"></ion-icon>
+              <span class="action-label">Down</span>
+            </button>
+
+            <button
+              type="button"
+              class="room-action-btn delete-btn"
+              (click)="deleteRoom(room.RoomName, $event)"
+              title="Delete Room">
+              <ion-icon name="trash-outline"></ion-icon>
+              <span class="action-label">Delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="cards-container" *ngIf="rooms.length > 0">
-      <ion-card
-        *ngFor="let room of rooms"
-        class="room-card"
-        button="true"
-        (click)="navigateToRoom(room)">
-        <ion-card-header>
-          <div class="card-header-content">
-            <ion-card-title>{{ room.name }}</ion-card-title>
-            <ion-badge *ngIf="room.pointCount" color="primary">
-              {{ room.pointCount }} points
-            </ion-badge>
-            <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
-          </div>
-        </ion-card-header>
-      </ion-card>
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="roomTemplates.length === 0">
+      <ion-icon name="analytics-outline"></ion-icon>
+      <p>No room templates available</p>
     </div>
   </div>
 </div>
