@@ -418,7 +418,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
       let existingPoints: any[] = [];
       try {
-        existingPoints = await this.caspioService.getServicesEFEPoints(this.roomId).toPromise();
+        existingPoints = await this.caspioService.getServicesEFEPoints(this.roomId).toPromise() || [];
         console.log('[RoomElevation] ✓ Found', existingPoints?.length || 0, 'existing points in database');
         if (existingPoints && existingPoints.length > 0) {
           console.log('[RoomElevation] Existing points:', existingPoints.map((p: any) => ({
