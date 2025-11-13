@@ -43,6 +43,7 @@ export class CategoryDetailPage implements OnInit {
   categoryName: string = '';
 
   loading: boolean = true;
+  searchTerm: string = '';
   organizedData: {
     comments: VisualItem[];
     limitations: VisualItem[];
@@ -2319,6 +2320,29 @@ export class CategoryDetailPage implements OnInit {
 
   getDropdownDebugInfo(item: VisualItem): string {
     return `Template ${item.templateId}, Type ${item.answerType}`;
+  }
+
+  // ============================================
+  // SEARCH/FILTER METHODS
+  // ============================================
+
+  filterItems(items: VisualItem[]): VisualItem[] {
+    if (!this.searchTerm || this.searchTerm.trim() === '') {
+      return items;
+    }
+
+    const term = this.searchTerm.toLowerCase().trim();
+    return items.filter(item => {
+      const nameMatch = item.name?.toLowerCase().includes(term);
+      const textMatch = item.text?.toLowerCase().includes(term);
+      const originalTextMatch = item.originalText?.toLowerCase().includes(term);
+
+      return nameMatch || textMatch || originalTextMatch;
+    });
+  }
+
+  clearSearch(): void {
+    this.searchTerm = '';
   }
 
   async showToast(message: string, color: string = 'primary') {

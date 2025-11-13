@@ -12,6 +12,22 @@
     <!-- Category Content -->
     <div *ngIf="!loading" class="category-content">
 
+      <!-- Search Bar -->
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search by title or description (e.g., crack, foundation, etc.)"
+            [(ngModel)]="searchTerm"
+            (input)="changeDetectorRef.detectChanges()">
+          <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+            <ion-icon name="close-circle"></ion-icon>
+          </button>
+        </div>
+      </div>
+
       <!-- White container wrapper matching other pages -->
       <div class="white-container">
         <ion-accordion-group (ionChange)="onAccordionChange($event)">
@@ -32,10 +48,13 @@
           </ion-item>
           <div slot="content" class="accordion-content">
             <div class="type-section">
-              <div *ngIf="organizedData.comments.length === 0" class="no-items-message">
+              <div *ngIf="filterItems(organizedData.comments).length === 0 && !searchTerm" class="no-items-message">
                 No information yet. Click + to add one.
               </div>
-              <div class="template-item" *ngFor="let item of organizedData.comments; trackBy: trackByItemId">
+              <div *ngIf="filterItems(organizedData.comments).length === 0 && searchTerm" class="no-items-message">
+                No results found for "{{ searchTerm }}"
+              </div>
+              <div class="template-item" *ngFor="let item of filterItems(organizedData.comments); trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
             <!-- Yes/No questions - vertical layout with dropdown below -->
@@ -212,10 +231,13 @@
           </ion-item>
           <div slot="content" class="accordion-content">
             <div class="type-section">
-              <div *ngIf="organizedData.limitations.length === 0" class="no-items-message">
+              <div *ngIf="filterItems(organizedData.limitations).length === 0 && !searchTerm" class="no-items-message">
                 No limitations yet. Click + to add one.
               </div>
-              <div class="template-item" *ngFor="let item of organizedData.limitations; trackBy: trackByItemId">
+              <div *ngIf="filterItems(organizedData.limitations).length === 0 && searchTerm" class="no-items-message">
+                No results found for "{{ searchTerm }}"
+              </div>
+              <div class="template-item" *ngFor="let item of filterItems(organizedData.limitations); trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
             <!-- Yes/No questions -->
@@ -383,10 +405,13 @@
           </ion-item>
           <div slot="content" class="accordion-content">
             <div class="type-section">
-              <div *ngIf="organizedData.deficiencies.length === 0" class="no-items-message">
+              <div *ngIf="filterItems(organizedData.deficiencies).length === 0 && !searchTerm" class="no-items-message">
                 No deficiencies yet. Click + to add one.
               </div>
-              <div class="template-item" *ngFor="let item of organizedData.deficiencies; trackBy: trackByItemId">
+              <div *ngIf="filterItems(organizedData.deficiencies).length === 0 && searchTerm" class="no-items-message">
+                No results found for "{{ searchTerm }}"
+              </div>
+              <div class="template-item" *ngFor="let item of filterItems(organizedData.deficiencies); trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
             <!-- Yes/No questions -->

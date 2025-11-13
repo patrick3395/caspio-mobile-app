@@ -871,18 +871,63 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const { data } = await modal.onDidDismiss();
 
       if (data && data.saved) {
+        // Import compression utility (same as Structural Systems)
+        const { compressAnnotationData } = await import('../../../utils/annotation-utils');
+
+        // Prepare annotation data for database (same as Structural Systems)
+        let drawingsData = null;
+        const annotationsData = data.annotationData || data.annotationsData;
+
+        if (annotationsData) {
+          // Handle Fabric.js canvas export
+          if (annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData) {
+            try {
+              drawingsData = JSON.stringify(annotationsData);
+            } catch (e) {
+              console.error('[SAVE] Failed to stringify Fabric.js object:', e);
+              drawingsData = JSON.stringify({ objects: [], version: annotationsData.version || '5.3.0' });
+            }
+          } else if (typeof annotationsData === 'string') {
+            drawingsData = annotationsData;
+          } else if (typeof annotationsData === 'object') {
+            try {
+              drawingsData = JSON.stringify(annotationsData);
+            } catch (e) {
+              console.error('[SAVE] Failed to stringify annotations:', e);
+            }
+          }
+
+          // Compress the data (same as Structural Systems)
+          if (drawingsData && drawingsData !== '{}' && drawingsData !== '[]') {
+            // Clean the data
+            drawingsData = drawingsData
+              .replace(/\u0000/g, '')
+              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+              .replace(/undefined/g, 'null');
+
+            // Compress
+            try {
+              const parsed = JSON.parse(drawingsData);
+              drawingsData = compressAnnotationData(parsed);
+              console.log('[SAVE] Compressed FDF drawings data, length:', drawingsData?.length || 0);
+            } catch (e) {
+              console.error('[SAVE] Failed to compress annotations:', e);
+            }
+          }
+        }
+
         // Save annotation and caption
         const columnName = `FDFPhoto${photoType}`;
         const updateData: any = {};
-        updateData[`${columnName}Drawings`] = data.annotationsData || null;
+        updateData[`${columnName}Drawings`] = drawingsData;
         updateData[`${columnName}Annotation`] = data.caption || '';
 
         await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
 
         // Update local state
-        fdfPhotos[`${photoKey}Drawings`] = data.annotationsData;
+        fdfPhotos[`${photoKey}Drawings`] = drawingsData;
         fdfPhotos[`${photoKey}Caption`] = data.caption || '';
-        fdfPhotos[`${photoKey}HasAnnotations`] = !!(data.annotationsData && data.annotationsData !== 'null');
+        fdfPhotos[`${photoKey}HasAnnotations`] = !!(drawingsData && drawingsData !== 'null');
 
         // Update display URL if annotated blob is provided
         if (data.annotatedBlob) {
@@ -1245,9 +1290,11 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         useWebWorker: true
       }) as File;
 
+      let uploadResponse;
+
       if (existingPhoto.attachId) {
         // Update existing photo
-        await this.caspioService.updateServicesEFEPointsAttachPhoto(existingPhoto.attachId, compressedFile).toPromise();
+        uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(existingPhoto.attachId, compressedFile).toPromise();
       } else {
         // Create new photo record
         const photoResponse = await this.caspioService.createServicesEFEPointsAttachRecord(point.pointId, '', photoType).toPromise();
@@ -1257,14 +1304,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           existingPhoto.attachId = attachId;
 
           // Upload photo to the new record
-          await this.caspioService.updateServicesEFEPointsAttachPhoto(attachId, compressedFile).toPromise();
+          uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(attachId, compressedFile).toPromise();
         }
       }
 
-      // Reload photo
-      const imageData = await this.foundationData.getImage(webPath);
-      if (imageData) {
-        existingPhoto.url = imageData;
+      // Reload photo using the path returned from upload
+      const photoPath = uploadResponse?.Photo;
+      if (photoPath) {
+        existingPhoto.path = photoPath;
+        const imageData = await this.foundationData.getImage(photoPath);
+        if (imageData) {
+          existingPhoto.url = imageData;
+          existingPhoto.displayUrl = imageData;
+        }
       }
 
       existingPhoto.uploading = false;
@@ -1304,18 +1356,63 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const { data } = await modal.onDidDismiss();
 
       if (data && data.saved) {
+        // Import compression utility (same as Structural Systems)
+        const { compressAnnotationData } = await import('../../../utils/annotation-utils');
+
+        // Prepare annotation data for database (same as Structural Systems)
+        let drawingsData = null;
+        const annotationsData = data.annotationData || data.annotationsData;
+
+        if (annotationsData) {
+          // Handle Fabric.js canvas export
+          if (annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData) {
+            try {
+              drawingsData = JSON.stringify(annotationsData);
+            } catch (e) {
+              console.error('[SAVE] Failed to stringify Fabric.js object:', e);
+              drawingsData = JSON.stringify({ objects: [], version: annotationsData.version || '5.3.0' });
+            }
+          } else if (typeof annotationsData === 'string') {
+            drawingsData = annotationsData;
+          } else if (typeof annotationsData === 'object') {
+            try {
+              drawingsData = JSON.stringify(annotationsData);
+            } catch (e) {
+              console.error('[SAVE] Failed to stringify annotations:', e);
+            }
+          }
+
+          // Compress the data (same as Structural Systems)
+          if (drawingsData && drawingsData !== '{}' && drawingsData !== '[]') {
+            // Clean the data
+            drawingsData = drawingsData
+              .replace(/\u0000/g, '')
+              .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+              .replace(/undefined/g, 'null');
+
+            // Compress
+            try {
+              const parsed = JSON.parse(drawingsData);
+              drawingsData = compressAnnotationData(parsed);
+              console.log('[SAVE] Compressed drawings data, length:', drawingsData?.length || 0);
+            } catch (e) {
+              console.error('[SAVE] Failed to compress annotations:', e);
+            }
+          }
+        }
+
         // Save annotation and caption
         const updateData: any = {
-          Drawings: data.annotationsData || null,
+          Drawings: drawingsData,
           Annotation: data.caption || ''
         };
 
         await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
 
         // Update local state
-        photo.drawings = data.annotationsData;
+        photo.drawings = drawingsData;
         photo.caption = data.caption || '';
-        photo.hasAnnotations = !!(data.annotationsData && data.annotationsData !== 'null');
+        photo.hasAnnotations = !!(drawingsData && drawingsData !== 'null');
 
         this.changeDetectorRef.detectChanges();
         await this.showToast('Annotation saved', 'success');
