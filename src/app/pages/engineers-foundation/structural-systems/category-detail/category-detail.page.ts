@@ -129,13 +129,11 @@ export class CategoryDetailPage implements OnInit {
       // Load templates for this category (fast - just structure)
       await this.loadCategoryTemplates();
 
-      // Start loading existing visuals (don't await - fire in background)
-      this.loadExistingVisuals();
+      // CRITICAL: Load existing visuals and WAIT for photo counts to be fetched
+      // This ensures all skeletons are ready before the page shows
+      await this.loadExistingVisuals();
 
-      // Poll every second until all skeleton loaders are ready
-      await this.waitForSkeletonsReady();
-
-      // Show page with skeleton loaders visible
+      // Show page with all skeleton loaders visible
       this.loading = false;
 
       // Images continue loading progressively in the background
@@ -288,6 +286,10 @@ export class CategoryDetailPage implements OnInit {
 
       console.log('[LOAD VISUALS] Found', visuals.length, 'existing visuals');
 
+      // CRITICAL: First pass - get all photo counts before loading any photos
+      // This ensures all skeletons are rendered before the page shows
+      const photoCountPromises: Promise<void>[] = [];
+
       // Process each visual
       for (const visual of visuals) {
         const category = visual.Category;
@@ -371,10 +373,54 @@ export class CategoryDetailPage implements OnInit {
           }
         }
 
-        // CRITICAL: Set loading state and placeholder count IMMEDIATELY so skeletons show right away
-        // This prevents the page from jumping as photos load
+        // CRITICAL: Fetch the photo count FIRST (fast - just metadata)
+        // This ensures we have the real skeleton count before showing the page
         this.loadingPhotosByKey[key] = true;
-        this.photoCountsByKey[key] = 1; // Placeholder - will be updated with real count
+
+        // Add promise to fetch the photo count
+        const countPromise = (async () => {
+          try {
+            const attachments = await this.foundationData.getVisualAttachments(visualId);
+            const count = attachments.length;
+            this.photoCountsByKey[key] = count;
+            console.log(`[LOAD VISUALS] Set photo count for ${key}: ${count}`);
+          } catch (err) {
+            console.error(`[LOAD VISUALS] Error getting photo count for ${key}:`, err);
+            this.photoCountsByKey[key] = 0; // Set to 0 on error so we don't wait forever
+          }
+        })();
+
+        photoCountPromises.push(countPromise);
+      }
+
+      // CRITICAL: Wait for ALL photo counts to be fetched before proceeding
+      // This ensures all skeletons are ready to render
+      console.log('[LOAD VISUALS] Waiting for', photoCountPromises.length, 'photo counts...');
+      await Promise.all(photoCountPromises);
+      console.log('[LOAD VISUALS] All photo counts fetched');
+
+      // Trigger change detection so skeleton counts are set
+      this.changeDetectorRef.detectChanges();
+
+      // Now load the actual photos in background (don't await - let them load progressively)
+      for (const visual of visuals) {
+        const category = visual.Category;
+        const name = visual.Name;
+        const kind = visual.Kind;
+        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+
+        if (category !== this.categoryName) {
+          continue;
+        }
+
+        const item = this.findItemByNameAndCategory(name, category, kind) ||
+                     this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+                     this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+                     this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+
+        if (!item) continue;
+
+        const key = `${category}_${item.id}`;
 
         // Load photos for this visual in background (don't await)
         this.loadPhotosForVisual(visualId, key).catch(err => {
@@ -382,10 +428,7 @@ export class CategoryDetailPage implements OnInit {
         });
       }
 
-      console.log('[LOAD VISUALS] Finished processing existing visuals');
-
-      // Trigger change detection immediately so skeletons appear right away
-      this.changeDetectorRef.detectChanges();
+      console.log('[LOAD VISUALS] Finished processing existing visuals, photos loading in background');
 
     } catch (error) {
       console.error('[LOAD VISUALS] Error loading existing visuals:', error);

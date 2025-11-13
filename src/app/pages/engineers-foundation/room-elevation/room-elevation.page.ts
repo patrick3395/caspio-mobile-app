@@ -1027,42 +1027,74 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
 
     try {
+      // CRITICAL: Decompress existing annotations before opening modal - EXACT pattern from structural-systems
+      let existingAnnotations: any = null;
+      const compressedDrawings = fdfPhotos[`${photoKey}Drawings`];
+
+      if (compressedDrawings && compressedDrawings !== 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA') {
+        try {
+          console.log('[FDF Annotate] Decompressing existing annotations, length:', compressedDrawings.length);
+          const { decompressAnnotationData } = await import('../../../utils/annotation-utils');
+          existingAnnotations = decompressAnnotationData(compressedDrawings);
+          console.log('[FDF Annotate] Decompressed annotations:', existingAnnotations ? 'SUCCESS' : 'FAILED');
+          if (existingAnnotations && existingAnnotations.objects) {
+            console.log('[FDF Annotate] Found', existingAnnotations.objects.length, 'annotation objects');
+          }
+        } catch (e) {
+          console.error('[FDF Annotate] Error decompressing annotations:', e);
+        }
+      }
+
+      const existingCaption = fdfPhotos[`${photoKey}Caption`] || '';
+
+      // Open FabricPhotoAnnotatorComponent - EXACT pattern from structural-systems
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
           imageUrl: photoUrl,
-          existingAnnotations: fdfPhotos[`${photoKey}Drawings`],
-          caption: fdfPhotos[`${photoKey}Caption`] || ''
-        }
+          existingAnnotations: existingAnnotations,
+          existingCaption: existingCaption,
+          photoData: {
+            id: `fdf_${photoType}`,
+            caption: existingCaption
+          },
+          isReEdit: !!existingAnnotations
+        },
+        cssClass: 'fullscreen-modal'
       });
 
       await modal.present();
-      const { data } = await modal.onDidDismiss();
+      const { data } = await modal.onWillDismiss();
 
-      if (data && data.saved) {
-        // EXACT implementation from structural-systems category-detail
+      if (!data) {
+        // User cancelled
+        return;
+      }
+
+      if (data && data.annotatedBlob) {
+        // Update photo with new annotations - EXACT pattern from structural-systems
+        const annotatedBlob = data.blob || data.annotatedBlob;
+        const annotationsData = data.annotationData || data.annotationsData;
+
+        // Save annotations to database FIRST
         const compressedDrawings = await this.saveFDFAnnotationToDatabase(
           this.roomId,
           photoType,
-          data.annotatedBlob || data.blob,
-          data.annotationData || data.annotationsData,
+          annotatedBlob,
+          annotationsData,
           data.caption || ''
         );
 
-        // Update local state
-        fdfPhotos[`${photoKey}Drawings`] = compressedDrawings;
-        fdfPhotos[`${photoKey}Caption`] = data.caption || '';
-        fdfPhotos[`${photoKey}HasAnnotations`] = !!(compressedDrawings && compressedDrawings !== 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA');
+        // CRITICAL: Create blob URL for the annotated image (for display only)
+        const newUrl = URL.createObjectURL(annotatedBlob);
 
-        // Update display URL if annotated blob is provided
-        if (data.annotatedBlob) {
-          const reader = new FileReader();
-          reader.onload = (e: any) => {
-            fdfPhotos[`${photoKey}DisplayUrl`] = e.target.result;
-            this.changeDetectorRef.detectChanges();
-          };
-          reader.readAsDataURL(data.annotatedBlob);
-        }
+        // Update local state with IMMUTABLE pattern - EXACT from structural-systems
+        fdfPhotos[`${photoKey}Drawings`] = compressedDrawings;
+        fdfPhotos[`${photoKey}Caption`] = data.caption !== undefined ? data.caption : existingCaption;
+        fdfPhotos[`${photoKey}DisplayUrl`] = newUrl;
+        fdfPhotos[`${photoKey}HasAnnotations`] = !!annotationsData;
+
+        console.log('[FDF SAVE] Updated photo with compressed drawings, length:', compressedDrawings?.length || 0);
 
         this.changeDetectorRef.detectChanges();
         await this.showToast('Annotation saved', 'success');
@@ -1445,6 +1477,11 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       }
 
       existingPhoto.uploading = false;
+
+      // CRITICAL: Clear the attachments cache to ensure photos appear after navigation
+      this.foundationData.clearEFEAttachmentsCache();
+      console.log('[Point Photo] Cleared EFE attachments cache after upload');
+
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('Error processing point photo:', error);
@@ -1466,31 +1503,76 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
 
     try {
+      // CRITICAL: Decompress existing annotations before opening modal - EXACT pattern from structural-systems
+      let existingAnnotations: any = null;
+      const compressedDrawings = photo.drawings;
+
+      if (compressedDrawings && compressedDrawings !== 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA') {
+        try {
+          console.log('[Point Annotate] Decompressing existing annotations, length:', compressedDrawings.length);
+          const { decompressAnnotationData } = await import('../../../utils/annotation-utils');
+          existingAnnotations = decompressAnnotationData(compressedDrawings);
+          console.log('[Point Annotate] Decompressed annotations:', existingAnnotations ? 'SUCCESS' : 'FAILED');
+          if (existingAnnotations && existingAnnotations.objects) {
+            console.log('[Point Annotate] Found', existingAnnotations.objects.length, 'annotation objects');
+          }
+        } catch (e) {
+          console.error('[Point Annotate] Error decompressing annotations:', e);
+        }
+      }
+
+      const existingCaption = photo.caption || '';
+      const attachId = photo.attachId;
+
+      // Open FabricPhotoAnnotatorComponent - EXACT pattern from structural-systems
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
           imageUrl: photo.url,
-          existingAnnotations: photo.drawings,
-          caption: photo.caption || ''
-        }
+          existingAnnotations: existingAnnotations,
+          existingCaption: existingCaption,
+          photoData: {
+            ...photo,
+            AttachID: attachId,
+            id: attachId,
+            caption: existingCaption
+          },
+          isReEdit: !!existingAnnotations
+        },
+        cssClass: 'fullscreen-modal'
       });
 
       await modal.present();
-      const { data } = await modal.onDidDismiss();
+      const { data } = await modal.onWillDismiss();
 
-      if (data && data.saved) {
-        // EXACT implementation from structural-systems category-detail
-        const compressedDrawings = await this.saveAnnotationToDatabase(
-          photo.attachId,
-          data.annotatedBlob || data.blob,
-          data.annotationData || data.annotationsData,
+      if (!data) {
+        // User cancelled
+        return;
+      }
+
+      if (data && data.annotatedBlob) {
+        // Update photo with new annotations - EXACT pattern from structural-systems
+        const annotatedBlob = data.blob || data.annotatedBlob;
+        const annotationsData = data.annotationData || data.annotationsData;
+
+        // Save annotations to database FIRST
+        const savedCompressedDrawings = await this.saveAnnotationToDatabase(
+          attachId,
+          annotatedBlob,
+          annotationsData,
           data.caption || ''
         );
 
-        // Update local state with the compressed drawings returned from saveAnnotationToDatabase
-        photo.drawings = compressedDrawings;
-        photo.caption = data.caption || '';
-        photo.hasAnnotations = !!(compressedDrawings && compressedDrawings !== 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA');
+        // CRITICAL: Create blob URL for the annotated image (for display only)
+        const newUrl = URL.createObjectURL(annotatedBlob);
+
+        // Update local state with IMMUTABLE pattern - EXACT from structural-systems
+        photo.drawings = savedCompressedDrawings;
+        photo.caption = data.caption !== undefined ? data.caption : existingCaption;
+        photo.displayUrl = newUrl;
+        photo.hasAnnotations = !!annotationsData;
+
+        console.log('[Point SAVE] Updated photo with compressed drawings, length:', savedCompressedDrawings?.length || 0);
 
         this.changeDetectorRef.detectChanges();
         await this.showToast('Annotation saved', 'success');
@@ -1525,6 +1607,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               if (index >= 0) {
                 point.photos.splice(index, 1);
               }
+
+              // CRITICAL: Clear the attachments cache to ensure deleted photos don't reappear
+              this.foundationData.clearEFEAttachmentsCache();
+              console.log('[Point Photo] Cleared EFE attachments cache after deletion');
 
               this.changeDetectorRef.detectChanges();
               await this.showToast('Photo deleted', 'success');
@@ -1823,6 +1909,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     await this.caspioService.updateServicesEFEPointsAttach(attachId, updateData).toPromise();
 
     console.log('[SAVE] Successfully saved caption and drawings for AttachID:', attachId);
+
+    // CRITICAL: Clear the attachments cache to ensure annotations appear after navigation
+    this.foundationData.clearEFEAttachmentsCache();
+    console.log('[SAVE] Cleared EFE attachments cache after saving annotations');
 
     // Return the compressed drawings string so caller can update local photo object
     return updateData.Drawings;

@@ -271,4 +271,10 @@ export class EngineersFoundationDataService {
       console.log('[Visual Photo] Cleared all attachment caches');
     }
   }
+
+  // Clear cache for EFE point attachments - CRITICAL for ensuring photos appear after navigation
+  clearEFEAttachmentsCache(): void {
+    this.efeAttachmentsCache.clear();
+    console.log('[EFE Photo] Cleared all EFE attachment caches');
+  }
 }

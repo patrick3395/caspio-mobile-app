@@ -184,7 +184,7 @@ export class ElevationPlotHubPage implements OnInit {
     try {
       // Create room in database
       const response = await this.caspioService.createServicesEFE(roomData).toPromise();
-      const roomId = response?.EFEID || response?.PK_ID || response?.id;
+      const roomId = response?.PK_ID || response?.EFEID || response?.id; // Use PK_ID for deletions/updates
 
       if (roomId) {
         this.efeRecordIds[roomName] = roomId;
@@ -508,7 +508,7 @@ export class ElevationPlotHubPage implements OnInit {
           if (existingRooms && existingRooms.length > 0) {
             for (const room of existingRooms) {
               const roomName = room.RoomName;
-              const roomId = room.EFEID;
+              const roomId = room.PK_ID; // Use PK_ID for deletions/updates
               const templateId = room.TemplateID;
 
               // Find matching template
