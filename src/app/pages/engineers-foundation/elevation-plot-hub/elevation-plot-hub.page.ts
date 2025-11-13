@@ -398,7 +398,7 @@ export class ElevationPlotHubPage implements OnInit {
     console.log('[ElevationPlotHub] removeRoom called for:', roomName);
     this.savingRooms[roomName] = true;
     const roomId = this.efeRecordIds[roomName];
-    console.log('[ElevationPlotHub] Room ID:', roomId);
+    console.log('[ElevationPlotHub] EFEID:', roomId);
 
     if (roomId && roomId !== '__pending__' && !roomId.startsWith('temp_')) {
       try {

@@ -686,7 +686,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         console.log('[RoomElevation] Keys in first option:', Object.keys(options[0]));
 
         // Try to extract FDF values from all possible field names
-        const possibleFieldNames = ['FDF', 'fdf', 'Fdf', 'Value', 'value', 'Name', 'name', 'Option', 'option'];
+        const possibleFieldNames = ['Dropdown', 'FDF', 'fdf', 'Fdf', 'Value', 'value', 'Name', 'name', 'Option', 'option'];
         let extractedOptions: string[] = [];
 
         for (const fieldName of possibleFieldNames) {
