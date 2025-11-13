@@ -527,6 +527,39 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         this.roomData.elevationPoints.push(pointData);
       }
 
+      // STEP 5.5: Auto-create database records for template points that don't exist yet
+      // This ensures points have a pointId so photo buttons are enabled
+      console.log('\n[RoomElevation] STEP 5.5: Auto-creating missing point records in database...');
+      const pointsNeedingCreation = this.roomData.elevationPoints.filter((p: any) => !p.pointId);
+      console.log(`[RoomElevation] Found ${pointsNeedingCreation.length} points without database records`);
+
+      if (pointsNeedingCreation.length > 0) {
+        for (const point of pointsNeedingCreation) {
+          try {
+            console.log(`[RoomElevation]   Creating database record for: "${point.name}"...`);
+
+            const pointData = {
+              EFEID: this.roomId,
+              PointName: point.name,
+              Elevation: point.value || ''
+            };
+
+            const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+            const newPointId = response?.PointID || response?.PK_ID;
+
+            if (newPointId) {
+              point.pointId = newPointId;
+              console.log(`[RoomElevation]     ✓ Created with PointID: ${newPointId}`);
+            } else {
+              console.error(`[RoomElevation]     ❌ Failed to get PointID from response:`, response);
+            }
+          } catch (error) {
+            console.error(`[RoomElevation]     ❌ Error creating point "${point.name}":`, error);
+          }
+        }
+      }
+      console.log('[RoomElevation] ✓ Auto-creation complete');
+
       // STEP 6: Add any custom points from database that weren't in the template
       // This matches the original behavior where custom points are added dynamically
       console.log('\n[RoomElevation] STEP 6: Checking for custom points not in template...');
