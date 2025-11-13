@@ -96,7 +96,7 @@
               <!-- Caption text underneath FDF Top photo -->
               <button
                 class="room-photo-caption"
-                (click)="openFDFCaptionPopup('Top'); $event.stopPropagation()">
+                (click)="openFDFCaptionPopup('Top', $event)">
                 {{ fdfPhotos.topCaption || 'Caption' }}
               </button>
             </div>
@@ -150,7 +150,7 @@
               <!-- Caption text underneath FDF Bottom photo -->
               <button
                 class="room-photo-caption"
-                (click)="openFDFCaptionPopup('Bottom'); $event.stopPropagation()">
+                (click)="openFDFCaptionPopup('Bottom', $event)">
                 {{ fdfPhotos.bottomCaption || 'Caption' }}
               </button>
             </div>
@@ -204,7 +204,7 @@
               <!-- Caption text underneath FDF Location photo -->
               <button
                 class="room-photo-caption"
-                (click)="openFDFCaptionPopup('Threshold'); $event.stopPropagation()">
+                (click)="openFDFCaptionPopup('Threshold', $event)">
                 {{ fdfPhotos.thresholdCaption || 'Caption' }}
               </button>
             </div>
