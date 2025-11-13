@@ -60,25 +60,83 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
-    // Get IDs from parent route snapshot
-    // Route structure: /engineers-foundation/:projectId/:serviceId/elevation/room/:roomName
-    // So we need to go up 2 levels from room-elevation to get to the engineers-foundation route
+    console.log('========================================');
+    console.log('[RoomElevation] ngOnInit - Starting Route Debug');
+    console.log('========================================');
 
-    let currentRoute = this.route.parent?.parent; // Go up to container, then to engineers-foundation
-    if (currentRoute) {
-      this.projectId = currentRoute.snapshot.paramMap.get('projectId') || '';
-      this.serviceId = currentRoute.snapshot.paramMap.get('serviceId') || '';
+    // Debug current route
+    console.log('[RoomElevation] Current route snapshot URL:', this.route.snapshot.url);
+    console.log('[RoomElevation] Current route params:', this.route.snapshot.params);
+    console.log('[RoomElevation] Current route paramMap keys:', Array.from(this.route.snapshot.paramMap.keys));
+
+    // Debug parent routes
+    let routeLevel = 0;
+    let currentRoute: any = this.route;
+    while (currentRoute) {
+      console.log(`[RoomElevation] Route Level ${routeLevel}:`, {
+        url: currentRoute.snapshot?.url,
+        params: currentRoute.snapshot?.params,
+        paramMapKeys: currentRoute.snapshot?.paramMap ? Array.from(currentRoute.snapshot.paramMap.keys) : [],
+        routeConfig: currentRoute.snapshot?.routeConfig?.path
+      });
+      currentRoute = currentRoute.parent;
+      routeLevel++;
+    }
+
+    // Try to get IDs from different route levels
+    console.log('\n[RoomElevation] Attempting to retrieve IDs from route hierarchy...\n');
+
+    // Method 1: Direct from current route
+    let tempProjectId = this.route.snapshot.paramMap.get('projectId');
+    let tempServiceId = this.route.snapshot.paramMap.get('serviceId');
+    console.log('[Method 1 - Direct] ProjectId:', tempProjectId, 'ServiceId:', tempServiceId);
+
+    // Method 2: From parent
+    if (this.route.parent) {
+      tempProjectId = this.route.parent.snapshot.paramMap.get('projectId');
+      tempServiceId = this.route.parent.snapshot.paramMap.get('serviceId');
+      console.log('[Method 2 - Parent] ProjectId:', tempProjectId, 'ServiceId:', tempServiceId);
+    }
+
+    // Method 3: From parent.parent
+    if (this.route.parent?.parent) {
+      tempProjectId = this.route.parent.parent.snapshot.paramMap.get('projectId');
+      tempServiceId = this.route.parent.parent.snapshot.paramMap.get('serviceId');
+      console.log('[Method 3 - Parent.Parent] ProjectId:', tempProjectId, 'ServiceId:', tempServiceId);
+    }
+
+    // Method 4: From parent.parent.parent (just in case)
+    if (this.route.parent?.parent?.parent) {
+      tempProjectId = this.route.parent.parent.parent.snapshot.paramMap.get('projectId');
+      tempServiceId = this.route.parent.parent.parent.snapshot.paramMap.get('serviceId');
+      console.log('[Method 4 - Parent.Parent.Parent] ProjectId:', tempProjectId, 'ServiceId:', tempServiceId);
+    }
+
+    // Method 5: Try to get from route state
+    const navigation = this.router.getCurrentNavigation();
+    console.log('[Method 5 - Router Navigation State]:', navigation?.extras?.state);
+
+    // Method 6: Try subscription approach
+    this.route.parent?.parent?.params.subscribe(params => {
+      console.log('[Method 6 - Parent.Parent Subscription] Params:', params);
+      if (params['projectId']) tempProjectId = params['projectId'];
+      if (params['serviceId']) tempServiceId = params['serviceId'];
+    });
+
+    // Use the most reliable method (parent.parent seems correct based on route structure)
+    let currentRouteForIds = this.route.parent?.parent;
+    if (currentRouteForIds) {
+      this.projectId = currentRouteForIds.snapshot.paramMap.get('projectId') || '';
+      this.serviceId = currentRouteForIds.snapshot.paramMap.get('serviceId') || '';
+      console.log('\n[Selected] Using parent.parent - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
     }
 
     // Fallback: try to get from snapshot if not found
     if (!this.projectId || !this.serviceId) {
-      // Try direct snapshot
       this.projectId = this.route.snapshot.paramMap.get('projectId') || this.projectId;
       this.serviceId = this.route.snapshot.paramMap.get('serviceId') || this.serviceId;
+      console.log('[Fallback] Using direct snapshot - ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
     }
-
-    console.log('[RoomElevation] ProjectId:', this.projectId);
-    console.log('[RoomElevation] ServiceId:', this.serviceId);
 
     // Get room name from route params
     this.roomName = this.route.snapshot.paramMap.get('roomName') || '';
@@ -88,15 +146,32 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       this.roomName = 'Base Station';
     }
 
-    console.log('[RoomElevation] RoomName:', this.roomName);
+    console.log('\n[RoomElevation] FINAL VALUES:');
+    console.log('  - ProjectId:', this.projectId);
+    console.log('  - ServiceId:', this.serviceId);
+    console.log('  - RoomName:', this.roomName);
+    console.log('========================================\n');
 
     // Validate we have required IDs
     if (!this.serviceId || !this.projectId) {
-      console.error('[RoomElevation] Missing serviceId or projectId!');
-      await this.showToast('Error: Missing service or project ID', 'danger');
+      console.error('[RoomElevation] ERROR: Missing required IDs!');
+      console.error('  - ServiceId is:', this.serviceId === '' ? 'empty string' : this.serviceId || 'undefined/null');
+      console.error('  - ProjectId is:', this.projectId === '' ? 'empty string' : this.projectId || 'undefined/null');
+      await this.showToast(`Error: Missing service or project ID. ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`, 'danger');
       this.loading = false;
       return;
     }
+
+    // Additional validation for serviceId as number
+    const serviceIdNum = parseInt(this.serviceId, 10);
+    if (isNaN(serviceIdNum)) {
+      console.error('[RoomElevation] ERROR: ServiceId is not a valid number:', this.serviceId);
+      await this.showToast(`Error: Invalid ServiceID (${this.serviceId}). Ensure you have the correct service ID.`, 'danger');
+      this.loading = false;
+      return;
+    }
+
+    console.log('[RoomElevation] Validation passed. Loading room data...');
 
     await this.loadRoomData();
     await this.loadFDFOptions();
@@ -122,19 +197,31 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   }
 
   private async loadRoomData() {
+    console.log('[RoomElevation] loadRoomData() called');
+    console.log('  - ServiceId:', this.serviceId);
+    console.log('  - RoomName:', this.roomName);
+
     this.loading = true;
     try {
       // Load room record from Services_EFE
+      console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
       const rooms = await this.foundationData.getEFEByService(this.serviceId, true);
+      console.log('[RoomElevation] getEFEByService returned', rooms?.length || 0, 'rooms');
+      console.log('[RoomElevation] Rooms:', rooms);
+
       const room = rooms.find((r: any) => r.RoomName === this.roomName);
+      console.log('[RoomElevation] Found room matching name "' + this.roomName + '":', room);
 
       if (!room) {
+        console.error('[RoomElevation] ERROR: Room not found with name:', this.roomName);
+        console.error('[RoomElevation] Available room names:', rooms.map((r: any) => r.RoomName));
         await this.showToast('Room not found', 'danger');
         this.goBack();
         return;
       }
 
       this.roomId = room.EFEID;
+      console.log('[RoomElevation] Room ID set to:', this.roomId);
 
       // Initialize room data structure
       this.roomData = {
