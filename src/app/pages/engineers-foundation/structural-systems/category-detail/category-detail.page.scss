@@ -596,7 +596,7 @@ ion-accordion-group {
     }
 
     ion-item.accordion-header-item {
-      // Remove ALL Ionic defaults
+      // Remove ALL Ionic defaults and force exact sizing
       --padding-start: 0 !important;
       --padding-end: 0 !important;
       --padding-top: 0 !important;
@@ -604,8 +604,9 @@ ion-accordion-group {
       --min-height: 0 !important;
       --inner-padding-end: 0 !important;
       --inner-padding-start: 0 !important;
-      height: auto !important;
-      min-height: 0 !important;
+      height: 64px !important;
+      min-height: 64px !important;
+      max-height: 64px !important;
       --background: transparent;
       --border-width: 0;
       --inner-border-width: 0;
@@ -613,10 +614,14 @@ ion-accordion-group {
       cursor: pointer;
 
       &::part(native) {
-        background: transparent;
-        border: none;
+        background: transparent !important;
+        border: none !important;
         padding: 16px !important;
-        min-height: 0 !important;
+        height: 64px !important;
+        min-height: 64px !important;
+        max-height: 64px !important;
+        display: flex !important;
+        align-items: center !important;
       }
 
       // Match EXACTLY the hub page structure
@@ -624,16 +629,23 @@ ion-accordion-group {
         display: flex;
         align-items: center;
         gap: 16px;
+        height: 32px;
+        line-height: 32px;
+        width: 100%;
 
         .icon-container {
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
+          width: 32px;
+          height: 32px;
 
           ion-icon {
             font-size: 32px;
             color: var(--noble-orange, #F15A27);
+            display: block;
+            line-height: 32px;
           }
         }
 
@@ -641,13 +653,21 @@ ion-accordion-group {
           flex: 1;
           margin: 0 !important;
           padding: 0 !important;
-          min-height: 0 !important;
+          height: 32px !important;
+          min-height: 32px !important;
+          max-height: 32px !important;
+          line-height: 32px !important;
+          display: flex !important;
+          align-items: center !important;
 
           .type-header {
             font-size: 18px;
             font-weight: 600;
             color: #333;
             margin: 0;
+            padding: 0;
+            line-height: 32px;
+            height: 32px;
           }
         }
       }
