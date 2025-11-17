@@ -1182,26 +1182,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
       if (images.photos && images.photos.length > 0) {
         const key = `${category}_${itemId}`;
-        let visualId = this.visualRecordIds[key];
-
-        // Create visual record if it doesn't exist
-        if (!visualId) {
-          await this.saveVisualSelection(category, itemId);
-          visualId = this.visualRecordIds[key];
-        }
-
-        if (!visualId) {
-          console.error('[GALLERY UPLOAD] Failed to create visual record');
-          await this.showToast('Failed to prepare upload', 'danger');
-          return;
-        }
-
-        const visualIdNum = parseInt(visualId, 10);
-        if (isNaN(visualIdNum)) {
-          console.error('[GALLERY UPLOAD] Invalid visual ID:', visualId);
-          await this.showToast('Invalid visual ID', 'danger');
-          return;
-        }
 
         // Initialize photo array if it doesn't exist
         if (!this.visualPhotos[key]) {
@@ -1211,6 +1191,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
 
         // CRITICAL: Create skeleton placeholders IMMEDIATELY for all photos
+        // This happens BEFORE any API calls so user sees instant feedback
         const skeletonPhotos = images.photos.map((image, i) => {
           const tempId = `temp_skeleton_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
           return {
@@ -1233,6 +1214,46 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         this.visualPhotos[key].push(...skeletonPhotos);
         this.changeDetectorRef.detectChanges();
         console.log('[GALLERY UPLOAD] Added', skeletonPhotos.length, 'skeleton placeholders');
+
+        // NOW create visual record if it doesn't exist (in parallel with skeleton display)
+        let visualId = this.visualRecordIds[key];
+        if (!visualId) {
+          await this.saveVisualSelection(category, itemId);
+          visualId = this.visualRecordIds[key];
+        }
+
+        if (!visualId) {
+          console.error('[GALLERY UPLOAD] Failed to create visual record');
+          // Mark all skeleton photos as failed
+          skeletonPhotos.forEach(skeleton => {
+            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+            if (photoIndex !== -1 && this.visualPhotos[key]) {
+              this.visualPhotos[key][photoIndex].uploading = false;
+              this.visualPhotos[key][photoIndex].uploadFailed = true;
+              this.visualPhotos[key][photoIndex].isSkeleton = false;
+            }
+          });
+          this.changeDetectorRef.detectChanges();
+          await this.showToast('Failed to prepare upload', 'danger');
+          return;
+        }
+
+        const visualIdNum = parseInt(visualId, 10);
+        if (isNaN(visualIdNum)) {
+          console.error('[GALLERY UPLOAD] Invalid visual ID:', visualId);
+          // Mark all skeleton photos as failed
+          skeletonPhotos.forEach(skeleton => {
+            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+            if (photoIndex !== -1 && this.visualPhotos[key]) {
+              this.visualPhotos[key][photoIndex].uploading = false;
+              this.visualPhotos[key][photoIndex].uploadFailed = true;
+              this.visualPhotos[key][photoIndex].isSkeleton = false;
+            }
+          });
+          this.changeDetectorRef.detectChanges();
+          await this.showToast('Invalid visual ID', 'danger');
+          return;
+        }
 
         // CRITICAL FIX: Process photos SEQUENTIALLY using for...of instead of forEach
         // This ensures ALL photos are processed and uploaded, not just some
