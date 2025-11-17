@@ -10,7 +10,8 @@ import { EngineersFoundationDataService } from '../engineers-foundation-data.ser
 import { CaspioService } from '../../../services/caspio.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { ImageCompressionService } from '../../../services/image-compression.service';
-import { firstValueFrom } from 'rxjs';
+import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
+import { firstValueFrom, Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-room-elevation',
@@ -38,6 +39,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   isSavingFdf: boolean = false;
   isSavingLocation: boolean = false;
 
+  // Background upload subscriptions
+  private uploadSubscription?: Subscription;
+  private taskSubscription?: Subscription;
+
   // Convenience getters for template
   get fdfPhotos() {
     return this.roomData?.fdfPhotos || {};
@@ -57,7 +62,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     private toastController: ToastController,
     private modalController: ModalController,
     private changeDetectorRef: ChangeDetectorRef,
-    private imageCompression: ImageCompressionService
+    private imageCompression: ImageCompressionService,
+    private backgroundUploadService: BackgroundPhotoUploadService
   ) {}
 
   async ngOnInit() {
@@ -183,6 +189,15 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     if (this.notesDebounceTimer) {
       clearTimeout(this.notesDebounceTimer);
     }
+
+    // Clean up upload subscriptions - but uploads will continue in background service
+    if (this.uploadSubscription) {
+      this.uploadSubscription.unsubscribe();
+    }
+    if (this.taskSubscription) {
+      this.taskSubscription.unsubscribe();
+    }
+    console.log('[ROOM ELEVATION] Component destroyed, but uploads continue in background');
   }
 
   goBack() {
@@ -926,7 +941,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
   }
 
-  // Process FDF photo - EXACT implementation from engineers-foundation
+  // Process FDF photo - Using background upload service for reliability
   private async processFDFPhoto(file: File, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const photoKey = photoType.toLowerCase();
     const fdfPhotos = this.roomData.fdfPhotos;
@@ -957,10 +972,42 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       // Trigger change detection to show preview with loading spinner
       this.changeDetectorRef.detectChanges();
 
-      // Upload the photo
-      await this.uploadFDFPhotoToRoom(photoType, file);
+      // CRITICAL: Use background upload service for reliability
+      // Upload will persist even if user navigates away
+      const tempId = `temp_fdf_${photoType}_${Date.now()}`;
+      const roomIdNum = parseInt(this.roomId, 10);
 
-      console.log(`[FDF Upload] ✅ Upload completed successfully for ${photoType}`);
+      const uploadFn = async (visualId: number, photo: File, caption: string) => {
+        console.log(`[FDF Upload] Uploading ${photoType} via background service`);
+        const result = await this.uploadFDFPhotoToRoom(photoType, photo);
+
+        // Update UI after successful upload
+        if (result) {
+          fdfPhotos[photoKey] = true;
+          fdfPhotos[`${photoKey}Path`] = result.filePath;
+          fdfPhotos[`${photoKey}Url`] = result.base64Image;
+          fdfPhotos[`${photoKey}DisplayUrl`] = result.base64Image;
+          fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
+          fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
+          fdfPhotos[`${photoKey}Uploading`] = false;
+          this.changeDetectorRef.detectChanges();
+        }
+
+        return result;
+      };
+
+      // Add to background upload queue
+      this.backgroundUploadService.addToQueue(
+        roomIdNum,
+        file,
+        `fdf_${photoKey}`,
+        '',
+        tempId,
+        uploadFn
+      );
+
+      console.log(`[FDF Upload] Photo ${photoType} queued for background upload`);
+
     } catch (error: any) {
       console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
       const errorMsg = error?.message || error?.toString() || 'Unknown error';
@@ -1484,49 +1531,73 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
       this.changeDetectorRef.detectChanges();
 
-      // Compress image
-      const compressedFile = await this.imageCompression.compressImage(file, {
-        maxSizeMB: 0.4,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true
-      }) as File;
+      // CRITICAL: Use background upload service for reliability
+      // Upload will persist even if user navigates away
+      const tempId = `temp_point_${photoType}_${Date.now()}`;
+      const pointIdNum = parseInt(point.pointId, 10);
 
-      let uploadResponse;
+      const uploadFn = async (visualId: number, photo: File, caption: string) => {
+        console.log(`[Point Upload] Uploading ${photoType} photo for point ${point.pointName} via background service`);
 
-      if (existingPhoto.attachId) {
-        // Update existing photo
-        uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(existingPhoto.attachId, compressedFile).toPromise();
-      } else {
-        // Create new photo record
-        const photoResponse = await this.caspioService.createServicesEFEPointsAttachRecord(point.pointId, '', photoType).toPromise();
-        const attachId = photoResponse?.AttachID || photoResponse?.PK_ID;
+        // Compress image
+        const compressedFile = await this.imageCompression.compressImage(photo, {
+          maxSizeMB: 0.4,
+          maxWidthOrHeight: 1024,
+          useWebWorker: true
+        }) as File;
 
-        if (attachId) {
-          existingPhoto.attachId = attachId;
+        let uploadResponse;
 
-          // Upload photo to the new record
-          uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(attachId, compressedFile).toPromise();
+        if (existingPhoto.attachId) {
+          // Update existing photo
+          uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(existingPhoto.attachId, compressedFile).toPromise();
+        } else {
+          // Create new photo record
+          const photoResponse = await this.caspioService.createServicesEFEPointsAttachRecord(point.pointId, '', photoType).toPromise();
+          const attachId = photoResponse?.AttachID || photoResponse?.PK_ID;
+
+          if (attachId) {
+            existingPhoto.attachId = attachId;
+
+            // Upload photo to the new record
+            uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(attachId, compressedFile).toPromise();
+          }
         }
-      }
 
-      // Reload photo using the path returned from upload
-      const photoPath = uploadResponse?.Photo;
-      if (photoPath) {
-        existingPhoto.path = photoPath;
-        const imageData = await this.foundationData.getImage(photoPath);
-        if (imageData) {
-          existingPhoto.url = imageData;
-          existingPhoto.displayUrl = imageData;
+        // Reload photo using the path returned from upload
+        const photoPath = uploadResponse?.Photo;
+        if (photoPath) {
+          existingPhoto.path = photoPath;
+          const imageData = await this.foundationData.getImage(photoPath);
+          if (imageData) {
+            existingPhoto.url = imageData;
+            existingPhoto.displayUrl = imageData;
+          }
         }
-      }
 
-      existingPhoto.uploading = false;
+        existingPhoto.uploading = false;
 
-      // CRITICAL: Clear the attachments cache to ensure photos appear after navigation
-      this.foundationData.clearEFEAttachmentsCache();
-      console.log('[Point Photo] Cleared EFE attachments cache after upload');
+        // CRITICAL: Clear the attachments cache to ensure photos appear after navigation
+        this.foundationData.clearEFEAttachmentsCache();
+        console.log('[Point Photo] Cleared EFE attachments cache after upload');
 
-      this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.detectChanges();
+
+        return uploadResponse;
+      };
+
+      // Add to background upload queue
+      this.backgroundUploadService.addToQueue(
+        pointIdNum,
+        file,
+        `point_${point.pointId}_${photoType}`,
+        '',
+        tempId,
+        uploadFn
+      );
+
+      console.log(`[Point Upload] Photo ${photoType} for point ${point.pointName} queued for background upload`);
+
     } catch (error) {
       console.error('Error processing point photo:', error);
       await this.showToast('Failed to upload photo', 'danger');

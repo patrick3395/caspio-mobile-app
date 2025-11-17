@@ -1067,24 +1067,68 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             visualId = this.visualRecordIds[key];
           }
 
-          if (visualId) {
-            // Upload the ORIGINAL photo WITHOUT annotations baked in and get the AttachID
-            const attachId = await this.uploadPhotoForVisual(visualId, originalFile, key, true, null, null, caption);
+          if (!visualId) {
+            console.error('[CAMERA UPLOAD] Failed to create visual record');
+            await this.showToast('Failed to prepare upload', 'danger');
+            return;
+          }
 
-            // If there are annotations and we got an AttachID, save them immediately
-            if (annotationsData && attachId) {
+          const visualIdNum = parseInt(visualId, 10);
+          if (isNaN(visualIdNum)) {
+            console.error('[CAMERA UPLOAD] Invalid visual ID:', visualId);
+            await this.showToast('Invalid visual ID', 'danger');
+            return;
+          }
+
+          // Initialize photo array if it doesn't exist
+          if (!this.visualPhotos[key]) {
+            this.visualPhotos[key] = [];
+          }
+
+          // Create skeleton placeholder for immediate UI feedback
+          const tempId = `temp_camera_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const objectUrl = URL.createObjectURL(blob);
+
+          const skeletonPhoto = {
+            AttachID: tempId,
+            id: tempId,
+            name: 'camera-photo.jpg',
+            url: objectUrl,
+            thumbnailUrl: objectUrl,
+            isObjectUrl: true,
+            uploading: true,
+            isSkeleton: false,
+            hasAnnotations: false,
+            caption: caption || '',
+            annotation: caption || '',
+            progress: 0
+          };
+
+          // Add skeleton to UI immediately
+          this.visualPhotos[key].push(skeletonPhoto);
+          this.changeDetectorRef.detectChanges();
+          console.log('[CAMERA UPLOAD] Added skeleton placeholder');
+
+          // CRITICAL: Use background upload service for reliability
+          // Upload will persist even if user navigates away
+          const uploadFn = async (visualId: number, photo: File, caption: string) => {
+            console.log('[CAMERA UPLOAD] Uploading photo via background service');
+            const result = await this.performVisualPhotoUpload(visualId, photo, key, true, null, null, tempId, caption);
+
+            // If there are annotations, save them after upload completes
+            if (annotationsData && result) {
               try {
-                console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', attachId);
+                console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', result);
 
                 // Save annotations to database
-                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, caption);
+                await this.saveAnnotationToDatabase(result, annotatedBlob, annotationsData, caption);
 
                 // Create display URL with annotations
                 const displayUrl = URL.createObjectURL(annotatedBlob);
 
                 // Update photo object to show annotations
                 const photos = this.visualPhotos[key] || [];
-                const photoIndex = photos.findIndex(p => p.AttachID === attachId);
+                const photoIndex = photos.findIndex(p => p.AttachID === result);
                 if (photoIndex !== -1) {
                   this.visualPhotos[key][photoIndex] = {
                     ...this.visualPhotos[key][photoIndex],
@@ -1095,14 +1139,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                   };
                   this.changeDetectorRef.detectChanges();
                   console.log('[CAMERA UPLOAD] Annotations saved and display updated');
-                } else {
-                  console.warn('[CAMERA UPLOAD] Could not find photo at index for AttachID:', attachId);
                 }
               } catch (error) {
                 console.error('[CAMERA UPLOAD] Error saving annotations:', error);
               }
             }
-          }
+
+            return result;
+          };
+
+          // Add to background upload queue
+          this.backgroundUploadService.addToQueue(
+            visualIdNum,
+            originalFile,
+            key,
+            caption,
+            tempId,
+            uploadFn
+          );
+
+          console.log('[CAMERA UPLOAD] Photo queued for background upload');
         }
 
         // Clean up blob URL
@@ -1253,7 +1309,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           }
 
           console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos queued successfully`);
-          await this.showToast(`Uploading ${images.photos.length} photos in background`, 'success');
 
         }, 150); // Small delay to ensure skeletons render
       }
