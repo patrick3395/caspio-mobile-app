@@ -903,7 +903,29 @@ export class CaspioService {
       })
     );
   }
-  
+
+  // Delete Services_EFE record by EFEID
+  deleteServicesEFEByEFEID(efeId: string): Observable<any> {
+    console.log('[CaspioService] deleteServicesEFEByEFEID called for EFEID:', efeId);
+    const url = `/tables/LPS_Services_EFE/records?q.where=EFEID=${efeId}`;
+    console.log('[CaspioService] Delete URL:', url);
+
+    return this.delete<any>(url).pipe(
+      tap(response => {
+        console.log('[CaspioService] deleteServicesEFEByEFEID response:', response);
+      }),
+      catchError(error => {
+        console.error('[CaspioService] Services EFE deletion error (by EFEID):', error);
+        console.error('[CaspioService] Error details:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
+        throw error;
+      })
+    );
+  }
+
   // Update Services_EFE record
   updateServicesEFE(efeId: string, data: any): Observable<any> {
     return this.put<any>(`/tables/LPS_Services_EFE/records?q.where=PK_ID=${efeId}`, data);

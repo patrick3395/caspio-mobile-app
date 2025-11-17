@@ -36,6 +36,7 @@ export class ProjectDetailsPage implements OnInit {
     'Owner/occupant not available for discussion',
     'Owner/occupant not aware of any previous foundation work',
     'Owner/occupant provided the information documented in Support Documents',
+    'Owner/occupant is aware of previous work and will email documents asap',
     'Other'
   ];
 
@@ -73,6 +74,9 @@ export class ProjectDetailsPage implements OnInit {
   ) {}
 
   async ngOnInit() {
+    // Load dropdown options from Services_Drop table
+    await this.loadDropdownOptions();
+
     // Get IDs from parent route
     this.route.parent?.params.subscribe(params => {
       this.projectId = params['projectId'];
@@ -258,6 +262,43 @@ export class ProjectDetailsPage implements OnInit {
       });
     } catch (error) {
       console.error('Error in loadData:', error);
+    }
+  }
+
+  // Load dropdown options from Services_Drop table
+  private async loadDropdownOptions() {
+    try {
+      const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
+
+      if (servicesDropData && servicesDropData.length > 0) {
+        // Group by ServicesName
+        const optionsByService: { [serviceName: string]: string[] } = {};
+
+        servicesDropData.forEach((row: any) => {
+          const serviceName = row.ServicesName || '';
+          const dropdown = row.Dropdown || '';
+
+          if (serviceName && dropdown) {
+            if (!optionsByService[serviceName]) {
+              optionsByService[serviceName] = [];
+            }
+            if (!optionsByService[serviceName].includes(dropdown)) {
+              optionsByService[serviceName].push(dropdown);
+            }
+          }
+        });
+
+        // Set OwnerOccupantInterview options from table
+        if (optionsByService['OwnerOccupantInterview'] && optionsByService['OwnerOccupantInterview'].length > 0) {
+          this.ownerOccupantInterviewOptions = optionsByService['OwnerOccupantInterview'];
+          if (!this.ownerOccupantInterviewOptions.includes('Other')) {
+            this.ownerOccupantInterviewOptions.push('Other');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading Services_Drop options:', error);
+      // Keep default options on error
     }
   }
 

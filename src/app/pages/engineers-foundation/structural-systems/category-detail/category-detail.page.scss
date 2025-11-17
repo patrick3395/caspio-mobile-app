@@ -200,7 +200,7 @@ ion-content {
         --border-width: 0;
         --highlight-height: 0;
         padding: 12px;
-        border-radius: 9px;
+        border-radius: 11px;
         transition: all 0.3s ease;
         border: none;
         overflow: visible;
@@ -248,7 +248,7 @@ ion-content {
       .multi-select-container {
         margin-bottom: 4px;
         border: none;
-        border-radius: 8px;
+        border-radius: 11px;
         background: white;
         transition: all 0.3s ease;
         overflow: visible;
@@ -259,7 +259,7 @@ ion-content {
           --border-width: 0;
           --highlight-height: 0;
           border: none !important;
-          border-radius: 8px 8px 0 0;
+          border-radius: 11px 11px 0 0;
           padding: 10px 12px 6px 12px !important;
           background: white;
 
@@ -355,7 +355,7 @@ ion-content {
 .answer-type-1-container {
   padding: 12px;
   background: #fff;
-  border-radius: 8px;
+  border-radius: 11px;
   margin-bottom: 12px;
   border: none;
   cursor: pointer;

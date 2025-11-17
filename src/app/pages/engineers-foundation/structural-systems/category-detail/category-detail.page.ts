@@ -419,6 +419,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           continue;
         }
 
+        // CRITICAL: Skip hidden visuals (soft delete - keeps photos but doesn't show in UI)
+        // Check for HIDDEN marker (can be "HIDDEN" or "HIDDEN|{otherValue}" for multi-select)
+        if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
+          console.log('[LOAD VISUALS] Skipping hidden visual:', name, visualId);
+          // Store visualRecordId so we can unhide it later if user reselects
+          const tempKey = `${category}_${name}_${kind}`;
+          // Try to find the template ID to use the correct key
+          const templateItem = this.findItemByNameAndCategory(name, category, kind);
+          if (templateItem) {
+            const properKey = `${category}_${templateItem.id}`;
+            this.visualRecordIds[properKey] = visualId;
+          }
+          continue;
+        }
+
         // Find matching template by Name, Category, and Kind
         let item = this.findItemByNameAndCategory(name, category, kind);
 
@@ -791,27 +806,40 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     console.log('[TOGGLE] Item:', key, 'Selected:', newState);
 
     if (newState) {
-      // Item was checked - create visual record if it doesn't exist
-      if (!this.visualRecordIds[key]) {
+      // Item was checked - create visual record if it doesn't exist, or unhide if it exists
+      const visualId = this.visualRecordIds[key];
+      if (visualId && !String(visualId).startsWith('temp_')) {
+        // Visual exists but was hidden - unhide it
+        this.savingItems[key] = true;
+        try {
+          await this.foundationData.updateVisual(visualId, { Notes: '' });
+          console.log('[TOGGLE] Unhid visual:', visualId);
+        } catch (error) {
+          console.error('[TOGGLE] Error unhiding visual:', error);
+          this.selectedItems[key] = false;
+          await this.showToast('Failed to show selection', 'danger');
+        }
+        this.savingItems[key] = false;
+      } else if (!visualId) {
+        // No visual record exists - create new one
         this.savingItems[key] = true;
         await this.saveVisualSelection(category, itemId);
         this.savingItems[key] = false;
       }
     } else {
-      // Item was unchecked - delete visual record if it exists
+      // Item was unchecked - hide visual instead of deleting (keeps photos intact)
       const visualId = this.visualRecordIds[key];
       if (visualId && !String(visualId).startsWith('temp_')) {
         this.savingItems[key] = true;
         try {
-          await this.foundationData.deleteVisual(visualId);
-          delete this.visualRecordIds[key];
-          delete this.visualPhotos[key];
-          console.log('[TOGGLE] Deleted visual:', visualId);
+          await this.foundationData.updateVisual(visualId, { Notes: 'HIDDEN' });
+          // Keep visualRecordIds and visualPhotos intact for when user reselects
+          console.log('[TOGGLE] Hid visual (preserved photos):', visualId);
         } catch (error) {
-          console.error('[TOGGLE] Error deleting visual:', error);
+          console.error('[TOGGLE] Error hiding visual:', error);
           // Revert selection on error
           this.selectedItems[key] = true;
-          await this.showToast('Failed to remove selection', 'danger');
+          await this.showToast('Failed to hide selection', 'danger');
         }
         this.savingItems[key] = false;
       }
@@ -828,6 +856,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     try {
       // Create or update visual record
       let visualId = this.visualRecordIds[key];
+
+      // If answer is empty/cleared, hide the visual instead of deleting
+      if (!item.answer || item.answer === '') {
+        if (visualId && !String(visualId).startsWith('temp_')) {
+          await this.foundationData.updateVisual(visualId, {
+            Answers: '',
+            Notes: 'HIDDEN'
+          });
+          console.log('[ANSWER] Hid visual (preserved photos):', visualId);
+        }
+        this.savingItems[key] = false;
+        return;
+      }
 
       if (!visualId) {
         // Create new visual
@@ -847,9 +888,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         this.visualRecordIds[key] = visualId;
         console.log('[ANSWER] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
-        // Update existing visual
+        // Update existing visual and unhide if it was hidden
         await this.foundationData.updateVisual(visualId, {
-          Answers: item.answer || ''
+          Answers: item.answer || '',
+          Notes: ''
         });
         console.log('[ANSWER] Updated visual:', visualId);
       }
@@ -890,6 +932,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     try {
       let visualId = this.visualRecordIds[key];
 
+      // If all options are unchecked AND no "Other" value, hide the visual
+      if ((!item.answer || item.answer === '') && (!item.otherValue || item.otherValue === '')) {
+        if (visualId && !String(visualId).startsWith('temp_')) {
+          await this.foundationData.updateVisual(visualId, {
+            Answers: '',
+            Notes: 'HIDDEN'
+          });
+          console.log('[OPTION] Hid visual (preserved photos):', visualId);
+        }
+        this.savingItems[key] = false;
+        return;
+      }
+
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.serviceId, 10);
@@ -908,10 +963,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         this.visualRecordIds[key] = visualId;
         console.log('[OPTION] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
-        // Update existing visual
+        // Update existing visual and unhide if it was hidden
+        const notesValue = item.otherValue || '';
         await this.foundationData.updateVisual(visualId, {
           Answers: item.answer,
-          Notes: item.otherValue || ''
+          Notes: notesValue
         });
         console.log('[OPTION] Updated visual:', visualId);
       }
@@ -938,6 +994,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     try {
       let visualId = this.visualRecordIds[key];
 
+      // If "Other" value is empty AND no options selected, hide the visual
+      if ((!item.otherValue || item.otherValue === '') && (!item.answer || item.answer === '')) {
+        if (visualId && !String(visualId).startsWith('temp_')) {
+          await this.foundationData.updateVisual(visualId, {
+            Answers: '',
+            Notes: 'HIDDEN'
+          });
+          console.log('[OTHER] Hid visual (preserved photos):', visualId);
+        }
+        this.savingItems[key] = false;
+        return;
+      }
+
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.serviceId, 10);
@@ -956,9 +1025,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         this.visualRecordIds[key] = visualId;
         console.log('[OTHER] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
-        // Update existing visual
+        // Update existing visual and unhide if it was hidden
         await this.foundationData.updateVisual(visualId, {
-          Notes: item.otherValue || ''
+          Notes: item.otherValue || '',
+          Answers: item.answer || ''
         });
         console.log('[OTHER] Updated visual:', visualId);
       }
