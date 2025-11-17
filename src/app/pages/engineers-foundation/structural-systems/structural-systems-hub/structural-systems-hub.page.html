@@ -46,9 +46,9 @@
             </div>
             <div class="title-container">
               <ion-card-title>{{ category.name }}</ion-card-title>
-              <ion-badge *ngIf="category.deficiencyCount > 0" color="warning">
-                {{ category.deficiencyCount }} {{ category.deficiencyCount === 1 ? 'deficiency' : 'deficiencies' }}
-              </ion-badge>
+              <p class="deficiency-count" *ngIf="category.deficiencyCount > 0">
+                {{ category.deficiencyCount }} {{ category.deficiencyCount === 1 ? 'deficiency' : 'deficiencies' }} found
+              </p>
             </div>
           </div>
         </ion-card-header>

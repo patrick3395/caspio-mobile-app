@@ -201,7 +201,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   }
 
   goBack() {
-    this.router.navigate(['..', '..'], { relativeTo: this.route });
+    this.router.navigate(['..'], { relativeTo: this.route });
   }
 
   isBaseStation(): boolean {

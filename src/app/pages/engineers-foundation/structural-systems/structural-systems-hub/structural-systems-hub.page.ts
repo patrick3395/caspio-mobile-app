@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../../../services/caspio.service';
+import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 
 @Component({
   selector: 'app-structural-systems-hub',
@@ -23,7 +24,8 @@ export class StructuralSystemsHubPage implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private caspioService: CaspioService,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private foundationData: EngineersFoundationDataService
   ) {}
 
   async ngOnInit() {
@@ -94,15 +96,47 @@ export class StructuralSystemsHubPage implements OnInit {
       console.log('Total unique categories:', categoriesOrder.length);
       console.log('Categories:', categoriesOrder);
 
-      // Get deficiency counts for each category
-      // TODO: Load actual deficiency counts from saved visuals
+      // Get deficiency counts for each category from saved visuals
+      const deficiencyCounts = await this.getDeficiencyCountsByCategory();
+
       this.categories = categoriesOrder.map(cat => ({
         name: cat,
-        deficiencyCount: 0
+        deficiencyCount: deficiencyCounts[cat] || 0
       }));
+
+      console.log('Categories with deficiency counts:', this.categories);
 
     } catch (error) {
       console.error('Error loading categories:', error);
+    }
+  }
+
+  private async getDeficiencyCountsByCategory(): Promise<{ [category: string]: number }> {
+    try {
+      // Load all existing visuals for this service
+      const visuals = await this.foundationData.getVisualsByService(this.serviceId);
+      
+      console.log('[Deficiency Count] Found', visuals.length, 'total visuals');
+
+      // Count deficiencies by category
+      const counts: { [category: string]: number } = {};
+
+      visuals.forEach((visual: any) => {
+        const kind = visual.Kind || '';
+        const category = visual.Category || '';
+
+        // Only count items marked as "Deficiency"
+        if (kind === 'Deficiency' && category) {
+          counts[category] = (counts[category] || 0) + 1;
+        }
+      });
+
+      console.log('[Deficiency Count] Counts by category:', counts);
+
+      return counts;
+    } catch (error) {
+      console.error('Error counting deficiencies:', error);
+      return {};
     }
   }
 

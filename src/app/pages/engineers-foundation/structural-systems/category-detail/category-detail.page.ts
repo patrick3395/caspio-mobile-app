@@ -333,7 +333,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         template.TypeID === 1 && template.Category === this.categoryName
       );
 
-      // Organize templates by Type
+      // Organize templates by Kind
       visualTemplates.forEach((template: any) => {
         const templateData: VisualItem = {
           id: template.PK_ID,
@@ -341,7 +341,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           name: template.Name || 'Unnamed Item',
           text: template.Text || '',
           originalText: template.Text || '',
-          type: template.Type || 'Comment',
+          type: template.Kind || 'Comment',  // CRITICAL FIX: Use Kind not Type
           category: template.Category,
           answerType: template.AnswerType || 0,
           required: template.Required === 'Yes',
@@ -363,7 +363,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
         // Add to appropriate section based on Kind field (not Type field)
         const kind = template.Kind || template.Type || 'Comment';
-        console.log('[LOAD TEMPLATES] Item:', template.Name, 'Kind:', kind, 'Type:', template.Type);
+        console.log('[LOAD TEMPLATES] Item:', template.Name, 'Kind:', kind, 'Type:', template.Type, 'item.type:', templateData.type);
 
         if (kind === 'Comment') {
           this.organizedData.comments.push(templateData);
@@ -1715,6 +1715,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
 
       console.log('[SAVE VISUAL] Creating visual record for', key);
+      console.log('[SAVE VISUAL] Item details:', {
+        name: item.name,
+        type: item.type,
+        category: category
+      });
 
       const serviceIdNum = parseInt(this.serviceId, 10);
       if (isNaN(serviceIdNum)) {
@@ -1726,11 +1731,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       const visualData: any = {
         ServiceID: serviceIdNum,
         Category: category,
-        Kind: item.type,      // Use "Kind" not "Type"
+        Kind: item.type,      // CRITICAL: Use item.type which is now set from template.Kind
         Name: item.name,
         Text: item.text || item.originalText || '',
         Notes: ''
       };
+
+      console.log('[SAVE VISUAL] Visual data being saved:', visualData);
 
       // Add Answers field if there are answers to store
       if (item.answer) {

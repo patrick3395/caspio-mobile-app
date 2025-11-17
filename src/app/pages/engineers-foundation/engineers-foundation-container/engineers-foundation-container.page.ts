@@ -151,11 +151,12 @@ export class EngineersFoundationContainerPage implements OnInit {
     const url = this.router.url;
 
     // Check if we're on a deep sub-page (category detail or room)
-    if (url.includes('/structural/category/') ||
-        url.includes('/elevation/room/') ||
-        url.includes('/elevation/base-station')) {
-      // Navigate to the parent section page (structural or elevation)
-      this.router.navigate(['..'], { relativeTo: this.route });
+    if (url.includes('/structural/category/')) {
+      // Navigate to structural systems page
+      this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, 'structural']);
+    } else if (url.includes('/elevation/room/') || url.includes('/elevation/base-station')) {
+      // Navigate to elevation plot page
+      this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, 'elevation']);
     } else if (url.includes('/structural') || url.includes('/elevation') || url.includes('/project-details')) {
       // Navigate to EFE main page
       this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId]);

@@ -181,17 +181,23 @@ export class EngineersFoundationPdfService {
         loading.message = 'Loading PDF preview...';
       }
 
-      // Load PDF preview component and primary photo in parallel
-      const [PdfPreviewComponent] = await Promise.all([
-        this.loadPdfPreview(),
-        // Load primary photo (cover photo) in parallel
-        (async () => {
-          if (loading) loading.message = 'Processing cover photo...';
-          return this.loadPrimaryPhoto(projectInfo);
-        })()
-      ]);
+      // Load PDF preview component
+      const PdfPreviewComponent = await this.loadPdfPreview();
 
       console.log('[PDF Service] PDF preview component loaded:', !!PdfPreviewComponent);
+
+      // Load primary photo after component is loaded
+      if (loading) {
+        loading.message = 'Processing cover photo...';
+      }
+      await this.loadPrimaryPhoto(projectInfo);
+      
+      console.log('[PDF Service] Primary photo processed:', {
+        hasPrimaryPhoto: !!projectInfo.primaryPhoto,
+        hasPrimaryPhotoBase64: !!projectInfo.primaryPhotoBase64,
+        primaryPhotoType: typeof projectInfo.primaryPhoto,
+        primaryPhotoPreview: projectInfo.primaryPhoto?.substring(0, 50)
+      });
 
       // Check if user cancelled
       if (cancelRequested) {
@@ -414,17 +420,24 @@ export class EngineersFoundationPdfService {
     }
 
     // Group visuals by category and type
+    // CRITICAL: Use 'Kind' field not 'Type' field from database
     for (const visual of allVisuals || []) {
       const category = visual.Category || 'Other';
-      const type = visual.Type?.toLowerCase() || 'comments';
+      const kind = visual.Kind || visual.Type || 'Comment'; // Use Kind field (fallback to Type or Comment)
+      
+      console.log('[PDF Service] Visual:', visual.Name, 'Category:', category, 'Kind:', kind);
 
       if (organizedData[category]) {
-        if (type === 'comment' || type === 'comments') {
+        if (kind === 'Comment') {
           organizedData[category].comments.push(visual);
-        } else if (type === 'limitation' || type === 'limitations') {
+        } else if (kind === 'Limitation') {
           organizedData[category].limitations.push(visual);
-        } else if (type === 'deficiency' || type === 'deficiencies') {
+        } else if (kind === 'Deficiency') {
           organizedData[category].deficiencies.push(visual);
+        } else {
+          // Default to comments if kind is unknown
+          console.warn('[PDF Service] Unknown Kind value:', kind, 'for visual:', visual.Name);
+          organizedData[category].comments.push(visual);
         }
       }
     }
@@ -532,8 +545,15 @@ export class EngineersFoundationPdfService {
 
     const totalItems = result.reduce((sum, cat) =>
       sum + cat.comments.length + cat.limitations.length + cat.deficiencies.length, 0);
+    
+    const totalComments = result.reduce((sum, cat) => sum + cat.comments.length, 0);
+    const totalLimitations = result.reduce((sum, cat) => sum + cat.limitations.length, 0);
+    const totalDeficiencies = result.reduce((sum, cat) => sum + cat.deficiencies.length, 0);
 
     console.log(`[PDF Service] ✓ Structural systems loaded: ${result.length} categories with ${totalItems} total items`);
+    console.log(`[PDF Service]   - Comments: ${totalComments}`);
+    console.log(`[PDF Service]   - Limitations: ${totalLimitations}`);
+    console.log(`[PDF Service]   - Deficiencies: ${totalDeficiencies}`);
 
     return result;
   }
@@ -739,22 +759,34 @@ export class EngineersFoundationPdfService {
    * Load primary photo for project
    */
   private async loadPrimaryPhoto(projectInfo: any): Promise<void> {
+    console.log('[PDF Service] loadPrimaryPhoto called with:', {
+      hasPrimaryPhoto: !!projectInfo?.primaryPhoto,
+      primaryPhotoType: typeof projectInfo?.primaryPhoto,
+      primaryPhotoStart: projectInfo?.primaryPhoto?.substring(0, 50)
+    });
+
     if (projectInfo?.primaryPhoto && typeof projectInfo.primaryPhoto === 'string') {
       let convertedPhotoData: string | null = null;
 
       if (projectInfo.primaryPhoto.startsWith('/')) {
         // Caspio file path - convert to base64
+        console.log('[PDF Service] Converting Caspio file path to base64:', projectInfo.primaryPhoto);
         try {
           const imageData = await firstValueFrom(this.caspioService.getImageFromFilesAPI(projectInfo.primaryPhoto));
           if (imageData && typeof imageData === 'string' && imageData.startsWith('data:')) {
             convertedPhotoData = imageData;
+            console.log('[PDF Service] ✓ Primary photo converted successfully, size:', Math.round(imageData.length / 1024), 'KB');
+          } else {
+            console.error('[PDF Service] ✗ Primary photo conversion failed - invalid data');
           }
         } catch (error) {
-          console.error('[PDF Service] Error converting primary photo:', error);
+          console.error('[PDF Service] ✗ Error converting primary photo:', error);
         }
       } else if (projectInfo.primaryPhoto.startsWith('data:')) {
+        console.log('[PDF Service] Primary photo already base64');
         convertedPhotoData = projectInfo.primaryPhoto;
       } else if (projectInfo.primaryPhoto.startsWith('blob:')) {
+        console.log('[PDF Service] Converting blob URL to base64');
         try {
           const response = await fetch(projectInfo.primaryPhoto);
           const blob = await response.blob();
@@ -765,16 +797,24 @@ export class EngineersFoundationPdfService {
             reader.readAsDataURL(blob);
           });
           convertedPhotoData = base64;
+          console.log('[PDF Service] ✓ Blob converted to base64');
         } catch (error) {
-          console.error('[PDF Service] Error converting blob URL:', error);
+          console.error('[PDF Service] ✗ Error converting blob URL:', error);
         }
+      } else {
+        console.log('[PDF Service] Primary photo has unknown format:', projectInfo.primaryPhoto.substring(0, 50));
       }
 
       // Set both fields so PDF component can use either one
       if (convertedPhotoData) {
         projectInfo.primaryPhotoBase64 = convertedPhotoData;
         projectInfo.primaryPhoto = convertedPhotoData;
+        console.log('[PDF Service] ✓ Primary photo fields set on projectInfo');
+      } else {
+        console.warn('[PDF Service] ✗ No converted photo data - photo will not appear in PDF');
       }
+    } else {
+      console.log('[PDF Service] No primary photo to load');
     }
   }
 
