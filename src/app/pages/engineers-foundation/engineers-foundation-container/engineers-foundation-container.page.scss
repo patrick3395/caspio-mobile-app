@@ -43,21 +43,6 @@ ion-toolbar {
     align-items: center;
     justify-content: center;
   }
-
-  // PDF button styling
-  .pdf-button-text {
-    margin-left: 4px;
-    display: none; // Hide on mobile
-  }
-}
-
-// Web: Show PDF button text
-@media (min-width: 768px) {
-  ion-toolbar {
-    .pdf-button-text {
-      display: inline;
-    }
-  }
 }
 
 // Web: show full title

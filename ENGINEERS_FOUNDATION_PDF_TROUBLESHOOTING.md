@@ -259,7 +259,13 @@ If you're still experiencing issues after following this guide:
 
 ### Version History
 
-**v2 (Current)** - November 17, 2024
+**v3 (Current)** - November 17, 2024
+- ✅ Added: Cancel button on loading dialog
+- ✅ Added: Real-time progress updates
+- ✅ Added: Multiple cancellation checkpoints
+- ✅ Improved: User feedback during PDF generation
+
+**v2** - November 17, 2024
 - ✅ Fixed: Loading popup spinning forever
 - ✅ Added: Comprehensive debug logging
 - ✅ Improved: Error handling and loading dismissal

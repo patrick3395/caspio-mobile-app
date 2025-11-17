@@ -147,8 +147,22 @@ export class EngineersFoundationContainerPage implements OnInit {
   }
 
   goBack() {
-    // Navigate back one page in browser history
-    this.location.back();
+    // Navigate up one level in the folder tree hierarchy (not browser history)
+    const url = this.router.url;
+
+    // Check if we're on a deep sub-page (category detail or room)
+    if (url.includes('/structural/category/') ||
+        url.includes('/elevation/room/') ||
+        url.includes('/elevation/base-station')) {
+      // Navigate to the parent section page (structural or elevation)
+      this.router.navigate(['..'], { relativeTo: this.route });
+    } else if (url.includes('/structural') || url.includes('/elevation') || url.includes('/project-details')) {
+      // Navigate to EFE main page
+      this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId]);
+    } else {
+      // We're on the main EFE page, navigate to project detail
+      this.navigateToHome();
+    }
   }
 
   async generatePDF() {

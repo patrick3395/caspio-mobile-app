@@ -1309,41 +1309,15 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       buttons: [
         {
           text: 'Add',
-          handler: async (data) => {
+          handler: (data) => {
             if (!data.pointName || !data.pointName.trim()) {
-              await this.showToast('Please enter a measurement name', 'warning');
+              this.showToast('Please enter a measurement name', 'warning');
               return false;
             }
 
-            try {
-              // Create point in database
-              const pointData = {
-                EFEID: parseInt(this.roomId, 10),
-                PointName: data.pointName.trim()
-              };
-
-              const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-              const pointId = response?.PointID || response?.PK_ID;
-
-              if (pointId) {
-                // Add to local array
-                this.roomData.elevationPoints.push({
-                  pointId: pointId,
-                  name: data.pointName.trim(),
-                  value: '',
-                  photos: []
-                });
-
-                this.changeDetectorRef.detectChanges();
-                await this.showToast('Measurement added', 'success');
-              }
-
-              return true;
-            } catch (error) {
-              console.error('Error adding point:', error);
-              await this.showToast('Failed to add measurement', 'danger');
-              return false;
-            }
+            // Close the alert immediately and handle the operation in background
+            this.handleAddPoint(data.pointName.trim());
+            return true;
           }
         },
         {
@@ -1355,6 +1329,34 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     });
 
     await alert.present();
+  }
+
+  private async handleAddPoint(pointName: string) {
+    try {
+      // Create point in database
+      const pointData = {
+        EFEID: parseInt(this.roomId, 10),
+        PointName: pointName
+      };
+
+      const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
+      const pointId = response?.PointID || response?.PK_ID;
+
+      if (pointId) {
+        // Add to local array
+        this.roomData.elevationPoints.push({
+          pointId: pointId,
+          name: pointName,
+          value: '',
+          photos: []
+        });
+
+        this.changeDetectorRef.detectChanges();
+      }
+    } catch (error) {
+      console.error('Error adding point:', error);
+      await this.showToast('Failed to add measurement', 'danger');
+    }
   }
 
   async editElevationPointName(point: any) {

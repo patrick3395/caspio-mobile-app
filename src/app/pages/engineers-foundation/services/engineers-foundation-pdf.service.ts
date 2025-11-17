@@ -54,12 +54,25 @@ export class EngineersFoundationPdfService {
     this.pdfGenerationAttempts++;
 
     let loading: HTMLIonAlertElement | null = null;
+    let cancelRequested = false;
 
     try {
-      // Show loading indicator (without blocking)
+      // Show loading indicator with cancel button
       loading = await this.alertController.create({
         header: 'Loading Report',
-        message: ' ',
+        message: 'Initializing...',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              cancelRequested = true;
+              this.isPDFGenerating = false;
+              console.log('[PDF Service] User cancelled PDF generation');
+              return true;
+            }
+          }
+        ],
         backdropDismiss: false,
         cssClass: 'template-loading-alert'
       });
@@ -78,34 +91,54 @@ export class EngineersFoundationPdfService {
 
       if (cachedData) {
         console.log('[PDF Service] ⚡ Using cached PDF data - fast path!');
+        if (loading) {
+          loading.message = 'Loading from cache...';
+        }
         ({ structuralSystemsData, elevationPlotData, projectInfo } = cachedData);
       } else {
         console.log('[PDF Service] Loading fresh PDF data...');
+        if (loading) {
+          loading.message = 'Loading project data...';
+        }
         const startTime = Date.now();
+
+        // Check if user cancelled
+        if (cancelRequested) {
+          console.log('[PDF Service] Cancelled before data fetch');
+          return;
+        }
 
         try {
           // Execute all data fetching in parallel with individual error handling
           const [projectData, structuralData, elevationData] = await Promise.all([
-            this.prepareProjectInfo(projectId, serviceId).catch(err => {
-              console.error('[PDF Service] Error in prepareProjectInfo:', err);
-              // Return minimal valid data structure
-              return {
-                projectId: projectId,
-                serviceId: serviceId,
-                address: '',
-                clientName: '',
-                projectData: null,
-                serviceData: null
-              };
-            }),
-            this.prepareStructuralSystemsData(serviceId).catch(err => {
-              console.error('[PDF Service] Error in prepareStructuralSystemsData:', err);
-              return []; // Return empty array instead of failing
-            }),
-            this.prepareElevationPlotData(serviceId).catch(err => {
-              console.error('[PDF Service] Error in prepareElevationPlotData:', err);
-              return []; // Return empty array instead of failing
-            })
+            (async () => {
+              if (loading) loading.message = 'Loading project information...';
+              return this.prepareProjectInfo(projectId, serviceId).catch(err => {
+                console.error('[PDF Service] Error in prepareProjectInfo:', err);
+                return {
+                  projectId: projectId,
+                  serviceId: serviceId,
+                  address: '',
+                  clientName: '',
+                  projectData: null,
+                  serviceData: null
+                };
+              });
+            })(),
+            (async () => {
+              if (loading) loading.message = 'Loading structural systems...';
+              return this.prepareStructuralSystemsData(serviceId).catch(err => {
+                console.error('[PDF Service] Error in prepareStructuralSystemsData:', err);
+                return [];
+              });
+            })(),
+            (async () => {
+              if (loading) loading.message = 'Loading elevation plots...';
+              return this.prepareElevationPlotData(serviceId).catch(err => {
+                console.error('[PDF Service] Error in prepareElevationPlotData:', err);
+                return [];
+              });
+            })()
           ]);
 
           projectInfo = projectData;
@@ -137,21 +170,43 @@ export class EngineersFoundationPdfService {
         }
       }
 
+      // Check if user cancelled
+      if (cancelRequested) {
+        console.log('[PDF Service] Cancelled after data fetch');
+        return;
+      }
+
       console.log('[PDF Service] Data loaded, now loading PDF preview component...');
+      if (loading) {
+        loading.message = 'Loading PDF preview...';
+      }
 
       // Load PDF preview component and primary photo in parallel
       const [PdfPreviewComponent] = await Promise.all([
         this.loadPdfPreview(),
         // Load primary photo (cover photo) in parallel
-        this.loadPrimaryPhoto(projectInfo)
+        (async () => {
+          if (loading) loading.message = 'Processing cover photo...';
+          return this.loadPrimaryPhoto(projectInfo);
+        })()
       ]);
 
       console.log('[PDF Service] PDF preview component loaded:', !!PdfPreviewComponent);
+
+      // Check if user cancelled
+      if (cancelRequested) {
+        console.log('[PDF Service] Cancelled after component load');
+        return;
+      }
 
       // Check if PdfPreviewComponent is available
       if (!PdfPreviewComponent) {
         console.error('[PDF Service] PdfPreviewComponent not available!');
         throw new Error('PdfPreviewComponent not available');
+      }
+
+      if (loading) {
+        loading.message = 'Preparing PDF document...';
       }
 
       console.log('[PDF Service] Creating PDF modal with data:', {
@@ -176,6 +231,16 @@ export class EngineersFoundationPdfService {
         mode: 'ios',
         backdropDismiss: false
       });
+
+      // Check if user cancelled
+      if (cancelRequested) {
+        console.log('[PDF Service] Cancelled before modal present');
+        return;
+      }
+
+      if (loading) {
+        loading.message = 'Opening PDF...';
+      }
 
       console.log('[PDF Service] Presenting PDF modal...');
       await modal.present();
@@ -243,6 +308,8 @@ export class EngineersFoundationPdfService {
       firstValueFrom(this.caspioService.getProject(projectId)),
       firstValueFrom(this.caspioService.getServiceById(serviceId))
     ]);
+
+    console.log('[PDF Service] ✓ Project info loaded');
 
     // Get primary photo
     let primaryPhoto = (projectData as any)?.PrimaryPhoto || null;
@@ -466,7 +533,7 @@ export class EngineersFoundationPdfService {
     const totalItems = result.reduce((sum, cat) =>
       sum + cat.comments.length + cat.limitations.length + cat.deficiencies.length, 0);
 
-    console.log(`[PDF Service] Prepared ${result.length} categories with ${totalItems} total items`);
+    console.log(`[PDF Service] ✓ Structural systems loaded: ${result.length} categories with ${totalItems} total items`);
 
     return result;
   }
@@ -624,7 +691,7 @@ export class EngineersFoundationPdfService {
       result.push(roomResult);
     }
 
-    console.log(`[PDF Service] Prepared ${result.length} elevation rooms`);
+    console.log(`[PDF Service] ✓ Elevation plots loaded: ${result.length} rooms`);
 
     return result;
   }
