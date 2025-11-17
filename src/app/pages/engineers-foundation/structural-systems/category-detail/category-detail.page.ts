@@ -1746,22 +1746,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
       const result = await this.foundationData.createVisual(visualData);
 
+      console.log('[SAVE VISUAL] Raw response from createVisual:', result);
+      console.log('[SAVE VISUAL] Response has VisualID?', !!result.VisualID);
+      console.log('[SAVE VISUAL] Response has PK_ID?', !!result.PK_ID);
+      console.log('[SAVE VISUAL] Response has id?', !!result.id);
+
       // Extract VisualID using the SAME logic as original (line 8518-8524)
       let visualId: string | null = null;
       if (result.VisualID) {
         visualId = String(result.VisualID);
+        console.log('[SAVE VISUAL] Using VisualID field:', visualId);
       } else if (result.PK_ID) {
         visualId = String(result.PK_ID);
+        console.log('[SAVE VISUAL] Using PK_ID field:', visualId);
       } else if (result.id) {
         visualId = String(result.id);
+        console.log('[SAVE VISUAL] Using id field:', visualId);
       }
 
       if (!visualId) {
         console.error('[SAVE VISUAL] No VisualID in response:', result);
+        console.error('[SAVE VISUAL] Full response structure:', JSON.stringify(result, null, 2));
         throw new Error('VisualID not found in response');
       }
 
-      console.log('[SAVE VISUAL] Created visual with ID:', visualId);
+      console.log('[SAVE VISUAL] ✓ Created visual with ID:', visualId);
+      console.log('[SAVE VISUAL] ✓ Storing ID in visualRecordIds[' + key + ']');
 
       // Store the visual ID for photo uploads
       this.visualRecordIds[key] = visualId;
