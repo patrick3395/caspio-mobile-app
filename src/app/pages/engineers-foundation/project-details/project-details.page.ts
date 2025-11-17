@@ -74,8 +74,9 @@ export class ProjectDetailsPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    // Load dropdown options from Services_Drop table
+    // Load dropdown options from database tables
     await this.loadDropdownOptions();
+    await this.loadProjectDropdownOptions();
 
     // Get IDs from parent route
     this.route.parent?.params.subscribe(params => {
@@ -288,7 +289,79 @@ export class ProjectDetailsPage implements OnInit {
           }
         });
 
-        // Set OwnerOccupantInterview options from table
+        // Set Weather Conditions options
+        if (optionsByService['WeatherConditions'] && optionsByService['WeatherConditions'].length > 0) {
+          this.weatherConditionsOptions = optionsByService['WeatherConditions'];
+          if (!this.weatherConditionsOptions.includes('Other')) {
+            this.weatherConditionsOptions.push('Other');
+          }
+        }
+
+        // Set Outdoor Temperature options
+        if (optionsByService['OutdoorTemperature'] && optionsByService['OutdoorTemperature'].length > 0) {
+          this.outdoorTemperatureOptions = optionsByService['OutdoorTemperature'];
+          if (!this.outdoorTemperatureOptions.includes('Other')) {
+            this.outdoorTemperatureOptions.push('Other');
+          }
+        }
+
+        // Set Occupancy Furnishings options
+        if (optionsByService['OccupancyFurnishings'] && optionsByService['OccupancyFurnishings'].length > 0) {
+          this.occupancyFurnishingsOptions = optionsByService['OccupancyFurnishings'];
+          if (!this.occupancyFurnishingsOptions.includes('Other')) {
+            this.occupancyFurnishingsOptions.push('Other');
+          }
+        }
+
+        // Set InAttendance options
+        if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
+          this.inAttendanceOptions = optionsByService['InAttendance'];
+          if (!this.inAttendanceOptions.includes('Other')) {
+            this.inAttendanceOptions.push('Other');
+          }
+        }
+
+        // Set FirstFoundationType options
+        if (optionsByService['FirstFoundationType'] && optionsByService['FirstFoundationType'].length > 0) {
+          this.firstFoundationTypeOptions = optionsByService['FirstFoundationType'];
+          if (!this.firstFoundationTypeOptions.includes('Other')) {
+            this.firstFoundationTypeOptions.push('Other');
+          }
+        }
+
+        // Set SecondFoundationType options
+        if (optionsByService['SecondFoundationType'] && optionsByService['SecondFoundationType'].length > 0) {
+          this.secondFoundationTypeOptions = optionsByService['SecondFoundationType'];
+          if (!this.secondFoundationTypeOptions.includes('Other')) {
+            this.secondFoundationTypeOptions.push('Other');
+          }
+        }
+
+        // Set ThirdFoundationType options
+        if (optionsByService['ThirdFoundationType'] && optionsByService['ThirdFoundationType'].length > 0) {
+          this.thirdFoundationTypeOptions = optionsByService['ThirdFoundationType'];
+          if (!this.thirdFoundationTypeOptions.includes('Other')) {
+            this.thirdFoundationTypeOptions.push('Other');
+          }
+        }
+
+        // Set SecondFoundationRooms options
+        if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
+          this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
+          if (!this.secondFoundationRoomsOptions.includes('Other')) {
+            this.secondFoundationRoomsOptions.push('Other');
+          }
+        }
+
+        // Set ThirdFoundationRooms options
+        if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
+          this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
+          if (!this.thirdFoundationRoomsOptions.includes('Other')) {
+            this.thirdFoundationRoomsOptions.push('Other');
+          }
+        }
+
+        // Set OwnerOccupantInterview options
         if (optionsByService['OwnerOccupantInterview'] && optionsByService['OwnerOccupantInterview'].length > 0) {
           this.ownerOccupantInterviewOptions = optionsByService['OwnerOccupantInterview'];
           if (!this.ownerOccupantInterviewOptions.includes('Other')) {
@@ -298,6 +371,43 @@ export class ProjectDetailsPage implements OnInit {
       }
     } catch (error) {
       console.error('Error loading Services_Drop options:', error);
+      // Keep default options on error
+    }
+  }
+
+  // Load dropdown options from Projects_Drop table
+  private async loadProjectDropdownOptions() {
+    try {
+      const dropdownData = await this.caspioService.getProjectsDrop().toPromise();
+
+      if (dropdownData && dropdownData.length > 0) {
+        // Initialize arrays for each field type
+        const typeOfBuildingSet = new Set<string>();
+        const styleSet = new Set<string>();
+
+        // Process each row
+        dropdownData.forEach((row: any) => {
+          if (row.ProjectsName === 'TypeOfBuilding' && row.Dropdown) {
+            typeOfBuildingSet.add(row.Dropdown);
+          } else if (row.ProjectsName === 'Style' && row.Dropdown) {
+            styleSet.add(row.Dropdown);
+          }
+        });
+
+        // Convert sets to arrays (removes duplicates automatically)
+        this.typeOfBuildingOptions = Array.from(typeOfBuildingSet).sort();
+        this.styleOptions = Array.from(styleSet).sort();
+
+        // Add "Other" option to all dropdown arrays
+        if (!this.typeOfBuildingOptions.includes('Other')) {
+          this.typeOfBuildingOptions.push('Other');
+        }
+        if (!this.styleOptions.includes('Other')) {
+          this.styleOptions.push('Other');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading Projects_Drop options:', error);
       // Keep default options on error
     }
   }

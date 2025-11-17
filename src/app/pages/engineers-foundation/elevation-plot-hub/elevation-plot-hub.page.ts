@@ -279,9 +279,10 @@ export class ElevationPlotHubPage implements OnInit {
 
             const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === oldRoomName);
             const roomId = this.efeRecordIds[oldRoomName];
+            const roomIdStr = String(roomId || ''); // Convert to string for .startsWith() check
 
             // CRITICAL: Verify this room belongs to the current service
-            if (!roomId || roomId === '__pending__' || roomId.startsWith('temp_')) {
+            if (!roomId || roomId === '__pending__' || roomIdStr.startsWith('temp_')) {
               await this.showToast('Cannot rename room: Room not yet saved to database', 'warning');
               return false;
             }
@@ -469,9 +470,10 @@ export class ElevationPlotHubPage implements OnInit {
     console.log('[ElevationPlotHub] removeRoom called for:', roomName);
     this.savingRooms[roomName] = true;
     const roomId = this.efeRecordIds[roomName];
+    const roomIdStr = String(roomId || ''); // Convert to string for .startsWith() check
     console.log('[ElevationPlotHub] EFEID:', roomId);
 
-    if (roomId && roomId !== '__pending__' && !roomId.startsWith('temp_')) {
+    if (roomId && roomId !== '__pending__' && !roomIdStr.startsWith('temp_')) {
       try {
         console.log('[ElevationPlotHub] Deleting room from database...');
         // Delete the room from Services_EFE table using EFEID
@@ -482,11 +484,11 @@ export class ElevationPlotHubPage implements OnInit {
         delete this.efeRecordIds[roomName];
         this.selectedRooms[roomName] = false;
 
-        // Update room display data
+        // Remove room from display array (since this is hub view, only show selected rooms)
         const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
         if (roomIndex >= 0) {
-          this.roomTemplates[roomIndex].isSelected = false;
-          this.roomTemplates[roomIndex].efeId = undefined;
+          this.roomTemplates.splice(roomIndex, 1);
+          console.log('[ElevationPlotHub] Removed room from roomTemplates array');
         }
 
         // Clear room elevation data
