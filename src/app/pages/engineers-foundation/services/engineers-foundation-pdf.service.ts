@@ -6,7 +6,7 @@ import { EngineersFoundationDataService } from '../engineers-foundation-data.ser
 import { EngineersFoundationStateService } from './engineers-foundation-state.service';
 import { CacheService } from '../../../services/cache.service';
 import { FabricService } from '../../../services/fabric.service';
-import { renderAnnotationsOnPhoto } from '../../../utils/render-annotations-on-photo';
+import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 
 /**
  * PDF Generation Service for Engineers Foundation
@@ -230,12 +230,12 @@ export class EngineersFoundationPdfService {
 
     // Fetch project and service data
     const [projectData, serviceData] = await Promise.all([
-      firstValueFrom(this.caspioService.getProjectById(projectId)),
+      firstValueFrom(this.caspioService.getProject(projectId)),
       firstValueFrom(this.caspioService.getServiceById(serviceId))
     ]);
 
     // Get primary photo
-    let primaryPhoto = projectData?.PrimaryPhoto || null;
+    let primaryPhoto = (projectData as any)?.PrimaryPhoto || null;
 
     // Handle "Other" values from state service
     const stateData = this.stateService.getProjectData();
@@ -248,41 +248,41 @@ export class EngineersFoundationPdfService {
       primaryPhotoBase64: null as string | null, // Will be populated if preloaded
 
       // Property address
-      address: projectData?.Address || '',
-      city: projectData?.City || '',
-      state: projectData?.State || '',
-      zip: projectData?.Zip || '',
-      fullAddress: `${projectData?.Address || ''}, ${projectData?.City || ''}, ${projectData?.State || ''} ${projectData?.Zip || ''}`,
+      address: (projectData as any)?.Address || '',
+      city: (projectData as any)?.City || '',
+      state: (projectData as any)?.State || '',
+      zip: (projectData as any)?.Zip || '',
+      fullAddress: `${(projectData as any)?.Address || ''}, ${(projectData as any)?.City || ''}, ${(projectData as any)?.State || ''} ${(projectData as any)?.Zip || ''}`,
 
       // People & Roles
-      clientName: projectData?.ClientName || projectData?.Owner || '',
-      agentName: projectData?.AgentName || '',
-      inspectorName: projectData?.InspectorName || '',
-      inAttendance: serviceData?.InAttendance || '',
+      clientName: (projectData as any)?.ClientName || (projectData as any)?.Owner || '',
+      agentName: (projectData as any)?.AgentName || '',
+      inspectorName: (projectData as any)?.InspectorName || '',
+      inAttendance: (serviceData as any)?.InAttendance || '',
 
       // Property Details
-      yearBuilt: projectData?.YearBuilt || '',
-      squareFeet: projectData?.SquareFeet || '',
-      typeOfBuilding: projectData?.TypeOfBuilding || '',
-      style: projectData?.Style || '',
-      occupancyFurnishings: serviceData?.OccupancyFurnishings || '',
+      yearBuilt: (projectData as any)?.YearBuilt || '',
+      squareFeet: (projectData as any)?.SquareFeet || '',
+      typeOfBuilding: (projectData as any)?.TypeOfBuilding || '',
+      style: (projectData as any)?.Style || '',
+      occupancyFurnishings: (serviceData as any)?.OccupancyFurnishings || '',
 
       // Environmental Conditions
-      weatherConditions: serviceData?.WeatherConditions || '',
-      outdoorTemperature: serviceData?.OutdoorTemperature || '',
+      weatherConditions: (serviceData as any)?.WeatherConditions || '',
+      outdoorTemperature: (serviceData as any)?.OutdoorTemperature || '',
 
       // Foundation Details
-      firstFoundationType: serviceData?.FirstFoundationType || '',
-      secondFoundationType: serviceData?.SecondFoundationType || '',
-      secondFoundationRooms: serviceData?.SecondFoundationRooms || '',
-      thirdFoundationType: serviceData?.ThirdFoundationType || '',
-      thirdFoundationRooms: serviceData?.ThirdFoundationRooms || '',
+      firstFoundationType: (serviceData as any)?.FirstFoundationType || '',
+      secondFoundationType: (serviceData as any)?.SecondFoundationType || '',
+      secondFoundationRooms: (serviceData as any)?.SecondFoundationRooms || '',
+      thirdFoundationType: (serviceData as any)?.ThirdFoundationType || '',
+      thirdFoundationRooms: (serviceData as any)?.ThirdFoundationRooms || '',
 
       // Additional Information
-      ownerOccupantInterview: serviceData?.OwnerOccupantInterview || '',
+      ownerOccupantInterview: (serviceData as any)?.OwnerOccupantInterview || '',
 
       // Inspection Details
-      inspectionDate: this.formatDate(serviceData?.DateOfInspection || new Date().toISOString()),
+      inspectionDate: this.formatDate((serviceData as any)?.DateOfInspection || new Date().toISOString()),
 
       // Company information
       inspectorPhone: '936-202-8013',
@@ -468,13 +468,13 @@ export class EngineersFoundationPdfService {
   private async prepareElevationPlotData(serviceId: string): Promise<any[]> {
     console.log('[PDF Service] Preparing elevation plot data...');
 
-    const result = [];
+    const result: any[] = [];
 
     // Load Fabric.js for annotation rendering
     const fabric = await this.fabricService.getFabric();
 
     // Get all EFE rooms for this service
-    const allRooms = await this.foundationData.getEFERooms(serviceId);
+    const allRooms = await this.foundationData.getEFEByService(serviceId);
 
     if (!allRooms || allRooms.length === 0) {
       console.log('[PDF Service] No elevation rooms found');
