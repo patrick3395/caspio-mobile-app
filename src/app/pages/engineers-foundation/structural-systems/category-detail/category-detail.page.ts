@@ -227,6 +227,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     this.loading = true;
 
     try {
+      // CRITICAL: Clear all state to ensure fresh load from database
+      console.log('[LOAD DATA] Clearing all photo state for fresh load');
+      this.visualPhotos = {};
+      this.visualRecordIds = {};
+      this.uploadingPhotosByKey = {};
+      this.loadingPhotosByKey = {};
+      this.photoCountsByKey = {};
+      this.selectedItems = {};
+      this.organizedData = {
+        comments: [],
+        limitations: [],
+        deficiencies: []
+      };
+
       // Load templates for this category (fast - just structure)
       await this.loadCategoryTemplates();
 
@@ -509,9 +523,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       await new Promise(resolve => setTimeout(resolve, 300));
       console.log('[LOAD VISUALS] Starting background photo loading...');
 
-      // Now load the actual photos in background (don't await - let them load progressively)
-      // Use staggered delays to prevent overwhelming the UI and ensure skeletons stay visible
-      let delayMs = 0;
+      // CRITICAL FIX: Load all photos and WAIT for them to complete
+      // This ensures ALL photos are loaded, not just some
+      const photoLoadPromises: Promise<void>[] = [];
+
       for (const visual of visuals) {
         const category = visual.Category;
         const name = visual.Name;
@@ -531,16 +546,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
         const key = `${category}_${item.id}`;
 
-        // Stagger photo loading with small delays to keep skeletons visible longer
-        setTimeout(() => {
-          this.loadPhotosForVisual(visualId, key).catch(err => {
-            console.error('[LOAD VISUALS] Error loading photos for visual:', visualId, err);
-          });
-        }, delayMs);
+        // Load photos for this visual and add to promise array
+        const loadPromise = this.loadPhotosForVisual(visualId, key).catch(err => {
+          console.error('[LOAD VISUALS] Error loading photos for visual:', visualId, err);
+        });
 
-        // Increment delay by 50ms for each visual (so with 50 visuals, last one starts after 2.5 seconds)
-        delayMs += 50;
+        photoLoadPromises.push(loadPromise);
       }
+
+      // CRITICAL: Wait for ALL photos to finish loading
+      console.log('[LOAD VISUALS] Waiting for', photoLoadPromises.length, 'visuals to load photos...');
+      await Promise.all(photoLoadPromises);
+      console.log('[LOAD VISUALS] All photos loaded successfully');
 
       console.log('[LOAD VISUALS] Finished processing existing visuals, photos loading in background');
 
@@ -583,27 +600,69 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       // Get attachment count first (this is fast - just metadata)
       const attachments = await this.foundationData.getVisualAttachments(visualId);
 
-      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for visual', visualId);
+      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for visual', visualId, 'key:', key);
 
       // Set photo count immediately so skeleton loaders can be displayed
       this.photoCountsByKey[key] = attachments.length;
 
       if (attachments.length > 0) {
-        // Initialize photo array with placeholders (shows skeleton loaders)
-        this.visualPhotos[key] = [];
+        // CRITICAL FIX: Don't reset photo array if it already has photos from uploads
+        // Only initialize if it doesn't exist or is empty
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+          console.log('[LOAD PHOTOS] Initialized empty photo array for', key);
+        } else {
+          console.log('[LOAD PHOTOS] Photo array already exists with', this.visualPhotos[key].length, 'photos');
+
+          // Check if we already have all the photos loaded
+          const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => p.AttachID));
+          const attachmentIds = new Set(attachments.map(a => a.AttachID));
+
+          // If we already have all photos, don't reload them
+          const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(a.AttachID));
+          if (allPhotosLoaded) {
+            console.log('[LOAD PHOTOS] All photos already loaded for', key, '- skipping reload');
+            this.loadingPhotosByKey[key] = false;
+            this.changeDetectorRef.detectChanges();
+            return;
+          }
+
+          // Otherwise, only load photos that aren't already loaded
+          console.log('[LOAD PHOTOS] Will load missing photos only');
+        }
 
         // Trigger change detection so skeletons appear
         this.changeDetectorRef.detectChanges();
 
-        // Load each photo progressively - show as soon as ready instead of waiting for all
+        // CRITICAL FIX: Load ALL photos sequentially and wait for them to complete
+        // This ensures all photos are loaded before marking as complete
+        const loadPromises: Promise<void>[] = [];
+
         for (let i = 0; i < attachments.length; i++) {
           const attach = attachments[i];
 
-          // Process this photo in the background
-          this.loadSinglePhoto(attach, key).catch(err => {
+          // Check if this photo is already loaded
+          const existingPhoto = this.visualPhotos[key]?.find(p => p.AttachID === attach.AttachID);
+          if (existingPhoto) {
+            console.log('[LOAD PHOTOS] Photo', attach.AttachID, 'already loaded, skipping');
+            continue;
+          }
+
+          // Load this photo
+          const loadPromise = this.loadSinglePhoto(attach, key).catch(err => {
             console.error('[LOAD PHOTOS] Failed to load photo:', attach.AttachID, err);
           });
+
+          loadPromises.push(loadPromise);
         }
+
+        // CRITICAL: Wait for ALL photos to finish loading
+        console.log('[LOAD PHOTOS] Waiting for', loadPromises.length, 'photos to load...');
+        await Promise.all(loadPromises);
+        console.log('[LOAD PHOTOS] All photos loaded for', key);
+
+        this.loadingPhotosByKey[key] = false;
+        this.changeDetectorRef.detectChanges();
       } else {
         this.loadingPhotosByKey[key] = false;
         this.changeDetectorRef.detectChanges();
@@ -617,9 +676,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  private async loadSinglePhoto(attach: any, key: string) {
+  private async loadSinglePhoto(attach: any, key: string): Promise<void> {
     const filePath = attach.Photo;
     let imageUrl = '';
+
+    console.log('[LOAD PHOTO] Loading AttachID:', attach.AttachID, 'for key:', key);
 
     // Convert file path to base64 image using Files API
     if (filePath) {
@@ -629,11 +690,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         );
         if (imageData && imageData.startsWith('data:')) {
           imageUrl = imageData;
+          console.log('[LOAD PHOTO] Successfully loaded image data for', attach.AttachID);
+        } else {
+          console.warn('[LOAD PHOTO] Invalid image data received for', attach.AttachID);
+          imageUrl = 'assets/img/photo-placeholder.png';
         }
       } catch (err) {
         console.error('[LOAD PHOTOS] Failed to load image:', filePath, err);
         imageUrl = 'assets/img/photo-placeholder.png';
       }
+    } else {
+      console.warn('[LOAD PHOTO] No file path for attachment', attach.AttachID);
+      imageUrl = 'assets/img/photo-placeholder.png';
     }
 
     const hasDrawings = !!attach.Drawings;
@@ -665,13 +733,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     if (!this.visualPhotos[key]) {
       this.visualPhotos[key] = [];
     }
-    this.visualPhotos[key].push(photoData);
 
-    // Check if all photos for this item are loaded
-    if (this.visualPhotos[key].length === this.photoCountsByKey[key]) {
-      this.loadingPhotosByKey[key] = false;
-      console.log('[LOAD PHOTOS] All photos loaded for', key);
+    // CRITICAL: Check if photo already exists before adding
+    const existingIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attach.AttachID);
+    if (existingIndex !== -1) {
+      console.log('[LOAD PHOTO] Photo', attach.AttachID, 'already exists at index', existingIndex, '- updating instead of adding');
+      // Update existing photo instead of adding duplicate
+      this.visualPhotos[key][existingIndex] = photoData;
+    } else {
+      console.log('[LOAD PHOTO] Adding photo', attach.AttachID, 'to array (current count:', this.visualPhotos[key].length, ')');
+      this.visualPhotos[key].push(photoData);
     }
+
+    console.log('[LOAD PHOTO] Completed loading photo', attach.AttachID, '- array now has', this.visualPhotos[key].length, 'photos');
 
     // Trigger change detection to show this photo
     this.changeDetectorRef.detectChanges();
