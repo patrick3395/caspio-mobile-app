@@ -303,6 +303,15 @@ export class ProjectDetailsPage implements OnInit {
           if (!this.outdoorTemperatureOptions.includes('Other')) {
             this.outdoorTemperatureOptions.push('Other');
           }
+
+          // Reorder to put "30°F -" first (if it exists)
+          const thirtyBelowIndex = this.outdoorTemperatureOptions.findIndex(opt =>
+            opt.includes('30') && opt.includes('-') && !opt.includes('to')
+          );
+          if (thirtyBelowIndex > 0) {
+            const thirtyBelowOption = this.outdoorTemperatureOptions.splice(thirtyBelowIndex, 1)[0];
+            this.outdoorTemperatureOptions.unshift(thirtyBelowOption);
+          }
         }
 
         // Set Occupancy Furnishings options

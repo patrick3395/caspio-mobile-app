@@ -213,9 +213,9 @@
                 </ng-container>
               </div>
               <!-- Photo count badge in bottom right -->
-              <div *ngIf="getPhotosForVisual(categoryName, item.id).length > 0"
+              <div *ngIf="getTotalPhotoCount(categoryName, item.id) > 0"
                    style="position: absolute; bottom: 8px; right: 8px; background: #F15A27; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; z-index: 10;">
-                {{ getPhotosForVisual(categoryName, item.id).length }}
+                {{ getTotalPhotoCount(categoryName, item.id) }}
               </div>
             </div>
           </div>
@@ -397,9 +397,9 @@
                   </div>
                 </ng-container>
               </div>
-              <div *ngIf="getPhotosForVisual(categoryName, item.id).length > 0"
+              <div *ngIf="getTotalPhotoCount(categoryName, item.id) > 0"
                    style="position: absolute; bottom: 8px; right: 8px; background: #F15A27; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; z-index: 10;">
-                {{ getPhotosForVisual(categoryName, item.id).length }}
+                {{ getTotalPhotoCount(categoryName, item.id) }}
               </div>
             </div>
           </div>
@@ -581,9 +581,9 @@
                   </div>
                 </ng-container>
               </div>
-              <div *ngIf="getPhotosForVisual(categoryName, item.id).length > 0"
+              <div *ngIf="getTotalPhotoCount(categoryName, item.id) > 0"
                    style="position: absolute; bottom: 8px; right: 8px; background: #F15A27; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; z-index: 10;">
-                {{ getPhotosForVisual(categoryName, item.id).length }}
+                {{ getTotalPhotoCount(categoryName, item.id) }}
               </div>
             </div>
           </div>

@@ -480,18 +480,20 @@ export class ElevationPlotHubPage implements OnInit {
         await this.caspioService.deleteServicesEFEByEFEID(roomId).toPromise();
         console.log('[ElevationPlotHub] Room deleted from database successfully');
 
-        // Update local state
+        // Update local state - mark as unselected
         delete this.efeRecordIds[roomName];
         this.selectedRooms[roomName] = false;
 
-        // Remove room from display array (since this is hub view, only show selected rooms)
+        // Update room display data to show as unselected
         const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
         if (roomIndex >= 0) {
-          this.roomTemplates.splice(roomIndex, 1);
-          console.log('[ElevationPlotHub] Removed room from roomTemplates array');
+          this.roomTemplates[roomIndex].isSelected = false;
+          this.roomTemplates[roomIndex].isSaving = false;
+          this.roomTemplates[roomIndex].efeId = undefined;
+          console.log('[ElevationPlotHub] Marked room as unselected in UI');
         }
 
-        // Clear room elevation data
+        // Clear room elevation data (reset to template defaults)
         if (this.roomElevationData[roomName]) {
           if (this.roomElevationData[roomName].elevationPoints) {
             this.roomElevationData[roomName].elevationPoints.forEach((point: any) => {
@@ -502,10 +504,11 @@ export class ElevationPlotHubPage implements OnInit {
           this.roomElevationData[roomName].fdf = '';
           this.roomElevationData[roomName].notes = '';
           this.roomElevationData[roomName].location = '';
+          this.roomElevationData[roomName].fdfPhotos = {};
         }
 
         console.log('[ElevationPlotHub] Local state updated');
-        await this.showToast(`Room "${roomName}" deleted`, 'success');
+        await this.showToast(`Room "${roomName}" removed`, 'success');
       } catch (error) {
         console.error('[ElevationPlotHub] Error deleting room:', error);
         await this.showToast('Failed to delete room', 'danger');
@@ -600,19 +603,27 @@ export class ElevationPlotHubPage implements OnInit {
               }
 
               if (template) {
-                // If room was renamed, remove original template and add renamed room
+                // If room was renamed, replace at original index to preserve order
                 if (template.RoomName !== roomName) {
                   const originalIndex = roomsToDisplay.findIndex((t: any) =>
                     (t.TemplateID == templateIdNum || t.PK_ID == templateIdNum) && t.RoomName === template.RoomName
                   );
                   if (originalIndex >= 0) {
-                    roomsToDisplay.splice(originalIndex, 1);
+                    // Replace at the same index to preserve order
+                    roomsToDisplay[originalIndex] = { ...template, RoomName: roomName };
+                  } else {
+                    // Original not found, check if renamed room already exists
+                    const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
+                    if (existingRoomIndex < 0) {
+                      roomsToDisplay.push({ ...template, RoomName: roomName });
+                    }
                   }
-                }
-
-                const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
-                if (existingRoomIndex < 0) {
-                  roomsToDisplay.push({ ...template, RoomName: roomName });
+                } else {
+                  // Room not renamed, just ensure it's in the list
+                  const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
+                  if (existingRoomIndex < 0) {
+                    roomsToDisplay.push({ ...template, RoomName: roomName });
+                  }
                 }
               }
 

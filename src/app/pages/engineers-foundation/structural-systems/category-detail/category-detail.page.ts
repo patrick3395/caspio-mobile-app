@@ -1074,6 +1074,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     return this.photoCountsByKey[key] || 0;
   }
 
+  // Get total photo count to display (shows expected count immediately, updates if more photos added)
+  getTotalPhotoCount(category: string, itemId: string | number): number {
+    const key = `${category}_${itemId}`;
+    const expectedCount = this.photoCountsByKey[key] || 0;
+    const actualCount = (this.visualPhotos[key] || []).length;
+    // Return the maximum to handle both initial load (shows expected) and new uploads (shows actual)
+    return Math.max(expectedCount, actualCount);
+  }
+
   getSkeletonArray(category: string, itemId: string | number): any[] {
     const count = this.getExpectedPhotoCount(category, itemId);
     return Array(count).fill({ isSkeleton: true });
@@ -2129,11 +2138,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         cssClass: 'custom-document-alert',
         buttons: [
           {
-            text: 'Cancel',
-            role: 'cancel',
-            cssClass: 'alert-button-cancel'
-          },
-          {
             text: 'Delete',
             cssClass: 'alert-button-confirm',
             handler: () => {
@@ -2173,6 +2177,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
               return true; // Allow alert to dismiss immediately
             }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ]
       });
@@ -2238,36 +2247,41 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         message: ' ', // Empty space to prevent Ionic from hiding the message area
         buttons: [
           {
+            text: 'Save',
+            handler: () => {
+              // Get caption value
+              const input = document.getElementById('captionInput') as HTMLInputElement;
+              const newCaption = input?.value || '';
+
+              // Update photo caption in UI immediately
+              photo.caption = newCaption;
+              this.changeDetectorRef.detectChanges();
+
+              // Close popup immediately (don't wait for save)
+              this.isCaptionPopupOpen = false;
+
+              // Save to database in background (no await - don't block popup close)
+              if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+                this.foundationData.updateVisualPhotoCaption(photo.AttachID, newCaption)
+                  .then(() => {
+                    console.log('[CAPTION] Saved caption for photo:', photo.AttachID);
+                  })
+                  .catch((error) => {
+                    console.error('[CAPTION] Error saving caption:', error);
+                    // Show error toast but don't revert UI - user already sees their caption
+                    this.showToast('Caption saved to device, will sync when online', 'warning');
+                  });
+              }
+
+              return true; // Close popup immediately
+            }
+          },
+          {
             text: 'Cancel',
             role: 'cancel',
             handler: () => {
               this.isCaptionPopupOpen = false;
               return true;
-            }
-          },
-          {
-            text: 'Save',
-            handler: async () => {
-              try {
-                const input = document.getElementById('captionInput') as HTMLInputElement;
-                const newCaption = input?.value || '';
-                photo.caption = newCaption;
-
-                // Update in database
-                if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
-                  await this.foundationData.updateVisualPhotoCaption(photo.AttachID, newCaption);
-                }
-
-                this.changeDetectorRef.detectChanges();
-                // Remove success toast - silent update
-                this.isCaptionPopupOpen = false;
-                return true;
-              } catch (error) {
-                console.error('Error updating caption:', error);
-                await this.showToast('Failed to update caption', 'danger');
-                this.isCaptionPopupOpen = false;
-                return true;
-              }
             }
           }
         ]
@@ -2748,11 +2762,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       inputs: inputs,
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'editor-cancel-btn'
-        },
-        {
           text: 'Save',
           cssClass: 'editor-save-btn',
           handler: async (data) => {
@@ -2794,6 +2803,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             }
             return true;
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'editor-cancel-btn'
         }
       ]
     });
