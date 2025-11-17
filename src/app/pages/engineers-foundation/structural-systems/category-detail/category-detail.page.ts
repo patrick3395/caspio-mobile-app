@@ -1,9 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
 import { OfflineService } from '../../../../services/offline.service';
 import { CameraService } from '../../../../services/camera.service';
@@ -11,6 +11,7 @@ import { ImageCompressionService } from '../../../../services/image-compression.
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
 
 interface VisualItem {
   id: string | number;
@@ -37,7 +38,7 @@ interface VisualItem {
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class CategoryDetailPage implements OnInit {
+export class CategoryDetailPage implements OnInit, OnDestroy {
   projectId: string = '';
   serviceId: string = '';
   categoryName: string = '';
@@ -71,10 +72,9 @@ export class CategoryDetailPage implements OnInit {
   lockedScrollY: number = 0;
   private _loggedPhotoKeys = new Set<string>();
 
-  // Background upload queue
-  backgroundUploadQueue: Array<() => Promise<void>> = [];
-  activeUploadCount: number = 0;
-  maxParallelUploads: number = 2;
+  // Background upload subscriptions
+  private uploadSubscription?: Subscription;
+  private taskSubscription?: Subscription;
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -95,10 +95,14 @@ export class CategoryDetailPage implements OnInit {
     private changeDetectorRef: ChangeDetectorRef,
     private cameraService: CameraService,
     private imageCompression: ImageCompressionService,
-    private foundationData: EngineersFoundationDataService
+    private foundationData: EngineersFoundationDataService,
+    private backgroundUploadService: BackgroundPhotoUploadService
   ) {}
 
   async ngOnInit() {
+    // Subscribe to background upload task updates
+    this.subscribeToUploadUpdates();
+
     // Get category name from route
     this.route.params.subscribe(params => {
       this.categoryName = params['category'];
@@ -120,6 +124,103 @@ export class CategoryDetailPage implements OnInit {
         }
       });
     });
+  }
+
+  ngOnDestroy() {
+    // Clean up subscriptions - but uploads will continue in background service
+    if (this.uploadSubscription) {
+      this.uploadSubscription.unsubscribe();
+    }
+    if (this.taskSubscription) {
+      this.taskSubscription.unsubscribe();
+    }
+    console.log('[CATEGORY DETAIL] Component destroyed, but uploads continue in background');
+  }
+
+  /**
+   * Subscribe to background upload updates
+   * This allows the UI to update as photos upload, even if user navigates away and comes back
+   */
+  private subscribeToUploadUpdates() {
+    this.taskSubscription = this.backgroundUploadService.getTaskUpdates().subscribe(task => {
+      if (!task) return;
+
+      console.log('[UPLOAD UPDATE] Task:', task.id, 'Status:', task.status, 'Progress:', task.progress);
+
+      // Update the photo in our UI based on task status
+      const key = task.key;
+      const tempPhotoId = task.tempPhotoId;
+
+      if (!this.visualPhotos[key]) return;
+
+      const photoIndex = this.visualPhotos[key].findIndex(p =>
+        p.AttachID === tempPhotoId || p.id === tempPhotoId
+      );
+
+      if (photoIndex === -1) return;
+
+      if (task.status === 'uploading') {
+        // Update progress
+        this.visualPhotos[key][photoIndex].uploading = true;
+        this.visualPhotos[key][photoIndex].progress = task.progress;
+      } else if (task.status === 'completed') {
+        // Upload completed - get result from task
+        const result = (task as any).result;
+        if (result && result.AttachID) {
+          this.updatePhotoAfterUpload(key, photoIndex, result, task.caption);
+        }
+      } else if (task.status === 'failed') {
+        // Upload failed
+        this.visualPhotos[key][photoIndex].uploading = false;
+        this.visualPhotos[key][photoIndex].uploadFailed = true;
+        console.error('[UPLOAD UPDATE] Upload failed for task:', task.id, task.error);
+      }
+
+      this.changeDetectorRef.detectChanges();
+    });
+  }
+
+  /**
+   * Update photo object after successful upload
+   */
+  private async updatePhotoAfterUpload(key: string, photoIndex: number, result: any, caption: string) {
+    const uploadedPhotoUrl = result.thumbnailUrl || result.url || result.Photo;
+    let displayableUrl = uploadedPhotoUrl;
+
+    // Convert file path to displayable URL if needed
+    if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+      try {
+        const imageData = await firstValueFrom(
+          this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
+        );
+        if (imageData && imageData.startsWith('data:')) {
+          displayableUrl = imageData;
+        }
+      } catch (err) {
+        console.error('[UPLOAD UPDATE] Failed to load uploaded image:', err);
+        displayableUrl = 'assets/img/photo-placeholder.png';
+      }
+    }
+
+    // Update photo object
+    this.visualPhotos[key][photoIndex] = {
+      ...this.visualPhotos[key][photoIndex],
+      AttachID: result.AttachID,
+      id: result.AttachID,
+      uploading: false,
+      progress: 100,
+      filePath: uploadedPhotoUrl,
+      Photo: uploadedPhotoUrl,
+      url: displayableUrl,
+      originalUrl: displayableUrl,
+      thumbnailUrl: displayableUrl,
+      displayUrl: displayableUrl,
+      caption: caption || '',
+      annotation: caption || '',
+      Annotation: caption || ''
+    };
+
+    console.log('[UPLOAD UPDATE] Photo updated successfully');
   }
 
   private async loadData() {
@@ -957,101 +1058,130 @@ export class CategoryDetailPage implements OnInit {
       });
 
       if (images.photos && images.photos.length > 0) {
-        this.currentUploadContext = {
-          category,
-          itemId: String(itemId),
-          action: 'add'
-        };
-
         const key = `${category}_${itemId}`;
         let visualId = this.visualRecordIds[key];
 
+        // Create visual record if it doesn't exist
         if (!visualId) {
           await this.saveVisualSelection(category, itemId);
           visualId = this.visualRecordIds[key];
         }
 
-        if (visualId) {
-          // Initialize photo array if it doesn't exist
-          if (!this.visualPhotos[key]) {
-            this.visualPhotos[key] = [];
-          }
-
-          console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
-
-          // CRITICAL: Create skeleton placeholders IMMEDIATELY so user sees instant feedback
-          const skeletonPhotos = images.photos.map((image, i) => {
-            const tempId = `temp_skeleton_${Date.now()}_${i}`;
-            return {
-              AttachID: tempId,
-              id: tempId,
-              name: `photo_${i}.jpg`,
-              url: 'assets/img/photo-placeholder.png', // Skeleton state
-              thumbnailUrl: 'assets/img/photo-placeholder.png',
-              isObjectUrl: false,
-              uploading: false, // Will be set to true when we have the actual blob
-              isSkeleton: true, // Mark as skeleton
-              hasAnnotations: false,
-              caption: '',
-              annotation: ''
-            };
-          });
-
-          // Add all skeleton placeholders to UI immediately
-          this.visualPhotos[key].push(...skeletonPhotos);
-          this.changeDetectorRef.detectChanges();
-          console.log('[GALLERY UPLOAD] Added', skeletonPhotos.length, 'skeleton placeholders');
-
-          // CRITICAL: Use setTimeout to ensure skeletons render before we start fetching blobs
-          // Without this delay, the fetch is so fast that skeletons get replaced immediately
-          setTimeout(() => {
-            // Now fetch blobs and upload in the background
-            images.photos.forEach(async (image, i) => {
-              if (image.webPath) {
-                try {
-                  // Fetch the blob
-                  const response = await fetch(image.webPath);
-                  const blob = await response.blob();
-                  const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
-
-                  // Create object URL for preview
-                  const objectUrl = URL.createObjectURL(blob);
-
-                  // Find the skeleton placeholder and update it to show preview + uploading state
-                  const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeletonPhotos[i].AttachID);
-                  if (skeletonIndex !== -1 && this.visualPhotos[key]) {
-                    this.visualPhotos[key][skeletonIndex] = {
-                      ...this.visualPhotos[key][skeletonIndex],
-                      url: objectUrl,
-                      thumbnailUrl: objectUrl,
-                      isObjectUrl: true,
-                      uploading: true, // Now show uploading spinner
-                      isSkeleton: false
-                    };
-                    this.changeDetectorRef.detectChanges();
-                    console.log('[GALLERY UPLOAD] Updated skeleton', i, 'to show preview + uploading state');
-                  }
-
-                  // Upload the photo, passing the skeleton tempId so it updates the existing placeholder
-                  console.log('[GALLERY UPLOAD] Uploading photo', i + 1);
-                  await this.uploadPhotoForVisual(visualId, file, key, true, null, null, '', skeletonPhotos[i].AttachID);
-                } catch (error) {
-                  console.error('[GALLERY UPLOAD] Error uploading photo', i + 1, ':', error);
-
-                  // Mark the photo as failed
-                  const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeletonPhotos[i].AttachID);
-                  if (photoIndex !== -1 && this.visualPhotos[key]) {
-                    this.visualPhotos[key][photoIndex].uploading = false;
-                    this.visualPhotos[key][photoIndex].uploadFailed = true;
-                    this.changeDetectorRef.detectChanges();
-                  }
-                }
-              }
-            });
-          }, 150); // 150ms delay ensures skeletons render before blob fetching starts
+        if (!visualId) {
+          console.error('[GALLERY UPLOAD] Failed to create visual record');
+          await this.showToast('Failed to prepare upload', 'danger');
+          return;
         }
 
-        this.currentUploadContext = null;
+        const visualIdNum = parseInt(visualId, 10);
+        if (isNaN(visualIdNum)) {
+          console.error('[GALLERY UPLOAD] Invalid visual ID:', visualId);
+          await this.showToast('Invalid visual ID', 'danger');
+          return;
+        }
+
+        // Initialize photo array if it doesn't exist
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
+
+        // CRITICAL: Create skeleton placeholders IMMEDIATELY for all photos
+        const skeletonPhotos = images.photos.map((image, i) => {
+          const tempId = `temp_skeleton_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
+          return {
+            AttachID: tempId,
+            id: tempId,
+            name: `photo_${i}.jpg`,
+            url: 'assets/img/photo-placeholder.png',
+            thumbnailUrl: 'assets/img/photo-placeholder.png',
+            isObjectUrl: false,
+            uploading: false,
+            isSkeleton: true,
+            hasAnnotations: false,
+            caption: '',
+            annotation: '',
+            progress: 0
+          };
+        });
+
+        // Add all skeleton placeholders to UI immediately
+        this.visualPhotos[key].push(...skeletonPhotos);
+        this.changeDetectorRef.detectChanges();
+        console.log('[GALLERY UPLOAD] Added', skeletonPhotos.length, 'skeleton placeholders');
+
+        // CRITICAL FIX: Process photos SEQUENTIALLY using for...of instead of forEach
+        // This ensures ALL photos are processed and uploaded, not just some
+        setTimeout(async () => {
+          for (let i = 0; i < images.photos.length; i++) {
+            const image = images.photos[i];
+            const skeleton = skeletonPhotos[i];
+
+            if (image.webPath) {
+              try {
+                console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
+
+                // Fetch the blob
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+
+                // Create object URL for preview
+                const objectUrl = URL.createObjectURL(blob);
+
+                // Update skeleton to show preview + queued state
+                const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+                if (skeletonIndex !== -1 && this.visualPhotos[key]) {
+                  this.visualPhotos[key][skeletonIndex] = {
+                    ...this.visualPhotos[key][skeletonIndex],
+                    url: objectUrl,
+                    thumbnailUrl: objectUrl,
+                    isObjectUrl: true,
+                    uploading: true,
+                    isSkeleton: false,
+                    progress: 0
+                  };
+                  this.changeDetectorRef.detectChanges();
+                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview`);
+                }
+
+                // Add to background upload queue
+                // The upload will happen asynchronously and persist across navigation
+                const uploadFn = async (visualId: number, photo: File, caption: string) => {
+                  console.log(`[GALLERY UPLOAD] Uploading photo ${i + 1}/${images.photos.length}`);
+                  return await this.performVisualPhotoUpload(visualId, photo, key, true, null, null, skeleton.AttachID, caption);
+                };
+
+                this.backgroundUploadService.addToQueue(
+                  visualIdNum,
+                  file,
+                  key,
+                  '', // caption
+                  skeleton.AttachID,
+                  uploadFn
+                );
+
+                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} queued for upload`);
+
+              } catch (error) {
+                console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
+
+                // Mark the photo as failed
+                const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+                if (photoIndex !== -1 && this.visualPhotos[key]) {
+                  this.visualPhotos[key][photoIndex].uploading = false;
+                  this.visualPhotos[key][photoIndex].uploadFailed = true;
+                  this.changeDetectorRef.detectChanges();
+                }
+              }
+            }
+          }
+
+          console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos queued successfully`);
+          await this.showToast(`Uploading ${images.photos.length} photos in background`, 'success');
+
+        }, 150); // Small delay to ensure skeletons render
       }
     } catch (error) {
       // Check if user cancelled - don't show error for cancellations
