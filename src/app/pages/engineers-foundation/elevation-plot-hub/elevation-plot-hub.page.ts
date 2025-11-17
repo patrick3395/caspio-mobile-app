@@ -508,7 +508,7 @@ export class ElevationPlotHubPage implements OnInit {
         }
 
         console.log('[ElevationPlotHub] Local state updated');
-        await this.showToast(`Room "${roomName}" removed`, 'success');
+        // Toast removed per user request
       } catch (error) {
         console.error('[ElevationPlotHub] Error deleting room:', error);
         await this.showToast('Failed to delete room', 'danger');

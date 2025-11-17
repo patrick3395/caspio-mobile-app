@@ -1204,10 +1204,6 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       message: `Are you sure you want to delete the ${photoType} photo?`,
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Delete',
           handler: async () => {
             const photoKey = photoType.toLowerCase();
@@ -1231,12 +1227,16 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               fdfPhotos[`${photoKey}HasAnnotations`] = false;
 
               this.changeDetectorRef.detectChanges();
-              await this.showToast('Photo deleted', 'success');
+              // Toast removed per user request
             } catch (error) {
               console.error('Error deleting photo:', error);
               await this.showToast('Failed to delete photo', 'danger');
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -1442,7 +1442,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               }
 
               this.changeDetectorRef.detectChanges();
-              await this.showToast('Point deleted', 'success');
+              // Toast removed per user request
             } catch (error) {
               console.error('Error deleting point:', error);
               await this.showToast('Failed to delete point', 'danger');
@@ -1706,10 +1706,6 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       message: 'Are you sure you want to delete this photo?',
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Delete',
           handler: async () => {
             try {
@@ -1728,12 +1724,16 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               console.log('[Point Photo] Cleared EFE attachments cache after deletion');
 
               this.changeDetectorRef.detectChanges();
-              await this.showToast('Photo deleted', 'success');
+              // Toast removed per user request
             } catch (error) {
               console.error('Error deleting photo:', error);
               await this.showToast('Failed to delete photo', 'danger');
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ],
       cssClass: 'custom-document-alert'
