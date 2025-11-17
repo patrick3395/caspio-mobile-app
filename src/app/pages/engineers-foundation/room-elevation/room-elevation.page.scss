@@ -481,46 +481,46 @@ select.styled-input {
 
   .image-preview,
   .fdf-photo-preview {
-    width: 70px !important;
-    max-width: 70px !important;
-    min-width: 70px !important;
+    width: 100px !important;
+    max-width: 100px !important;
+    min-width: 100px !important;
 
     img {
-      width: 70px !important;
-      height: 70px !important;
-      max-width: 70px !important;
-      min-width: 70px !important;
+      width: 100px !important;
+      height: 100px !important;
+      max-width: 100px !important;
+      min-width: 100px !important;
     }
 
     .delete-btn {
-      width: 16px !important;
-      height: 16px !important;
-      top: 3px !important;
-      right: 3px !important;
+      width: 18px !important;
+      height: 18px !important;
+      top: 4px !important;
+      right: 4px !important;
 
       ion-icon {
-        font-size: 12px !important;
+        font-size: 13px !important;
       }
     }
   }
 
   .room-photo-caption {
-    width: 70px !important;
-    max-width: 70px !important;
-    min-width: 70px !important;
-    font-size: 10px !important;
-    padding: 3px 4px !important;
+    width: 100px !important;
+    max-width: 100px !important;
+    min-width: 100px !important;
+    font-size: 11px !important;
+    padding: 4px 5px !important;
   }
 
   .skeleton-loader {
     .skeleton-image {
-      width: 70px !important;
-      height: 70px !important;
+      width: 100px !important;
+      height: 100px !important;
     }
 
     .skeleton-caption {
-      width: 70px !important;
-      height: 20px !important;
+      width: 100px !important;
+      height: 22px !important;
     }
   }
 }
@@ -539,46 +539,46 @@ select.styled-input {
 
   .image-preview,
   .fdf-photo-preview {
-    width: 60px !important;
-    max-width: 60px !important;
-    min-width: 60px !important;
+    width: 85px !important;
+    max-width: 85px !important;
+    min-width: 85px !important;
 
     img {
-      width: 60px !important;
-      height: 60px !important;
-      max-width: 60px !important;
-      min-width: 60px !important;
+      width: 85px !important;
+      height: 85px !important;
+      max-width: 85px !important;
+      min-width: 85px !important;
     }
 
     .delete-btn {
-      width: 14px !important;
-      height: 14px !important;
-      top: 2px !important;
-      right: 2px !important;
+      width: 16px !important;
+      height: 16px !important;
+      top: 3px !important;
+      right: 3px !important;
 
       ion-icon {
-        font-size: 10px !important;
+        font-size: 11px !important;
       }
     }
   }
 
   .room-photo-caption {
-    width: 60px !important;
-    max-width: 60px !important;
-    min-width: 60px !important;
-    font-size: 9px !important;
-    padding: 2px 3px !important;
+    width: 85px !important;
+    max-width: 85px !important;
+    min-width: 85px !important;
+    font-size: 10px !important;
+    padding: 3px 4px !important;
   }
 
   .skeleton-loader {
     .skeleton-image {
-      width: 60px !important;
-      height: 60px !important;
+      width: 85px !important;
+      height: 85px !important;
     }
 
     .skeleton-caption {
-      width: 60px !important;
-      height: 18px !important;
+      width: 85px !important;
+      height: 20px !important;
     }
   }
 }

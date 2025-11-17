@@ -517,49 +517,42 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       // Trigger change detection so skeleton counts are set
       this.changeDetectorRef.detectChanges();
 
-      // CRITICAL: Add a delay to ensure all skeletons render before photos start loading
-      // Without this, photos load so fast they replace skeletons before user sees them all
-      console.log('[LOAD VISUALS] Waiting for skeletons to render...');
-      await new Promise(resolve => setTimeout(resolve, 300));
-      console.log('[LOAD VISUALS] Starting background photo loading...');
+      console.log('[LOAD VISUALS] Photo counts ready - skeletons will now render');
 
-      // CRITICAL FIX: Load all photos and WAIT for them to complete
-      // This ensures ALL photos are loaded, not just some
-      const photoLoadPromises: Promise<void>[] = [];
+      // CRITICAL: Start loading photos in background but DON'T WAIT for them
+      // This allows skeletons to show immediately while photos load progressively
+      setTimeout(() => {
+        console.log('[LOAD VISUALS] Starting background photo loading...');
 
-      for (const visual of visuals) {
-        const category = visual.Category;
-        const name = visual.Name;
-        const kind = visual.Kind;
-        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+        for (const visual of visuals) {
+          const category = visual.Category;
+          const name = visual.Name;
+          const kind = visual.Kind;
+          const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
 
-        if (category !== this.categoryName) {
-          continue;
+          if (category !== this.categoryName) {
+            continue;
+          }
+
+          const item = this.findItemByNameAndCategory(name, category, kind) ||
+                       this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+                       this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+                       this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+
+          if (!item) continue;
+
+          const key = `${category}_${item.id}`;
+
+          // Load photos in background - no await, happens asynchronously
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.error('[LOAD VISUALS] Error loading photos for visual:', visualId, err);
+          });
         }
 
-        const item = this.findItemByNameAndCategory(name, category, kind) ||
-                     this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
-                     this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
-                     this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+        console.log('[LOAD VISUALS] All photo loads started in background');
+      }, 100); // Small delay to ensure skeletons render before photo loading starts
 
-        if (!item) continue;
-
-        const key = `${category}_${item.id}`;
-
-        // Load photos for this visual and add to promise array
-        const loadPromise = this.loadPhotosForVisual(visualId, key).catch(err => {
-          console.error('[LOAD VISUALS] Error loading photos for visual:', visualId, err);
-        });
-
-        photoLoadPromises.push(loadPromise);
-      }
-
-      // CRITICAL: Wait for ALL photos to finish loading
-      console.log('[LOAD VISUALS] Waiting for', photoLoadPromises.length, 'visuals to load photos...');
-      await Promise.all(photoLoadPromises);
-      console.log('[LOAD VISUALS] All photos loaded successfully');
-
-      console.log('[LOAD VISUALS] Finished processing existing visuals, photos loading in background');
+      console.log('[LOAD VISUALS] Returning to show page with skeletons');
 
     } catch (error) {
       console.error('[LOAD VISUALS] Error loading existing visuals:', error);
