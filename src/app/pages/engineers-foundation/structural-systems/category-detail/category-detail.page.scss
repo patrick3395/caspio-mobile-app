@@ -178,6 +178,7 @@ ion-content {
         width: 100%;
         margin-bottom: 12px;
         overflow: visible;
+        border: 1px solid #e0e0e0;
 
         &.selected {
           border: 2px solid #000000;
@@ -246,7 +247,7 @@ ion-content {
       // Multi-select container styling
       .multi-select-container {
         margin-bottom: 4px;
-        border: 1px solid #f0f0f0;
+        border: none;
         border-radius: 8px;
         background: white;
         transition: all 0.3s ease;
@@ -356,7 +357,7 @@ ion-content {
   background: #fff;
   border-radius: 8px;
   margin-bottom: 12px;
-  border: 1px solid #e0e0e0;
+  border: none;
   cursor: pointer;
   transition: all 0.2s ease;
 

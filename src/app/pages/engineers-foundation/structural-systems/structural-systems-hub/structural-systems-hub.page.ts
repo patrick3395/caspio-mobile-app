@@ -116,7 +116,7 @@ export class StructuralSystemsHubPage implements OnInit {
 
   getCategoryIcon(categoryName: string): string {
     const iconMap: { [key: string]: string } = {
-      'Foundations': 'business-outline',
+      'Foundations': 'reorder-four-outline',
       'Grading and Drainage': 'water-outline',
       'General Conditions': 'document-text-outline',
       'Roof Structure': 'home-outline',
@@ -125,10 +125,10 @@ export class StructuralSystemsHubPage implements OnInit {
       'Attic': 'triangle-outline',
       'Crawlspace': 'arrow-down-outline',
       'Crawlspaces': 'arrow-down-outline',
-      'Walls (Interior and Exterior)': 'square-outline',
+      'Walls (Interior and Exterior)': 'albums-outline',
       'Ceilings and Floors': 'layers-outline',
       'Doors (Interior and Exterior)': 'enter-outline',
-      'Windows': 'stop-outline',
+      'Windows': 'scan-outline',
       'Other': 'ellipsis-horizontal-circle-outline',
       'Basements': 'cube-outline'
     };

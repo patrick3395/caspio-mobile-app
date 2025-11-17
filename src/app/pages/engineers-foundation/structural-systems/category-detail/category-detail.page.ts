@@ -744,10 +744,43 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     this.changeDetectorRef.detectChanges();
   }
 
-  // Item selection for checkbox-based items (answerType 0)
+  // Item selection for all answer types
   isItemSelected(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
-    return this.selectedItems[key] || false;
+
+    // For answerType 0 (checkbox items), check selectedItems dictionary
+    if (this.selectedItems[key]) {
+      return true;
+    }
+
+    // For answerType 1 (Yes/No) and answerType 2 (multi-select), check if item has an answer
+    const item = this.findItemById(itemId);
+    if (!item) {
+      return false;
+    }
+
+    // For answerType 1: Check if answer is selected (Yes or No)
+    if (item.answerType === 1 && item.answer && item.answer !== '') {
+      return true;
+    }
+
+    // For answerType 2: Check if any options are selected
+    if (item.answerType === 2 && item.answer && item.answer !== '') {
+      return true;
+    }
+
+    return false;
+  }
+
+  private findItemById(itemId: string | number): VisualItem | undefined {
+    // Search in all three sections
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+
+    return allItems.find(item => item.id === itemId);
   }
 
   async toggleItemSelection(category: string, itemId: string | number) {

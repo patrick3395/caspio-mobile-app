@@ -49,7 +49,7 @@
           <div slot="content" class="accordion-content">
             <div class="type-section">
               <div *ngIf="filterItems(organizedData.comments).length === 0 && !searchTerm" class="no-items-message">
-                No information yet. Click + to add one.
+                No information yet.<br>Click + to add one.
               </div>
               <div *ngIf="filterItems(organizedData.comments).length === 0 && searchTerm" class="no-items-message">
                 No results found for "{{ searchTerm }}"
@@ -242,7 +242,7 @@
           <div slot="content" class="accordion-content">
             <div class="type-section">
               <div *ngIf="filterItems(organizedData.limitations).length === 0 && !searchTerm" class="no-items-message">
-                No limitations yet. Click + to add one.
+                No limitations yet.<br>Click + to add one.
               </div>
               <div *ngIf="filterItems(organizedData.limitations).length === 0 && searchTerm" class="no-items-message">
                 No results found for "{{ searchTerm }}"
@@ -426,7 +426,7 @@
           <div slot="content" class="accordion-content">
             <div class="type-section">
               <div *ngIf="filterItems(organizedData.deficiencies).length === 0 && !searchTerm" class="no-items-message">
-                No deficiencies yet. Click + to add one.
+                No deficiencies yet.<br>Click + to add one.
               </div>
               <div *ngIf="filterItems(organizedData.deficiencies).length === 0 && searchTerm" class="no-items-message">
                 No results found for "{{ searchTerm }}"
