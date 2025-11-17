@@ -444,10 +444,6 @@ export class ElevationPlotHubPage implements OnInit {
       cssClass: 'custom-document-alert',
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Delete',
           cssClass: 'alert-button-danger',
           handler: () => {
@@ -459,6 +455,10 @@ export class ElevationPlotHubPage implements OnInit {
             });
             return false; // Prevent auto-dismiss
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ]
     });

@@ -7,6 +7,12 @@
     </ion-buttons>
     <ion-title class="full-title">{{ currentPageTitle }}</ion-title>
     <ion-title class="short-title">{{ currentPageShortTitle }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="generatePDF()" [disabled]="isGeneratingPDF">
+        <ion-icon slot="start" name="document-text"></ion-icon>
+        <span class="pdf-button-text">PDF</span>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 

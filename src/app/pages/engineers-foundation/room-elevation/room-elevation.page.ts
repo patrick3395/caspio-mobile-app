@@ -1308,10 +1308,6 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       ],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Add',
           handler: async (data) => {
             if (!data.pointName || !data.pointName.trim()) {
@@ -1349,6 +1345,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               return false;
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -1412,10 +1412,6 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       message: `Are you sure you want to delete "${point.name}"? This will also delete all associated photos.`,
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Delete',
           handler: async () => {
             try {
@@ -1448,6 +1444,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               await this.showToast('Failed to delete point', 'danger');
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ],
       cssClass: 'custom-document-alert'

@@ -3,6 +3,7 @@ import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
+import { EngineersFoundationPdfService } from '../services/engineers-foundation-pdf.service';
 import { filter } from 'rxjs/operators';
 
 interface Breadcrumb {
@@ -25,11 +26,13 @@ export class EngineersFoundationContainerPage implements OnInit {
   breadcrumbs: Breadcrumb[] = [];
   currentPageTitle: string = 'Engineers Foundation Evaluation';
   currentPageShortTitle: string = 'EFE';
+  isGeneratingPDF: boolean = false;
 
   constructor(
     private router: Router,
     private route: ActivatedRoute,
     private stateService: EngineersFoundationStateService,
+    private pdfService: EngineersFoundationPdfService,
     private location: Location
   ) {}
 
@@ -146,6 +149,22 @@ export class EngineersFoundationContainerPage implements OnInit {
   goBack() {
     // Navigate back one page in browser history
     this.location.back();
+  }
+
+  async generatePDF() {
+    if (!this.projectId || !this.serviceId) {
+      console.error('[Container] Cannot generate PDF: missing project or service ID');
+      return;
+    }
+
+    this.isGeneratingPDF = true;
+    try {
+      await this.pdfService.generatePDF(this.projectId, this.serviceId);
+    } catch (error) {
+      console.error('[Container] Error generating PDF:', error);
+    } finally {
+      this.isGeneratingPDF = false;
+    }
   }
 
   private getCategoryIcon(categoryName: string): string {
