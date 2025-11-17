@@ -133,19 +133,6 @@
     opacity: 0.4;
     cursor: not-allowed;
   }
-
-  &.delete-btn {
-    color: #F15A27;
-
-    ion-icon {
-      color: #F15A27;
-    }
-
-    &:hover:not(:disabled) {
-      background: #fff5f2;
-      border-color: #F15A27;
-    }
-  }
 }
 
 .empty-state {

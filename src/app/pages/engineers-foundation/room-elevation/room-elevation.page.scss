@@ -428,18 +428,28 @@ select.styled-input {
 // ========================================
 .room-notes {
   ion-textarea {
-    --background: white;
+    --background: transparent;
     --color: #333;
-    --padding-start: 12px;
-    --padding-end: 12px;
-    --padding-top: 12px;
-    --padding-bottom: 12px;
-    border: 2px solid #e8e8e8;
-    border-radius: 8px;
+    --padding-start: 0;
+    --padding-end: 0;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    border: none;
+    border-radius: 0;
     font-size: 13px;
 
-    &:focus-within {
-      border-color: #e8e8e8;
+    textarea {
+      background: white;
+      color: #333;
+      padding: 12px;
+      border: 2px solid #e8e8e8;
+      border-radius: 8px;
+      font-size: 13px;
+
+      &:focus {
+        outline: none;
+        border-color: #F15A27;
+      }
     }
   }
 }

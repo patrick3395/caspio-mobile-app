@@ -53,33 +53,19 @@ export class EngineersFoundationPdfService {
     this.isPDFGenerating = true;
     this.pdfGenerationAttempts++;
 
+    let loading: HTMLIonAlertElement | null = null;
+
     try {
-      // Show loading indicator
-      const loading = await this.alertController.create({
+      // Show loading indicator (without blocking)
+      loading = await this.alertController.create({
         header: 'Loading Report',
         message: ' ',
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            handler: () => {
-              this.isPDFGenerating = false;
-              return true;
-            }
-          }
-        ],
         backdropDismiss: false,
         cssClass: 'template-loading-alert'
       });
       await loading.present();
 
-      // Check if user clicked cancel
-      const { role } = await loading.onDidDismiss();
-      if (role === 'cancel') {
-        console.log('[PDF Service] User cancelled PDF generation');
-        this.isPDFGenerating = false;
-        return;
-      }
+      console.log('[PDF Service] Starting PDF generation for:', { projectId, serviceId });
 
       // Check cache first (5-minute cache)
       const cacheKey = this.cache.getApiCacheKey('pdf_data', {
@@ -151,6 +137,8 @@ export class EngineersFoundationPdfService {
         }
       }
 
+      console.log('[PDF Service] Data loaded, now loading PDF preview component...');
+
       // Load PDF preview component and primary photo in parallel
       const [PdfPreviewComponent] = await Promise.all([
         this.loadPdfPreview(),
@@ -158,10 +146,19 @@ export class EngineersFoundationPdfService {
         this.loadPrimaryPhoto(projectInfo)
       ]);
 
+      console.log('[PDF Service] PDF preview component loaded:', !!PdfPreviewComponent);
+
       // Check if PdfPreviewComponent is available
       if (!PdfPreviewComponent) {
+        console.error('[PDF Service] PdfPreviewComponent not available!');
         throw new Error('PdfPreviewComponent not available');
       }
+
+      console.log('[PDF Service] Creating PDF modal with data:', {
+        projectInfo: !!projectInfo,
+        structuralData: structuralSystemsData?.length || 0,
+        elevationData: elevationPlotData?.length || 0
+      });
 
       // Create and present the PDF modal
       const modal = await this.modalController.create({
@@ -180,12 +177,16 @@ export class EngineersFoundationPdfService {
         backdropDismiss: false
       });
 
+      console.log('[PDF Service] Presenting PDF modal...');
       await modal.present();
+      console.log('[PDF Service] PDF modal presented successfully');
 
       // Dismiss loading immediately after modal is presented
       setTimeout(async () => {
         try {
-          await loading.dismiss();
+          if (loading) {
+            await loading.dismiss();
+          }
         } catch (dismissError) {
           // Ignore dismiss errors
         }
@@ -199,6 +200,15 @@ export class EngineersFoundationPdfService {
     } catch (error) {
       console.error('[PDF Service] Error generating PDF:', error);
       this.isPDFGenerating = false;
+
+      // Dismiss loading if still showing
+      try {
+        if (loading) {
+          await loading.dismiss();
+        }
+      } catch (dismissError) {
+        // Ignore dismiss errors
+      }
 
       // Show error alert
       const errorDetails = error instanceof Error ?
@@ -706,7 +716,9 @@ export class EngineersFoundationPdfService {
    */
   private async loadPdfPreview(): Promise<any> {
     try {
+      console.log('[PDF Service] Loading PDF preview component module...');
       const module = await import('../../../components/pdf-preview/pdf-preview.component');
+      console.log('[PDF Service] PDF preview component module loaded:', !!module.PdfPreviewComponent);
       return module.PdfPreviewComponent;
     } catch (error) {
       console.error('[PDF Service] Error loading PDF preview component:', error);
