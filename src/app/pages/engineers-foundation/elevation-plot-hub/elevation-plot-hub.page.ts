@@ -397,38 +397,187 @@ export class ElevationPlotHubPage implements OnInit {
     }
   }
 
-  async moveRoomUp(roomName: string, event: Event) {
+
+  async duplicateRoom(roomName: string, event: Event) {
     if (event) {
       event.stopPropagation();
       event.stopImmediatePropagation();
       event.preventDefault();
     }
 
-    const currentIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
-    if (currentIndex > 0) {
-      // Swap with the room above
-      const temp = this.roomTemplates[currentIndex];
-      this.roomTemplates[currentIndex] = this.roomTemplates[currentIndex - 1];
-      this.roomTemplates[currentIndex - 1] = temp;
+    console.log('[Duplicate Room] Starting duplication for:', roomName);
+
+    // Find the room template to duplicate
+    const roomToDuplicate = this.roomTemplates.find(r => r.RoomName === roomName);
+    if (!roomToDuplicate) {
+      console.error('[Duplicate Room] Room not found:', roomName);
+      await this.showToast('Room not found', 'danger');
+      return;
+    }
+
+    // Generate a unique name with incremented number
+    const newRoomName = this.generateUniqueDuplicateName(roomName);
+    console.log('[Duplicate Room] Generated new name:', newRoomName);
+
+    // Validate ServiceID
+    const serviceIdNum = parseInt(this.serviceId, 10);
+    if (!this.serviceId || isNaN(serviceIdNum)) {
+      console.error('[Duplicate Room] ERROR: Invalid ServiceID!');
+      await this.showToast('Error: Invalid ServiceID', 'danger');
+      return;
+    }
+
+    try {
+      // Get the template for this room
+      let templateId = roomToDuplicate.TemplateID || roomToDuplicate.PK_ID;
+      
+      // If no templateId from room, try to get it from roomElevationData
+      if (!templateId && this.roomElevationData[roomName]) {
+        templateId = this.roomElevationData[roomName].templateId;
+      }
+
+      // Create room elevation data for the new room (copy from original)
+      if (this.roomElevationData[roomName]) {
+        const originalData = this.roomElevationData[roomName];
+        this.roomElevationData[newRoomName] = {
+          roomName: newRoomName,
+          templateId: originalData.templateId,
+          elevationPoints: originalData.elevationPoints.map((point: any) => ({
+            pointNumber: point.pointNumber,
+            name: point.name,
+            value: '',
+            photo: null,
+            photos: [],
+            photoCount: 0
+          })),
+          pointCount: originalData.pointCount,
+          notes: '',
+          fdf: '',
+          location: '',
+          fdfPhotos: {}
+        };
+      }
+
+      // Create the new room in database
+      const roomData: any = {
+        ServiceID: serviceIdNum,
+        RoomName: newRoomName
+      };
+
+      if (templateId) {
+        roomData.TemplateID = templateId;
+      }
+
+      console.log('[Duplicate Room] Creating room in database:', roomData);
+
+      // OPTIMISTIC UI: Add the new room to the list immediately
+      const newRoom: RoomDisplayData = {
+        ...roomToDuplicate,
+        RoomName: newRoomName,
+        isSelected: true,
+        isSaving: true
+      };
+      
+      this.roomTemplates.push(newRoom);
+      this.selectedRooms[newRoomName] = true;
+      this.efeRecordIds[newRoomName] = `temp_${Date.now()}`;
+      this.savingRooms[newRoomName] = true;
       this.changeDetectorRef.detectChanges();
+
+      // Create room in database
+      const response = await this.caspioService.createServicesEFE(roomData).toPromise();
+      const roomId = response?.EFEID || response?.PK_ID || response?.id;
+
+      if (roomId) {
+        // Update with real ID
+        this.efeRecordIds[newRoomName] = roomId;
+        this.savingRooms[newRoomName] = false;
+
+        const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === newRoomName);
+        if (roomIndex >= 0) {
+          this.roomTemplates[roomIndex].isSaving = false;
+          this.roomTemplates[roomIndex].efeId = roomId;
+        }
+
+        this.changeDetectorRef.detectChanges();
+        await this.showToast(`Room "${newRoomName}" created successfully`, 'success');
+        console.log('[Duplicate Room] Room duplicated successfully:', newRoomName, 'EFEID:', roomId);
+      } else {
+        throw new Error('No room ID returned from creation');
+      }
+    } catch (error) {
+      console.error('[Duplicate Room] Error duplicating room:', error);
+
+      // Revert optimistic UI
+      this.selectedRooms[newRoomName] = false;
+      delete this.efeRecordIds[newRoomName];
+      this.savingRooms[newRoomName] = false;
+      delete this.roomElevationData[newRoomName];
+
+      // Remove from roomTemplates list
+      const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === newRoomName);
+      if (roomIndex >= 0) {
+        this.roomTemplates.splice(roomIndex, 1);
+      }
+
+      this.changeDetectorRef.detectChanges();
+      await this.showToast(`Failed to duplicate room "${roomName}"`, 'danger');
     }
   }
 
-  async moveRoomDown(roomName: string, event: Event) {
-    if (event) {
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      event.preventDefault();
+  /**
+   * Generate a unique name for duplicated room with incremented number
+   * Examples:
+   *   "Bedroom" -> "Bedroom #2"
+   *   "Bedroom #2" -> "Bedroom #3"
+   *   "Living Room" -> "Living Room #2"
+   */
+  private generateUniqueDuplicateName(originalName: string): string {
+    // Extract base name and current number if exists
+    const numberMatch = originalName.match(/^(.+?)\s*#(\d+)$/);
+    let baseName: string;
+    let startNumber: number;
+
+    if (numberMatch) {
+      // Already has a number, e.g., "Bedroom #2"
+      baseName = numberMatch[1].trim();
+      startNumber = parseInt(numberMatch[2], 10) + 1;
+    } else {
+      // No number yet, e.g., "Bedroom"
+      baseName = originalName.trim();
+      startNumber = 2;
     }
 
-    const currentIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
-    if (currentIndex >= 0 && currentIndex < this.roomTemplates.length - 1) {
-      // Swap with the room below
-      const temp = this.roomTemplates[currentIndex];
-      this.roomTemplates[currentIndex] = this.roomTemplates[currentIndex + 1];
-      this.roomTemplates[currentIndex + 1] = temp;
-      this.changeDetectorRef.detectChanges();
+    // Find the highest number used for this base name
+    let maxNumber = startNumber - 1;
+    for (const room of this.roomTemplates) {
+      const roomNumberMatch = room.RoomName.match(new RegExp(`^${this.escapeRegex(baseName)}\\s*#(\\d+)$`));
+      if (roomNumberMatch) {
+        const num = parseInt(roomNumberMatch[1], 10);
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
     }
+
+    // Generate new unique name
+    let newNumber = maxNumber + 1;
+    let newName = `${baseName} #${newNumber}`;
+
+    // Ensure the name is truly unique (shouldn't happen, but safety check)
+    while (this.roomTemplates.some(r => r.RoomName === newName)) {
+      newNumber++;
+      newName = `${baseName} #${newNumber}`;
+    }
+
+    return newName;
+  }
+
+  /**
+   * Escape special regex characters in a string
+   */
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   async deleteRoom(roomName: string, event: Event) {

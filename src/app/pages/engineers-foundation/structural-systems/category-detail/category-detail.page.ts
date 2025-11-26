@@ -8,6 +8,7 @@ import { CaspioService } from '../../../../services/caspio.service';
 import { OfflineService } from '../../../../services/offline.service';
 import { CameraService } from '../../../../services/camera.service';
 import { ImageCompressionService } from '../../../../services/image-compression.service';
+import { CacheService } from '../../../../services/cache.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -96,7 +97,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     private cameraService: CameraService,
     private imageCompression: ImageCompressionService,
     private foundationData: EngineersFoundationDataService,
-    private backgroundUploadService: BackgroundPhotoUploadService
+    private backgroundUploadService: BackgroundPhotoUploadService,
+    private cache: CacheService
   ) {}
 
   async ngOnInit() {
@@ -1684,6 +1686,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         await this.showToast('Photo uploaded successfully', 'success');
       }
 
+      // Clear PDF cache so new PDFs include this photo
+      this.clearPdfCache();
+
       // Return the AttachID for immediate use (e.g., saving annotations)
       return result.AttachID;
 
@@ -1775,6 +1780,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
       // Store the visual ID for photo uploads
       this.visualRecordIds[key] = visualId;
+
+      // Clear PDF cache so new PDFs show updated data
+      this.clearPdfCache();
 
       // Process any pending photo uploads for this item
       if (this.pendingPhotoUploads[key] && this.pendingPhotoUploads[key].length > 0) {
@@ -2945,6 +2953,33 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       setTimeout(() => {
         scrollElement.scrollTop = currentScrollTop;
       }, 0);
+    }
+  }
+
+  /**
+   * Clear PDF cache when data changes
+   * This ensures the next PDF generation fetches fresh data
+   */
+  private clearPdfCache() {
+    // Clear all PDF cache keys for this service
+    console.log('[CACHE] Clearing PDF cache for serviceId:', this.serviceId);
+    
+    try {
+      const now = Date.now();
+      
+      // Generate cache keys for current and previous timestamp blocks (last 10 minutes)
+      for (let i = 0; i < 10; i++) {
+        const timestamp = Math.floor((now - (i * 60000)) / 300000); // Check last 10 minutes of 5-min blocks
+        const cacheKey = this.cache.getApiCacheKey('pdf_data', {
+          serviceId: this.serviceId,
+          timestamp: timestamp
+        });
+        this.cache.delete(cacheKey);
+      }
+      
+      console.log('[CACHE] ✓ PDF cache cleared - next PDF will fetch fresh data');
+    } catch (error) {
+      console.error('[CACHE] Error clearing PDF cache:', error);
     }
   }
 }

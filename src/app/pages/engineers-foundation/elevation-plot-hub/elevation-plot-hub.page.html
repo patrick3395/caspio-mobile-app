@@ -30,27 +30,17 @@
             <button
               type="button"
               class="room-action-btn"
+              (click)="duplicateRoom(room.RoomName, $event)"
+              title="Duplicate Room">
+              <ion-icon name="copy-outline"></ion-icon>
+            </button>
+
+            <button
+              type="button"
+              class="room-action-btn"
               (click)="renameRoom(room.RoomName, $event)"
               title="Rename Room">
               <ion-icon name="create-outline"></ion-icon>
-            </button>
-
-            <button
-              type="button"
-              class="room-action-btn"
-              (click)="moveRoomUp(room.RoomName, $event)"
-              [disabled]="roomTemplates.indexOf(room) === 0"
-              title="Move Up">
-              <ion-icon name="arrow-up-outline"></ion-icon>
-            </button>
-
-            <button
-              type="button"
-              class="room-action-btn"
-              (click)="moveRoomDown(room.RoomName, $event)"
-              [disabled]="roomTemplates.indexOf(room) === roomTemplates.length - 1"
-              title="Move Down">
-              <ion-icon name="arrow-down-outline"></ion-icon>
             </button>
 
             <button
