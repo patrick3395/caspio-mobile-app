@@ -309,10 +309,22 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
   private async loadDropdownOptions(templateId: number) {
     try {
-      const options = await firstValueFrom(
-        this.caspioService.getServicesHUDDropByTemplateId(String(templateId))
+      // Get all HUD dropdown options and filter by templateId
+      const allOptions = await firstValueFrom(
+        this.caspioService.getServicesHUDDrop()
       );
-      this.visualDropdownOptions[templateId] = options.map((opt: any) => opt.Option || '');
+      
+      // Filter options for this specific template
+      const templateOptions = allOptions
+        .filter((opt: any) => opt.TemplateID === templateId)
+        .map((opt: any) => opt.Dropdown || '');
+      
+      this.visualDropdownOptions[templateId] = templateOptions;
+      
+      // Add "Other" option if not already present
+      if (!this.visualDropdownOptions[templateId].includes('Other')) {
+        this.visualDropdownOptions[templateId].push('Other');
+      }
     } catch (error) {
       console.error('Error loading dropdown options for template:', templateId, error);
       this.visualDropdownOptions[templateId] = [];
