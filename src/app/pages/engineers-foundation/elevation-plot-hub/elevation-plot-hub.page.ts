@@ -470,7 +470,7 @@ export class ElevationPlotHubPage implements OnInit {
 
       console.log('[Duplicate Room] Creating room in database:', roomData);
 
-      // OPTIMISTIC UI: Add the new room to the list immediately
+      // OPTIMISTIC UI: Add the new room to the list immediately right after the original
       const newRoom: RoomDisplayData = {
         ...roomToDuplicate,
         RoomName: newRoomName,
@@ -478,7 +478,15 @@ export class ElevationPlotHubPage implements OnInit {
         isSaving: true
       };
       
-      this.roomTemplates.push(newRoom);
+      // Find the index of the original room and insert the duplicate right after it
+      const originalRoomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
+      if (originalRoomIndex >= 0) {
+        this.roomTemplates.splice(originalRoomIndex + 1, 0, newRoom);
+      } else {
+        // Fallback: add to end if original not found
+        this.roomTemplates.push(newRoom);
+      }
+      
       this.selectedRooms[newRoomName] = true;
       this.efeRecordIds[newRoomName] = `temp_${Date.now()}`;
       this.savingRooms[newRoomName] = true;
@@ -752,23 +760,35 @@ export class ElevationPlotHubPage implements OnInit {
               }
 
               if (template) {
-                // If room was renamed, replace at original index to preserve order
+                // Check if this is a duplicated room (has " #N" pattern) or a renamed room
+                const isDuplicate = /\s+#\d+$/.test(roomName);
+                
                 if (template.RoomName !== roomName) {
-                  const originalIndex = roomsToDisplay.findIndex((t: any) =>
-                    (t.TemplateID == templateIdNum || t.PK_ID == templateIdNum) && t.RoomName === template.RoomName
-                  );
-                  if (originalIndex >= 0) {
-                    // Replace at the same index to preserve order
-                    roomsToDisplay[originalIndex] = { ...template, RoomName: roomName };
-                  } else {
-                    // Original not found, check if renamed room already exists
+                  if (isDuplicate) {
+                    // This is a duplicated room - ADD it to the list, don't replace the original
                     const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
                     if (existingRoomIndex < 0) {
+                      // Add duplicate room to the list
                       roomsToDisplay.push({ ...template, RoomName: roomName });
+                    }
+                  } else {
+                    // This is a renamed room - REPLACE the original template
+                    const originalIndex = roomsToDisplay.findIndex((t: any) =>
+                      (t.TemplateID == templateIdNum || t.PK_ID == templateIdNum) && t.RoomName === template.RoomName
+                    );
+                    if (originalIndex >= 0) {
+                      // Replace at the same index to preserve order
+                      roomsToDisplay[originalIndex] = { ...template, RoomName: roomName };
+                    } else {
+                      // Original not found, check if renamed room already exists
+                      const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
+                      if (existingRoomIndex < 0) {
+                        roomsToDisplay.push({ ...template, RoomName: roomName });
+                      }
                     }
                   }
                 } else {
-                  // Room not renamed, just ensure it's in the list
+                  // Room not renamed or duplicated, just ensure it's in the list
                   const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
                   if (existingRoomIndex < 0) {
                     roomsToDisplay.push({ ...template, RoomName: roomName });
