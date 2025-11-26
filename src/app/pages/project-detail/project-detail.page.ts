@@ -542,10 +542,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         };
       });
 
-      // [v1.4.498] PERFORMANCE FIX: Load icon images in parallel with other processing
-      const iconLoadPromise = this.loadIconImages();
-
-      // Process existing services
+      // Process existing services FIRST (so loadIconImages has data to work with)
       this.selectedServices = (servicesData || []).map((service: any) => {
         const offer = this.availableOffers.find(o => o.TypeID == service.TypeID);
         
@@ -624,6 +621,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           s.Status === 'Report Finalized' || s.ReportFinalized === true
         );
       }
+
+      // Load icon images AFTER selectedServices is populated (don't await - let it run async)
+      this.loadIconImages();
 
       // Process attach templates
       this.attachTemplates = attachTemplatesData || [];
@@ -711,6 +711,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             s.Status === 'Report Finalized' || s.ReportFinalized === true
           );
         }
+
+        // Load icon images AFTER selectedServices is populated (don't await - let it run async)
+        this.loadIconImages();
       },
       error: (error) => {
         this.error = 'Failed to load project';
@@ -769,8 +772,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         return nameA.localeCompare(nameB);
       });
 
-      // Load icon images after offers are processed
-      await this.loadIconImages();
+      // Note: Icon images will be loaded after selectedServices is populated
     } catch (error) {
       console.error('❌ Error loading offers - Full details:', error);
       console.error('Error type:', typeof error);

@@ -43,7 +43,8 @@ ion-content {
 }
 
 .category-content {
-  ::ng-deep mark {
+  ::ng-deep mark,
+  ::ng-deep .highlight {
     background-color: #fff3cd;
     color: #856404;
     font-weight: 600;

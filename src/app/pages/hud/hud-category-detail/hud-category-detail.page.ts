@@ -470,13 +470,21 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     );
   }
 
-  highlightText(text: string): string {
-    if (!this.searchTerm || !text) {
-      return text;
+  highlightText(text: string | undefined): string {
+    if (!text || !this.searchTerm || this.searchTerm.trim() === '') {
+      return text || '';
     }
 
-    const regex = new RegExp(`(${this.searchTerm})`, 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
+    const term = this.searchTerm.trim();
+    // Create a case-insensitive regex to find all matches
+    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
+
+    // Replace matches with highlighted span
+    return text.replace(regex, '<span class="highlight">$1</span>');
+  }
+
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   onSearchChange() {
@@ -522,10 +530,166 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async showFullText(item: VisualItem) {
+    // Build inputs based on AnswerType
+    const inputs: any[] = [
+      {
+        name: 'title',
+        type: 'text',
+        placeholder: 'Title' + (item.required ? ' *' : ''),
+        value: item.name || '',
+        cssClass: 'editor-title-input',
+        attributes: {
+          readonly: true  // Name is used for matching - should not be edited
+        }
+      }
+    ];
+
+    // Add appropriate input based on AnswerType
+    if (item.answerType === 1) {
+      // Yes/No toggle - use originalText for display text
+      const currentText = item.originalText || item.text || '';
+
+      // Add a read-only textarea showing the original text
+      if (currentText) {
+        inputs.push({
+          name: 'originalDescription',
+          type: 'textarea',
+          placeholder: 'Description',
+          value: currentText,
+          cssClass: 'editor-text-input',
+          attributes: {
+            rows: 6,
+            readonly: true
+          }
+        });
+      }
+
+      // Add Yes/No radio buttons for the answer
+      inputs.push({
+        name: 'description',
+        type: 'radio',
+        label: 'Yes',
+        value: 'Yes',
+        checked: item.answer === 'Yes'
+      });
+      inputs.push({
+        name: 'description',
+        type: 'radio',
+        label: 'No',
+        value: 'No',
+        checked: item.answer === 'No'
+      });
+    } else if (item.answerType === 2) {
+      // Multi-select - show options as checkboxes
+      const options = this.getDropdownOptions(item.templateId);
+      if (options.length > 0) {
+        // Add each option as a checkbox
+        options.forEach(option => {
+          inputs.push({
+            name: option,
+            type: 'checkbox',
+            label: option,
+            value: option,
+            checked: this.isOptionSelectedV1(item, option)
+          });
+        });
+      } else {
+        // Fallback to text if no options available
+        inputs.push({
+          name: 'description',
+          type: 'textarea',
+          placeholder: 'Description' + (item.required ? ' *' : ''),
+          value: item.text || '',
+          cssClass: 'editor-text-input',
+          attributes: {
+            rows: 8
+          }
+        });
+      }
+    } else {
+      // Default text input (AnswerType 0 or undefined)
+      inputs.push({
+        name: 'description',
+        type: 'textarea',
+        placeholder: 'Description' + (item.required ? ' *' : ''),
+        value: item.text || '',
+        cssClass: 'editor-text-input',
+        attributes: {
+          rows: 8
+        }
+      });
+    }
+
     const alert = await this.alertController.create({
-      header: item.name,
-      message: item.text,
-      buttons: ['Close']
+      header: 'Edit Description' + (item.required ? ' (Required)' : ''),
+      cssClass: 'text-editor-modal',
+      inputs: inputs,
+      buttons: [
+        {
+          text: 'Save',
+          cssClass: 'editor-save-btn',
+          handler: async (data) => {
+            // Validate required fields
+            if (item.required && !data.description) {
+              return false;
+            }
+
+            // Update the item text if changed (name is read-only)
+            if (item.answerType === 0 || !item.answerType) {
+              // For text items, update the text field
+              if (data.description !== item.text) {
+                const oldText = item.text;
+                item.text = data.description;
+
+                // Save to database if this visual is already created
+                const key = `${item.category}_${item.id}`;
+                const visualId = this.visualRecordIds[key];
+
+                if (visualId && !String(visualId).startsWith('temp_')) {
+                  try {
+                    // TODO: Implement HUD visual update
+                    // await this.hudData.updateVisual(visualId, { Text: data.description });
+                    console.log('[HUD TEXT EDIT] Updated visual text:', visualId, data.description);
+                    this.changeDetectorRef.detectChanges();
+                  } catch (error) {
+                    console.error('[HUD TEXT EDIT] Error updating visual:', error);
+                    item.text = oldText;
+                    return false;
+                  }
+                } else {
+                  this.changeDetectorRef.detectChanges();
+                }
+              }
+            } else if (item.answerType === 1) {
+              // For Yes/No items, update the answer
+              if (data.description !== item.answer) {
+                item.answer = data.description;
+                await this.onAnswerChange(item.category, item);
+              }
+            } else if (item.answerType === 2) {
+              // For multi-select, update based on checkboxes
+              const selectedOptions: string[] = [];
+              const options = this.getDropdownOptions(item.templateId);
+              options.forEach(option => {
+                if (data[option]) {
+                  selectedOptions.push(option);
+                }
+              });
+              const newAnswer = selectedOptions.join(', ');
+              if (newAnswer !== item.answer) {
+                item.answer = newAnswer;
+                await this.onAnswerChange(item.category, item);
+              }
+            }
+            return true;
+          }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'editor-cancel-btn'
+        }
+      ]
     });
     await alert.present();
   }
