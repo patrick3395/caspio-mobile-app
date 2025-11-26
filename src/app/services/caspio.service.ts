@@ -1976,16 +1976,23 @@ export class CaspioService {
             ]
           : [filePath.startsWith('/') ? filePath : `/${filePath}`]; // Use path as-is if it has folders
 
+        console.log(`📥 [Files API] Starting icon fetch for: "${filePath}"`);
+        console.log(`   Is just filename: ${isJustFilename}`);
+        console.log(`   Will try ${pathsToTry.length} path(s):`, pathsToTry);
+
         // Try each path in sequence
         const tryNextPath = (index: number): void => {
           if (index >= pathsToTry.length) {
             const error = new Error(`Failed to fetch image from any location - Path: "${filePath}"`);
+            console.error(`❌ [Files API] All ${pathsToTry.length} path attempts failed for "${filePath}"`);
+            console.error(`   Tried paths:`, pathsToTry);
             observer.error(error);
             return;
           }
 
           const cleanPath = pathsToTry[index];
           const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
+          console.log(`📥 [Files API] Attempt ${index + 1}/${pathsToTry.length}: "${cleanPath}"`);
 
           fetch(fullUrl, {
             method: 'GET',
@@ -1997,9 +2004,11 @@ export class CaspioService {
           .then(response => {
             if (!response.ok) {
               // If this path failed, try the next one
+              console.warn(`⚠️ [Files API] Attempt ${index + 1} failed - Status ${response.status}: "${cleanPath}"`);
               tryNextPath(index + 1);
               return null;
             }
+            console.log(`✅ [Files API] Success on attempt ${index + 1}: "${cleanPath}"`);
             return response.blob();
           })
           .then(blob => {
@@ -2016,6 +2025,7 @@ export class CaspioService {
           })
           .catch(error => {
             // Error in this attempt, try next path
+            console.warn(`⚠️ [Files API] Error on attempt ${index + 1}: "${cleanPath}"`, error?.message || error);
             tryNextPath(index + 1);
           });
         };

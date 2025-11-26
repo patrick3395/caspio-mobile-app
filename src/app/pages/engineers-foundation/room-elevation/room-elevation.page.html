@@ -414,9 +414,11 @@
                     rows="4"
                     placeholder="Notes for {{ roomName }}..."
                     (blur)="onRoomNotesChange()"
-                    autocapitalize="on"
+                    (input)="handleNotesInput($event)"
+                    autocapitalize="sentences"
                     autocorrect="on"
                     spellcheck="true"
+                    inputmode="text"
                     class="notes-textarea">
           </textarea>
         </div>
