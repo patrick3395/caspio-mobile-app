@@ -410,15 +410,15 @@
       <!-- Room-specific notes -->
       <div class="room-notes-container">
         <div class="room-notes">
-          <ion-textarea [(ngModel)]="roomData.notes"
-                        rows="4"
-                        placeholder="Notes for {{ roomName }}..."
-                        (ionBlur)="onRoomNotesChange()"
-                        [attr.autocapitalize]="'on'"
-                        [attr.autocorrect]="'on'"
-                        [attr.spellcheck]="'true'"
-                        class="notes-textarea">
-          </ion-textarea>
+          <textarea [(ngModel)]="roomData.notes"
+                    rows="4"
+                    placeholder="Notes for {{ roomName }}..."
+                    (blur)="onRoomNotesChange()"
+                    autocapitalize="on"
+                    autocorrect="on"
+                    spellcheck="true"
+                    class="notes-textarea">
+          </textarea>
         </div>
       </div>
     </div>

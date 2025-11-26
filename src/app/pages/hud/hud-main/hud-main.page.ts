@@ -1,10 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { CaspioService } from '../../../services/caspio.service';
-import { HudDataService } from '../hud-data.service';
 
 interface NavigationCard {
   title: string;
@@ -19,7 +16,7 @@ interface NavigationCard {
   templateUrl: './hud-main.page.html',
   styleUrls: ['./hud-main.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule]
+  imports: [CommonModule, IonicModule]
 })
 export class HudMainPage implements OnInit {
   cards: NavigationCard[] = [
@@ -41,16 +38,11 @@ export class HudMainPage implements OnInit {
 
   projectId: string = '';
   serviceId: string = '';
-  categories: { name: string; deficiencyCount: number }[] = [];
   loading: boolean = true;
-  showCategories: boolean = false;
 
   constructor(
     private router: Router,
-    private route: ActivatedRoute,
-    private caspioService: CaspioService,
-    private changeDetectorRef: ChangeDetectorRef,
-    private hudData: HudDataService
+    private route: ActivatedRoute
   ) {}
 
   async ngOnInit() {
@@ -63,110 +55,21 @@ export class HudMainPage implements OnInit {
 
       console.log('ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
-      if (this.projectId && this.serviceId) {
-        this.loadData();
-      } else {
+      if (!this.projectId || !this.serviceId) {
         console.error('Missing projectId or serviceId');
-        this.loading = false;
       }
-    });
-  }
-
-  private async loadData() {
-    this.loading = true;
-
-    try {
-      // Load categories from HUD templates
-      await this.loadCategories();
-
-      this.loading = false;
-    } catch (error) {
-      console.error('Error in loadData:', error);
-      this.loading = false;
-    }
-  }
-
-  private async loadCategories() {
-    try {
-      // Get all HUD templates
-      const allTemplates = await this.caspioService.getServicesHUDTemplates().toPromise();
-      const hudTemplates = allTemplates || [];
-
-      console.log('Loaded HUD templates:', hudTemplates.length);
-
-      // Extract unique categories in order
-      const categoriesSet = new Set<string>();
-      const categoriesOrder: string[] = [];
-
-      hudTemplates.forEach((template: any) => {
-        if (template.Category && !categoriesSet.has(template.Category)) {
-          categoriesSet.add(template.Category);
-          categoriesOrder.push(template.Category);
-          console.log('Found category:', template.Category);
-        }
-      });
-
-      console.log('Total unique categories:', categoriesOrder.length);
-      console.log('Categories:', categoriesOrder);
-
-      // Get deficiency counts for each category from saved visuals
-      const deficiencyCounts = await this.getDeficiencyCountsByCategory();
-
-      this.categories = categoriesOrder.map(cat => ({
-        name: cat,
-        deficiencyCount: deficiencyCounts[cat] || 0
-      }));
-
-      console.log('Categories with deficiency counts:', this.categories);
-
-    } catch (error) {
-      console.error('Error loading categories:', error);
-    }
-  }
-
-  private async getDeficiencyCountsByCategory(): Promise<{ [category: string]: number }> {
-    try {
-      // Load all existing HUD visuals for this service
-      const visuals = await this.hudData.getVisualsByService(this.serviceId);
       
-      console.log('[Deficiency Count] Found', visuals.length, 'total visuals');
-
-      // Count deficiencies by category
-      const counts: { [category: string]: number } = {};
-
-      visuals.forEach((visual: any) => {
-        const kind = visual.Kind || '';
-        const category = visual.Category || '';
-
-        // Only count items marked as "Deficiency"
-        if (kind === 'Deficiency' && category) {
-          counts[category] = (counts[category] || 0) + 1;
-        }
-      });
-
-      console.log('[Deficiency Count] Counts by category:', counts);
-
-      return counts;
-    } catch (error) {
-      console.error('Error counting deficiencies:', error);
-      return {};
-    }
+      this.loading = false;
+    });
   }
 
   navigateTo(card: NavigationCard) {
     if (card.route === 'categories') {
-      this.showCategories = true;
+      // Navigate directly to Mobile/Manufactured Homes category
+      this.router.navigate(['category', 'Mobile/Manufactured Homes'], { relativeTo: this.route });
     } else {
       this.router.navigate([card.route], { relativeTo: this.route.parent });
     }
-  }
-
-  navigateToCategory(categoryName: string) {
-    this.router.navigate(['category', categoryName], { relativeTo: this.route });
-  }
-
-  goBackToCards() {
-    this.showCategories = false;
   }
 
   private checkCompletionStatus() {
@@ -181,24 +84,6 @@ export class HudMainPage implements OnInit {
   canFinalize(): boolean {
     // TODO: Check if all required sections are complete
     return this.cards.every(card => card.completed);
-  }
-
-  getCategoryIcon(categoryName: string): string {
-    const iconMap: { [key: string]: string } = {
-      'Site': 'globe-outline',
-      'Foundation': 'business-outline',
-      'Exterior': 'home-outline',
-      'Roof': 'umbrella-outline',
-      'Structure': 'construct-outline',
-      'Plumbing': 'water-outline',
-      'Electrical': 'flash-outline',
-      'Heating/Cooling': 'thermometer-outline',
-      'Interior': 'grid-outline',
-      'Appliances': 'apps-outline',
-      'Other': 'ellipsis-horizontal-circle-outline'
-    };
-
-    return iconMap[categoryName] || 'document-text-outline';
   }
 }
 

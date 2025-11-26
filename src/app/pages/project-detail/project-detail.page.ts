@@ -2300,13 +2300,34 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     }
     
-    // Check for duplicate documents within each service
+    // Check for duplicate documents within each service and remove them
     for (const sd of this.serviceDocuments) {
-      const titles = sd.documents.map(d => d.title);
-      const duplicates = titles.filter((title, index) => titles.indexOf(title) !== index);
-      if (duplicates.length > 0) {
-        console.error(`❌ DUPLICATE DOCUMENTS in ${sd.serviceName}:`, duplicates);
+      const seen = new Map<string, DocumentItem>();
+      const deduplicatedDocs: DocumentItem[] = [];
+      
+      for (const doc of sd.documents) {
+        const existingDoc = seen.get(doc.title);
+        
+        if (!existingDoc) {
+          // First occurrence of this title
+          seen.set(doc.title, doc);
+          deduplicatedDocs.push(doc);
+        } else {
+          // Duplicate found - keep the uploaded one if one is uploaded
+          if (doc.uploaded && !existingDoc.uploaded) {
+            // Replace the pending one with the uploaded one
+            const index = deduplicatedDocs.indexOf(existingDoc);
+            if (index >= 0) {
+              deduplicatedDocs[index] = doc;
+              seen.set(doc.title, doc);
+            }
+          }
+          // If existingDoc is already uploaded, or both are the same status, keep the first one (ignore this duplicate)
+        }
       }
+      
+      // Replace documents array with deduplicated version
+      sd.documents = deduplicatedDocs;
     }
   }
 
@@ -3846,8 +3867,8 @@ Troubleshooting:
 
   async loadIconImages() {
     // PERFORMANCE OPTIMIZATION: Only load icons for services that are actually selected
-    // Get unique type IDs from selected services
-    const selectedTypeIds = new Set(this.selectedServices.map(s => s.typeId));
+    // Get unique type IDs from selected services (normalize to strings for comparison)
+    const selectedTypeIds = new Set(this.selectedServices.map(s => String(s.typeId)));
     
     // Filter for offers that: 1) have icons, 2) are actually used by selected services
     const offersWithIcons = this.availableOffers
@@ -3870,7 +3891,7 @@ Troubleshooting:
 
             // Update any existing services that use this offer
             this.selectedServices.forEach(service => {
-              if (service.typeId === offer.TypeID) {
+              if (String(service.typeId) === String(offer.TypeID)) {
                 service.typeIconUrl = imageData;
               }
             });

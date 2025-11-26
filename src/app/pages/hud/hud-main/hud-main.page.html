@@ -33,47 +33,8 @@
     </div>
   </div>
 
-  <!-- Categories List (When navigated from Visual Assessment card) -->
-  <div *ngIf="!loading && showCategories" class="categories-view">
-    <div class="back-button-container">
-      <ion-button fill="clear" (click)="goBackToCards()">
-        <ion-icon slot="start" name="arrow-back"></ion-icon>
-        Back to Main Menu
-      </ion-button>
-    </div>
-    
-    <div class="content-section">
-      <div *ngIf="categories.length > 0" class="categories-container">
-        <ion-card
-          *ngFor="let category of categories"
-          class="navigation-card"
-          button="true"
-          (click)="navigateToCategory(category.name)">
-          <ion-card-header>
-            <div class="card-header-content">
-              <div class="icon-container">
-                <ion-icon [name]="getCategoryIcon(category.name)"></ion-icon>
-              </div>
-              <div class="title-container">
-                <ion-card-title>{{ category.name }}</ion-card-title>
-                <p class="deficiency-count" *ngIf="category.deficiencyCount > 0">
-                  {{ category.deficiencyCount }} {{ category.deficiencyCount === 1 ? 'Defect' : 'Defects' }}
-                </p>
-              </div>
-            </div>
-          </ion-card-header>
-        </ion-card>
-      </div>
-
-      <div *ngIf="categories.length === 0" class="empty-message">
-        <ion-icon name="folder-open-outline"></ion-icon>
-        <p>No categories available</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Footer with Finalize Button (Main View Only) -->
-  <div *ngIf="!loading && !showCategories" class="footer-section">
+  <!-- Footer with Finalize Button -->
+  <div *ngIf="!loading" class="footer-section">
     <ion-button
       expand="block"
       size="large"

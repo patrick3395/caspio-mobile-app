@@ -46,7 +46,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
   loading: boolean = true;
   searchTerm: string = '';
-  expandedAccordions: string[] = [];
+  expandedAccordions: string[] = ['information', 'limitations', 'deficiencies']; // Expand all by default
   organizedData: {
     comments: VisualItem[];
     limitations: VisualItem[];
