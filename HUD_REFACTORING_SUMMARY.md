@@ -10,7 +10,8 @@ Defines the nested routing structure:
 
 ```
 /hud/:projectId/:serviceId (container)
-  ├─ '' (main hub - categories list)
+  ├─ '' (main hub - navigation cards)
+  ├─ project-details (project details page)
   └─ category/:category (category detail page)
 ```
 
@@ -28,19 +29,35 @@ Defines the nested routing structure:
   - Router outlet for child pages
 
 ### 3. **HUD Main Hub** (`src/app/pages/hud/hud-main/`)
-- **Purpose**: Landing page showing all HUD categories
+- **Purpose**: Landing page with navigation cards (like Engineers Foundation)
 - **Files**:
   - `hud-main.page.ts`
   - `hud-main.page.html`
   - `hud-main.page.scss`
 - **Features**:
-  - Loads categories from `Services_HUD_Templates` table
+  - Navigation cards for Project Details and Visual Assessment
+  - In-page navigation to categories view when Visual Assessment is clicked
   - Shows deficiency count for each category
-  - Card-based navigation UI
-  - Category icons
+  - Finalize Report button
+  - Completion status tracking
   - Loading states
 
-### 4. **HUD Category Detail** (`src/app/pages/hud/hud-category-detail/`)
+### 4. **HUD Project Details** (`src/app/pages/hud/hud-project-details/`)
+- **Purpose**: EXACT copy of Engineers Foundation Project Details page
+- **Files**:
+  - `hud-project-details.page.ts`
+  - `hud-project-details.page.html`
+  - `hud-project-details.page.scss`
+- **Features**:
+  - **People**: Client Name, Agent Name, Inspector Name, In Attendance (multi-select)
+  - **Property Details**: Year Built, Square Feet, Building Type, Style, Occupancy Status
+  - **Environmental Conditions**: Weather Conditions, Outdoor Temperature
+  - Auto-save functionality for all fields
+  - "Other" option support with custom text inputs
+  - Dropdown options loaded from `Services_Drop` and `Projects_Drop` tables
+  - Offline support with save status indicators
+
+### 5. **HUD Category Detail** (`src/app/pages/hud/hud-category-detail/`)
 - **Purpose**: Displays visual items for a specific category
 - **Files**:
   - `hud-category-detail.page.ts` (~600 lines)
@@ -59,7 +76,7 @@ Defines the nested routing structure:
   - Skeleton loaders for photos
   - Responsive grid layout
 
-### 5. **Services**
+### 6. **Services**
 
 #### **HUD State Service** (`src/app/pages/hud/services/hud-state.service.ts`)
 - Manages shared state across all HUD pages
@@ -136,13 +153,19 @@ Project Detail
   ↓ (click HUD service)
 HUD Container (with header/breadcrumbs)
   ↓ (child route: '')
-HUD Main Hub (categories list)
-  ↓ (click category)
-HUD Category Detail (visual items for category)
-  ↓ (back button)
-HUD Main Hub
-  ↓ (back button)
-Project Detail (home)
+HUD Main Hub (navigation cards)
+  ├─ (click Project Details)
+  │  HUD Project Details Page
+  │    ↓ (back button)
+  │  HUD Main Hub
+  └─ (click Visual Assessment)
+     Categories List (in-page view)
+       ↓ (click category)
+     HUD Category Detail (visual items for category)
+       ↓ (back button)
+     HUD Main Hub
+       ↓ (back button)
+     Project Detail (home)
 ```
 
 ## Breadcrumb Navigation
@@ -152,6 +175,7 @@ Project Detail (home)
 - **Levels**:
   - Home icon → Project Detail
   - HUD → Main Hub
+  - Project Details → Project Details Page
   - Category Name → Category Detail
 
 ## Styling Pattern

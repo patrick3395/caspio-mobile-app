@@ -408,14 +408,16 @@
       </div>
 
       <!-- Room-specific notes -->
-      <div class="room-notes">
-        <ion-textarea [(ngModel)]="roomData.notes"
-                      rows="2"
-                      placeholder="Notes for {{ roomName }}..."
-                      (ionBlur)="onRoomNotesChange()"
-                      autocapitalize="sentences"
-                      style="font-size: 13px;">
-        </ion-textarea>
+      <div class="room-notes-container">
+        <div class="room-notes">
+          <ion-textarea [(ngModel)]="roomData.notes"
+                        rows="4"
+                        placeholder="Notes for {{ roomName }}..."
+                        (ionBlur)="onRoomNotesChange()"
+                        autocapitalize="sentences"
+                        style="font-size: 14px;">
+          </ion-textarea>
+        </div>
       </div>
     </div>
   </div>

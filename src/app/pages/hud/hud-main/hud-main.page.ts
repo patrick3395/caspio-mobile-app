@@ -6,6 +6,14 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../../services/caspio.service';
 import { HudDataService } from '../hud-data.service';
 
+interface NavigationCard {
+  title: string;
+  icon: string;
+  route: string;
+  description: string;
+  completed: boolean;
+}
+
 @Component({
   selector: 'app-hud-main',
   templateUrl: './hud-main.page.html',
@@ -14,10 +22,28 @@ import { HudDataService } from '../hud-data.service';
   imports: [CommonModule, IonicModule, FormsModule]
 })
 export class HudMainPage implements OnInit {
+  cards: NavigationCard[] = [
+    {
+      title: 'Project Details',
+      icon: 'document-text-outline',
+      route: 'project-details',
+      description: 'Property information, people, and environmental conditions',
+      completed: false
+    },
+    {
+      title: 'Visual Assessment',
+      icon: 'construct-outline',
+      route: 'categories',
+      description: 'HUD/Manufactured home inspection items by category',
+      completed: false
+    }
+  ];
+
   projectId: string = '';
   serviceId: string = '';
   categories: { name: string; deficiencyCount: number }[] = [];
   loading: boolean = true;
+  showCategories: boolean = false;
 
   constructor(
     private router: Router,
@@ -127,8 +153,34 @@ export class HudMainPage implements OnInit {
     }
   }
 
+  navigateTo(card: NavigationCard) {
+    if (card.route === 'categories') {
+      this.showCategories = true;
+    } else {
+      this.router.navigate([card.route], { relativeTo: this.route.parent });
+    }
+  }
+
   navigateToCategory(categoryName: string) {
     this.router.navigate(['category', categoryName], { relativeTo: this.route });
+  }
+
+  goBackToCards() {
+    this.showCategories = false;
+  }
+
+  private checkCompletionStatus() {
+    // TODO: Implement logic to check if each section is complete
+  }
+
+  async finalizeReport() {
+    // TODO: Implement report finalization
+    console.log('Finalizing report...');
+  }
+
+  canFinalize(): boolean {
+    // TODO: Check if all required sections are complete
+    return this.cards.every(card => card.completed);
   }
 
   getCategoryIcon(categoryName: string): string {

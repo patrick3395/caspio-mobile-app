@@ -76,7 +76,7 @@ export class HudContainerPage implements OnInit {
     // URL format: /hud/{projectId}/{serviceId}/...
 
     // Check if we're on a sub-page (not the main HUD hub)
-    const isSubPage = url.includes('/category/');
+    const isSubPage = url.includes('/project-details') || url.includes('/category/');
 
     if (isSubPage) {
       // Add HUD main page as first breadcrumb when on sub-pages
@@ -85,6 +85,17 @@ export class HudContainerPage implements OnInit {
         path: '',
         icon: 'home-outline'
       });
+    }
+
+    // Check for project details
+    if (url.includes('/project-details')) {
+      this.breadcrumbs.push({ 
+        label: 'Project Details', 
+        path: 'project-details', 
+        icon: 'document-text-outline' 
+      });
+      this.currentPageTitle = 'Project Details';
+      this.currentPageShortTitle = 'Project Details';
     }
 
     // Check for category detail
@@ -122,6 +133,9 @@ export class HudContainerPage implements OnInit {
 
     // Check if we're on a category detail page
     if (url.includes('/category/')) {
+      // Navigate to HUD main page
+      this.router.navigate(['/hud', this.projectId, this.serviceId]);
+    } else if (url.includes('/project-details')) {
       // Navigate to HUD main page
       this.router.navigate(['/hud', this.projectId, this.serviceId]);
     } else {

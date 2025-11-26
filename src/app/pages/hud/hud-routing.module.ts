@@ -11,6 +11,10 @@ const routes: Routes = [
         loadComponent: () => import('./hud-main/hud-main.page').then(m => m.HudMainPage)
       },
       {
+        path: 'project-details',
+        loadComponent: () => import('./hud-project-details/hud-project-details.page').then(m => m.HudProjectDetailsPage)
+      },
+      {
         path: 'category/:category',
         loadComponent: () => import('./hud-category-detail/hud-category-detail.page').then(m => m.HudCategoryDetailPage)
       }
