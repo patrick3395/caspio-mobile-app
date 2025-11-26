@@ -2974,7 +2974,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           serviceId: this.serviceId,
           timestamp: timestamp
         });
-        this.cache.delete(cacheKey);
+        this.cache.clear(cacheKey);
       }
       
       console.log('[CACHE] ✓ PDF cache cleared - next PDF will fetch fresh data');
