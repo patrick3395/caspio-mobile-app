@@ -464,7 +464,7 @@ export class ElevationPlotHubPage implements OnInit {
       }
 
       // Get the organization number of the original room and set duplicate to be right after it
-      const originalRoomOrg = roomToDuplicate.Organization || 0;
+      const originalRoomOrg = roomToDuplicate['Organization'] || 0;
       const newOrganization = this.getInsertAfterOrganizationNumber(originalRoomOrg);
       
       // Create the new room in database
@@ -608,7 +608,7 @@ export class ElevationPlotHubPage implements OnInit {
     
     // Find the highest organization number currently in use
     for (const room of this.roomTemplates) {
-      const org = room.Organization || 0;
+      const org = room['Organization'] || 0;
       if (org > maxOrg) {
         maxOrg = org;
       }
@@ -628,17 +628,17 @@ export class ElevationPlotHubPage implements OnInit {
     // Shift all rooms with organization >= newOrg up by 1
     // This happens in-memory for immediate UI update
     for (const room of this.roomTemplates) {
-      if (room.Organization && room.Organization >= newOrg) {
-        const oldOrg = room.Organization;
-        room.Organization = room.Organization + 1;
+      if (room['Organization'] && room['Organization'] >= newOrg) {
+        const oldOrg = room['Organization'];
+        room['Organization'] = room['Organization'] + 1;
         
         // Update in database
         const roomId = this.efeRecordIds[room.RoomName];
         if (roomId && !String(roomId).startsWith('temp_')) {
-          this.caspioService.updateServicesEFEByEFEID(roomId, { Organization: room.Organization })
+          this.caspioService.updateServicesEFEByEFEID(roomId, { Organization: room['Organization'] })
             .toPromise()
             .then(() => {
-              console.log(`[Organization] Shifted room "${room.RoomName}" from ${oldOrg} to ${room.Organization}`);
+              console.log(`[Organization] Shifted room "${room.RoomName}" from ${oldOrg} to ${room['Organization']}`);
             })
             .catch(err => {
               console.error(`[Organization] Failed to shift room "${room.RoomName}":`, err);
@@ -856,7 +856,7 @@ export class ElevationPlotHubPage implements OnInit {
                     roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
                   } else {
                     // Update Organization if room already exists in display list
-                    roomsToDisplay[existingRoomIndex].Organization = room.Organization;
+                    roomsToDisplay[existingRoomIndex]['Organization'] = room.Organization;
                   }
                 }
               }
@@ -912,12 +912,12 @@ export class ElevationPlotHubPage implements OnInit {
           // Sort by Organization field (ascending)
           // Rooms without Organization go to the end
           this.roomTemplates.sort((a, b) => {
-            const orgA = a.Organization !== undefined && a.Organization !== null ? a.Organization : 999999;
-            const orgB = b.Organization !== undefined && b.Organization !== null ? b.Organization : 999999;
+            const orgA = a['Organization'] !== undefined && a['Organization'] !== null ? a['Organization'] : 999999;
+            const orgB = b['Organization'] !== undefined && b['Organization'] !== null ? b['Organization'] : 999999;
             return orgA - orgB;
           });
           
-          console.log('[Load Rooms] Sorted rooms by Organization:', this.roomTemplates.map(r => ({ name: r.RoomName, org: r.Organization })));
+          console.log('[Load Rooms] Sorted rooms by Organization:', this.roomTemplates.map(r => ({ name: r.RoomName, org: r['Organization'] })));
         } else {
           // No service ID, just show auto templates as unselected
           this.roomTemplates = autoTemplates.map(template => ({
