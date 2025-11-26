@@ -168,6 +168,11 @@ export class ElevationPlotHubPage implements OnInit {
       roomData.TemplateID = this.roomElevationData[roomName].templateId;
     }
 
+    // Set Organization to be at the end of the list
+    const nextOrganization = this.getNextOrganizationNumber();
+    roomData.Organization = nextOrganization;
+    console.log('[Create Room] Setting Organization to:', nextOrganization);
+
     // OPTIMISTIC UI: Immediately show room as selected with temp ID
     this.selectedRooms[roomName] = true;
     this.efeRecordIds[roomName] = `temp_${Date.now()}`;
@@ -458,10 +463,15 @@ export class ElevationPlotHubPage implements OnInit {
         };
       }
 
+      // Get the organization number of the original room and set duplicate to be right after it
+      const originalRoomOrg = roomToDuplicate.Organization || 0;
+      const newOrganization = this.getInsertAfterOrganizationNumber(originalRoomOrg);
+      
       // Create the new room in database
       const roomData: any = {
         ServiceID: serviceIdNum,
-        RoomName: newRoomName
+        RoomName: newRoomName,
+        Organization: newOrganization
       };
 
       if (templateId) {
@@ -469,11 +479,13 @@ export class ElevationPlotHubPage implements OnInit {
       }
 
       console.log('[Duplicate Room] Creating room in database:', roomData);
+      console.log('[Duplicate Room] Original Organization:', originalRoomOrg, '→ New Organization:', newOrganization);
 
       // OPTIMISTIC UI: Add the new room to the list immediately right after the original
       const newRoom: RoomDisplayData = {
         ...roomToDuplicate,
         RoomName: newRoomName,
+        Organization: newOrganization,
         isSelected: true,
         isSaving: true
       };
@@ -586,6 +598,56 @@ export class ElevationPlotHubPage implements OnInit {
    */
   private escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Get the next available organization number (for adding new rooms at the end)
+   */
+  private getNextOrganizationNumber(): number {
+    let maxOrg = 0;
+    
+    // Find the highest organization number currently in use
+    for (const room of this.roomTemplates) {
+      const org = room.Organization || 0;
+      if (org > maxOrg) {
+        maxOrg = org;
+      }
+    }
+    
+    // Return next number
+    return maxOrg + 1;
+  }
+
+  /**
+   * Get the organization number for inserting a room right after a specific organization
+   * This shifts all subsequent rooms' organization numbers up by 1
+   */
+  private getInsertAfterOrganizationNumber(afterOrganization: number): number {
+    const newOrg = afterOrganization + 1;
+    
+    // Shift all rooms with organization >= newOrg up by 1
+    // This happens in-memory for immediate UI update
+    for (const room of this.roomTemplates) {
+      if (room.Organization && room.Organization >= newOrg) {
+        const oldOrg = room.Organization;
+        room.Organization = room.Organization + 1;
+        
+        // Update in database
+        const roomId = this.efeRecordIds[room.RoomName];
+        if (roomId && !String(roomId).startsWith('temp_')) {
+          this.caspioService.updateServicesEFEByEFEID(roomId, { Organization: room.Organization })
+            .toPromise()
+            .then(() => {
+              console.log(`[Organization] Shifted room "${room.RoomName}" from ${oldOrg} to ${room.Organization}`);
+            })
+            .catch(err => {
+              console.error(`[Organization] Failed to shift room "${room.RoomName}":`, err);
+            });
+        }
+      }
+    }
+    
+    return newOrg;
   }
 
   async deleteRoom(roomName: string, event: Event) {
@@ -768,8 +830,8 @@ export class ElevationPlotHubPage implements OnInit {
                     // This is a duplicated room - ADD it to the list, don't replace the original
                     const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
                     if (existingRoomIndex < 0) {
-                      // Add duplicate room to the list
-                      roomsToDisplay.push({ ...template, RoomName: roomName });
+                      // Add duplicate room to the list with Organization from database
+                      roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
                     }
                   } else {
                     // This is a renamed room - REPLACE the original template
@@ -777,13 +839,13 @@ export class ElevationPlotHubPage implements OnInit {
                       (t.TemplateID == templateIdNum || t.PK_ID == templateIdNum) && t.RoomName === template.RoomName
                     );
                     if (originalIndex >= 0) {
-                      // Replace at the same index to preserve order
-                      roomsToDisplay[originalIndex] = { ...template, RoomName: roomName };
+                      // Replace at the same index to preserve order with Organization from database
+                      roomsToDisplay[originalIndex] = { ...template, RoomName: roomName, Organization: room.Organization };
                     } else {
                       // Original not found, check if renamed room already exists
                       const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
                       if (existingRoomIndex < 0) {
-                        roomsToDisplay.push({ ...template, RoomName: roomName });
+                        roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
                       }
                     }
                   }
@@ -791,7 +853,10 @@ export class ElevationPlotHubPage implements OnInit {
                   // Room not renamed or duplicated, just ensure it's in the list
                   const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
                   if (existingRoomIndex < 0) {
-                    roomsToDisplay.push({ ...template, RoomName: roomName });
+                    roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
+                  } else {
+                    // Update Organization if room already exists in display list
+                    roomsToDisplay[existingRoomIndex].Organization = room.Organization;
                   }
                 }
               }
@@ -843,6 +908,16 @@ export class ElevationPlotHubPage implements OnInit {
             isSaving: !!this.savingRooms[template.RoomName],
             efeId: this.efeRecordIds[template.RoomName]
           }));
+
+          // Sort by Organization field (ascending)
+          // Rooms without Organization go to the end
+          this.roomTemplates.sort((a, b) => {
+            const orgA = a.Organization !== undefined && a.Organization !== null ? a.Organization : 999999;
+            const orgB = b.Organization !== undefined && b.Organization !== null ? b.Organization : 999999;
+            return orgA - orgB;
+          });
+          
+          console.log('[Load Rooms] Sorted rooms by Organization:', this.roomTemplates.map(r => ({ name: r.RoomName, org: r.Organization })));
         } else {
           // No service ID, just show auto templates as unselected
           this.roomTemplates = autoTemplates.map(template => ({
