@@ -27,14 +27,14 @@ export class HudMainPage implements OnInit {
       title: 'Project Details',
       icon: 'document-text-outline',
       route: 'project-details',
-      description: 'Property information, people, and environmental conditions',
+      description: '',
       completed: false
     },
     {
-      title: 'Visual Assessment',
+      title: 'HUD / Manufactured Home',
       icon: 'construct-outline',
       route: 'categories',
-      description: 'HUD/Manufactured home inspection items by category',
+      description: '',
       completed: false
     }
   ];

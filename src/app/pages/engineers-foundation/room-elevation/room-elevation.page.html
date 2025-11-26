@@ -414,8 +414,10 @@
                         rows="4"
                         placeholder="Notes for {{ roomName }}..."
                         (ionBlur)="onRoomNotesChange()"
-                        autocapitalize="sentences"
-                        style="font-size: 14px;">
+                        [autocapitalize]="'on'"
+                        [autocorrect]="'on'"
+                        [spellcheck]="true"
+                        class="notes-textarea">
           </ion-textarea>
         </div>
       </div>

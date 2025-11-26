@@ -268,13 +268,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
       // Organize templates by Kind (Type field in HUD is called "Kind")
       hudTemplates.forEach((template: any) => {
+        // Log the Kind value to debug
+        console.log('[HUD CATEGORY] Template:', template.Name, 'Kind:', template.Kind, 'Type:', template.Type);
+
         const templateData: VisualItem = {
           id: template.PK_ID,
           templateId: template.PK_ID,
           name: template.Name || 'Unnamed Item',
           text: template.Text || '',
           originalText: template.Text || '',
-          type: template.Kind || 'Comment',  // HUD uses "Kind" field
+          type: template.Kind || template.Type || 'Comment',  // Try Kind first, then Type
           category: template.Category,
           answerType: template.AnswerType || 0,
           required: template.Required === 'Yes',
@@ -283,14 +286,21 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           photos: []
         };
 
-        // Add to appropriate array based on Kind
-        const kind = (template.Kind || 'Comment').toLowerCase();
-        if (kind === 'limitation') {
+        // Add to appropriate array based on Kind or Type
+        const kind = template.Kind || template.Type || 'Comment';
+        const kindLower = kind.toLowerCase().trim();
+        
+        console.log('[HUD CATEGORY] Processing item:', template.Name, 'Kind value:', kind, 'Lowercased:', kindLower);
+
+        if (kindLower === 'limitation' || kindLower === 'limitations') {
           this.organizedData.limitations.push(templateData);
-        } else if (kind === 'deficiency') {
+          console.log('[HUD CATEGORY] Added to Limitations');
+        } else if (kindLower === 'deficiency' || kindLower === 'deficiencies') {
           this.organizedData.deficiencies.push(templateData);
+          console.log('[HUD CATEGORY] Added to Deficiencies');
         } else {
           this.organizedData.comments.push(templateData);
+          console.log('[HUD CATEGORY] Added to Comments/Information');
         }
 
         // Note: Dropdown options are already loaded via loadAllDropdownOptions()

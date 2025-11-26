@@ -86,6 +86,8 @@ interface ProjectDetailCacheState {
   optionalDocumentsList: any[];
   templateServicesCache: ServiceSelection[];
   templateServicesCacheKey: string;
+  showDeliverablesTable: boolean;
+  isCompanyOne: boolean;
   timestamp: number;
 }
 
@@ -186,6 +188,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.optionalDocumentsList = ProjectDetailPage.deepClone(cached.optionalDocumentsList);
       this.templateServicesCache = ProjectDetailPage.deepClone(cached.templateServicesCache);
       this.templateServicesCacheKey = cached.templateServicesCacheKey;
+      this.showDeliverablesTable = cached.showDeliverablesTable;
+      this.isCompanyOne = cached.isCompanyOne;
 
       // Apply pending finalized service flag if present (from cache restoration)
       if (this.pendingFinalizedServiceId) {
@@ -197,12 +201,22 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.pendingFinalizedServiceId = null;
       }
 
+      // Recalculate showDeliverablesTable based on restored services (for safety)
+      if (this.isCompanyOne) {
+        this.showDeliverablesTable = this.selectedServices.length > 0;
+      } else {
+        this.showDeliverablesTable = this.selectedServices.some(s =>
+          s.Status === 'Report Finalized' || s.ReportFinalized === true
+        );
+      }
+
       this.loading = false;
       this.loadingServices = false;
       this.loadingDocuments = false;
       this.error = '';
 
       console.log('✅ Cache restored, selectedServices count:', this.selectedServices?.length || 0);
+      console.log('✅ Deliverables table visible:', this.showDeliverablesTable);
 
       return true;
     } catch (error) {
@@ -229,6 +243,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         optionalDocumentsList: ProjectDetailPage.deepClone(this.optionalDocumentsList),
         templateServicesCache: ProjectDetailPage.deepClone(this.templateServicesCache),
         templateServicesCacheKey: this.templateServicesCacheKey,
+        showDeliverablesTable: this.showDeliverablesTable,
+        isCompanyOne: this.isCompanyOne,
         timestamp: Date.now()
       };
 
@@ -515,71 +531,23 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (statuses && statuses.status === 'rejected') console.error('Failed to load statuses:', statuses.reason);
 
       // Process offers and types
-      console.log('🔍 [Type Icons] Types data from LPS_Type table:', typesData?.map((t: any) => ({
-        PK_ID: t.PK_ID,
-        TypeID: t.TypeID,
-        TypeName: t.TypeName,
-        Icon: t.Icon,
-        IconType: typeof t.Icon,
-        IconLength: t.Icon?.length,
-        HasKB: t.Icon?.includes?.('KB'),
-        HasParens: t.Icon?.includes?.('(')
-      })));
-
       this.availableOffers = (offersData || []).map((offer: any) => {
         const type = (typesData || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
-        const result = {
+        return {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
           TypeShort: type?.TypeShort || '',
           TypeIcon: type?.Icon || '',
           TypeIconUrl: ''  // Will be loaded asynchronously
         };
-
-        if (type) {
-          console.log(`🔍 [Type Icons] Mapped offer ${offer.TypeID} -> TypeIcon: "${type?.Icon}"`);
-        }
-
-        return result;
       });
 
       // [v1.4.498] PERFORMANCE FIX: Load icon images in parallel with other processing
       const iconLoadPromise = this.loadIconImages();
 
-      console.log('📥 Loading services for project:', {
-        projectPK_ID: projectData?.PK_ID,
-        projectProjectID: projectData?.ProjectID,
-        actualProjectId,
-        servicesCount: servicesData?.length || 0,
-        pendingFinalizedServiceId: this.pendingFinalizedServiceId,
-        servicesData: servicesData
-      });
-
-      // CRITICAL DEBUG: Check if we have any services at all
-      if (!servicesData || servicesData.length === 0) {
-        console.error('❌ [ProjectDetail] NO SERVICES RETURNED FROM DATABASE!');
-        console.error('[ProjectDetail] Project ID queried:', actualProjectId);
-      }
-
       // Process existing services
       this.selectedServices = (servicesData || []).map((service: any) => {
         const offer = this.availableOffers.find(o => o.TypeID == service.TypeID);
-        
-        // Debug logging for status and datetime
-        if (service.Status || service.StatusEng) {
-          console.log('[ProjectDetail] Service Status/StatusEng Data:', {
-            typeName: offer?.TypeName,
-            Status: service.Status,
-            StatusEng: service.StatusEng,
-            StatusDateTime: service.StatusDateTime,
-            rawServiceFields: {
-              PK_ID: service.PK_ID,
-              Status: service.Status,
-              StatusEng: service.StatusEng,
-              StatusDateTime: service.StatusDateTime
-            }
-          });
-        }
         
         return {
           instanceId: `${service.PK_ID || service.ServiceID}_${Date.now()}_${Math.random()}`,
@@ -2050,10 +2018,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Document management methods
   updateDocumentsList() {
-    console.log('[UpdateDocs] Starting updateDocumentsList()');
-    console.log('[UpdateDocs] existingAttachments.length:', this.existingAttachments.length);
-    console.log('[UpdateDocs] selectedServices.length:', this.selectedServices.length);
-
     // Store ALL documents (uploaded and pending) with their original order
     const existingDocs: Map<string, Map<string, { doc: DocumentItem, order: number }>> = new Map();
     for (const serviceDoc of this.serviceDocuments) {
@@ -2068,15 +2032,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.serviceDocuments = [];
 
     for (const service of this.selectedServices) {
-      console.log('[UpdateDocs] Processing service:', service.typeId, service.typeName);
-
       // Get ALL templates for this service type where Auto = 'Yes'
       const autoTemplates = this.attachTemplates.filter(t =>
         t.TypeID === parseInt(service.typeId) &&
         (t.Auto === 'Yes' || t.Auto === true || t.Auto === 1)
       );
-
-      console.log('[UpdateDocs] autoTemplates.length:', autoTemplates.length);
 
       const documents: DocumentItem[] = [];
 
@@ -2112,16 +2072,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             return false;
           });
 
-          console.log(`[UpdateDocs] Template "${template.Title}" for service ${service.serviceId} - found ${attachments.length} attachments`);
-          if (attachments.length > 0) {
-            console.log(`[UpdateDocs] Attachment details:`, attachments.map(a => ({
-              AttachID: a.AttachID,
-              Title: a.Title,
-              Link: a.Link,
-              Attachment: a.Attachment,
-              Notes: a.Notes
-            })));
-          }
 
           // Sort attachments by AttachID to maintain consistent order
           attachments.sort((a: any, b: any) => {
@@ -2325,7 +2275,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           const orderB = storedOrder.get(b.title)?.order ?? 999999;
           return orderA - orderB;
         });
-        console.log('[UpdateDocs] Restored original order for service:', serviceDocGroup.serviceId);
       } else {
         // No previous order, sort by AttachID for new services
         documents.sort((a: any, b: any) => {
@@ -2333,7 +2282,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           const idB = parseInt(b.attachId) || 999999;
           return idA - idB;
         });
-        console.log('[UpdateDocs] Using AttachID order for new service:', serviceDocGroup.serviceId);
       }
 
       serviceDocGroup.documents = documents;
@@ -3897,82 +3845,47 @@ Troubleshooting:
   private readonly CACHE_DURATION = 60000; // 1 minute cache
 
   async loadIconImages() {
-    // PERFORMANCE FIX: Load all icon images in parallel instead of sequentially
-    console.log('🎨 [Icon Loading] Starting icon load process');
-    console.log('🎨 [Icon Loading] Available offers:', this.availableOffers.map(o => ({
-      TypeName: o.TypeName,
-      TypeIcon: o.TypeIcon,
-      hasIcon: !!o.TypeIcon,
-      startsWithSlash: o.TypeIcon?.startsWith('/')
-    })));
-
-    // Filter for offers with TypeIcon (filenames or paths - getImageFromFilesAPI handles both)
+    // PERFORMANCE OPTIMIZATION: Only load icons for services that are actually selected
+    // Get unique type IDs from selected services
+    const selectedTypeIds = new Set(this.selectedServices.map(s => s.typeId));
+    
+    // Filter for offers that: 1) have icons, 2) are actually used by selected services
     const offersWithIcons = this.availableOffers
-      .filter(offer => offer.TypeIcon && offer.TypeIcon.trim() !== '');
+      .filter(offer => 
+        offer.TypeIcon && 
+        offer.TypeIcon.trim() !== '' && 
+        selectedTypeIds.has(String(offer.TypeID))
+      );
 
-    console.log(`🎨 [Icon Loading] Found ${offersWithIcons.length} offers with valid icon paths`);
+    if (offersWithIcons.length === 0) {
+      return; // No icons to load
+    }
 
     const iconPromises = offersWithIcons.map(async (offer) => {
         try {
-          console.log(`🎨 [Icon Loading] Loading icon for ${offer.TypeName}`);
-          console.log(`   Raw Icon Value: "${offer.TypeIcon}"`);
-          console.log(`   Icon Type: ${typeof offer.TypeIcon}`);
-          console.log(`   Icon Length: ${offer.TypeIcon?.length}`);
-          console.log(`   Has (KB): ${offer.TypeIcon?.includes('KB')}`);
-          console.log(`   Has parentheses: ${offer.TypeIcon?.includes('(')}`);
           const imageData = await this.caspioService.getImageFromFilesAPI(offer.TypeIcon).toPromise();
           if (imageData && imageData.startsWith('data:')) {
             // Store the base64 data URL
             offer.TypeIconUrl = imageData;
-            console.log(`✅ [Icon Loading] Successfully loaded icon for ${offer.TypeName}`);
 
             // Update any existing services that use this offer
             this.selectedServices.forEach(service => {
               if (service.typeId === offer.TypeID) {
                 service.typeIconUrl = imageData;
-                console.log(`✅ [Icon Loading] Updated service ${service.typeName} with icon`);
               }
             });
-          } else {
-            console.warn(`⚠️ [Icon Loading] Invalid image data for ${offer.TypeName}:`, imageData?.substring(0, 50));
           }
         } catch (error: any) {
-          console.error(`❌ [Icon Loading] FAILED to load icon for service "${offer.TypeName}"`);
-          console.error(`   Service Type ID: ${offer.TypeID}`);
-          console.error(`   Service Type Name: ${offer.TypeName}`);
-          console.error(`   Icon Path: "${offer.TypeIcon}"`);
-          console.error(`   Offer ID: ${offer.OffersID || offer.PK_ID}`);
-          console.error(`   Error Message:`, error?.message || error);
-          console.error(`   Full Error:`, error);
-
-          // Count 403 errors specifically
-          if (error?.message?.includes('403')) {
-            console.error(`   ⚠️ 403 FORBIDDEN - Check if the file exists in Caspio Files or if there are permission issues`);
-          }
-
-          // Don't fail the entire process - just skip this icon
-          offer.TypeIconUrl = ''; // Explicitly set to empty so we know it was attempted
+          // Silently fail - fallback icon will be shown
+          offer.TypeIconUrl = '';
         }
       });
 
     // Wait for all icons to load in parallel
     await Promise.all(iconPromises);
-
-    // Provide summary of icon loading results
-    const successCount = offersWithIcons.filter(o => o.TypeIconUrl && o.TypeIconUrl.startsWith('data:')).length;
-    const failedCount = offersWithIcons.filter(o => o.TypeIconUrl === '').length;
-    console.log('🎨 [Icon Loading] Icon loading complete');
-    console.log(`   ✅ Successfully loaded: ${successCount} icons`);
-    console.log(`   ❌ Failed to load: ${failedCount} icons`);
-
-    if (failedCount > 0) {
-      console.error('❌ [Icon Loading] Failed icons details:');
-      offersWithIcons
-        .filter(o => o.TypeIconUrl === '')
-        .forEach(offer => {
-          console.error(`   - ${offer.TypeName} (ID: ${offer.TypeID}): "${offer.TypeIcon}"`);
-        });
-    }
+    
+    // Trigger change detection after icons load so they appear in the UI
+    this.changeDetectorRef.detectChanges();
   }
 
   getIconUrl(iconPath: string): string {

@@ -1965,50 +1965,63 @@ export class CaspioService {
     // Use getValidToken to ensure fresh token
     return this.getValidToken().pipe(
       switchMap(accessToken => new Observable<string>(observer => {
-        // Clean the file path - use exact path, no normalization
-        const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-        const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
+        // If the path is just a filename (no "/" anywhere), try common icon folders
+        const isJustFilename = !filePath.includes('/');
+        const pathsToTry = isJustFilename 
+          ? [
+              `/Icons/${filePath}`,           // Try Icons folder first
+              `/images/${filePath}`,          // Try images folder
+              `/icons/${filePath}`,           // Try lowercase icons folder
+              `/${filePath}`                  // Finally try root
+            ]
+          : [filePath.startsWith('/') ? filePath : `/${filePath}`]; // Use path as-is if it has folders
 
-        console.log(`📥 [Files API] Fetching icon: "${filePath}" -> cleanPath: "${cleanPath}"`);
-        console.log(`📥 [Files API] Full URL: ${fullUrl}`);
-
-        // Fetch from Files API
-        fetch(fullUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': 'application/octet-stream'
+        // Try each path in sequence
+        const tryNextPath = (index: number): void => {
+          if (index >= pathsToTry.length) {
+            const error = new Error(`Failed to fetch image from any location - Path: "${filePath}"`);
+            observer.error(error);
+            return;
           }
-        })
-      .then(response => {
-        if (!response.ok) {
-          const errorDetails = {
-            originalPath: filePath,
-            cleanPath: cleanPath,
-            fullUrl: fullUrl,
-            status: response.status,
-            statusText: response.statusText
-          };
-          console.error(`❌ [Files API] Failed to fetch image - Details:`, errorDetails);
-          console.error(`   Original path: "${filePath}"`);
-          console.error(`   Clean path: "${cleanPath}"`);
-          console.error(`   Full URL: ${fullUrl}`);
-          console.error(`   HTTP Status: ${response.status} ${response.statusText}`);
-          throw new Error(`Failed to fetch image: ${response.status} ${response.statusText} - Path: "${filePath}"`);
-        }
-        console.log(`✅ [Files API] Successfully fetched "${cleanPath}"`);
-        return response.blob();
-      })
-      .then(blob => this.convertBlobToDataUrl(blob))
-      .then(result => {
-        observer.next(result);
-        observer.complete();
-      })
-      .catch(error => {
-        console.error(`❌ [Files API] Error fetching image for path "${filePath}":`, error);
-        console.error(`   Full URL was: ${fullUrl}`);
-        observer.error(error);
-      });
+
+          const cleanPath = pathsToTry[index];
+          const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
+
+          fetch(fullUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Accept': 'application/octet-stream'
+            }
+          })
+          .then(response => {
+            if (!response.ok) {
+              // If this path failed, try the next one
+              tryNextPath(index + 1);
+              return null;
+            }
+            return response.blob();
+          })
+          .then(blob => {
+            if (blob) {
+              return this.convertBlobToDataUrl(blob);
+            }
+            return null;
+          })
+          .then(result => {
+            if (result) {
+              observer.next(result);
+              observer.complete();
+            }
+          })
+          .catch(error => {
+            // Error in this attempt, try next path
+            tryNextPath(index + 1);
+          });
+        };
+
+        // Start trying paths
+        tryNextPath(0);
       }))
     );
   }
@@ -2020,46 +2033,57 @@ export class CaspioService {
 
     return this.getValidToken().pipe(
       switchMap(accessToken => new Observable<Blob>(observer => {
-        const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-        const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
+        // If the path is just a filename (no "/" anywhere), try common icon folders
+        const isJustFilename = !filePath.includes('/');
+        const pathsToTry = isJustFilename 
+          ? [
+              `/Icons/${filePath}`,           // Try Icons folder first
+              `/images/${filePath}`,          // Try images folder
+              `/icons/${filePath}`,           // Try lowercase icons folder
+              `/${filePath}`                  // Finally try root
+            ]
+          : [filePath.startsWith('/') ? filePath : `/${filePath}`]; // Use path as-is if it has folders
 
-        console.log(`📥 [Files API Blob] Fetching: "${cleanPath}"`);
+        // Try each path in sequence
+        const tryNextPath = (index: number): void => {
+          if (index >= pathsToTry.length) {
+            const error = new Error(`Failed to fetch blob from any location - Path: "${filePath}"`);
+            observer.error(error);
+            return;
+          }
 
-        fetch(fullUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': 'application/octet-stream'
-          }
-        })
-        .then(response => {
-          if (!response.ok) {
-            const errorDetails = {
-              originalPath: filePath,
-              cleanPath: cleanPath,
-              fullUrl: fullUrl,
-              status: response.status,
-              statusText: response.statusText
-            };
-            console.error(`❌ [Files API Blob] Failed to fetch image - Details:`, errorDetails);
-            console.error(`   Original path: "${filePath}"`);
-            console.error(`   Clean path: "${cleanPath}"`);
-            console.error(`   Full URL: ${fullUrl}`);
-            console.error(`   HTTP Status: ${response.status} ${response.statusText}`);
-            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText} - Path: "${filePath}"`);
-          }
-          console.log(`✅ [Files API Blob] Successfully fetched "${cleanPath}"`);
-          return response.blob();
-        })
-        .then(blob => {
-          observer.next(blob);
-          observer.complete();
-        })
-        .catch(error => {
-          console.error(`❌ [Files API Blob] Error fetching image for path "${filePath}":`, error);
-          console.error(`   Full URL was: ${fullUrl}`);
-          observer.error(error);
-        });
+          const cleanPath = pathsToTry[index];
+          const fullUrl = `${API_BASE_URL}/files/path?filePath=${encodeURIComponent(cleanPath)}`;
+
+          fetch(fullUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Accept': 'application/octet-stream'
+            }
+          })
+          .then(response => {
+            if (!response.ok) {
+              // If this path failed, try the next one
+              tryNextPath(index + 1);
+              return null;
+            }
+            return response.blob();
+          })
+          .then(blob => {
+            if (blob) {
+              observer.next(blob);
+              observer.complete();
+            }
+          })
+          .catch(error => {
+            // Error in this attempt, try next path
+            tryNextPath(index + 1);
+          });
+        };
+
+        // Start trying paths
+        tryNextPath(0);
       }))
     );
   }

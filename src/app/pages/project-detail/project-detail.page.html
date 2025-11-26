@@ -258,6 +258,7 @@
         <div class="template-content">
           <div class="template-name">
             <img *ngIf="service.typeIconUrl" [src]="service.typeIconUrl" class="report-icon" alt="">
+            <ion-icon *ngIf="!service.typeIconUrl" name="document-text" class="report-icon-fallback"></ion-icon>
             <span class="service-title">
               <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
             </span>

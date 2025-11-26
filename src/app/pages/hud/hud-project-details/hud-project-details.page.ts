@@ -27,9 +27,23 @@ export class HudProjectDetailsPage implements OnInit {
   occupancyFurnishingsOptions: string[] = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
   weatherConditionsOptions: string[] = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
   outdoorTemperatureOptions: string[] = ['30°F -', '30°F to 60°F', '60°F to 70°F', '70°F to 80°F', '80°F to 90°F', '90°F to 100°F', '100°F+', 'Other'];
+  firstFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
+  secondFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
+  thirdFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
+  secondFoundationRoomsOptions: string[] = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
+  thirdFoundationRoomsOptions: string[] = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
+  ownerOccupantInterviewOptions: string[] = [
+    'Owner/occupant not available for discussion',
+    'Owner/occupant not aware of any previous foundation work',
+    'Owner/occupant provided the information documented in Support Documents',
+    'Owner/occupant is aware of previous work and will email documents asap',
+    'Other'
+  ];
 
   // Multi-select arrays
   inAttendanceSelections: string[] = [];
+  secondFoundationRoomsSelections: string[] = [];
+  thirdFoundationRoomsSelections: string[] = [];
 
   // "Other" value properties
   inAttendanceOtherValue: string = '';
@@ -38,6 +52,12 @@ export class HudProjectDetailsPage implements OnInit {
   occupancyFurnishingsOtherValue: string = '';
   weatherConditionsOtherValue: string = '';
   outdoorTemperatureOtherValue: string = '';
+  firstFoundationTypeOtherValue: string = '';
+  secondFoundationTypeOtherValue: string = '';
+  thirdFoundationTypeOtherValue: string = '';
+  secondFoundationRoomsOtherValue: string = '';
+  thirdFoundationRoomsOtherValue: string = '';
+  ownerOccupantInterviewOtherValue: string = '';
 
   // Save status
   saveStatus: string = '';
@@ -137,6 +157,46 @@ export class HudProjectDetailsPage implements OnInit {
             this.serviceData.OutdoorTemperature = '';
           }
 
+          // Check if FirstFoundationType is a custom value
+          if (this.serviceData.FirstFoundationType) {
+            if (!this.firstFoundationTypeOptions.includes(this.serviceData.FirstFoundationType)) {
+              this.firstFoundationTypeOtherValue = this.serviceData.FirstFoundationType;
+              this.serviceData.FirstFoundationType = 'Other';
+            }
+          } else {
+            this.serviceData.FirstFoundationType = '';
+          }
+
+          // Check if SecondFoundationType is a custom value
+          if (this.serviceData.SecondFoundationType) {
+            if (!this.secondFoundationTypeOptions.includes(this.serviceData.SecondFoundationType)) {
+              this.secondFoundationTypeOtherValue = this.serviceData.SecondFoundationType;
+              this.serviceData.SecondFoundationType = 'Other';
+            }
+          } else {
+            this.serviceData.SecondFoundationType = '';
+          }
+
+          // Check if ThirdFoundationType is a custom value
+          if (this.serviceData.ThirdFoundationType) {
+            if (!this.thirdFoundationTypeOptions.includes(this.serviceData.ThirdFoundationType)) {
+              this.thirdFoundationTypeOtherValue = this.serviceData.ThirdFoundationType;
+              this.serviceData.ThirdFoundationType = 'Other';
+            }
+          } else {
+            this.serviceData.ThirdFoundationType = '';
+          }
+
+          // Check if OwnerOccupantInterview is a custom value
+          if (this.serviceData.OwnerOccupantInterview) {
+            if (!this.ownerOccupantInterviewOptions.includes(this.serviceData.OwnerOccupantInterview)) {
+              this.ownerOccupantInterviewOtherValue = this.serviceData.OwnerOccupantInterview;
+              this.serviceData.OwnerOccupantInterview = 'Other';
+            }
+          } else {
+            this.serviceData.OwnerOccupantInterview = '';
+          }
+
           // Initialize multi-select arrays from stored comma-separated strings
           if (this.serviceData.InAttendance) {
             this.inAttendanceSelections = this.serviceData.InAttendance.split(',').map((s: string) => s.trim()).filter((s: string) => s);
@@ -152,6 +212,42 @@ export class HudProjectDetailsPage implements OnInit {
               );
               if (!this.inAttendanceSelections.includes('Other')) {
                 this.inAttendanceSelections.push('Other');
+              }
+            }
+          }
+
+          if (this.serviceData.SecondFoundationRooms) {
+            this.secondFoundationRoomsSelections = this.serviceData.SecondFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+
+            // Check if any selection is a custom value
+            const customValues = this.secondFoundationRoomsSelections.filter((val: string) =>
+              !this.secondFoundationRoomsOptions.includes(val)
+            );
+            if (customValues.length > 0) {
+              this.secondFoundationRoomsOtherValue = customValues.join(', ');
+              this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.filter((val: string) =>
+                this.secondFoundationRoomsOptions.includes(val) || val === 'Other'
+              );
+              if (!this.secondFoundationRoomsSelections.includes('Other')) {
+                this.secondFoundationRoomsSelections.push('Other');
+              }
+            }
+          }
+
+          if (this.serviceData.ThirdFoundationRooms) {
+            this.thirdFoundationRoomsSelections = this.serviceData.ThirdFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+
+            // Check if any selection is a custom value
+            const customValues = this.thirdFoundationRoomsSelections.filter((val: string) =>
+              !this.thirdFoundationRoomsOptions.includes(val)
+            );
+            if (customValues.length > 0) {
+              this.thirdFoundationRoomsOtherValue = customValues.join(', ');
+              this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.filter((val: string) =>
+                this.thirdFoundationRoomsOptions.includes(val) || val === 'Other'
+              );
+              if (!this.thirdFoundationRoomsSelections.includes('Other')) {
+                this.thirdFoundationRoomsSelections.push('Other');
               }
             }
           }
@@ -219,6 +315,54 @@ export class HudProjectDetailsPage implements OnInit {
           this.inAttendanceOptions = optionsByService['InAttendance'];
           if (!this.inAttendanceOptions.includes('Other')) {
             this.inAttendanceOptions.push('Other');
+          }
+        }
+
+        // Set FirstFoundationType options
+        if (optionsByService['FirstFoundationType'] && optionsByService['FirstFoundationType'].length > 0) {
+          this.firstFoundationTypeOptions = optionsByService['FirstFoundationType'];
+          if (!this.firstFoundationTypeOptions.includes('Other')) {
+            this.firstFoundationTypeOptions.push('Other');
+          }
+        }
+
+        // Set SecondFoundationType options
+        if (optionsByService['SecondFoundationType'] && optionsByService['SecondFoundationType'].length > 0) {
+          this.secondFoundationTypeOptions = optionsByService['SecondFoundationType'];
+          if (!this.secondFoundationTypeOptions.includes('Other')) {
+            this.secondFoundationTypeOptions.push('Other');
+          }
+        }
+
+        // Set ThirdFoundationType options
+        if (optionsByService['ThirdFoundationType'] && optionsByService['ThirdFoundationType'].length > 0) {
+          this.thirdFoundationTypeOptions = optionsByService['ThirdFoundationType'];
+          if (!this.thirdFoundationTypeOptions.includes('Other')) {
+            this.thirdFoundationTypeOptions.push('Other');
+          }
+        }
+
+        // Set SecondFoundationRooms options
+        if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
+          this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
+          if (!this.secondFoundationRoomsOptions.includes('Other')) {
+            this.secondFoundationRoomsOptions.push('Other');
+          }
+        }
+
+        // Set ThirdFoundationRooms options
+        if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
+          this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
+          if (!this.thirdFoundationRoomsOptions.includes('Other')) {
+            this.thirdFoundationRoomsOptions.push('Other');
+          }
+        }
+
+        // Set OwnerOccupantInterview options
+        if (optionsByService['OwnerOccupantInterview'] && optionsByService['OwnerOccupantInterview'].length > 0) {
+          this.ownerOccupantInterviewOptions = optionsByService['OwnerOccupantInterview'];
+          if (!this.ownerOccupantInterviewOptions.includes('Other')) {
+            this.ownerOccupantInterviewOptions.push('Other');
           }
         }
       }
@@ -417,6 +561,140 @@ export class HudProjectDetailsPage implements OnInit {
       const customValue = this.outdoorTemperatureOtherValue.trim();
       this.autoSaveServiceField('OutdoorTemperature', customValue);
     }
+  }
+
+  async onFirstFoundationTypeOtherChange() {
+    if (this.firstFoundationTypeOtherValue && this.firstFoundationTypeOtherValue.trim()) {
+      const customValue = this.firstFoundationTypeOtherValue.trim();
+      this.autoSaveServiceField('FirstFoundationType', customValue);
+    }
+  }
+
+  async onSecondFoundationTypeOtherChange() {
+    if (this.secondFoundationTypeOtherValue && this.secondFoundationTypeOtherValue.trim()) {
+      const customValue = this.secondFoundationTypeOtherValue.trim();
+      this.autoSaveServiceField('SecondFoundationType', customValue);
+    }
+  }
+
+  async onThirdFoundationTypeOtherChange() {
+    if (this.thirdFoundationTypeOtherValue && this.thirdFoundationTypeOtherValue.trim()) {
+      const customValue = this.thirdFoundationTypeOtherValue.trim();
+      this.autoSaveServiceField('ThirdFoundationType', customValue);
+    }
+  }
+
+  async onOwnerOccupantInterviewOtherChange() {
+    if (this.ownerOccupantInterviewOtherValue && this.ownerOccupantInterviewOtherValue.trim()) {
+      const customValue = this.ownerOccupantInterviewOtherValue.trim();
+      this.autoSaveServiceField('OwnerOccupantInterview', customValue);
+    }
+  }
+
+  // Second Foundation Rooms multi-select methods
+  isSecondFoundationRoomsSelected(option: string): boolean {
+    if (!this.secondFoundationRoomsSelections) {
+      return false;
+    }
+    if (option === 'Other') {
+      return this.secondFoundationRoomsSelections.includes('Other') ||
+             !!(this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim().length > 0);
+    }
+    return this.secondFoundationRoomsSelections.includes(option);
+  }
+
+  async onSecondFoundationRoomsToggle(option: string, event: any) {
+    if (!this.secondFoundationRoomsSelections) {
+      this.secondFoundationRoomsSelections = [];
+    }
+
+    if (event.detail.checked) {
+      if (!this.secondFoundationRoomsSelections.includes(option)) {
+        this.secondFoundationRoomsSelections.push(option);
+      }
+    } else {
+      const index = this.secondFoundationRoomsSelections.indexOf(option);
+      if (index > -1) {
+        this.secondFoundationRoomsSelections.splice(index, 1);
+      }
+      if (option === 'Other') {
+        this.secondFoundationRoomsOtherValue = '';
+      }
+    }
+
+    await this.saveSecondFoundationRooms();
+  }
+
+  async onSecondFoundationRoomsOtherChange() {
+    if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
+      const otherIndex = this.secondFoundationRoomsSelections.indexOf('Other');
+      if (otherIndex > -1) {
+        this.secondFoundationRoomsSelections[otherIndex] = this.secondFoundationRoomsOtherValue.trim();
+      } else {
+        this.secondFoundationRoomsSelections.push(this.secondFoundationRoomsOtherValue.trim());
+      }
+    }
+    await this.saveSecondFoundationRooms();
+  }
+
+  private async saveSecondFoundationRooms() {
+    const roomsText = this.secondFoundationRoomsSelections.join(', ');
+    this.serviceData.SecondFoundationRooms = roomsText;
+    await this.autoSaveServiceField('SecondFoundationRooms', roomsText);
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // Third Foundation Rooms multi-select methods
+  isThirdFoundationRoomsSelected(option: string): boolean {
+    if (!this.thirdFoundationRoomsSelections) {
+      return false;
+    }
+    if (option === 'Other') {
+      return this.thirdFoundationRoomsSelections.includes('Other') ||
+             !!(this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim().length > 0);
+    }
+    return this.thirdFoundationRoomsSelections.includes(option);
+  }
+
+  async onThirdFoundationRoomsToggle(option: string, event: any) {
+    if (!this.thirdFoundationRoomsSelections) {
+      this.thirdFoundationRoomsSelections = [];
+    }
+
+    if (event.detail.checked) {
+      if (!this.thirdFoundationRoomsSelections.includes(option)) {
+        this.thirdFoundationRoomsSelections.push(option);
+      }
+    } else {
+      const index = this.thirdFoundationRoomsSelections.indexOf(option);
+      if (index > -1) {
+        this.thirdFoundationRoomsSelections.splice(index, 1);
+      }
+      if (option === 'Other') {
+        this.thirdFoundationRoomsOtherValue = '';
+      }
+    }
+
+    await this.saveThirdFoundationRooms();
+  }
+
+  async onThirdFoundationRoomsOtherChange() {
+    if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
+      const otherIndex = this.thirdFoundationRoomsSelections.indexOf('Other');
+      if (otherIndex > -1) {
+        this.thirdFoundationRoomsSelections[otherIndex] = this.thirdFoundationRoomsOtherValue.trim();
+      } else {
+        this.thirdFoundationRoomsSelections.push(this.thirdFoundationRoomsOtherValue.trim());
+      }
+    }
+    await this.saveThirdFoundationRooms();
+  }
+
+  private async saveThirdFoundationRooms() {
+    const roomsText = this.thirdFoundationRoomsSelections.join(', ');
+    this.serviceData.ThirdFoundationRooms = roomsText;
+    await this.autoSaveServiceField('ThirdFoundationRooms', roomsText);
+    this.changeDetectorRef.detectChanges();
   }
 
   // Auto-save to Projects table
