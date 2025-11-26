@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef, OnDestroy } from '@angular/core';
+﻿import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent } from '@ionic/angular';
@@ -819,7 +819,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         } catch (error) {
           console.error('[TOGGLE] Error unhiding visual:', error);
           this.selectedItems[key] = false;
-          await this.showToast('Failed to show selection', 'danger');
+          // Toast removed per user request
+          // await this.showToast('Failed to show selection', 'danger');
         }
         this.savingItems[key] = false;
       } else if (!visualId) {
@@ -841,7 +842,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           console.error('[TOGGLE] Error hiding visual:', error);
           // Revert selection on error
           this.selectedItems[key] = true;
-          await this.showToast('Failed to hide selection', 'danger');
+          // Toast removed per user request
+          // await this.showToast('Failed to hide selection', 'danger');
         }
         this.savingItems[key] = false;
       }
@@ -899,7 +901,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('[ANSWER] Error saving answer:', error);
-      await this.showToast('Failed to save answer', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to save answer', 'danger');
     }
 
     this.savingItems[key] = false;
@@ -975,7 +978,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('[OPTION] Error saving option:', error);
-      await this.showToast('Failed to save option', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to save option', 'danger');
     }
 
     this.savingItems[key] = false;
@@ -1036,7 +1040,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('[OTHER] Error saving other value:', error);
-      await this.showToast('Failed to save other value', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to save other value', 'danger');
     }
 
     this.savingItems[key] = false;
@@ -1176,14 +1181,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
           if (!visualId) {
             console.error('[CAMERA UPLOAD] Failed to create visual record');
-            await this.showToast('Failed to prepare upload', 'danger');
+            // Toast removed per user request
+            // await this.showToast('Failed to prepare upload', 'danger');
             return;
           }
 
           const visualIdNum = parseInt(visualId, 10);
           if (isNaN(visualIdNum)) {
             console.error('[CAMERA UPLOAD] Invalid visual ID:', visualId);
-            await this.showToast('Invalid visual ID', 'danger');
+            // Toast removed per user request
+            // await this.showToast('Invalid visual ID', 'danger');
             return;
           }
 
@@ -1281,7 +1288,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
       if (!isCancelled) {
         console.error('Error capturing photo from camera:', error);
-        await this.showToast('Failed to capture photo', 'danger');
+        // Toast removed per user request
+        // await this.showToast('Failed to capture photo', 'danger');
       }
     }
   }
@@ -1348,7 +1356,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             }
           });
           this.changeDetectorRef.detectChanges();
-          await this.showToast('Failed to prepare upload', 'danger');
+          // Toast removed per user request
+          // await this.showToast('Failed to prepare upload', 'danger');
           return;
         }
 
@@ -1365,7 +1374,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             }
           });
           this.changeDetectorRef.detectChanges();
-          await this.showToast('Invalid visual ID', 'danger');
+          // Toast removed per user request
+          // await this.showToast('Invalid visual ID', 'danger');
           return;
         }
 
@@ -1450,7 +1460,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
       if (!isCancelled) {
         console.error('Error selecting photo from gallery:', error);
-        await this.showToast('Failed to select photo', 'danger');
+        // Toast removed per user request
+        // await this.showToast('Failed to select photo', 'danger');
       }
     }
   }
@@ -1604,7 +1615,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
     } catch (error) {
       console.error('Failed to prepare upload:', error);
-      await this.showToast('Failed to prepare photo upload', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to prepare photo upload', 'danger');
       return null;
     }
   }
@@ -1683,7 +1695,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
 
       if (!isBatchUpload) {
-        await this.showToast('Photo uploaded successfully', 'success');
+        // Toast removed per user request
+        // await this.showToast('Photo uploaded successfully', 'success');
       }
 
       // Clear PDF cache so new PDFs include this photo
@@ -1703,7 +1716,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         }
       }
 
-      await this.showToast('Failed to upload photo', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to upload photo', 'danger');
       return null;
     }
   }
@@ -1775,8 +1789,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         throw new Error('VisualID not found in response');
       }
 
-      console.log('[SAVE VISUAL] ✓ Created visual with ID:', visualId);
-      console.log('[SAVE VISUAL] ✓ Storing ID in visualRecordIds[' + key + ']');
+      console.log('[SAVE VISUAL] âœ“ Created visual with ID:', visualId);
+      console.log('[SAVE VISUAL] âœ“ Storing ID in visualRecordIds[' + key + ']');
 
       // Store the visual ID for photo uploads
       this.visualRecordIds[key] = visualId;
@@ -1814,7 +1828,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
     } catch (error) {
       console.error('[SAVE VISUAL] Error creating visual record:', error);
-      await this.showToast('Failed to save selection', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to save selection', 'danger');
     }
   }
 
@@ -1830,13 +1845,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
       // Check if photo is still uploading
       if (photo.uploading || photo.queued) {
-        await this.showToast('Photo is still uploading. Please try again once it finishes.', 'warning');
+        // Toast removed per user request
+        // await this.showToast('Photo is still uploading. Please try again once it finishes.', 'warning');
         return;
       }
 
       const attachId = photo.AttachID || photo.id;
       if (!attachId || String(attachId).startsWith('temp_')) {
-        await this.showToast('Photo is still processing. Please try again in a moment.', 'warning');
+        // Toast removed per user request
+        // await this.showToast('Photo is still processing. Please try again in a moment.', 'warning');
         return;
       }
 
@@ -2028,7 +2045,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               // Success toast removed per user request
             } catch (error) {
               console.error('[VIEW PHOTO] Error saving annotations:', error);
-              await this.showToast('Failed to save annotations', 'danger');
+              // Toast removed per user request
+              // await this.showToast('Failed to save annotations', 'danger');
             }
           }
         }
@@ -2036,7 +2054,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
     } catch (error) {
       console.error('Error opening photo annotator:', error);
-      await this.showToast('Failed to open photo annotator', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to open photo annotator', 'danger');
     }
   }
 
@@ -2111,7 +2130,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
           drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
 
-          console.log(`[SAVE] Compressed annotations: ${originalSize} → ${drawingsData.length} bytes`);
+          console.log(`[SAVE] Compressed annotations: ${originalSize} â†’ ${drawingsData.length} bytes`);
 
           // Final size check
           if (drawingsData.length > 64000) {
@@ -2192,11 +2211,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                   this.changeDetectorRef.detectChanges();
 
                   await loading.dismiss();
-                  await this.showToast('Photo deleted', 'success');
+                  // Toast removed per user request
+                  // await this.showToast('Photo deleted', 'success');
                 } catch (error) {
                   await loading.dismiss();
                   console.error('Error deleting photo:', error);
-                  await this.showToast('Failed to delete photo', 'danger');
+                  // Toast removed per user request
+                  // await this.showToast('Failed to delete photo', 'danger');
                 }
               }, 100);
 
@@ -2214,7 +2235,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       await alert.present();
     } catch (error) {
       console.error('Error in deletePhoto:', error);
-      await this.showToast('Failed to delete photo', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to delete photo', 'danger');
     }
   }
 
@@ -2446,7 +2468,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     try {
       const serviceIdNum = parseInt(this.serviceId, 10);
       if (isNaN(serviceIdNum)) {
-        await this.showToast('Invalid Service ID', 'danger');
+        // Toast removed per user request
+        // await this.showToast('Invalid Service ID', 'danger');
         return;
       }
 
@@ -2685,7 +2708,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error('[CREATE CUSTOM] Error creating custom visual:', error);
       const errorMsg = error?.error?.Message || error?.message || 'Failed to add visual';
-      await this.showToast(errorMsg, 'danger');
+      // Toast removed per user request
+      // await this.showToast(errorMsg, 'danger');
       return null;
     }
   }
@@ -2792,7 +2816,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           handler: async (data) => {
             // Validate required fields (only check description since title is read-only)
             if (item.required && !data.description) {
-              await this.showToast('Please fill in the description field', 'warning');
+              // Toast removed per user request
+              // await this.showToast('Please fill in the description field', 'warning');
               return false;
             }
 
@@ -2818,7 +2843,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                   console.error('[TEXT EDIT] Error updating visual:', error);
                   // Revert changes on error
                   item.text = oldText;
-                  await this.showToast('Failed to save changes', 'danger');
+                  // Toast removed per user request
+                  // await this.showToast('Failed to save changes', 'danger');
                   return false;
                 }
               } else {
@@ -2977,7 +3003,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         this.cache.clear(cacheKey);
       }
       
-      console.log('[CACHE] ✓ PDF cache cleared - next PDF will fetch fresh data');
+      console.log('[CACHE] âœ“ PDF cache cleared - next PDF will fetch fresh data');
     } catch (error) {
       console.error('[CACHE] Error clearing PDF cache:', error);
     }

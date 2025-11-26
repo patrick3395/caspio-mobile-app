@@ -110,7 +110,8 @@ export class ElevationPlotHubPage implements OnInit {
 
     if (!this.serviceId || !this.projectId) {
       console.error('[ElevationPlotHub] ERROR: Missing required IDs!');
-      await this.showToast(`Error: Missing service or project ID. ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`, 'danger');
+      // Toast removed per user request
+      // await this.showToast(`Error: Missing service or project ID. ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`, 'danger');
       return;
     }
 
@@ -154,7 +155,8 @@ export class ElevationPlotHubPage implements OnInit {
       console.error('  - ServiceId value:', this.serviceId);
       console.error('  - ServiceId is empty?:', !this.serviceId);
       console.error('  - ServiceId is NaN?:', isNaN(serviceIdNum));
-      await this.showToast(`Error: Invalid ServiceID (${this.serviceId}). Ensure you have the correct service ID.`, 'danger');
+      // Toast removed per user request
+      // await this.showToast(`Error: Invalid ServiceID (${this.serviceId}). Ensure you have the correct service ID.`, 'danger');
       return;
     }
 
@@ -224,7 +226,8 @@ export class ElevationPlotHubPage implements OnInit {
       }
 
       this.changeDetectorRef.detectChanges();
-      await this.showToast(`Failed to create room "${roomName}"`, 'danger');
+      // Toast removed per user request
+      // await this.showToast(`Failed to create room "${roomName}"`, 'danger');
     }
   }
 
@@ -268,7 +271,8 @@ export class ElevationPlotHubPage implements OnInit {
             const newRoomName = data.newRoomName?.trim();
 
             if (!newRoomName) {
-              await this.showToast('Room name cannot be empty', 'warning');
+              // Toast removed per user request
+              // await this.showToast('Room name cannot be empty', 'warning');
               return false;
             }
 
@@ -279,7 +283,8 @@ export class ElevationPlotHubPage implements OnInit {
             // Check if new name already exists
             const existingRoom = this.roomTemplates.find(r => r.RoomName === newRoomName);
             if (existingRoom) {
-              await this.showToast('A room with this name already exists', 'warning');
+              // Toast removed per user request
+              // await this.showToast('A room with this name already exists', 'warning');
               return false;
             }
 
@@ -289,7 +294,8 @@ export class ElevationPlotHubPage implements OnInit {
 
             // CRITICAL: Verify this room belongs to the current service
             if (!roomId || roomId === '__pending__' || roomIdStr.startsWith('temp_')) {
-              await this.showToast('Cannot rename room: Room not yet saved to database', 'warning');
+              // Toast removed per user request
+              // await this.showToast('Cannot rename room: Room not yet saved to database', 'warning');
               return false;
             }
 
@@ -302,7 +308,8 @@ export class ElevationPlotHubPage implements OnInit {
               if (!roomToRename) {
                 console.error('[Rename Room] Room not found in current service!');
                 console.error('[Rename Room] Looking for EFEID:', roomId, 'in service:', this.serviceId);
-                await this.showToast('Error: Room does not belong to this service', 'danger');
+                // Toast removed per user request
+                // await this.showToast('Error: Room does not belong to this service', 'danger');
                 return false;
               }
 
@@ -321,7 +328,8 @@ export class ElevationPlotHubPage implements OnInit {
               console.log('[Rename Room] Database update successful for EFEID:', roomId);
             } catch (error) {
               console.error('[Rename Room] Database update FAILED:', error);
-              await this.showToast('Failed to update room name in database', 'danger');
+              // Toast removed per user request
+              // await this.showToast('Failed to update room name in database', 'danger');
               return false;
             }
 
@@ -417,7 +425,8 @@ export class ElevationPlotHubPage implements OnInit {
     const roomToDuplicate = this.roomTemplates.find(r => r.RoomName === roomName);
     if (!roomToDuplicate) {
       console.error('[Duplicate Room] Room not found:', roomName);
-      await this.showToast('Room not found', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Room not found', 'danger');
       return;
     }
 
@@ -429,7 +438,8 @@ export class ElevationPlotHubPage implements OnInit {
     const serviceIdNum = parseInt(this.serviceId, 10);
     if (!this.serviceId || isNaN(serviceIdNum)) {
       console.error('[Duplicate Room] ERROR: Invalid ServiceID!');
-      await this.showToast('Error: Invalid ServiceID', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Error: Invalid ServiceID', 'danger');
       return;
     }
 
@@ -521,7 +531,8 @@ export class ElevationPlotHubPage implements OnInit {
         }
 
         this.changeDetectorRef.detectChanges();
-        await this.showToast(`Room "${newRoomName}" created successfully`, 'success');
+        // Toast removed per user request
+        // await this.showToast(`Room "${newRoomName}" created successfully`, 'success');
         console.log('[Duplicate Room] Room duplicated successfully:', newRoomName, 'EFEID:', roomId);
       } else {
         throw new Error('No room ID returned from creation');
@@ -542,7 +553,8 @@ export class ElevationPlotHubPage implements OnInit {
       }
 
       this.changeDetectorRef.detectChanges();
-      await this.showToast(`Failed to duplicate room "${roomName}"`, 'danger');
+      // Toast removed per user request
+      // await this.showToast(`Failed to duplicate room "${roomName}"`, 'danger');
     }
   }
 
@@ -731,7 +743,8 @@ export class ElevationPlotHubPage implements OnInit {
         // Toast removed per user request
       } catch (error) {
         console.error('[ElevationPlotHub] Error deleting room:', error);
-        await this.showToast('Failed to delete room', 'danger');
+        // Toast removed per user request
+        // await this.showToast('Failed to delete room', 'danger');
         throw error; // Re-throw to trigger the catch in the handler
       }
     } else {
@@ -932,7 +945,8 @@ export class ElevationPlotHubPage implements OnInit {
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('Error loading room templates:', error);
-      await this.showToast('Failed to load room templates', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to load room templates', 'danger');
     } finally {
       this.loading = false;
       this.changeDetectorRef.detectChanges();
@@ -962,7 +976,8 @@ export class ElevationPlotHubPage implements OnInit {
       );
       
       if (availableRooms.length === 0) {
-        await this.showToast('No room templates available', 'info');
+        // Toast removed per user request
+        // await this.showToast('No room templates available', 'info');
         return;
       }
       
@@ -991,7 +1006,8 @@ export class ElevationPlotHubPage implements OnInit {
       await actionSheet.present();
     } catch (error) {
       console.error('[Add Room] Error showing room selection:', error);
-      await this.showToast('Failed to show room selection', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to show room selection', 'danger');
     }
   }
 
@@ -1052,7 +1068,8 @@ export class ElevationPlotHubPage implements OnInit {
               console.log('[Add Room] Updated room name in database:', oldName, '→', newName);
             } catch (error) {
               console.error('[Add Room] Failed to update room name in database:', error);
-              await this.showToast('Failed to rename existing room', 'danger');
+              // Toast removed per user request
+              // await this.showToast('Failed to rename existing room', 'danger');
               return;
             }
           }
@@ -1122,7 +1139,8 @@ export class ElevationPlotHubPage implements OnInit {
       const serviceIdNum = parseInt(this.serviceId, 10);
       if (!this.serviceId || isNaN(serviceIdNum)) {
         console.error('[Add Room] ERROR: Invalid ServiceID!');
-        await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
+        // Toast removed per user request
+        // await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
         return;
       }
 
@@ -1173,7 +1191,7 @@ export class ElevationPlotHubPage implements OnInit {
           }
 
           this.changeDetectorRef.detectChanges();
-          await this.showToast(`Room "${roomName}" added successfully`, 'success');
+          // Toast removed per user request
           console.log('[Add Room] Room created successfully:', roomName, 'EFEID:', roomId);
         } else {
           throw new Error('No room ID returned from creation');
@@ -1194,11 +1212,13 @@ export class ElevationPlotHubPage implements OnInit {
         }
 
         this.changeDetectorRef.detectChanges();
-        await this.showToast(`Failed to create room "${roomName}"`, 'danger');
+        // Toast removed per user request
+        // await this.showToast(`Failed to create room "${roomName}"`, 'danger');
       }
     } catch (error) {
       console.error('[Add Room] Error in addRoomTemplate:', error);
-      await this.showToast('Failed to add room', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to add room', 'danger');
     }
   }
 }

@@ -57,7 +57,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     deficiencies: []
   };
 
-  visualDropdownOptions: { [templateId: number]: string[] } = {};
+  visualDropdownOptions: { [templateId: string]: string[] } = {};
   selectedItems: { [key: string]: boolean } = {};
   savingItems: { [key: string]: boolean } = {};
 
@@ -238,6 +238,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         deficiencies: []
       };
 
+      // Load dropdown options for all templates (needed before loading templates)
+      await this.loadAllDropdownOptions();
+
       // Load templates for this category
       await this.loadCategoryTemplates();
 
@@ -290,10 +293,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           this.organizedData.comments.push(templateData);
         }
 
-        // Load dropdown options for AnswerType 2
-        if (template.AnswerType === 2) {
-          this.loadDropdownOptions(template.PK_ID);
-        }
+        // Note: Dropdown options are already loaded via loadAllDropdownOptions()
+        // No need to load them individually here
       });
 
       console.log('[HUD CATEGORY] Organized data:', {
@@ -307,27 +308,51 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  private async loadDropdownOptions(templateId: number) {
+  /**
+   * Load all dropdown options from Services_HUD_Drop table
+   * This loads all options upfront and groups them by TemplateID
+   */
+  private async loadAllDropdownOptions() {
     try {
-      // Get all HUD dropdown options and filter by templateId
-      const allOptions = await firstValueFrom(
+      const dropdownData = await firstValueFrom(
         this.caspioService.getServicesHUDDrop()
       );
       
-      // Filter options for this specific template
-      const templateOptions = allOptions
-        .filter((opt: any) => opt.TemplateID === templateId)
-        .map((opt: any) => opt.Dropdown || '');
+      console.log('[HUD Category] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
-      this.visualDropdownOptions[templateId] = templateOptions;
-      
-      // Add "Other" option if not already present
-      if (!this.visualDropdownOptions[templateId].includes('Other')) {
-        this.visualDropdownOptions[templateId].push('Other');
+      if (dropdownData && dropdownData.length > 0) {
+        // Group dropdown options by TemplateID
+        dropdownData.forEach((row: any) => {
+          const templateId = String(row.TemplateID); // Convert to string for consistency
+          const dropdownValue = row.Dropdown;
+          
+          if (templateId && dropdownValue) {
+            if (!this.visualDropdownOptions[templateId]) {
+              this.visualDropdownOptions[templateId] = [];
+            }
+            // Add unique dropdown values for this template
+            if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
+              this.visualDropdownOptions[templateId].push(dropdownValue);
+            }
+          }
+        });
+        
+        console.log('[HUD Category] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
+        
+        // Add "Other" option to all multi-select dropdowns if not already present
+        Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
+          const optionsArray = options as string[];
+          if (!optionsArray.includes('Other')) {
+            optionsArray.push('Other');
+          }
+          console.log(`[HUD Category] TemplateID ${templateId}: ${optionsArray.length} options -`, optionsArray.join(', '));
+        });
+      } else {
+        console.warn('[HUD Category] No dropdown data received from API');
       }
     } catch (error) {
-      console.error('Error loading dropdown options for template:', templateId, error);
-      this.visualDropdownOptions[templateId] = [];
+      console.error('[HUD Category] Error loading dropdown options:', error);
+      // Continue without dropdown options - they're optional
     }
   }
 
@@ -501,6 +526,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
   trackByOption(index: number, option: string): any {
     return option;
+  }
+
+  getDropdownOptions(templateId: number): string[] {
+    const templateIdStr = String(templateId);
+    return this.visualDropdownOptions[templateIdStr] || [];
   }
 
   // Data Management Methods (Stubs - implement based on HUD API)

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+﻿import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -164,7 +164,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       console.error('[RoomElevation] ERROR: Missing required IDs!');
       console.error('  - ServiceId is:', this.serviceId === '' ? 'empty string' : this.serviceId || 'undefined/null');
       console.error('  - ProjectId is:', this.projectId === '' ? 'empty string' : this.projectId || 'undefined/null');
-      await this.showToast(`Error: Missing service or project ID. ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`, 'danger');
+      // Toast removed per user request
+      // await this.showToast(`Error: Missing service or project ID. ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`, 'danger');
       this.loading = false;
       return;
     }
@@ -173,7 +174,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     const serviceIdNum = parseInt(this.serviceId, 10);
     if (isNaN(serviceIdNum)) {
       console.error('[RoomElevation] ERROR: ServiceId is not a valid number:', this.serviceId);
-      await this.showToast(`Error: Invalid ServiceID (${this.serviceId}). Ensure you have the correct service ID.`, 'danger');
+      // Toast removed per user request
+      // await this.showToast(`Error: Invalid ServiceID (${this.serviceId}). Ensure you have the correct service ID.`, 'danger');
       this.loading = false;
       return;
     }
@@ -236,7 +238,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       if (!room) {
         console.error('[RoomElevation] ERROR: Room not found with name:', this.roomName);
         console.error('[RoomElevation] Available room names:', rooms.map((r: any) => r.RoomName));
-        await this.showToast('Room not found', 'danger');
+        // Toast removed per user request
+        // await this.showToast('Room not found', 'danger');
         this.goBack();
         return;
       }
@@ -292,7 +295,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('Error loading room data:', error);
-      await this.showToast('Failed to load room data', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to load room data', 'danger');
     } finally {
       this.loading = false;
       this.changeDetectorRef.detectChanges();
@@ -417,7 +421,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       console.log('[RoomElevation] TemplateID converted to number:', templateIdNum);
 
       if (!templateId) {
-        console.error('[RoomElevation] ❌ ERROR: No TemplateID found for room!');
+        console.error('[RoomElevation] âŒ ERROR: No TemplateID found for room!');
         console.error('[RoomElevation] roomData structure:', JSON.stringify(this.roomData, null, 2));
         return;
       }
@@ -425,7 +429,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       // Load all templates
       console.log('[RoomElevation] Calling foundationData.getEFETemplates()...');
       const allTemplates = await this.foundationData.getEFETemplates();
-      console.log('[RoomElevation] ✓ Loaded', allTemplates?.length || 0, 'templates from LPS_Services_EFE_Templates');
+      console.log('[RoomElevation] âœ“ Loaded', allTemplates?.length || 0, 'templates from LPS_Services_EFE_Templates');
 
       if (allTemplates && allTemplates.length > 0) {
         console.log('[RoomElevation] Sample template structure:', allTemplates[0]);
@@ -441,12 +445,12 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       });
 
       if (!template) {
-        console.error('[RoomElevation] ❌ ERROR: Template not found for TemplateID:', templateIdNum);
+        console.error('[RoomElevation] âŒ ERROR: Template not found for TemplateID:', templateIdNum);
         console.error('[RoomElevation] Available templates:', allTemplates.map((t: any) => ({ TemplateID: t.TemplateID, PK_ID: t.PK_ID, RoomName: t.RoomName })));
         return;
       }
 
-      console.log('[RoomElevation] ✓ Found matching template:', template.RoomName);
+      console.log('[RoomElevation] âœ“ Found matching template:', template.RoomName);
       console.log('[RoomElevation] Template full data:', template);
 
       // STEP 2: Extract elevation points from template (Point1Name through Point20Name)
@@ -466,11 +470,11 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             value: '',
             photos: []
           });
-          console.log(`[RoomElevation]     ✓ Added point #${i}: "${pointName}"`);
+          console.log(`[RoomElevation]     âœ“ Added point #${i}: "${pointName}"`);
         }
       }
 
-      console.log('[RoomElevation] ✓ Template has', templatePoints.length, 'predefined points');
+      console.log('[RoomElevation] âœ“ Template has', templatePoints.length, 'predefined points');
       console.log('[RoomElevation] Template points:', templatePoints.map(p => p.name));
 
       // STEP 3: Load existing points from Services_EFE_Points
@@ -480,7 +484,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       let existingPoints: any[] = [];
       try {
         existingPoints = await this.caspioService.getServicesEFEPoints(this.roomId).toPromise() || [];
-        console.log('[RoomElevation] ✓ Found', existingPoints?.length || 0, 'existing points in database');
+        console.log('[RoomElevation] âœ“ Found', existingPoints?.length || 0, 'existing points in database');
         if (existingPoints && existingPoints.length > 0) {
           console.log('[RoomElevation] Existing points:', existingPoints.map((p: any) => ({
             PointID: p.PointID,
@@ -489,7 +493,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           })));
         }
       } catch (error) {
-        console.error('[RoomElevation] ❌ Error loading existing points:', error);
+        console.error('[RoomElevation] âŒ Error loading existing points:', error);
       }
 
       // STEP 4: Load all attachments for existing points
@@ -502,7 +506,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         if (pointIds.length > 0) {
           try {
             attachments = await this.foundationData.getEFEAttachments(pointIds);
-            console.log('[RoomElevation] ✓ Loaded', attachments?.length || 0, 'attachments from Services_EFE_Points_Attach');
+            console.log('[RoomElevation] âœ“ Loaded', attachments?.length || 0, 'attachments from Services_EFE_Points_Attach');
             if (attachments && attachments.length > 0) {
               console.log('[RoomElevation] Attachments:', attachments.map((a: any) => ({
                 AttachID: a.AttachID,
@@ -512,7 +516,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               })));
             }
           } catch (error) {
-            console.error('[RoomElevation] ❌ Error loading attachments:', error);
+            console.error('[RoomElevation] âŒ Error loading attachments:', error);
           }
         }
       } else {
@@ -577,13 +581,13 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             // Load the actual image in background (non-blocking)
             if (attach.Photo) {
               this.loadPointPhotoImage(attach.Photo, photoData).catch(err => {
-                console.error(`[RoomElevation]       ❌ Error loading photo:`, err);
+                console.error(`[RoomElevation]       âŒ Error loading photo:`, err);
               });
             }
           }
         }
 
-        console.log(`[RoomElevation]   ✓ Point "${templatePoint.name}" complete:`, {
+        console.log(`[RoomElevation]   âœ“ Point "${templatePoint.name}" complete:`, {
           pointId: pointData.pointId,
           value: pointData.value,
           photoCount: pointData.photos.length
@@ -622,13 +626,13 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
             if (newPointId) {
               point.pointId = newPointId;
-              console.log(`[RoomElevation]     ✓ Created with PointID: ${newPointId}`);
+              console.log(`[RoomElevation]     âœ“ Created with PointID: ${newPointId}`);
               console.log(`[RoomElevation]     Point now has pointId:`, point.pointId);
             } else {
-              console.error(`[RoomElevation]     ❌ Failed to get PointID from response:`, response);
+              console.error(`[RoomElevation]     âŒ Failed to get PointID from response:`, response);
             }
           } catch (error) {
-            console.error(`[RoomElevation]     ❌ Error creating point "${point.name}":`, error);
+            console.error(`[RoomElevation]     âŒ Error creating point "${point.name}":`, error);
             console.error('[RoomElevation]     Error details:', error);
           }
         }
@@ -637,7 +641,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         console.log('[RoomElevation] Triggering change detection after point creation...');
         this.changeDetectorRef.detectChanges();
       }
-      console.log('[RoomElevation] ✓ Auto-creation complete');
+      console.log('[RoomElevation] âœ“ Auto-creation complete');
       console.log('[RoomElevation] Final point status:', this.roomData.elevationPoints.map((p: any) => ({
         name: p.name,
         pointId: p.pointId,
@@ -705,12 +709,12 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               // Load the actual image in background (non-blocking)
               if (attach.Photo) {
                 this.loadPointPhotoImage(attach.Photo, photoData).catch(err => {
-                  console.error(`[RoomElevation]         ❌ Error loading photo:`, err);
+                  console.error(`[RoomElevation]         âŒ Error loading photo:`, err);
                 });
               }
             }
 
-            console.log(`[RoomElevation]     ✓ Custom point "${existingPoint.PointName}" added:`, {
+            console.log(`[RoomElevation]     âœ“ Custom point "${existingPoint.PointName}" added:`, {
               pointId: customPointData.pointId,
               value: customPointData.value,
               photoCount: customPointData.photos.length
@@ -720,7 +724,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           }
         }
       }
-      console.log('[RoomElevation] ✓ Custom points check complete');
+      console.log('[RoomElevation] âœ“ Custom points check complete');
 
       console.log('\n========================================');
       console.log('[RoomElevation] *** LOAD ELEVATION POINTS - COMPLETE ***');
@@ -730,7 +734,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {
-      console.error('[RoomElevation] ❌❌❌ CRITICAL ERROR in loadElevationPoints:', error);
+      console.error('[RoomElevation] âŒâŒâŒ CRITICAL ERROR in loadElevationPoints:', error);
       console.error('[RoomElevation] Error stack:', error);
     }
   }
@@ -799,7 +803,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       await this.caspioService.updateServicesEFE(this.roomId, { FDF: this.roomData.fdf }).toPromise();
     } catch (error) {
       console.error('Error saving FDF:', error);
-      await this.showToast('Failed to save FDF', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to save FDF', 'danger');
     } finally {
       this.isSavingFdf = false;
       this.changeDetectorRef.detectChanges();
@@ -826,7 +831,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       await this.caspioService.updateServicesEFE(this.roomId, { Location: this.roomData.location }).toPromise();
     } catch (error) {
       console.error('Error saving location:', error);
-      await this.showToast('Failed to save location', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to save location', 'danger');
     } finally {
       this.isSavingLocation = false;
       this.changeDetectorRef.detectChanges();
@@ -873,7 +879,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       await this.caspioService.updateServicesEFE(this.roomId, { Notes: this.roomData.notes }).toPromise();
     } catch (error) {
       console.error('Error saving notes:', error);
-      await this.showToast('Failed to save notes', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to save notes', 'danger');
     } finally {
       this.isSavingNotes = false;
       this.changeDetectorRef.detectChanges();
@@ -884,7 +891,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   // Take FDF photo from camera - EXACT implementation from engineers-foundation
   async takeFDFPhotoCamera(photoType: 'Top' | 'Bottom' | 'Threshold') {
     if (!this.roomId) {
-      await this.showToast('Please save the room first', 'warning');
+      // Toast removed per user request
+      // await this.showToast('Please save the room first', 'warning');
       return;
     }
 
@@ -906,7 +914,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     } catch (error) {
       if (error !== 'User cancelled photos app') {
         console.error('Error taking camera photo:', error);
-        await this.showToast('Failed to capture photo', 'danger');
+        // Toast removed per user request
+        // await this.showToast('Failed to capture photo', 'danger');
       }
     }
   }
@@ -914,7 +923,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   // Take FDF photo from gallery - EXACT implementation from engineers-foundation
   async takeFDFPhotoGallery(photoType: 'Top' | 'Bottom' | 'Threshold') {
     if (!this.roomId) {
-      await this.showToast('Please save the room first', 'warning');
+      // Toast removed per user request
+      // await this.showToast('Please save the room first', 'warning');
       return;
     }
 
@@ -936,7 +946,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     } catch (error) {
       if (error !== 'User cancelled photos app') {
         console.error('Error selecting gallery photo:', error);
-        await this.showToast('Failed to select photo', 'danger');
+        // Toast removed per user request
+        // await this.showToast('Failed to select photo', 'danger');
       }
     }
   }
@@ -1011,7 +1022,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
       const errorMsg = error?.message || error?.toString() || 'Unknown error';
-      await this.showToast(`Failed to upload ${photoType} photo: ${errorMsg}`, 'danger');
+      // Toast removed per user request
+      // await this.showToast(`Failed to upload ${photoType} photo: ${errorMsg}`, 'danger');
 
       // Clear uploading flag and photo on error
       fdfPhotos[`${photoKey}Uploading`] = false;
@@ -1113,7 +1125,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     const photoUrl = fdfPhotos[`${photoKey}Url`];
 
     if (!photoUrl) {
-      await this.showToast('No photo to annotate', 'warning');
+      // Toast removed per user request
+      // await this.showToast('No photo to annotate', 'warning');
       return;
     }
 
@@ -1188,11 +1201,13 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         console.log('[FDF SAVE] Updated photo with compressed drawings, length:', compressedDrawings?.length || 0);
 
         this.changeDetectorRef.detectChanges();
-        await this.showToast('Annotation saved', 'success');
+        // Toast removed per user request
+        // await this.showToast('Annotation saved', 'success');
       }
     } catch (error) {
       console.error('Error annotating photo:', error);
-      await this.showToast('Failed to save annotation', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to save annotation', 'danger');
     }
   }
 
@@ -1230,7 +1245,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               // Toast removed per user request
             } catch (error) {
               console.error('Error deleting photo:', error);
-              await this.showToast('Failed to delete photo', 'danger');
+              // Toast removed per user request
+              // await this.showToast('Failed to delete photo', 'danger');
             }
           }
         },
@@ -1279,7 +1295,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               this.changeDetectorRef.detectChanges();
             } catch (error) {
               console.error('Error saving caption:', error);
-              await this.showToast('Failed to save caption', 'danger');
+              // Toast removed per user request
+              // await this.showToast('Failed to save caption', 'danger');
             }
           }
         }
@@ -1355,7 +1372,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('Error adding point:', error);
-      await this.showToast('Failed to add measurement', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to add measurement', 'danger');
     }
   }
 
@@ -1381,7 +1399,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             const newName = data.pointName?.trim();
 
             if (!newName) {
-              await this.showToast('Point name cannot be empty', 'warning');
+              // Toast removed per user request
+              // await this.showToast('Point name cannot be empty', 'warning');
               return false;
             }
 
@@ -1396,7 +1415,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               return true;
             } catch (error) {
               console.error('Error updating point name:', error);
-              await this.showToast('Failed to update point name', 'danger');
+              // Toast removed per user request
+              // await this.showToast('Failed to update point name', 'danger');
               return false;
             }
           }
@@ -1443,7 +1463,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               // Toast removed per user request
             } catch (error) {
               console.error('Error deleting point:', error);
-              await this.showToast('Failed to delete point', 'danger');
+              // Toast removed per user request
+              // await this.showToast('Failed to delete point', 'danger');
             }
           }
         },
@@ -1476,7 +1497,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     } catch (error) {
       if (error !== 'User cancelled photos app') {
         console.error('Error taking camera photo:', error);
-        await this.showToast('Failed to capture photo', 'danger');
+        // Toast removed per user request
+        // await this.showToast('Failed to capture photo', 'danger');
       }
     }
   }
@@ -1498,7 +1520,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     } catch (error) {
       if (error !== 'User cancelled photos app') {
         console.error('Error selecting gallery photo:', error);
-        await this.showToast('Failed to select photo', 'danger');
+        // Toast removed per user request
+        // await this.showToast('Failed to select photo', 'danger');
       }
     }
   }
@@ -1602,7 +1625,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
     } catch (error) {
       console.error('Error processing point photo:', error);
-      await this.showToast('Failed to upload photo', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to upload photo', 'danger');
 
       // Remove uploading state
       const existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
@@ -1615,7 +1639,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
   async annotatePointPhoto(point: any, photo: any) {
     if (!photo.url) {
-      await this.showToast('No photo to annotate', 'warning');
+      // Toast removed per user request
+      // await this.showToast('No photo to annotate', 'warning');
       return;
     }
 
@@ -1692,11 +1717,13 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         console.log('[Point SAVE] Updated photo with compressed drawings, length:', savedCompressedDrawings?.length || 0);
 
         this.changeDetectorRef.detectChanges();
-        await this.showToast('Annotation saved', 'success');
+        // Toast removed per user request
+        // await this.showToast('Annotation saved', 'success');
       }
     } catch (error) {
       console.error('Error annotating photo:', error);
-      await this.showToast('Failed to save annotation', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to save annotation', 'danger');
     }
   }
 
@@ -1729,7 +1756,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               // Toast removed per user request
             } catch (error) {
               console.error('Error deleting photo:', error);
-              await this.showToast('Failed to delete photo', 'danger');
+              // Toast removed per user request
+              // await this.showToast('Failed to delete photo', 'danger');
             }
           }
         },
@@ -1771,7 +1799,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               this.changeDetectorRef.detectChanges();
             } catch (error) {
               console.error('Error saving caption:', error);
-              await this.showToast('Failed to save caption', 'danger');
+              // Toast removed per user request
+              // await this.showToast('Failed to save caption', 'danger');
             }
           }
         }
@@ -1869,7 +1898,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           const originalSize = drawingsData.length;
           drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
 
-          console.log(`[SAVE FDF] Compressed annotations: ${originalSize} → ${drawingsData.length} bytes`);
+          console.log(`[SAVE FDF] Compressed annotations: ${originalSize} â†’ ${drawingsData.length} bytes`);
 
           if (drawingsData.length > 64000) {
             console.error('[SAVE FDF] Annotation data exceeds 64KB limit:', drawingsData.length, 'bytes');
@@ -1990,7 +2019,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
           drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
 
-          console.log(`[SAVE] Compressed annotations: ${originalSize} → ${drawingsData.length} bytes`);
+          console.log(`[SAVE] Compressed annotations: ${originalSize} â†’ ${drawingsData.length} bytes`);
 
           // Final size check
           if (drawingsData.length > 64000) {
