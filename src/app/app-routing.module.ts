@@ -47,7 +47,7 @@ const routes: Routes = [
   },
   {
     path: 'hud/:projectId/:serviceId',
-    loadComponent: () => import('./pages/hud/hud.page').then( m => m.HudPage),
+    loadChildren: () => import('./pages/hud/hud-routing.module').then( m => m.HudRoutingModule),
     canActivate: [AuthGuard],
     data: { preload: false }
   },

@@ -1,0 +1,234 @@
+<div class="page-container">
+  <!-- Hidden file input for camera/gallery -->
+  <input #fileInput type="file" style="display: none;" (change)="onFileSelected($event)" accept="image/*">
+
+  <div class="content-section">
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading items...</p>
+    </div>
+
+    <!-- Category Content -->
+    <div *ngIf="!loading" class="category-content">
+
+      <!-- Search Bar -->
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search by title or description..."
+            [(ngModel)]="searchTerm"
+            (input)="onSearchChange()">
+          <button *ngIf="searchTerm" class="clear-search-btn" (click)="clearSearch()" title="Clear search">
+            <ion-icon name="close-circle"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- White container wrapper -->
+      <div class="white-container">
+        <ion-accordion-group [value]="expandedAccordions" [multiple]="true" (ionChange)="onAccordionChange($event)">
+        <!-- General Information Section -->
+        <ion-accordion *ngIf="organizedData.comments" value="information">
+          <ion-item slot="header" lines="none" class="accordion-header-item">
+            <div class="accordion-header-content">
+              <div class="icon-container">
+                <ion-icon name="information-circle-outline"></ion-icon>
+              </div>
+              <ion-label class="accordion-label">
+                <h4 class="type-header">Information</h4>
+              </ion-label>
+            </div>
+          </ion-item>
+          <div slot="content" class="accordion-content">
+            <div class="type-section">
+              <div *ngIf="filterItems(organizedData.comments).length === 0 && !searchTerm" class="no-items-message">
+                No information items yet.
+              </div>
+              <div *ngIf="filterItems(organizedData.comments).length === 0 && searchTerm" class="no-items-message">
+                No results found for "{{ searchTerm }}"
+              </div>
+              <div class="template-item" *ngFor="let item of filterItems(organizedData.comments); trackBy: trackByItemId">
+          <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
+
+            <!-- Yes/No questions -->
+            <div class="answer-type-1-container" *ngIf="item.answerType === 1">
+              <div class="item-header" (click)="showFullText(item)">
+                <h3 class="item-name">
+                  <span [innerHTML]="highlightText(item.name)"></span>
+                  <span class="required-indicator" *ngIf="item.required">*</span>
+                </h3>
+              </div>
+              <div class="item-text-wrapper" (click)="showFullText(item)">
+                <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
+              </div>
+              <div class="dropdown-container" (click)="$event.stopPropagation()">
+                <select
+                  [(ngModel)]="item.answer"
+                  (ngModelChange)="onAnswerChange(categoryName, item); $event?.stopPropagation()"
+                  (change)="$event.stopPropagation()"
+                  [disabled]="isItemSaving(categoryName, item.id)"
+                  class="styled-input">
+                  <option value="">-- Select --</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+                <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
+              </div>
+            </div>
+
+            <!-- Multi-select questions -->
+            <div class="multi-select-container" *ngIf="item.answerType === 2">
+              <ion-item lines="none" class="checkbox-item">
+                <ion-label class="item-label" (click)="showFullText(item)">
+                  <h3>
+                    <span [innerHTML]="highlightText(item.name)"></span>
+                    <span class="required-indicator" *ngIf="item.required">*</span>
+                  </h3>
+                  <div class="item-text-wrapper">
+                    <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
+                  </div>
+                </ion-label>
+                <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
+              </ion-item>
+              <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
+                <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
+                  <ion-checkbox
+                    slot="start"
+                    [checked]="isOptionSelectedV1(item, option)"
+                    (ionChange)="onOptionToggle(categoryName, item, option, $event); $event.stopPropagation()"
+                    [disabled]="isItemSaving(categoryName, item.id)">
+                  </ion-checkbox>
+                  <ion-label>{{ option }}</ion-label>
+                </ion-item>
+              </div>
+              <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                <input type="text"
+                       [(ngModel)]="item.otherValue"
+                       (blur)="onMultiSelectOtherChange(categoryName, item)"
+                       (click)="$event.stopPropagation()"
+                       placeholder="Please specify..."
+                       class="styled-input other-input">
+              </div>
+            </div>
+
+            <!-- Text questions - checkbox behavior with camera buttons -->
+            <ion-item lines="none"
+                      class="checkbox-item with-camera"
+                      [class.has-photos]="getPhotosForVisual(categoryName, item.id).length > 0"
+                      *ngIf="!item.answerType || item.answerType === 0"
+                      style="min-height: 100px; align-items: flex-start; position: relative;">
+              <ion-checkbox
+                slot="start"
+                [checked]="isItemSelected(categoryName, item.id)"
+                [disabled]="isItemSaving(categoryName, item.id)"
+                (ionChange)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()"
+                style="margin-top: 8px;">
+              </ion-checkbox>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                <ion-label class="item-label" (click)="showFullText(item)">
+                  <h3>
+                    <span [innerHTML]="highlightText(item.name)"></span>
+                    <span class="required-indicator" *ngIf="item.required">*</span>
+                  </h3>
+                  <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
+                </ion-label>
+                <!-- Camera and Gallery buttons -->
+                <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
+                  <button class="camera-button-structural"
+                          (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
+                          title="Take photo from camera">
+                    <ion-icon name="camera"></ion-icon>
+                  </button>
+                  <button class="camera-button-structural"
+                          (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
+                          title="Select from gallery">
+                    <ion-icon name="images"></ion-icon>
+                  </button>
+                </div>
+              </div>
+              <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
+            </ion-item>
+
+            <!-- Photos Section -->
+            <div *ngIf="isItemSelected(categoryName, item.id) && getPhotosForVisual(categoryName, item.id).length > 0" class="photos-section">
+              <div class="photos-grid">
+                <div *ngFor="let photo of getPhotosForVisual(categoryName, item.id)" class="photo-item">
+                  <div class="photo-wrapper" (click)="viewPhoto(photo, categoryName + '_' + item.id)">
+                    <img [src]="photo.url || 'assets/img/photo-placeholder.png'" alt="Photo">
+                    <div *ngIf="photo.uploading" class="upload-progress">
+                      <ion-spinner name="crescent"></ion-spinner>
+                      <span *ngIf="photo.progress !== undefined">{{ photo.progress }}%</span>
+                    </div>
+                  </div>
+                  <button class="delete-photo-btn" (click)="deletePhoto(photo, categoryName + '_' + item.id); $event.stopPropagation()" title="Delete photo">
+                    <ion-icon name="close-circle"></ion-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+            </div>
+          </div>
+        </ion-accordion>
+
+        <!-- Limitations Section -->
+        <ion-accordion *ngIf="organizedData.limitations" value="limitations">
+          <ion-item slot="header" lines="none" class="accordion-header-item">
+            <div class="accordion-header-content">
+              <div class="icon-container">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+              </div>
+              <ion-label class="accordion-label">
+                <h4 class="type-header">Limitations</h4>
+              </ion-label>
+            </div>
+          </ion-item>
+          <div slot="content" class="accordion-content">
+            <div class="type-section">
+              <div *ngIf="filterItems(organizedData.limitations).length === 0 && !searchTerm" class="no-items-message">
+                No limitations items yet.
+              </div>
+              <div *ngIf="filterItems(organizedData.limitations).length === 0 && searchTerm" class="no-items-message">
+                No results found for "{{ searchTerm }}"
+              </div>
+              <!-- Similar item structure as above for limitations -->
+            </div>
+          </div>
+        </ion-accordion>
+
+        <!-- Deficiencies Section -->
+        <ion-accordion *ngIf="organizedData.deficiencies" value="deficiencies">
+          <ion-item slot="header" lines="none" class="accordion-header-item">
+            <div class="accordion-header-content">
+              <div class="icon-container">
+                <ion-icon name="warning-outline"></ion-icon>
+              </div>
+              <ion-label class="accordion-label">
+                <h4 class="type-header">Deficiencies</h4>
+              </ion-label>
+            </div>
+          </ion-item>
+          <div slot="content" class="accordion-content">
+            <div class="type-section">
+              <div *ngIf="filterItems(organizedData.deficiencies).length === 0 && !searchTerm" class="no-items-message">
+                No deficiency items yet.
+              </div>
+              <div *ngIf="filterItems(organizedData.deficiencies).length === 0 && searchTerm" class="no-items-message">
+                No results found for "{{ searchTerm }}"
+              </div>
+              <!-- Similar item structure as above for deficiencies -->
+            </div>
+          </div>
+        </ion-accordion>
+        </ion-accordion-group>
+      </div>
+    </div>
+  </div>
+</div>
+

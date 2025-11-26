@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { AlertController, ToastController } from '@ionic/angular';
+import { AlertController, ToastController, ActionSheetController } from '@ionic/angular';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
 import { EngineersFoundationDataService } from '../engineers-foundation-data.service';
 import { CaspioService } from '../../../services/caspio.service';
@@ -52,6 +52,7 @@ export class ElevationPlotHubPage implements OnInit {
     private caspioService: CaspioService,
     private alertController: AlertController,
     private toastController: ToastController,
+    private actionSheetController: ActionSheetController,
     private changeDetectorRef: ChangeDetectorRef,
     public operationsQueue: OperationsQueueService
   ) {}
@@ -946,5 +947,258 @@ export class ElevationPlotHubPage implements OnInit {
       color
     });
     await toast.present();
+  }
+
+  /**
+   * Show dialog to select a room template to add
+   */
+  async showAddRoomDialog() {
+    try {
+      // Show ALL room templates except Base Station variants, allowing duplicates
+      const availableRooms = this.allRoomTemplates.filter(room =>
+        room.RoomName !== 'Base Station' &&
+        room.RoomName !== '2nd Base Station' &&
+        room.RoomName !== '3rd Base Station'
+      );
+      
+      if (availableRooms.length === 0) {
+        await this.showToast('No room templates available', 'info');
+        return;
+      }
+      
+      // Create buttons for each available room
+      const buttons = availableRooms.map(room => ({
+        text: room.RoomName,
+        handler: () => {
+          this.addRoomTemplate(room);
+        }
+      }));
+      
+      // Add cancel button
+      buttons.push({
+        text: 'Cancel',
+        handler: () => {
+          // Do nothing
+        }
+      });
+      
+      const actionSheet = await this.actionSheetController.create({
+        header: 'Select Room to Add',
+        buttons: buttons,
+        cssClass: 'room-selection-sheet'
+      });
+      
+      await actionSheet.present();
+    } catch (error) {
+      console.error('[Add Room] Error showing room selection:', error);
+      await this.showToast('Failed to show room selection', 'danger');
+    }
+  }
+
+  /**
+   * Add a room template to the list
+   * Handles automatic numbering when adding duplicates
+   */
+  async addRoomTemplate(template: any) {
+    try {
+      console.log('[Add Room] Adding room template:', template.RoomName);
+      
+      // Get the base name from the original template (never modify the original)
+      const baseName = template.RoomName;
+      
+      // Check existing rooms for this base name (both numbered and unnumbered)
+      const existingWithBaseName = this.roomTemplates.filter(room => {
+        // Extract base name by removing number suffix if present
+        const roomBaseName = room.RoomName.replace(/ #\d+$/, '');
+        return roomBaseName === baseName;
+      });
+      
+      // Determine the room name with proper numbering
+      let roomName = baseName;
+      if (existingWithBaseName.length > 0) {
+        // Find existing numbers
+        const existingNumbers: number[] = [];
+        existingWithBaseName.forEach(room => {
+          if (room.RoomName === baseName) {
+            existingNumbers.push(1); // Unnumbered room counts as #1
+          } else {
+            const match = room.RoomName.match(/ #(\d+)$/);
+            if (match) {
+              existingNumbers.push(parseInt(match[1]));
+            }
+          }
+        });
+        
+        // Find the next available number
+        let nextNumber = 1;
+        while (existingNumbers.includes(nextNumber)) {
+          nextNumber++;
+        }
+        
+        // If this is the second occurrence, rename the first one
+        if (existingWithBaseName.length === 1 && existingWithBaseName[0].RoomName === baseName) {
+          console.log('[Add Room] Renaming first occurrence to #1');
+          
+          // Rename the existing unnumbered room to #1
+          const existingRoom = existingWithBaseName[0];
+          const oldName = existingRoom.RoomName;
+          const newName = `${baseName} #1`;
+          
+          // Update in database first
+          const roomId = this.efeRecordIds[oldName];
+          if (roomId && !String(roomId).startsWith('temp_')) {
+            try {
+              await this.caspioService.updateServicesEFEByEFEID(roomId, { RoomName: newName }).toPromise();
+              console.log('[Add Room] Updated room name in database:', oldName, '→', newName);
+            } catch (error) {
+              console.error('[Add Room] Failed to update room name in database:', error);
+              await this.showToast('Failed to rename existing room', 'danger');
+              return;
+            }
+          }
+          
+          // Update the room object
+          existingRoom.RoomName = newName;
+
+          // Update all related data structures
+          if (this.roomElevationData[oldName]) {
+            this.roomElevationData[newName] = this.roomElevationData[oldName];
+            delete this.roomElevationData[oldName];
+          }
+          if (this.selectedRooms[oldName] !== undefined) {
+            this.selectedRooms[newName] = this.selectedRooms[oldName];
+            delete this.selectedRooms[oldName];
+          }
+          if (this.efeRecordIds[oldName]) {
+            this.efeRecordIds[newName] = this.efeRecordIds[oldName];
+            delete this.efeRecordIds[oldName];
+          }
+          if (this.savingRooms[oldName]) {
+            this.savingRooms[newName] = this.savingRooms[oldName];
+            delete this.savingRooms[oldName];
+          }
+
+          this.changeDetectorRef.detectChanges();
+          nextNumber = 2; // The new room will be #2
+        }
+        
+        roomName = `${baseName} #${nextNumber}`;
+      }
+      
+      console.log('[Add Room] Final room name:', roomName);
+      
+      // Create room elevation data
+      const elevationPoints: any[] = [];
+      
+      // Extract elevation points from Point1Name, Point2Name, etc.
+      for (let i = 1; i <= 20; i++) {
+        const pointColumnName = `Point${i}Name`;
+        const pointName = template[pointColumnName];
+        
+        if (pointName && pointName.trim() !== '') {
+          elevationPoints.push({
+            pointNumber: i,
+            name: pointName,
+            value: '',
+            photo: null,
+            photos: [],
+            photoCount: 0
+          });
+        }
+      }
+      
+      this.roomElevationData[roomName] = {
+        roomName: roomName,
+        templateId: template.TemplateID || template.PK_ID,
+        elevationPoints: elevationPoints,
+        pointCount: template.PointCount || elevationPoints.length,
+        notes: '',
+        fdf: '',
+        location: '',
+        fdfPhotos: {}
+      };
+      
+      // Validate ServiceID
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (!this.serviceId || isNaN(serviceIdNum)) {
+        console.error('[Add Room] ERROR: Invalid ServiceID!');
+        await this.showToast(`Error: Invalid ServiceID (${this.serviceId})`, 'danger');
+        return;
+      }
+
+      // Prepare room data
+      const roomData: any = {
+        ServiceID: serviceIdNum,
+        RoomName: roomName
+      };
+
+      // Include TemplateID to link back to template
+      if (template.TemplateID || template.PK_ID) {
+        roomData.TemplateID = template.TemplateID || template.PK_ID;
+      }
+
+      // Set Organization to be at the end of the list
+      const nextOrganization = this.getNextOrganizationNumber();
+      roomData.Organization = nextOrganization;
+      console.log('[Add Room] Setting Organization to:', nextOrganization);
+
+      // OPTIMISTIC UI: Create new room object and add to display list
+      const newRoom: RoomDisplayData = {
+        ...template,
+        RoomName: roomName,
+        Organization: nextOrganization,
+        isSelected: true,
+        isSaving: true
+      };
+      
+      this.roomTemplates.push(newRoom);
+      this.selectedRooms[roomName] = true;
+      this.efeRecordIds[roomName] = `temp_${Date.now()}`;
+      this.savingRooms[roomName] = true;
+      this.changeDetectorRef.detectChanges();
+
+      try {
+        // Create room in database
+        const response = await this.caspioService.createServicesEFE(roomData).toPromise();
+        const roomId = response?.EFEID || response?.PK_ID || response?.id;
+
+        if (roomId) {
+          this.efeRecordIds[roomName] = roomId;
+          this.savingRooms[roomName] = false;
+
+          const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
+          if (roomIndex >= 0) {
+            this.roomTemplates[roomIndex].isSaving = false;
+            this.roomTemplates[roomIndex].efeId = roomId;
+          }
+
+          this.changeDetectorRef.detectChanges();
+          await this.showToast(`Room "${roomName}" added successfully`, 'success');
+          console.log('[Add Room] Room created successfully:', roomName, 'EFEID:', roomId);
+        } else {
+          throw new Error('No room ID returned from creation');
+        }
+      } catch (error) {
+        console.error('[Add Room] Error creating room:', error);
+
+        // Revert optimistic UI
+        this.selectedRooms[roomName] = false;
+        delete this.efeRecordIds[roomName];
+        this.savingRooms[roomName] = false;
+        delete this.roomElevationData[roomName];
+
+        // Remove from roomTemplates list
+        const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
+        if (roomIndex >= 0) {
+          this.roomTemplates.splice(roomIndex, 1);
+        }
+
+        this.changeDetectorRef.detectChanges();
+        await this.showToast(`Failed to create room "${roomName}"`, 'danger');
+      }
+    } catch (error) {
+      console.error('[Add Room] Error in addRoomTemplate:', error);
+      await this.showToast('Failed to add room', 'danger');
+    }
   }
 }

@@ -1,0 +1,141 @@
+.page-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.content-section {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  padding: 24px;
+  min-height: 200px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+
+  ion-spinner {
+    margin-bottom: 16px;
+    --color: var(--ion-color-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.categories-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.navigation-card {
+  margin: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  transition: box-shadow 0.2s, background-color 0.2s;
+  cursor: pointer;
+  background: #f8f9fa;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+      background: #f0f0f0;
+    }
+  }
+
+  ion-card-header {
+    padding: 16px;
+  }
+
+  .card-header-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .icon-container {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 32px;
+      color: var(--ion-color-primary);
+    }
+  }
+
+  .title-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    ion-card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin: 0;
+    }
+
+    .deficiency-count {
+      margin: 0;
+      font-size: 14px;
+      color: #666;
+      font-weight: normal;
+    }
+
+    ion-badge {
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      ion-icon {
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+.empty-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #999;
+
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    color: #ccc;
+  }
+
+  p {
+    margin: 0;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 12px;
+  }
+
+  .content-section {
+    padding: 16px;
+  }
+}
+
