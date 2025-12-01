@@ -720,25 +720,144 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     return options;
   }
 
-  // Data Management Methods (Stubs - implement based on HUD API)
+  // Data Management Methods
   private async createVisualRecord(category: string, itemId: string | number) {
-    console.log('[HUD CATEGORY] TODO: Create visual record for:', category, itemId);
-    // TODO: Implement HUD visual record creation
+    const key = `${category}_${itemId}`;
+    const item = this.findItemByTemplateId(Number(itemId));
+    
+    if (!item) {
+      console.error('[CREATE VISUAL] Item not found:', itemId);
+      return;
+    }
+
+    this.savingItems[key] = true;
+
+    try {
+      const hudData = {
+        ServiceID: parseInt(this.serviceId),
+        TemplateID: item.templateId,
+        Category: category,
+        Kind: item.type,
+        Name: item.name,
+        Text: item.text,
+        Notes: '',
+        Answers: item.answer || ''
+      };
+
+      console.log('[CREATE VISUAL] Creating HUD record:', hudData);
+
+      const result = await firstValueFrom(this.caspioService.createServicesHUD(hudData));
+      
+      if (result && result.Result && result.Result.length > 0) {
+        const createdRecord = result.Result[0];
+        this.visualRecordIds[key] = createdRecord.PK_ID || createdRecord.HUDID;
+        console.log('[CREATE VISUAL] Created with ID:', this.visualRecordIds[key]);
+        
+        // Initialize photo array
+        this.visualPhotos[key] = [];
+        this.photoCountsByKey[key] = 0;
+      }
+    } catch (error) {
+      console.error('[CREATE VISUAL] Error:', error);
+      this.selectedItems[key] = false; // Revert selection on error
+    } finally {
+      this.savingItems[key] = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   private async deleteVisualRecord(category: string, itemId: string | number) {
-    console.log('[HUD CATEGORY] TODO: Delete visual record for:', category, itemId);
-    // TODO: Implement HUD visual record deletion
+    const key = `${category}_${itemId}`;
+    const visualId = this.visualRecordIds[key];
+    
+    if (!visualId) {
+      console.log('[DELETE VISUAL] No visual ID found, nothing to delete');
+      return;
+    }
+
+    this.savingItems[key] = true;
+
+    try {
+      console.log('[DELETE VISUAL] Deleting HUD record:', visualId);
+      await firstValueFrom(this.caspioService.deleteServicesHUD(visualId));
+      
+      // Clean up local state
+      delete this.visualRecordIds[key];
+      delete this.visualPhotos[key];
+      delete this.photoCountsByKey[key];
+      
+      console.log('[DELETE VISUAL] Deleted successfully');
+    } catch (error) {
+      console.error('[DELETE VISUAL] Error:', error);
+    } finally {
+      this.savingItems[key] = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   async onAnswerChange(category: string, item: VisualItem) {
-    console.log('[HUD CATEGORY] TODO: Save answer for:', category, item.name, item.answer);
-    // TODO: Implement answer saving
+    const key = `${category}_${item.id}`;
+    const visualId = this.visualRecordIds[key];
+
+    console.log('[ANSWER CHANGE] Answer changed for:', item.name, 'to:', item.answer);
+
+    if (!visualId) {
+      console.log('[ANSWER CHANGE] No visual record exists, creating one');
+      await this.createVisualRecord(category, item.id);
+      return;
+    }
+
+    this.savingItems[key] = true;
+
+    try {
+      await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
+        Answers: item.answer || ''
+      }));
+      console.log('[ANSWER CHANGE] Saved successfully');
+    } catch (error) {
+      console.error('[ANSWER CHANGE] Error saving:', error);
+    } finally {
+      this.savingItems[key] = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   async onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
-    console.log('[HUD CATEGORY] TODO: Toggle option:', category, item.name, option, event.detail.checked);
-    // TODO: Implement multi-select option toggling
+    const key = `${category}_${item.id}`;
+    const isChecked = event.detail.checked;
+    
+    // Update item.answer with comma-separated selected options
+    let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
+    
+    if (isChecked) {
+      if (!selectedOptions.includes(option)) {
+        selectedOptions.push(option);
+      }
+    } else {
+      selectedOptions = selectedOptions.filter(o => o !== option);
+      
+      // Clear "Other" value if unchecking "Other"
+      if (option === 'Other') {
+        item.otherValue = '';
+      }
+    }
+    
+    item.answer = selectedOptions.join(', ');
+    
+    console.log('[OPTION TOGGLE]', option, isChecked ? 'checked' : 'unchecked', 'New answer:', item.answer);
+    
+    // If this is the first selection and no visual record exists, create it
+    if (!this.visualRecordIds[key] && selectedOptions.length > 0) {
+      this.selectedItems[key] = true; // Mark as selected
+      await this.createVisualRecord(category, item.id);
+    } else if (selectedOptions.length === 0) {
+      // If all options unchecked, delete the visual record
+      this.selectedItems[key] = false;
+      await this.deleteVisualRecord(category, item.id);
+    } else {
+      // Just update the answer
+      await this.onAnswerChange(category, item);
+    }
   }
 
   isOptionSelectedV1(item: VisualItem, option: string): boolean {
@@ -748,33 +867,261 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async onMultiSelectOtherChange(category: string, item: VisualItem) {
-    console.log('[HUD CATEGORY] TODO: Save other value:', category, item.name, item.otherValue);
-    // TODO: Implement other value saving
+    if (!item.otherValue || !item.otherValue.trim()) {
+      return;
+    }
+
+    // Update the answer to include the "Other" custom value
+    let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
+    
+    // Replace "Other" with the custom value
+    const otherIndex = selectedOptions.indexOf('Other');
+    if (otherIndex > -1) {
+      selectedOptions[otherIndex] = item.otherValue.trim();
+    } else {
+      // Add custom value if "Other" wasn't in the list
+      selectedOptions.push(item.otherValue.trim());
+    }
+    
+    item.answer = selectedOptions.join(', ');
+    
+    console.log('[OTHER CHANGE] Custom value:', item.otherValue, 'New answer:', item.answer);
+    
+    await this.onAnswerChange(category, item);
   }
 
   async addPhotoFromCamera(category: string, itemId: string | number) {
-    console.log('[HUD CATEGORY] TODO: Add photo from camera:', category, itemId);
-    // TODO: Implement camera photo capture
+    const key = `${category}_${itemId}`;
+    const visualId = this.visualRecordIds[key];
+
+    if (!visualId) {
+      await this.showToast('Please save the item first before adding photos', 'warning');
+      return;
+    }
+
+    // Store context for when photo is captured
+    this.currentUploadContext = { category, itemId: String(itemId), action: 'camera' };
+
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera
+      });
+
+      if (image.webPath) {
+        await this.processPhotoCapture(image.webPath, key, visualId);
+      }
+    } catch (error) {
+      console.error('[CAMERA] Error capturing photo:', error);
+    } finally {
+      this.currentUploadContext = null;
+    }
   }
 
   async addPhotoFromGallery(category: string, itemId: string | number) {
-    console.log('[HUD CATEGORY] TODO: Add photo from gallery:', category, itemId);
-    // TODO: Implement gallery photo selection
-  }
+    const key = `${category}_${itemId}`;
+    const visualId = this.visualRecordIds[key];
 
-  async viewPhoto(photo: any, key: string) {
-    console.log('[HUD CATEGORY] TODO: View photo:', photo, key);
-    // TODO: Implement photo viewer
-  }
+    if (!visualId) {
+      await this.showToast('Please save the item first before adding photos', 'warning');
+      return;
+    }
 
-  async deletePhoto(photo: any, key: string) {
-    console.log('[HUD CATEGORY] TODO: Delete photo:', photo, key);
-    // TODO: Implement photo deletion
+    this.currentUploadContext = { category, itemId: String(itemId), action: 'gallery' };
+    this.fileInput.nativeElement.click();
   }
 
   async onFileSelected(event: any) {
-    console.log('[HUD CATEGORY] TODO: File selected:', event);
-    // TODO: Implement file upload
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    if (!this.currentUploadContext) {
+      console.error('[FILE SELECTED] No upload context');
+      return;
+    }
+
+    const key = `${this.currentUploadContext.category}_${this.currentUploadContext.itemId}`;
+    const visualId = this.visualRecordIds[key];
+
+    if (!visualId) {
+      await this.showToast('Visual record not found', 'danger');
+      return;
+    }
+
+    for (const file of files) {
+      await this.uploadPhotoFile(file, key, visualId);
+    }
+
+    // Clear file input
+    event.target.value = '';
+    this.currentUploadContext = null;
+  }
+
+  private async processPhotoCapture(webPath: string, key: string, visualId: string) {
+    try {
+      // Convert webPath to blob
+      const response = await fetch(webPath);
+      const blob = await response.blob();
+      const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+      await this.uploadPhotoFile(file, key, visualId);
+    } catch (error) {
+      console.error('[PROCESS PHOTO] Error:', error);
+      await this.showToast('Failed to process photo', 'danger');
+    }
+  }
+
+  private async uploadPhotoFile(file: File, key: string, visualId: string) {
+    // Create temporary photo placeholder
+    const tempId = `temp_${Date.now()}_${Math.random()}`;
+    const tempPhoto = {
+      AttachID: tempId,
+      id: tempId,
+      url: URL.createObjectURL(file),
+      uploading: true,
+      progress: 0
+    };
+
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+    this.visualPhotos[key].push(tempPhoto);
+    this.uploadingPhotosByKey[key] = true;
+    this.changeDetectorRef.detectChanges();
+
+    try {
+      // Compress image
+      const compressedFile = await this.imageCompression.compressImage(file);
+      
+      // Upload to Caspio
+      const result = await firstValueFrom(
+        this.caspioService.createServicesHUDAttachWithFile(
+          parseInt(visualId),
+          '', // annotation
+          compressedFile,
+          undefined, // drawings
+          file // originalFile
+        )
+      );
+
+      // Update temp photo with real data
+      const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId);
+      if (photoIndex > -1 && result) {
+        await this.updatePhotoAfterUpload(key, photoIndex, result, '');
+      }
+
+      console.log('[UPLOAD] Photo uploaded successfully');
+    } catch (error) {
+      console.error('[UPLOAD] Error uploading photo:', error);
+      
+      // Remove failed photo
+      const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId);
+      if (photoIndex > -1) {
+        this.visualPhotos[key].splice(photoIndex, 1);
+      }
+      
+      await this.showToast('Failed to upload photo', 'danger');
+    } finally {
+      this.uploadingPhotosByKey[key] = false;
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  async viewPhoto(photo: any, key: string) {
+    // TODO: Implement photo viewer modal
+    console.log('[VIEW PHOTO] Opening photo viewer for:', photo);
+    await this.showToast('Photo viewer not yet implemented', 'primary');
+  }
+
+  async deletePhoto(photo: any, key: string) {
+    const attachId = photo.AttachID || photo.id;
+    
+    if (!attachId || String(attachId).startsWith('temp_')) {
+      // Remove from array if it's a temp photo
+      const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attachId);
+      if (photoIndex > -1) {
+        this.visualPhotos[key].splice(photoIndex, 1);
+      }
+      return;
+    }
+
+    const confirm = await this.alertController.create({
+      header: 'Delete Photo',
+      message: 'Are you sure you want to delete this photo?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          cssClass: 'danger',
+          handler: async () => {
+            try {
+              await firstValueFrom(this.caspioService.deleteServicesHUDAttach(attachId));
+              
+              // Remove from array
+              const photoIndex = this.visualPhotos[key].findIndex(p => 
+                (p.AttachID === attachId || p.id === attachId)
+              );
+              if (photoIndex > -1) {
+                this.visualPhotos[key].splice(photoIndex, 1);
+              }
+              
+              this.changeDetectorRef.detectChanges();
+              await this.showToast('Photo deleted', 'success');
+            } catch (error) {
+              console.error('[DELETE PHOTO] Error:', error);
+              await this.showToast('Failed to delete photo', 'danger');
+            }
+          }
+        }
+      ]
+    });
+    
+    await confirm.present();
+  }
+
+  isOptionSelectedV1(item: VisualItem, option: string): boolean {
+    if (!item.answer) return false;
+    const selectedOptions = item.answer.split(',').map(o => o.trim());
+    return selectedOptions.includes(option);
+  }
+
+  async onMultiSelectOtherChange(category: string, item: VisualItem) {
+    if (!item.otherValue || !item.otherValue.trim()) {
+      return;
+    }
+
+    // Update the answer to include the "Other" custom value
+    let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
+    
+    // Replace "Other" with the custom value
+    const otherIndex = selectedOptions.indexOf('Other');
+    if (otherIndex > -1) {
+      selectedOptions[otherIndex] = item.otherValue.trim();
+    } else {
+      // Add custom value if "Other" wasn't in the list
+      selectedOptions.push(item.otherValue.trim());
+    }
+    
+    item.answer = selectedOptions.join(', ');
+    
+    console.log('[OTHER CHANGE] Custom value:', item.otherValue, 'New answer:', item.answer);
+    
+    await this.onAnswerChange(category, item);
+  }
+
+  private async showToast(message: string, color: string = 'primary') {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      color,
+      position: 'bottom'
+    });
+    await toast.present();
   }
 }
 

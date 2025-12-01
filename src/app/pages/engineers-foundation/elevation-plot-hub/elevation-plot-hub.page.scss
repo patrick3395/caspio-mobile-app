@@ -4,6 +4,20 @@
   margin: 0 auto;
 }
 
+// Subsection headers
+.subsection-header {
+  font-size: 17px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--noble-orange, #F15A27);
+}
+
+.elevation-subsection {
+  margin-bottom: 24px;
+}
+
 .content-section {
   display: flex;
   flex-direction: column;

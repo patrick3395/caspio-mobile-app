@@ -1,55 +1,92 @@
 <div class="page-container">
   <div class="content-section">
-    <!-- Rooms List -->
-    <div class="rooms-list" *ngIf="roomTemplates.length > 0">
-      <div
-        *ngFor="let room of roomTemplates"
-        class="room-item"
-        [class.selected]="room.isSelected"
-        [class.saving]="room.isSaving">
+    <!-- Base Station Section -->
+    <div class="elevation-subsection" *ngIf="roomTemplates.length > 0">
+      <h3 class="subsection-header">Base Station</h3>
+      
+      <div class="rooms-list">
+        <div
+          *ngFor="let room of roomTemplates"
+          class="room-item"
+          [class.selected]="room.isSelected"
+          [class.saving]="room.isSaving"
+          [hidden]="!isBaseStation(room.RoomName)">
 
-        <!-- Room Card -->
-        <div class="room-card" (click)="navigateToRoom(room, $event)">
-          <div class="room-header">
-            <div class="room-title-section">
-              <h3 class="room-name">
-                {{ room.RoomName }}
-                <span class="required-indicator" *ngIf="isBaseStation(room.RoomName)">*</span>
-              </h3>
-              <p class="room-info">{{ room.PointCount || 0 }} elevation points</p>
-            </div>
+          <!-- Room Card -->
+          <div class="room-card" (click)="navigateToRoom(room, $event)">
+            <div class="room-header">
+              <div class="room-title-section">
+                <h3 class="room-name">
+                  {{ room.RoomName }}
+                  <span class="required-indicator">*</span>
+                </h3>
+                <p class="room-info">{{ room.PointCount || 0 }} elevation points</p>
+              </div>
 
-            <div class="room-status-section">
-              <ion-spinner *ngIf="room.isSaving" name="crescent" class="saving-spinner"></ion-spinner>
-              <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
+              <div class="room-status-section">
+                <ion-spinner *ngIf="room.isSaving" name="crescent" class="saving-spinner"></ion-spinner>
+                <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
 
-          <!-- Room Management Actions -->
-          <div class="room-actions" *ngIf="room.isSelected" (click)="$event.stopPropagation()">
-            <button
-              type="button"
-              class="room-action-btn"
-              (click)="duplicateRoom(room.RoomName, $event)"
-              title="Duplicate Room">
-              <ion-icon name="copy-outline"></ion-icon>
-            </button>
+    <!-- Rooms Section -->
+    <div class="elevation-subsection" *ngIf="roomTemplates.length > 0" style="margin-top: 24px;">
+      <h3 class="subsection-header">Rooms</h3>
+      
+      <div class="rooms-list">
+        <div
+          *ngFor="let room of roomTemplates"
+          class="room-item"
+          [class.selected]="room.isSelected"
+          [class.saving]="room.isSaving"
+          [hidden]="isBaseStation(room.RoomName)">
 
-            <button
-              type="button"
-              class="room-action-btn"
-              (click)="renameRoom(room.RoomName, $event)"
-              title="Rename Room">
-              <ion-icon name="create-outline"></ion-icon>
-            </button>
+          <!-- Room Card -->
+          <div class="room-card" (click)="navigateToRoom(room, $event)">
+            <div class="room-header">
+              <div class="room-title-section">
+                <h3 class="room-name">
+                  {{ room.RoomName }}
+                </h3>
+                <p class="room-info">{{ room.PointCount || 0 }} elevation points</p>
+              </div>
 
-            <button
-              type="button"
-              class="room-action-btn delete-btn"
-              (click)="deleteRoom(room.RoomName, $event)"
-              title="Delete Room">
-              <ion-icon name="trash-outline"></ion-icon>
-            </button>
+              <div class="room-status-section">
+                <ion-spinner *ngIf="room.isSaving" name="crescent" class="saving-spinner"></ion-spinner>
+                <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
+              </div>
+            </div>
+
+            <!-- Room Management Actions (not shown for Base Station) -->
+            <div class="room-actions" *ngIf="room.isSelected" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="room-action-btn"
+                (click)="duplicateRoom(room.RoomName, $event)"
+                title="Duplicate Room">
+                <ion-icon name="copy-outline"></ion-icon>
+              </button>
+
+              <button
+                type="button"
+                class="room-action-btn"
+                (click)="renameRoom(room.RoomName, $event)"
+                title="Rename Room">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+
+              <button
+                type="button"
+                class="room-action-btn delete-btn"
+                (click)="deleteRoom(room.RoomName, $event)"
+                title="Delete Room">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
           </div>
         </div>
       </div>
