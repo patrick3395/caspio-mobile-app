@@ -907,100 +907,167 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
   async onAnswerChange(category: string, item: VisualItem) {
     const key = `${category}_${item.id}`;
-    const visualId = this.visualRecordIds[key];
-
-    console.log('[ANSWER CHANGE] ========== START ==========');
-    console.log('[ANSWER CHANGE] Item:', item.name, 'ID:', item.id);
-    console.log('[ANSWER CHANGE] Category:', category);
-    console.log('[ANSWER CHANGE] Key:', key);
-    console.log('[ANSWER CHANGE] Answer changed to:', item.answer);
-    console.log('[ANSWER CHANGE] Looking for visualId with key:', key);
-    console.log('[ANSWER CHANGE] Found visualId:', visualId);
-    console.log('[ANSWER CHANGE] All visualRecordIds:', JSON.stringify(this.visualRecordIds));
-
-    if (!visualId) {
-      console.log('[ANSWER CHANGE] ❌ No visual record exists, creating one');
-      await this.createVisualRecord(category, item.id);
-      return;
-    }
-
-    console.log('[ANSWER CHANGE] ✅ Visual record exists, updating HUDID:', visualId);
+    console.log('[ANSWER] Changed:', item.answer, 'for', key);
 
     this.savingItems[key] = true;
 
     try {
-      const updateData = {
-        Answers: item.answer || '',
-        Text: item.text || ''
-      };
-      
-      console.log('[ANSWER CHANGE] Updating with data:', updateData);
-      
-      await firstValueFrom(this.caspioService.updateServicesHUD(visualId, updateData));
-      
-      console.log('[ANSWER CHANGE] ✅ Update successful for HUDID:', visualId);
+      // Create or update visual record
+      let visualId = this.visualRecordIds[key];
+      console.log('[ANSWER] Current visualId:', visualId);
+
+      // If answer is empty/cleared, hide the visual instead of deleting
+      if (!item.answer || item.answer === '') {
+        if (visualId && !String(visualId).startsWith('temp_')) {
+          await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
+            Answers: '',
+            Notes: 'HIDDEN'
+          }));
+          console.log('[ANSWER] Hid visual (preserved photos):', visualId);
+        }
+        this.savingItems[key] = false;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      if (!visualId) {
+        // Create new visual
+        console.log('[ANSWER] Creating new visual for key:', key);
+        const serviceIdNum = parseInt(this.serviceId, 10);
+        const visualData = {
+          ServiceID: serviceIdNum,
+          Category: category,
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: '',
+          Answers: item.answer || ''
+        };
+
+        console.log('[ANSWER] Creating with data:', visualData);
+
+        const result = await firstValueFrom(this.caspioService.createServicesHUD(visualData));
+        
+        if (result && result.Result && result.Result.length > 0) {
+          visualId = String(result.Result[0].HUDID || result.Result[0].PK_ID || result.Result[0].id);
+          this.visualRecordIds[key] = visualId;
+          this.selectedItems[key] = true;
+          
+          // Initialize photo array
+          this.visualPhotos[key] = [];
+          this.photoCountsByKey[key] = 0;
+          
+          console.log('[ANSWER] ✅ Created visual with HUDID:', visualId);
+          console.log('[ANSWER] Stored as visualRecordIds[' + key + '] =', visualId);
+        }
+      } else if (!String(visualId).startsWith('temp_')) {
+        // Update existing visual and unhide if it was hidden
+        console.log('[ANSWER] Updating existing visual:', visualId);
+        await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
+          Answers: item.answer || '',
+          Notes: ''
+        }));
+        console.log('[ANSWER] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
+      }
     } catch (error) {
-      console.error('[ANSWER CHANGE] ❌ Error updating:', error);
+      console.error('[ANSWER] ❌ Error saving answer:', error);
       await this.showToast('Failed to save answer', 'danger');
-    } finally {
-      this.savingItems[key] = false;
-      this.changeDetectorRef.detectChanges();
     }
-    
-    console.log('[ANSWER CHANGE] ========== END ==========');
+
+    this.savingItems[key] = false;
+    this.changeDetectorRef.detectChanges();
   }
 
   async onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
     const key = `${category}_${item.id}`;
     const isChecked = event.detail.checked;
-    
-    console.log('[OPTION TOGGLE] ========== START ==========');
-    console.log('[OPTION TOGGLE] Item:', item.name, 'ID:', item.id, 'TemplateID:', item.templateId);
-    console.log('[OPTION TOGGLE] Category:', category);
-    console.log('[OPTION TOGGLE] Key:', key);
-    console.log('[OPTION TOGGLE] Option:', option, 'Checked:', isChecked);
-    console.log('[OPTION TOGGLE] Current visualRecordId for key:', this.visualRecordIds[key]);
-    console.log('[OPTION TOGGLE] All visualRecordIds:', this.visualRecordIds);
-    console.log('[OPTION TOGGLE] Current answer before change:', item.answer);
-    
-    // Update item.answer with comma-separated selected options
-    let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
-    
+
+    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key);
+
+    // Update the answer string
+    let selectedOptions: string[] = [];
+    if (item.answer) {
+      selectedOptions = item.answer.split(',').map(o => o.trim()).filter(o => o);
+    }
+
     if (isChecked) {
       if (!selectedOptions.includes(option)) {
         selectedOptions.push(option);
       }
     } else {
       selectedOptions = selectedOptions.filter(o => o !== option);
-      
-      // Clear "Other" value if unchecking "Other"
-      if (option === 'Other') {
-        item.otherValue = '';
-      }
     }
-    
+
     item.answer = selectedOptions.join(', ');
-    
-    console.log('[OPTION TOGGLE] New answer after change:', item.answer);
-    console.log('[OPTION TOGGLE] Selected options array:', selectedOptions);
-    console.log('[OPTION TOGGLE] Checking if record exists - visualRecordIds[key]:', this.visualRecordIds[key]);
-    
-    // If this is the first selection and no visual record exists, create it
-    if (!this.visualRecordIds[key] && selectedOptions.length > 0) {
-      console.log('[OPTION TOGGLE] ➡️ Path: Creating new visual record (first selection)');
-      this.selectedItems[key] = true; // Mark as selected
-      await this.createVisualRecord(category, item.id);
-    } else if (selectedOptions.length === 0) {
-      // If all options unchecked, delete the visual record
-      console.log('[OPTION TOGGLE] ➡️ Path: Deleting visual record (no selections)');
-      this.selectedItems[key] = false;
-      await this.deleteVisualRecord(category, item.id);
-    } else {
-      // Just update the answer
-      console.log('[OPTION TOGGLE] ➡️ Path: Updating existing visual record');
-      await this.onAnswerChange(category, item);
+
+    // Save to database
+    this.savingItems[key] = true;
+
+    try {
+      let visualId = this.visualRecordIds[key];
+      console.log('[OPTION] Current visualId for key', key, ':', visualId);
+
+      // If all options are unchecked AND no "Other" value, hide the visual
+      if ((!item.answer || item.answer === '') && (!item.otherValue || item.otherValue === '')) {
+        if (visualId && !String(visualId).startsWith('temp_')) {
+          await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
+            Answers: '',
+            Notes: 'HIDDEN'
+          }));
+          console.log('[OPTION] Hid visual (preserved photos):', visualId);
+        }
+        this.savingItems[key] = false;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      if (!visualId) {
+        // Create new visual
+        console.log('[OPTION] Creating new visual for key:', key);
+        const serviceIdNum = parseInt(this.serviceId, 10);
+        const visualData = {
+          ServiceID: serviceIdNum,
+          Category: category,
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: item.otherValue || '',
+          Answers: item.answer
+        };
+
+        console.log('[OPTION] Creating with data:', visualData);
+
+        const result = await firstValueFrom(this.caspioService.createServicesHUD(visualData));
+        
+        if (result && result.Result && result.Result.length > 0) {
+          visualId = String(result.Result[0].HUDID || result.Result[0].PK_ID || result.Result[0].id);
+          this.visualRecordIds[key] = visualId;
+          this.selectedItems[key] = true;
+          
+          // Initialize photo array
+          this.visualPhotos[key] = [];
+          this.photoCountsByKey[key] = 0;
+          
+          console.log('[OPTION] ✅ Created visual with HUDID:', visualId);
+          console.log('[OPTION] Stored as visualRecordIds[' + key + '] =', visualId);
+        }
+      } else if (!String(visualId).startsWith('temp_')) {
+        // Update existing visual
+        console.log('[OPTION] Updating existing visual:', visualId);
+        const notesValue = item.otherValue || '';
+        await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
+          Answers: item.answer,
+          Notes: notesValue
+        }));
+        console.log('[OPTION] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
+      }
+    } catch (error) {
+      console.error('[OPTION] ❌ Error saving option:', error);
+      await this.showToast('Failed to save option', 'danger');
     }
-    console.log('[OPTION TOGGLE] ========== END ==========');
+
+    this.savingItems[key] = false;
+    this.changeDetectorRef.detectChanges();
   }
 
   isOptionSelectedV1(item: VisualItem, option: string): boolean {
