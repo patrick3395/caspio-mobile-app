@@ -10,14 +10,22 @@ ion-toolbar {
   // Mobile: show short title
   .full-title {
     display: none;
+    padding: 0 !important;
+    --padding-top: 0 !important;
+    --padding-bottom: 0 !important;
+    --padding-start: 0 !important;
+    --padding-end: 0 !important;
+    line-height: 56px; // Match toolbar height for vertical centering
   }
 
   .short-title {
     display: block;
-    padding-top: 0;
-    padding-bottom: 0;
-    --padding-top: 0;
-    --padding-bottom: 0;
+    padding: 0 !important;
+    --padding-top: 0 !important;
+    --padding-bottom: 0 !important;
+    --padding-start: 0 !important;
+    --padding-end: 0 !important;
+    line-height: 56px; // Match toolbar height for vertical centering
   }
 
   ion-title {
@@ -27,6 +35,14 @@ ion-toolbar {
     height: 100%;
     padding: 0;
     margin: 0;
+    
+    // Ensure inner text is centered
+    .toolbar-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
   }
 
   ion-buttons {

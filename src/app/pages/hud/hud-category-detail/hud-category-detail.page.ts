@@ -269,11 +269,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       // Organize templates by Kind (Type field in HUD is called "Kind")
       hudTemplates.forEach((template: any) => {
         // Log the Kind value to debug
-        console.log('[HUD CATEGORY] Template:', template.Name, 'Kind:', template.Kind, 'Type:', template.Type);
+        console.log('[HUD CATEGORY] Template:', template.Name, 'PK_ID:', template.PK_ID, 'TemplateID:', template.TemplateID, 'Kind:', template.Kind, 'Type:', template.Type);
 
         const templateData: VisualItem = {
           id: template.PK_ID,
-          templateId: template.PK_ID,
+          templateId: template.TemplateID || template.PK_ID,  // Use TemplateID field, fallback to PK_ID
           name: template.Name || 'Unnamed Item',
           text: template.Text || '',
           originalText: template.Text || '',
