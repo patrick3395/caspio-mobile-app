@@ -224,8 +224,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     this.loading = true;
 
     try {
+      // CRITICAL: Clear cache to force fresh data load
+      console.log('[LOAD DATA] ========== STARTING DATA LOAD ==========');
+      console.log('[LOAD DATA] Clearing HUD data service cache...');
+      this.hudData.clearServiceCaches(this.serviceId);
+      
       // Clear all state for fresh load
-      console.log('[LOAD DATA] Clearing all photo state for fresh load');
+      console.log('[LOAD DATA] Clearing all component state for fresh load');
       this.visualPhotos = {};
       this.visualRecordIds = {};
       this.uploadingPhotosByKey = {};
@@ -239,19 +244,26 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       };
 
       // Load dropdown options for all templates (needed before loading templates)
+      console.log('[LOAD DATA] Step 1: Loading dropdown options...');
       await this.loadAllDropdownOptions();
 
       // Load templates for this category
+      console.log('[LOAD DATA] Step 2: Loading templates...');
       await this.loadCategoryTemplates();
 
       // Load existing visuals
+      console.log('[LOAD DATA] Step 3: Loading existing visuals...');
       await this.loadExistingVisuals();
+
+      console.log('[LOAD DATA] ========== DATA LOAD COMPLETE ==========');
+      console.log('[LOAD DATA] Final state - visualRecordIds:', this.visualRecordIds);
+      console.log('[LOAD DATA] Final state - selectedItems:', this.selectedItems);
 
       // Show page
       this.loading = false;
 
     } catch (error) {
-      console.error('Error loading category data:', error);
+      console.error('[LOAD DATA] ❌ Error loading category data:', error);
       this.loading = false;
     }
   }
@@ -370,35 +382,96 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   private async loadExistingVisuals() {
     try {
       // Load all existing HUD visuals for this service and category
+      console.log('[LOAD EXISTING] ========== START ==========');
+      console.log('[LOAD EXISTING] ServiceID:', this.serviceId);
+      console.log('[LOAD EXISTING] Category to match:', this.categoryName);
+      
       const allVisuals = await this.hudData.getVisualsByService(this.serviceId);
+      console.log('[LOAD EXISTING] Total visuals from API:', allVisuals.length);
+      console.log('[LOAD EXISTING] All visuals:', allVisuals);
+      
       const categoryVisuals = allVisuals.filter((v: any) => v.Category === this.categoryName);
+      console.log('[LOAD EXISTING] Visuals for this category:', categoryVisuals.length);
 
-      console.log(`[HUD CATEGORY] Found ${categoryVisuals.length} existing visuals for category:`, this.categoryName);
+      if (categoryVisuals.length > 0) {
+        console.log('[LOAD EXISTING] Category visuals full data:', categoryVisuals);
+      }
+
+      // Get all available template items
+      const allItems = [
+        ...this.organizedData.comments,
+        ...this.organizedData.limitations,
+        ...this.organizedData.deficiencies
+      ];
+      console.log('[LOAD EXISTING] Available template items:', allItems.length);
+      console.log('[LOAD EXISTING] Template item names:', allItems.map(i => i.name));
 
       for (const visual of categoryVisuals) {
-        const templateId = visual.TemplateID || visual.templateId;
-        const key = `${this.categoryName}_${templateId}`;
+        console.log('[LOAD EXISTING] ========== Processing Visual ==========');
+        console.log('[LOAD EXISTING] Visual HUDID:', visual.HUDID);
+        console.log('[LOAD EXISTING] Visual Name:', visual.Name);
+        console.log('[LOAD EXISTING] Visual Answers:', visual.Answers);
+        console.log('[LOAD EXISTING] Visual Kind:', visual.Kind);
+        
+        // Find the item by Name
+        const item = allItems.find(i => i.name === visual.Name);
+        
+        if (!item) {
+          console.error('[LOAD EXISTING] ❌ No matching template item found for:', visual.Name);
+          console.error('[LOAD EXISTING] Available names to match:', allItems.map(i => i.name));
+          continue;
+        }
+
+        console.log('[LOAD EXISTING] ✅ Found matching template item:');
+        console.log('[LOAD EXISTING]   - Name:', item.name);
+        console.log('[LOAD EXISTING]   - ID:', item.id);
+        console.log('[LOAD EXISTING]   - TemplateID:', item.templateId);
+        console.log('[LOAD EXISTING]   - AnswerType:', item.answerType);
+
+        const key = `${this.categoryName}_${item.id}`;
+        const hudId = String(visual.HUDID || visual.PK_ID || visual.id);
+
+        console.log('[LOAD EXISTING] Constructed key:', key);
+        console.log('[LOAD EXISTING] HUDID to store:', hudId);
 
         // Mark as selected
         this.selectedItems[key] = true;
+        console.log('[LOAD EXISTING] ✅ selectedItems[' + key + '] = true');
 
         // Store visual record ID
-        this.visualRecordIds[key] = visual.PK_ID || visual.id;
+        this.visualRecordIds[key] = hudId;
+        console.log('[LOAD EXISTING] ✅ visualRecordIds[' + key + '] = ' + hudId);
 
         // Update item with saved answer
-        const item = this.findItemByTemplateId(templateId);
-        if (item) {
-          item.answer = visual.Answers || '';
-          item.otherValue = visual.OtherValue || '';
-        }
+        item.answer = visual.Answers || '';
+        item.otherValue = visual.OtherValue || '';
+        console.log('[LOAD EXISTING] ✅ item.answer set to:', item.answer);
+
+        // Force change detection to update UI
+        this.changeDetectorRef.detectChanges();
 
         // Load photos for this visual
-        await this.loadPhotosForVisual(key, visual.PK_ID || visual.id);
+        await this.loadPhotosForVisual(key, hudId);
       }
 
+      console.log('[LOAD EXISTING] ========== FINAL STATE ==========');
+      console.log('[LOAD EXISTING] visualRecordIds:', JSON.stringify(this.visualRecordIds));
+      console.log('[LOAD EXISTING] selectedItems:', JSON.stringify(this.selectedItems));
+      console.log('[LOAD EXISTING] Items with answers:', allItems.filter(i => i.answer).map(i => ({ name: i.name, answer: i.answer })));
+      console.log('[LOAD EXISTING] ========== END ==========');
+
     } catch (error) {
-      console.error('Error loading existing visuals:', error);
+      console.error('[LOAD EXISTING] ❌ Error loading existing visuals:', error);
     }
+  }
+
+  private findItemByName(name: string): VisualItem | undefined {
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+    return allItems.find(item => item.name === name);
   }
 
   private findItemByTemplateId(templateId: number): VisualItem | undefined {
@@ -769,16 +842,27 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       
       if (result && result.Result && result.Result.length > 0) {
         const createdRecord = result.Result[0];
-        const hudId = createdRecord.HUDID || createdRecord.PK_ID;
+        const hudId = String(createdRecord.HUDID || createdRecord.PK_ID);
+        
+        // CRITICAL: Store the record ID
         this.visualRecordIds[key] = hudId;
+        this.selectedItems[key] = true;
+        
         console.log('[CREATE VISUAL] ✅ Created with HUDID:', hudId);
-        console.log('[CREATE VISUAL] Stored in visualRecordIds with key:', key);
+        console.log('[CREATE VISUAL] Stored in visualRecordIds[' + key + '] = ' + hudId);
         console.log('[CREATE VISUAL] Created record full data:', createdRecord);
-        console.log('[CREATE VISUAL] All visualRecordIds after creation:', this.visualRecordIds);
+        console.log('[CREATE VISUAL] All visualRecordIds after creation:', JSON.stringify(this.visualRecordIds));
+        console.log('[CREATE VISUAL] Verification - can retrieve:', this.visualRecordIds[key]);
         
         // Initialize photo array
         this.visualPhotos[key] = [];
         this.photoCountsByKey[key] = 0;
+        
+        // CRITICAL: Clear cache so fresh reload will include this new record
+        this.hudData.clearServiceCaches(this.serviceId);
+        
+        // Force change detection to ensure UI updates
+        this.changeDetectorRef.detectChanges();
       } else {
         console.error('[CREATE VISUAL] ❌ No result from API, response:', result);
       }
@@ -825,27 +909,45 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     const key = `${category}_${item.id}`;
     const visualId = this.visualRecordIds[key];
 
-    console.log('[ANSWER CHANGE] Answer changed for:', item.name, 'to:', item.answer);
+    console.log('[ANSWER CHANGE] ========== START ==========');
+    console.log('[ANSWER CHANGE] Item:', item.name, 'ID:', item.id);
+    console.log('[ANSWER CHANGE] Category:', category);
+    console.log('[ANSWER CHANGE] Key:', key);
+    console.log('[ANSWER CHANGE] Answer changed to:', item.answer);
+    console.log('[ANSWER CHANGE] Looking for visualId with key:', key);
+    console.log('[ANSWER CHANGE] Found visualId:', visualId);
+    console.log('[ANSWER CHANGE] All visualRecordIds:', JSON.stringify(this.visualRecordIds));
 
     if (!visualId) {
-      console.log('[ANSWER CHANGE] No visual record exists, creating one');
+      console.log('[ANSWER CHANGE] ❌ No visual record exists, creating one');
       await this.createVisualRecord(category, item.id);
       return;
     }
 
+    console.log('[ANSWER CHANGE] ✅ Visual record exists, updating HUDID:', visualId);
+
     this.savingItems[key] = true;
 
     try {
-      await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
-        Answers: item.answer || ''
-      }));
-      console.log('[ANSWER CHANGE] Saved successfully');
+      const updateData = {
+        Answers: item.answer || '',
+        Text: item.text || ''
+      };
+      
+      console.log('[ANSWER CHANGE] Updating with data:', updateData);
+      
+      await firstValueFrom(this.caspioService.updateServicesHUD(visualId, updateData));
+      
+      console.log('[ANSWER CHANGE] ✅ Update successful for HUDID:', visualId);
     } catch (error) {
-      console.error('[ANSWER CHANGE] Error saving:', error);
+      console.error('[ANSWER CHANGE] ❌ Error updating:', error);
+      await this.showToast('Failed to save answer', 'danger');
     } finally {
       this.savingItems[key] = false;
       this.changeDetectorRef.detectChanges();
     }
+    
+    console.log('[ANSWER CHANGE] ========== END ==========');
   }
 
   async onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
@@ -935,10 +1037,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     const key = `${category}_${itemId}`;
     const visualId = this.visualRecordIds[key];
 
-    if (!visualId) {
+    console.log('[ADD PHOTO] Camera - Key:', key);
+    console.log('[ADD PHOTO] Visual ID for this key:', visualId);
+    console.log('[ADD PHOTO] All visualRecordIds:', this.visualRecordIds);
+
+    if (!visualId || String(visualId).startsWith('temp_')) {
+      console.error('[ADD PHOTO] ❌ No valid visual ID found');
       await this.showToast('Please save the item first before adding photos', 'warning');
       return;
     }
+
+    console.log('[ADD PHOTO] ✅ Valid visual ID found:', visualId);
 
     // Store context for when photo is captured
     this.currentUploadContext = { category, itemId: String(itemId), action: 'camera' };
@@ -965,10 +1074,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     const key = `${category}_${itemId}`;
     const visualId = this.visualRecordIds[key];
 
-    if (!visualId) {
+    console.log('[ADD PHOTO] Gallery - Key:', key);
+    console.log('[ADD PHOTO] Visual ID for this key:', visualId);
+    console.log('[ADD PHOTO] All visualRecordIds:', this.visualRecordIds);
+
+    if (!visualId || String(visualId).startsWith('temp_')) {
+      console.error('[ADD PHOTO] ❌ No valid visual ID found');
       await this.showToast('Please save the item first before adding photos', 'warning');
       return;
     }
+
+    console.log('[ADD PHOTO] ✅ Valid visual ID found:', visualId);
 
     this.currentUploadContext = { category, itemId: String(itemId), action: 'gallery' };
     this.fileInput.nativeElement.click();
