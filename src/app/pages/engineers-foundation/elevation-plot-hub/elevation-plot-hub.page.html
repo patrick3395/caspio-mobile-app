@@ -28,13 +28,40 @@
                 <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
               </div>
             </div>
+
+            <!-- Room Management Actions for Base Station -->
+            <div class="room-actions" *ngIf="room.isSelected" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="room-action-btn"
+                (click)="duplicateRoom(room.RoomName, $event)"
+                title="Duplicate Room">
+                <ion-icon name="copy-outline"></ion-icon>
+              </button>
+
+              <button
+                type="button"
+                class="room-action-btn"
+                (click)="renameRoom(room.RoomName, $event)"
+                title="Rename Room">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+
+              <button
+                type="button"
+                class="room-action-btn delete-btn"
+                (click)="deleteRoom(room.RoomName, $event)"
+                title="Delete Room">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Rooms Section -->
-    <div class="elevation-subsection" *ngIf="roomTemplates.length > 0" style="margin-top: 24px;">
+    <div class="elevation-subsection" *ngIf="roomTemplates.length > 0" style="margin-top: 12px;">
       <h3 class="subsection-header">Rooms</h3>
       
       <div class="rooms-list">

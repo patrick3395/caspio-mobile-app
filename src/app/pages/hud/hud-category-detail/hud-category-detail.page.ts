@@ -726,7 +726,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     const item = this.findItemByTemplateId(Number(itemId));
     
     if (!item) {
-      console.error('[CREATE VISUAL] Item not found:', itemId);
+      console.error('[CREATE VISUAL] Item not found for itemId:', itemId);
+      console.error('[CREATE VISUAL] Available items:', [
+        ...this.organizedData.comments,
+        ...this.organizedData.limitations,
+        ...this.organizedData.deficiencies
+      ].map(i => ({ id: i.id, templateId: i.templateId, name: i.name })));
       return;
     }
 
@@ -744,22 +749,29 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         Answers: item.answer || ''
       };
 
-      console.log('[CREATE VISUAL] Creating HUD record:', hudData);
+      console.log('[CREATE VISUAL] Creating HUD record with data:', hudData);
+      console.log('[CREATE VISUAL] Item details:', { id: item.id, templateId: item.templateId, name: item.name, answer: item.answer });
 
       const result = await firstValueFrom(this.caspioService.createServicesHUD(hudData));
+      
+      console.log('[CREATE VISUAL] API response:', result);
       
       if (result && result.Result && result.Result.length > 0) {
         const createdRecord = result.Result[0];
         this.visualRecordIds[key] = createdRecord.PK_ID || createdRecord.HUDID;
-        console.log('[CREATE VISUAL] Created with ID:', this.visualRecordIds[key]);
+        console.log('[CREATE VISUAL] ✅ Created with ID:', this.visualRecordIds[key]);
+        console.log('[CREATE VISUAL] Created record:', createdRecord);
         
         // Initialize photo array
         this.visualPhotos[key] = [];
         this.photoCountsByKey[key] = 0;
+      } else {
+        console.error('[CREATE VISUAL] ❌ No result from API');
       }
     } catch (error) {
-      console.error('[CREATE VISUAL] Error:', error);
+      console.error('[CREATE VISUAL] ❌ Error creating visual:', error);
       this.selectedItems[key] = false; // Revert selection on error
+      await this.showToast('Failed to create visual record', 'danger');
     } finally {
       this.savingItems[key] = false;
       this.changeDetectorRef.detectChanges();
@@ -826,6 +838,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     const key = `${category}_${item.id}`;
     const isChecked = event.detail.checked;
     
+    console.log('[OPTION TOGGLE] Item:', item.name, 'Option:', option, 'Checked:', isChecked);
+    console.log('[OPTION TOGGLE] Current visualRecordId:', this.visualRecordIds[key]);
+    console.log('[OPTION TOGGLE] Current answer before change:', item.answer);
+    
     // Update item.answer with comma-separated selected options
     let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
     
@@ -844,18 +860,22 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     
     item.answer = selectedOptions.join(', ');
     
-    console.log('[OPTION TOGGLE]', option, isChecked ? 'checked' : 'unchecked', 'New answer:', item.answer);
+    console.log('[OPTION TOGGLE] New answer after change:', item.answer);
+    console.log('[OPTION TOGGLE] Selected options array:', selectedOptions);
     
     // If this is the first selection and no visual record exists, create it
     if (!this.visualRecordIds[key] && selectedOptions.length > 0) {
+      console.log('[OPTION TOGGLE] Creating new visual record (first selection)');
       this.selectedItems[key] = true; // Mark as selected
       await this.createVisualRecord(category, item.id);
     } else if (selectedOptions.length === 0) {
       // If all options unchecked, delete the visual record
+      console.log('[OPTION TOGGLE] Deleting visual record (no selections)');
       this.selectedItems[key] = false;
       await this.deleteVisualRecord(category, item.id);
     } else {
       // Just update the answer
+      console.log('[OPTION TOGGLE] Updating existing visual record');
       await this.onAnswerChange(category, item);
     }
   }
