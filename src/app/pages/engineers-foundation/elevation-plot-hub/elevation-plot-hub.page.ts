@@ -757,7 +757,8 @@ export class ElevationPlotHubPage implements OnInit {
   }
 
   isBaseStation(roomName: string): boolean {
-    return roomName.toLowerCase() === 'base station';
+    // Check for "Base Station" and duplicates like "Base Station #2", "Base Station #3", etc.
+    return roomName.toLowerCase().startsWith('base station');
   }
 
   private async loadRoomTemplates() {

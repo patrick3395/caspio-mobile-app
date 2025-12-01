@@ -410,6 +410,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     return allItems.find(item => item.templateId === templateId);
   }
 
+  private findItemById(id: string | number): VisualItem | undefined {
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+    return allItems.find(item => item.id === id || item.id === Number(id));
+  }
+
   private async loadPhotosForVisual(key: string, hudId: string) {
     try {
       this.loadingPhotosByKey[key] = true;
@@ -723,10 +732,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   // Data Management Methods
   private async createVisualRecord(category: string, itemId: string | number) {
     const key = `${category}_${itemId}`;
-    const item = this.findItemByTemplateId(Number(itemId));
+    const item = this.findItemById(itemId);  // Find by ID, not templateId
     
     if (!item) {
-      console.error('[CREATE VISUAL] Item not found for itemId:', itemId);
+      console.error('[CREATE VISUAL] ❌ Item not found for itemId:', itemId);
       console.error('[CREATE VISUAL] Available items:', [
         ...this.organizedData.comments,
         ...this.organizedData.limitations,
@@ -734,6 +743,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       ].map(i => ({ id: i.id, templateId: i.templateId, name: i.name })));
       return;
     }
+
+    console.log('[CREATE VISUAL] ✅ Found item:', { id: item.id, templateId: item.templateId, name: item.name });
 
     this.savingItems[key] = true;
 

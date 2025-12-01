@@ -207,7 +207,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   }
 
   isBaseStation(): boolean {
-    return this.roomName.toLowerCase() === 'base station';
+    // Check for "Base Station" and duplicates like "Base Station #2", "Base Station #3", etc.
+    return this.roomName.toLowerCase().startsWith('base station');
   }
 
   isGarage(): boolean {

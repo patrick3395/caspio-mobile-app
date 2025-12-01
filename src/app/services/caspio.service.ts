@@ -706,6 +706,44 @@ export class CaspioService {
     );
   }
 
+  // Get icon image from LPS_Type table attachment
+  getTypeIconImage(typeId: string | number): Observable<string> {
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    return this.getValidToken().pipe(
+      switchMap(accessToken => new Observable<string>(observer => {
+        // Construct URL to fetch the Icon attachment from the table record
+        const url = `${API_BASE_URL}/tables/LPS_Type/records/${typeId}/files/Icon`;
+        console.log(`📥 [Type Icon] Fetching icon from table record: ${url}`);
+        
+        fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/octet-stream'
+          }
+        })
+        .then(response => {
+          if (!response.ok) {
+            console.warn(`⚠️ [Type Icon] Failed to fetch icon for TypeID ${typeId}: ${response.status}`);
+            throw new Error(`Failed to fetch icon: ${response.status}`);
+          }
+          console.log(`✅ [Type Icon] Successfully fetched icon for TypeID ${typeId}`);
+          return response.blob();
+        })
+        .then(blob => this.convertBlobToDataUrl(blob))
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          console.error(`❌ [Type Icon] Error fetching icon for TypeID ${typeId}:`, error);
+          observer.error(error);
+        });
+      }))
+    );
+  }
+
   // Offers methods
   getOffersByCompany(companyId: string): Observable<any[]> {
     return this.get<any>(`/tables/LPS_Offers/records?q.where=CompanyID=${companyId}`).pipe(

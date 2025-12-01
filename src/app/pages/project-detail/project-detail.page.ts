@@ -3897,9 +3897,10 @@ Troubleshooting:
 
     const iconPromises = offersWithIcons.map(async (offer) => {
         console.log(`🎨 Loading icon for "${offer.TypeName}" (TypeID: ${offer.TypeID})`);
-        console.log(`   Icon path: "${offer.TypeIcon}"`);
+        console.log(`   Icon filename: "${offer.TypeIcon}"`);
         try {
-          const imageData = await this.caspioService.getImageFromFilesAPI(offer.TypeIcon).toPromise();
+          // Fetch icon from LPS_Type table attachment instead of Files API
+          const imageData = await this.caspioService.getTypeIconImage(offer.TypeID).toPromise();
           console.log(`   Image data received, length: ${imageData?.length || 0}`);
           console.log(`   Starts with 'data:': ${imageData?.startsWith('data:')}`);
           
