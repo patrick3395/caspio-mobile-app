@@ -993,7 +993,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
     try {
       // Compress image
-      const compressedFile = await this.imageCompression.compressImage(file);
+      const compressedBlob = await this.imageCompression.compressImage(file);
+      
+      // Convert Blob to File
+      const compressedFile = new File([compressedBlob], file.name, { 
+        type: compressedBlob.type || 'image/jpeg' 
+      });
       
       // Upload to Caspio
       const result = await firstValueFrom(
@@ -1082,36 +1087,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     });
     
     await confirm.present();
-  }
-
-  isOptionSelectedV1(item: VisualItem, option: string): boolean {
-    if (!item.answer) return false;
-    const selectedOptions = item.answer.split(',').map(o => o.trim());
-    return selectedOptions.includes(option);
-  }
-
-  async onMultiSelectOtherChange(category: string, item: VisualItem) {
-    if (!item.otherValue || !item.otherValue.trim()) {
-      return;
-    }
-
-    // Update the answer to include the "Other" custom value
-    let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
-    
-    // Replace "Other" with the custom value
-    const otherIndex = selectedOptions.indexOf('Other');
-    if (otherIndex > -1) {
-      selectedOptions[otherIndex] = item.otherValue.trim();
-    } else {
-      // Add custom value if "Other" wasn't in the list
-      selectedOptions.push(item.otherValue.trim());
-    }
-    
-    item.answer = selectedOptions.join(', ');
-    
-    console.log('[OTHER CHANGE] Custom value:', item.otherValue, 'New answer:', item.answer);
-    
-    await this.onAnswerChange(category, item);
   }
 
   private async showToast(message: string, color: string = 'primary') {
