@@ -751,7 +751,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     try {
       const hudData = {
         ServiceID: parseInt(this.serviceId),
-        TemplateID: item.templateId,
         Category: category,
         Kind: item.type,
         Name: item.name,
@@ -762,6 +761,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
       console.log('[CREATE VISUAL] Creating HUD record with data:', hudData);
       console.log('[CREATE VISUAL] Item details:', { id: item.id, templateId: item.templateId, name: item.name, answer: item.answer });
+      console.log('[CREATE VISUAL] Note: TemplateID is not stored in Services_HUD, only used for dropdown lookup');
 
       const result = await firstValueFrom(this.caspioService.createServicesHUD(hudData));
       

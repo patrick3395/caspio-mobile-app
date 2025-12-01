@@ -546,6 +546,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
           TypeShort: type?.TypeShort || '',
           TypeIcon: type?.Icon || '',
+          TypePK_ID: type?.PK_ID || null,  // Store the type's primary key for icon fetching
           TypeIconUrl: ''  // Will be loaded asynchronously
         };
       });
@@ -762,6 +763,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
           TypeShort: type?.TypeShort || '',
           TypeIcon: type?.Icon || '',
+          TypePK_ID: type?.PK_ID || null,  // Store the type's primary key for icon fetching
           TypeIconUrl: ''  // Will be loaded by loadIconImages()
         };
         return result;
@@ -3896,11 +3898,18 @@ Troubleshooting:
     }
 
     const iconPromises = offersWithIcons.map(async (offer) => {
-        console.log(`🎨 Loading icon for "${offer.TypeName}" (TypeID: ${offer.TypeID})`);
+        console.log(`🎨 Loading icon for "${offer.TypeName}" (TypeID: ${offer.TypeID}, TypePK_ID: ${offer.TypePK_ID})`);
         console.log(`   Icon filename: "${offer.TypeIcon}"`);
+        
+        if (!offer.TypePK_ID) {
+          console.error(`❌ No TypePK_ID found for "${offer.TypeName}" - cannot fetch icon`);
+          offer.TypeIconUrl = '';
+          return;
+        }
+        
         try {
-          // Fetch icon from LPS_Type table attachment instead of Files API
-          const imageData = await this.caspioService.getTypeIconImage(offer.TypeID).toPromise();
+          // Fetch icon from LPS_Type table attachment using the record's PK_ID
+          const imageData = await this.caspioService.getTypeIconImage(offer.TypePK_ID).toPromise();
           console.log(`   Image data received, length: ${imageData?.length || 0}`);
           console.log(`   Starts with 'data:': ${imageData?.startsWith('data:')}`);
           
