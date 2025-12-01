@@ -409,17 +409,15 @@
 
       <!-- Room-specific notes -->
       <div class="room-notes-container">
-        <div class="room-notes">
-          <textarea [(ngModel)]="roomData.notes"
-                    rows="4"
-                    placeholder="Notes for {{ roomName }}..."
-                    (blur)="onRoomNotesChange()"
-                    autocapitalize="sentences"
-                    autocorrect="on"
-                    spellcheck="true"
-                    class="notes-textarea">
-          </textarea>
-        </div>
+        <textarea [(ngModel)]="roomData.notes"
+                  rows="4"
+                  placeholder="Notes for {{ roomName }}..."
+                  (blur)="onRoomNotesChange()"
+                  autocapitalize="sentences"
+                  autocorrect="on"
+                  spellcheck="true"
+                  class="notes-textarea">
+        </textarea>
       </div>
     </div>
   </div>

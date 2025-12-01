@@ -432,13 +432,6 @@ select.styled-input {
   padding: 16px;
   border-radius: 8px;
   margin-top: 8px;
-}
-
-// White box for notes textarea
-.room-notes {
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
   .notes-textarea {
     width: 100%;
@@ -446,12 +439,13 @@ select.styled-input {
     color: #333;
     padding: 12px;
     border: 2px solid #e8e8e8;
-    border-radius: 8px;
+    border-radius: 6px;
     font-size: 14px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     line-height: 1.5;
     resize: vertical;
     min-height: 100px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     
     &:focus {
       outline: none;

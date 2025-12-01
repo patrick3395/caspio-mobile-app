@@ -348,6 +348,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         });
         
         console.log('[HUD Category] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
+        console.log('[HUD Category] All TemplateIDs with options:', Object.keys(this.visualDropdownOptions));
         
         // Add "Other" option to all multi-select dropdowns if not already present
         Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
@@ -704,7 +705,19 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
   getDropdownOptions(templateId: number): string[] {
     const templateIdStr = String(templateId);
-    return this.visualDropdownOptions[templateIdStr] || [];
+    const options = this.visualDropdownOptions[templateIdStr] || [];
+    
+    // Debug logging to see what's available
+    if (options.length === 0 && !this._loggedPhotoKeys.has(templateIdStr)) {
+      console.log('[GET DROPDOWN] No options found for TemplateID:', templateIdStr);
+      console.log('[GET DROPDOWN] Available TemplateIDs:', Object.keys(this.visualDropdownOptions));
+      this._loggedPhotoKeys.add(templateIdStr);
+    } else if (options.length > 0 && !this._loggedPhotoKeys.has(templateIdStr)) {
+      console.log('[GET DROPDOWN] TemplateID', templateIdStr, 'has', options.length, 'options:', options);
+      this._loggedPhotoKeys.add(templateIdStr);
+    }
+    
+    return options;
   }
 
   // Data Management Methods (Stubs - implement based on HUD API)
