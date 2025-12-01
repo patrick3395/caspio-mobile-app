@@ -78,6 +78,21 @@
                 </select>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
               </div>
+              <!-- Camera and Gallery buttons for Yes/No items -->
+              <div *ngIf="item.answer" style="display: flex; gap: 16px; margin-top: 12px; align-items: center; justify-content: flex-end; padding-right: 8px;">
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
+                        title="Take photo from camera"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
+                        title="Select from gallery"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
+              </div>
             </div>
 
             <!-- Multi-select questions -->
@@ -112,6 +127,21 @@
                        (click)="$event.stopPropagation()"
                        placeholder="Please specify..."
                        class="styled-input other-input">
+              </div>
+              <!-- Camera and Gallery buttons for multi-select items -->
+              <div *ngIf="item.answer && item.answer.trim()" style="display: flex; gap: 16px; margin-top: 8px; margin-bottom: 8px; align-items: center; justify-content: flex-end; padding-right: 16px;">
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
+                        title="Take photo from camera"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
+                        title="Select from gallery"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
               </div>
             </div>
 
@@ -226,6 +256,21 @@
                 </select>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
               </div>
+              <!-- Camera and Gallery buttons for Yes/No items -->
+              <div *ngIf="item.answer" style="display: flex; gap: 16px; margin-top: 12px; align-items: center; justify-content: flex-end; padding-right: 8px;">
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
+                        title="Take photo from camera"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
+                        title="Select from gallery"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
+              </div>
             </div>
 
             <!-- Multi-select questions -->
@@ -260,6 +305,21 @@
                        (click)="$event.stopPropagation()"
                        placeholder="Please specify..."
                        class="styled-input other-input">
+              </div>
+              <!-- Camera and Gallery buttons for multi-select items -->
+              <div *ngIf="item.answer && item.answer.trim()" style="display: flex; gap: 16px; margin-top: 8px; margin-bottom: 8px; align-items: center; justify-content: flex-end; padding-right: 16px;">
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
+                        title="Take photo from camera"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
+                        title="Select from gallery"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
               </div>
             </div>
 
@@ -374,6 +434,21 @@
                 </select>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
               </div>
+              <!-- Camera and Gallery buttons for Yes/No items -->
+              <div *ngIf="item.answer" style="display: flex; gap: 16px; margin-top: 12px; align-items: center; justify-content: flex-end; padding-right: 8px;">
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
+                        title="Take photo from camera"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
+                        title="Select from gallery"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
+              </div>
             </div>
 
             <!-- Multi-select questions -->
@@ -408,6 +483,21 @@
                        (click)="$event.stopPropagation()"
                        placeholder="Please specify..."
                        class="styled-input other-input">
+              </div>
+              <!-- Camera and Gallery buttons for multi-select items -->
+              <div *ngIf="item.answer && item.answer.trim()" style="display: flex; gap: 16px; margin-top: 8px; margin-bottom: 8px; align-items: center; justify-content: flex-end; padding-right: 16px;">
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
+                        title="Take photo from camera"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
+                <button class="camera-button-structural"
+                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
+                        title="Select from gallery"
+                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
+                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                </button>
               </div>
             </div>
 

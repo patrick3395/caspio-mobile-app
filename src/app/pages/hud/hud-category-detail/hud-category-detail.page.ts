@@ -769,15 +769,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       
       if (result && result.Result && result.Result.length > 0) {
         const createdRecord = result.Result[0];
-        this.visualRecordIds[key] = createdRecord.PK_ID || createdRecord.HUDID;
-        console.log('[CREATE VISUAL] ✅ Created with ID:', this.visualRecordIds[key]);
-        console.log('[CREATE VISUAL] Created record:', createdRecord);
+        const hudId = createdRecord.HUDID || createdRecord.PK_ID;
+        this.visualRecordIds[key] = hudId;
+        console.log('[CREATE VISUAL] ✅ Created with HUDID:', hudId);
+        console.log('[CREATE VISUAL] Stored in visualRecordIds with key:', key);
+        console.log('[CREATE VISUAL] Created record full data:', createdRecord);
+        console.log('[CREATE VISUAL] All visualRecordIds after creation:', this.visualRecordIds);
         
         // Initialize photo array
         this.visualPhotos[key] = [];
         this.photoCountsByKey[key] = 0;
       } else {
-        console.error('[CREATE VISUAL] ❌ No result from API');
+        console.error('[CREATE VISUAL] ❌ No result from API, response:', result);
       }
     } catch (error) {
       console.error('[CREATE VISUAL] ❌ Error creating visual:', error);
@@ -849,8 +852,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     const key = `${category}_${item.id}`;
     const isChecked = event.detail.checked;
     
-    console.log('[OPTION TOGGLE] Item:', item.name, 'Option:', option, 'Checked:', isChecked);
-    console.log('[OPTION TOGGLE] Current visualRecordId:', this.visualRecordIds[key]);
+    console.log('[OPTION TOGGLE] ========== START ==========');
+    console.log('[OPTION TOGGLE] Item:', item.name, 'ID:', item.id, 'TemplateID:', item.templateId);
+    console.log('[OPTION TOGGLE] Category:', category);
+    console.log('[OPTION TOGGLE] Key:', key);
+    console.log('[OPTION TOGGLE] Option:', option, 'Checked:', isChecked);
+    console.log('[OPTION TOGGLE] Current visualRecordId for key:', this.visualRecordIds[key]);
+    console.log('[OPTION TOGGLE] All visualRecordIds:', this.visualRecordIds);
     console.log('[OPTION TOGGLE] Current answer before change:', item.answer);
     
     // Update item.answer with comma-separated selected options
@@ -873,22 +881,24 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     
     console.log('[OPTION TOGGLE] New answer after change:', item.answer);
     console.log('[OPTION TOGGLE] Selected options array:', selectedOptions);
+    console.log('[OPTION TOGGLE] Checking if record exists - visualRecordIds[key]:', this.visualRecordIds[key]);
     
     // If this is the first selection and no visual record exists, create it
     if (!this.visualRecordIds[key] && selectedOptions.length > 0) {
-      console.log('[OPTION TOGGLE] Creating new visual record (first selection)');
+      console.log('[OPTION TOGGLE] ➡️ Path: Creating new visual record (first selection)');
       this.selectedItems[key] = true; // Mark as selected
       await this.createVisualRecord(category, item.id);
     } else if (selectedOptions.length === 0) {
       // If all options unchecked, delete the visual record
-      console.log('[OPTION TOGGLE] Deleting visual record (no selections)');
+      console.log('[OPTION TOGGLE] ➡️ Path: Deleting visual record (no selections)');
       this.selectedItems[key] = false;
       await this.deleteVisualRecord(category, item.id);
     } else {
       // Just update the answer
-      console.log('[OPTION TOGGLE] Updating existing visual record');
+      console.log('[OPTION TOGGLE] ➡️ Path: Updating existing visual record');
       await this.onAnswerChange(category, item);
     }
+    console.log('[OPTION TOGGLE] ========== END ==========');
   }
 
   isOptionSelectedV1(item: VisualItem, option: string): boolean {
