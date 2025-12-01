@@ -533,6 +533,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Process offers and types
       this.availableOffers = (offersData || []).map((offer: any) => {
         const type = (typesData || []).find((t: any) => t.PK_ID === offer.TypeID || t.TypeID === offer.TypeID);
+        
+        // DEBUG: Log the Icon field to see what format Caspio returns
+        if (type?.Icon) {
+          console.log(`🔍 [Icon Debug] Type "${type.TypeName}" Icon field:`, type.Icon);
+          console.log(`   Type of Icon:`, typeof type.Icon);
+          console.log(`   Icon value:`, JSON.stringify(type.Icon));
+        }
+        
         return {
           ...offer,
           TypeName: type?.TypeName || type?.Type || offer.Service_Name || offer.Description || 'Unknown Service',
