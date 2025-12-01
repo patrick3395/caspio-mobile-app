@@ -57,12 +57,19 @@ export class HudDataService {
     );
   }
 
-  async getVisualsByService(serviceId: string): Promise<any[]> {
+  async getVisualsByService(serviceId: string, bypassCache: boolean = false): Promise<any[]> {
     if (!serviceId) {
       console.warn('[HUD Data] getVisualsByService called with empty serviceId');
       return [];
     }
-    console.log('[HUD Data] Loading existing HUD records for ServiceID:', serviceId);
+    console.log('[HUD Data] Loading existing HUD records for ServiceID:', serviceId, 'BypassCache:', bypassCache);
+    
+    // CRITICAL: If bypassCache is true, clear the cache first
+    if (bypassCache) {
+      console.log('[HUD Data] Bypassing cache - clearing cached data for ServiceID:', serviceId);
+      this.hudCache.delete(serviceId);
+    }
+    
     const hudRecords = await this.resolveWithCache(this.hudCache, serviceId, () =>
       firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId))
     );

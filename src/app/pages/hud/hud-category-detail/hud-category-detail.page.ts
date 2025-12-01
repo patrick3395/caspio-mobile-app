@@ -386,8 +386,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       console.log('[LOAD EXISTING] ServiceID:', this.serviceId);
       console.log('[LOAD EXISTING] Category to match:', this.categoryName);
       
-      const allVisuals = await this.hudData.getVisualsByService(this.serviceId);
-      console.log('[LOAD EXISTING] Total visuals from API:', allVisuals.length);
+      // CRITICAL: Bypass cache to get fresh data
+      const allVisuals = await this.hudData.getVisualsByService(this.serviceId, true);
+      console.log('[LOAD EXISTING] Total visuals from API (fresh, no cache):', allVisuals.length);
       console.log('[LOAD EXISTING] All visuals:', allVisuals);
       
       const categoryVisuals = allVisuals.filter((v: any) => v.Category === this.categoryName);
@@ -948,8 +949,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
         const result = await firstValueFrom(this.caspioService.createServicesHUD(visualData));
         
+        console.log('[ANSWER] 🔍 RAW API RESPONSE:', result);
+        
+        // Try multiple ways to extract the HUDID
         if (result && result.Result && result.Result.length > 0) {
           visualId = String(result.Result[0].HUDID || result.Result[0].PK_ID || result.Result[0].id);
+        } else if (result && Array.isArray(result) && result.length > 0) {
+          visualId = String(result[0].HUDID || result[0].PK_ID || result[0].id);
+        } else if (result) {
+          visualId = String(result.HUDID || result.PK_ID || result.id);
+        }
+        
+        if (visualId) {
           this.visualRecordIds[key] = visualId;
           this.selectedItems[key] = true;
           
@@ -958,7 +969,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           this.photoCountsByKey[key] = 0;
           
           console.log('[ANSWER] ✅ Created visual with HUDID:', visualId);
-          console.log('[ANSWER] Stored as visualRecordIds[' + key + '] =', visualId);
+          console.log('[ANSWER] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
+        } else {
+          console.error('[ANSWER] ❌ FAILED to extract HUDID from response!');
         }
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
@@ -1039,8 +1052,24 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
         const result = await firstValueFrom(this.caspioService.createServicesHUD(visualData));
         
+        console.log('[OPTION] 🔍 RAW API RESPONSE:', result);
+        console.log('[OPTION] 🔍 Response type:', typeof result);
+        console.log('[OPTION] 🔍 Has Result property?', result && 'Result' in result);
+        console.log('[OPTION] 🔍 result.Result:', result?.Result);
+        
+        // Try multiple ways to extract the HUDID
         if (result && result.Result && result.Result.length > 0) {
           visualId = String(result.Result[0].HUDID || result.Result[0].PK_ID || result.Result[0].id);
+          console.log('[OPTION] 🔍 Extracted visualId from result.Result[0]:', visualId);
+        } else if (result && Array.isArray(result) && result.length > 0) {
+          visualId = String(result[0].HUDID || result[0].PK_ID || result[0].id);
+          console.log('[OPTION] 🔍 Extracted visualId from result[0]:', visualId);
+        } else if (result) {
+          visualId = String(result.HUDID || result.PK_ID || result.id);
+          console.log('[OPTION] 🔍 Extracted visualId from result:', visualId);
+        }
+        
+        if (visualId) {
           this.visualRecordIds[key] = visualId;
           this.selectedItems[key] = true;
           
@@ -1049,7 +1078,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           this.photoCountsByKey[key] = 0;
           
           console.log('[OPTION] ✅ Created visual with HUDID:', visualId);
-          console.log('[OPTION] Stored as visualRecordIds[' + key + '] =', visualId);
+          console.log('[OPTION] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
+          console.log('[OPTION] ✅ Verification - can retrieve:', this.visualRecordIds[key]);
+        } else {
+          console.error('[OPTION] ❌ FAILED to extract HUDID from response!');
         }
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual
