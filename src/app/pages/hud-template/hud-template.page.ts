@@ -5260,6 +5260,15 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Separate method to perform the actual upload
   private async performVisualPhotoUpload(visualIdNum: number, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null) {
+    console.log('[UPLOAD] ========== Starting HUD Photo Upload ==========');
+    console.log('[UPLOAD] Key:', key);
+    console.log('[UPLOAD] HUDID:', visualIdNum);
+    console.log('[UPLOAD] File:', photo.name, `(${(photo.size / 1024).toFixed(2)} KB)`);
+    console.log('[UPLOAD] File type:', photo.type);
+    console.log('[UPLOAD] Is batch upload:', isBatchUpload);
+    console.log('[UPLOAD] Has annotation data:', !!annotationData);
+    console.log('[UPLOAD] Has original photo:', !!originalPhoto);
+    
     try {
       // Show debug popup for what we're sending (only for single uploads)
       if (!isBatchUpload) {
@@ -5298,9 +5307,17 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Prepare the Drawings field data (annotation JSON)
       const drawingsData = annotationData ? JSON.stringify(annotationData) : '';
       
+      console.log('[UPLOAD] Preparing upload data:');
+      console.log('[UPLOAD]   - HUDID:', visualIdNum);
+      console.log('[UPLOAD]   - Annotation:', '(empty)');
+      console.log('[UPLOAD]   - Drawings data length:', drawingsData.length);
+      console.log('[UPLOAD]   - Photo file:', photo.name);
+      console.log('[UPLOAD]   - Original photo:', originalPhoto?.name || 'none');
+      
       // Using EXACT same approach as working Required Documents upload but with HUD methods
       let response;
       try {
+        console.log('[UPLOAD] Calling createServicesHUDAttachWithFile...');
         response = await this.caspioService.createServicesHUDAttachWithFile(
           visualIdNum, 
           '', // Annotation field stays blank
@@ -5308,6 +5325,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           drawingsData, // Pass the annotation JSON to Drawings field
           originalPhoto || undefined // Pass original photo if we have annotations
         ).toPromise();
+        console.log('[UPLOAD] ✅ Upload response received:', response);
       } catch (uploadError: any) {
         console.error('Ã¢ÂÅ’ Upload failed:', uploadError);
         

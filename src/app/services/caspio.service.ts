@@ -1543,28 +1543,156 @@ export class CaspioService {
   }
 
   private async uploadHUDAttachWithFilesAPI(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
-    // Similar to uploadVisualsAttachWithFilesAPI but for HUD table
-    const token = await firstValueFrom(this.getValidToken());
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
-    const formData = new FormData();
-    formData.append('HUDID', hudId.toString());
-    formData.append('Annotation', annotation || '');
-    if (drawings) {
-      formData.append('Drawings', drawings);
-    }
-    formData.append('Photo', file, file.name);
-
-    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-      body: formData
+    // Use same 2-step approach as uploadVisualsAttachWithFilesAPI but for HUD table
+    console.log('[HUD ATTACH] ========== Starting HUD Attach Upload (2-Step) ==========');
+    console.log('[HUD ATTACH] Parameters:', {
+      hudId,
+      annotation: annotation || '(empty)',
+      fileName: file.name,
+      fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+      fileType: file.type,
+      hasDrawings: !!drawings,
+      drawingsLength: drawings?.length || 0,
+      hasOriginalFile: !!originalFile
     });
+    
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    try {
+      let originalFilePath = '';
 
-    if (!response.ok) {
-      throw new Error(`HUD attach upload failed: ${response.statusText}`);
+      // STEP 1A: If we have an original file (before annotation), upload it first
+      if (originalFile && drawings) {
+        console.log('[HUD ATTACH] Step 1A: Uploading original file to Files API...');
+        const originalFormData = new FormData();
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = originalFile.name.split('.').pop() || 'jpg';
+        const originalFileName = `hud_${hudId}_original_${timestamp}_${randomId}.${fileExt}`;
+        originalFormData.append('file', originalFile, originalFileName);
+        
+        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: originalFormData
+        });
+        
+        if (originalUploadResponse.ok) {
+          const originalUploadResult = await originalUploadResponse.json();
+          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
+          console.log('[HUD ATTACH] ✅ Original file uploaded:', originalFilePath);
+        } else {
+          const errorText = await originalUploadResponse.text();
+          console.error('[HUD ATTACH] ❌ Original file upload failed:', errorText);
+        }
+      }
+      
+      // STEP 1B: Upload main file to Caspio Files API
+      let filePath = '';
+
+      if (originalFilePath) {
+        console.log('[HUD ATTACH] Using original file path:', originalFilePath);
+        filePath = originalFilePath;
+      } else {
+        console.log('[HUD ATTACH] Step 1B: Uploading main file to Files API...');
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const uniqueFilename = `hud_${hudId}_${timestamp}_${randomId}.${fileExt}`;
+
+        const formData = new FormData();
+        formData.append('file', file, uniqueFilename);
+
+        const filesUrl = `${API_BASE_URL}/files`;
+        console.log('[HUD ATTACH] Uploading to:', filesUrl);
+
+        const uploadResponse = await fetch(filesUrl, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+            // NO Content-Type header - let browser set it with boundary
+          },
+          body: formData
+        });
+
+        console.log('[HUD ATTACH] Files API response:', uploadResponse.status, uploadResponse.statusText);
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error('[HUD ATTACH] ❌ Files API upload failed:', errorText);
+          throw new Error('Failed to upload file to Files API: ' + errorText);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        filePath = `/${uploadResult.Name || uniqueFilename}`;
+        console.log('[HUD ATTACH] ✅ File uploaded to Files API:', filePath);
+      }
+      
+      // STEP 2: Create database record with file path
+      console.log('[HUD ATTACH] Step 2: Creating database record...');
+      const recordData: any = {
+        HUDID: parseInt(hudId.toString()),
+        Annotation: annotation || '',
+        Photo: filePath
+      };
+      
+      // Add Drawings field if annotation data is provided
+      if (drawings && drawings.length > 0) {
+        console.log('[HUD ATTACH] Adding Drawings field:', drawings.length, 'bytes');
+        let compressedDrawings = drawings;
+        
+        // Apply compression if needed
+        if (drawings.length > 50000) {
+          compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+          console.log('[HUD ATTACH] Compressed Drawings:', compressedDrawings.length, 'bytes');
+        }
+        
+        // Only add if within the field limit after compression
+        if (compressedDrawings.length <= 64000) {
+          recordData.Drawings = compressedDrawings;
+        } else {
+          console.warn('[HUD ATTACH] ⚠️ Drawings data too large after compression:', compressedDrawings.length, 'bytes');
+          console.warn('[HUD ATTACH] ⚠️ Skipping Drawings field');
+        }
+      }
+
+      console.log('[HUD ATTACH] Record data to create:', {
+        HUDID: recordData.HUDID,
+        Annotation: recordData.Annotation || '(empty)',
+        Photo: recordData.Photo,
+        hasDrawings: !!recordData.Drawings
+      });
+
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData)
+      });
+
+      console.log('[HUD ATTACH] Record creation response:', recordResponse.status, recordResponse.statusText);
+
+      if (!recordResponse.ok) {
+        const errorText = await recordResponse.text();
+        console.error('[HUD ATTACH] ❌ Record creation failed!');
+        console.error('[HUD ATTACH] Status:', recordResponse.status, recordResponse.statusText);
+        console.error('[HUD ATTACH] Error body:', errorText);
+        throw new Error(`HUD attach record creation failed: ${recordResponse.status} ${recordResponse.statusText} - ${errorText}`);
+      }
+
+      const result = await recordResponse.json();
+      console.log('[HUD ATTACH] ✅ Upload complete!');
+      console.log('[HUD ATTACH] Final result:', result);
+      return result;
+    } catch (error: any) {
+      console.error('[HUD ATTACH] ❌ Upload process failed:', error);
+      throw error;
     }
-
-    return await response.json();
   }
 
   updateServicesHUDAttach(attachId: string, data: any): Observable<any> {
