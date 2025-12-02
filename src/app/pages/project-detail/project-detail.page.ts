@@ -3875,23 +3875,9 @@ Troubleshooting:
   private readonly CACHE_DURATION = 60000; // 1 minute cache
 
   async loadIconImages() {
-    console.log('🎨 ========== ICON LOADING START ==========');
-    console.log('🎨 Total available offers:', this.availableOffers.length);
-    console.log('🎨 Selected services:', this.selectedServices.length);
-    
     // Get unique type IDs from selected services (normalize to strings for comparison)
     const selectedTypeIds = new Set(this.selectedServices.map(s => String(s.typeId)));
-    console.log('🎨 Selected Type IDs:', Array.from(selectedTypeIds));
-    
-    // Show all offers and their icons
-    console.log('🎨 All offers with icon info:', this.availableOffers.map(o => ({
-      TypeID: o.TypeID,
-      TypeName: o.TypeName,
-      TypeIcon: o.TypeIcon,
-      hasIcon: !!o.TypeIcon,
-      isSelected: selectedTypeIds.has(String(o.TypeID))
-    })));
-    
+
     // Filter for offers that: 1) have icons, 2) are actually used by selected services
     const offersWithIcons = this.availableOffers
       .filter(offer => 
@@ -3900,24 +3886,12 @@ Troubleshooting:
         selectedTypeIds.has(String(offer.TypeID))
       );
 
-    console.log('🎨 Filtered offers with icons:', offersWithIcons.length);
-    console.log('🎨 Icons to load:', offersWithIcons.map(o => ({
-      TypeID: o.TypeID,
-      TypeName: o.TypeName,
-      TypeIcon: o.TypeIcon
-    })));
-
     if (offersWithIcons.length === 0) {
-      console.warn('⚠️ NO ICONS TO LOAD - No offers matched the filter criteria');
       return; // No icons to load
     }
 
     const iconPromises = offersWithIcons.map(async (offer) => {
-        console.log(`🎨 Loading icon for "${offer.TypeName}" (TypeID: ${offer.TypeID}, TypePK_ID: ${offer.TypePK_ID})`);
-        console.log(`   Icon filename: "${offer.TypeIcon}"`);
-        
         if (!offer.TypePK_ID) {
-          console.error(`❌ No TypePK_ID found for "${offer.TypeName}" - cannot fetch icon`);
           offer.TypeIconUrl = '';
           return;
         }
@@ -3925,13 +3899,10 @@ Troubleshooting:
         try {
           // Fetch icon from LPS_Type table attachment using the record's PK_ID
           const imageData = await this.caspioService.getTypeIconImage(offer.TypePK_ID, offer.TypeIcon).toPromise();
-          console.log(`   Image data received, length: ${imageData?.length || 0}`);
-          console.log(`   Starts with 'data:': ${imageData?.startsWith('data:')}`);
           
           if (imageData && imageData.startsWith('data:')) {
             // Store the base64 data URL
             offer.TypeIconUrl = imageData;
-            console.log(`✅ Successfully loaded icon for "${offer.TypeName}"`);
 
             // Update any existing services that use this offer
             let updatedCount = 0;
@@ -3941,29 +3912,17 @@ Troubleshooting:
                 updatedCount++;
               }
             });
-            console.log(`   Updated ${updatedCount} service(s) with this icon`);
           } else {
-            console.error(`❌ Invalid image data for "${offer.TypeName}"`);
             offer.TypeIconUrl = '';
           }
         } catch (error: any) {
-          console.error(`❌ FAILED to load icon for "${offer.TypeName}"`);
-          console.error(`   Error:`, error?.message || error);
           offer.TypeIconUrl = '';
         }
       });
 
     // Wait for all icons to load in parallel
     await Promise.all(iconPromises);
-    
-    console.log('🎨 Icon loading complete');
-    console.log('🎨 Final service icon URLs:', this.selectedServices.map(s => ({
-      typeName: s.typeName,
-      hasIconUrl: !!s.typeIconUrl,
-      iconUrlLength: s.typeIconUrl?.length || 0
-    })));
-    console.log('🎨 ========== ICON LOADING END ==========');
-    
+
     // Trigger change detection after icons load so they appear in the UI
     this.changeDetectorRef.detectChanges();
   }
