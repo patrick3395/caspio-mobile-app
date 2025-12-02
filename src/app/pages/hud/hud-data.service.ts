@@ -191,4 +191,17 @@ export class HudDataService {
 
     return result;
   }
+
+  // Update HUD record (for hiding/unhiding without deleting)
+  async updateVisual(hudId: string, updateData: any): Promise<any> {
+    console.log('[HUD Data] Updating HUD record:', hudId, 'Data:', updateData);
+    const result = await firstValueFrom(
+      this.caspioService.updateServicesHUD(hudId, updateData)
+    );
+
+    // Clear cache
+    this.hudAttachmentsCache.clear();
+
+    return result;
+  }
 }

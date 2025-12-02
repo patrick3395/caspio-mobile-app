@@ -72,6 +72,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   contextClearTimer: any = null;
   lockedScrollY: number = 0;
   private _loggedPhotoKeys = new Set<string>();
+  private isCaptionPopupOpen = false;
 
   // Background upload subscriptions
   private uploadSubscription?: Subscription;
@@ -444,8 +445,24 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         console.log('[LOAD EXISTING] ========== Processing Visual ==========');
         console.log('[LOAD EXISTING] Visual HUDID:', visual.HUDID);
         console.log('[LOAD EXISTING] Visual Name:', visual.Name);
+        console.log('[LOAD EXISTING] Visual Notes:', visual.Notes);
         console.log('[LOAD EXISTING] Visual Answers:', visual.Answers);
         console.log('[LOAD EXISTING] Visual Kind:', visual.Kind);
+        
+        // CRITICAL: Skip hidden visuals (soft delete - keeps photos but doesn't show in UI)
+        if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
+          console.log('[LOAD EXISTING] ⚠️ Skipping hidden visual:', visual.Name);
+          
+          // Store visualRecordId so we can unhide it later if user reselects
+          const item = allItems.find(i => i.name === visual.Name);
+          if (item) {
+            const key = `${this.categoryName}_${item.id}`;
+            const hudId = String(visual.HUDID || visual.PK_ID);
+            this.visualRecordIds[key] = hudId;
+            console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', hudId);
+          }
+          continue;
+        }
         
         // Find the item by Name
         const item = allItems.find(i => i.name === visual.Name);
@@ -682,15 +699,19 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   filterItems(items: VisualItem[]): VisualItem[] {
-    if (!this.searchTerm) {
+    if (!this.searchTerm || this.searchTerm.trim() === '') {
       return items;
     }
 
-    const term = this.searchTerm.toLowerCase();
-    return items.filter(item =>
-      item.name.toLowerCase().includes(term) ||
-      item.text.toLowerCase().includes(term)
-    );
+    const term = this.searchTerm.toLowerCase().trim();
+    
+    return items.filter(item => {
+      const nameMatch = item.name?.toLowerCase().includes(term);
+      const textMatch = item.text?.toLowerCase().includes(term);
+      const originalTextMatch = item.originalText?.toLowerCase().includes(term);
+      
+      return nameMatch || textMatch || originalTextMatch;
+    });
   }
 
   highlightText(text: string | undefined): string {
@@ -710,13 +731,35 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  onSearchChange() {
-    // Trigger change detection
+  onSearchChange(): void {
+    // Auto-expand accordions that have matches
+    if (!this.searchTerm || this.searchTerm.trim() === '') {
+      // If search is cleared, collapse all accordions
+      this.expandedAccordions = [];
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
+
+    // Expand accordions with matching items
+    const newExpanded: string[] = [];
+    
+    if (this.filterItems(this.organizedData.comments).length > 0) {
+      newExpanded.push('information');
+    }
+    if (this.filterItems(this.organizedData.limitations).length > 0) {
+      newExpanded.push('limitations');
+    }
+    if (this.filterItems(this.organizedData.deficiencies).length > 0) {
+      newExpanded.push('deficiencies');
+    }
+
+    this.expandedAccordions = newExpanded;
     this.changeDetectorRef.detectChanges();
   }
 
   clearSearch() {
     this.searchTerm = '';
+    this.expandedAccordions = [];
     this.changeDetectorRef.detectChanges();
   }
 
@@ -724,16 +767,49 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     this.expandedAccordions = event.detail.value;
   }
 
-  toggleItemSelection(category: string, itemId: string | number) {
+  async toggleItemSelection(category: string, itemId: string | number) {
     const key = `${category}_${itemId}`;
-    this.selectedItems[key] = !this.selectedItems[key];
+    const newState = !this.selectedItems[key];
+    this.selectedItems[key] = newState;
 
-    if (this.selectedItems[key]) {
-      // Create visual record
-      this.createVisualRecord(category, itemId);
+    console.log('[TOGGLE] Item:', key, 'Selected:', newState);
+
+    if (newState) {
+      // Item was checked - create visual record if it doesn't exist, or unhide if it exists
+      const visualId = this.visualRecordIds[key];
+      if (visualId && !String(visualId).startsWith('temp_')) {
+        // Visual exists but was hidden - unhide it
+        this.savingItems[key] = true;
+        try {
+          await this.hudData.updateVisual(visualId, { Notes: '' });
+          console.log('[TOGGLE] Unhid visual:', visualId);
+        } catch (error) {
+          console.error('[TOGGLE] Error unhiding visual:', error);
+          this.selectedItems[key] = false;
+        } finally {
+          this.savingItems[key] = false;
+          this.changeDetectorRef.detectChanges();
+        }
+      } else {
+        // Create new visual record
+        await this.createVisualRecord(category, itemId);
+      }
     } else {
-      // Delete visual record
-      this.deleteVisualRecord(category, itemId);
+      // Item was unchecked - HIDE it (don't delete, preserves photos)
+      const visualId = this.visualRecordIds[key];
+      if (visualId && !String(visualId).startsWith('temp_')) {
+        this.savingItems[key] = true;
+        try {
+          await this.hudData.updateVisual(visualId, { Notes: 'HIDDEN' });
+          console.log('[TOGGLE] Hid visual (preserving photos):', visualId);
+        } catch (error) {
+          console.error('[TOGGLE] Error hiding visual:', error);
+          this.selectedItems[key] = true; // Revert on error
+        } finally {
+          this.savingItems[key] = false;
+          this.changeDetectorRef.detectChanges();
+        }
+      }
     }
   }
 
@@ -1847,47 +1923,140 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async openCaptionPopup(photo: any, category: string, itemId: string | number) {
-    const alert = await this.alertController.create({
-      header: 'Edit Caption',
-      inputs: [
-        {
-          name: 'caption',
-          type: 'text',
-          placeholder: 'Enter caption',
-          value: photo.caption || ''
-        }
-      ],
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Save',
-          handler: async (data) => {
-            if (data.caption !== photo.caption) {
-              photo.caption = data.caption;
-              photo.annotation = data.caption;
-              photo.Annotation = data.caption;
-              
-              // Save to database
-              try {
-                await firstValueFrom(
-                  this.caspioService.updateServicesHUDAttach(photo.AttachID, {
-                    Annotation: data.caption || ''
+    // Prevent multiple popups
+    if ((this as any).isCaptionPopupOpen) {
+      return;
+    }
+
+    (this as any).isCaptionPopupOpen = true;
+
+    try {
+      // Escape HTML
+      const escapeHtml = (text: string) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
+
+      const tempCaption = escapeHtml(photo.caption || '');
+
+      // Define preset location buttons - 3 columns
+      const presetButtons = [
+        ['Front', '1st', 'Laundry'],
+        ['Left', '2nd', 'Kitchen'],
+        ['Right', '3rd', 'Living'],
+        ['Back', '4th', 'Dining'],
+        ['Top', '5th', 'Bedroom'],
+        ['Bottom', 'Floor', 'Bathroom'],
+        ['Middle', 'Unit', 'Closet'],
+        ['Primary', 'Attic', 'Entry'],
+        ['Supply', 'Porch', 'Office'],
+        ['Return', 'Deck', 'Garage'],
+        ['Staircase', 'Roof', 'Indoor'],
+        ['Hall', 'Ceiling', 'Outdoor']
+      ];
+
+      // Build HTML for preset buttons
+      let buttonsHtml = '<div class="preset-buttons-container">';
+      presetButtons.forEach(row => {
+        buttonsHtml += '<div class="preset-row">';
+        row.forEach(label => {
+          buttonsHtml += `<button type="button" class="preset-btn" data-text="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+        });
+        buttonsHtml += '</div>';
+      });
+      buttonsHtml += '</div>';
+
+      const alert = await this.alertController.create({
+        header: 'Photo Caption',
+        cssClass: 'caption-popup-alert',
+        message: ' ',
+        buttons: [
+          {
+            text: 'Save',
+            handler: () => {
+              const input = document.getElementById('captionInput') as HTMLInputElement;
+              const newCaption = input?.value || '';
+
+              // Update photo caption in UI immediately
+              photo.caption = newCaption;
+              this.changeDetectorRef.detectChanges();
+
+              // Close popup immediately
+              (this as any).isCaptionPopupOpen = false;
+
+              // Save to database in background
+              if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+                this.hudData.updateVisualPhotoCaption(photo.AttachID, newCaption)
+                  .then(() => {
+                    console.log('[CAPTION] Saved caption for photo:', photo.AttachID);
                   })
-                );
-                this.changeDetectorRef.detectChanges();
-              } catch (error) {
-                console.error('Failed to save caption:', error);
-                await this.showToast('Failed to save caption', 'danger');
+                  .catch((error) => {
+                    console.error('[CAPTION] Error saving caption:', error);
+                    this.showToast('Caption saved to device, will sync when online', 'warning');
+                  });
               }
+
+              return true;
+            }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              (this as any).isCaptionPopupOpen = false;
+            }
+          }
+        ]
+      });
+
+      await alert.present();
+
+      // After alert presents, inject custom HTML
+      setTimeout(() => {
+        const alertElement = document.querySelector('.caption-popup-alert');
+        if (alertElement) {
+          const messageDiv = alertElement.querySelector('.alert-message');
+          if (messageDiv) {
+            messageDiv.innerHTML = `
+              <input 
+                type="text" 
+                id="captionInput" 
+                class="caption-input-field" 
+                placeholder="Enter caption..." 
+                value="${tempCaption}"
+                maxlength="255">
+              ${buttonsHtml}
+            `;
+
+            // Add click handlers to preset buttons
+            const presetBtns = messageDiv.querySelectorAll('.preset-btn');
+            const input = messageDiv.querySelector('#captionInput') as HTMLInputElement;
+            
+            presetBtns.forEach(btn => {
+              btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const text = (btn as HTMLElement).dataset.text || '';
+                if (input) {
+                  const currentValue = input.value.trim();
+                  input.value = currentValue ? `${currentValue} ${text}` : text;
+                  input.focus();
+                }
+              });
+            });
+
+            // Focus the input
+            if (input) {
+              input.focus();
             }
           }
         }
-      ]
-    });
-    await alert.present();
+      }, 100);
+
+    } catch (error) {
+      console.error('Error opening caption popup:', error);
+      (this as any).isCaptionPopupOpen = false;
+    }
   }
 
   async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event) {
