@@ -42,6 +42,9 @@
                 <h4 class="type-header">Information</h4>
               </ion-label>
             </div>
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom information">
+              <ion-icon name="add-circle-outline"></ion-icon>
+            </button>
           </ion-item>
           <div slot="content" class="accordion-content">
             <div class="type-section">
@@ -254,6 +257,9 @@
                 <h4 class="type-header">Limitations</h4>
               </ion-label>
             </div>
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Limitation'); $event.stopPropagation()" title="Add custom limitation">
+              <ion-icon name="add-circle-outline"></ion-icon>
+            </button>
           </ion-item>
           <div slot="content" class="accordion-content">
             <div class="type-section">
@@ -466,6 +472,9 @@
                 <h4 class="type-header">Deficiencies</h4>
               </ion-label>
             </div>
+            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Deficiency'); $event.stopPropagation()" title="Add custom deficiency">
+              <ion-icon name="add-circle-outline"></ion-icon>
+            </button>
           </ion-item>
           <div slot="content" class="accordion-content">
             <div class="type-section">

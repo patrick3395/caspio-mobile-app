@@ -2305,5 +2305,199 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     });
     await toast.present();
   }
+
+  // ============================================
+  // ADD CUSTOM VISUAL (from structural systems)
+  // ============================================
+
+  async addCustomVisual(category: string, kind: string) {
+    // Dynamically import the modal component
+    const { AddCustomVisualModalComponent } = await import('../../../modals/add-custom-visual-modal/add-custom-visual-modal.component');
+
+    const modal = await this.modalController.create({
+      component: AddCustomVisualModalComponent,
+      componentProps: {
+        kind: kind,
+        category: category
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+
+    if (data && data.name) {
+      // Get processed photos with annotation data and captions
+      const processedPhotos = data.processedPhotos || [];
+      const files = data.files && data.files.length > 0 ? data.files : null;
+
+      // Create the visual with photos
+      await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', files, processedPhotos);
+    }
+  }
+
+  // Create custom visual with photos
+  async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null, processedPhotos: any[] = []) {
+    try {
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        return;
+      }
+
+      const hudData = {
+        ServiceID: serviceIdNum,
+        Category: category,
+        Kind: kind,
+        Name: name,
+        Text: text,
+        Notes: ''
+      };
+
+      console.log('[CREATE CUSTOM] Creating HUD visual:', hudData);
+
+      // Create the HUD record
+      const response = await this.hudData.createVisual(hudData);
+
+      // Extract HUDID (handle both direct and Result wrapped formats)
+      let visualId: string | null = null;
+
+      if (response && response.HUDID) {
+        visualId = String(response.HUDID);
+      } else if (Array.isArray(response) && response.length > 0) {
+        visualId = String(response[0].HUDID || response[0].PK_ID || response[0].id || '');
+      } else if (response && typeof response === 'object') {
+        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+          visualId = String(response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id || '');
+        } else {
+          visualId = String(response.HUDID || response.PK_ID || response.id || '');
+        }
+      } else if (response) {
+        visualId = String(response);
+      }
+
+      if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
+        throw new Error('No HUDID returned from server');
+      }
+
+      console.log('[CREATE CUSTOM] Created HUD visual with ID:', visualId);
+
+      // Add to local data structure
+      const customItem: VisualItem = {
+        id: `custom_${visualId}`,
+        templateId: 0,
+        name: name,
+        text: text,
+        originalText: text,
+        answerType: 0,
+        required: false,
+        type: kind,
+        category: category,
+        isSelected: true,
+        photos: []
+      };
+
+      // Add to appropriate array
+      if (kind === 'Comment') {
+        this.organizedData.comments.push(customItem);
+      } else if (kind === 'Limitation') {
+        this.organizedData.limitations.push(customItem);
+      } else if (kind === 'Deficiency') {
+        this.organizedData.deficiencies.push(customItem);
+      }
+
+      // Store visual ID
+      const key = `${category}_${customItem.id}`;
+      this.visualRecordIds[key] = String(visualId);
+      this.selectedItems[key] = true;
+
+      console.log('[CREATE CUSTOM] Stored HUDID:', key, '=', visualId);
+
+      // Upload photos if provided
+      if (files && files.length > 0) {
+        console.log('[CREATE CUSTOM] Uploading', files.length, 'photos');
+
+        // Initialize photos array
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        // Add placeholder photos
+        const tempPhotos = Array.from(files).map((file, index) => {
+          const photoData = processedPhotos[index] || {};
+          const objectUrl = URL.createObjectURL(file);
+          const tempId = `temp_${Date.now()}_${index}`;
+
+          return {
+            AttachID: tempId,
+            id: tempId,
+            name: file.name,
+            url: objectUrl,
+            thumbnailUrl: objectUrl,
+            displayUrl: photoData.previewUrl || objectUrl,
+            isObjectUrl: true,
+            uploading: true,
+            hasAnnotations: !!photoData.annotationData,
+            annotations: photoData.annotationData || null,
+            caption: photoData.caption || '',
+            annotation: photoData.caption || ''
+          };
+        });
+
+        this.visualPhotos[key].push(...tempPhotos);
+        this.changeDetectorRef.detectChanges();
+
+        console.log('[CREATE CUSTOM] Added', tempPhotos.length, 'placeholder photos');
+
+        // Upload photos in background
+        const uploadPromises = Array.from(files).map(async (file, index) => {
+          const tempId = tempPhotos[index].AttachID;
+          try {
+            const photoData = processedPhotos[index] || {};
+            const annotationData = photoData.annotationData || null;
+            const originalFile = photoData.originalFile || null;
+            const caption = photoData.caption || '';
+
+            const fileToUpload = originalFile || file;
+            const result = await this.hudData.uploadVisualPhoto(parseInt(visualId!, 10), fileToUpload, caption);
+            
+            // Handle result format
+            const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
+            const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
+
+            if (!attachId) {
+              console.error(`[CREATE CUSTOM] No AttachID for photo ${index + 1}`);
+              return;
+            }
+
+            // If there are annotations, save them
+            if (annotationData) {
+              const annotatedBlob = photoData.annotatedBlob;
+              if (annotatedBlob) {
+                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationData, caption);
+              }
+            }
+
+            // Update photo in UI
+            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === tempId);
+            if (photoIndex !== -1 && this.visualPhotos[key]) {
+              await this.updatePhotoAfterUpload(key, photoIndex, actualResult, caption);
+            }
+
+          } catch (error) {
+            console.error(`[CREATE CUSTOM] Failed to upload photo ${index + 1}:`, error);
+          }
+        });
+
+        await Promise.all(uploadPromises);
+      }
+
+      this.changeDetectorRef.detectChanges();
+      console.log('[CREATE CUSTOM] ✅ Custom visual created successfully');
+
+    } catch (error) {
+      console.error('[CREATE CUSTOM] Error:', error);
+      await this.showToast('Failed to create custom item', 'danger');
+    }
+  }
 }
 
