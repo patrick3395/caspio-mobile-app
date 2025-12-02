@@ -707,10 +707,10 @@ export class CaspioService {
   }
 
   // Get icon image from LPS_Type table attachment
-  getTypeIconImage(typeId: string | number): Observable<string> {
+  getTypeIconImage(typeId: string | number, iconFileName?: string): Observable<string> {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
-    
-    return this.getValidToken().pipe(
+
+    const fetchFromTable$ = this.getValidToken().pipe(
       switchMap(accessToken => new Observable<string>(observer => {
         // Construct URL to fetch the Icon attachment from the table record
         const url = `${API_BASE_URL}/tables/LPS_Type/records/${typeId}/files/Icon`;
@@ -742,6 +742,23 @@ export class CaspioService {
         });
       }))
     );
+
+    const trimmedFileName = iconFileName?.trim();
+
+    if (trimmedFileName) {
+      console.log(`🎨 [Type Icon] Attempting Files API fetch for "${trimmedFileName}"`);
+      return this.getImageFromFilesAPI(trimmedFileName).pipe(
+        tap(() => {
+          console.log(`✅ [Type Icon] Loaded icon via Files API: "${trimmedFileName}"`);
+        }),
+        catchError(error => {
+          console.warn(`⚠️ [Type Icon] Files API fetch failed for "${trimmedFileName}", falling back to table attachment.`, error?.message || error);
+          return fetchFromTable$;
+        })
+      );
+    }
+
+    return fetchFromTable$;
   }
 
   // Offers methods

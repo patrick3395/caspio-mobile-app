@@ -130,4 +130,58 @@ export class HudDataService {
     console.log('[HUD Data Service] Clearing caches for ServiceID:', serviceId);
     this.hudCache.delete(serviceId);
   }
+
+  // ============================================
+  // HUD PHOTO METHODS (matching Visual Photo methods from foundation service)
+  // ============================================
+
+  async uploadVisualPhoto(hudId: number, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
+    console.log('[HUD Photo] Uploading photo for HUDID:', hudId);
+    const result = await firstValueFrom(
+      this.caspioService.createServicesHUDAttachWithFile(hudId, caption, file, drawings, originalFile)
+    );
+
+    // Clear attachment cache for this HUD record
+    const key = String(hudId);
+    this.hudAttachmentsCache.delete(key);
+
+    return result;
+  }
+
+  async deleteVisualPhoto(attachId: string): Promise<any> {
+    console.log('[HUD Photo] Deleting photo:', attachId);
+    const result = await firstValueFrom(this.caspioService.deleteServicesHUDAttach(attachId));
+
+    // Clear all attachment caches
+    this.hudAttachmentsCache.clear();
+
+    return result;
+  }
+
+  async updateVisualPhotoCaption(attachId: string, caption: string): Promise<any> {
+    console.log('[HUD Photo] Updating caption for AttachID:', attachId);
+    const result = await firstValueFrom(
+      this.caspioService.updateServicesHUDAttach(attachId, { Annotation: caption })
+    );
+
+    // Clear all attachment caches
+    this.hudAttachmentsCache.clear();
+
+    return result;
+  }
+
+  // Create HUD record (matching createVisual from foundation service)
+  async createVisual(hudData: any): Promise<any> {
+    console.log('[HUD Data] Creating HUD record:', hudData);
+    const result = await firstValueFrom(
+      this.caspioService.createServicesHUD(hudData)
+    );
+
+    // Clear cache for this service
+    if (hudData.ServiceID) {
+      this.hudCache.delete(String(hudData.ServiceID));
+    }
+
+    return result;
+  }
 }

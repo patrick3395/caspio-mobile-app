@@ -3924,7 +3924,7 @@ Troubleshooting:
         
         try {
           // Fetch icon from LPS_Type table attachment using the record's PK_ID
-          const imageData = await this.caspioService.getTypeIconImage(offer.TypePK_ID).toPromise();
+          const imageData = await this.caspioService.getTypeIconImage(offer.TypePK_ID, offer.TypeIcon).toPromise();
           console.log(`   Image data received, length: ${imageData?.length || 0}`);
           console.log(`   Starts with 'data:': ${imageData?.startsWith('data:')}`);
           
