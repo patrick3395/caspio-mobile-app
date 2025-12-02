@@ -4346,7 +4346,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   }
   
   // Save visual selection to Services_HUD table
-  async saveVisualSelection(category: string, templateId: string) {
+  async saveVisualSelection(category: string, templateId: string | number) {
     if (!this.serviceId) {
       console.error('No ServiceID available for saving visual');
       return;
@@ -6710,7 +6710,7 @@ Stack: ${error?.stack}`;
   }
   
   // View photo - open viewer with integrated annotation
-  async viewPhoto(photo: any, category: string, itemId: string) {
+  async viewPhoto(photo: any, category: string, itemId: string, event?: Event) {
     try {
       
       // v1.4.340: Validate AttachID before proceeding
@@ -7295,10 +7295,6 @@ Stack: ${error?.stack}`;
   // TrackBy functions for ngFor performance
   trackByPhotoId(index: number, photo: any): any {
     return photo.AttachID || photo.id || index;
-  }
-
-  trackByCategory(index: number, category: string): string {
-    return category;
   }
 
   // HUD Photo Upload - matches performVisualPhotoUpload from structural systems
