@@ -183,11 +183,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   private async updatePhotoAfterUpload(key: string, photoIndex: number, result: any, caption: string) {
     console.log('[UPLOAD UPDATE] ========== Updating photo after upload ==========');
     console.log('[UPLOAD UPDATE] Key:', key, 'Index:', photoIndex);
-    console.log('[UPLOAD UPDATE] Result:', result);
+    console.log('[UPLOAD UPDATE] Result:', JSON.stringify(result, null, 2));
     
-    const uploadedPhotoUrl = result.thumbnailUrl || result.url || result.Photo;
+    // Handle both direct result and Result array format
+    const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
+    const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
     let displayableUrl = uploadedPhotoUrl;
 
+    console.log('[UPLOAD UPDATE] Actual result:', actualResult);
     console.log('[UPLOAD UPDATE] Photo path from result:', uploadedPhotoUrl);
 
     // Convert file path to displayable URL if needed
@@ -217,11 +220,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
     console.log('[UPLOAD UPDATE] Final displayableUrl length:', displayableUrl?.length || 0);
 
+    // Get AttachID from the actual result
+    const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
+    console.log('[UPLOAD UPDATE] Using AttachID:', attachId);
+
     // Update photo object
     this.visualPhotos[key][photoIndex] = {
       ...this.visualPhotos[key][photoIndex],
-      AttachID: result.AttachID,
-      id: result.AttachID,
+      AttachID: attachId,
+      id: attachId,
       uploading: false,
       progress: 100,
       filePath: uploadedPhotoUrl,
@@ -1595,8 +1602,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       // Upload photo using HUD service
       const result = await this.hudData.uploadVisualPhoto(hudId, photo, caption);
 
-      console.log(`[HUD PHOTO UPLOAD] Upload complete for HUDID ${hudId}, AttachID:`, result.AttachID);
-      console.log(`[HUD PHOTO UPLOAD] Result object:`, result);
+      console.log(`[HUD PHOTO UPLOAD] Upload complete for HUDID ${hudId}`);
+      console.log(`[HUD PHOTO UPLOAD] Full result object:`, JSON.stringify(result, null, 2));
+      console.log(`[HUD PHOTO UPLOAD] Result.Result:`, result.Result);
+      console.log(`[HUD PHOTO UPLOAD] AttachID:`, result.AttachID || result.Result?.[0]?.AttachID);
+      console.log(`[HUD PHOTO UPLOAD] Photo path:`, result.Photo || result.Result?.[0]?.Photo);
 
       if (tempId && this.visualPhotos[key]) {
         const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
@@ -1607,9 +1617,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           }
 
           // CRITICAL: Get the uploaded photo URL from the result
-          const uploadedPhotoUrl = result.thumbnailUrl || result.url || result.Photo;
+          // Handle both direct result and Result array format
+          const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
+          const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
           let displayableUrl = uploadedPhotoUrl;
 
+          console.log('[HUD PHOTO UPLOAD] Actual result:', actualResult);
           console.log('[HUD PHOTO UPLOAD] Uploaded photo path:', uploadedPhotoUrl);
 
           // If we got a file path, convert it to a displayable URL
@@ -1639,10 +1652,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           console.log('[HUD PHOTO UPLOAD] Final displayableUrl length:', displayableUrl?.length || 0);
           console.log('[HUD PHOTO UPLOAD] Updating photo at index', photoIndex);
 
+          // Get AttachID from the actual result
+          const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
+          console.log('[HUD PHOTO UPLOAD] Using AttachID:', attachId);
+
           this.visualPhotos[key][photoIndex] = {
             ...this.visualPhotos[key][photoIndex],
-            AttachID: result.AttachID,
-            id: result.AttachID,
+            AttachID: attachId,
+            id: attachId,
             uploading: false,
             queued: false,
             filePath: uploadedPhotoUrl,
