@@ -1704,7 +1704,10 @@ export class CaspioService {
 
       const result = await recordResponse.json();
       console.log('[HUD ATTACH] ✅ Upload complete!');
-      console.log('[HUD ATTACH] Final result:', result);
+      console.log('[HUD ATTACH] Final result:', JSON.stringify(result, null, 2));
+      
+      // Return the result in the same format as the response
+      // Caspio returns { Result: [...] } format
       return result;
     } catch (error: any) {
       console.error('[HUD ATTACH] ❌ Upload process failed:', error);
