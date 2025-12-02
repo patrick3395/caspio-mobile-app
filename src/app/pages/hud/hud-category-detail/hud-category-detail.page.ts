@@ -1134,22 +1134,37 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
   async addPhotoFromCamera(category: string, itemId: string | number) {
     const key = `${category}_${itemId}`;
+    
+    // Wait a moment for any pending save to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const visualId = this.visualRecordIds[key];
 
     console.log('[ADD PHOTO] Camera - Key:', key);
     console.log('[ADD PHOTO] Visual ID for this key:', visualId);
-    console.log('[ADD PHOTO] All visualRecordIds:', this.visualRecordIds);
+    console.log('[ADD PHOTO] All visualRecordIds:', JSON.stringify(this.visualRecordIds));
 
     if (!visualId || String(visualId).startsWith('temp_')) {
-      console.error('[ADD PHOTO] ❌ No valid visual ID found');
-      await this.showToast('Please save the item first before adding photos', 'warning');
-      return;
+      console.error('[ADD PHOTO] ❌ No valid visual ID found for key:', key);
+      console.error('[ADD PHOTO] Available keys:', Object.keys(this.visualRecordIds));
+      await this.showToast('Waiting for save to complete...', 'warning');
+      
+      // Wait a bit longer and try again
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const retryVisualId = this.visualRecordIds[key];
+      if (!retryVisualId || String(retryVisualId).startsWith('temp_')) {
+        await this.showToast('Please wait for the item to save before adding photos', 'warning');
+        return;
+      }
+      // Use the retry ID
+      return this.addPhotoWithVisualId(retryVisualId, key);
     }
 
     console.log('[ADD PHOTO] ✅ Valid visual ID found:', visualId);
+    return this.addPhotoWithVisualId(visualId, key);
+  }
 
-    // Store context for when photo is captured
-    this.currentUploadContext = { category, itemId: String(itemId), action: 'camera' };
+  private async addPhotoWithVisualId(visualId: string, key: string) {
 
     try {
       const image = await Camera.getPhoto({
@@ -1164,27 +1179,38 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('[CAMERA] Error capturing photo:', error);
-    } finally {
-      this.currentUploadContext = null;
+      await this.showToast('Failed to capture photo', 'danger');
     }
   }
 
   async addPhotoFromGallery(category: string, itemId: string | number) {
     const key = `${category}_${itemId}`;
+    
+    // Wait a moment for any pending save to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const visualId = this.visualRecordIds[key];
 
     console.log('[ADD PHOTO] Gallery - Key:', key);
     console.log('[ADD PHOTO] Visual ID for this key:', visualId);
-    console.log('[ADD PHOTO] All visualRecordIds:', this.visualRecordIds);
 
     if (!visualId || String(visualId).startsWith('temp_')) {
       console.error('[ADD PHOTO] ❌ No valid visual ID found');
-      await this.showToast('Please save the item first before adding photos', 'warning');
+      await this.showToast('Waiting for save to complete...', 'warning');
+      
+      // Wait and retry
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const retryVisualId = this.visualRecordIds[key];
+      if (!retryVisualId || String(retryVisualId).startsWith('temp_')) {
+        await this.showToast('Please wait for the item to save', 'warning');
+        return;
+      }
+      this.currentUploadContext = { category, itemId: String(itemId), action: 'gallery' };
+      this.fileInput.nativeElement.click();
       return;
     }
 
     console.log('[ADD PHOTO] ✅ Valid visual ID found:', visualId);
-
     this.currentUploadContext = { category, itemId: String(itemId), action: 'gallery' };
     this.fileInput.nativeElement.click();
   }
