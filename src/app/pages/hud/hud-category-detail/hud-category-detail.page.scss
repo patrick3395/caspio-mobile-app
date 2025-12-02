@@ -43,6 +43,215 @@ ion-content {
 }
 
 .category-content {
+  // Photo preview styling - EXACT FROM STRUCTURAL SYSTEMS
+  .image-preview-section {
+    padding: 12px;
+    background: #f8f8f8;
+    border-top: 1px solid #e0e0e0;
+    border-radius: 0 0 12px 12px;
+    clear: both;
+    display: block;
+    width: 100%;
+    overflow: visible;
+
+    .upload-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: rgba(241, 90, 39, 0.1);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      color: #F15A27;
+      font-size: 14px;
+
+      ion-spinner {
+        --color: #F15A27;
+        width: 20px;
+        height: 20px;
+      }
+    }
+
+    .image-preview-container {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      min-height: 0;
+      overflow: visible;
+
+      .image-preview.structural-photo-preview {
+        position: relative !important;
+        width: 90px !important;
+        min-height: 90px !important;
+        display: inline-block !important;
+        vertical-align: top !important;
+        overflow: visible !important;
+        margin: 4px !important;
+        padding-bottom: 35px !important;
+        background: transparent !important;
+        flex-shrink: 0;
+
+        &.uploading img {
+          opacity: 0.6;
+        }
+
+        .upload-indicator {
+          position: absolute;
+          top: 45px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 10;
+
+          ion-spinner {
+            --color: #F15A27;
+          }
+        }
+
+        img {
+          width: 90px !important;
+          height: 90px !important;
+          border-radius: 20px !important;
+          object-fit: cover !important;
+          display: block !important;
+          border: 2px solid #ddd !important;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          background: #f5f5f5;
+
+          @media (hover: hover) and (pointer: fine) {
+            &:hover {
+              transform: scale(1.02);
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            }
+          }
+
+          &.has-annotations {
+            border-color: #F15A27 !important;
+            border-width: 3px !important;
+          }
+        }
+
+        .delete-btn {
+          position: absolute !important;
+          top: 4px !important;
+          right: 4px !important;
+          width: 22px !important;
+          height: 22px !important;
+          border-radius: 50% !important;
+          background: white !important;
+          border: 2px solid #333333 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          cursor: pointer !important;
+          z-index: 1000 !important;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+          transition: all 0.2s ease !important;
+          padding: 0 !important;
+
+          ion-icon {
+            font-size: 12px !important;
+            color: #333333 !important;
+            font-weight: 600 !important;
+          }
+
+          &:active {
+            transform: scale(1.0) !important;
+          }
+        }
+
+        .room-photo-caption {
+          width: 90px !important;
+          padding: 6px 8px !important;
+          font-size: 11px !important;
+          text-align: center !important;
+          border: 1px solid #e0e0e0 !important;
+          border-radius: 6px !important;
+          background: white !important;
+          color: #666 !important;
+          transition: all 0.2s ease !important;
+          margin-top: 8px !important;
+          display: block !important;
+          position: relative !important;
+          box-sizing: border-box !important;
+          cursor: pointer;
+
+          &::placeholder {
+            color: #ccc !important;
+            font-size: 10px !important;
+          }
+
+          &:focus {
+            outline: none !important;
+            border-color: #F15A27 !important;
+            background: #fffbf8 !important;
+          }
+        }
+      }
+    }
+  }
+
+  // Skeleton loaders
+  .skeleton-loader {
+    pointer-events: none;
+    cursor: default;
+
+    .skeleton-image {
+      width: 90px;
+      height: 90px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: skeleton-pulse 1.5s ease-in-out infinite;
+      border-radius: 20px;
+      border: 2px solid #ddd;
+      display: block;
+      position: relative;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 24px;
+        height: 24px;
+        border: 2px solid #ccc;
+        border-top-color: #999;
+        border-radius: 50%;
+        animation: skeleton-spin 0.8s linear infinite;
+      }
+    }
+
+    .skeleton-caption {
+      width: 90px;
+      height: 28px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: skeleton-pulse 1.5s ease-in-out infinite;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+  }
+
+  @keyframes skeleton-pulse {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  @keyframes skeleton-spin {
+    0% {
+      transform: translate(-50%, -50%) rotate(0deg);
+    }
+    100% {
+      transform: translate(-50%, -50%) rotate(360deg);
+    }
+  }
+
   ::ng-deep mark,
   ::ng-deep .highlight {
     background-color: #fff3cd;
