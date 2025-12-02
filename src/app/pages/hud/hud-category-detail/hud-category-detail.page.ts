@@ -1973,6 +1973,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         message: ' ',
         buttons: [
           {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              (this as any).isCaptionPopupOpen = false;
+            }
+          },
+          {
             text: 'Save',
             handler: () => {
               const input = document.getElementById('captionInput') as HTMLInputElement;
@@ -1999,59 +2006,93 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
               return true;
             }
-          },
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            handler: () => {
-              (this as any).isCaptionPopupOpen = false;
-            }
           }
         ]
       });
 
       await alert.present();
 
-      // After alert presents, inject custom HTML
+      // Inject HTML content immediately after presentation
       setTimeout(() => {
-        const alertElement = document.querySelector('.caption-popup-alert');
-        if (alertElement) {
-          const messageDiv = alertElement.querySelector('.alert-message');
-          if (messageDiv) {
-            messageDiv.innerHTML = `
-              <input 
-                type="text" 
-                id="captionInput" 
-                class="caption-input-field" 
-                placeholder="Enter caption..." 
-                value="${tempCaption}"
-                maxlength="255">
-              ${buttonsHtml}
-            `;
-
-            // Add click handlers to preset buttons
-            const presetBtns = messageDiv.querySelectorAll('.preset-btn');
-            const input = messageDiv.querySelector('#captionInput') as HTMLInputElement;
-            
-            presetBtns.forEach(btn => {
-              btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const text = (btn as HTMLElement).dataset['text'] || '';
-                if (input) {
-                  const currentValue = input.value.trim();
-                  input.value = currentValue ? `${currentValue} ${text}` : text;
-                  input.focus();
-                }
-              });
-            });
-
-            // Focus the input
-            if (input) {
-              input.focus();
-            }
+        try {
+          const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+          if (!alertElement) {
+            (this as any).isCaptionPopupOpen = false;
+            return;
           }
+
+          // Build the full HTML content
+          const htmlContent = `
+            <div class="caption-popup-content">
+              <div class="caption-input-container">
+                <input type="text" id="captionInput" class="caption-text-input"
+                       placeholder="Enter caption..."
+                       value="${tempCaption}"
+                       maxlength="255" />
+                <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+                  <ion-icon name="backspace-outline"></ion-icon>
+                </button>
+              </div>
+              ${buttonsHtml}
+            </div>
+          `;
+          alertElement.innerHTML = htmlContent;
+
+          const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+          const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
+
+          // Use event delegation for better performance
+          const container = document.querySelector('.caption-popup-alert .preset-buttons-container');
+          if (container && captionInput) {
+            container.addEventListener('click', (e) => {
+              try {
+                const target = e.target as HTMLElement;
+                const btn = target.closest('.preset-btn') as HTMLElement;
+                if (btn) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const text = btn.getAttribute('data-text');
+                  if (text && captionInput) {
+                    // Add text + space to current caption
+                    captionInput.value = (captionInput.value || '') + text + ' ';
+                    // Remove focus from button to prevent highlight
+                    (btn as HTMLButtonElement).blur();
+                  }
+                }
+              } catch (error) {
+                console.error('Error handling preset button click:', error);
+              }
+            }, { passive: false });
+          }
+
+          // Add undo button handler
+          if (undoBtn && captionInput) {
+            undoBtn.addEventListener('click', (e) => {
+              try {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentValue = captionInput.value || '';
+                if (currentValue.trim() === '') {
+                  return;
+                }
+                const words = currentValue.trim().split(' ');
+                if (words.length > 0) {
+                  words.pop();
+                }
+                captionInput.value = words.join(' ');
+                if (captionInput.value.length > 0) {
+                  captionInput.value += ' ';
+                }
+              } catch (error) {
+                console.error('Error handling undo button click:', error);
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error injecting caption popup content:', error);
+          (this as any).isCaptionPopupOpen = false;
         }
-      }, 100);
+      }, 0);
 
     } catch (error) {
       console.error('Error opening caption popup:', error);
@@ -2201,6 +2242,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         cssClass: 'custom-document-alert',
         buttons: [
           {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
+          },
+          {
             text: 'Delete',
             cssClass: 'alert-button-confirm',
             handler: () => {
@@ -2239,11 +2285,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
               return true; // Allow alert to dismiss immediately
             }
-          },
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            cssClass: 'alert-button-cancel'
           }
         ]
       });
