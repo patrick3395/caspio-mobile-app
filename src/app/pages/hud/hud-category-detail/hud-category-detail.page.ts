@@ -1987,52 +1987,65 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async deletePhoto(photo: any, category: string, itemId: string | number) {
-    const key = `${category}_${itemId}`;
-    const attachId = photo.AttachID || photo.id;
-    
-    if (!attachId || String(attachId).startsWith('temp_')) {
-      // Remove from array if it's a temp photo
-      const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === attachId);
-      if (photoIndex !== undefined && photoIndex > -1 && this.visualPhotos[key]) {
-        this.visualPhotos[key].splice(photoIndex, 1);
-        this.changeDetectorRef.detectChanges();
-      }
-      return;
-    }
+    try {
+      const alert = await this.alertController.create({
+        header: 'Delete Photo',
+        message: 'Are you sure you want to delete this photo?',
+        cssClass: 'custom-document-alert',
+        buttons: [
+          {
+            text: 'Delete',
+            cssClass: 'alert-button-confirm',
+            handler: () => {
+              // Return true to allow alert to dismiss, then process deletion
+              setTimeout(async () => {
+                const loading = await this.loadingController.create({
+                  message: 'Deleting photo...'
+                });
+                await loading.present();
 
-    const confirm = await this.alertController.create({
-      header: 'Delete Photo',
-      message: 'Are you sure you want to delete this photo?',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Delete',
-          cssClass: 'danger',
-          handler: async () => {
-            try {
-              await firstValueFrom(this.caspioService.deleteServicesHUDAttach(attachId));
-              
-              // Remove from array
-              const photoIndex = this.visualPhotos[key]?.findIndex(p => 
-                (p.AttachID === attachId || p.id === attachId)
-              );
-              if (photoIndex !== undefined && photoIndex > -1 && this.visualPhotos[key]) {
-                this.visualPhotos[key].splice(photoIndex, 1);
-                this.changeDetectorRef.detectChanges();
-              }
-            } catch (error) {
-              console.error('[DELETE PHOTO] Error:', error);
-              await this.showToast('Failed to delete photo', 'danger');
+                try {
+                  const key = `${category}_${itemId}`;
+
+                  // Remove from UI immediately using filter
+                  if (this.visualPhotos[key]) {
+                    this.visualPhotos[key] = this.visualPhotos[key].filter(
+                      (p: any) => p.AttachID !== photo.AttachID
+                    );
+                  }
+
+                  // Delete from database
+                  if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+                    await this.hudData.deleteVisualPhoto(photo.AttachID);
+                  }
+
+                  // Force UI update
+                  this.changeDetectorRef.detectChanges();
+
+                  await loading.dismiss();
+                } catch (error) {
+                  await loading.dismiss();
+                  console.error('Error deleting photo:', error);
+                  await this.showToast('Failed to delete photo', 'danger');
+                }
+              }, 100);
+
+              return true; // Allow alert to dismiss immediately
             }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
-        }
-      ]
-    });
-    
-    await confirm.present();
+        ]
+      });
+
+      await alert.present();
+    } catch (error) {
+      console.error('Error in deletePhoto:', error);
+      await this.showToast('Failed to delete photo', 'danger');
+    }
   }
 
   private async showToast(message: string, color: string = 'primary') {

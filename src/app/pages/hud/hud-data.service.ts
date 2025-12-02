@@ -136,15 +136,22 @@ export class HudDataService {
   // ============================================
 
   async uploadVisualPhoto(hudId: number, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
-    console.log('[HUD Photo] Uploading photo for HUDID:', hudId);
+    console.log('[HUD Photo] ========== Uploading photo for HUDID:', hudId, '==========');
+    console.log('[HUD Photo] File:', file.name, 'Caption:', caption || '(empty)');
+    
     const result = await firstValueFrom(
       this.caspioService.createServicesHUDAttachWithFile(hudId, caption, file, drawings, originalFile)
     );
+
+    console.log('[HUD Photo] Upload complete! Raw result:', JSON.stringify(result, null, 2));
+    console.log('[HUD Photo] Result.Result:', result.Result);
+    console.log('[HUD Photo] Result.Result[0]:', result.Result?.[0]);
 
     // Clear attachment cache for this HUD record
     const key = String(hudId);
     this.hudAttachmentsCache.delete(key);
 
+    console.log('[HUD Photo] Returning result to caller');
     return result;
   }
 
