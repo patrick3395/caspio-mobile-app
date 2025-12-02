@@ -189,14 +189,14 @@
             <div *ngIf="isItemSelected(categoryName, item.id) && getPhotosForVisual(categoryName, item.id).length > 0" class="photos-section">
               <div class="photos-grid">
                 <div *ngFor="let photo of getPhotosForVisual(categoryName, item.id)" class="photo-item">
-                  <div class="photo-wrapper" (click)="viewPhoto(photo, categoryName + '_' + item.id)">
+                  <div class="photo-wrapper" (click)="viewPhoto(photo, categoryName, item.id)">
                     <img [src]="photo.url || 'assets/img/photo-placeholder.png'" alt="Photo">
                     <div *ngIf="photo.uploading" class="upload-progress">
                       <ion-spinner name="crescent"></ion-spinner>
                       <span *ngIf="photo.progress !== undefined">{{ photo.progress }}%</span>
                     </div>
                   </div>
-                  <button class="delete-photo-btn" (click)="deletePhoto(photo, categoryName + '_' + item.id); $event.stopPropagation()" title="Delete photo">
+                  <button class="delete-photo-btn" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete photo">
                     <ion-icon name="close-circle"></ion-icon>
                   </button>
                 </div>
@@ -367,14 +367,14 @@
             <div *ngIf="isItemSelected(categoryName, item.id) && getPhotosForVisual(categoryName, item.id).length > 0" class="photos-section">
               <div class="photos-grid">
                 <div *ngFor="let photo of getPhotosForVisual(categoryName, item.id)" class="photo-item">
-                  <div class="photo-wrapper" (click)="viewPhoto(photo, categoryName + '_' + item.id)">
+                  <div class="photo-wrapper" (click)="viewPhoto(photo, categoryName, item.id)">
                     <img [src]="photo.url || 'assets/img/photo-placeholder.png'" alt="Photo">
                     <div *ngIf="photo.uploading" class="upload-progress">
                       <ion-spinner name="crescent"></ion-spinner>
                       <span *ngIf="photo.progress !== undefined">{{ photo.progress }}%</span>
                     </div>
                   </div>
-                  <button class="delete-photo-btn" (click)="deletePhoto(photo, categoryName + '_' + item.id); $event.stopPropagation()" title="Delete photo">
+                  <button class="delete-photo-btn" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete photo">
                     <ion-icon name="close-circle"></ion-icon>
                   </button>
                 </div>
@@ -545,14 +545,14 @@
             <div *ngIf="isItemSelected(categoryName, item.id) && getPhotosForVisual(categoryName, item.id).length > 0" class="photos-section">
               <div class="photos-grid">
                 <div *ngFor="let photo of getPhotosForVisual(categoryName, item.id)" class="photo-item">
-                  <div class="photo-wrapper" (click)="viewPhoto(photo, categoryName + '_' + item.id)">
+                  <div class="photo-wrapper" (click)="viewPhoto(photo, categoryName, item.id)">
                     <img [src]="photo.url || 'assets/img/photo-placeholder.png'" alt="Photo">
                     <div *ngIf="photo.uploading" class="upload-progress">
                       <ion-spinner name="crescent"></ion-spinner>
                       <span *ngIf="photo.progress !== undefined">{{ photo.progress }}%</span>
                     </div>
                   </div>
-                  <button class="delete-photo-btn" (click)="deletePhoto(photo, categoryName + '_' + item.id); $event.stopPropagation()" title="Delete photo">
+                  <button class="delete-photo-btn" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete photo">
                     <ion-icon name="close-circle"></ion-icon>
                   </button>
                 </div>
