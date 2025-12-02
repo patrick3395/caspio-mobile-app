@@ -1623,80 +1623,151 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   private clearPdfCache(): void {
     // Future: implement PDF cache clearing if needed
   }
-    // Create temporary photo placeholder
-    const tempId = `temp_${Date.now()}_${Math.random()}`;
-    const tempPhoto = {
-      AttachID: tempId,
-      id: tempId,
-      url: URL.createObjectURL(file),
-      uploading: true,
-      progress: 0
-    };
 
-    if (!this.visualPhotos[key]) {
-      this.visualPhotos[key] = [];
-    }
-    this.visualPhotos[key].push(tempPhoto);
-    this.uploadingPhotosByKey[key] = true;
-    this.changeDetectorRef.detectChanges();
+  async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event) {
+    console.log('[VIEW PHOTO] Opening photo annotator for', photo.AttachID);
 
     try {
-      // Compress image
-      const compressedBlob = await this.imageCompression.compressImage(file);
-      
-      // Convert Blob to File
-      const compressedFile = new File([compressedBlob], file.name, { 
-        type: compressedBlob.type || 'image/jpeg' 
+      const key = `${category}_${itemId}`;
+
+      // Check if photo is still uploading
+      if (photo.uploading || photo.queued) {
+        return;
+      }
+
+      const attachId = photo.AttachID || photo.id;
+      if (!attachId || String(attachId).startsWith('temp_')) {
+        return;
+      }
+
+      // Save scroll position
+      const scrollPosition = await this.content?.getScrollElement().then(el => el.scrollTop) || 0;
+
+      // Get image URL
+      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+
+      // If no valid URL and we have a file path, try to fetch it
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo)) {
+        try {
+          const filePath = photo.filePath || photo.Photo;
+          const fetchedImage = await firstValueFrom(
+            this.caspioService.getImageFromFilesAPI(filePath)
+          );
+          if (fetchedImage && fetchedImage.startsWith('data:')) {
+            imageUrl = fetchedImage;
+            photo.url = fetchedImage;
+            photo.originalUrl = fetchedImage;
+            photo.thumbnailUrl = fetchedImage;
+            photo.displayUrl = fetchedImage;
+            this.changeDetectorRef.detectChanges();
+          }
+        } catch (err) {
+          console.error('[VIEW PHOTO] Failed to fetch image:', err);
+        }
+      }
+
+      // Always use the original URL for editing
+      const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+
+      // Try to load existing annotations
+      let existingAnnotations: any = null;
+      const annotationSources = [
+        photo.annotations,
+        photo.annotationsData,
+        photo.rawDrawingsString,
+        photo.Drawings
+      ];
+
+      for (const source of annotationSources) {
+        if (!source) continue;
+        try {
+          if (typeof source === 'string') {
+            const { decompressAnnotationData } = await import('../../../utils/annotation-utils');
+            existingAnnotations = decompressAnnotationData(source);
+          } else {
+            existingAnnotations = source;
+          }
+          if (existingAnnotations) break;
+        } catch (e) {
+          console.error('[VIEW PHOTO] Error loading annotations:', e);
+        }
+      }
+
+      const existingCaption = photo.caption || photo.annotation || photo.Annotation || '';
+
+      // Open FabricPhotoAnnotatorComponent
+      const modal = await this.modalController.create({
+        component: FabricPhotoAnnotatorComponent,
+        componentProps: {
+          imageUrl: originalImageUrl,
+          existingAnnotations: existingAnnotations,
+          existingCaption: existingCaption,
+          photoData: {
+            ...photo,
+            AttachID: attachId,
+            id: attachId,
+            caption: existingCaption
+          },
+          isReEdit: !!existingAnnotations
+        },
+        cssClass: 'fullscreen-modal'
       });
-      
-      // Upload to Caspio
-      const result = await firstValueFrom(
-        this.caspioService.createServicesHUDAttachWithFile(
-          parseInt(visualId),
-          '', // annotation
-          compressedFile,
-          undefined, // drawings
-          file // originalFile
-        )
-      );
 
-      // Update temp photo with real data
-      const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId);
-      if (photoIndex > -1 && result) {
-        await this.updatePhotoAfterUpload(key, photoIndex, result, '');
+      await modal.present();
+      const { data } = await modal.onWillDismiss();
+
+      // Restore scroll position
+      setTimeout(async () => {
+        if (this.content) {
+          await this.content.scrollToPoint(0, scrollPosition, 0);
+        }
+      }, 100);
+
+      if (!data || !data.annotatedBlob) {
+        return;
       }
 
-      console.log('[UPLOAD] Photo uploaded successfully');
+      // User saved annotations - update the photo
+      const annotatedBlob = data.blob || data.annotatedBlob;
+      const annotationsData = data.annotationData || data.annotationsData;
+      const newCaption = data.caption || existingCaption;
+
+      // Save annotations to database
+      await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, newCaption);
+
+      // Update UI
+      const photos = this.visualPhotos[key] || [];
+      const photoIndex = photos.findIndex(p => (p.AttachID || p.id) === attachId);
+      if (photoIndex !== -1) {
+        const displayUrl = URL.createObjectURL(annotatedBlob);
+        this.visualPhotos[key][photoIndex] = {
+          ...this.visualPhotos[key][photoIndex],
+          displayUrl: displayUrl,
+          hasAnnotations: true,
+          annotations: annotationsData,
+          annotationsData: annotationsData,
+          caption: newCaption,
+          annotation: newCaption,
+          Annotation: newCaption
+        };
+        this.changeDetectorRef.detectChanges();
+      }
+
     } catch (error) {
-      console.error('[UPLOAD] Error uploading photo:', error);
-      
-      // Remove failed photo
-      const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId);
-      if (photoIndex > -1) {
-        this.visualPhotos[key].splice(photoIndex, 1);
-      }
-      
-      await this.showToast('Failed to upload photo', 'danger');
-    } finally {
-      this.uploadingPhotosByKey[key] = false;
-      this.changeDetectorRef.detectChanges();
+      console.error('Error viewing photo:', error);
     }
   }
 
-  async viewPhoto(photo: any, key: string) {
-    // TODO: Implement photo viewer modal
-    console.log('[VIEW PHOTO] Opening photo viewer for:', photo);
-    await this.showToast('Photo viewer not yet implemented', 'primary');
-  }
-
-  async deletePhoto(photo: any, key: string) {
+  async deletePhoto(photo: any, category: string, itemId: string | number) {
+    const key = `${category}_${itemId}`;
     const attachId = photo.AttachID || photo.id;
     
     if (!attachId || String(attachId).startsWith('temp_')) {
       // Remove from array if it's a temp photo
-      const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attachId);
-      if (photoIndex > -1) {
+      const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === attachId);
+      if (photoIndex !== undefined && photoIndex > -1 && this.visualPhotos[key]) {
         this.visualPhotos[key].splice(photoIndex, 1);
+        this.changeDetectorRef.detectChanges();
       }
       return;
     }
@@ -1717,15 +1788,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
               await firstValueFrom(this.caspioService.deleteServicesHUDAttach(attachId));
               
               // Remove from array
-              const photoIndex = this.visualPhotos[key].findIndex(p => 
+              const photoIndex = this.visualPhotos[key]?.findIndex(p => 
                 (p.AttachID === attachId || p.id === attachId)
               );
-              if (photoIndex > -1) {
+              if (photoIndex !== undefined && photoIndex > -1 && this.visualPhotos[key]) {
                 this.visualPhotos[key].splice(photoIndex, 1);
+                this.changeDetectorRef.detectChanges();
               }
-              
-              this.changeDetectorRef.detectChanges();
-              await this.showToast('Photo deleted', 'success');
             } catch (error) {
               console.error('[DELETE PHOTO] Error:', error);
               await this.showToast('Failed to delete photo', 'danger');
