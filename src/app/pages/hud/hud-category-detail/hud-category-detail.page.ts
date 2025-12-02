@@ -464,23 +464,55 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           continue;
         }
         
-        // Find the item by Name
-        const item = allItems.find(i => i.name === visual.Name);
+        const name = visual.Name;
+        const kind = visual.Kind;
+        const hudId = String(visual.HUDID || visual.PK_ID || visual.id);
         
+        // Find the item by Name
+        let item = allItems.find(i => i.name === visual.Name);
+        
+        // If no template match found, this is a CUSTOM visual - create dynamic item
         if (!item) {
-          console.error('[LOAD EXISTING] ❌ No matching template item found for:', visual.Name);
-          console.error('[LOAD EXISTING] Available names to match:', allItems.map(i => i.name));
-          continue;
+          console.log('[LOAD EXISTING] Creating dynamic item for custom visual:', name, kind);
+
+          // Create a dynamic VisualItem for custom visuals
+          const customItem: VisualItem = {
+            id: `custom_${hudId}`,
+            templateId: 0,
+            name: visual.Name || 'Custom Item',
+            text: visual.Text || '',
+            originalText: visual.Text || '',
+            type: visual.Kind || 'Comment',
+            category: visual.Category,
+            answerType: 0,
+            required: false,
+            answer: visual.Answers || '',
+            photos: []
+          };
+
+          // Add to appropriate section based on Kind
+          if (kind === 'Comment') {
+            this.organizedData.comments.push(customItem);
+          } else if (kind === 'Limitation') {
+            this.organizedData.limitations.push(customItem);
+          } else if (kind === 'Deficiency') {
+            this.organizedData.deficiencies.push(customItem);
+          } else {
+            // Default to comments
+            this.organizedData.comments.push(customItem);
+          }
+
+          item = customItem;
+          console.log('[LOAD EXISTING] ✅ Created and added custom item:', item.name);
+        } else {
+          console.log('[LOAD EXISTING] ✅ Found matching template item:');
+          console.log('[LOAD EXISTING]   - Name:', item.name);
+          console.log('[LOAD EXISTING]   - ID:', item.id);
+          console.log('[LOAD EXISTING]   - TemplateID:', item.templateId);
+          console.log('[LOAD EXISTING]   - AnswerType:', item.answerType);
         }
 
-        console.log('[LOAD EXISTING] ✅ Found matching template item:');
-        console.log('[LOAD EXISTING]   - Name:', item.name);
-        console.log('[LOAD EXISTING]   - ID:', item.id);
-        console.log('[LOAD EXISTING]   - TemplateID:', item.templateId);
-        console.log('[LOAD EXISTING]   - AnswerType:', item.answerType);
-
         const key = `${this.categoryName}_${item.id}`;
-        const hudId = String(visual.HUDID || visual.PK_ID || visual.id);
 
         console.log('[LOAD EXISTING] Constructed key:', key);
         console.log('[LOAD EXISTING] HUDID to store:', hudId);
