@@ -471,7 +471,7 @@
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
-                      <!-- Image preview section below the item (only for text questions) -->
+                      <!-- Image preview section below the item (only for text questions) - STRUCTURAL SYSTEMS PATTERN -->
                       <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 || isUploadingPhotos(category, item.id))">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
@@ -479,29 +479,46 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" 
-                               [class.uploading]="photo.uploading" 
-                               [class.annotated]="photo.hasAnnotations">
-                            <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" width="60" height="60" loading="lazy" 
-                                 [alt]="photo.name" 
-                                 (click)="viewPhoto(photo, category, item.id)"
-                                 (error)="handleImageError($event, photo)">
-                            <div class="upload-indicator" *ngIf="photo.uploading">
-                              <ion-spinner name="crescent" color="light"></ion-spinner>
-                            </div>
-                            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
-                              <ion-icon name="close"></ion-icon>
-                            </button>
-                            <input 
-                              type="text" 
-                              class="image-caption" 
-                              [(ngModel)]="photo.caption" 
-                              (blur)="saveCaption(photo, category, item.id)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Add caption..."
-                              maxlength="255">
+                          <!-- Structural systems pattern: skeleton + normal states -->
+                          <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId"
+                               [class.uploading]="photo.uploading"
+                               [class.annotated]="photo.hasAnnotations"
+                               [class.skeleton-loader]="photo.isSkeleton">
+                            <!-- Skeleton state - show animated placeholder -->
+                            <ng-container *ngIf="photo.isSkeleton">
+                              <div class="skeleton-image"></div>
+                              <div class="skeleton-caption"></div>
+                            </ng-container>
+                            <!-- Normal photo state -->
+                            <ng-container *ngIf="!photo.isSkeleton">
+                              <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                                   width="90" height="90"
+                                   [alt]="photo.name"
+                                   (click)="viewPhoto(photo, category, item.id, $event)"
+                                   (error)="handleImageError($event, photo)"
+                                   [class.has-annotations]="photo.hasAnnotations">
+                              <div class="upload-indicator" *ngIf="photo.uploading">
+                                <ion-spinner name="crescent" color="light"></ion-spinner>
+                              </div>
+                              <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
+                                <ion-icon name="close"></ion-icon>
+                              </button>
+                              <button class="edit-annotation-btn" 
+                                      *ngIf="!photo.uploading && photo.hasAnnotations"
+                                      (click)="viewPhoto(photo, category, item.id, $event); $event.stopPropagation()" 
+                                      title="Edit Annotations">
+                                <ion-icon name="create-outline"></ion-icon>
+                              </button>
+                              <input 
+                                type="text" 
+                                class="image-caption" 
+                                [(ngModel)]="photo.caption" 
+                                (blur)="saveCaption(photo, category, item.id)"
+                                (click)="$event.stopPropagation()"
+                                placeholder="Add caption..."
+                                maxlength="255">
+                            </ng-container>
                           </div>
-                          <!-- Camera button moved to header, remove Add Photos button -->
                         </div>
                       </div>
                     </div>
@@ -604,7 +621,7 @@
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
-                      <!-- Image preview section below the item (only for text questions) -->
+                      <!-- Image preview section below the item (only for text questions) - STRUCTURAL SYSTEMS PATTERN -->
                       <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 || isUploadingPhotos(category, item.id))">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
@@ -612,29 +629,46 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" 
-                               [class.uploading]="photo.uploading" 
-                               [class.annotated]="photo.hasAnnotations">
-                            <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" width="60" height="60" loading="lazy" 
-                                 [alt]="photo.name" 
-                                 (click)="viewPhoto(photo, category, item.id)"
-                                 (error)="handleImageError($event, photo)">
-                            <div class="upload-indicator" *ngIf="photo.uploading">
-                              <ion-spinner name="crescent" color="light"></ion-spinner>
-                            </div>
-                            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
-                              <ion-icon name="close"></ion-icon>
-                            </button>
-                            <input 
-                              type="text" 
-                              class="image-caption" 
-                              [(ngModel)]="photo.caption" 
-                              (blur)="saveCaption(photo, category, item.id)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Add caption..."
-                              maxlength="255">
+                          <!-- Structural systems pattern: skeleton + normal states -->
+                          <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId"
+                               [class.uploading]="photo.uploading"
+                               [class.annotated]="photo.hasAnnotations"
+                               [class.skeleton-loader]="photo.isSkeleton">
+                            <!-- Skeleton state - show animated placeholder -->
+                            <ng-container *ngIf="photo.isSkeleton">
+                              <div class="skeleton-image"></div>
+                              <div class="skeleton-caption"></div>
+                            </ng-container>
+                            <!-- Normal photo state -->
+                            <ng-container *ngIf="!photo.isSkeleton">
+                              <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                                   width="90" height="90"
+                                   [alt]="photo.name"
+                                   (click)="viewPhoto(photo, category, item.id, $event)"
+                                   (error)="handleImageError($event, photo)"
+                                   [class.has-annotations]="photo.hasAnnotations">
+                              <div class="upload-indicator" *ngIf="photo.uploading">
+                                <ion-spinner name="crescent" color="light"></ion-spinner>
+                              </div>
+                              <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
+                                <ion-icon name="close"></ion-icon>
+                              </button>
+                              <button class="edit-annotation-btn" 
+                                      *ngIf="!photo.uploading && photo.hasAnnotations"
+                                      (click)="viewPhoto(photo, category, item.id, $event); $event.stopPropagation()" 
+                                      title="Edit Annotations">
+                                <ion-icon name="create-outline"></ion-icon>
+                              </button>
+                              <input 
+                                type="text" 
+                                class="image-caption" 
+                                [(ngModel)]="photo.caption" 
+                                (blur)="saveCaption(photo, category, item.id)"
+                                (click)="$event.stopPropagation()"
+                                placeholder="Add caption..."
+                                maxlength="255">
+                            </ng-container>
                           </div>
-                          <!-- Camera button moved to header, remove Add Photos button -->
                         </div>
                       </div>
                     </div>
@@ -737,7 +771,7 @@
                         <ion-spinner *ngIf="isItemSaving(category, item.id)" name="crescent" slot="end"></ion-spinner>
                       </ion-item>
                       
-                      <!-- Image preview section below the item (only for text questions) -->
+                      <!-- Image preview section below the item (only for text questions) - STRUCTURAL SYSTEMS PATTERN -->
                       <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 || isUploadingPhotos(category, item.id))">
                         <!-- Upload status indicator -->
                         <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
@@ -745,29 +779,46 @@
                           <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
                         </div>
                         <div class="image-preview-container">
-                          <div class="image-preview" *ngFor="let photo of getPhotosForVisual(category, item.id)" 
-                               [class.uploading]="photo.uploading" 
-                               [class.annotated]="photo.hasAnnotations">
-                            <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'" width="60" height="60" loading="lazy" 
-                                 [alt]="photo.name" 
-                                 (click)="viewPhoto(photo, category, item.id)"
-                                 (error)="handleImageError($event, photo)">
-                            <div class="upload-indicator" *ngIf="photo.uploading">
-                              <ion-spinner name="crescent" color="light"></ion-spinner>
-                            </div>
-                            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
-                              <ion-icon name="close"></ion-icon>
-                            </button>
-                            <input 
-                              type="text" 
-                              class="image-caption" 
-                              [(ngModel)]="photo.caption" 
-                              (blur)="saveCaption(photo, category, item.id)"
-                              (click)="$event.stopPropagation()"
-                              placeholder="Add caption..."
-                              maxlength="255">
+                          <!-- Structural systems pattern: skeleton + normal states -->
+                          <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId"
+                               [class.uploading]="photo.uploading"
+                               [class.annotated]="photo.hasAnnotations"
+                               [class.skeleton-loader]="photo.isSkeleton">
+                            <!-- Skeleton state - show animated placeholder -->
+                            <ng-container *ngIf="photo.isSkeleton">
+                              <div class="skeleton-image"></div>
+                              <div class="skeleton-caption"></div>
+                            </ng-container>
+                            <!-- Normal photo state -->
+                            <ng-container *ngIf="!photo.isSkeleton">
+                              <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                                   width="90" height="90"
+                                   [alt]="photo.name"
+                                   (click)="viewPhoto(photo, category, item.id, $event)"
+                                   (error)="handleImageError($event, photo)"
+                                   [class.has-annotations]="photo.hasAnnotations">
+                              <div class="upload-indicator" *ngIf="photo.uploading">
+                                <ion-spinner name="crescent" color="light"></ion-spinner>
+                              </div>
+                              <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
+                                <ion-icon name="close"></ion-icon>
+                              </button>
+                              <button class="edit-annotation-btn" 
+                                      *ngIf="!photo.uploading && photo.hasAnnotations"
+                                      (click)="viewPhoto(photo, category, item.id, $event); $event.stopPropagation()" 
+                                      title="Edit Annotations">
+                                <ion-icon name="create-outline"></ion-icon>
+                              </button>
+                              <input 
+                                type="text" 
+                                class="image-caption" 
+                                [(ngModel)]="photo.caption" 
+                                (blur)="saveCaption(photo, category, item.id)"
+                                (click)="$event.stopPropagation()"
+                                placeholder="Add caption..."
+                                maxlength="255">
+                            </ng-container>
                           </div>
-                          <!-- Camera button moved to header, remove Add Photos button -->
                         </div>
                       </div>
                     </div>

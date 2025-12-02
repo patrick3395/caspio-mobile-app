@@ -1,3 +1,98 @@
+// Skeleton Loader Styles (from structural systems)
+.skeleton-loader {
+  pointer-events: none;
+  cursor: default;
+
+  .skeleton-image {
+    width: 90px;
+    height: 90px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 20px;
+    border: 2px solid #ddd;
+    display: block;
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border: 2px solid #ccc;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: skeleton-spin 1s linear infinite;
+    }
+  }
+
+  .skeleton-caption {
+    width: 90px;
+    height: 24px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 4px;
+    margin-top: 4px;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes skeleton-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.structural-photo-preview {
+  width: 90px;
+  position: relative;
+  
+  img.has-annotations {
+    border: 2px solid var(--noble-orange);
+  }
+}
+
+.edit-annotation-btn {
+  position: absolute;
+  top: 4px;
+  right: 30px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  z-index: 5;
+  cursor: pointer;
+
+  ion-icon {
+    font-size: 14px;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.8);
+  }
+}
+
 // Brand Colors
 ion-toolbar {
   --background: var(--noble-orange);

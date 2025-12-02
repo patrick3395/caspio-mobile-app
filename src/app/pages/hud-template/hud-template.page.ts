@@ -9,6 +9,7 @@ import { ToastController, LoadingController, AlertController, ActionSheetControl
 import { CameraService } from '../../services/camera.service';
 import { ImageCompressionService } from '../../services/image-compression.service';
 import { CacheService } from '../../services/cache.service';
+import { BackgroundPhotoUploadService } from '../../services/background-photo-upload.service';
 import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
 // import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
 import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
@@ -17,6 +18,7 @@ import { compressAnnotationData, decompressAnnotationData } from '../../utils/an
 import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { environment } from '../../../environments/environment';
+import { firstValueFrom } from 'rxjs';
 
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -85,6 +87,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Track photos for each visual
   visualPhotos: { [visualId: string]: any[] } = {};
+  
+  // Track pending photo uploads (for offline mode)
+  private pendingPhotoUploads: { [key: string]: any[] } = {};
   
   // Photo loading optimization
   photoLoadQueue: { visualId: string; photoIndex: number; photo: any }[] = [];
@@ -193,7 +198,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     private imageCompression: ImageCompressionService,
     private platform: Platform,
     private pdfGenerator: PdfGeneratorService,
-    private cache: CacheService
+    private cache: CacheService,
+    private backgroundUploadService: BackgroundPhotoUploadService
   ) {}
 
   async ngOnInit() {
@@ -6920,20 +6926,507 @@ Stack: ${error?.stack}`;
     }
   }
   
-  // Add another photo - triggers multi-photo capture
-  async addAnotherPhoto(category: string, itemId: string, forceCamera: boolean = false) {
-    this.currentUploadContext = { 
-      category, 
-      itemId,
-      action: 'add'
-    };
+  // ============================================
+  // PHOTO UPLOAD METHODS (Structural Systems Pattern)
+  // ============================================
 
-    if (forceCamera) {
-      this.triggerFileInput('camera', { allowMultiple: false });
-      return;
+  async addPhotoFromCamera(category: string, itemId: string | number) {
+    try {
+      console.log('[ADD PHOTO] Camera - Category:', category, 'ItemID:', itemId);
+      
+      // Take photo with camera
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera
+      });
+
+      if (image.webPath) {
+        const key = `${category}_${itemId}`;
+
+        // Initialize photo array if it doesn't exist
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        // Create visual record if it doesn't exist
+        let visualId = this.visualRecordIds[key];
+        if (!visualId) {
+          console.log('[ADD PHOTO] Creating HUD record first...');
+          await this.saveVisualSelection(category, itemId);
+          visualId = this.visualRecordIds[key];
+        }
+
+        if (!visualId) {
+          console.error('[ADD PHOTO] Failed to create HUD record');
+          await this.showToast('Failed to prepare upload', 'danger');
+          return;
+        }
+
+        const visualIdNum = parseInt(visualId, 10);
+        if (isNaN(visualIdNum)) {
+          console.error('[ADD PHOTO] Invalid HUD ID:', visualId);
+          await this.showToast('Invalid HUD ID', 'danger');
+          return;
+        }
+
+        console.log('[ADD PHOTO] Valid HUD ID found:', visualIdNum);
+
+        // Convert webPath to blob
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const originalFile = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+        // Create object URL for preview
+        const imageUrl = URL.createObjectURL(blob);
+
+        // Open annotator for camera photos
+        console.log('[ADD PHOTO] Opening annotator...');
+        const modal = await this.modalController.create({
+          component: FabricPhotoAnnotatorComponent,
+          componentProps: {
+            imageFile: originalFile,
+            imageUrl: imageUrl
+          },
+          cssClass: 'fullscreen-modal'
+        });
+
+        await modal.present();
+        const { data } = await modal.onDidDismiss();
+
+        if (data && data.blob) {
+          console.log('[ADD PHOTO] User saved annotations');
+          
+          // User annotated the photo
+          const annotatedBlob = data.blob;
+          const annotationsData = data.annotationData || data.annotationsData;
+          const caption = data.caption || '';
+
+          // Convert annotated blob to file
+          const annotatedFile = new File([annotatedBlob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+          // Create temp ID for immediate UI update
+          const tempId = `temp_${Date.now()}_${Math.random()}`;
+          const objectUrl = URL.createObjectURL(annotatedBlob);
+          
+          this.visualPhotos[key].push({
+            AttachID: tempId,
+            id: tempId,
+            name: annotatedFile.name,
+            url: objectUrl,
+            thumbnailUrl: objectUrl,
+            displayUrl: objectUrl,
+            isObjectUrl: true,
+            uploading: true,
+            hasAnnotations: !!annotationsData,
+            annotations: annotationsData,
+            caption: caption,
+            annotation: caption
+          });
+          this.changeDetectorRef.detectChanges();
+
+          // Queue upload via background service
+          const uploadFn = async (visualId: number, photo: File, cap: string) => {
+            console.log('[CAMERA UPLOAD] Uploading photo via background service');
+            const result = await this.performHUDPhotoUpload(visualId, photo, key, true, annotationsData, originalFile, tempId, cap);
+
+            // If there are annotations, save them after upload completes
+            if (annotationsData && result) {
+              try {
+                console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', result);
+
+                // Save annotations to database
+                await this.saveAnnotationToDatabase(result, annotatedBlob, annotationsData, cap);
+
+                // Create display URL with annotations
+                const displayUrl = URL.createObjectURL(annotatedBlob);
+
+                // Update photo object to show annotations
+                const photos = this.visualPhotos[key] || [];
+                const photoIndex = photos.findIndex(p => p.AttachID === result);
+                if (photoIndex !== -1) {
+                  this.visualPhotos[key][photoIndex] = {
+                    ...this.visualPhotos[key][photoIndex],
+                    displayUrl: displayUrl,
+                    hasAnnotations: true,
+                    annotations: annotationsData,
+                    annotationsData: annotationsData
+                  };
+                  this.changeDetectorRef.detectChanges();
+                  console.log('[CAMERA UPLOAD] Annotations saved and display updated');
+                }
+              } catch (error) {
+                console.error('[CAMERA UPLOAD] Error saving annotations:', error);
+              }
+            }
+
+            return result;
+          };
+
+          // Add to background upload queue
+          this.backgroundUploadService.addToQueue(
+            visualIdNum,
+            originalFile,
+            key,
+            caption,
+            tempId,
+            uploadFn
+          );
+
+          console.log('[CAMERA UPLOAD] Photo queued for background upload');
+        }
+
+        // Clean up blob URL
+        URL.revokeObjectURL(imageUrl);
+      }
+    } catch (error) {
+      // Check if user cancelled
+      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
+      const isCancelled = errorMessage.includes('cancel') ||
+                         errorMessage.includes('Cancel') ||
+                         errorMessage.includes('User');
+
+      if (!isCancelled) {
+        console.error('Error capturing photo from camera:', error);
+        await this.showToast('Failed to capture photo', 'danger');
+      }
     }
+  }
 
-    this.triggerFileInput('system', { allowMultiple: true });
+  async addPhotoFromGallery(category: string, itemId: string | number) {
+    try {
+      console.log('[ADD PHOTO] Gallery - Key:', `${category}_${itemId}`);
+      
+      // Use pickImages to allow multiple photo selection
+      const images = await Camera.pickImages({
+        quality: 90,
+        limit: 0 // 0 = no limit on number of photos
+      });
+
+      if (images.photos && images.photos.length > 0) {
+        const key = `${category}_${itemId}`;
+
+        // Initialize photo array if it doesn't exist
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
+
+        // CRITICAL: Create skeleton placeholders IMMEDIATELY for all photos
+        const skeletonPhotos = images.photos.map((image, i) => {
+          const tempId = `temp_skeleton_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
+          return {
+            AttachID: tempId,
+            id: tempId,
+            name: `photo_${i}.jpg`,
+            url: 'assets/img/photo-placeholder.png',
+            thumbnailUrl: 'assets/img/photo-placeholder.png',
+            isObjectUrl: false,
+            uploading: false,
+            isSkeleton: true,
+            hasAnnotations: false,
+            caption: '',
+            annotation: '',
+            progress: 0
+          };
+        });
+
+        // Add all skeleton placeholders to UI immediately
+        this.visualPhotos[key].push(...skeletonPhotos);
+        this.changeDetectorRef.detectChanges();
+        console.log('[GALLERY UPLOAD] Added', skeletonPhotos.length, 'skeleton placeholders');
+
+        // NOW create HUD record if it doesn't exist
+        let visualId = this.visualRecordIds[key];
+        if (!visualId) {
+          console.log('[GALLERY UPLOAD] Creating HUD record...');
+          await this.saveVisualSelection(category, itemId);
+          visualId = this.visualRecordIds[key];
+        }
+
+        if (!visualId) {
+          console.error('[GALLERY UPLOAD] Failed to create HUD record');
+          // Mark all skeleton photos as failed
+          skeletonPhotos.forEach(skeleton => {
+            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+            if (photoIndex !== -1 && this.visualPhotos[key]) {
+              this.visualPhotos[key][photoIndex].uploading = false;
+              this.visualPhotos[key][photoIndex].uploadFailed = true;
+              this.visualPhotos[key][photoIndex].isSkeleton = false;
+            }
+          });
+          this.changeDetectorRef.detectChanges();
+          return;
+        }
+
+        const visualIdNum = parseInt(visualId, 10);
+        if (isNaN(visualIdNum)) {
+          console.error('[GALLERY UPLOAD] Invalid HUD ID:', visualId);
+          // Mark all skeleton photos as failed
+          skeletonPhotos.forEach(skeleton => {
+            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+            if (photoIndex !== -1 && this.visualPhotos[key]) {
+              this.visualPhotos[key][photoIndex].uploading = false;
+              this.visualPhotos[key][photoIndex].uploadFailed = true;
+              this.visualPhotos[key][photoIndex].isSkeleton = false;
+            }
+          });
+          this.changeDetectorRef.detectChanges();
+          return;
+        }
+
+        console.log('[GALLERY UPLOAD] ✅ Valid HUD ID found:', visualIdNum);
+
+        // CRITICAL: Process photos SEQUENTIALLY
+        setTimeout(async () => {
+          for (let i = 0; i < images.photos.length; i++) {
+            const image = images.photos[i];
+            const skeleton = skeletonPhotos[i];
+
+            if (image.webPath) {
+              try {
+                console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
+
+                // Fetch the blob
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+
+                // Create object URL for preview
+                const objectUrl = URL.createObjectURL(blob);
+
+                // Update skeleton to show preview + queued state
+                const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+                if (skeletonIndex !== -1 && this.visualPhotos[key]) {
+                  this.visualPhotos[key][skeletonIndex] = {
+                    ...this.visualPhotos[key][skeletonIndex],
+                    url: objectUrl,
+                    thumbnailUrl: objectUrl,
+                    isObjectUrl: true,
+                    uploading: true,
+                    isSkeleton: false,
+                    progress: 0
+                  };
+                  this.changeDetectorRef.detectChanges();
+                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview`);
+                }
+
+                // Add to background upload queue
+                const uploadFn = async (visualId: number, photo: File, caption: string) => {
+                  console.log(`[GALLERY UPLOAD] Uploading photo ${i + 1}/${images.photos.length}`);
+                  return await this.performHUDPhotoUpload(visualId, photo, key, true, null, null, skeleton.AttachID, caption);
+                };
+
+                this.backgroundUploadService.addToQueue(
+                  visualIdNum,
+                  file,
+                  key,
+                  '', // caption
+                  skeleton.AttachID,
+                  uploadFn
+                );
+
+                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} queued for upload`);
+
+              } catch (error) {
+                console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
+
+                // Mark the photo as failed
+                const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+                if (photoIndex !== -1 && this.visualPhotos[key]) {
+                  this.visualPhotos[key][photoIndex].uploading = false;
+                  this.visualPhotos[key][photoIndex].uploadFailed = true;
+                  this.changeDetectorRef.detectChanges();
+                }
+              }
+            }
+          }
+
+          console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos queued successfully`);
+
+        }, 150); // Small delay to ensure skeletons render
+      }
+    } catch (error) {
+      // Check if user cancelled
+      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
+      const isCancelled = errorMessage.includes('cancel') ||
+                         errorMessage.includes('Cancel') ||
+                         errorMessage.includes('User') ||
+                         error === 'User cancelled photos app';
+
+      if (!isCancelled) {
+        console.error('Error selecting photo from gallery:', error);
+        await this.showToast('Failed to select photo', 'danger');
+      }
+    }
+  }
+
+  // Simplified wrapper - just opens action sheet to choose camera/gallery
+  async addAnotherPhoto(category: string, itemId: string) {
+    const actionSheet = await this.actionSheetController.create({
+      header: 'Add Photo',
+      buttons: [
+        {
+          text: 'Take Photo',
+          icon: 'camera',
+          handler: () => {
+            this.addPhotoFromCamera(category, itemId);
+          }
+        },
+        {
+          text: 'Choose from Gallery',
+          icon: 'images',
+          handler: () => {
+            this.addPhotoFromGallery(category, itemId);
+          }
+        },
+        {
+          text: 'Cancel',
+          icon: 'close',
+          role: 'cancel'
+        }
+      ]
+    });
+    await actionSheet.present();
+  }
+
+  // TrackBy functions for ngFor performance
+  trackByPhotoId(index: number, photo: any): any {
+    return photo.AttachID || photo.id || index;
+  }
+
+  trackByCategory(index: number, category: string): string {
+    return category;
+  }
+
+  // HUD Photo Upload - matches performVisualPhotoUpload from structural systems
+  private async performHUDPhotoUpload(
+    hudId: number, 
+    photo: File, 
+    key: string, 
+    isBatchUpload: boolean, 
+    annotationData: any, 
+    originalPhoto: File | null, 
+    tempId: string | undefined, 
+    caption: string
+  ): Promise<string | null> {
+    try {
+      console.log(`[HUD PHOTO UPLOAD] Starting upload for HUDID ${hudId}`);
+
+      // Upload photo using HUD attach method
+      const result = await firstValueFrom(
+        this.caspioService.createServicesHUDAttachWithFile(hudId, caption, photo, '', originalPhoto || undefined)
+      );
+
+      console.log(`[HUD PHOTO UPLOAD] Upload complete for HUDID ${hudId}, AttachID:`, result.AttachID);
+
+      if (tempId && this.visualPhotos[key]) {
+        const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
+        if (photoIndex !== -1) {
+          const oldUrl = this.visualPhotos[key][photoIndex].url;
+          if (oldUrl && oldUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(oldUrl);
+          }
+
+          // CRITICAL: Get the uploaded photo URL from the result
+          const uploadedPhotoUrl = result.thumbnailUrl || result.url || result.Photo;
+          let displayableUrl = uploadedPhotoUrl;
+
+          // If we got a file path, convert it to a displayable URL
+          if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+            try {
+              console.log('[HUD PHOTO UPLOAD] Converting file path to displayable URL:', uploadedPhotoUrl);
+              const imageData = await firstValueFrom(
+                this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
+              );
+              if (imageData && imageData.startsWith('data:')) {
+                displayableUrl = imageData;
+                console.log('[HUD PHOTO UPLOAD] Successfully converted to data URL');
+              } else {
+                console.warn('[HUD PHOTO UPLOAD] Files API returned invalid data');
+              }
+            } catch (err) {
+              console.error('[HUD PHOTO UPLOAD] Failed to load uploaded image:', err);
+              displayableUrl = 'assets/img/photo-placeholder.png';
+            }
+          }
+
+          console.log('[HUD PHOTO UPLOAD] Updating photo object at index', photoIndex);
+
+          this.visualPhotos[key][photoIndex] = {
+            ...this.visualPhotos[key][photoIndex],
+            AttachID: result.AttachID,
+            id: result.AttachID,
+            uploading: false,
+            queued: false,
+            filePath: uploadedPhotoUrl,
+            Photo: uploadedPhotoUrl,
+            url: displayableUrl,
+            originalUrl: displayableUrl,      // CRITICAL: Set originalUrl to base image
+            thumbnailUrl: displayableUrl,
+            displayUrl: displayableUrl,        // Will be overwritten if user annotates
+            caption: caption || '',
+            annotation: caption || '',
+            Annotation: caption || ''
+          };
+
+          console.log('[HUD PHOTO UPLOAD] Updated photo object with AttachID:', this.visualPhotos[key][photoIndex].AttachID);
+
+          this.changeDetectorRef.detectChanges();
+        }
+      }
+
+      if (!isBatchUpload) {
+        // Toast removed per user request
+      }
+
+      // Return the AttachID for immediate use
+      return result.AttachID;
+
+    } catch (error) {
+      console.error('[HUD PHOTO UPLOAD] Upload failed:', error);
+
+      if (tempId && this.visualPhotos[key]) {
+        const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
+        if (photoIndex !== -1) {
+          this.visualPhotos[key].splice(photoIndex, 1);
+          this.changeDetectorRef.detectChanges();
+        }
+      }
+
+      return null;
+    }
+  }
+
+  // Save annotation data to database
+  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<void> {
+    try {
+      console.log('[SAVE ANNOTATION] Saving annotations for AttachID:', attachId);
+
+      // Compress and save annotation data to Drawings field
+      const drawingsData = JSON.stringify(annotationsData);
+      let compressedDrawings = drawingsData;
+
+      if (drawingsData.length > 50000) {
+        compressedDrawings = compressAnnotationData(drawingsData, { emptyResult: '{}' });
+        console.log('[SAVE ANNOTATION] Compressed from', drawingsData.length, 'to', compressedDrawings.length, 'bytes');
+      }
+
+      // Update the attach record with drawings data
+      await firstValueFrom(
+        this.caspioService.updateServicesHUDAttach(attachId, {
+          Drawings: compressedDrawings,
+          Annotation: caption || ''
+        })
+      );
+
+      console.log('[SAVE ANNOTATION] ✅ Annotations saved successfully');
+    } catch (error) {
+      console.error('[SAVE ANNOTATION] ❌ Failed to save annotations:', error);
+      throw error;
+    }
   }
   
   // Save caption to the Annotation field in Services_HUD_Attach table
