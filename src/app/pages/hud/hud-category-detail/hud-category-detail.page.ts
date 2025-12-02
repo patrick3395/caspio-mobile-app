@@ -181,23 +181,41 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
    * Update photo object after successful upload
    */
   private async updatePhotoAfterUpload(key: string, photoIndex: number, result: any, caption: string) {
+    console.log('[UPLOAD UPDATE] ========== Updating photo after upload ==========');
+    console.log('[UPLOAD UPDATE] Key:', key, 'Index:', photoIndex);
+    console.log('[UPLOAD UPDATE] Result:', result);
+    
     const uploadedPhotoUrl = result.thumbnailUrl || result.url || result.Photo;
     let displayableUrl = uploadedPhotoUrl;
+
+    console.log('[UPLOAD UPDATE] Photo path from result:', uploadedPhotoUrl);
 
     // Convert file path to displayable URL if needed
     if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
       try {
+        console.log('[UPLOAD UPDATE] Fetching image data from Files API...');
         const imageData = await firstValueFrom(
           this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
         );
+        console.log('[UPLOAD UPDATE] Files API returned data, length:', imageData?.length || 0);
+        console.log('[UPLOAD UPDATE] Data prefix:', imageData?.substring(0, 50));
+        
         if (imageData && imageData.startsWith('data:')) {
           displayableUrl = imageData;
+          console.log('[UPLOAD UPDATE] ✅ Successfully got displayable image');
+        } else {
+          console.warn('[UPLOAD UPDATE] ❌ Files API returned invalid data');
+          displayableUrl = 'assets/img/photo-placeholder.png';
         }
       } catch (err) {
-        console.error('[UPLOAD UPDATE] Failed to load uploaded image:', err);
+        console.error('[UPLOAD UPDATE] ❌ Failed to load uploaded image:', err);
         displayableUrl = 'assets/img/photo-placeholder.png';
       }
+    } else {
+      console.log('[UPLOAD UPDATE] URL already displayable (data: or blob:)');
     }
+
+    console.log('[UPLOAD UPDATE] Final displayableUrl length:', displayableUrl?.length || 0);
 
     // Update photo object
     this.visualPhotos[key][photoIndex] = {
@@ -217,7 +235,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       Annotation: caption || ''
     };
 
-    console.log('[UPLOAD UPDATE] Photo updated successfully');
+    console.log('[UPLOAD UPDATE] ✅ Photo updated successfully');
+    console.log('[UPLOAD UPDATE] Updated photo object:', {
+      AttachID: this.visualPhotos[key][photoIndex].AttachID,
+      hasUrl: !!this.visualPhotos[key][photoIndex].url,
+      urlLength: this.visualPhotos[key][photoIndex].url?.length || 0
+    });
+    
+    this.changeDetectorRef.detectChanges();
+    console.log('[UPLOAD UPDATE] ✅ Change detection triggered');
   }
 
   private async loadData() {
@@ -1569,7 +1595,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       // Upload photo using HUD service
       const result = await this.hudData.uploadVisualPhoto(hudId, photo, caption);
 
-      console.log(`[HUD PHOTO UPLOAD] Upload complete for HUDID ${hudId}, AttachID: ${result.AttachID}`);
+      console.log(`[HUD PHOTO UPLOAD] Upload complete for HUDID ${hudId}, AttachID:`, result.AttachID);
+      console.log(`[HUD PHOTO UPLOAD] Result object:`, result);
 
       if (tempId && this.visualPhotos[key]) {
         const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
@@ -1583,26 +1610,34 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           const uploadedPhotoUrl = result.thumbnailUrl || result.url || result.Photo;
           let displayableUrl = uploadedPhotoUrl;
 
+          console.log('[HUD PHOTO UPLOAD] Uploaded photo path:', uploadedPhotoUrl);
+
           // If we got a file path, convert it to a displayable URL
           if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
             try {
-              console.log('[HUD PHOTO UPLOAD] Converting file path to displayable URL:', uploadedPhotoUrl);
+              console.log('[HUD PHOTO UPLOAD] Fetching image data from Files API...');
               const imageData = await firstValueFrom(
                 this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
               );
+              console.log('[HUD PHOTO UPLOAD] Files API response:', imageData?.substring(0, 100));
+              
               if (imageData && imageData.startsWith('data:')) {
                 displayableUrl = imageData;
-                console.log('[HUD PHOTO UPLOAD] Successfully converted to data URL');
+                console.log('[HUD PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
               } else {
-                console.warn('[HUD PHOTO UPLOAD] Files API returned invalid data');
+                console.warn('[HUD PHOTO UPLOAD] ❌ Files API returned invalid data');
+                displayableUrl = 'assets/img/photo-placeholder.png';
               }
             } catch (err) {
-              console.error('[HUD PHOTO UPLOAD] Failed to load uploaded image:', err);
+              console.error('[HUD PHOTO UPLOAD] ❌ Failed to fetch image from Files API:', err);
               displayableUrl = 'assets/img/photo-placeholder.png';
             }
+          } else {
+            console.log('[HUD PHOTO UPLOAD] Using URL directly (already data/blob URL)');
           }
 
-          console.log('[HUD PHOTO UPLOAD] Updating photo object at index', photoIndex);
+          console.log('[HUD PHOTO UPLOAD] Final displayableUrl length:', displayableUrl?.length || 0);
+          console.log('[HUD PHOTO UPLOAD] Updating photo at index', photoIndex);
 
           this.visualPhotos[key][photoIndex] = {
             ...this.visualPhotos[key][photoIndex],
@@ -1621,9 +1656,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
             Annotation: caption || ''
           };
 
-          console.log('[HUD PHOTO UPLOAD] Updated photo object with AttachID:', this.visualPhotos[key][photoIndex].AttachID);
+          console.log('[HUD PHOTO UPLOAD] ✅ Photo object updated:', {
+            AttachID: this.visualPhotos[key][photoIndex].AttachID,
+            hasUrl: !!this.visualPhotos[key][photoIndex].url,
+            hasThumbnail: !!this.visualPhotos[key][photoIndex].thumbnailUrl,
+            hasDisplay: !!this.visualPhotos[key][photoIndex].displayUrl,
+            urlLength: this.visualPhotos[key][photoIndex].url?.length || 0
+          });
 
           this.changeDetectorRef.detectChanges();
+          console.log('[HUD PHOTO UPLOAD] ✅ Change detection triggered');
+        } else {
+          console.warn('[HUD PHOTO UPLOAD] ❌ Could not find photo with tempId:', tempId);
         }
       }
 
@@ -1631,7 +1675,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       return result.AttachID;
 
     } catch (error) {
-      console.error('[HUD PHOTO UPLOAD] Upload failed:', error);
+      console.error('[HUD PHOTO UPLOAD] ❌ Upload failed:', error);
 
       if (tempId && this.visualPhotos[key]) {
         const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
