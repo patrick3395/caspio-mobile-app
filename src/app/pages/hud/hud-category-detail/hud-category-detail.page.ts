@@ -984,9 +984,23 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       const result = await firstValueFrom(this.caspioService.createServicesHUD(hudData));
       
       console.log('[CREATE VISUAL] API response:', result);
+      console.log('[CREATE VISUAL] Response type:', typeof result);
+      console.log('[CREATE VISUAL] Has Result array?', !!result?.Result);
+      console.log('[CREATE VISUAL] Has HUDID directly?', !!result?.HUDID);
       
-      if (result && result.Result && result.Result.length > 0) {
-        const createdRecord = result.Result[0];
+      // Handle BOTH response formats: direct object OR wrapped in Result array
+      let createdRecord = null;
+      if (result && result.HUDID) {
+        // Direct object format
+        createdRecord = result;
+        console.log('[CREATE VISUAL] Using direct result object');
+      } else if (result && result.Result && result.Result.length > 0) {
+        // Wrapped in Result array
+        createdRecord = result.Result[0];
+        console.log('[CREATE VISUAL] Using Result[0]');
+      }
+      
+      if (createdRecord) {
         const hudId = String(createdRecord.HUDID || createdRecord.PK_ID);
         
         // CRITICAL: Store the record ID
@@ -1009,7 +1023,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         // Force change detection to ensure UI updates
         this.changeDetectorRef.detectChanges();
       } else {
-        console.error('[CREATE VISUAL] ❌ No result from API, response:', result);
+        console.error('[CREATE VISUAL] ❌ Could not extract HUD record from response:', result);
       }
     } catch (error) {
       console.error('[CREATE VISUAL] ❌ Error creating visual:', error);
