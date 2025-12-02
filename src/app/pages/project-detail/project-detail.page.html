@@ -83,17 +83,22 @@
       <table class="deliverables-table" *ngIf="isCompanyOne">
         <tbody *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-group">
           <!-- Service Header Row -->
-          <tr class="deliverable-row service-row">
+          <tr class="deliverable-row service-row clickable" (click)="toggleDeliverableExpanded(service)">
             <td class="service-header" colspan="2">
-              <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
-              <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-number">
-                #{{ getServiceInstanceNumber(service) }}
-              </span>
+              <div class="service-header-content">
+                <div class="service-name-section">
+                  <ion-icon [name]="isDeliverableExpanded(service) ? 'chevron-down' : 'chevron-forward'" class="expand-icon"></ion-icon>
+                  <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+                  <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-number">
+                    #{{ getServiceInstanceNumber(service) }}
+                  </span>
+                </div>
+              </div>
             </td>
           </tr>
 
           <!-- Status Row -->
-          <tr class="deliverable-row field-row">
+          <tr class="deliverable-row field-row" *ngIf="isDeliverableExpanded(service)">
             <td class="field-label-cell">Status</td>
             <td class="field-value-cell">
               <select
@@ -110,7 +115,7 @@
           </tr>
 
           <!-- Deliverable Row -->
-          <tr class="deliverable-row field-row">
+          <tr class="deliverable-row field-row" *ngIf="isDeliverableExpanded(service)">
             <td class="field-label-cell">Deliverable</td>
             <td class="field-value-cell deliverable-file-cell">
               <div class="file-upload-container">
@@ -144,7 +149,7 @@
           </tr>
 
           <!-- Notes to Engineer Row -->
-          <tr class="deliverable-row field-row">
+          <tr class="deliverable-row field-row" *ngIf="isDeliverableExpanded(service)">
             <td class="field-label-cell">Notes to Engineer</td>
             <td class="field-value-cell">
               <textarea
@@ -159,7 +164,7 @@
           </tr>
 
           <!-- Notes to Inspector Row -->
-          <tr class="deliverable-row field-row">
+          <tr class="deliverable-row field-row" *ngIf="isDeliverableExpanded(service)">
             <td class="field-label-cell">Notes to Inspector</td>
             <td class="field-value-cell">
               <textarea
@@ -179,17 +184,22 @@
       <table class="deliverables-table" *ngIf="!isCompanyOne">
         <tbody *ngFor="let service of getDeliverablesServices(); trackBy: trackTemplateService" class="deliverable-group">
           <!-- Service Header Row -->
-          <tr class="deliverable-row service-row">
+          <tr class="deliverable-row service-row clickable" (click)="toggleDeliverableExpanded(service)">
             <td class="service-header" colspan="2">
-              <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
-              <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-number">
-                #{{ getServiceInstanceNumber(service) }}
-              </span>
+              <div class="service-header-content">
+                <div class="service-name-section">
+                  <ion-icon [name]="isDeliverableExpanded(service) ? 'chevron-down' : 'chevron-forward'" class="expand-icon"></ion-icon>
+                  <span *ngIf="service.typeShort">{{ service.typeShort }} - </span>{{ service.typeName }}
+                  <span *ngIf="getServiceCount(service.offersId) > 1" class="instance-number">
+                    #{{ getServiceInstanceNumber(service) }}
+                  </span>
+                </div>
+              </div>
             </td>
           </tr>
 
           <!-- Deliverable Row -->
-          <tr class="deliverable-row field-row">
+          <tr class="deliverable-row field-row" *ngIf="isDeliverableExpanded(service)">
             <td class="field-label-cell">Deliverable</td>
             <td class="field-value-cell deliverable-file-cell">
               <div class="file-upload-container">
@@ -223,7 +233,7 @@
           </tr>
 
           <!-- Notes to Inspector Row -->
-          <tr class="deliverable-row field-row">
+          <tr class="deliverable-row field-row" *ngIf="isDeliverableExpanded(service)">
             <td class="field-label-cell">Notes to Inspector</td>
             <td class="field-value-cell">
               <textarea

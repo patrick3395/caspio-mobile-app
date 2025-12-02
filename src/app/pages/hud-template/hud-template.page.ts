@@ -80,7 +80,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
   // Track saving state for items
   savingItems: { [key: string]: boolean } = {};
   
-  // Track visual record IDs from Services_Visuals table
+  // Track HUD record IDs from Services_HUD table
   visualRecordIds: { [key: string]: string } = {};
   
   // Track photos for each visual
@@ -2791,7 +2791,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     // Load existing service data
     await this.loadServiceData();
     
-    // Load existing visual selections from Services_Visuals table
+    // Load existing visual selections from Services_HUD table
     await this.loadExistingVisualSelections({ awaitPhotos: false });
     
     // TODO: Load existing template data from Service_EFE table
@@ -2819,7 +2819,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
 
     try {
-      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const existingVisuals = await this.caspioService.getServicesHUDByServiceId(this.serviceId).toPromise();
 
       if (existingVisuals && Array.isArray(existingVisuals)) {
         existingVisuals.forEach(visual => {
@@ -2833,7 +2833,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
               const key = visual.Category + "_" + matchingTemplate.PK_ID;
               this.selectedItems[key] = true;
 
-              const visualId = visual.VisualID || visual.PK_ID || visual.id;
+              const visualId = visual.HUDID || visual.PK_ID || visual.id;
               this.visualRecordIds[key] = String(visualId);
 
               const updateItemData = (items: any[]) => {
@@ -4213,13 +4213,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     try {
-      // Save or remove from Services_Visuals table
+      // Save or remove from Services_HUD table
       if (this.selectedItems[key]) {
-        // Item was selected - save to Services_Visuals
+        // Item was selected - save to Services_HUD
         await this.saveVisualSelection(category, itemId);
         // Success toast removed per user request
       } else {
-        // Item was deselected - remove from Services_Visuals if exists
+        // Item was deselected - remove from Services_HUD if exists
         await this.removeVisualSelection(category, itemId);
       }
     } finally {
@@ -4339,7 +4339,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     await this.onMultiSelectChange(category, item);
   }
   
-  // Save visual selection to Services_Visuals table
+  // Save visual selection to Services_HUD table
   async saveVisualSelection(category: string, templateId: string) {
     if (!this.serviceId) {
       console.error('No ServiceID available for saving visual');
@@ -4361,14 +4361,14 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     
     // Also check if it exists in the database but wasn't loaded yet
     try {
-      const existingVisuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const existingVisuals = await this.caspioService.getServicesHUDByServiceId(this.serviceId).toPromise();
       if (existingVisuals) {
         const exists = existingVisuals.find((v: any) => 
           v.Category === category && 
           v.Name === template.Name
         );
         if (exists) {
-          const existingId = exists.VisualID || exists.PK_ID || exists.id;
+          const existingId = exists.HUDID || exists.PK_ID || exists.id;
           this.visualRecordIds[key] = String(existingId);
           return;
         }
@@ -4421,7 +4421,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
-    // ONLY include the columns that exist in Services_Visuals table
+    // ONLY include the columns that exist in Services_HUD table
     const visualData: ServicesVisualRecord = {
       ServiceID: serviceIdNum,
       Category: category || '',
@@ -4437,17 +4437,17 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     try {
-      const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+      const response = await this.caspioService.createServicesHUD(visualData).toPromise();
       
-      // Handle response to get the Visual ID
+      // Handle response to get the HUD ID
       let visualId: any;
       if (Array.isArray(response) && response.length > 0) {
-        visualId = response[0].VisualID || response[0].PK_ID || response[0].id;
+        visualId = response[0].HUDID || response[0].PK_ID || response[0].id;
       } else if (response && typeof response === 'object') {
         if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id;
+          visualId = response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id;
         } else {
-          visualId = response.VisualID || response.PK_ID || response.id;
+          visualId = response.HUDID || response.PK_ID || response.id;
         }
       } else {
         visualId = response;
@@ -4464,7 +4464,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  // Remove visual selection from Services_Visuals table
+  // Remove visual selection from Services_HUD table
   async removeVisualSelection(category: string, templateId: string) {
     // Check if we have a stored record ID
     const recordKey = `visual_${category}_${templateId}`;
@@ -4472,7 +4472,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     
     if (recordId) {
       try {
-        await this.caspioService.deleteServicesVisual(recordId).toPromise();
+        await this.caspioService.deleteServicesHUD(recordId).toPromise();
         localStorage.removeItem(recordKey);
       } catch (error) {
         console.error('Failed to remove visual:', error);
@@ -5171,7 +5171,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Prepare the data that will be sent
       const dataToSend = {
-        table: 'Services_Visuals_Attach',
+        table: 'Services_HUD_Attach',
         fields: {
           VisualID: visualIdNum,
           Annotation: '', // Annotation is blank as requested
@@ -5200,7 +5200,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Show popup with data to be sent (skip for batch uploads)
       if (!isBatchUpload) {
         const alert = await this.alertController.create({
-          header: 'Services_Visuals_Attach Upload Debug',
+          header: 'Services_HUD_Attach Upload Debug',
         message: `
           <div style="text-align: left; font-family: monospace; font-size: 12px;">
             <strong style="color: red;">Ã°Å¸â€Â DEBUG INFO:</strong><br>
@@ -5271,7 +5271,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           hasAnnotations: !!annotationData,
           hasOriginalPhoto: !!originalPhoto,
           originalFileName: originalPhoto?.name || 'None',
-          endpoint: 'Services_Visuals_Attach',
+          endpoint: 'Services_HUD_Attach',
           method: 'Files API (2-step upload)'
         };
         
@@ -5298,10 +5298,10 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       // Prepare the Drawings field data (annotation JSON)
       const drawingsData = annotationData ? JSON.stringify(annotationData) : '';
       
-      // Using EXACT same approach as working Required Documents upload
+      // Using EXACT same approach as working Required Documents upload but with HUD methods
       let response;
       try {
-        response = await this.caspioService.createServicesVisualsAttachWithFile(
+        response = await this.caspioService.createServicesHUDAttachWithFile(
           visualIdNum, 
           '', // Annotation field stays blank
           photo,  // Upload the photo (annotated or original)
@@ -5592,13 +5592,13 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       await loading.present();
       
       try {
-        // Create the visual record
-        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+        // Create the HUD record
+        const response = await this.caspioService.createServicesHUD(visualData).toPromise();
         
-        // Use VisualID from response
-        const visualId = response?.VisualID || response?.PK_ID;
+        // Use HUDID from response
+        const visualId = response?.HUDID || response?.PK_ID;
         if (!visualId) {
-          throw new Error('No VisualID returned from server');
+          throw new Error('No HUDID returned from server');
         }
         
         // Add to local data structure
@@ -5717,11 +5717,11 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       await loading.present();
       
       try {
-        const response = await this.caspioService.createServicesVisual(visualData).toPromise();
+        const response = await this.caspioService.createServicesHUD(visualData).toPromise();
         
         // Show debug popup with the response
         const debugAlert = await this.alertController.create({
-          header: 'Custom Visual Creation Response',
+          header: 'Custom HUD Record Creation Response',
           message: `
             <div style="text-align: left; font-family: monospace; font-size: 12px;">
               <strong style="color: green;">Ã¢Å“â€¦ VISUAL CREATED SUCCESSFULLY</strong><br><br>
@@ -5761,8 +5761,8 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         // Determine which array to add to based on kind
         const kindKey = kind.toLowerCase() + 's'; // comments, limitations, deficiencies
         
-        // Use VisualID from response, NOT PK_ID
-        const visualId = response?.VisualID || response?.PK_ID || Date.now().toString();
+        // Use HUDID from response, NOT PK_ID
+        const visualId = response?.HUDID || response?.PK_ID || Date.now().toString();
         const customItem = {
           id: visualId.toString(), // Convert to string for consistency
           name: name,
@@ -5778,9 +5778,9 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
           this.organizedData[category].deficiencies.push(customItem);
         }
         
-        // Store the visual ID for photo uploads - use VisualID from response!
+        // Store the HUD ID for photo uploads - use HUDID from response!
         const key = `${category}_${customItem.id}`;
-        this.visualRecordIds[key] = String(response?.VisualID || response?.PK_ID || customItem.id);
+        this.visualRecordIds[key] = String(response?.HUDID || response?.PK_ID || customItem.id);
         
         // Mark as selected (use selectedItems, not selectedVisuals)
         this.selectedItems[key] = true;
@@ -6866,8 +6866,8 @@ Stack: ${error?.stack}`;
                   const attachId = photo.AttachID || photo.id;
                   const key = `${category}_${itemId}`;
                   
-                  // Delete from database
-                  await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
+                  // Delete from database (Services_HUD_Attach table)
+                  await this.caspioService.deleteServicesHUDAttach(attachId).toPromise();
                   
                   // [v1.4.387] Remove from KEY-BASED storage
                   if (this.visualPhotos[key]) {
@@ -6918,7 +6918,7 @@ Stack: ${error?.stack}`;
     this.triggerFileInput('system', { allowMultiple: true });
   }
   
-  // Save caption to the Annotation field in Services_Visuals_Attach table
+  // Save caption to the Annotation field in Services_HUD_Attach table
   async saveCaption(photo: any, category: string, itemId: string) {
     try {
       // Only save if there's an AttachID and the caption has changed
@@ -6927,12 +6927,12 @@ Stack: ${error?.stack}`;
         return;
       }
 
-      // Update the Services_Visuals_Attach record with the new caption
+      // Update the Services_HUD_Attach record with the new caption
       const updateData = {
         Annotation: photo.caption || ''  // Save caption or empty string
       };
 
-      await this.caspioService.updateServicesVisualsAttach(photo.AttachID, updateData).toPromise();
+      await this.caspioService.updateServicesHUDAttach(photo.AttachID, updateData).toPromise();
       
       // Success toast removed per user request
       
@@ -6945,7 +6945,7 @@ Stack: ${error?.stack}`;
   // Verify if visual was actually saved - v1.4.225 - FORCE REBUILD
   async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {
     try {
-      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const visuals = await this.caspioService.getServicesHUDByServiceId(this.serviceId).toPromise();
       
       if (visuals && Array.isArray(visuals)) {
         const templateName = this.categoryData[category]?.[templateId]?.name;
@@ -7006,7 +7006,7 @@ Stack: ${error?.stack}`;
     // Get all existing visuals for comparison
     let existingVisuals: Array<{id: any, name: string, category: string}> = [];
     try {
-      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const visuals = await this.caspioService.getServicesHUDByServiceId(this.serviceId).toPromise();
       if (visuals && Array.isArray(visuals)) {
         existingVisuals = visuals.map(v => ({
           id: v.VisualID || v.PK_ID || v.id,
@@ -7065,7 +7065,7 @@ Stack: ${error?.stack}`;
   // Refresh visual ID after save
   async refreshVisualId(category: string, templateId: string) {
     try {
-      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      const visuals = await this.caspioService.getServicesHUDByServiceId(this.serviceId).toPromise();
       
       if (visuals && Array.isArray(visuals)) {
         // Find the visual we just created
@@ -7077,7 +7077,7 @@ Stack: ${error?.stack}`;
         );
         
         if (ourVisual) {
-          const visualId = ourVisual.VisualID || ourVisual.PK_ID || ourVisual.id;
+          const visualId = ourVisual.HUDID || ourVisual.PK_ID || ourVisual.id;
           const recordKey = `visual_${category}_${templateId}`;
           localStorage.setItem(recordKey, String(visualId));
           this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
@@ -7127,7 +7127,7 @@ Stack: ${error?.stack}`;
   // [v1.4.386] Load photos for a visual and store by KEY for uniqueness
   private async loadPhotosForVisualByKey(key: string, visualId: string, rawVisualId: any): Promise<void> {
     try {
-      const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(rawVisualId).toPromise();
+      const attachments = await this.caspioService.getServiceHUDAttachByHUDId(rawVisualId).toPromise();
 
       if (!Array.isArray(attachments) || attachments.length === 0) {
         this.visualPhotos[key] = [];
@@ -7515,7 +7515,7 @@ Stack: ${error?.stack}`;
       if (categoryData.comments) {
         categoryData.comments.forEach((comment: any, index: number) => {
           // Use comment.id which is the template PK_ID
-          const visualId = comment.id || comment.VisualID;
+          const visualId = comment.id || comment.HUDID;
           const isSelected = this.isCommentSelected(category, visualId);
           if (isSelected) {
             // Get the actual visual record ID for photo fetching
@@ -7563,7 +7563,7 @@ Stack: ${error?.stack}`;
       if (categoryData.limitations) {
         categoryData.limitations.forEach((limitation: any, index: number) => {
           // Use limitation.id which is the template PK_ID
-          const visualId = limitation.id || limitation.VisualID;
+          const visualId = limitation.id || limitation.HUDID;
           if (this.isLimitationSelected(category, visualId)) {
             // Get the actual visual record ID for photo fetching
             const recordKey = `${category}_${visualId}`;
@@ -7610,7 +7610,7 @@ Stack: ${error?.stack}`;
       if (categoryData.deficiencies) {
         categoryData.deficiencies.forEach((deficiency: any, index: number) => {
           // Use deficiency.id which is the template PK_ID
-          const visualId = deficiency.id || deficiency.VisualID;
+          const visualId = deficiency.id || deficiency.HUDID;
           if (this.isDeficiencySelected(category, visualId)) {
             // Get the actual visual record ID for photo fetching
             const recordKey = `${category}_${visualId}`;
@@ -8079,8 +8079,8 @@ Stack: ${error?.stack}`;
   async fetchAllVisualsFromDatabase() {
     try {
       
-      // Fetch all Services_Visuals records for this service
-      const visuals = await this.caspioService.getServicesVisualsByServiceId(this.serviceId).toPromise();
+      // Fetch all Services_HUD records for this service
+      const visuals = await this.caspioService.getServicesHUDByServiceId(this.serviceId).toPromise();
       
       // Check if visuals is defined and is an array
       if (!visuals || !Array.isArray(visuals)) {
@@ -8092,13 +8092,13 @@ Stack: ${error?.stack}`;
       
       // Fetch all attachments in parallel for better performance
       const attachmentPromises = visuals
-        .filter(visual => visual.VisualID)
+        .filter(visual => visual.HUDID)
         .map(visual => 
-          this.caspioService.getServiceVisualsAttachByVisualId(visual.VisualID).toPromise()
-            .then(attachments => ({ visualId: visual.VisualID, attachments }))
+          this.caspioService.getServiceHUDAttachByHUDId(visual.HUDID).toPromise()
+            .then(attachments => ({ visualId: visual.HUDID, attachments }))
             .catch(error => {
-              console.error(`Error fetching attachments for visual ${visual.VisualID}:`, error);
-              return { visualId: visual.VisualID, attachments: [] };
+              console.error(`Error fetching attachments for visual ${visual.HUDID}:`, error);
+              return { visualId: visual.HUDID, attachments: [] };
             })
         );
       
@@ -8144,7 +8144,7 @@ Stack: ${error?.stack}`;
       
       // Also update visuals in organized data if needed
       for (const visual of visuals) {
-        if (visual.VisualID) {
+        if (visual.HUDID) {
           this.updateVisualInOrganizedData(visual);
         }
       }
@@ -8170,7 +8170,7 @@ Stack: ${error?.stack}`;
     let found = false;
     
     if (kind === 'comment' && this.organizedData[category].comments) {
-      const existing = this.organizedData[category].comments.find((c: any) => c.VisualID === visual.VisualID);
+      const existing = this.organizedData[category].comments.find((c: any) => c.HUDID === visual.HUDID);
       if (existing) {
         // Update with database values
         existing.Text = visual.Text || existing.Text;
@@ -8178,14 +8178,14 @@ Stack: ${error?.stack}`;
         found = true;
       }
     } else if (kind === 'limitation' && this.organizedData[category].limitations) {
-      const existing = this.organizedData[category].limitations.find((l: any) => l.VisualID === visual.VisualID);
+      const existing = this.organizedData[category].limitations.find((l: any) => l.HUDID === visual.HUDID);
       if (existing) {
         existing.Text = visual.Text || existing.Text;
         existing.Notes = visual.Notes || existing.Notes;
         found = true;
       }
     } else if (kind === 'deficiency' && this.organizedData[category].deficiencies) {
-      const existing = this.organizedData[category].deficiencies.find((d: any) => d.VisualID === visual.VisualID);
+      const existing = this.organizedData[category].deficiencies.find((d: any) => d.HUDID === visual.HUDID);
       if (existing) {
         existing.Text = visual.Text || existing.Text;
         existing.Notes = visual.Notes || existing.Notes;
@@ -8194,8 +8194,8 @@ Stack: ${error?.stack}`;
     }
     
     // If not found in organized data but exists in database, mark it as selected
-    if (!found && visual.VisualID) {
-      const key = `${category}-${kind}-${visual.VisualID}`;
+    if (!found && visual.HUDID) {
+      const key = `${category}-${kind}-${visual.HUDID}`;
       if (this.selectedItems) {
         this.selectedItems[key] = true;
       }

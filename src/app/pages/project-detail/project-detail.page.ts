@@ -132,6 +132,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   currentDeliverableUpload: any = null;
   statusOptions: any[] = [];
   isCompanyOne = false; // Track if this is CompanyID = 1
+  expandedDeliverables: Set<string> = new Set(); // Track which deliverables are expanded (by unique key)
   
   // Track changes since last submission (by serviceId)
   changesAfterSubmission: { [serviceId: string]: boolean } = {};
@@ -1819,6 +1820,20 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         s.Status === 'Report Finalized' || s.ReportFinalized === true
       );
     }
+  }
+
+  toggleDeliverableExpanded(service: ServiceSelection) {
+    const key = `${service.offersId}-${service.instanceId}`;
+    if (this.expandedDeliverables.has(key)) {
+      this.expandedDeliverables.delete(key);
+    } else {
+      this.expandedDeliverables.add(key);
+    }
+  }
+
+  isDeliverableExpanded(service: ServiceSelection): boolean {
+    const key = `${service.offersId}-${service.instanceId}`;
+    return this.expandedDeliverables.has(key);
   }
 
   async viewDeliverableFile(service: ServiceSelection) {

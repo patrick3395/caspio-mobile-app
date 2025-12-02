@@ -1205,12 +1205,44 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
     &.service-row {
       background: $light-gray;
 
+      &.clickable {
+        cursor: pointer;
+        transition: background 0.2s ease;
+
+        @media (hover: hover) and (pointer: fine) {
+          &:hover {
+            background: darken($light-gray, 3%);
+          }
+        }
+      }
+
       .service-header {
         font-weight: 600;
         font-size: 14px;
         color: $dark;
         padding: 12px;
         border-bottom: 1px solid $border;
+
+        .service-header-content {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+
+          .service-name-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+
+            .expand-icon {
+              font-size: 18px;
+              color: $orange;
+              flex-shrink: 0;
+              transition: transform 0.2s ease;
+            }
+          }
+        }
 
         .instance-number {
           margin-left: 6px;
