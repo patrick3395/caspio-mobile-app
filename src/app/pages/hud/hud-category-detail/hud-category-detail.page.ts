@@ -2036,7 +2036,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
             presetBtns.forEach(btn => {
               btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                const text = (btn as HTMLElement).dataset.text || '';
+                const text = (btn as HTMLElement).dataset['text'] || '';
                 if (input) {
                   const currentValue = input.value.trim();
                   input.value = currentValue ? `${currentValue} ${text}` : text;
