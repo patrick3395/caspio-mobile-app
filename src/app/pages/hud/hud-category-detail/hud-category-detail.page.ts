@@ -1624,6 +1624,91 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     // Future: implement PDF cache clearing if needed
   }
 
+  // Helper methods from structural systems
+  trackByPhotoId(index: number, photo: any): any {
+    return photo.AttachID || photo.id || index;
+  }
+
+  handleImageError(event: any, photo: any) {
+    const target = event.target as HTMLImageElement;
+    target.src = 'assets/img/photo-placeholder.png';
+  }
+
+  saveScrollBeforePhotoClick(event: Event): void {
+    // Scroll position is handled in viewPhoto
+  }
+
+  isLoadingPhotosForVisual(category: string, itemId: string | number): boolean {
+    const key = `${category}_${itemId}`;
+    return this.loadingPhotosByKey[key] === true;
+  }
+
+  getSkeletonArray(category: string, itemId: string | number): any[] {
+    const key = `${category}_${itemId}`;
+    const count = this.photoCountsByKey[key] || 0;
+    return Array(count).fill({ isSkeleton: true });
+  }
+
+  isUploadingPhotos(category: string, itemId: string | number): boolean {
+    const key = `${category}_${itemId}`;
+    return this.uploadingPhotosByKey[key] === true;
+  }
+
+  getUploadingCount(category: string, itemId: string | number): number {
+    const key = `${category}_${itemId}`;
+    const photos = this.visualPhotos[key] || [];
+    return photos.filter(p => p.uploading).length;
+  }
+
+  getTotalPhotoCount(category: string, itemId: string | number): number {
+    const key = `${category}_${itemId}`;
+    return (this.visualPhotos[key] || []).length;
+  }
+
+  async openCaptionPopup(photo: any, category: string, itemId: string | number) {
+    const alert = await this.alertController.create({
+      header: 'Edit Caption',
+      inputs: [
+        {
+          name: 'caption',
+          type: 'text',
+          placeholder: 'Enter caption',
+          value: photo.caption || ''
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save',
+          handler: async (data) => {
+            if (data.caption !== photo.caption) {
+              photo.caption = data.caption;
+              photo.annotation = data.caption;
+              photo.Annotation = data.caption;
+              
+              // Save to database
+              try {
+                await firstValueFrom(
+                  this.caspioService.updateServicesHUDAttach(photo.AttachID, {
+                    Annotation: data.caption || ''
+                  })
+                );
+                this.changeDetectorRef.detectChanges();
+              } catch (error) {
+                console.error('Failed to save caption:', error);
+                await this.showToast('Failed to save caption', 'danger');
+              }
+            }
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
   async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event) {
     console.log('[VIEW PHOTO] Opening photo annotator for', photo.AttachID);
 
