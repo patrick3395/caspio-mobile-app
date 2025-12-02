@@ -452,7 +452,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         this.changeDetectorRef.detectChanges();
 
         // Load photos for this visual
-        await this.loadPhotosForVisual(key, hudId);
+        await this.loadPhotosForVisual(hudId, key);
       }
 
       console.log('[LOAD EXISTING] ========== FINAL STATE ==========');
@@ -493,48 +493,130 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     return allItems.find(item => item.id === id || item.id === Number(id));
   }
 
-  private async loadPhotosForVisual(key: string, hudId: string) {
+  private async loadPhotosForVisual(hudId: string, key: string) {
     try {
       this.loadingPhotosByKey[key] = true;
-      const photos = await this.hudData.getVisualAttachments(hudId);
-      
-      this.photoCountsByKey[key] = photos.length;
-      this.visualPhotos[key] = [];
 
-      for (const photo of photos) {
-        // Load photo data
-        const photoUrl = photo.Photo || photo.Photo_Thumbnail || '';
-        let displayUrl = '';
+      // Get attachments from database
+      const attachments = await this.hudData.getVisualAttachments(hudId);
 
-        if (photoUrl) {
-          try {
-            const imageData = await this.hudData.getImage(photoUrl);
-            displayUrl = imageData || 'assets/img/photo-placeholder.png';
-          } catch (err) {
-            console.error('Error loading photo:', err);
-            displayUrl = 'assets/img/photo-placeholder.png';
+      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for HUD', hudId, 'key:', key);
+
+      // Set photo count immediately so skeleton loaders can be displayed
+      this.photoCountsByKey[key] = attachments.length;
+
+      if (attachments.length > 0) {
+        // CRITICAL: Don't reset photo array if it already has photos from uploads
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+          console.log('[LOAD PHOTOS] Initialized empty photo array for', key);
+        } else {
+          console.log('[LOAD PHOTOS] Photo array already exists with', this.visualPhotos[key].length, 'photos');
+
+          // Check if we already have all the photos loaded
+          const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => p.AttachID));
+          const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(a.AttachID));
+          if (allPhotosLoaded) {
+            console.log('[LOAD PHOTOS] All photos already loaded - skipping reload');
+            this.loadingPhotosByKey[key] = false;
+            this.changeDetectorRef.detectChanges();
+            return;
           }
         }
 
-        this.visualPhotos[key].push({
-          AttachID: photo.PK_ID || photo.AttachID,
-          id: photo.PK_ID || photo.AttachID,
-          url: displayUrl,
-          filePath: photoUrl,
-          caption: photo.Annotation || '',
-          annotation: photo.Annotation || '',
-          Annotation: photo.Annotation || '',
-          AnnotationData: photo.AnnotationData || '',
-          uploading: false
-        });
+        // Trigger change detection so skeletons appear
+        this.changeDetectorRef.detectChanges();
+
+        // Load photos sequentially
+        for (let i = 0; i < attachments.length; i++) {
+          const attach = attachments[i];
+          
+          // Check if photo already loaded
+          const existingPhotoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attach.AttachID);
+          if (existingPhotoIndex !== -1) {
+            console.log('[LOAD PHOTOS] Photo', attach.AttachID, 'already loaded - skipping');
+            continue;
+          }
+
+          await this.loadSinglePhoto(attach, key);
+        }
+
+        console.log('[LOAD PHOTOS] Completed loading all photos for', key);
+      } else {
+        this.visualPhotos[key] = [];
       }
 
       this.loadingPhotosByKey[key] = false;
+      this.changeDetectorRef.detectChanges();
+
     } catch (error) {
-      console.error('Error loading photos for visual:', key, error);
+      console.error('[LOAD PHOTOS] Error loading photos for key:', key, error);
       this.loadingPhotosByKey[key] = false;
       this.photoCountsByKey[key] = 0;
+      this.visualPhotos[key] = [];
     }
+  }
+
+  private async loadSinglePhoto(attach: any, key: string): Promise<void> {
+    const filePath = attach.Photo;
+    let imageUrl = '';
+
+    // Fetch the actual image data
+    if (filePath) {
+      try {
+        imageUrl = await this.hudData.getImage(filePath);
+        if (!imageUrl || !imageUrl.startsWith('data:')) {
+          console.warn('[LOAD PHOTO] Invalid image data for', filePath);
+          imageUrl = 'assets/img/photo-placeholder.png';
+        }
+      } catch (err) {
+        console.error('[LOAD PHOTO] Failed to load image:', filePath, err);
+        imageUrl = 'assets/img/photo-placeholder.png';
+      }
+    } else {
+      imageUrl = 'assets/img/photo-placeholder.png';
+    }
+
+    // Check if photo has annotations
+    const hasDrawings = !!(attach.Drawings && attach.Drawings.length > 0 && attach.Drawings !== '{}');
+
+    const photoData = {
+      AttachID: attach.AttachID,
+      id: attach.AttachID,
+      name: attach.Photo || 'photo.jpg',
+      filePath: filePath,
+      Photo: filePath,
+      url: imageUrl,
+      originalUrl: imageUrl,        // CRITICAL: Set originalUrl to base image
+      thumbnailUrl: imageUrl,
+      displayUrl: imageUrl,          // Will be overwritten with annotated version if user annotates
+      caption: attach.Annotation || '',
+      annotation: attach.Annotation || '',
+      Annotation: attach.Annotation || '',
+      hasAnnotations: hasDrawings,
+      annotations: null,              // Don't set this to compressed string
+      Drawings: attach.Drawings || null,  // CRITICAL: Store original Drawings field
+      rawDrawingsString: attach.Drawings || null,  // CRITICAL: Store for decompression
+      uploading: false,
+      queued: false,
+      isObjectUrl: false
+    };
+
+    // Check if photo already exists
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+
+    const existingIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attach.AttachID);
+    if (existingIndex !== -1) {
+      console.log('[LOAD PHOTO] Updating existing photo at index', existingIndex);
+      this.visualPhotos[key][existingIndex] = photoData;
+    } else {
+      console.log('[LOAD PHOTO] Adding new photo');
+      this.visualPhotos[key].push(photoData);
+    }
+
+    this.changeDetectorRef.detectChanges();
   }
 
   // UI Helper Methods

@@ -2150,17 +2150,62 @@ export class CaspioService {
       switchMap(accessToken => new Observable<string>(observer => {
         // If the path is just a filename (no "/" anywhere), try common icon folders
         const isJustFilename = !filePath.includes('/');
-        const pathsToTry = isJustFilename 
-          ? [
-              `/Icons/${filePath}`,           // Try Icons folder first
-              `/images/${filePath}`,          // Try images folder
-              `/icons/${filePath}`,           // Try lowercase icons folder
-              `/${filePath}`                  // Finally try root
-            ]
-          : [filePath.startsWith('/') ? filePath : `/${filePath}`]; // Use path as-is if it has folders
+        const generateFilenameVariants = (filename: string): string[] => {
+          const variants = new Set<string>();
+          const trimmed = filename.trim().replace(/^\/+/, '');
+          variants.add(trimmed);
+
+          const dotIndex = trimmed.lastIndexOf('.');
+          const hasExtension = dotIndex > 0 && dotIndex < trimmed.length - 1;
+          const baseName = hasExtension ? trimmed.substring(0, dotIndex) : trimmed;
+          const extension = hasExtension ? trimmed.substring(dotIndex + 1) : '';
+
+          const extensionVariants = extension
+            ? [extension.toLowerCase(), extension.toUpperCase()]
+            : [''];
+
+          const baseVariantsSeed = new Set<string>();
+          baseVariantsSeed.add(baseName);
+          baseVariantsSeed.add(baseName.replace(/\s+/g, '_'));
+          baseVariantsSeed.add(baseName.replace(/\s+/g, ''));
+          baseVariantsSeed.add(baseName.replace(/[\s-]+/g, '-'));
+          baseVariantsSeed.add(baseName.replace(/[\s-]+/g, '_'));
+          baseVariantsSeed.add(baseName.replace(/-/g, ''));
+
+          baseVariantsSeed.forEach(variant => variants.add(variant));
+
+          const combinedVariants = new Set<string>();
+          if (extensionVariants.length === 1 && extensionVariants[0] === '') {
+            variants.forEach(variant => combinedVariants.add(variant));
+          } else {
+            baseVariantsSeed.forEach(baseVariant => {
+              extensionVariants.forEach(extVariant => {
+                if (extVariant) {
+                  combinedVariants.add(`${baseVariant}.${extVariant}`);
+                }
+              });
+            });
+          }
+
+          variants.forEach(variant => combinedVariants.add(variant));
+          return Array.from(combinedVariants);
+        };
+
+        const filenameVariants = isJustFilename ? generateFilenameVariants(filePath) : [filePath];
+        const pathPrefixes = ['/Icons', '/images', '/icons', ''];
+        const pathsToTry = isJustFilename
+          ? Array.from(new Set(pathPrefixes.flatMap(prefix => {
+              return filenameVariants.map(variant => {
+                const cleanedVariant = variant.replace(/^\/+/, '');
+                const basePath = prefix ? `${prefix}/${cleanedVariant}` : `/${cleanedVariant}`;
+                return basePath.replace(/\/{2,}/g, '/');
+              });
+            })))
+          : [filePath.startsWith('/') ? filePath : `/${filePath}`];
 
         console.log(`📥 [Files API] Starting icon fetch for: "${filePath}"`);
         console.log(`   Is just filename: ${isJustFilename}`);
+        console.log(`   Generated ${filenameVariants.length} filename variant(s)`);
         console.log(`   Will try ${pathsToTry.length} path(s):`, pathsToTry);
 
         // Try each path in sequence
