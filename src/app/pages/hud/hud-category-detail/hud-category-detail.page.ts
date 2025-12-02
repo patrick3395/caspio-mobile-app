@@ -591,31 +591,47 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   private async loadSinglePhoto(attach: any, key: string): Promise<void> {
+    console.log('[LOAD PHOTO] ========== Loading single photo ==========');
+    console.log('[LOAD PHOTO] Attachment object:', attach);
+    console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'PK_ID:', attach.PK_ID);
+    console.log('[LOAD PHOTO] Photo path:', attach.Photo);
+    
     const filePath = attach.Photo;
     let imageUrl = '';
 
     // Fetch the actual image data
     if (filePath) {
       try {
+        console.log('[LOAD PHOTO] Fetching image from path:', filePath);
         imageUrl = await this.hudData.getImage(filePath);
+        console.log('[LOAD PHOTO] Got image data, length:', imageUrl?.length || 0);
+        console.log('[LOAD PHOTO] Image data prefix:', imageUrl?.substring(0, 50));
+        
         if (!imageUrl || !imageUrl.startsWith('data:')) {
-          console.warn('[LOAD PHOTO] Invalid image data for', filePath);
+          console.warn('[LOAD PHOTO] ❌ Invalid image data for', filePath);
           imageUrl = 'assets/img/photo-placeholder.png';
+        } else {
+          console.log('[LOAD PHOTO] ✅ Valid image data loaded');
         }
       } catch (err) {
-        console.error('[LOAD PHOTO] Failed to load image:', filePath, err);
+        console.error('[LOAD PHOTO] ❌ Failed to load image:', filePath, err);
         imageUrl = 'assets/img/photo-placeholder.png';
       }
     } else {
+      console.warn('[LOAD PHOTO] ⚠️ No photo path in attachment');
       imageUrl = 'assets/img/photo-placeholder.png';
     }
 
     // Check if photo has annotations
     const hasDrawings = !!(attach.Drawings && attach.Drawings.length > 0 && attach.Drawings !== '{}');
 
+    // Use AttachID field (not PK_ID) to match Caspio table structure
+    const attachId = attach.AttachID || attach.PK_ID || attach.id;
+    console.log('[LOAD PHOTO] Using AttachID:', attachId);
+
     const photoData = {
-      AttachID: attach.AttachID,
-      id: attach.AttachID,
+      AttachID: attachId,
+      id: attachId,
       name: attach.Photo || 'photo.jpg',
       filePath: filePath,
       Photo: filePath,
@@ -640,14 +656,22 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       this.visualPhotos[key] = [];
     }
 
-    const existingIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attach.AttachID);
+    const existingIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attachId);
     if (existingIndex !== -1) {
       console.log('[LOAD PHOTO] Updating existing photo at index', existingIndex);
       this.visualPhotos[key][existingIndex] = photoData;
     } else {
-      console.log('[LOAD PHOTO] Adding new photo');
+      console.log('[LOAD PHOTO] Adding new photo, current count:', this.visualPhotos[key].length);
       this.visualPhotos[key].push(photoData);
+      console.log('[LOAD PHOTO] New count:', this.visualPhotos[key].length);
     }
+
+    console.log('[LOAD PHOTO] ✅ Photo loaded successfully:', {
+      AttachID: photoData.AttachID,
+      hasUrl: !!photoData.url,
+      urlLength: photoData.url?.length || 0,
+      hasThumbnail: !!photoData.thumbnailUrl
+    });
 
     this.changeDetectorRef.detectChanges();
   }
