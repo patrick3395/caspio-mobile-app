@@ -854,6 +854,17 @@ export class CaspioService {
       })
     );
   }
+
+  // Services LBW Templates methods
+  getServicesLBWTemplates(): Observable<any[]> {
+    return this.get<any>('/tables/LPS_Services_LBW_Templates/records').pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('LBW templates error:', error);
+        return of([]);
+      })
+    );
+  }
   
   // Services EFE methods
   getServicesEFE(serviceId: string): Observable<any[]> {

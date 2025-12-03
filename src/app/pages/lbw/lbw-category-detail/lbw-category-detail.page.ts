@@ -137,7 +137,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     if (this.taskSubscription) {
       this.taskSubscription.unsubscribe();
     }
-    console.log('[HUD CATEGORY DETAIL] Component destroyed, but uploads continue in background');
+    console.log('[LBW CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
   /**
@@ -304,18 +304,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
   private async loadCategoryTemplates() {
     try {
-      // Get all HUD templates for this category
-      const allTemplates = await this.caspioService.getServicesHUDTemplates().toPromise();
+      // Get all LBW templates for this category
+      const allTemplates = await this.caspioService.getServicesLBWTemplates().toPromise();
       const hudTemplates = (allTemplates || []).filter((template: any) =>
         template.Category === this.categoryName
       );
 
-      console.log(`[HUD CATEGORY] Found ${hudTemplates.length} templates for category:`, this.categoryName);
+      console.log(`[LBW CATEGORY] Found ${hudTemplates.length} templates for category:`, this.categoryName);
 
       // Organize templates by Kind (Type field in HUD is called "Kind")
       hudTemplates.forEach((template: any) => {
         // Log the Kind value to debug
-        console.log('[HUD CATEGORY] Template:', template.Name, 'PK_ID:', template.PK_ID, 'TemplateID:', template.TemplateID, 'Kind:', template.Kind, 'Type:', template.Type);
+        console.log('[LBW CATEGORY] Template:', template.Name, 'PK_ID:', template.PK_ID, 'TemplateID:', template.TemplateID, 'Kind:', template.Kind, 'Type:', template.Type);
 
         const templateData: VisualItem = {
           id: template.PK_ID,
@@ -336,24 +336,24 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         const kind = template.Kind || template.Type || 'Comment';
         const kindLower = kind.toLowerCase().trim();
         
-        console.log('[HUD CATEGORY] Processing item:', template.Name, 'Kind value:', kind, 'Lowercased:', kindLower);
+        console.log('[LBW CATEGORY] Processing item:', template.Name, 'Kind value:', kind, 'Lowercased:', kindLower);
 
         if (kindLower === 'limitation' || kindLower === 'limitations') {
           this.organizedData.limitations.push(templateData);
-          console.log('[HUD CATEGORY] Added to Limitations');
+          console.log('[LBW CATEGORY] Added to Limitations');
         } else if (kindLower === 'deficiency' || kindLower === 'deficiencies') {
           this.organizedData.deficiencies.push(templateData);
-          console.log('[HUD CATEGORY] Added to Deficiencies');
+          console.log('[LBW CATEGORY] Added to Deficiencies');
         } else {
           this.organizedData.comments.push(templateData);
-          console.log('[HUD CATEGORY] Added to Comments/Information');
+          console.log('[LBW CATEGORY] Added to Comments/Information');
         }
 
         // Note: Dropdown options are already loaded via loadAllDropdownOptions()
         // No need to load them individually here
       });
 
-      console.log('[HUD CATEGORY] Organized data:', {
+      console.log('[LBW CATEGORY] Organized data:', {
         comments: this.organizedData.comments.length,
         limitations: this.organizedData.limitations.length,
         deficiencies: this.organizedData.deficiencies.length
@@ -374,7 +374,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         this.caspioService.getServicesHUDDrop()
       );
       
-      console.log('[HUD Category] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
+      console.log('[LBW CATEGORY] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
       if (dropdownData && dropdownData.length > 0) {
         // Group dropdown options by TemplateID
@@ -393,8 +393,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           }
         });
         
-        console.log('[HUD Category] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
-        console.log('[HUD Category] All TemplateIDs with options:', Object.keys(this.visualDropdownOptions));
+        console.log('[LBW CATEGORY] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
+        console.log('[LBW CATEGORY] All TemplateIDs with options:', Object.keys(this.visualDropdownOptions));
         
         // Add "Other" option to all multi-select dropdowns if not already present
         Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
@@ -402,13 +402,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           if (!optionsArray.includes('Other')) {
             optionsArray.push('Other');
           }
-          console.log(`[HUD Category] TemplateID ${templateId}: ${optionsArray.length} options -`, optionsArray.join(', '));
+          console.log(`[LBW CATEGORY] TemplateID ${templateId}: ${optionsArray.length} options -`, optionsArray.join(', '));
         });
       } else {
-        console.warn('[HUD Category] No dropdown data received from API');
+        console.warn('[LBW CATEGORY] No dropdown data received from API');
       }
     } catch (error) {
-      console.error('[HUD Category] Error loading dropdown options:', error);
+      console.error('[LBW CATEGORY] Error loading dropdown options:', error);
       // Continue without dropdown options - they're optional
     }
   }
@@ -2532,5 +2532,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 }
+
 
 
