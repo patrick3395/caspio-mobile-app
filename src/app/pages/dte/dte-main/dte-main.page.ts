@@ -28,9 +28,9 @@ export class DteMainPage implements OnInit {
       completed: false
     },
     {
-      title: 'HUD / Manufactured Home',
+      title: 'Damaged Truss Evaluation',
       icon: 'construct-outline',
-      route: 'categories',
+      route: 'template',
       description: '',
       completed: false
     }
@@ -47,7 +47,7 @@ export class DteMainPage implements OnInit {
 
   async ngOnInit() {
     // Get IDs from parent route (container level)
-    // Route structure: hud/:projectId/:serviceId -> (main hub is here)
+    // Route structure: dte/:projectId/:serviceId -> (main hub is here)
     this.route.parent?.params.subscribe(params => {
       console.log('Route params from parent:', params);
       this.projectId = params['projectId'];
@@ -64,9 +64,9 @@ export class DteMainPage implements OnInit {
   }
 
   navigateTo(card: NavigationCard) {
-    if (card.route === 'categories') {
-      // Navigate directly to Mobile/Manufactured Homes category
-      this.router.navigate(['category', 'Mobile/Manufactured Homes'], { relativeTo: this.route });
+    if (card.route === 'template') {
+      // Navigate to standalone DTE template page
+      this.router.navigate(['/dte-template', this.projectId, this.serviceId]);
     } else {
       this.router.navigate([card.route], { relativeTo: this.route.parent });
     }

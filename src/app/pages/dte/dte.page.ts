@@ -73,7 +73,7 @@ function hasAnnotationObjects(data: any): boolean {
   return objects.length > 0;
 }
 
-interface PendingHudCreate {
+interface PendingDteCreate {
   category: string;
   templateId: string;
   data: ServicesDteRecord;
@@ -197,7 +197,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   private subscriptions = new Subscription();
   private pendingVisualKeys: Set<string> = new Set();
   private pendingPhotoUploads: { [key: string]: PendingPhotoUpload[] } = {};
-  private pendingVisualCreates: { [key: string]: PendingHudCreate } = {};
+  private pendingVisualCreates: { [key: string]: PendingDteCreate } = {};
   private backgroundUploadQueue: Array<() => Promise<void>> = []; // Queue for background uploads
   private activeUploadCount = 0;
   private readonly maxParallelUploads = 2; // Allow 2 uploads simultaneously
@@ -261,7 +261,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   
   // Type information for the header
   typeShort: string = 'DTE';
-  typeFull: string = "HUD - Housing and Urban Development";
+  typeFull: string = "Damaged Truss Evaluation";
 
   // Dropdown options for AnswerType 2 from Services_DTE_Drop
   visualDropdownOptions: { [templateId: string]: string[] } = {};
@@ -1218,7 +1218,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Set default options first
       this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
-      this.outdoorTemperatureOptions = ['30∞F -', '30∞F to 60∞F', '60∞F to 70∞F', '70∞F to 80∞F', '80∞F to 90∞F', '90∞F to 100∞F', '100∞F+', 'Other'];
+      this.outdoorTemperatureOptions = ['30ÔøΩF -', '30ÔøΩF to 60ÔøΩF', '60ÔøΩF to 70ÔøΩF', '70ÔøΩF to 80ÔøΩF', '80ÔøΩF to 90ÔøΩF', '90ÔøΩF to 100ÔøΩF', '100ÔøΩF+', 'Other'];
       this.occupancyFurnishingsOptions = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
       this.inAttendanceOptions = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
       this.firstFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
@@ -1271,7 +1271,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             this.outdoorTemperatureOptions.push('Other');
           }
           
-          // Reorder to put "30∞F -" first (if it exists)
+          // Reorder to put "30ÔøΩF -" first (if it exists)
           const thirtyBelowIndex = this.outdoorTemperatureOptions.findIndex(opt =>
             opt.includes('30') && opt.includes('-') && !opt.includes('to')
           );
@@ -1280,7 +1280,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             this.outdoorTemperatureOptions.unshift(thirtyBelowOption);
           }
 
-          // Ensure "90∞F to 100∞F" (or similar) comes before "100∞F+"
+          // Ensure "90ÔøΩF to 100ÔøΩF" (or similar) comes before "100ÔøΩF+"
           const ninetyToHundredIndex = this.outdoorTemperatureOptions.findIndex(opt =>
             opt.includes('90') && opt.includes('100')
           );
@@ -1288,7 +1288,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
             opt.includes('100') && opt.includes('+')
           );
 
-          // If both exist and 100∞F+ comes before 90∞F to 100∞F, swap them
+          // If both exist and 100ÔøΩF+ comes before 90ÔøΩF to 100ÔøΩF, swap them
           if (ninetyToHundredIndex > -1 && hundredPlusIndex > -1 && hundredPlusIndex < ninetyToHundredIndex) {
             const ninetyToHundredOption = this.outdoorTemperatureOptions[ninetyToHundredIndex];
             const hundredPlusOption = this.outdoorTemperatureOptions[hundredPlusIndex];
@@ -1773,7 +1773,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       // Get all DTE templates from LPS_Services_DTE_Templates table
       const allTemplates = await this.caspioService.getServicesDTETemplates().toPromise();
 
-      // Use all DTE templates (no TypeID filter needed - HUD has its own dedicated table)
+      // Use all DTE templates (no TypeID filter needed - DTE has its own dedicated table)
       this.visualTemplates = allTemplates || [];
 
       // Extract unique categories in order they appear
@@ -2685,7 +2685,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     if (incompleteAreas.length > 0) {
       const alert = await this.alertController.create({
         header: 'Incomplete Required Fields',
-        message: `The following required fields are not complete:\n\n${incompleteAreas.map(area => `ï ${area}`).join('\n')}`,
+        message: `The following required fields are not complete:\n\n${incompleteAreas.map(area => `ÔøΩ ${area}`).join('\n')}`,
         cssClass: 'custom-document-alert',
         buttons: ['OK']
       });
@@ -3519,7 +3519,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async refreshPendingVisuals(): Promise<void> {
-    await this.processPendingHudCreates();
+    await this.processPendingDteCreates();
 
     const pendingEntries = Object.entries(this.visualRecordIds)
       .filter(([, value]) => value === '__pending__');
@@ -3609,7 +3609,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private async processPendingHudCreates(): Promise<void> {
+  private async processPendingDteCreates(): Promise<void> {
     if (this.offlineService.isManualOffline() || !this.offlineService.isOnline()) {
       return;
     }
@@ -3705,7 +3705,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
   private async processAllPendingVisuals(): Promise<void> {
 
     // First, create any pending visual records
-    await this.processPendingHudCreates();
+    await this.processPendingDteCreates();
 
     // Then, process any pending photo uploads for visuals that now have IDs
     const keys = Object.keys(this.pendingPhotoUploads);
@@ -5283,7 +5283,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
         // Removed change detection to improve performance
       }
     } catch (error) {
-      console.error('√É¬¢√Ç¬√Ö‚Äô Error handling files:', error);
+      console.error('√É¬¢√ÇÔøΩ√Ö‚Äô Error handling files:', error);
       await this.showToast('Failed to upload files', 'danger');
 
       // Clear upload tracking on error
@@ -8384,14 +8384,14 @@ Stack: ${error?.stack}`;
     
     // CRITICAL FIX: Fetch data directly from database instead of relying on in-memory state
     // This ensures PDF always shows the latest data, even when selections were made on category detail pages
-    console.log('[PDF] Fetching HUD records directly from database (bypassing cache)...');
+    console.log('[PDF] Fetching DTE records directly from database (bypassing cache)...');
     const allVisuals = await this.hudData.getVisualsByService(this.serviceId, true); // bypass cache
     
-    console.log('[PDF] Total HUD records from database:', allVisuals?.length || 0);
+    console.log('[PDF] Total DTE records from database:', allVisuals?.length || 0);
     if (allVisuals && allVisuals.length > 0) {
       console.log('[PDF] Sample record:', JSON.stringify(allVisuals[0], null, 2));
     } else {
-      console.warn('[PDF] ?? NO HUD RECORDS FOUND IN DATABASE!');
+      console.warn('[PDF] ‚ö†Ô∏è NO DTE RECORDS FOUND IN DATABASE!');
     }
     
     // Dynamically organize visuals by category from the database
