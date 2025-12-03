@@ -371,7 +371,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   private async loadAllDropdownOptions() {
     try {
       const dropdownData = await firstValueFrom(
-        this.caspioService.getServicesHUDDrop()
+        this.caspioService.getServicesLBWDrop()
       );
       
       console.log('[LBW CATEGORY] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
