@@ -369,32 +369,26 @@ export class HudPdfService {
 
     const result = [];
 
-    // HUD Categories
-    const hudCategories = [
-      'Site',
-      'Foundation',
-      'Exterior',
-      'Roof',
-      'Structure',
-      'Plumbing',
-      'Electrical',
-      'Heating/Cooling',
-      'Interior',
-      'Other'
-    ];
-
     // Get all HUD visuals for this service
-    const allVisuals = await this.hudData.getVisualsByService(serviceId);
-
-    // Organize visuals by category
-    const organizedData: any = {};
-    for (const category of hudCategories) {
-      organizedData[category] = {
-        comments: [],
-        limitations: [],
-        deficiencies: []
-      };
+    // CRITICAL: Bypass cache to ensure we get the latest data for PDF
+    const allVisuals = await this.hudData.getVisualsByService(serviceId, true);
+    
+    console.log('[HUD PDF Service] ========== HUD DATA DEBUG ==========');
+    console.log('[HUD PDF Service] ServiceID:', serviceId);
+    console.log('[HUD PDF Service] Total visuals fetched:', allVisuals?.length || 0);
+    if (allVisuals && allVisuals.length > 0) {
+      console.log('[HUD PDF Service] Sample visual:', JSON.stringify(allVisuals[0], null, 2));
+      // Log all category names for debugging
+      const uniqueCategories = [...new Set(allVisuals.map((v: any) => v.Category))];
+      console.log('[HUD PDF Service] Unique categories in data:', uniqueCategories);
+    } else {
+      console.warn('[HUD PDF Service] ⚠️ NO HUD RECORDS FOUND! This is why PDF is empty.');
     }
+
+    // CRITICAL: Dynamically extract categories from the actual data
+    // Don't use hardcoded categories - they may not match the database
+    const organizedData: any = {};
+    const categoryOrder: string[] = [];
 
     // Group visuals by category and type
     // CRITICAL: Use 'Kind' field not 'Type' field from database
@@ -410,26 +404,36 @@ export class HudPdfService {
       
       console.log('[HUD PDF Service] Visual:', visual.Name, 'Category:', category, 'Kind:', kind);
 
-      if (organizedData[category]) {
-        if (kind === 'Comment') {
-          organizedData[category].comments.push(visual);
-        } else if (kind === 'Limitation') {
-          organizedData[category].limitations.push(visual);
-        } else if (kind === 'Deficiency') {
-          organizedData[category].deficiencies.push(visual);
-        } else {
-          // Default to comments if kind is unknown
-          console.warn('[HUD PDF Service] Unknown Kind value:', kind, 'for visual:', visual.Name);
-          organizedData[category].comments.push(visual);
-        }
+      // Initialize category if not already present
+      if (!organizedData[category]) {
+        organizedData[category] = {
+          comments: [],
+          limitations: [],
+          deficiencies: []
+        };
+        categoryOrder.push(category);
+      }
+
+      if (kind === 'Comment') {
+        organizedData[category].comments.push(visual);
+      } else if (kind === 'Limitation') {
+        organizedData[category].limitations.push(visual);
+      } else if (kind === 'Deficiency') {
+        organizedData[category].deficiencies.push(visual);
+      } else {
+        // Default to comments if kind is unknown
+        console.warn('[HUD PDF Service] Unknown Kind value:', kind, 'for visual:', visual.Name);
+        organizedData[category].comments.push(visual);
       }
     }
+    
+    console.log('[HUD PDF Service] Found categories:', categoryOrder);
 
     // Load Fabric.js for annotation rendering
     const fabric = await this.fabricService.getFabric();
 
-    // Process each category
-    for (const category of hudCategories) {
+    // Process each category (using dynamically extracted categories)
+    for (const category of categoryOrder) {
       const categoryData = organizedData[category];
       if (!categoryData) continue;
 

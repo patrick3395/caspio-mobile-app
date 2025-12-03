@@ -8377,11 +8377,64 @@ Stack: ${error?.stack}`;
   }
 
   async prepareStructuralSystemsData() {
+    console.log('[PDF] ========== prepareStructuralSystemsData START ==========');
+    console.log('[PDF] ServiceID:', this.serviceId);
     
     const result = [];
     
-    for (const category of this.visualCategories) {
-      const categoryData = this.organizedData[category];
+    // CRITICAL FIX: Fetch data directly from database instead of relying on in-memory state
+    // This ensures PDF always shows the latest data, even when selections were made on category detail pages
+    console.log('[PDF] Fetching HUD records directly from database (bypassing cache)...');
+    const allVisuals = await this.hudData.getVisualsByService(this.serviceId, true); // bypass cache
+    
+    console.log('[PDF] Total HUD records from database:', allVisuals?.length || 0);
+    if (allVisuals && allVisuals.length > 0) {
+      console.log('[PDF] Sample record:', JSON.stringify(allVisuals[0], null, 2));
+    } else {
+      console.warn('[PDF] ⚠️ NO HUD RECORDS FOUND IN DATABASE!');
+    }
+    
+    // Dynamically organize visuals by category from the database
+    const organizedFromDb: { [category: string]: { comments: any[], limitations: any[], deficiencies: any[] } } = {};
+    const categoryOrder: string[] = [];
+    
+    for (const visual of allVisuals || []) {
+      const category = visual.Category || 'Other';
+      const kind = visual.Kind || visual.Type || 'Comment';
+      
+      // Skip hidden visuals (soft deleted)
+      if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
+        console.log('[PDF] Skipping hidden visual:', visual.Name);
+        continue;
+      }
+      
+      // Initialize category if not present
+      if (!organizedFromDb[category]) {
+        organizedFromDb[category] = { comments: [], limitations: [], deficiencies: [] };
+        categoryOrder.push(category);
+      }
+      
+      // Add to appropriate type array
+      if (kind === 'Comment') {
+        organizedFromDb[category].comments.push(visual);
+      } else if (kind === 'Limitation') {
+        organizedFromDb[category].limitations.push(visual);
+      } else if (kind === 'Deficiency') {
+        organizedFromDb[category].deficiencies.push(visual);
+      } else {
+        console.warn('[PDF] Unknown Kind:', kind, 'for visual:', visual.Name, '- defaulting to Comment');
+        organizedFromDb[category].comments.push(visual);
+      }
+    }
+    
+    console.log('[PDF] Categories found:', categoryOrder);
+    console.log('[PDF] Organized data summary:', Object.keys(organizedFromDb).map(cat => 
+      `${cat}: ${organizedFromDb[cat].comments.length}C/${organizedFromDb[cat].limitations.length}L/${organizedFromDb[cat].deficiencies.length}D`
+    ));
+    
+    // Process each category from database
+    for (const category of categoryOrder) {
+      const categoryData = organizedFromDb[category];
       if (!categoryData) continue;
       
       const categoryResult: any = {
@@ -8395,166 +8448,66 @@ Stack: ${error?.stack}`;
       const photoFetches: Promise<any>[] = [];
       const photoMappings: { type: string, item: any, index: number }[] = [];
       
-      // Process comments - collect promises
-      if (categoryData.comments) {
-        categoryData.comments.forEach((comment: any, index: number) => {
-          // Use comment.id which is the template PK_ID
-          const visualId = comment.id || comment.HUDID;
-          const isSelected = this.isCommentSelected(category, visualId);
-          if (isSelected) {
-            // Get the actual visual record ID for photo fetching
-            const recordKey = `${category}_${visualId}`;
-            const actualVisualId = this.visualRecordIds[recordKey] || visualId;
-            
-            // Prepare the text to display based on answerType
-            let displayText = comment.Text || comment.text;
-            let answers = '';
-            
-            // For AnswerType 1 (Yes/No), include the answer
-            if (comment.answerType === 1 && comment.answer) {
-              answers = comment.answer;
-              // Keep original text and add answer separately
-              displayText = comment.originalText || comment.text || '';
-            }
-            // For AnswerType 2 (multi-select), include selected options
-            else if (comment.answerType === 2 && comment.selectedOptions && comment.selectedOptions.length > 0) {
-              // Replace "Other" with the actual custom text if it exists
-              const optionsToDisplay = comment.selectedOptions.map((opt: string) => {
-                if (opt === 'Other' && comment.otherValue) {
-                  return comment.otherValue;
-                }
-                return opt;
-              });
-              answers = optionsToDisplay.join(', ');
-              // Keep original text and add answers separately
-              displayText = comment.originalText || comment.text || '';
-            }
-            // For AnswerType 0 or undefined (text), use the text as is
-            else {
-              displayText = comment.text || '';
-            }
-            
-            photoFetches.push(this.getVisualPhotos(actualVisualId, category, visualId));
-            photoMappings.push({
-              type: 'comments',
-              item: {
-                name: comment.Name || comment.name,
-                text: displayText,
-                answers: answers, // Add answers field for PDF display
-                answerType: comment.answerType,
-                visualId: actualVisualId
-              },
-              index: photoFetches.length - 1
-            });
-          }
+      // Process comments from database
+      for (const visual of categoryData.comments) {
+        const hudId = visual.HUDID || visual.PK_ID;
+        const displayText = visual.Text || '';
+        const answers = visual.Answers || '';
+        
+        console.log('[PDF] Processing Comment:', visual.Name, 'HUDID:', hudId);
+        
+        photoFetches.push(this.getVisualPhotos(hudId, category, hudId));
+        photoMappings.push({
+          type: 'comments',
+          item: {
+            name: visual.Name || '',
+            text: displayText,
+            answers: answers,
+            visualId: hudId
+          },
+          index: photoFetches.length - 1
         });
       }
       
-      // Process limitations - collect promises
-      if (categoryData.limitations) {
-        categoryData.limitations.forEach((limitation: any, index: number) => {
-          // Use limitation.id which is the template PK_ID
-          const visualId = limitation.id || limitation.HUDID;
-          if (this.isLimitationSelected(category, visualId)) {
-            // Get the actual visual record ID for photo fetching
-            const recordKey = `${category}_${visualId}`;
-            const actualVisualId = this.visualRecordIds[recordKey] || visualId;
-            
-            // Prepare the text to display based on answerType
-            let displayText = limitation.Text || limitation.text;
-            let answers = '';
-            
-            // For AnswerType 1 (Yes/No), include the answer
-            if (limitation.answerType === 1 && limitation.answer) {
-              answers = limitation.answer;
-              // Keep original text and add answer separately
-              displayText = limitation.originalText || limitation.text || '';
-            }
-            // For AnswerType 2 (multi-select), include selected options
-            else if (limitation.answerType === 2 && limitation.selectedOptions && limitation.selectedOptions.length > 0) {
-              // Replace "Other" with the actual custom text if it exists
-              const optionsToDisplay = limitation.selectedOptions.map((opt: string) => {
-                if (opt === 'Other' && limitation.otherValue) {
-                  return limitation.otherValue;
-                }
-                return opt;
-              });
-              answers = optionsToDisplay.join(', ');
-              // Keep original text and add answers separately
-              displayText = limitation.originalText || limitation.text || '';
-            }
-            // For AnswerType 0 or undefined (text), use the text as is
-            else {
-              displayText = limitation.text || '';
-            }
-            
-            photoFetches.push(this.getVisualPhotos(actualVisualId, category, visualId));
-            photoMappings.push({
-              type: 'limitations',
-              item: {
-                name: limitation.Name || limitation.name,
-                text: displayText,
-                answers: answers, // Add answers field for PDF display
-                answerType: limitation.answerType,
-                visualId: actualVisualId
-              },
-              index: photoFetches.length - 1
-            });
-          }
+      // Process limitations from database
+      for (const visual of categoryData.limitations) {
+        const hudId = visual.HUDID || visual.PK_ID;
+        const displayText = visual.Text || '';
+        const answers = visual.Answers || '';
+        
+        console.log('[PDF] Processing Limitation:', visual.Name, 'HUDID:', hudId);
+        
+        photoFetches.push(this.getVisualPhotos(hudId, category, hudId));
+        photoMappings.push({
+          type: 'limitations',
+          item: {
+            name: visual.Name || '',
+            text: displayText,
+            answers: answers,
+            visualId: hudId
+          },
+          index: photoFetches.length - 1
         });
       }
       
-      // Process deficiencies - collect promises
-      if (categoryData.deficiencies) {
-        categoryData.deficiencies.forEach((deficiency: any, index: number) => {
-          // Use deficiency.id which is the template PK_ID
-          const visualId = deficiency.id || deficiency.HUDID;
-          if (this.isDeficiencySelected(category, visualId)) {
-            // Get the actual visual record ID for photo fetching
-            const recordKey = `${category}_${visualId}`;
-            const actualVisualId = this.visualRecordIds[recordKey] || visualId;
-            
-            // Prepare the text to display based on answerType
-            let displayText = deficiency.Text || deficiency.text;
-            let answers = '';
-            
-            // For AnswerType 1 (Yes/No), include the answer
-            if (deficiency.answerType === 1 && deficiency.answer) {
-              answers = deficiency.answer;
-              // Keep original text and add answer separately
-              displayText = deficiency.originalText || deficiency.text || '';
-            }
-            // For AnswerType 2 (multi-select), include selected options
-            else if (deficiency.answerType === 2 && deficiency.selectedOptions && deficiency.selectedOptions.length > 0) {
-              // Replace "Other" with the actual custom text if it exists
-              const optionsToDisplay = deficiency.selectedOptions.map((opt: string) => {
-                if (opt === 'Other' && deficiency.otherValue) {
-                  return deficiency.otherValue;
-                }
-                return opt;
-              });
-              answers = optionsToDisplay.join(', ');
-              // Keep original text and add answers separately
-              displayText = deficiency.originalText || deficiency.text || '';
-            }
-            // For AnswerType 0 or undefined (text), use the text as is
-            else {
-              displayText = deficiency.text || '';
-            }
-            
-            photoFetches.push(this.getVisualPhotos(actualVisualId, category, visualId));
-            photoMappings.push({
-              type: 'deficiencies',
-              item: {
-                name: deficiency.Name || deficiency.name,
-                text: displayText,
-                answers: answers, // Add answers field for PDF display
-                answerType: deficiency.answerType,
-                visualId: actualVisualId
-              },
-              index: photoFetches.length - 1
-            });
-          }
+      // Process deficiencies from database
+      for (const visual of categoryData.deficiencies) {
+        const hudId = visual.HUDID || visual.PK_ID;
+        const displayText = visual.Text || '';
+        const answers = visual.Answers || '';
+        
+        console.log('[PDF] Processing Deficiency:', visual.Name, 'HUDID:', hudId);
+        
+        photoFetches.push(this.getVisualPhotos(hudId, category, hudId));
+        photoMappings.push({
+          type: 'deficiencies',
+          item: {
+            name: visual.Name || '',
+            text: displayText,
+            answers: answers,
+            visualId: hudId
+          },
+          index: photoFetches.length - 1
         });
       }
       
@@ -8568,7 +8521,7 @@ Stack: ${error?.stack}`;
         categoryResult[mapping.type].push(itemWithPhotos);
       });
       
-      // Only add category if it has selected items
+      // Only add category if it has items
       if (categoryResult.comments.length > 0 || 
           categoryResult.limitations.length > 0 || 
           categoryResult.deficiencies.length > 0) {
