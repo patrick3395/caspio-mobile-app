@@ -34,28 +34,34 @@ export class AddCustomVisualModalComponent {
     private alertController: AlertController
   ) {}
 
-  // Select photos from gallery (camera roll) - without editor
+  // Select photos from gallery (camera roll) - multi-select without editor
   async addPhotosFromGallery() {
     try {
       // Dynamically import Camera
-      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      const { Camera } = await import('@capacitor/camera');
 
-      // Open gallery/photos to select image(s)
-      const image = await Camera.getPhoto({
+      // Open gallery/photos to select MULTIPLE images
+      const images = await Camera.pickImages({
         quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Photos // Opens camera roll
+        limit: 0 // 0 = no limit (unlimited selection)
       });
 
-      if (image.webPath) {
-        // Convert to blob/file
-        const response = await fetch(image.webPath);
-        const blob = await response.blob();
-        const file = new File([blob], `gallery-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      if (images.photos && images.photos.length > 0) {
+        console.log('[ADD MODAL] Selected', images.photos.length, 'photos from gallery');
+        
+        // Process each selected photo
+        for (let i = 0; i < images.photos.length; i++) {
+          const photo = images.photos[i];
+          if (photo.webPath) {
+            // Convert to blob/file
+            const response = await fetch(photo.webPath);
+            const blob = await response.blob();
+            const file = new File([blob], `gallery-${Date.now()}-${i}.jpg`, { type: 'image/jpeg' });
 
-        // Add directly without opening editor
-        await this.addPhotoDirectly(file);
+            // Add directly without opening editor
+            await this.addPhotoDirectly(file);
+          }
+        }
       }
     } catch (error) {
       // Check if user cancelled - don't show error for cancellations
