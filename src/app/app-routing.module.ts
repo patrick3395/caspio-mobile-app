@@ -52,6 +52,12 @@ const routes: Routes = [
     data: { preload: false }
   },
   {
+    path: 'lbw/:projectId/:serviceId',
+    loadChildren: () => import('./pages/lbw/lbw-routing.module').then( m => m.LbwRoutingModule),
+    canActivate: [AuthGuard],
+    data: { preload: false }
+  },
+  {
     path: 'hud-template/:projectId/:serviceId',
     loadComponent: () => import('./pages/hud-template/hud-template.page').then( m => m.HudTemplatePage),
     canActivate: [AuthGuard],
