@@ -58,6 +58,12 @@ const routes: Routes = [
     data: { preload: false }
   },
   {
+    path: 'dte/:projectId/:serviceId',
+    loadChildren: () => import('./pages/dte/dte-routing.module').then( m => m.DteRoutingModule),
+    canActivate: [AuthGuard],
+    data: { preload: false }
+  },
+  {
     path: 'hud-template/:projectId/:serviceId',
     loadComponent: () => import('./pages/hud-template/hud-template.page').then( m => m.HudTemplatePage),
     canActivate: [AuthGuard],

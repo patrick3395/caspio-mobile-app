@@ -3446,6 +3446,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       service.typeName?.toLowerCase().includes('load bearing wall') ||
       service.typeName?.toLowerCase().includes('load-bearing wall');
 
+    // Check for DTE template - Damaged Truss Evaluation
+    const isDTETemplate =
+      service.typeName?.toLowerCase().includes('dte') ||
+      service.typeName?.toLowerCase().includes('damaged truss') ||
+      service.typeName?.toLowerCase().includes('truss evaluation');
+
     // Navigate immediately - remove all blocking checks
     if (isHUDTemplate) {
       const url = `/hud/${this.projectId}/${service.serviceId}`;
@@ -3469,6 +3475,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Use Angular router; fallback to direct navigation with query param if needed
       this.router.navigate(['lbw', this.projectId, service.serviceId], extras).catch(error => {
+        console.error('Router navigation failed, using fallback:', error);
+        const finalUrl = openPdf ? `${url}?openPdf=1` : url;
+        window.location.assign(finalUrl);
+      });
+    } else if (isDTETemplate) {
+      const url = `/dte/${this.projectId}/${service.serviceId}`;
+      const extras: any = { replaceUrl: false };
+      if (openPdf) {
+        extras.queryParams = { openPdf: '1' };
+      }
+
+      // Use Angular router; fallback to direct navigation with query param if needed
+      this.router.navigate(['dte', this.projectId, service.serviceId], extras).catch(error => {
         console.error('Router navigation failed, using fallback:', error);
         const finalUrl = openPdf ? `${url}?openPdf=1` : url;
         window.location.assign(finalUrl);

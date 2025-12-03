@@ -1,0 +1,145 @@
+.main-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.white-container {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+
+  ion-spinner {
+    margin-bottom: 16px;
+    --color: var(--ion-color-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+
+.navigation-card {
+  margin: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  transition: box-shadow 0.2s, background-color 0.2s;
+  cursor: pointer;
+  background: #f8f9fa;
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+      background: #f0f0f0;
+    }
+  }
+
+  &.completed {
+    border-left: 4px solid var(--ion-color-success);
+  }
+
+  ion-card-header {
+    padding: 16px;
+  }
+
+  .card-header-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .icon-container {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 32px;
+      color: var(--ion-color-primary);
+    }
+  }
+
+  .title-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    ion-card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin: 0;
+    }
+
+    .card-description {
+      margin: 0;
+      font-size: 13px;
+      color: #666;
+      font-weight: normal;
+      line-height: 1.4;
+    }
+
+    ion-badge {
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      ion-icon {
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+.footer-section {
+  margin-top: 40px;
+  text-align: center;
+
+  ion-button {
+    --border-radius: 8px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .footer-note {
+    font-size: 14px;
+    color: #999;
+    margin: 0;
+  }
+}
+
+// Keep stacked bar layout on all screen sizes
+@media (min-width: 768px) {
+  .cards-container {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-container {
+    padding: 12px;
+  }
+}
+

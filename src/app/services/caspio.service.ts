@@ -2217,6 +2217,373 @@ export class CaspioService {
     return result.Result && result.Result.length > 0 ? result.Result[0] : result;
   }
 
+  // ============================================
+  // DTE (Damaged Truss Evaluation) API Methods
+  // ============================================
+
+  // Templates
+  getServicesDTETemplates(): Observable<any[]> {
+    return this.get<any>('/tables/LPS_Services_DTE_Templates/records').pipe(
+      map(response => response.Result || []),
+      catchError(error => {
+        console.error('DTE templates error:', error);
+        return of([]);
+      })
+    );
+  }
+
+  // Dropdown Options
+  getServicesDTEDrop(): Observable<any[]> {
+    return this.get<any>('/tables/LPS_Services_DTE_Drop/records').pipe(
+      map(response => {
+        if (response && response.Result) {
+          return response.Result;
+        }
+        return [];
+      })
+    );
+  }
+
+  // Main Records (CRUD)
+  createServicesDTE(dteData: any): Observable<any> {
+    return this.post<any>('/tables/LPS_Services_DTE/records?response=rows', dteData).pipe(
+      tap(response => {
+        if (response && response.Result && response.Result.length > 0) {
+          console.log('✅ DTE record created:', response.Result[0]);
+        }
+      }),
+      map(response => {
+        if (response && response.Result && response.Result.length > 0) {
+          return response.Result[0];
+        }
+        return response;
+      }),
+      catchError(error => {
+        console.error('❌ Failed to create Services_DTE:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  updateServicesDTE(dteId: string, dteData: any): Observable<any> {
+    const url = `/tables/LPS_Services_DTE/records?q.where=DTEID=${dteId}`;
+    return this.put<any>(url, dteData).pipe(
+      catchError(error => {
+        console.error('❌ Failed to update Services_DTE:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  getServicesDTEByServiceId(serviceId: string): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_DTE/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  deleteServicesDTE(dteId: string): Observable<any> {
+    return this.delete<any>(`/tables/LPS_Services_DTE/records?q.where=PK_ID=${dteId}`);
+  }
+
+  // Attachments (Photos)
+  getServiceDTEAttachByDTEId(dteId: string): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_DTE_Attach/records?q.where=DTEID=${dteId}&q.limit=1000`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  createServicesDTEAttachWithFile(dteId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
+    return new Observable(observer => {
+      this.uploadDTEAttachWithFilesAPI(dteId, annotation, file, drawings, originalFile)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  updateServicesDTEAttach(attachId: string, data: any): Observable<any> {
+    const url = `/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`;
+    return this.put<any>(url, data);
+  }
+
+  updateServicesDTEAttachPhoto(attachId: number, file: File, originalFile?: File): Observable<any> {
+    return new Observable(observer => {
+      this.uploadAndUpdateDTEAttachPhoto(attachId, file, originalFile)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  createServicesDTEAttachRecord(dteId: number, annotation: string, drawings?: string): Observable<any> {
+    return new Observable(observer => {
+      this.createDTEAttachRecordOnly(dteId, annotation, drawings)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  deleteServicesDTEAttach(attachId: string): Observable<any> {
+    return this.delete<any>(`/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`);
+  }
+
+  // Private helper methods for DTE file uploads
+  private async uploadDTEAttachWithFilesAPI(dteId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
+    console.log('[DTE ATTACH] ========== Starting DTE Attach Upload (2-Step) ==========');
+    console.log('[DTE ATTACH] Parameters:', {
+      dteId,
+      annotation: annotation || '(empty)',
+      fileName: file.name,
+      fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+      fileType: file.type,
+      hasDrawings: !!drawings,
+      drawingsLength: drawings?.length || 0,
+      hasOriginalFile: !!originalFile
+    });
+    
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    try {
+      let originalFilePath = '';
+
+      // STEP 1A: If we have an original file (before annotation), upload it first
+      if (originalFile && drawings) {
+        console.log('[DTE ATTACH] Step 1A: Uploading original file to Files API...');
+        const originalFormData = new FormData();
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = originalFile.name.split('.').pop() || 'jpg';
+        const originalFileName = `dte_${dteId}_original_${timestamp}_${randomId}.${fileExt}`;
+        originalFormData.append('file', originalFile, originalFileName);
+        
+        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: originalFormData
+        });
+        
+        if (originalUploadResponse.ok) {
+          const originalUploadResult = await originalUploadResponse.json();
+          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
+          console.log('[DTE ATTACH] ✅ Original file uploaded:', originalFilePath);
+        } else {
+          const errorText = await originalUploadResponse.text();
+          console.error('[DTE ATTACH] ❌ Original file upload failed:', errorText);
+        }
+      }
+      
+      // STEP 1B: Upload main file to Caspio Files API
+      let filePath = '';
+
+      if (originalFilePath) {
+        console.log('[DTE ATTACH] Using original file path:', originalFilePath);
+        filePath = originalFilePath;
+      } else {
+        console.log('[DTE ATTACH] Step 1B: Uploading main file to Files API...');
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const uniqueFilename = `dte_${dteId}_${timestamp}_${randomId}.${fileExt}`;
+
+        const formData = new FormData();
+        formData.append('file', file, uniqueFilename);
+
+        const filesUrl = `${API_BASE_URL}/files`;
+        console.log('[DTE ATTACH] Uploading to:', filesUrl);
+
+        const uploadResponse = await fetch(filesUrl, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: formData
+        });
+
+        console.log('[DTE ATTACH] Files API response:', uploadResponse.status, uploadResponse.statusText);
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error('[DTE ATTACH] ❌ Files API upload failed:', errorText);
+          throw new Error('Failed to upload file to Files API: ' + errorText);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        console.log('[DTE ATTACH] ✅ Files API upload result:', uploadResult);
+
+        filePath = `/${uploadResult.Name || uniqueFilename}`;
+        console.log('[DTE ATTACH] ✅ File uploaded successfully. Path:', filePath);
+      }
+
+      // STEP 2: Create the DTE attach record with all data
+      console.log('[DTE ATTACH] Step 2: Creating DTE attach record...');
+      const token = await firstValueFrom(this.getValidToken());
+      
+      const payload = {
+        DTEID: dteId,
+        Photo: filePath,
+        Annotation: annotation || '',
+        Drawings: drawings || ''
+      };
+
+      console.log('[DTE ATTACH] Payload:', payload);
+
+      const createRecordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      console.log('[DTE ATTACH] Create record response status:', createRecordResponse.status);
+
+      if (!createRecordResponse.ok) {
+        const errorText = await createRecordResponse.text();
+        console.error('[DTE ATTACH] ❌ Failed to create DTE attach record:', errorText);
+        throw new Error('Failed to create attach record: ' + errorText);
+      }
+
+      const result = await createRecordResponse.json();
+      console.log('[DTE ATTACH] ✅ DTE attach record created successfully');
+      console.log('[DTE ATTACH] Final result:', JSON.stringify(result, null, 2));
+      
+      return result;
+    } catch (error: any) {
+      console.error('[DTE ATTACH] ❌ Upload process failed:', error);
+      throw error;
+    }
+  }
+
+  private async uploadAndUpdateDTEAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      let filePath = '';
+      let originalFilePath = '';
+
+      // Upload original file first if present
+      if (originalFile) {
+        const originalFormData = new FormData();
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = originalFile.name.split('.').pop() || 'jpg';
+        const originalFileName = `dte_attach_${attachId}_original_${timestamp}_${randomId}.${fileExt}`;
+        originalFormData.append('file', originalFile, originalFileName);
+
+        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: originalFormData
+        });
+
+        if (originalUploadResponse.ok) {
+          const originalUploadResult = await originalUploadResponse.json();
+          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
+        }
+      }
+
+      // Upload main file to Files API
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `dte_attach_${attachId}_${timestamp}_${randomId}.${fileExt}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+
+      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error('Failed to upload file to Files API: ' + errorText);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      filePath = `/${uploadResult.Name || uniqueFilename}`;
+
+      // Update the DTE attach record with the photo path
+      const updateData: any = {
+        Photo: originalFilePath || filePath
+      };
+
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        throw new Error('Failed to update record: ' + errorText);
+      }
+
+      return {
+        AttachID: attachId,
+        Photo: originalFilePath || filePath,
+        OriginalPhoto: originalFilePath
+      };
+
+    } catch (error) {
+      console.error('Error in uploadAndUpdateDTEAttachPhoto:', error);
+      throw error;
+    }
+  }
+
+  private async createDTEAttachRecordOnly(dteId: number, annotation: string, drawings?: string): Promise<any> {
+    const token = await firstValueFrom(this.getValidToken());
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const payload = {
+      DTEID: dteId,
+      Annotation: annotation || '',
+      Drawings: drawings || ''
+    };
+
+    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`DTE attach record creation failed: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.Result && result.Result.length > 0 ? result.Result[0] : result;
+  }
+
   // Service_Visuals_Attach methods (for photos)
   createServiceVisualsAttach(attachData: any): Observable<any> {
     return this.post<any>('/tables/LPS_Service_Visuals_Attach/records', attachData).pipe(
