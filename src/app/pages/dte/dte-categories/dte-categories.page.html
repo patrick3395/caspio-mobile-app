@@ -1,0 +1,36 @@
+<div class="page-container">
+  <div class="content-section">
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading categories...</p>
+    </div>
+
+    <!-- Categories List -->
+    <div *ngIf="!loading && categories.length > 0" class="categories-container">
+      <ion-card
+        *ngFor="let category of categories"
+        class="navigation-card"
+        button="true"
+        (click)="navigateToCategory(category)">
+        <ion-card-header>
+          <div class="card-header-content">
+            <div class="icon-container">
+              <ion-icon [name]="getCategoryIcon(category.title)"></ion-icon>
+            </div>
+            <div class="title-container">
+              <ion-card-title>{{ category.title }}</ion-card-title>
+            </div>
+          </div>
+        </ion-card-header>
+      </ion-card>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading && categories.length === 0" class="empty-message">
+      <ion-icon name="folder-open-outline"></ion-icon>
+      <p>No categories available</p>
+    </div>
+  </div>
+</div>
+

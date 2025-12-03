@@ -15,6 +15,10 @@ const routes: Routes = [
         loadComponent: () => import('./dte-project-details/dte-project-details.page').then(m => m.DteProjectDetailsPage)
       },
       {
+        path: 'categories',
+        loadComponent: () => import('./dte-categories/dte-categories.page').then(m => m.DteCategoriesPage)
+      },
+      {
         path: 'category/:category',
         loadComponent: () => import('./dte-category-detail/dte-category-detail.page').then(m => m.DteCategoryDetailPage)
       }

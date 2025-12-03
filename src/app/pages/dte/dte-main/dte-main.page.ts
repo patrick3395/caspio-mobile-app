@@ -30,7 +30,7 @@ export class DteMainPage implements OnInit {
     {
       title: 'Damaged Truss Evaluation',
       icon: 'construct-outline',
-      route: 'template',
+      route: 'categories',
       description: '',
       completed: false
     }
@@ -64,9 +64,9 @@ export class DteMainPage implements OnInit {
   }
 
   navigateTo(card: NavigationCard) {
-    if (card.route === 'template') {
-      // Navigate to standalone DTE template page
-      this.router.navigate(['/dte-template', this.projectId, this.serviceId]);
+    if (card.route === 'categories') {
+      // Navigate to categories list page
+      this.router.navigate(['categories'], { relativeTo: this.route });
     } else {
       this.router.navigate([card.route], { relativeTo: this.route.parent });
     }
