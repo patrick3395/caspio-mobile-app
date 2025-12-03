@@ -15,6 +15,10 @@ const routes: Routes = [
         loadComponent: () => import('./lbw-project-details/lbw-project-details.page').then(m => m.LbwProjectDetailsPage)
       },
       {
+        path: 'categories',
+        loadComponent: () => import('./lbw-categories/lbw-categories.page').then(m => m.LbwCategoriesPage)
+      },
+      {
         path: 'category/:category',
         loadComponent: () => import('./lbw-category-detail/lbw-category-detail.page').then(m => m.LbwCategoryDetailPage)
       }

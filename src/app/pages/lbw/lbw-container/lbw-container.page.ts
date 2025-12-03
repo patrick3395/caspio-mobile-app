@@ -75,8 +75,8 @@ export class LbwContainerPage implements OnInit {
     // Parse URL to build breadcrumbs and set page title
     // URL format: /lbw/{projectId}/{serviceId}/...
 
-    // Check if we're on a sub-page (not the main HUD hub)
-    const isSubPage = url.includes('/project-details') || url.includes('/category/');
+    // Check if we're on a sub-page (not the main LBW hub)
+    const isSubPage = url.includes('/project-details') || url.includes('/categories') || url.includes('/category/');
 
     if (isSubPage) {
       // Add LBW main page as first breadcrumb when on sub-pages
@@ -98,9 +98,27 @@ export class LbwContainerPage implements OnInit {
       this.currentPageShortTitle = 'Project Details';
     }
 
+    // Check for categories list page
+    if (url.includes('/categories') && !url.includes('/category/')) {
+      this.breadcrumbs.push({ 
+        label: 'Load Bearing Wall', 
+        path: 'categories', 
+        icon: 'construct-outline' 
+      });
+      this.currentPageTitle = 'Load Bearing Wall';
+      this.currentPageShortTitle = 'LBW';
+    }
+
     // Check for category detail
     const categoryMatch = url.match(/\/category\/([^\/]+)/);
     if (categoryMatch) {
+      // Add categories breadcrumb first
+      this.breadcrumbs.push({ 
+        label: 'Load Bearing Wall', 
+        path: 'categories', 
+        icon: 'construct-outline' 
+      });
+      
       const categoryName = decodeURIComponent(categoryMatch[1]);
       const categoryIcon = this.getCategoryIcon(categoryName);
       this.breadcrumbs.push({ 
@@ -133,6 +151,9 @@ export class LbwContainerPage implements OnInit {
 
     // Check if we're on a category detail page
     if (url.includes('/category/')) {
+      // Navigate to categories list page
+      this.router.navigate(['/lbw', this.projectId, this.serviceId, 'categories']);
+    } else if (url.includes('/categories')) {
       // Navigate to LBW main page
       this.router.navigate(['/lbw', this.projectId, this.serviceId]);
     } else if (url.includes('/project-details')) {

@@ -49,30 +49,7 @@ export class LbwMainPage implements OnInit {
         return;
       }
       
-      // Load categories from LBW templates
-      await this.loadCategories();
-      
-      this.loading = false;
-    });
-  }
-
-  async loadCategories() {
-    try {
-      console.log('[LBW Main] Loading categories from LPS_Services_LBW_Templates...');
-      const templates = await this.caspioService.getServicesLBWTemplates().toPromise();
-      
-      // Extract unique categories
-      const categorySet = new Set<string>();
-      (templates || []).forEach((template: any) => {
-        if (template.Category) {
-          categorySet.add(template.Category);
-        }
-      });
-
-      const categories = Array.from(categorySet).sort();
-      console.log('[LBW Main] Found categories:', categories);
-
-      // Create cards - Project Details first, then categories
+      // Create main navigation cards
       this.cards = [
         {
           title: 'Project Details',
@@ -80,31 +57,24 @@ export class LbwMainPage implements OnInit {
           route: 'project-details',
           description: '',
           completed: false
+        },
+        {
+          title: 'Load Bearing Wall',
+          icon: 'construct-outline',
+          route: 'categories',
+          description: '',
+          completed: false
         }
       ];
-
-      // Add a card for each category
-      categories.forEach(category => {
-        this.cards.push({
-          title: category,
-          icon: 'construct-outline',
-          route: 'category',
-          description: '',
-          completed: false,
-          category: category
-        });
-      });
-
-      console.log('[LBW Main] Created navigation cards:', this.cards);
-    } catch (error) {
-      console.error('[LBW Main] Error loading categories:', error);
-    }
+      
+      this.loading = false;
+    });
   }
 
   navigateTo(card: NavigationCard) {
-    if (card.route === 'category' && card.category) {
-      // Navigate to specific category
-      this.router.navigate(['category', card.category], { relativeTo: this.route });
+    if (card.route === 'categories') {
+      // Navigate to categories list page
+      this.router.navigate(['categories'], { relativeTo: this.route });
     } else {
       this.router.navigate([card.route], { relativeTo: this.route.parent });
     }

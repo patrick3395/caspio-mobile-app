@@ -1,0 +1,36 @@
+<div class="main-container">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading categories...</p>
+  </div>
+
+  <!-- Categories List -->
+  <div *ngIf="!loading" class="white-container">
+    <div class="categories-header">
+      <h2>Load Bearing Wall Categories</h2>
+      <p>Select a category to begin inspection</p>
+    </div>
+
+    <div class="cards-container">
+      <ion-card
+        *ngFor="let category of categories"
+        class="category-card"
+        button="true"
+        (click)="navigateToCategory(category)">
+        <ion-card-header>
+          <div class="card-header-content">
+            <div class="icon-container">
+              <ion-icon [name]="category.icon"></ion-icon>
+            </div>
+            <div class="title-container">
+              <ion-card-title>{{ category.title }}</ion-card-title>
+              <p class="item-count">{{ category.count }} {{ category.count === 1 ? 'item' : 'items' }}</p>
+            </div>
+          </div>
+        </ion-card-header>
+      </ion-card>
+    </div>
+  </div>
+</div>
+
