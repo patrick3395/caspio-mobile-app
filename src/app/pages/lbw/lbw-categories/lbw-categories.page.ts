@@ -80,5 +80,17 @@ export class LbwCategoriesPage implements OnInit {
     console.log('[LBW Categories] Navigating to category:', category.title);
     this.router.navigate(['..', 'category', category.title], { relativeTo: this.route });
   }
+
+  getCategoryIcon(categoryName: string): string {
+    // Map category names to icons
+    const iconMap: { [key: string]: string } = {
+      'Target wall': 'construct-outline',
+      'Foundation': 'business-outline',
+      'Structure': 'construct-outline',
+      'Default': 'document-text-outline'
+    };
+
+    return iconMap[categoryName] || iconMap['Default'];
+  }
 }
 
