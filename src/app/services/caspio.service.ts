@@ -1888,6 +1888,335 @@ export class CaspioService {
     return this.delete<any>(`/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`);
   }
 
+  // ============================================
+  // LBW (Load Bearing Wall) API Methods
+  // ============================================
+
+  createServicesLBW(lbwData: any): Observable<any> {
+    return this.post<any>('/tables/LPS_Services_LBW/records?response=rows', lbwData).pipe(
+      tap(response => {
+        if (response && response.Result && response.Result.length > 0) {
+          console.log('✅ LBW record created:', response.Result[0]);
+        }
+      }),
+      catchError(error => {
+        console.error('❌ Failed to create Services_LBW:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  updateServicesLBW(lbwId: string, lbwData: any): Observable<any> {
+    const url = `/tables/LPS_Services_LBW/records?q.where=LBWID=${lbwId}`;
+    return this.put<any>(url, lbwData).pipe(
+      catchError(error => {
+        console.error('❌ Failed to update Services_LBW:', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
+  getServicesLBWByServiceId(serviceId: string): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_LBW/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  deleteServicesLBW(lbwId: string): Observable<any> {
+    return this.delete<any>(`/tables/LPS_Services_LBW/records?q.where=PK_ID=${lbwId}`);
+  }
+
+  // Services_LBW_Attach methods (for LBW photos)
+  getServiceLBWAttachByLBWId(lbwId: string): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_LBW_Attach/records?q.where=LBWID=${lbwId}&q.limit=1000`).pipe(
+      map(response => response.Result || [])
+    );
+  }
+
+  createServicesLBWAttachWithFile(lbwId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
+    return new Observable(observer => {
+      this.uploadLBWAttachWithFilesAPI(lbwId, annotation, file, drawings, originalFile)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  updateServicesLBWAttach(attachId: string, data: any): Observable<any> {
+    const url = `/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`;
+    return this.put<any>(url, data);
+  }
+
+  updateServicesLBWAttachPhoto(attachId: number, file: File, originalFile?: File): Observable<any> {
+    return new Observable(observer => {
+      this.uploadAndUpdateLBWAttachPhoto(attachId, file, originalFile)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  createServicesLBWAttachRecord(lbwId: number, annotation: string, drawings?: string): Observable<any> {
+    return new Observable(observer => {
+      this.createLBWAttachRecordOnly(lbwId, annotation, drawings)
+        .then(result => {
+          observer.next(result);
+          observer.complete();
+        })
+        .catch(error => {
+          observer.error(error);
+        });
+    });
+  }
+
+  deleteServicesLBWAttach(attachId: string): Observable<any> {
+    return this.delete<any>(`/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`);
+  }
+
+  // Private helper methods for LBW file uploads
+  private async uploadLBWAttachWithFilesAPI(lbwId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
+    // Use same 2-step approach as HUD but for LBW table
+    console.log('[LBW ATTACH] ========== Starting LBW Attach Upload (2-Step) ==========');
+    console.log('[LBW ATTACH] Parameters:', {
+      lbwId,
+      annotation: annotation || '(empty)',
+      fileName: file.name,
+      fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+      fileType: file.type,
+      hasDrawings: !!drawings,
+      drawingsLength: drawings?.length || 0,
+      hasOriginalFile: !!originalFile
+    });
+    
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    
+    try {
+      let originalFilePath = '';
+
+      // STEP 1A: If we have an original file (before annotation), upload it first
+      if (originalFile && drawings) {
+        console.log('[LBW ATTACH] Step 1A: Uploading original file to Files API...');
+        const originalFormData = new FormData();
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = originalFile.name.split('.').pop() || 'jpg';
+        const originalFileName = `lbw_${lbwId}_original_${timestamp}_${randomId}.${fileExt}`;
+        originalFormData.append('file', originalFile, originalFileName);
+        
+        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: originalFormData
+        });
+        
+        if (originalUploadResponse.ok) {
+          const originalUploadResult = await originalUploadResponse.json();
+          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
+          console.log('[LBW ATTACH] ✅ Original file uploaded:', originalFilePath);
+        } else {
+          const errorText = await originalUploadResponse.text();
+          console.error('[LBW ATTACH] ❌ Original file upload failed:', errorText);
+        }
+      }
+      
+      // STEP 1B: Upload main file to Caspio Files API
+      let filePath = '';
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `lbw_${lbwId}_${timestamp}_${randomId}.${fileExt}`;
+
+      console.log('[LBW ATTACH] Step 1: Uploading to Files API as:', uniqueFilename);
+      
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+
+      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('[LBW ATTACH] Files API upload failed:', errorText);
+        throw new Error('Failed to upload file to Files API: ' + errorText);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      filePath = `/${uploadResult.Name || uniqueFilename}`;
+      console.log('[LBW ATTACH] ✅ File uploaded to Files API:', filePath);
+
+      // STEP 2: Create Services_LBW_Attach record with LBWID and Photo path
+      console.log('[LBW ATTACH] Step 2: Creating Services_LBW_Attach record...');
+      
+      const recordData = {
+        LBWID: lbwId,
+        Annotation: annotation || '',
+        Photo: originalFilePath || filePath,
+        Drawings: drawings || ''
+      };
+
+      console.log('[LBW ATTACH] Record data:', recordData);
+
+      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData)
+      });
+
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        console.error('[LBW ATTACH] Failed to create record:', errorText);
+        throw new Error('Failed to create Services_LBW_Attach record: ' + errorText);
+      }
+
+      const createResult = await createResponse.json();
+      console.log('[LBW ATTACH] ✅ Record created:', createResult);
+
+      const finalRecord = createResult.Result && createResult.Result.length > 0 
+        ? createResult.Result[0] 
+        : createResult;
+
+      return {
+        Result: [finalRecord]
+      };
+
+    } catch (error) {
+      console.error('[LBW ATTACH] Upload failed:', error);
+      throw error;
+    }
+  }
+
+  private async uploadAndUpdateLBWAttachPhoto(attachId: number, file: File, originalFile?: File): Promise<any> {
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      let filePath = '';
+      let originalFilePath = '';
+
+      // Upload original file first if present
+      if (originalFile) {
+        const originalFormData = new FormData();
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = originalFile.name.split('.').pop() || 'jpg';
+        const originalFileName = `lbw_attach_${attachId}_original_${timestamp}_${randomId}.${fileExt}`;
+        originalFormData.append('file', originalFile, originalFileName);
+        
+        const originalUploadResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: originalFormData
+        });
+        
+        if (originalUploadResponse.ok) {
+          const originalUploadResult = await originalUploadResponse.json();
+          originalFilePath = `/${originalUploadResult.Name || originalFileName}`;
+        }
+      }
+
+      // Upload main file to Files API
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `lbw_attach_${attachId}_${timestamp}_${randomId}.${fileExt}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+
+      const uploadResponse = await fetch(`${API_BASE_URL}/files`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error('Failed to upload file to Files API: ' + errorText);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      filePath = `/${uploadResult.Name || uniqueFilename}`;
+
+      // Update the LBW attach record with the photo path
+      const updateData: any = {
+        Photo: originalFilePath || filePath
+      };
+
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        throw new Error('Failed to update record: ' + errorText);
+      }
+
+      return {
+        AttachID: attachId,
+        Photo: originalFilePath || filePath,
+        OriginalPhoto: originalFilePath
+      };
+
+    } catch (error) {
+      console.error('Error in uploadAndUpdateLBWAttachPhoto:', error);
+      throw error;
+    }
+  }
+
+  private async createLBWAttachRecordOnly(lbwId: number, annotation: string, drawings?: string): Promise<any> {
+    const token = await firstValueFrom(this.getValidToken());
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    const payload = {
+      LBWID: lbwId,
+      Annotation: annotation || '',
+      Drawings: drawings || ''
+    };
+
+    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`LBW attach record creation failed: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.Result && result.Result.length > 0 ? result.Result[0] : result;
+  }
+
   // Service_Visuals_Attach methods (for photos)
   createServiceVisualsAttach(attachData: any): Observable<any> {
     return this.post<any>('/tables/LPS_Service_Visuals_Attach/records', attachData).pipe(

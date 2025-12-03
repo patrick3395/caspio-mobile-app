@@ -365,7 +365,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Load all dropdown options from Services_HUD_Drop table
+   * Load all dropdown options from Services_LBW_Drop table
    * This loads all options upfront and groups them by TemplateID
    */
   private async loadAllDropdownOptions() {
@@ -443,7 +443,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
       for (const visual of categoryVisuals) {
         console.log('[LOAD EXISTING] ========== Processing Visual ==========');
-        console.log('[LOAD EXISTING] Visual HUDID:', visual.HUDID);
+        console.log('[LOAD EXISTING] Visual LBWID:', visual.LBWID);
         console.log('[LOAD EXISTING] Visual Name:', visual.Name);
         console.log('[LOAD EXISTING] Visual Notes:', visual.Notes);
         console.log('[LOAD EXISTING] Visual Answers:', visual.Answers);
@@ -457,16 +457,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           const item = allItems.find(i => i.name === visual.Name);
           if (item) {
             const key = `${this.categoryName}_${item.id}`;
-            const hudId = String(visual.HUDID || visual.PK_ID);
-            this.visualRecordIds[key] = hudId;
-            console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', hudId);
+            const LBWID = String(visual.LBWID || visual.PK_ID);
+            this.visualRecordIds[key] = LBWID;
+            console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', LBWID);
           }
           continue;
         }
         
         const name = visual.Name;
         const kind = visual.Kind;
-        const hudId = String(visual.HUDID || visual.PK_ID || visual.id);
+        const LBWID = String(visual.LBWID || visual.PK_ID || visual.id);
         
         // Find the item by Name
         let item = allItems.find(i => i.name === visual.Name);
@@ -477,7 +477,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
           // Create a dynamic VisualItem for custom visuals
           const customItem: VisualItem = {
-            id: `custom_${hudId}`,
+            id: `custom_${LBWID}`,
             templateId: 0,
             name: visual.Name || 'Custom Item',
             text: visual.Text || '',
@@ -515,15 +515,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         const key = `${this.categoryName}_${item.id}`;
 
         console.log('[LOAD EXISTING] Constructed key:', key);
-        console.log('[LOAD EXISTING] HUDID to store:', hudId);
+        console.log('[LOAD EXISTING] LBWID to store:', LBWID);
 
         // Mark as selected
         this.selectedItems[key] = true;
         console.log('[LOAD EXISTING] ✅ selectedItems[' + key + '] = true');
 
         // Store visual record ID
-        this.visualRecordIds[key] = hudId;
-        console.log('[LOAD EXISTING] ✅ visualRecordIds[' + key + '] = ' + hudId);
+        this.visualRecordIds[key] = LBWID;
+        console.log('[LOAD EXISTING] ✅ visualRecordIds[' + key + '] = ' + LBWID);
 
         // Update item with saved answer
         item.answer = visual.Answers || '';
@@ -534,7 +534,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         this.changeDetectorRef.detectChanges();
 
         // Load photos for this visual
-        await this.loadPhotosForVisual(hudId, key);
+        await this.loadPhotosForVisual(LBWID, key);
       }
 
       console.log('[LOAD EXISTING] ========== FINAL STATE ==========');
@@ -575,14 +575,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     return allItems.find(item => item.id === id || item.id === Number(id));
   }
 
-  private async loadPhotosForVisual(hudId: string, key: string) {
+  private async loadPhotosForVisual(LBWID: string, key: string) {
     try {
       this.loadingPhotosByKey[key] = true;
 
       // Get attachments from database
-      const attachments = await this.hudData.getVisualAttachments(hudId);
+      const attachments = await this.hudData.getVisualAttachments(LBWID);
 
-      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for HUD', hudId, 'key:', key);
+      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for HUD', LBWID, 'key:', key);
 
       // Set photo count immediately so skeleton loaders can be displayed
       this.photoCountsByKey[key] = attachments.length;
@@ -1087,18 +1087,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
       console.log('[CREATE VISUAL] Creating HUD record with data:', hudData);
       console.log('[CREATE VISUAL] Item details:', { id: item.id, templateId: item.templateId, name: item.name, answer: item.answer });
-      console.log('[CREATE VISUAL] Note: TemplateID is not stored in Services_HUD, only used for dropdown lookup');
+      console.log('[CREATE VISUAL] Note: TemplateID is not stored in Services_LBW, only used for dropdown lookup');
 
-      const result = await firstValueFrom(this.caspioService.createServicesHUD(hudData));
+      const result = await firstValueFrom(this.caspioService.createServicesLBW(hudData));
       
       console.log('[CREATE VISUAL] API response:', result);
       console.log('[CREATE VISUAL] Response type:', typeof result);
       console.log('[CREATE VISUAL] Has Result array?', !!result?.Result);
-      console.log('[CREATE VISUAL] Has HUDID directly?', !!result?.HUDID);
+      console.log('[CREATE VISUAL] Has LBWID directly?', !!result?.LBWID);
       
       // Handle BOTH response formats: direct object OR wrapped in Result array
       let createdRecord = null;
-      if (result && result.HUDID) {
+      if (result && result.LBWID) {
         // Direct object format
         createdRecord = result;
         console.log('[CREATE VISUAL] Using direct result object');
@@ -1109,14 +1109,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       }
       
       if (createdRecord) {
-        const hudId = String(createdRecord.HUDID || createdRecord.PK_ID);
+        const LBWID = String(createdRecord.LBWID || createdRecord.PK_ID);
         
         // CRITICAL: Store the record ID
-        this.visualRecordIds[key] = hudId;
+        this.visualRecordIds[key] = LBWID;
         this.selectedItems[key] = true;
         
-        console.log('[CREATE VISUAL] ✅ Created with HUDID:', hudId);
-        console.log('[CREATE VISUAL] Stored in visualRecordIds[' + key + '] = ' + hudId);
+        console.log('[CREATE VISUAL] ✅ Created with LBWID:', LBWID);
+        console.log('[CREATE VISUAL] Stored in visualRecordIds[' + key + '] = ' + LBWID);
         console.log('[CREATE VISUAL] Created record full data:', createdRecord);
         console.log('[CREATE VISUAL] All visualRecordIds after creation:', JSON.stringify(this.visualRecordIds));
         console.log('[CREATE VISUAL] Verification - can retrieve:', this.visualRecordIds[key]);
@@ -1156,7 +1156,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
     try {
       console.log('[DELETE VISUAL] Deleting HUD record:', visualId);
-      await firstValueFrom(this.caspioService.deleteServicesHUD(visualId));
+      await firstValueFrom(this.caspioService.deleteServicesLBW(visualId));
       
       // Clean up local state
       delete this.visualRecordIds[key];
@@ -1186,7 +1186,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // If answer is empty/cleared, hide the visual instead of deleting
       if (!item.answer || item.answer === '') {
         if (visualId && !String(visualId).startsWith('temp_')) {
-          await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
+          await firstValueFrom(this.caspioService.updateServicesLBW(visualId, {
             Answers: '',
             Notes: 'HIDDEN'
           }));
@@ -1213,17 +1213,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
         console.log('[ANSWER] Creating with data:', visualData);
 
-        const result = await firstValueFrom(this.caspioService.createServicesHUD(visualData));
+        const result = await firstValueFrom(this.caspioService.createServicesLBW(visualData));
         
         console.log('[ANSWER] 🔍 RAW API RESPONSE:', result);
         
-        // Try multiple ways to extract the HUDID
+        // Try multiple ways to extract the LBWID
         if (result && result.Result && result.Result.length > 0) {
-          visualId = String(result.Result[0].HUDID || result.Result[0].PK_ID || result.Result[0].id);
+          visualId = String(result.Result[0].LBWID || result.Result[0].PK_ID || result.Result[0].id);
         } else if (result && Array.isArray(result) && result.length > 0) {
-          visualId = String(result[0].HUDID || result[0].PK_ID || result[0].id);
+          visualId = String(result[0].LBWID || result[0].PK_ID || result[0].id);
         } else if (result) {
-          visualId = String(result.HUDID || result.PK_ID || result.id);
+          visualId = String(result.LBWID || result.PK_ID || result.id);
         }
         
         if (visualId) {
@@ -1234,15 +1234,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           this.visualPhotos[key] = [];
           this.photoCountsByKey[key] = 0;
           
-          console.log('[ANSWER] ✅ Created visual with HUDID:', visualId);
+          console.log('[ANSWER] ✅ Created visual with LBWID:', visualId);
           console.log('[ANSWER] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
         } else {
-          console.error('[ANSWER] ❌ FAILED to extract HUDID from response!');
+          console.error('[ANSWER] ❌ FAILED to extract LBWID from response!');
         }
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
         console.log('[ANSWER] Updating existing visual:', visualId);
-        await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
+        await firstValueFrom(this.caspioService.updateServicesLBW(visualId, {
           Answers: item.answer || '',
           Notes: ''
         }));
@@ -1289,7 +1289,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // If all options are unchecked AND no "Other" value, hide the visual
       if ((!item.answer || item.answer === '') && (!item.otherValue || item.otherValue === '')) {
         if (visualId && !String(visualId).startsWith('temp_')) {
-          await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
+          await firstValueFrom(this.caspioService.updateServicesLBW(visualId, {
             Answers: '',
             Notes: 'HIDDEN'
           }));
@@ -1316,22 +1316,22 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
         console.log('[OPTION] Creating with data:', visualData);
 
-        const result = await firstValueFrom(this.caspioService.createServicesHUD(visualData));
+        const result = await firstValueFrom(this.caspioService.createServicesLBW(visualData));
         
         console.log('[OPTION] 🔍 RAW API RESPONSE:', result);
         console.log('[OPTION] 🔍 Response type:', typeof result);
         console.log('[OPTION] 🔍 Has Result property?', result && 'Result' in result);
         console.log('[OPTION] 🔍 result.Result:', result?.Result);
         
-        // Try multiple ways to extract the HUDID
+        // Try multiple ways to extract the LBWID
         if (result && result.Result && result.Result.length > 0) {
-          visualId = String(result.Result[0].HUDID || result.Result[0].PK_ID || result.Result[0].id);
+          visualId = String(result.Result[0].LBWID || result.Result[0].PK_ID || result.Result[0].id);
           console.log('[OPTION] 🔍 Extracted visualId from result.Result[0]:', visualId);
         } else if (result && Array.isArray(result) && result.length > 0) {
-          visualId = String(result[0].HUDID || result[0].PK_ID || result[0].id);
+          visualId = String(result[0].LBWID || result[0].PK_ID || result[0].id);
           console.log('[OPTION] 🔍 Extracted visualId from result[0]:', visualId);
         } else if (result) {
-          visualId = String(result.HUDID || result.PK_ID || result.id);
+          visualId = String(result.LBWID || result.PK_ID || result.id);
           console.log('[OPTION] 🔍 Extracted visualId from result:', visualId);
         }
         
@@ -1343,17 +1343,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           this.visualPhotos[key] = [];
           this.photoCountsByKey[key] = 0;
           
-          console.log('[OPTION] ✅ Created visual with HUDID:', visualId);
+          console.log('[OPTION] ✅ Created visual with LBWID:', visualId);
           console.log('[OPTION] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
           console.log('[OPTION] ✅ Verification - can retrieve:', this.visualRecordIds[key]);
         } else {
-          console.error('[OPTION] ❌ FAILED to extract HUDID from response!');
+          console.error('[OPTION] ❌ FAILED to extract LBWID from response!');
         }
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual
         console.log('[OPTION] Updating existing visual:', visualId);
         const notesValue = item.otherValue || '';
-        await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
+        await firstValueFrom(this.caspioService.updateServicesLBW(visualId, {
           Answers: item.answer,
           Notes: notesValue
         }));
@@ -1733,7 +1733,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
   // Perform HUD photo upload (matches performVisualPhotoUpload from structural systems)
   private async performVisualPhotoUpload(
-    hudId: number,
+    LBWID: number,
     photo: File,
     key: string,
     isBatchUpload: boolean,
@@ -1743,12 +1743,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     caption: string
   ): Promise<string | null> {
     try {
-      console.log(`[HUD PHOTO UPLOAD] Starting upload for HUDID ${hudId}`);
+      console.log(`[HUD PHOTO UPLOAD] Starting upload for LBWID ${LBWID}`);
 
       // Upload photo using HUD service
-      const result = await this.hudData.uploadVisualPhoto(hudId, photo, caption);
+      const result = await this.hudData.uploadVisualPhoto(LBWID, photo, caption);
 
-      console.log(`[HUD PHOTO UPLOAD] Upload complete for HUDID ${hudId}`);
+      console.log(`[HUD PHOTO UPLOAD] Upload complete for LBWID ${LBWID}`);
       console.log(`[HUD PHOTO UPLOAD] Full result object:`, JSON.stringify(result, null, 2));
       console.log(`[HUD PHOTO UPLOAD] Result.Result:`, result.Result);
       console.log(`[HUD PHOTO UPLOAD] AttachID:`, result.AttachID || result.Result?.[0]?.AttachID);
@@ -1902,7 +1902,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
 
     // Update the HUD attach record
-    await firstValueFrom(this.caspioService.updateServicesHUDAttach(attachId, updateData));
+    await firstValueFrom(this.caspioService.updateServicesLBWAttach(attachId, updateData));
     console.log('[SAVE ANNOTATION] ✅ Annotations saved successfully');
 
     return attachId;
@@ -2390,25 +2390,25 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // Create the HUD record
       const response = await this.hudData.createVisual(hudData);
 
-      // Extract HUDID (handle both direct and Result wrapped formats)
+      // Extract LBWID (handle both direct and Result wrapped formats)
       let visualId: string | null = null;
 
-      if (response && response.HUDID) {
-        visualId = String(response.HUDID);
+      if (response && response.LBWID) {
+        visualId = String(response.LBWID);
       } else if (Array.isArray(response) && response.length > 0) {
-        visualId = String(response[0].HUDID || response[0].PK_ID || response[0].id || '');
+        visualId = String(response[0].LBWID || response[0].PK_ID || response[0].id || '');
       } else if (response && typeof response === 'object') {
         if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = String(response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id || '');
+          visualId = String(response.Result[0].LBWID || response.Result[0].PK_ID || response.Result[0].id || '');
         } else {
-          visualId = String(response.HUDID || response.PK_ID || response.id || '');
+          visualId = String(response.LBWID || response.PK_ID || response.id || '');
         }
       } else if (response) {
         visualId = String(response);
       }
 
       if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
-        throw new Error('No HUDID returned from server');
+        throw new Error('No LBWID returned from server');
       }
 
       console.log('[CREATE CUSTOM] Created HUD visual with ID:', visualId);
@@ -2442,7 +2442,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       this.visualRecordIds[key] = String(visualId);
       this.selectedItems[key] = true;
 
-      console.log('[CREATE CUSTOM] Stored HUDID:', key, '=', visualId);
+      console.log('[CREATE CUSTOM] Stored LBWID:', key, '=', visualId);
 
       // Upload photos if provided
       if (files && files.length > 0) {
@@ -2532,6 +2532,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 }
+
 
 
 

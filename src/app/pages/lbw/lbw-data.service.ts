@@ -71,7 +71,7 @@ export class LbwDataService {
     }
     
     const lbwRecords = await this.resolveWithCache(this.lbwCache, serviceId, () =>
-      firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId))
+      firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId))
     );
     console.log('[LBW Data] API returned LBW records:', lbwRecords.length, 'records');
     if (lbwRecords.length > 0) {
@@ -86,7 +86,7 @@ export class LbwDataService {
     }
     const key = String(lbwId);
     return this.resolveWithCache(this.lbwAttachmentsCache, key, () =>
-      firstValueFrom(this.caspioService.getServiceHUDAttachByHUDId(String(lbwId)))
+      firstValueFrom(this.caspioService.getServiceLBWAttachByLBWId(String(lbwId)))
     );
   }
 
@@ -140,7 +140,7 @@ export class LbwDataService {
     console.log('[LBW Photo] File:', file.name, 'Caption:', caption || '(empty)');
     
     const result = await firstValueFrom(
-      this.caspioService.createServicesHUDAttachWithFile(lbwId, caption, file, drawings, originalFile)
+      this.caspioService.createServicesLBWAttachWithFile(lbwId, caption, file, drawings, originalFile)
     );
 
     console.log('[LBW Photo] Upload complete! Raw result:', JSON.stringify(result, null, 2));
@@ -157,7 +157,7 @@ export class LbwDataService {
 
   async deleteVisualPhoto(attachId: string): Promise<any> {
     console.log('[LBW Photo] Deleting photo:', attachId);
-    const result = await firstValueFrom(this.caspioService.deleteServicesHUDAttach(attachId));
+    const result = await firstValueFrom(this.caspioService.deleteServicesLBWAttach(attachId));
 
     // Clear all attachment caches
     this.lbwAttachmentsCache.clear();
@@ -168,7 +168,7 @@ export class LbwDataService {
   async updateVisualPhotoCaption(attachId: string, caption: string): Promise<any> {
     console.log('[LBW Photo] Updating caption for AttachID:', attachId);
     const result = await firstValueFrom(
-      this.caspioService.updateServicesHUDAttach(attachId, { Annotation: caption })
+      this.caspioService.updateServicesLBWAttach(attachId, { Annotation: caption })
     );
 
     // Clear all attachment caches
@@ -181,7 +181,7 @@ export class LbwDataService {
   async createVisual(lbwData: any): Promise<any> {
     console.log('[LBW Data] Creating LBW record:', lbwData);
     const result = await firstValueFrom(
-      this.caspioService.createServicesHUD(lbwData)
+      this.caspioService.createServicesLBW(lbwData)
     );
 
     // Clear cache for this service
@@ -196,7 +196,7 @@ export class LbwDataService {
   async updateVisual(lbwId: string, updateData: any): Promise<any> {
     console.log('[LBW Data] Updating LBW record:', lbwId, 'Data:', updateData);
     const result = await firstValueFrom(
-      this.caspioService.updateServicesHUD(lbwId, updateData)
+      this.caspioService.updateServicesLBW(lbwId, updateData)
     );
 
     // Clear cache

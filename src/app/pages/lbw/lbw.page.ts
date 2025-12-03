@@ -223,7 +223,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     this.canvasCleanup.push(cleanup);
   }
   
-  // Categories from Services_HUD_Templates
+  // Categories from Services_LBW_Templates
   visualCategories: string[] = [];
   visualTemplates: any[] = [];
   expandedCategories: { [key: string]: boolean } = {};
@@ -242,7 +242,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
   // Track saving state for items
   savingItems: { [key: string]: boolean } = {};
   
-  // Track visual record IDs from Services_HUD table
+  // Track visual record IDs from Services_LBW table
   visualRecordIds: { [key: string]: string } = {};
   
   // Track photos for each visual
@@ -263,7 +263,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
   typeShort: string = 'HUD';
   typeFull: string = "HUD - Housing and Urban Development";
 
-  // Dropdown options for AnswerType 2 from Services_HUD_Drop
+  // Dropdown options for AnswerType 2 from Services_LBW_Drop
   visualDropdownOptions: { [templateId: string]: string[] } = {};
 
   // Form data for the template
@@ -678,16 +678,16 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     // Register CREATE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('CREATE_VISUAL', async (data: any) => {
       console.log('[OperationsQueue] Executing CREATE_VISUAL:', data.Name);
-      const response = await this.caspioService.createServicesHUD(data).toPromise();
+      const response = await this.caspioService.createServicesLBW(data).toPromise();
 
       if (!response) {
         throw new Error('No response from createServicesVisual');
       }
 
-      const visualId = response.HUDID || response.PK_ID || response.id;
+      const visualId = response.LBWID || response.PK_ID || response.id;
       if (!visualId) {
-        console.error('[OperationsQueue] No HUDID in response:', response);
-        throw new Error('HUDID not found in response');
+        console.error('[OperationsQueue] No LBWID in response:', response);
+        throw new Error('LBWID not found in response');
       }
 
       console.log('[OperationsQueue] Visual created successfully:', visualId);
@@ -698,7 +698,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     this.operationsQueue.setExecutor('UPDATE_VISUAL', async (data: any) => {
       console.log('[OperationsQueue] Executing UPDATE_VISUAL:', data.visualId);
       const { visualId, updateData } = data;
-      const response = await this.caspioService.updateServicesHUD(visualId, updateData).toPromise();
+      const response = await this.caspioService.updateServicesLBW(visualId, updateData).toPromise();
       console.log('[OperationsQueue] Visual updated successfully');
       return { response };
     });
@@ -706,7 +706,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     // Register DELETE_VISUAL executor (Structural Systems)
     this.operationsQueue.setExecutor('DELETE_VISUAL', async (data: any) => {
       console.log('[OperationsQueue] Executing DELETE_VISUAL:', data.visualId);
-      await this.caspioService.deleteServicesHUD(data.visualId).toPromise();
+      await this.caspioService.deleteServicesLBW(data.visualId).toPromise();
       console.log('[OperationsQueue] Visual deleted successfully');
       return { success: true };
     });
@@ -744,7 +744,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Upload the photo
       // Function signature: (visualId, annotation, file, drawings?, originalFile?)
-      const response = await this.caspioService.createServicesHUDAttachWithFile(
+      const response = await this.caspioService.createServicesLBWAttachWithFile(
         parseInt(data.visualId, 10),
         data.caption || '',
         compressedFile,
@@ -771,7 +771,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
       if (onProgress) onProgress(0.5); // 50% after compression
 
       // Upload photo to existing record
-      const response = await this.caspioService.updateServicesHUDAttachPhoto(
+      const response = await this.caspioService.updateServicesLBWAttachPhoto(
         data.attachId,
         compressedFile,
         data.originalFile
@@ -1412,10 +1412,10 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
   
   // Load FDF options from Services_EFE_Drop table
     
-  // Load dropdown options for visual templates from LPS_Services_HUD_Drop table
+  // Load dropdown options for visual templates from LPS_Services_LBW_Drop table
   async loadVisualDropdownOptions() {
     try {
-      const dropdownData = await this.caspioService.getServicesHUDDrop().toPromise();
+      const dropdownData = await this.caspioService.getServicesLBWDrop().toPromise();
       
       console.log('[Dropdown Options] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
@@ -1770,8 +1770,8 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
   // v1.4.65 compatibility - addElevationPoint alias
   async loadVisualCategories() {
     try {
-      // Get all HUD templates from LPS_Services_HUD_Templates table
-      const allTemplates = await this.caspioService.getServicesHUDTemplates().toPromise();
+      // Get all HUD templates from LPS_Services_LBW_Templates table
+      const allTemplates = await this.caspioService.getServicesLBWTemplates().toPromise();
 
       // Use all HUD templates (no TypeID filter needed - HUD has its own dedicated table)
       this.visualTemplates = allTemplates || [];
@@ -1875,7 +1875,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     // Load existing service data
     await this.loadServiceData();
     
-    // Load existing visual selections from Services_HUD table
+    // Load existing visual selections from Services_LBW table
     await this.loadExistingVisualSelections({ awaitPhotos: false });
     
     // TODO: Load existing template data from Service_EFE table
@@ -1917,10 +1917,10 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
             );
 
             if (matchingTemplate) {
-              // CRITICAL FIX: Use HUDID (unique record ID) for key to ensure each visual gets unique photos
-              const visualId = visual.HUDID || visual.PK_ID || visual.id;
+              // CRITICAL FIX: Use LBWID (unique record ID) for key to ensure each visual gets unique photos
+              const visualId = visual.LBWID || visual.PK_ID || visual.id;
               const key = visual.Category + "_" + visualId;
-              console.log('[Visual Load] Marking visual as selected:', key, 'HUDID:', visualId);
+              console.log('[Visual Load] Marking visual as selected:', key, 'LBWID:', visualId);
               this.selectedItems[key] = true;
               this.visualRecordIds[key] = String(visualId);
               console.log('[Visual Load] selectedItems state:', Object.keys(this.selectedItems).length, 'items selected');
@@ -2056,7 +2056,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
                   
                   // Add the new instance to the array
                   items.push(newItem);
-                  console.log(`[Visual Load] Created duplicate instance of template ${matchingTemplate.PK_ID} with HUDID ${visualId}`);
+                  console.log(`[Visual Load] Created duplicate instance of template ${matchingTemplate.PK_ID} with LBWID ${visualId}`);
                 }
               };
 
@@ -3650,15 +3650,15 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     let visualId: string | null = null;
 
     try {
-      const response = await this.caspioService.createServicesHUD(visualData).toPromise();
+      const response = await this.caspioService.createServicesLBW(visualData).toPromise();
 
       if (Array.isArray(response) && response.length > 0) {
-        visualId = String(response[0].HUDID || response[0].PK_ID || response[0].id || '');
+        visualId = String(response[0].LBWID || response[0].PK_ID || response[0].id || '');
       } else if (response && typeof response === 'object') {
         if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = String(response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id || '');
+          visualId = String(response.Result[0].LBWID || response.Result[0].PK_ID || response.Result[0].id || '');
         } else {
-          visualId = String(response.HUDID || response.PK_ID || response.id || '');
+          visualId = String(response.LBWID || response.PK_ID || response.id || '');
         }
       } else if (response) {
         visualId = String(response);
@@ -4062,13 +4062,13 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     try {
-      // Save or remove from Services_HUD table
+      // Save or remove from Services_LBW table
       if (this.selectedItems[key]) {
-        // Item was selected - save to Services_HUD
+        // Item was selected - save to Services_LBW
         await this.saveVisualSelection(category, itemId);
         // Success toast removed per user request
       } else {
-        // Item was deselected - remove from Services_HUD if exists
+        // Item was deselected - remove from Services_LBW if exists
         await this.removeVisualSelection(category, itemId);
       }
     } finally {
@@ -4554,7 +4554,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     await this.onMultiSelectChange(category, item);
   }
 
-  // Save visual selection to Services_HUD table
+  // Save visual selection to Services_LBW table
   async saveVisualSelection(category: string, templateId: string) {
     if (!this.serviceId) {
       console.error('No ServiceID available for saving visual');
@@ -4589,7 +4589,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
             v.Name === template.Name
           );
           if (exists) {
-            const existingId = exists.HUDID || exists.PK_ID || exists.id;
+            const existingId = exists.LBWID || exists.PK_ID || exists.id;
             this.visualRecordIds[key] = String(existingId);
             localStorage.setItem(recordKey, String(existingId));
             await this.processPendingPhotoUploadsForKey(key);
@@ -4690,7 +4690,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
   
-  // Remove visual selection from Services_HUD table
+  // Remove visual selection from Services_LBW table
   async removeVisualSelection(category: string, templateId: string) {
     // Check if we have a stored record ID
     const recordKey = `visual_${category}_${templateId}`;
@@ -4797,7 +4797,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
           <strong style="color: red;">ACTION TO TAKE:</strong><br>
           ${this.visualRecordIds[key] ? 
             'Ã¢Å“â€œ UPDATE existing record (VisualID: ' + this.visualRecordIds[key] + ')' : 
-            (answersText ? 'Ã¢Å¾â€¢ CREATE new Services_HUD record' : 'Ã¢Å¡Â Ã¯Â¸Â No action - no selections')}<br>
+            (answersText ? 'Ã¢Å¾â€¢ CREATE new Services_LBW record' : 'Ã¢Å¡Â Ã¯Â¸Â No action - no selections')}<br>
         </div>
       `,
       buttons: ['Continue'],
@@ -4817,7 +4817,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
           };
           
           try {
-            await this.caspioService.updateServicesHUD(existingVisualId, updateData).toPromise();
+            await this.caspioService.updateServicesLBW(existingVisualId, updateData).toPromise();
             
             // Show success debug
             const successAlert = await this.alertController.create({
@@ -4861,7 +4861,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
             header: 'CREATING NEW RECORD',
             message: `
               <div style="font-family: monospace; font-size: 12px;">
-                <strong style="color: blue;">Ã¢Å¾â€¢ CREATING Services_HUD</strong><br><br>
+                <strong style="color: blue;">Ã¢Å¾â€¢ CREATING Services_LBW</strong><br><br>
                 
                 <strong>Data to Send:</strong><br>
                 Ã¢â‚¬Â¢ ServiceID: ${this.serviceId}<br>
@@ -4903,7 +4903,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
           const updateData = {
             Answers: ''
           };
-          await this.caspioService.updateServicesHUD(existingVisualId, updateData).toPromise();
+          await this.caspioService.updateServicesLBW(existingVisualId, updateData).toPromise();
           
           const clearAlert = await this.alertController.create({
             header: 'CLEARED ANSWERS',
@@ -5011,7 +5011,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Radio buttons removed - Yes/No answer handled separately in UI
     } else if (item.answerType === 2) {
-      // Dropdown from Services_HUD_Drop
+      // Dropdown from Services_LBW_Drop
       const options = this.visualDropdownOptions[item.templateId] || [];
       if (options.length > 0) {
         // Add each option as a radio button
@@ -5515,7 +5515,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
       const visualIdNum = parseInt(actualVisualId, 10);
       
       if (isNaN(visualIdNum)) {
-        throw new Error(`Invalid HUDID: ${actualVisualId}`);
+        throw new Error(`Invalid LBWID: ${actualVisualId}`);
       }
 
       // Prepare debug information
@@ -5525,9 +5525,9 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Prepare the data that will be sent
       const dataToSend = {
-        table: 'Services_HUD_Attach',
+        table: 'Services_LBW_Attach',
         fields: {
-          HUDID: visualIdNum,
+          LBWID: visualIdNum,
           Annotation: caption || '', // Use caption from photo editor
           Photo: `[File: ${uploadFile.name}]`
         },
@@ -5538,7 +5538,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
         },
         process: [
           '1. Upload file to Files API',
-          '2. Create record with HUDID and Annotation (without Photo)',
+          '2. Create record with LBWID and Annotation (without Photo)',
           '3. Update record with Photo field containing file path'
         ],
         debug: {
@@ -5558,7 +5558,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
 
       if (false && !isBatchUpload) {
         const alert = await this.alertController.create({
-          header: 'Services_HUD_Attach Upload Debug',
+          header: 'Services_LBW_Attach Upload Debug',
         message: `
           <div style="text-align: left; font-family: monospace; font-size: 12px;">
             <strong style="color: red;">Ã°Å¸â€Â DEBUG INFO:</strong><br>
@@ -5576,7 +5576,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
             <strong>Table:</strong> ${dataToSend.table}<br><br>
             
             <strong>Fields to Send:</strong><br>
-            Ã¢â‚¬Â¢ HUDID: <strong style="color: red;">${dataToSend.fields.HUDID}</strong> (Integer)<br>
+            Ã¢â‚¬Â¢ LBWID: <strong style="color: red;">${dataToSend.fields.LBWID}</strong> (Integer)<br>
             Ã¢â‚¬Â¢ Annotation: "${dataToSend.fields.Annotation}" (Text)<br>
             Ã¢â‚¬Â¢ Photo: Will store file path after upload<br><br>
             
@@ -5664,7 +5664,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
       // This ensures unique AttachID is assigned instantly
       let response;
       try {
-        response = await this.caspioService.createServicesHUDAttachRecord(
+        response = await this.caspioService.createServicesLBWAttachRecord(
           visualIdNum,
           caption || '',
           drawingsData
@@ -5687,7 +5687,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
         console.log(`[Fast Upload] Starting queued upload for AttachID: ${attachId}`);
 
         try {
-          const uploadResponse = await this.caspioService.updateServicesHUDAttachPhoto(
+          const uploadResponse = await this.caspioService.updateServicesLBWAttachPhoto(
             attachId,
             photo,
             originalPhoto || undefined
@@ -6058,25 +6058,25 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
       // Online mode - proceed with API call
       try {
         // Create the visual record using the EXACT same pattern as createVisualRecord (line 4742)
-        const response = await this.caspioService.createServicesHUD(visualData).toPromise();
+        const response = await this.caspioService.createServicesLBW(visualData).toPromise();
 
-        // Extract HUDID using the SAME logic as line 4744-4754
+        // Extract LBWID using the SAME logic as line 4744-4754
         let visualId: string | null = null;
 
         if (Array.isArray(response) && response.length > 0) {
-          visualId = String(response[0].HUDID || response[0].PK_ID || response[0].id || '');
+          visualId = String(response[0].LBWID || response[0].PK_ID || response[0].id || '');
         } else if (response && typeof response === 'object') {
           if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-            visualId = String(response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id || '');
+            visualId = String(response.Result[0].LBWID || response.Result[0].PK_ID || response.Result[0].id || '');
           } else {
-            visualId = String(response.HUDID || response.PK_ID || response.id || '');
+            visualId = String(response.LBWID || response.PK_ID || response.id || '');
           }
         } else if (response) {
           visualId = String(response);
         }
 
         if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
-          throw new Error('No HUDID returned from server');
+          throw new Error('No LBWID returned from server');
         }
         
         // Add to local data structure
@@ -6220,7 +6220,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
       await loading.present();
       
       try {
-        const response = await this.caspioService.createServicesHUD(visualData).toPromise();
+        const response = await this.caspioService.createServicesLBW(visualData).toPromise();
         
         // Show debug popup with the response
         const debugAlert = await this.alertController.create({
@@ -6235,7 +6235,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
               </div><br>
               
               <strong style="color: blue;">Key Fields:</strong><br>
-              Ã¢â‚¬Â¢ HUDID (PRIMARY): <strong style="color: green;">${response?.HUDID || 'NOT FOUND'}</strong><br>
+              Ã¢â‚¬Â¢ LBWID (PRIMARY): <strong style="color: green;">${response?.LBWID || 'NOT FOUND'}</strong><br>
               Ã¢â‚¬Â¢ PK_ID: ${response?.PK_ID || 'N/A'}<br>
               Ã¢â‚¬Â¢ ServiceID: ${response?.ServiceID || 'N/A'}<br>
               Ã¢â‚¬Â¢ Category: ${response?.Category || 'N/A'}<br>
@@ -6243,8 +6243,8 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
               Ã¢â‚¬Â¢ Name: ${response?.Name || 'N/A'}<br><br>
 
               <strong>Will be stored as:</strong><br>
-              Ã¢â‚¬Â¢ Key: ${category}_${response?.HUDID || response?.PK_ID || Date.now()}<br>
-              Ã¢â‚¬Â¢ HUDID for photos: <strong style="color: green;">${response?.HUDID || response?.PK_ID || 'MISSING!'}</strong>
+              Ã¢â‚¬Â¢ Key: ${category}_${response?.LBWID || response?.PK_ID || Date.now()}<br>
+              Ã¢â‚¬Â¢ LBWID for photos: <strong style="color: green;">${response?.LBWID || response?.PK_ID || 'MISSING!'}</strong>
             </div>
           `,
           cssClass: 'debug-alert-wide',
@@ -6264,8 +6264,8 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
         // Determine which array to add to based on kind
         const kindKey = kind.toLowerCase() + 's'; // comments, limitations, deficiencies
 
-        // Use HUDID from response, NOT PK_ID
-        const visualId = response?.HUDID || response?.PK_ID || Date.now().toString();
+        // Use LBWID from response, NOT PK_ID
+        const visualId = response?.LBWID || response?.PK_ID || Date.now().toString();
         const customItem = {
           id: visualId.toString(), // Convert to string for consistency
           name: name,
@@ -6281,9 +6281,9 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
           this.organizedData[category].deficiencies.push(customItem);
         }
 
-        // Store the visual ID for photo uploads - use HUDID from response!
+        // Store the visual ID for photo uploads - use LBWID from response!
         const key = `${category}_${customItem.id}`;
-        this.visualRecordIds[key] = String(response?.HUDID || response?.PK_ID || customItem.id);
+        this.visualRecordIds[key] = String(response?.LBWID || response?.PK_ID || customItem.id);
         
         // Mark as selected (use selectedItems, not selectedVisuals)
         this.selectedItems[key] = true;
@@ -6629,12 +6629,12 @@ Has Annotations: ${!!annotations}`;
             <strong>Original File:</strong> ${originalFile ? originalFile.name : 'None'}<br><br>
             
             <strong>API Call:</strong><br>
-            Ã¢â‚¬Â¢ Table: Services_HUD_Attach<br>
+            Ã¢â‚¬Â¢ Table: Services_LBW_Attach<br>
             Ã¢â‚¬Â¢ Method: PUT (update)<br>
             Ã¢â‚¬Â¢ Where: AttachID=${attachId}<br><br>
             
             <strong style="color: orange;">What happens next:</strong><br>
-            1. Update Services_HUD_Attach.Drawings field<br>
+            1. Update Services_LBW_Attach.Drawings field<br>
             2. Photo field remains unchanged (keeps original)<br>
             3. Annotations stored as JSON for re-editing<br>
           </div>
@@ -7480,7 +7480,7 @@ Stack: ${error?.stack}`;
     // Capture point photo from gallery
     // Helper method to select and process gallery photo for elevation point
     
-  // Save caption to the Annotation field in Services_HUD_Attach table
+  // Save caption to the Annotation field in Services_LBW_Attach table
   async saveCaption(photo: any, category: string, itemId: string) {
     try {
       // Only save if there's an AttachID and the caption has changed
@@ -7489,12 +7489,12 @@ Stack: ${error?.stack}`;
         return;
       }
 
-      // Update the Services_HUD_Attach record with the new caption
+      // Update the Services_LBW_Attach record with the new caption
       const updateData = {
         Annotation: photo.caption || ''  // Save caption or empty string
       };
 
-      await this.caspioService.updateServicesHUDAttach(photo.AttachID, updateData).toPromise();
+      await this.caspioService.updateServicesLBWAttach(photo.AttachID, updateData).toPromise();
 
       // CRITICAL: Update Annotation field locally to match what was saved
       photo.Annotation = photo.caption || '';
@@ -7692,20 +7692,20 @@ Stack: ${error?.stack}`;
       extractedId = 'Will generate temp ID';
     } else if (Array.isArray(response) && response.length > 0) {
       responseType = 'Array Response';
-      visualIdFromResponse = response[0].HUDID || 'Not found';
+      visualIdFromResponse = response[0].LBWID || 'Not found';
       pkId = response[0].PK_ID || 'Not found';
-      extractedId = response[0].HUDID || response[0].PK_ID || response[0].id || 'Not found in array';
+      extractedId = response[0].LBWID || response[0].PK_ID || response[0].id || 'Not found in array';
     } else if (response && typeof response === 'object') {
       if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
         responseType = 'Object with Result array';
-        visualIdFromResponse = response.Result[0].HUDID || 'Not found';
+        visualIdFromResponse = response.Result[0].LBWID || 'Not found';
         pkId = response.Result[0].PK_ID || 'Not found';
-        extractedId = response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id || 'Not found in Result';
+        extractedId = response.Result[0].LBWID || response.Result[0].PK_ID || response.Result[0].id || 'Not found in Result';
       } else {
         responseType = 'Direct Object';
-        visualIdFromResponse = response.HUDID || 'Not found';
+        visualIdFromResponse = response.LBWID || 'Not found';
         pkId = response.PK_ID || 'Not found';
-        extractedId = response.HUDID || response.PK_ID || response.id || 'Not found in object';
+        extractedId = response.LBWID || response.PK_ID || response.id || 'Not found in object';
       }
     } else {
       responseType = 'Direct ID';
@@ -7718,7 +7718,7 @@ Stack: ${error?.stack}`;
       const visuals = await this.hudData.getVisualsByService(this.serviceId);
       if (visuals && Array.isArray(visuals)) {
         existingVisuals = visuals.map(v => ({
-          id: v.HUDID || v.PK_ID || v.id,
+          id: v.LBWID || v.PK_ID || v.id,
           name: v.Name,
           category: v.Category
         }));
@@ -7786,7 +7786,7 @@ Stack: ${error?.stack}`;
         );
         
         if (ourVisual) {
-          const visualId = ourVisual.HUDID || ourVisual.PK_ID || ourVisual.id;
+          const visualId = ourVisual.LBWID || ourVisual.PK_ID || ourVisual.id;
           const recordKey = `visual_${category}_${templateId}`;
           localStorage.setItem(recordKey, String(visualId));
           this.visualRecordIds[`${category}_${templateId}`] = String(visualId);
@@ -8450,20 +8450,20 @@ Stack: ${error?.stack}`;
       
       // Process comments from database
       for (const visual of categoryData.comments) {
-        const hudId = visual.HUDID || visual.PK_ID;
+        const LBWID = visual.LBWID || visual.PK_ID;
         const displayText = visual.Text || '';
         const answers = visual.Answers || '';
         
-        console.log('[PDF] Processing Comment:', visual.Name, 'HUDID:', hudId);
+        console.log('[PDF] Processing Comment:', visual.Name, 'LBWID:', LBWID);
         
-        photoFetches.push(this.getVisualPhotos(hudId, category, hudId));
+        photoFetches.push(this.getVisualPhotos(LBWID, category, LBWID));
         photoMappings.push({
           type: 'comments',
           item: {
             name: visual.Name || '',
             text: displayText,
             answers: answers,
-            visualId: hudId
+            visualId: LBWID
           },
           index: photoFetches.length - 1
         });
@@ -8471,20 +8471,20 @@ Stack: ${error?.stack}`;
       
       // Process limitations from database
       for (const visual of categoryData.limitations) {
-        const hudId = visual.HUDID || visual.PK_ID;
+        const LBWID = visual.LBWID || visual.PK_ID;
         const displayText = visual.Text || '';
         const answers = visual.Answers || '';
         
-        console.log('[PDF] Processing Limitation:', visual.Name, 'HUDID:', hudId);
+        console.log('[PDF] Processing Limitation:', visual.Name, 'LBWID:', LBWID);
         
-        photoFetches.push(this.getVisualPhotos(hudId, category, hudId));
+        photoFetches.push(this.getVisualPhotos(LBWID, category, LBWID));
         photoMappings.push({
           type: 'limitations',
           item: {
             name: visual.Name || '',
             text: displayText,
             answers: answers,
-            visualId: hudId
+            visualId: LBWID
           },
           index: photoFetches.length - 1
         });
@@ -8492,20 +8492,20 @@ Stack: ${error?.stack}`;
       
       // Process deficiencies from database
       for (const visual of categoryData.deficiencies) {
-        const hudId = visual.HUDID || visual.PK_ID;
+        const LBWID = visual.LBWID || visual.PK_ID;
         const displayText = visual.Text || '';
         const answers = visual.Answers || '';
         
-        console.log('[PDF] Processing Deficiency:', visual.Name, 'HUDID:', hudId);
+        console.log('[PDF] Processing Deficiency:', visual.Name, 'LBWID:', LBWID);
         
-        photoFetches.push(this.getVisualPhotos(hudId, category, hudId));
+        photoFetches.push(this.getVisualPhotos(LBWID, category, LBWID));
         photoMappings.push({
           type: 'deficiencies',
           item: {
             name: visual.Name || '',
             text: displayText,
             answers: answers,
-            visualId: hudId
+            visualId: LBWID
           },
           index: photoFetches.length - 1
         });
@@ -8854,7 +8854,7 @@ Stack: ${error?.stack}`;
     async fetchAllVisualsFromDatabase() {
     try {
       
-      // Fetch all Services_HUD records for this service
+      // Fetch all Services_LBW records for this service
       const visuals = await this.hudData.getVisualsByService(this.serviceId);
       
       // Check if visuals is defined and is an array
@@ -8867,13 +8867,13 @@ Stack: ${error?.stack}`;
       
       // Fetch all attachments in parallel for better performance
       const attachmentPromises = visuals
-        .filter(visual => visual.HUDID)
+        .filter(visual => visual.LBWID)
         .map(visual =>
-          this.hudData.getVisualAttachments(visual.HUDID)
-            .then(attachments => ({ visualId: visual.HUDID, attachments }))
+          this.hudData.getVisualAttachments(visual.LBWID)
+            .then(attachments => ({ visualId: visual.LBWID, attachments }))
             .catch(error => {
-              console.error(`Error fetching attachments for visual ${visual.HUDID}:`, error);
-              return { visualId: visual.HUDID, attachments: [] };
+              console.error(`Error fetching attachments for visual ${visual.LBWID}:`, error);
+              return { visualId: visual.LBWID, attachments: [] };
             })
         );
       
@@ -8919,7 +8919,7 @@ Stack: ${error?.stack}`;
       
       // Also update visuals in organized data if needed
       for (const visual of visuals) {
-        if (visual.HUDID) {
+        if (visual.LBWID) {
           this.updateVisualInOrganizedData(visual);
         }
       }
@@ -8945,7 +8945,7 @@ Stack: ${error?.stack}`;
     let found = false;
 
     if (kind === 'comment' && this.organizedData[category].comments) {
-      const existing = this.organizedData[category].comments.find((c: any) => c.HUDID === visual.HUDID);
+      const existing = this.organizedData[category].comments.find((c: any) => c.LBWID === visual.LBWID);
       if (existing) {
         // Update with database values
         existing.Text = visual.Text || existing.Text;
@@ -8953,14 +8953,14 @@ Stack: ${error?.stack}`;
         found = true;
       }
     } else if (kind === 'limitation' && this.organizedData[category].limitations) {
-      const existing = this.organizedData[category].limitations.find((l: any) => l.HUDID === visual.HUDID);
+      const existing = this.organizedData[category].limitations.find((l: any) => l.LBWID === visual.LBWID);
       if (existing) {
         existing.Text = visual.Text || existing.Text;
         existing.Notes = visual.Notes || existing.Notes;
         found = true;
       }
     } else if (kind === 'deficiency' && this.organizedData[category].deficiencies) {
-      const existing = this.organizedData[category].deficiencies.find((d: any) => d.HUDID === visual.HUDID);
+      const existing = this.organizedData[category].deficiencies.find((d: any) => d.LBWID === visual.LBWID);
       if (existing) {
         existing.Text = visual.Text || existing.Text;
         existing.Notes = visual.Notes || existing.Notes;
@@ -8969,14 +8969,15 @@ Stack: ${error?.stack}`;
     }
 
     // If not found in organized data but exists in database, mark it as selected
-    if (!found && visual.HUDID) {
-      const key = `${category}-${kind}-${visual.HUDID}`;
+    if (!found && visual.LBWID) {
+      const key = `${category}-${kind}-${visual.LBWID}`;
       if (this.selectedItems) {
         this.selectedItems[key] = true;
       }
     }
   }
 }
+
 
 
 

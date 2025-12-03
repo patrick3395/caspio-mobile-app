@@ -451,19 +451,19 @@ export class LbwPdfService {
       // Process comments
       if (categoryData.comments) {
         for (const comment of categoryData.comments) {
-          const hudId = comment.HUDID || comment.PK_ID;
+          const LBWID = comment.LBWID || comment.PK_ID;
 
           let displayText = comment.Text || comment.VisualText || '';
           let answers = comment.Answers || '';
 
-          photoFetches.push(this.getHUDPhotos(hudId, fabric));
+          photoFetches.push(this.getHUDPhotos(LBWID, fabric));
           photoMappings.push({
             type: 'comments',
             item: {
               name: comment.Name || comment.VisualName || '',
               text: displayText,
               answers: answers,
-              visualId: hudId
+              visualId: LBWID
             },
             index: photoFetches.length - 1
           });
@@ -473,19 +473,19 @@ export class LbwPdfService {
       // Process limitations
       if (categoryData.limitations) {
         for (const limitation of categoryData.limitations) {
-          const hudId = limitation.HUDID || limitation.PK_ID;
+          const LBWID = limitation.LBWID || limitation.PK_ID;
 
           let displayText = limitation.Text || limitation.VisualText || '';
           let answers = limitation.Answers || '';
 
-          photoFetches.push(this.getHUDPhotos(hudId, fabric));
+          photoFetches.push(this.getHUDPhotos(LBWID, fabric));
           photoMappings.push({
             type: 'limitations',
             item: {
               name: limitation.Name || limitation.VisualName || '',
               text: displayText,
               answers: answers,
-              visualId: hudId
+              visualId: LBWID
             },
             index: photoFetches.length - 1
           });
@@ -495,19 +495,19 @@ export class LbwPdfService {
       // Process deficiencies
       if (categoryData.deficiencies) {
         for (const deficiency of categoryData.deficiencies) {
-          const hudId = deficiency.HUDID || deficiency.PK_ID;
+          const LBWID = deficiency.LBWID || deficiency.PK_ID;
 
           let displayText = deficiency.Text || deficiency.VisualText || '';
           let answers = deficiency.Answers || '';
 
-          photoFetches.push(this.getHUDPhotos(hudId, fabric));
+          photoFetches.push(this.getHUDPhotos(LBWID, fabric));
           photoMappings.push({
             type: 'deficiencies',
             item: {
               name: deficiency.Name || deficiency.VisualName || '',
               text: displayText,
               answers: answers,
-              visualId: hudId
+              visualId: LBWID
             },
             index: photoFetches.length - 1
           });
@@ -550,9 +550,9 @@ export class LbwPdfService {
   /**
    * Get photos for a HUD item with annotation rendering
    */
-  private async getHUDPhotos(hudId: string, fabric: any): Promise<any[]> {
+  private async getHUDPhotos(LBWID: string, fabric: any): Promise<any[]> {
     try {
-      const attachments = await this.lbwData.getVisualAttachments(hudId);
+      const attachments = await this.lbwData.getVisualAttachments(LBWID);
       const photos = [];
 
       for (const attachment of (attachments || [])) {
@@ -696,4 +696,5 @@ export class LbwPdfService {
     return this.isPDFGenerating;
   }
 }
+
 
