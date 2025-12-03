@@ -133,13 +133,16 @@ export class DteContainerPage implements OnInit {
 
     // Check if we're on a category detail page
     if (url.includes('/category/')) {
+      // Navigate to categories list page
+      this.router.navigate(['/dte', this.projectId, this.serviceId, 'categories']);
+    } else if (url.includes('/categories')) {
       // Navigate to DTE main page
       this.router.navigate(['/dte', this.projectId, this.serviceId]);
     } else if (url.includes('/project-details')) {
       // Navigate to DTE main page
       this.router.navigate(['/dte', this.projectId, this.serviceId]);
     } else {
-      // We're on the main HUD page, navigate to project detail
+      // We're on the main DTE page, navigate to project detail
       this.navigateToHome();
     }
   }
