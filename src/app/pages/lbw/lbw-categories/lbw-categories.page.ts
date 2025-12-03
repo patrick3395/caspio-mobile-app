@@ -52,25 +52,31 @@ export class LbwCategoriesPage implements OnInit {
       console.log('[LBW Categories] Loading categories from LPS_Services_LBW_Templates...');
       const templates = await this.caspioService.getServicesLBWTemplates().toPromise();
       
-      // Extract unique categories and count items
-      const categoryMap = new Map<string, number>();
+      // Extract unique categories in order they appear (preserve database order)
+      const categoriesSet = new Set<string>();
+      const categoriesOrder: string[] = [];
+      const categoryCounts = new Map<string, number>();
+      
       (templates || []).forEach((template: any) => {
+        if (template.Category && !categoriesSet.has(template.Category)) {
+          categoriesSet.add(template.Category);
+          categoriesOrder.push(template.Category);
+        }
+        // Count items per category
         if (template.Category) {
-          const count = categoryMap.get(template.Category) || 0;
-          categoryMap.set(template.Category, count + 1);
+          const count = categoryCounts.get(template.Category) || 0;
+          categoryCounts.set(template.Category, count + 1);
         }
       });
 
-      // Create category cards
-      this.categories = Array.from(categoryMap.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([title, count]) => ({
-          title,
-          icon: 'construct-outline',
-          count
-        }));
+      // Create category cards in database order (not alphabetically sorted)
+      this.categories = categoriesOrder.map(title => ({
+        title,
+        icon: 'construct-outline',
+        count: categoryCounts.get(title) || 0
+      }));
 
-      console.log('[LBW Categories] Loaded categories:', this.categories);
+      console.log('[LBW Categories] Loaded categories in order:', this.categories);
     } catch (error) {
       console.error('[LBW Categories] Error loading categories:', error);
     }

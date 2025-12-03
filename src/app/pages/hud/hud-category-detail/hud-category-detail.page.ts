@@ -312,6 +312,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
       console.log(`[HUD CATEGORY] Found ${hudTemplates.length} templates for category:`, this.categoryName);
 
+      // CRITICAL: Sort templates by OrderID to ensure correct display order
+      hudTemplates.sort((a: any, b: any) => {
+        const orderA = a.OrderID || 0;
+        const orderB = b.OrderID || 0;
+        return orderA - orderB;
+      });
+
+      console.log('[HUD CATEGORY] Templates sorted by OrderID:', hudTemplates.map((t: any) => `${t.Name} (${t.OrderID || 0})`));
+
       // Organize templates by Kind (Type field in HUD is called "Kind")
       hudTemplates.forEach((template: any) => {
         // Log the Kind value to debug
