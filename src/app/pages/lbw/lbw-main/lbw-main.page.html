@@ -1,0 +1,51 @@
+<div class="main-container">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading...</p>
+  </div>
+
+  <!-- Navigation Cards (Main View) -->
+  <div *ngIf="!loading" class="white-container">
+    <div class="cards-container">
+      <ion-card
+        *ngFor="let card of cards"
+        class="navigation-card"
+        [class.completed]="card.completed"
+        button="true"
+        (click)="navigateTo(card)">
+        <ion-card-header>
+          <div class="card-header-content">
+            <div class="icon-container">
+              <ion-icon [name]="card.icon"></ion-icon>
+            </div>
+            <div class="title-container">
+              <ion-card-title>{{ card.title }}</ion-card-title>
+              <p class="card-description" *ngIf="card.description">{{ card.description }}</p>
+              <ion-badge *ngIf="card.completed" color="success">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                Complete
+              </ion-badge>
+            </div>
+          </div>
+        </ion-card-header>
+      </ion-card>
+    </div>
+  </div>
+
+  <!-- Footer with Finalize Button -->
+  <div *ngIf="!loading" class="footer-section">
+    <ion-button
+      expand="block"
+      size="large"
+      [disabled]="!canFinalize()"
+      (click)="finalizeReport()">
+      <ion-icon slot="start" name="checkmark-done-outline"></ion-icon>
+      Finalize Report
+    </ion-button>
+    <p class="footer-note" *ngIf="!canFinalize()">
+      Complete all sections to finalize your report
+    </p>
+  </div>
+</div>
+

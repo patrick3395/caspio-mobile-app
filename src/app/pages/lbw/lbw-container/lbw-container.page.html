@@ -1,0 +1,39 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon slot="icon-only" name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title class="full-title">{{ currentPageTitle }}</ion-title>
+    <ion-title class="short-title">{{ currentPageShortTitle }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="generatePDF()" [disabled]="isGeneratingPDF">
+        <ion-icon slot="icon-only" name="document-text"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Child pages will be rendered here -->
+  <router-outlet></router-outlet>
+</ion-content>
+
+<ion-footer class="breadcrumb-footer">
+  <ion-toolbar>
+    <div class="breadcrumb-container">
+      <div class="breadcrumb-item" (click)="navigateToHome()">
+        <ion-icon name="home"></ion-icon>
+      </div>
+      <ng-container *ngFor="let crumb of breadcrumbs; let last = last">
+        <ion-icon name="chevron-forward-outline" class="breadcrumb-arrow"></ion-icon>
+        <div class="breadcrumb-item" [class.active]="last" (click)="navigateToCrumb(crumb)">
+          <ion-icon *ngIf="crumb.icon" [name]="crumb.icon" class="breadcrumb-icon-mobile"></ion-icon>
+          <span class="breadcrumb-text-desktop">{{ crumb.label }}</span>
+        </div>
+      </ng-container>
+    </div>
+  </ion-toolbar>
+</ion-footer>
+
