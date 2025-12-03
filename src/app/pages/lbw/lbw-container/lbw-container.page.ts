@@ -70,7 +70,7 @@ export class LbwContainerPage implements OnInit {
 
     // Reset to default title
     this.currentPageTitle = 'LBW/Load Bearing Wall';
-    this.currentPageShortTitle = ''LBW';
+    this.currentPageShortTitle = 'LBW';
 
     // Parse URL to build breadcrumbs and set page title
     // URL format: /lbw/{projectId}/{serviceId}/...
@@ -121,9 +121,9 @@ export class LbwContainerPage implements OnInit {
   navigateToCrumb(crumb: Breadcrumb) {
     // If path is empty, navigate to LBW main page
     if (!crumb.path || crumb.path === '') {
-      this.router.navigate(['/'LBW', this.projectId, this.serviceId]);
+      this.router.navigate(['/lbw', this.projectId, this.serviceId]);
     } else {
-      this.router.navigate(['/'LBW', this.projectId, this.serviceId, crumb.path]);
+      this.router.navigate(['/lbw', this.projectId, this.serviceId, crumb.path]);
     }
   }
 
@@ -134,12 +134,12 @@ export class LbwContainerPage implements OnInit {
     // Check if we're on a category detail page
     if (url.includes('/category/')) {
       // Navigate to LBW main page
-      this.router.navigate(['/'LBW', this.projectId, this.serviceId]);
+      this.router.navigate(['/lbw', this.projectId, this.serviceId]);
     } else if (url.includes('/project-details')) {
       // Navigate to LBW main page
-      this.router.navigate(['/'LBW', this.projectId, this.serviceId]);
+      this.router.navigate(['/lbw', this.projectId, this.serviceId]);
     } else {
-      // We're on the main HUD page, navigate to project detail
+      // We're on the main LBW page, navigate to project detail
       this.navigateToHome();
     }
   }

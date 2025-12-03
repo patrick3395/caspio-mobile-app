@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { LbwStateService, HudProjectData } from '..\/services\/lbw-state.service';
+import { LbwStateService, LbwProjectData } from '../services/lbw-state.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { OfflineService } from '../../../services/offline.service';
 
@@ -777,5 +777,6 @@ export class LbwProjectDetailsPage implements OnInit {
     await toast.present();
   }
 }
+
 
 
