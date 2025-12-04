@@ -29,6 +29,9 @@ export class LbwMainPage implements OnInit {
   serviceId: string = '';
   loading: boolean = true;
   canFinalize: boolean = false;
+  statusOptions: any[] = [];
+  isReportFinalized: boolean = false;
+  hasChangesAfterFinalization: boolean = false;
 
   constructor(
     private router: Router,
@@ -42,6 +45,9 @@ export class LbwMainPage implements OnInit {
   ) {}
 
   async ngOnInit() {
+    // Load status options from Status table
+    await this.loadStatusOptions();
+    
     // Get IDs from parent route (container level)
     // Route structure: lbw/:projectId/:serviceId -> (main hub is here)
     this.route.parent?.params.subscribe(async params => {
@@ -75,6 +81,9 @@ export class LbwMainPage implements OnInit {
         }
       ];
       
+      // Check if report is already finalized
+      await this.checkIfFinalized();
+      
       // Check if report can be finalized (for button styling)
       await this.checkCanFinalize();
       this.loading = false;
@@ -84,8 +93,51 @@ export class LbwMainPage implements OnInit {
   async ionViewWillEnter() {
     // Refresh finalization status when returning to this page
     if (this.projectId && this.serviceId) {
+      // Mark that changes may have been made
+      if (this.isReportFinalized) {
+        this.hasChangesAfterFinalization = true;
+        console.log('[LBW Main] Marked changes after finalization');
+      }
       await this.checkCanFinalize();
     }
+  }
+
+  private async checkIfFinalized() {
+    if (!this.serviceId) return;
+    
+    try {
+      const serviceData = await this.caspioService.getServiceById(this.serviceId).toPromise();
+      const status = serviceData?.Status || '';
+      
+      this.isReportFinalized = status === 'Finalized' || 
+                                status === 'Report Finalized' || 
+                                status === 'Updated' || 
+                                status === 'Under Review';
+      
+      console.log('[LBW Main] Report finalized status:', this.isReportFinalized, 'Status:', status);
+    } catch (error) {
+      console.error('[LBW Main] Error checking finalized status:', error);
+    }
+  }
+
+  async loadStatusOptions() {
+    try {
+      const statusData = await this.caspioService.get('/tables/LPS_Status/records').toPromise();
+      this.statusOptions = statusData?.Result || [];
+      console.log('[LBW Main] Loaded status options:', this.statusOptions.length);
+    } catch (error) {
+      console.error('[LBW Main] Error loading status options:', error);
+    }
+  }
+
+  getStatusAdminByClient(statusClient: string): string {
+    const statusRecord = this.statusOptions.find(s => s.Status_Client === statusClient);
+    if (statusRecord && statusRecord.Status_Admin) {
+      console.log(`[LBW Main] Status mapping: "${statusClient}" -> "${statusRecord.Status_Admin}"`);
+      return statusRecord.Status_Admin;
+    }
+    console.warn(`[LBW Main] Status_Admin not found for "${statusClient}", using fallback`);
+    return statusClient;
   }
 
   private async checkCanFinalize() {
@@ -99,8 +151,16 @@ export class LbwMainPage implements OnInit {
         this.projectId,
         this.serviceId
       );
-      this.canFinalize = validationResult.isComplete;
-      console.log('[LBW Main] Can finalize:', this.canFinalize);
+      
+      // If report is finalized, only enable if changes have been made
+      if (this.isReportFinalized) {
+        this.canFinalize = this.hasChangesAfterFinalization && validationResult.isComplete;
+        console.log('[LBW Main] Report finalized. Has changes:', this.hasChangesAfterFinalization, 'Can update:', this.canFinalize);
+      } else {
+        // For initial finalization, enable if all fields complete
+        this.canFinalize = validationResult.isComplete;
+        console.log('[LBW Main] Can finalize:', this.canFinalize);
+      }
     } catch (error) {
       console.error('[LBW Main] Error checking finalize status:', error);
       this.canFinalize = false;
@@ -118,6 +178,19 @@ export class LbwMainPage implements OnInit {
 
   async finalizeReport() {
     console.log('[LBW Main] Starting finalization validation...');
+    console.log('[LBW Main] Is finalized:', this.isReportFinalized, 'Has changes:', this.hasChangesAfterFinalization);
+    
+    // If report is finalized but no changes made, show message
+    if (this.isReportFinalized && !this.hasChangesAfterFinalization) {
+      const alert = await this.alertController.create({
+        header: 'No Changes to Update',
+        message: 'There are no changes to update. Make changes to the report to enable the Update button.',
+        cssClass: 'custom-document-alert',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
     
     // Show loading
     const loading = await this.loadingController.create({
@@ -152,15 +225,22 @@ export class LbwMainPage implements OnInit {
         console.log('[LBW Main] Alert shown with', validationResult.incompleteFields.length, 'missing fields');
       } else {
         // All fields complete - show confirmation dialog
+        const isUpdate = this.isReportFinalized;
+        const buttonText = isUpdate ? 'Update' : 'Finalize';
+        const headerText = isUpdate ? 'Report Ready to Update' : 'Report Complete';
+        const messageText = isUpdate
+          ? 'All required fields have been completed. Your report is ready to be updated.'
+          : 'All required fields have been completed. Ready to finalize?';
+        
         console.log('[LBW Main] All fields complete, showing confirmation');
         const alert = await this.alertController.create({
-          header: 'Report Complete',
-          message: 'All required fields have been completed. Ready to finalize?',
+          header: headerText,
+          message: messageText,
           cssClass: 'custom-document-alert',
           buttons: [
             { text: 'Cancel', role: 'cancel' },
             { 
-              text: 'Finalize', 
+              text: buttonText, 
               handler: () => this.markReportAsFinalized() 
             }
           ]
@@ -181,21 +261,29 @@ export class LbwMainPage implements OnInit {
 
 
   async markReportAsFinalized() {
+    const isUpdate = this.isReportFinalized;
+    
     const loading = await this.loadingController.create({
-      message: 'Finalizing report...'
+      message: isUpdate ? 'Updating report...' : 'Finalizing report...'
     });
     await loading.present();
 
     try {
       // Update the Services table
       const currentDateTime = new Date().toISOString();
+      
+      // Get appropriate StatusAdmin value from Status table
+      const statusClientValue = isUpdate ? 'Updated' : 'Finalized';
+      const statusAdminValue = this.getStatusAdminByClient(statusClientValue);
+      
       const updateData = {
         StatusDateTime: currentDateTime,
-        Status: 'Finalized'
+        Status: statusAdminValue  // Use StatusAdmin value from Status table
       };
 
       console.log('[LBW Main] Updating service status:', updateData);
-      await this.caspioService.updateService(this.serviceId, updateData).toPromise();
+      const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
+      console.log('[LBW Main] Update response:', response);
 
       // Clear caches
       console.log('[LBW Main] Clearing caches for project:', this.projectId);
@@ -203,12 +291,17 @@ export class LbwMainPage implements OnInit {
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
 
+      // Reset change tracking
+      this.hasChangesAfterFinalization = false;
+      this.isReportFinalized = true;
+
       await loading.dismiss();
 
       // Show success message
+      const successMessage = isUpdate ? 'Your report has been successfully updated.' : 'Your report has been successfully finalized.';
       const alert = await this.alertController.create({
-        header: 'Report Finalized',
-        message: 'Your report has been successfully finalized.',
+        header: isUpdate ? 'Report Updated' : 'Report Finalized',
+        message: successMessage,
         buttons: [{
           text: 'OK',
           handler: () => {
