@@ -129,17 +129,17 @@ export class HudMainPage implements OnInit {
       await loading.dismiss();
 
       if (validationResult.incompleteFields.length > 0) {
-        // Show popup with missing fields - each on its own line using <br> tags
+        // Show popup with missing fields - each on its own line
         const fieldsList = validationResult.incompleteFields
           .map(field => field.label)
-          .join('<br><br>');
+          .join('\n\n');
         
-        const message = `Please complete the following required fields:<br><br>${fieldsList}`;
+        const message = `Please complete the following required fields:\n\n${fieldsList}`;
         
         const alert = await this.alertController.create({
           header: 'Incomplete Required Fields',
           message: message,
-          cssClass: 'custom-document-alert',
+          cssClass: 'custom-document-alert incomplete-fields-alert',
           buttons: ['OK']
         });
         await alert.present();

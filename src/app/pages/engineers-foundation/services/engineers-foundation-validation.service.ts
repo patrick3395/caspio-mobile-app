@@ -94,13 +94,13 @@ export class EngineersFoundationValidationService {
         }
       });
 
-      // Required service fields
+      // Required service fields (use actual database column names)
       const requiredServiceFields = {
         'InAttendance': 'In Attendance',
         'OccupancyFurnishings': 'Occupancy/Furnishings',
         'WeatherConditions': 'Weather Conditions',
         'OutdoorTemperature': 'Outdoor Temperature',
-        'StructuralSystemsStatus': 'Structural Systems Status'
+        'StructStat': 'Structural Systems Status'  // Database column is StructStat, not StructuralSystemsStatus
       };
 
       Object.entries(requiredServiceFields).forEach(([field, label]) => {
@@ -132,7 +132,8 @@ export class EngineersFoundationValidationService {
     try {
       // First check if structural systems should be validated
       const serviceData = await this.caspioService.getServiceById(serviceId).toPromise();
-      const skipStructuralSystems = serviceData.StructuralSystemsStatus === 'Provided in Property Inspection Report';
+      // Database field is StructStat, not StructuralSystemsStatus
+      const skipStructuralSystems = serviceData?.StructStat === 'Provided in Property Inspection Report';
 
       if (skipStructuralSystems) {
         console.log('[EngFoundation Validation] Skipping structural systems validation');
