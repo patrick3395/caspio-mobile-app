@@ -129,8 +129,12 @@ export class DteMainPage implements OnInit {
       await loading.dismiss();
 
       if (validationResult.incompleteFields.length > 0) {
-        // Show popup with missing fields organized by page/section
-        const message = this.formatIncompleteFieldsMessage(validationResult.incompleteFields);
+        // Show popup with missing fields - each on its own line
+        const fieldsList = validationResult.incompleteFields
+          .map(field => `<div style="padding: 4px 0;">${field.label}</div>`)
+          .join('');
+        
+        const message = `<div style="text-align: left;">Please complete the following required fields:</div><div style="margin-top: 12px;">${fieldsList}</div>`;
         
         const alert = await this.alertController.create({
           header: 'Incomplete Required Fields',
@@ -139,7 +143,7 @@ export class DteMainPage implements OnInit {
           buttons: ['OK']
         });
         await alert.present();
-        console.log('[DTE Main] Alert shown with missing fields');
+        console.log('[DTE Main] Alert shown with', validationResult.incompleteFields.length, 'missing fields');
       } else {
         // All fields complete - show confirmation dialog
         console.log('[DTE Main] All fields complete, showing confirmation');
@@ -169,15 +173,6 @@ export class DteMainPage implements OnInit {
     }
   }
 
-  private formatIncompleteFieldsMessage(fields: IncompleteField[]): string {
-    let message = 'Please complete the following required fields:\n\n';
-    
-    fields.forEach(field => {
-      message += `${field.label}\n`;
-    });
-    
-    return message;
-  }
 
   async markReportAsFinalized() {
     const loading = await this.loadingController.create({

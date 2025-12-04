@@ -83,7 +83,9 @@ export class EngineersFoundationValidationService {
       };
 
       Object.entries(requiredProjectFields).forEach(([field, label]) => {
-        if (isEmpty(projectData[field])) {
+        const value = projectData?.[field];
+        console.log(`[EngFoundation Validation] Project ${field}:`, value);
+        if (isEmpty(value)) {
           incompleteFields.push({
             section: 'Project Details',
             label,
@@ -102,7 +104,9 @@ export class EngineersFoundationValidationService {
       };
 
       Object.entries(requiredServiceFields).forEach(([field, label]) => {
-        if (isEmpty(serviceData[field])) {
+        const value = serviceData?.[field];
+        console.log(`[EngFoundation Validation] Service ${field}:`, value);
+        if (isEmpty(value)) {
           incompleteFields.push({
             section: 'Project Details',
             label,
