@@ -77,9 +77,15 @@ When user confirms finalization, the system updates the Services table:
 ```typescript
 {
   StatusDateTime: '2025-12-04T20:50:23.000Z',
-  Status: 'Finalized',
-  ReportFinalized: true
+  Status: 'Finalized'
 }
+```
+
+The project-detail page then computes `ReportFinalized` from Status:
+```typescript
+ReportFinalized: service.Status === 'Finalized' || 
+                 service.Status === 'Updated' || 
+                 service.Status === 'Under Review'
 ```
 
 This triggers:
@@ -124,15 +130,17 @@ The system detects these as empty/incomplete:
 ### Removed Features
 ❌ Green completion badges on section cards
 ❌ "Complete" text on navigation cards
-❌ Automatic completion tracking (no longer needed for display)
+❌ ReportFinalized field from database update (doesn't exist in table)
 
 ### Added Features
 ✅ Comprehensive cross-page validation
 ✅ Required fields from template tables (Required='Yes')
 ✅ Organized popup showing missing fields by section
-✅ ReportFinalized flag set on finalization
-✅ Submit button enabled after finalization
+✅ Visual button feedback (light gray when incomplete, dark blue when ready)
+✅ Dynamic footer text based on completion status
+✅ Submit button enabled after finalization (via Status field)
 ✅ Console logging for debugging
+✅ Real-time validation check on page load and return
 
 ## Console Output Examples
 

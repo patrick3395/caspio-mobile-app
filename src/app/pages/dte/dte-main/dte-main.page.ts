@@ -42,6 +42,7 @@ export class DteMainPage implements OnInit {
   projectId: string = '';
   serviceId: string = '';
   loading: boolean = true;
+  canFinalize: boolean = false;
 
   constructor(
     private router: Router,
@@ -54,10 +55,10 @@ export class DteMainPage implements OnInit {
     private navController: NavController
   ) {}
 
-  ngOnInit() {
+  async ngOnInit() {
     // Get IDs from parent route (container level)
     // Route structure: dte/:projectId/:serviceId -> (main hub is here)
-    this.route.parent?.params.subscribe(params => {
+    this.route.parent?.params.subscribe(async params => {
       console.log('Route params from parent:', params);
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
@@ -66,10 +67,38 @@ export class DteMainPage implements OnInit {
 
       if (!this.projectId || !this.serviceId) {
         console.error('Missing projectId or serviceId');
+      } else {
+        await this.checkCanFinalize();
       }
       
       this.loading = false;
     });
+  }
+
+  async ionViewWillEnter() {
+    // Refresh finalization status when returning to this page
+    if (this.projectId && this.serviceId) {
+      await this.checkCanFinalize();
+    }
+  }
+
+  private async checkCanFinalize() {
+    if (!this.projectId || !this.serviceId) {
+      this.canFinalize = false;
+      return;
+    }
+
+    try {
+      const validationResult = await this.validationService.validateAllRequiredFields(
+        this.projectId,
+        this.serviceId
+      );
+      this.canFinalize = validationResult.isComplete;
+      console.log('[DTE Main] Can finalize:', this.canFinalize);
+    } catch (error) {
+      console.error('[DTE Main] Error checking finalize status:', error);
+      this.canFinalize = false;
+    }
   }
 
   navigateTo(card: NavigationCard) {
@@ -141,32 +170,13 @@ export class DteMainPage implements OnInit {
   }
 
   private formatIncompleteFieldsMessage(fields: IncompleteField[]): string {
-    const grouped = this.groupBySection(fields);
-    
-    let message = 'The following required fields are not complete:\n\n';
-    
-    for (const [section, items] of Object.entries(grouped)) {
-      message += `${section}:\n`;
-      items.forEach(item => {
-        message += `  • ${item.label}\n`;
-      });
-      message += '\n';
-    }
-    
-    return message;
-  }
-
-  private groupBySection(fields: IncompleteField[]): { [key: string]: IncompleteField[] } {
-    const grouped: { [key: string]: IncompleteField[] } = {};
+    let message = 'Please complete the following required fields:\n\n';
     
     fields.forEach(field => {
-      if (!grouped[field.section]) {
-        grouped[field.section] = [];
-      }
-      grouped[field.section].push(field);
+      message += `${field.label}\n`;
     });
     
-    return grouped;
+    return message;
   }
 
   async markReportAsFinalized() {
@@ -180,8 +190,7 @@ export class DteMainPage implements OnInit {
       const currentDateTime = new Date().toISOString();
       const updateData = {
         StatusDateTime: currentDateTime,
-        Status: 'Finalized',
-        ReportFinalized: true
+        Status: 'Finalized'
       };
 
       console.log('[DTE Main] Updating service status:', updateData);

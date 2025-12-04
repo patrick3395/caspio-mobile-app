@@ -34,12 +34,13 @@
     <ion-button
       expand="block"
       size="large"
+      [color]="canFinalize ? 'primary' : 'medium'"
       (click)="finalizeReport()">
       <ion-icon slot="start" name="checkmark-done-outline"></ion-icon>
       Finalize Report
     </ion-button>
     <p class="footer-note">
-      Click to check completion status
+      {{ canFinalize ? 'All required fields complete' : 'Click to see what\'s missing' }}
     </p>
   </div>
 </div>
