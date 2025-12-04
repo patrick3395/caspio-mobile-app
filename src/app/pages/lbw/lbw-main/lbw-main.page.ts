@@ -135,12 +135,12 @@ export class LbwMainPage implements OnInit {
       await loading.dismiss();
 
       if (validationResult.incompleteFields.length > 0) {
-        // Show popup with missing fields - each on its own line
+        // Show popup with missing fields - each on its own line using <br> tags
         const fieldsList = validationResult.incompleteFields
-          .map(field => `<div style="padding: 4px 0;">${field.label}</div>`)
-          .join('');
+          .map(field => field.label)
+          .join('<br><br>');
         
-        const message = `<div style="text-align: left;">Please complete the following required fields:</div><div style="margin-top: 12px;">${fieldsList}</div>`;
+        const message = `Please complete the following required fields:<br><br>${fieldsList}`;
         
         const alert = await this.alertController.create({
           header: 'Incomplete Required Fields',
