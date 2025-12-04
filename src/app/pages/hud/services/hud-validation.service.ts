@@ -63,7 +63,7 @@ export class HudValidationService {
 
     try {
       // Fetch project data
-      const projectData = await this.caspioService.getProjectById(projectId).toPromise();
+      const projectData = await this.caspioService.getProject(projectId).toPromise();
       
       // Fetch service data
       const serviceData = await this.caspioService.getServiceById(serviceId).toPromise();
@@ -122,21 +122,19 @@ export class HudValidationService {
 
     try {
       // Fetch template items with Required='Yes'
-      const requiredItems = await this.caspioService.getTable('HUD_Template')
-        .pipe(map(items => items.filter(item => item.Required === 'Yes')))
+      const requiredItems = await this.caspioService.getServicesHUDTemplates()
+        .pipe(map((items: any[]) => items.filter((item: any) => item.Required === 'Yes')))
         .toPromise();
 
-      console.log('[HUD Validation] Found required template items:', requiredItems.length);
+      console.log('[HUD Validation] Found required template items:', requiredItems?.length || 0);
 
       // Fetch user's answers for this service
-      const userAnswers = await this.caspioService.getTable('HUD')
-        .pipe(map(items => items.filter(item => item.FK_Services === serviceId)))
-        .toPromise();
+      const userAnswers = await this.caspioService.getServicesHUDByServiceId(serviceId).toPromise();
 
       // Check each required item
-      for (const templateItem of requiredItems) {
-        const userAnswer = userAnswers.find(answer => 
-          answer.FK_HUD_Template === templateItem.PK_ID
+      for (const templateItem of requiredItems || []) {
+        const userAnswer = userAnswers?.find((answer: any) => 
+          answer.TemplateID === templateItem.PK_ID || answer.FK_Template === templateItem.PK_ID
         );
 
         let isComplete = false;

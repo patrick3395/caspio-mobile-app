@@ -179,28 +179,58 @@ When finalized:
 
 ## Database Queries
 
-### Template Items Query
+### Correct CaspioService Methods Used
+
+**Project and Service Data:**
 ```typescript
-// Fetches all required items from template table
-const requiredItems = await this.caspioService.getTable('TemplateTableName')
-  .pipe(map(items => items.filter(item => item.Required === 'Yes')))
+const projectData = await this.caspioService.getProject(projectId).toPromise();
+const serviceData = await this.caspioService.getServiceById(serviceId).toPromise();
+```
+
+**Template Items Query:**
+```typescript
+// Engineers-Foundation
+const requiredItems = await this.caspioService.getServicesEFETemplates()
+  .pipe(map((items: any[]) => items.filter((item: any) => item.Required === 'Yes')))
+  .toPromise();
+
+// HUD
+const requiredItems = await this.caspioService.getServicesHUDTemplates()
+  .pipe(map((items: any[]) => items.filter((item: any) => item.Required === 'Yes')))
+  .toPromise();
+
+// LBW
+const requiredItems = await this.caspioService.getServicesLBWTemplates()
+  .pipe(map((items: any[]) => items.filter((item: any) => item.Required === 'Yes')))
+  .toPromise();
+
+// DTE
+const requiredItems = await this.caspioService.getServicesDTETemplates()
+  .pipe(map((items: any[]) => items.filter((item: any) => item.Required === 'Yes')))
   .toPromise();
 ```
 
-### User Answers Query
+**User Answers Query:**
 ```typescript
-// Fetches user's answers for this service
-const userAnswers = await this.caspioService.getTable('UserTableName')
-  .pipe(map(items => items.filter(item => item.FK_Services === serviceId)))
-  .toPromise();
+// Engineers-Foundation
+const userAnswers = await this.caspioService.getServicesEFE(serviceId).toPromise();
+
+// HUD
+const userAnswers = await this.caspioService.getServicesHUDByServiceId(serviceId).toPromise();
+
+// LBW
+const userAnswers = await this.caspioService.getServicesLBWByServiceId(serviceId).toPromise();
+
+// DTE
+const userAnswers = await this.caspioService.getServicesDTEByServiceId(serviceId).toPromise();
 ```
 
 ### Validation Logic
 ```typescript
 // Check if user has answered each required item
-for (const templateItem of requiredItems) {
-  const userAnswer = userAnswers.find(answer => 
-    answer.FK_Template === templateItem.PK_ID
+for (const templateItem of requiredItems || []) {
+  const userAnswer = userAnswers?.find((answer: any) => 
+    answer.TemplateID === templateItem.PK_ID || answer.FK_Template === templateItem.PK_ID
   );
 
   let isComplete = false;

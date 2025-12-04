@@ -67,7 +67,7 @@ export class EngineersFoundationValidationService {
 
     try {
       // Fetch project data
-      const projectData = await this.caspioService.getProjectById(projectId).toPromise();
+      const projectData = await this.caspioService.getProject(projectId).toPromise();
       
       // Fetch service data
       const serviceData = await this.caspioService.getServiceById(serviceId).toPromise();
@@ -136,21 +136,19 @@ export class EngineersFoundationValidationService {
       }
 
       // Fetch template items with Required='Yes'
-      const requiredItems = await this.caspioService.getTable('EngineersFoundationCategories_Template')
-        .pipe(map(items => items.filter(item => item.Required === 'Yes')))
+      const requiredItems = await this.caspioService.getServicesEFETemplates()
+        .pipe(map((items: any[]) => items.filter((item: any) => item.Required === 'Yes')))
         .toPromise();
 
-      console.log('[EngFoundation Validation] Found required template items:', requiredItems.length);
+      console.log('[EngFoundation Validation] Found required template items:', requiredItems?.length || 0);
 
       // Fetch user's answers for this service
-      const userAnswers = await this.caspioService.getTable('EngineersFoundationCategories')
-        .pipe(map(items => items.filter(item => item.FK_Services === serviceId)))
-        .toPromise();
+      const userAnswers = await this.caspioService.getServicesEFE(serviceId).toPromise();
 
       // Check each required item
-      for (const templateItem of requiredItems) {
-        const userAnswer = userAnswers.find(answer => 
-          answer.FK_EngineersFoundationCategories_Template === templateItem.PK_ID
+      for (const templateItem of requiredItems || []) {
+        const userAnswer = userAnswers?.find((answer: any) => 
+          answer.TemplateID === templateItem.PK_ID || answer.FK_Template === templateItem.PK_ID
         );
 
         let isComplete = false;
@@ -195,12 +193,10 @@ export class EngineersFoundationValidationService {
 
     try {
       // Fetch elevation data for this service
-      const elevationData = await this.caspioService.getTable('ElevationPlot')
-        .pipe(map(items => items.filter(item => item.FK_Services === serviceId)))
-        .toPromise();
+      const elevationData = await this.caspioService.getServicesEFE(serviceId).toPromise();
 
       // Check if Base Station exists
-      const baseStation = elevationData.find(item => item.RoomName === 'Base Station');
+      const baseStation = elevationData?.find((item: any) => item.RoomName === 'Base Station');
       if (!baseStation) {
         incompleteFields.push({
           section: 'Elevation Plot',
@@ -210,7 +206,7 @@ export class EngineersFoundationValidationService {
       }
 
       // Check all other rooms have FDF
-      const otherRooms = elevationData.filter(item => item.RoomName !== 'Base Station');
+      const otherRooms = elevationData?.filter((item: any) => item.RoomName !== 'Base Station') || [];
       for (const room of otherRooms) {
         const isEmpty = (value: any): boolean => {
           return value === null || value === undefined || value === '' || 
