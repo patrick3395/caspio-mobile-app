@@ -54,10 +54,10 @@ export class DteMainPage implements OnInit {
     private navController: NavController
   ) {}
 
-  async ngOnInit() {
+  ngOnInit() {
     // Get IDs from parent route (container level)
     // Route structure: dte/:projectId/:serviceId -> (main hub is here)
-    this.route.parent?.params.subscribe(async params => {
+    this.route.parent?.params.subscribe(params => {
       console.log('Route params from parent:', params);
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
@@ -66,19 +66,10 @@ export class DteMainPage implements OnInit {
 
       if (!this.projectId || !this.serviceId) {
         console.error('Missing projectId or serviceId');
-      } else {
-        await this.checkCompletionStatus();
       }
       
       this.loading = false;
     });
-  }
-
-  async ionViewWillEnter() {
-    // Refresh completion status when returning to this page
-    if (this.projectId && this.serviceId) {
-      await this.checkCompletionStatus();
-    }
   }
 
   navigateTo(card: NavigationCard) {
@@ -87,49 +78,6 @@ export class DteMainPage implements OnInit {
       this.router.navigate(['categories'], { relativeTo: this.route });
     } else {
       this.router.navigate([card.route], { relativeTo: this.route.parent });
-    }
-  }
-
-  private async checkCompletionStatus() {
-    if (!this.projectId || !this.serviceId) {
-      return;
-    }
-
-    console.log('[DTE Main] Checking completion status...');
-
-    try {
-      // Validate all required fields
-      const validationResult = await this.validationService.validateAllRequiredFields(
-        this.projectId,
-        this.serviceId
-      );
-
-      // Group incomplete fields by section
-      const incompleteBySection: { [key: string]: number } = {};
-      validationResult.incompleteFields.forEach(field => {
-        if (!incompleteBySection[field.section]) {
-          incompleteBySection[field.section] = 0;
-        }
-        incompleteBySection[field.section]++;
-      });
-
-      // Map sections to card titles
-      const sectionMap: { [key: string]: string } = {
-        'Project Details': 'Project Details',
-        'Damaged Truss Evaluation': 'Damaged Truss Evaluation'
-      };
-
-      // Update card completion status
-      this.cards.forEach(card => {
-        const mappedSection = sectionMap[card.title];
-        if (mappedSection) {
-          const incompleteCount = incompleteBySection[mappedSection] || 0;
-          card.completed = incompleteCount === 0;
-          console.log(`[DTE Main] ${card.title}: ${card.completed ? 'Complete' : `Incomplete (${incompleteCount} fields)`}`);
-        }
-      });
-    } catch (error) {
-      console.error('[DTE Main] Error checking completion status:', error);
     }
   }
 
@@ -232,7 +180,8 @@ export class DteMainPage implements OnInit {
       const currentDateTime = new Date().toISOString();
       const updateData = {
         StatusDateTime: currentDateTime,
-        Status: 'Finalized'
+        Status: 'Finalized',
+        ReportFinalized: true
       };
 
       console.log('[DTE Main] Updating service status:', updateData);

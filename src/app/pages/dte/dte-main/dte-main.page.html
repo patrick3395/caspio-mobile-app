@@ -22,10 +22,6 @@
             <div class="title-container">
               <ion-card-title>{{ card.title }}</ion-card-title>
               <p class="card-description" *ngIf="card.description">{{ card.description }}</p>
-              <ion-badge *ngIf="card.completed" color="success">
-                <ion-icon name="checkmark-circle"></ion-icon>
-                Complete
-              </ion-badge>
             </div>
           </div>
         </ion-card-header>
