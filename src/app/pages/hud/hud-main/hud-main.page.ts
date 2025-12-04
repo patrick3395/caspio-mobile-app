@@ -230,9 +230,5 @@ export class HudMainPage implements OnInit {
     }
   }
 
-  canFinalize(): boolean {
-    // Always return true so button is enabled - validation happens in finalizeReport()
-    return true;
-  }
 }
 
