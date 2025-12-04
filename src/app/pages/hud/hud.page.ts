@@ -2596,7 +2596,15 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    console.log('[HUD] Starting finalize validation...');
     const incompleteAreas: string[] = [];
+
+    // Helper function to check if a value is empty
+    const isEmpty = (value: any): boolean => {
+      return value === null || value === undefined || value === '' || 
+             (typeof value === 'string' && value.trim() === '') ||
+             value === '-- Select --';
+    };
 
     // Check required Project Information fields
     const requiredProjectFields = {
@@ -2609,7 +2617,9 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     };
 
     Object.entries(requiredProjectFields).forEach(([field, label]) => {
-      if (!this.projectData[field]) {
+      const value = this.projectData[field];
+      console.log(`[HUD] Checking ${field}:`, value);
+      if (isEmpty(value)) {
         incompleteAreas.push(`Project Information: ${label}`);
       }
     });
@@ -2623,8 +2633,10 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     };
 
     Object.entries(requiredServiceFields).forEach(([field, label]) => {
-      if (!this.serviceData[field]) {
-        incompleteAreas.push(`Project Information: ${label}`);
+      const value = this.serviceData[field];
+      console.log(`[HUD] Checking ${field}:`, value);
+      if (isEmpty(value)) {
+        incompleteAreas.push(`Service Information: ${label}`);
       }
     });
 
@@ -2682,6 +2694,9 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     // }
 
     // Show results
+    console.log('[HUD] Validation complete. Incomplete areas:', incompleteAreas.length);
+    console.log('[HUD] Missing fields:', incompleteAreas);
+    
     if (incompleteAreas.length > 0) {
       const alert = await this.alertController.create({
         header: 'Incomplete Required Fields',
@@ -2690,7 +2705,9 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
         buttons: ['OK']
       });
       await alert.present();
+      console.log('[HUD] Alert shown with missing fields');
     } else {
+      console.log('[HUD] All fields complete, showing confirmation dialog');
       // Check if this is an update or initial finalization
       const isUpdate = this.isReportFinalized();
       const buttonText = isUpdate ? 'Update' : 'Finalize';
@@ -2847,6 +2864,13 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
 
   // Check if all required fields are filled (used for button styling)
   areAllRequiredFieldsFilled(): boolean {
+    // Helper function to check if a value is empty
+    const isEmpty = (value: any): boolean => {
+      return value === null || value === undefined || value === '' || 
+             (typeof value === 'string' && value.trim() === '') ||
+             value === '-- Select --';
+    };
+
     // Check required Project Information fields
     const requiredProjectFields = {
       'ClientName': 'Client Name',
@@ -2858,7 +2882,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     };
 
     for (const field of Object.keys(requiredProjectFields)) {
-      if (!this.projectData[field]) {
+      if (isEmpty(this.projectData[field])) {
         return false;
       }
     }
@@ -2872,7 +2896,7 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
     };
 
     for (const field of Object.keys(requiredServiceFields)) {
-      if (!this.serviceData[field]) {
+      if (isEmpty(this.serviceData[field])) {
         return false;
       }
     }
