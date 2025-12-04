@@ -85,7 +85,7 @@ export class EngineersFoundationMainPage implements OnInit {
 
   async loadStatusOptions() {
     try {
-      const statusData = await this.caspioService.get('/tables/LPS_Status/records').toPromise();
+      const statusData: any = await this.caspioService.get('/tables/LPS_Status/records').toPromise();
       this.statusOptions = statusData?.Result || [];
       console.log('[EngFoundation Main] Loaded status options:', this.statusOptions.length);
     } catch (error) {
