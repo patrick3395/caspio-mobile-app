@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, AlertController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
 
@@ -50,7 +50,8 @@ export class EngineersFoundationMainPage implements OnInit {
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private stateService: EngineersFoundationStateService
+    private stateService: EngineersFoundationStateService,
+    private alertController: AlertController
   ) {}
 
   ngOnInit() {
@@ -74,12 +75,41 @@ export class EngineersFoundationMainPage implements OnInit {
   }
 
   async finalizeReport() {
-    // TODO: Implement report finalization
-    console.log('Finalizing report...');
+    console.log('[EngFoundation Main] Finalize button clicked');
+    
+    // Check which sections are incomplete
+    const incompleteSections = this.cards
+      .filter(card => !card.completed)
+      .map(card => card.title);
+
+    console.log('[EngFoundation Main] Incomplete sections:', incompleteSections);
+
+    if (incompleteSections.length > 0) {
+      // Show alert with incomplete sections
+      const alert = await this.alertController.create({
+        header: 'Incomplete Sections',
+        message: `The following sections need to be completed before finalizing:\n\n${incompleteSections.map(section => `• ${section}`).join('\n')}\n\nPlease complete all sections and try again.`,
+        cssClass: 'custom-document-alert',
+        buttons: ['OK']
+      });
+      await alert.present();
+      console.log('[EngFoundation Main] Alert shown with incomplete sections');
+    } else {
+      // All sections complete - navigate to actual finalization
+      console.log('[EngFoundation Main] All sections complete, proceeding to finalize');
+      // TODO: Navigate to the actual report page for finalization
+      // For now, show success message
+      const alert = await this.alertController.create({
+        header: 'Ready to Finalize',
+        message: 'All sections are complete. Report finalization feature is under construction.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
   }
 
   canFinalize(): boolean {
-    // TODO: Check if all required sections are complete
-    return this.cards.every(card => card.completed);
+    // Always return true so button is enabled - validation happens in finalizeReport()
+    return true;
   }
 }

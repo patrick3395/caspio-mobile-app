@@ -29,13 +29,12 @@
     <ion-button
       expand="block"
       size="large"
-      [disabled]="!canFinalize()"
       (click)="finalizeReport()">
       <ion-icon slot="start" name="checkmark-done-outline"></ion-icon>
       Finalize Report
     </ion-button>
-    <p class="footer-note" *ngIf="!canFinalize()">
-      Complete all sections to finalize your report
+    <p class="footer-note">
+      Click to check completion status
     </p>
   </div>
 </div>
