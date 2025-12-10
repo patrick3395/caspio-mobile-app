@@ -3837,14 +3837,7 @@ export class CaspioService {
 
   // Project methods
   getProject(projectId: string): Observable<any> {
-    // Use API Gateway if enabled
-    if (this.useApiGateway()) {
-      console.log('[CaspioService] Using API Gateway for getProject');
-      return this.apiGateway.get(`/projects/${projectId}`);
-    }
-    
-    // Fallback to direct Caspio API
-    console.log('[CaspioService] Using direct Caspio API for getProject');
+    // All requests go through generic proxy or direct Caspio
     return this.get<any>(`/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
@@ -3852,14 +3845,6 @@ export class CaspioService {
 
   // LPS_Type methods
   getType(typeId: string): Observable<any> {
-    // Use API Gateway if enabled
-    if (this.useApiGateway()) {
-      console.log('[CaspioService] Using API Gateway for getType');
-      return this.apiGateway.get(`/types/${typeId}`);
-    }
-    
-    // Fallback to direct Caspio API
-    console.log('[CaspioService] Using direct Caspio API for getType');
     // First try TypeID field
     return this.get<any>(`/tables/LPS_Type/records?q.where=TypeID=${typeId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null),
@@ -3878,14 +3863,6 @@ export class CaspioService {
   
   // Service methods
   getService(serviceId: string): Observable<any> {
-    // Use API Gateway if enabled
-    if (this.useApiGateway()) {
-      console.log('[CaspioService] Using API Gateway for getService');
-      return this.apiGateway.get(`/services/${serviceId}`);
-    }
-    
-    // Fallback to direct Caspio API
-    console.log('[CaspioService] Using direct Caspio API for getService');
     // Services table uses PK_ID as primary key, not ServiceID
     return this.get<any>(`/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
