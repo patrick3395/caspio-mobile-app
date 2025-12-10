@@ -1,6 +1,10 @@
 import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../services/caspio.service';
+import { IndexedDbService } from '../../services/indexed-db.service';
+import { TempIdService } from '../../services/temp-id.service';
+import { BackgroundSyncService } from '../../services/background-sync.service';
+import { ToastController } from '@ionic/angular';
 
 interface CacheEntry<T> {
   value: Promise<T>;
@@ -21,7 +25,13 @@ export class EngineersFoundationDataService {
   private efePointsCache = new Map<string, CacheEntry<any[]>>();
   private efeAttachmentsCache = new Map<string, CacheEntry<any[]>>();
 
-  constructor(private readonly caspioService: CaspioService) {}
+  constructor(
+    private readonly caspioService: CaspioService,
+    private readonly indexedDb: IndexedDbService,
+    private readonly tempId: TempIdService,
+    private readonly backgroundSync: BackgroundSyncService,
+    private readonly toastController: ToastController
+  ) {}
 
   async getProject(projectId: string | null | undefined): Promise<any> {
     if (!projectId) {
@@ -190,15 +200,46 @@ export class EngineersFoundationDataService {
   // ============================================
 
   async createVisual(visualData: any): Promise<any> {
-    console.log('[Visual Data] Creating new visual:', visualData);
-    const result = await firstValueFrom(this.caspioService.createServicesVisual(visualData));
+    console.log('[Visual Data] Creating new visual (OFFLINE-FIRST):', visualData);
 
-    // Clear cache for this service to force reload
+    // Generate temporary ID for immediate use
+    const tempId = this.tempId.generateTempId('visual');
+
+    // Create placeholder for UI
+    const placeholder = {
+      ...visualData,
+      PK_ID: tempId,
+      _tempId: tempId,
+      _localOnly: true,
+      _syncing: true,
+      _createdAt: Date.now(),
+    };
+
+    // Save to IndexedDB for background sync
+    await this.indexedDb.addPendingRequest({
+      type: 'CREATE',
+      tempId: tempId,
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_Visuals/records?response=rows',
+      method: 'POST',
+      data: visualData,
+      dependencies: [],
+      status: 'pending',
+      priority: 'high',
+    });
+
+    // Clear cache for this service
     if (visualData.ServiceID) {
       this.visualsCache.delete(String(visualData.ServiceID));
     }
 
-    return result;
+    // Trigger background sync
+    this.backgroundSync.triggerSync();
+
+    // Show user feedback
+    this.showToast('Visual saved! Syncing in background...');
+
+    // Return placeholder immediately (user sees it right away!)
+    return placeholder;
   }
 
   async updateVisual(visualId: string, visualData: any): Promise<any> {
@@ -225,17 +266,94 @@ export class EngineersFoundationDataService {
   // VISUAL PHOTO METHODS
   // ============================================
 
-  async uploadVisualPhoto(visualId: number, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
-    console.log('[Visual Photo] Uploading photo for VisualID:', visualId);
-    const result = await firstValueFrom(
-      this.caspioService.createServicesVisualsAttachWithFile(visualId, caption, file, drawings, originalFile)
-    );
+  async uploadVisualPhoto(visualId: number | string, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
+    console.log('[Visual Photo] Uploading photo for VisualID (OFFLINE-FIRST):', visualId);
 
-    // Clear attachment cache for this visual
-    const key = String(visualId);
-    this.visualAttachmentsCache.delete(key);
+    const visualIdStr = String(visualId);
+    const isTempId = this.tempId.isTempId(visualIdStr);
+    const imageId = this.tempId.generateTempId('image' as any);
 
-    return result;
+    // Find visual creation request if using temp ID
+    let dependencies: string[] = [];
+    if (isTempId) {
+      const pending = await this.indexedDb.getPendingRequests();
+      const visualRequest = pending.find(r => r.tempId === visualIdStr);
+      if (visualRequest) {
+        dependencies = [visualRequest.requestId];  // Wait for Visual to be created first
+        console.log('[Visual Photo] Image depends on Visual creation:', visualRequest.requestId);
+      }
+    }
+
+    // Convert file to base64 for IndexedDB storage
+    const fileBase64 = await this.fileToBase64(file);
+    const originalBase64 = originalFile ? await this.fileToBase64(originalFile) : undefined;
+
+    // Create placeholder
+    const placeholder = {
+      AttachID: imageId,
+      VisualID: visualIdStr,
+      Annotation: caption,
+      DrawingsData: drawings,
+      _tempId: imageId,
+      _syncing: true,
+      _localOnly: true,
+    };
+
+    // Save to IndexedDB
+    await this.indexedDb.addPendingRequest({
+      type: 'UPLOAD_FILE',
+      tempId: imageId,
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records',
+      method: 'POST',
+      data: {
+        visualId: visualIdStr,  // Will be resolved to real ID during sync
+        file: fileBase64,
+        fileName: file.name,
+        caption: caption,
+        drawings: drawings,
+        originalFile: originalBase64,
+      },
+      dependencies: dependencies,  // CRITICAL: Waits for Visual if temp ID
+      status: 'pending',
+      priority: 'normal',
+    });
+
+    // Clear cache
+    this.visualAttachmentsCache.delete(String(visualId));
+
+    // Trigger sync
+    this.backgroundSync.triggerSync();
+
+    // Show feedback
+    this.showToast('Photo queued for upload');
+
+    // Return placeholder immediately
+    return placeholder;
+  }
+
+  /**
+   * Convert File to base64 for storage
+   */
+  private fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /**
+   * Show toast message
+   */
+  private async showToast(message: string): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      position: 'bottom',
+      color: 'success',
+    });
+    await toast.present();
   }
 
   async deleteVisualPhoto(attachId: string): Promise<any> {
