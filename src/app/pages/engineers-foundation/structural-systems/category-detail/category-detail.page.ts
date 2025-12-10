@@ -13,6 +13,7 @@ import { EngineersFoundationDataService } from '../../engineers-foundation-data.
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
+import { IndexedDbService } from '../../../../services/indexed-db.service';
 
 interface VisualItem {
   id: string | number;
@@ -98,7 +99,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     private imageCompression: ImageCompressionService,
     private foundationData: EngineersFoundationDataService,
     private backgroundUploadService: BackgroundPhotoUploadService,
-    private cache: CacheService
+    private cache: CacheService,
+    private indexedDb: IndexedDbService
   ) {}
 
   async ngOnInit() {
@@ -1400,9 +1402,33 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           return;
         }
 
-        const visualIdNum = parseInt(visualId, 10);
+        // Check if temp ID and try to resolve to real ID
+        let finalVisualId = visualId;
+        if (String(visualId).startsWith('temp_')) {
+          const realId = await this.indexedDb.getRealId(String(visualId));
+          if (realId) {
+            console.log(`[GALLERY UPLOAD] Visual synced! Using real ID ${realId}`);
+            finalVisualId = realId;
+          } else {
+            console.log('[GALLERY UPLOAD] Visual not synced yet, queuing photos');
+            // Queue photos in IndexedDB to upload after Visual syncs
+            // For now, show as queued
+            skeletonPhotos.forEach(skeleton => {
+              const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+              if (photoIndex !== -1 && this.visualPhotos[key]) {
+                this.visualPhotos[key][photoIndex].uploading = false;
+                this.visualPhotos[key][photoIndex].queued = true;
+                this.visualPhotos[key][photoIndex].isSkeleton = false;
+              }
+            });
+            this.changeDetectorRef.detectChanges();
+            return;
+          }
+        }
+
+        const visualIdNum = parseInt(String(finalVisualId), 10);
         if (isNaN(visualIdNum)) {
-          console.error('[GALLERY UPLOAD] Invalid visual ID:', visualId);
+          console.error('[GALLERY UPLOAD] Invalid visual ID:', finalVisualId);
           // Mark all skeleton photos as failed
           skeletonPhotos.forEach(skeleton => {
             const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
