@@ -198,9 +198,9 @@ export class EngineersFoundationDataService {
   // ============================================
 
   async createVisual(visualData: any): Promise<any> {
-    console.log('[Visual Data] Creating new visual (PERSISTENT):', visualData);
+    console.log('[Visual Data] Creating new visual (OFFLINE-FIRST):', visualData);
 
-    // ALWAYS save to IndexedDB first (whether online or offline)
+    // Generate temporary ID
     const tempId = this.tempId.generateTempId('visual');
 
     // Create placeholder for immediate UI
@@ -213,7 +213,7 @@ export class EngineersFoundationDataService {
       _createdAt: Date.now(),
     };
 
-    // Store in IndexedDB
+    // Store in IndexedDB for background sync
     await this.indexedDb.addPendingRequest({
       type: 'CREATE',
       tempId: tempId,
@@ -223,8 +223,6 @@ export class EngineersFoundationDataService {
       dependencies: [],
       status: 'pending',
       priority: 'high',
-    }).catch(err => {
-      console.error('[Visual Data] Failed to store in IndexedDB:', err);
     });
 
     // Clear cache
@@ -232,12 +230,12 @@ export class EngineersFoundationDataService {
       this.visualsCache.delete(String(visualData.ServiceID));
     }
 
-    // Trigger background sync (will sync immediately if online)
+    // Trigger background sync
     this.backgroundSync.triggerSync();
 
-    console.log('[Visual Data] Visual saved to IndexedDB, background sync triggered');
+    console.log('[Visual Data] Visual saved with temp ID:', tempId);
 
-    // Return placeholder (user sees it instantly)
+    // Return placeholder immediately
     return placeholder;
   }
 
@@ -265,17 +263,67 @@ export class EngineersFoundationDataService {
   // VISUAL PHOTO METHODS
   // ============================================
 
-  async uploadVisualPhoto(visualId: number, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
+  async uploadVisualPhoto(visualId: number | string, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
     console.log('[Visual Photo] Uploading photo for VisualID:', visualId);
     
-    // Use original direct upload method (works immediately)
+    const visualIdStr = String(visualId);
+    const isTempId = this.tempId.isTempId(visualIdStr);
+
+    if (isTempId) {
+      // Visual not synced yet - queue photo with dependency
+      console.log('[Visual Photo] Visual has temp ID, queuing photo upload');
+      
+      const tempPhotoId = this.tempId.generateTempId('image' as any);
+      
+      // Store file in IndexedDB
+      await this.indexedDb.storePhotoFile(tempPhotoId, file, visualIdStr, caption);
+
+      // Find Visual creation request
+      const pending = await this.indexedDb.getPendingRequests();
+      const visualRequest = pending.find(r => r.tempId === visualIdStr);
+      const dependencies = visualRequest ? [visualRequest.requestId] : [];
+
+      // Queue photo upload with dependency on Visual
+      await this.indexedDb.addPendingRequest({
+        type: 'UPLOAD_FILE',
+        tempId: tempPhotoId,
+        endpoint: 'VISUAL_PHOTO_UPLOAD',
+        method: 'POST',
+        data: {
+          tempVisualId: visualIdStr,
+          fileId: tempPhotoId,
+          caption: caption || '',
+          drawings: drawings || '',
+          fileName: file.name,
+          hasOriginalFile: !!originalFile,
+        },
+        dependencies: dependencies,  // Wait for Visual to be created
+        status: 'pending',
+        priority: 'normal',
+      });
+
+      console.log('[Visual Photo] Photo queued, will upload after Visual syncs');
+
+      // Return placeholder for UI
+      return {
+        AttachID: tempPhotoId,
+        VisualID: visualIdStr,
+        Annotation: caption,
+        _tempId: tempPhotoId,
+        _syncing: true,
+        _waitingForVisual: true,
+      };
+    }
+
+    // Visual has real ID - upload normally
+    const visualIdNum = typeof visualId === 'number' ? visualId : parseInt(visualId, 10);
+    
     const result = await firstValueFrom(
-      this.caspioService.createServicesVisualsAttachWithFile(visualId, caption, file, drawings, originalFile)
+      this.caspioService.createServicesVisualsAttachWithFile(visualIdNum, caption, file, drawings, originalFile)
     );
 
-    // Clear attachment cache for this visual
-    const key = String(visualId);
-    this.visualAttachmentsCache.delete(key);
+    // Clear attachment cache
+    this.visualAttachmentsCache.delete(String(visualId));
 
     return result;
   }

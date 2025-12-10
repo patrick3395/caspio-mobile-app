@@ -139,14 +139,26 @@ export class BackgroundSyncService {
       try {
         const result = await this.performSync(resolvedRequest);
 
-        // If this created a new record, store ID mapping
-        if (request.tempId && result && result.PK_ID) {
+      // If this created a new record, store ID mapping
+      if (request.tempId) {
+        let realId = null;
+        
+        // Check different response formats
+        if (result && result.PK_ID) {
+          realId = result.PK_ID;
+        } else if (result && result.Result && result.Result[0] && result.Result[0].PK_ID) {
+          realId = result.Result[0].PK_ID;
+        }
+
+        if (realId) {
           await this.indexedDb.mapTempId(
             request.tempId,
-            result.PK_ID.toString(),
+            realId.toString(),
             this.getTempIdType(request.tempId)
           );
+          console.log(`[BackgroundSync] Mapped ${request.tempId} → ${realId}`);
         }
+      }
 
         // Mark as synced
         await this.indexedDb.updateRequestStatus(request.requestId, 'synced');
@@ -211,6 +223,11 @@ export class BackgroundSyncService {
    * Perform the actual API request
    */
   private async performSync(request: PendingRequest): Promise<any> {
+    // Handle photo uploads with temp Visual IDs
+    if (request.endpoint === 'VISUAL_PHOTO_UPLOAD') {
+      return this.syncVisualPhotoUpload(request);
+    }
+
     // Handle file uploads specially
     if (request.type === 'UPLOAD_FILE' && request.data.file) {
       return this.syncFileUpload(request);
@@ -228,6 +245,43 @@ export class BackgroundSyncService {
       default:
         throw new Error(`Unsupported method: ${request.method}`);
     }
+  }
+
+  /**
+   * Sync photo upload for a Visual
+   */
+  private async syncVisualPhotoUpload(request: PendingRequest): Promise<any> {
+    const data = request.data;
+
+    // Get file from IndexedDB
+    const file = await (this.indexedDb as any).getStoredFile(data.fileId);
+    if (!file) {
+      throw new Error(`Photo file not found: ${data.fileId}`);
+    }
+
+    // Resolve temp Visual ID to real ID
+    let visualId = data.tempVisualId;
+    if (visualId && String(visualId).startsWith('temp_')) {
+      const realId = await (this.indexedDb as any).getRealId(String(visualId));
+      if (!realId) {
+        throw new Error(`Visual not synced yet: ${visualId}`);
+      }
+      visualId = parseInt(realId);
+    }
+
+    // Convert file to FormData for upload
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('caption', data.caption || '');
+    formData.append('drawings', data.drawings || '');
+
+    // Call S3 upload endpoint
+    const response = await this.apiGateway.post(
+      `/caspio-proxy/upload-visual-photo`,  // This will need to be handled by the proxy
+      formData
+    ).toPromise();
+
+    return response;
   }
 
   /**
