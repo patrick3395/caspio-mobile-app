@@ -3540,16 +3540,70 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
             
             if (elevationPoint) {
-              // [PERFORMANCE FIX] Skip photo loading entirely for faster template load
-              // Photos will load on-demand when user views/expands the point
               const actualPointId = point.PointID || pointId;
               console.log(`[Load Points] Point ${point.PointName} ready, PointID: ${actualPointId}`);
 
-              // Set photoCount to 0 for now - photos will load on-demand
-              elevationPoint.photoCount = 0;
-              elevationPoint.photos = [];
-
-              // [PERFORMANCE FIX] Photo loading disabled - all code removed for faster load
+              // Load photos for this point
+              try {
+                const attachments = await this.foundationData.getEFEAttachments(actualPointId);
+                
+                if (attachments && attachments.length > 0) {
+                  console.log(`[Load Points] Loading ${attachments.length} photos for point ${point.PointName}`);
+                  
+                  for (const attachment of attachments) {
+                    let photoUrl = '';
+                    
+                    // Check if this is an S3 image
+                    if (attachment.Attachment && this.caspioService.isS3Key(attachment.Attachment)) {
+                      console.log('[Load Points] ✨ S3 image detected:', attachment.Attachment);
+                      try {
+                        photoUrl = await this.caspioService.getS3FileUrl(attachment.Attachment);
+                        console.log('[Load Points] ✅ Got S3 URL');
+                      } catch (err) {
+                        console.error('[Load Points] ❌ Failed to load S3 image:', err);
+                        photoUrl = 'assets/img/photo-placeholder.png';
+                      }
+                    }
+                    // Fallback to old Caspio Files API
+                    else if (attachment.Photo && attachment.Photo.startsWith('/')) {
+                      try {
+                        const imageData = await this.caspioService.getImageFromFilesAPI(attachment.Photo).toPromise();
+                        if (imageData && imageData.startsWith('data:')) {
+                          photoUrl = imageData;
+                        } else {
+                          photoUrl = 'assets/img/photo-placeholder.png';
+                        }
+                      } catch (err) {
+                        console.error('[Load Points] Failed to load Caspio image:', err);
+                        photoUrl = 'assets/img/photo-placeholder.png';
+                      }
+                    }
+                    
+                    if (photoUrl) {
+                      elevationPoint.photos.push({
+                        url: photoUrl,
+                        thumbnailUrl: photoUrl,
+                        displayUrl: photoUrl,
+                        attachId: attachment.AttachID || attachment.PK_ID,
+                        photoType: attachment.PhotoType || '',
+                        annotation: attachment.Annotation || '',
+                        Attachment: attachment.Attachment,
+                        Photo: attachment.Photo
+                      });
+                    }
+                  }
+                  
+                  elevationPoint.photoCount = elevationPoint.photos.length;
+                  console.log(`[Load Points] ✅ Loaded ${elevationPoint.photos.length} photos for ${point.PointName}`);
+                } else {
+                  elevationPoint.photoCount = 0;
+                  elevationPoint.photos = [];
+                }
+              } catch (photoError) {
+                console.error(`[Load Points] Error loading photos for ${point.PointName}:`, photoError);
+                elevationPoint.photoCount = 0;
+                elevationPoint.photos = [];
+              }
             }
           }
         }
