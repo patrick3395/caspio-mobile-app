@@ -341,8 +341,9 @@ export class EngineersFoundationDataService {
         this.caspioService.createServicesVisualsAttachWithFile(visualIdNum, caption, file, drawings, originalFile)
       );
 
-      // Success - delete from IndexedDB
-      await this.indexedDb.deleteStoredFile(tempPhotoId);
+      // Success - DON'T delete file yet (background sync might need it)
+      // File will be deleted by background sync after confirming upload
+      console.log('[Visual Photo] Upload succeeded, file kept in IndexedDB for background sync');
 
       // Clear cache
       this.visualAttachmentsCache.delete(visualIdStr);

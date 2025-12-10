@@ -269,10 +269,13 @@ export class BackgroundSyncService {
     // Get file from IndexedDB
     const file = await this.indexedDb.getStoredFile(data.fileId);
     if (!file) {
+      console.error('[BackgroundSync] Photo file not found in IndexedDB:', data.fileId);
+      // Mark as failed - file is missing, can't upload
+      await this.indexedDb.updateRequestStatus(request.requestId, 'failed', 'File not found in storage');
       throw new Error(`Photo file not found: ${data.fileId}`);
     }
 
-    console.log('[BackgroundSync] File retrieved:', file.name);
+    console.log('[BackgroundSync] File retrieved successfully:', file.name, file.size);
 
     // Resolve temp Visual ID to real ID if needed
     let visualId = data.tempVisualId || data.visualId;
