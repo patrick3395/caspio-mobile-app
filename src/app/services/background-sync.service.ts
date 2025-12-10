@@ -66,7 +66,7 @@ export class BackgroundSyncService {
    */
   private listenToConnectionChanges(): void {
     this.connectionMonitor.getHealth().subscribe(health => {
-      if (health.isOnline && !this.isSyncing) {
+      if (health.isHealthy && !this.isSyncing) {
         console.log('[BackgroundSync] Connection restored, triggering sync');
         this.triggerSync();
       }

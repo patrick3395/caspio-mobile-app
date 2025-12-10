@@ -1627,7 +1627,8 @@ export class CaspioService {
 
   createServicesHUDAttachWithFile(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
     return new Observable(observer => {
-      this.uploadHUDAttachWithFilesAPI(hudId, annotation, file, drawings, originalFile)
+      // Use new S3 upload method
+      this.uploadHUDAttachWithS3(hudId, annotation, file, drawings, originalFile)
         .then(result => {
           observer.next(result);
           observer.complete();
@@ -1942,6 +1943,292 @@ export class CaspioService {
 
   deleteServicesHUDAttach(attachId: string): Observable<any> {
     return this.delete<any>(`/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`);
+  }
+
+  // ============================================
+  // S3 PHOTO UPLOAD METHODS (New Approach)
+  // ============================================
+
+  /**
+   * Upload photo to S3 and update HUD attach record with S3 key
+   * @param attachId - The AttachID of the record to update
+   * @param file - The file to upload
+   * @param originalFile - Optional original uncompressed file
+   */
+  async uploadAndUpdateHUDAttachPhotoToS3(attachId: number, file: File, originalFile?: File): Promise<any> {
+    try {
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `hud_attach_${attachId}_${timestamp}_${randomId}.${fileExt}`;
+
+      // Upload to S3 via backend
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_HUD_Attach');
+      formData.append('attachId', attachId.toString());
+
+      const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('S3 upload failed:', errorText);
+        throw new Error('Failed to upload file to S3: ' + errorText);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      const s3Key = uploadResult.s3Key;
+
+      console.log('[S3 Upload] File uploaded successfully:', s3Key);
+
+      // Update the HUD attach record with the S3 key in Attachment field
+      const token = await firstValueFrom(this.getValidToken());
+      const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+      const updateData: any = {
+        Attachment: s3Key  // Store S3 key in Attachment field
+      };
+
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        console.error('Failed to update Services_HUD_Attach record:', errorText);
+        throw new Error('Failed to update record: ' + errorText);
+      }
+
+      console.log('[S3 Upload] Database record updated with S3 key');
+
+      return {
+        AttachID: attachId,
+        Attachment: s3Key,
+        success: true
+      };
+
+    } catch (error) {
+      console.error('Error in uploadAndUpdateHUDAttachPhotoToS3:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get pre-signed URL for S3 file
+   * @param s3Key - The S3 key of the file
+   */
+  async getS3FileUrl(s3Key: string): Promise<string> {
+    try {
+      const url = `${environment.apiGatewayUrl}/api/s3/url?s3Key=${encodeURIComponent(s3Key)}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to get S3 pre-signed URL:', errorText);
+        throw new Error('Failed to get file URL: ' + errorText);
+      }
+
+      const result = await response.json();
+      return result.url;
+
+    } catch (error) {
+      console.error('Error getting S3 file URL:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a value is an S3 key (starts with 'uploads/')
+   */
+  isS3Key(value: string | null | undefined): boolean {
+    return !!value && typeof value === 'string' && value.startsWith('uploads/');
+  }
+
+  /**
+   * Delete file from S3
+   * @param s3Key - The S3 key of the file to delete
+   */
+  async deleteS3File(s3Key: string): Promise<void> {
+    try {
+      const url = `${environment.apiGatewayUrl}/api/s3/file`;
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ s3Key })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to delete S3 file:', errorText);
+        throw new Error('Failed to delete file: ' + errorText);
+      }
+
+      console.log('[S3 Delete] File deleted successfully:', s3Key);
+
+    } catch (error) {
+      console.error('Error deleting S3 file:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload HUD attach photo to S3 (new S3-based flow)
+   * @param hudId - The HUD ID
+   * @param annotation - The caption/annotation text
+   * @param file - The file to upload
+   * @param drawings - Optional drawings/annotations data
+   * @param originalFile - Optional original file before annotation
+   */
+  private async uploadHUDAttachWithS3(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
+    console.log('[HUD ATTACH S3] ========== Starting S3 HUD Attach Upload ==========');
+    console.log('[HUD ATTACH S3] Parameters:', {
+      hudId,
+      annotation: annotation || '(empty)',
+      fileName: file.name,
+      fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+      fileType: file.type,
+      hasDrawings: !!drawings,
+      drawingsLength: drawings?.length || 0,
+      hasOriginalFile: !!originalFile
+    });
+
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      // STEP 1: Create database record first to get AttachID
+      console.log('[HUD ATTACH S3] Step 1: Creating database record...');
+      const recordData: any = {
+        HUDID: parseInt(hudId.toString()),
+        Annotation: annotation || ''
+      };
+
+      // Add Drawings field if annotation data is provided
+      if (drawings && drawings.length > 0) {
+        console.log('[HUD ATTACH S3] Adding Drawings field:', drawings.length, 'bytes');
+        let compressedDrawings = drawings;
+
+        // Apply compression if needed
+        if (drawings.length > 50000) {
+          compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+          console.log('[HUD ATTACH S3] Compressed Drawings:', compressedDrawings.length, 'bytes');
+        }
+
+        // Only add if within the field limit after compression
+        if (compressedDrawings.length <= 64000) {
+          recordData.Drawings = compressedDrawings;
+        } else {
+          console.warn('[HUD ATTACH S3] ⚠️ Drawings data too large after compression:', compressedDrawings.length, 'bytes');
+          console.warn('[HUD ATTACH S3] ⚠️ Skipping Drawings field');
+        }
+      }
+
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(recordData)
+      });
+
+      if (!recordResponse.ok) {
+        const errorText = await recordResponse.text();
+        console.error('[HUD ATTACH S3] ❌ Record creation failed:', errorText);
+        throw new Error(`HUD attach record creation failed: ${recordResponse.status} - ${errorText}`);
+      }
+
+      const recordResult = await recordResponse.json();
+      const attachId = recordResult.Result && recordResult.Result[0] ? recordResult.Result[0].AttachID : recordResult.AttachID;
+
+      console.log('[HUD ATTACH S3] ✅ Record created with AttachID:', attachId);
+
+      // STEP 2: Upload file to S3
+      console.log('[HUD ATTACH S3] Step 2: Uploading file to S3...');
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `hud_${hudId}_${timestamp}_${randomId}.${fileExt}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_HUD_Attach');
+      formData.append('attachId', attachId.toString());
+
+      const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('[HUD ATTACH S3] ❌ S3 upload failed:', errorText);
+        throw new Error('Failed to upload file to S3: ' + errorText);
+      }
+
+      const uploadResult = await uploadResponse.json();
+      const s3Key = uploadResult.s3Key;
+
+      console.log('[HUD ATTACH S3] ✅ File uploaded to S3:', s3Key);
+
+      // STEP 3: Update database record with S3 key
+      console.log('[HUD ATTACH S3] Step 3: Updating record with S3 key...');
+      const updateData: any = {
+        Attachment: s3Key
+      };
+
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        console.error('[HUD ATTACH S3] ❌ Record update failed:', errorText);
+        // Don't throw - file is uploaded, just log the error
+        console.warn('[HUD ATTACH S3] ⚠️ Continuing despite update failure');
+      } else {
+        console.log('[HUD ATTACH S3] ✅ Record updated with S3 key');
+      }
+
+      // Return result in same format as Caspio response
+      const finalResult = {
+        Result: [{
+          AttachID: attachId,
+          HUDID: hudId,
+          Annotation: annotation || '',
+          Attachment: s3Key,
+          Drawings: recordData.Drawings || ''
+        }],
+        AttachID: attachId,
+        Attachment: s3Key
+      };
+
+      console.log('[HUD ATTACH S3] ✅ Upload complete!');
+      console.log('[HUD ATTACH S3] Final result:', JSON.stringify(finalResult, null, 2));
+
+      return finalResult;
+
+    } catch (error) {
+      console.error('[HUD ATTACH S3] ❌ Upload failed:', error);
+      throw error;
+    }
   }
 
   // ============================================

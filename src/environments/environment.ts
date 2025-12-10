@@ -23,6 +23,12 @@ export const environment = {
     clientId: '', // Removed for security - stored in AWS
     clientSecret: '' // Removed for security - stored in AWS
   },
+  
+  // S3 configuration for file storage
+  s3: {
+    bucketName: 'lps-field-app',
+    region: 'us-east-1',
+  },
   googleMapsApiKey: 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A',
   paypal: {
     clientId: 'Ab5YsZla-pIyZZmxfKgb3k0GwWe3NoCqxIcfwefzzbutjjRgD15vdDcIIIABkNpbuFxlwS6Huu9uZgMq',
