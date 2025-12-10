@@ -4,11 +4,24 @@
 
 export const environment = {
   production: false,
+  isWeb: false, // Set to true when running in browser
+  
+  // NEW: API Gateway backend configuration
+  apiGatewayUrl: 'https://iaopezyqb4aak4zpakgunea2hi0qoiqh.lambda-url.us-east-1.on.aws',
+  cognito: {
+    userPoolId: 'us-east-1_jefJY80nY',
+    clientId: 'j044eki6ektqi155srd1a6ke9',
+    region: 'us-east-1',
+  },
+  useApiGateway: true, // Set to false to use direct Caspio calls
+  
+  // Caspio config (only needed if useApiGateway = false)
+  // Credentials are now securely stored in AWS Secrets Manager
   caspio: {
     tokenEndpoint: 'https://c2hcf092.caspio.com/oauth/token',
     apiBaseUrl: 'https://c2hcf092.caspio.com/rest/v2',
-    clientId: '01ddeb9d873748255f3edeccb5fbfa806695e43ffa5fff4f67',
-    clientSecret: '1d4e3ea85a2247f0929a0a995df66e6be183c463391375ae80'
+    clientId: '', // Removed for security - stored in AWS
+    clientSecret: '' // Removed for security - stored in AWS
   },
   googleMapsApiKey: 'AIzaSyCOlOYkj3N8PT_RnoBkVJfy2BSfepqqV3A',
   paypal: {

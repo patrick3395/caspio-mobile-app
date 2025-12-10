@@ -7,6 +7,7 @@ import { ImageCompressionService } from './image-compression.service';
 import { CacheService } from './cache.service';
 import { OfflineService, QueuedRequest } from './offline.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
+import { ApiGatewayService } from './api-gateway.service';
 import { compressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../utils/annotation-utils';
 
 export interface CaspioToken {
@@ -48,10 +49,18 @@ export class CaspioService {
     private imageCompression: ImageCompressionService,
     private cache: CacheService,
     private offline: OfflineService,
-    private connectionMonitor: ConnectionMonitorService
+    private connectionMonitor: ConnectionMonitorService,
+    private apiGateway: ApiGatewayService
   ) {
     this.loadStoredToken();
     this.offline.registerProcessor(this.processQueuedRequest.bind(this));
+  }
+
+  /**
+   * Check if we should use API Gateway backend
+   */
+  private useApiGateway(): boolean {
+    return environment.useApiGateway === true;
   }
 
   authenticate(): Observable<CaspioAuthResponse> {
@@ -364,6 +373,25 @@ export class CaspioService {
   }
 
   get<T>(endpoint: string, useCache: boolean = true): Observable<T> {
+    // Route through API Gateway if enabled
+    if (this.useApiGateway()) {
+      console.log(`[CaspioService] ✅ Using AWS API Gateway for GET ${endpoint}`);
+      return this.apiGateway.get<T>(`/api/caspio-proxy${endpoint}`).pipe(
+        tap(data => {
+          // Cache the response
+          if (useCache) {
+            this.cache.setApiResponse(endpoint, {}, data);
+          }
+        }),
+        catchError(error => {
+          console.error(`[CaspioService] AWS API Gateway error for ${endpoint}:`, error);
+          return throwError(() => error);
+        })
+      );
+    }
+
+    console.log(`[CaspioService] 📡 Using direct Caspio API for GET ${endpoint}`);
+
     // Create a unique key for this request
     const requestKey = `GET:${endpoint}`;
 
@@ -491,6 +519,20 @@ export class CaspioService {
   }
 
   post<T>(endpoint: string, data: any): Observable<T> {
+    // Route through API Gateway if enabled
+    if (this.useApiGateway()) {
+      console.log(`[CaspioService] ✅ Using AWS API Gateway for POST ${endpoint}`);
+      return this.apiGateway.post<T>(`/api/caspio-proxy${endpoint}`, data).pipe(
+        tap(() => this.invalidateCacheForEndpoint(endpoint, 'POST')),
+        catchError(error => {
+          console.error(`[CaspioService] AWS API Gateway error for POST ${endpoint}:`, error);
+          return throwError(() => error);
+        })
+      );
+    }
+
+    console.log(`[CaspioService] 📡 Using direct Caspio API for POST ${endpoint}`);
+
     if (!this.offline.isOnline()) {
       return from(this.queueOfflineRequest<T>('POST', endpoint, data));
     }
@@ -533,6 +575,20 @@ export class CaspioService {
   }
 
   put<T>(endpoint: string, data: any): Observable<T> {
+    // Route through API Gateway if enabled
+    if (this.useApiGateway()) {
+      console.log(`[CaspioService] ✅ Using AWS API Gateway for PUT ${endpoint}`);
+      return this.apiGateway.put<T>(`/api/caspio-proxy${endpoint}`, data).pipe(
+        tap(() => this.invalidateCacheForEndpoint(endpoint, 'PUT')),
+        catchError(error => {
+          console.error(`[CaspioService] AWS API Gateway error for PUT ${endpoint}:`, error);
+          return throwError(() => error);
+        })
+      );
+    }
+
+    console.log(`[CaspioService] 📡 Using direct Caspio API for PUT ${endpoint}`);
+
     if (!this.offline.isOnline()) {
       return from(this.queueOfflineRequest<T>('PUT', endpoint, data));
     }
@@ -3494,6 +3550,14 @@ export class CaspioService {
 
   // Project methods
   getProject(projectId: string): Observable<any> {
+    // Use API Gateway if enabled
+    if (this.useApiGateway()) {
+      console.log('[CaspioService] Using API Gateway for getProject');
+      return this.apiGateway.get(`/projects/${projectId}`);
+    }
+    
+    // Fallback to direct Caspio API
+    console.log('[CaspioService] Using direct Caspio API for getProject');
     return this.get<any>(`/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
@@ -3501,6 +3565,14 @@ export class CaspioService {
 
   // LPS_Type methods
   getType(typeId: string): Observable<any> {
+    // Use API Gateway if enabled
+    if (this.useApiGateway()) {
+      console.log('[CaspioService] Using API Gateway for getType');
+      return this.apiGateway.get(`/types/${typeId}`);
+    }
+    
+    // Fallback to direct Caspio API
+    console.log('[CaspioService] Using direct Caspio API for getType');
     // First try TypeID field
     return this.get<any>(`/tables/LPS_Type/records?q.where=TypeID=${typeId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null),
@@ -3519,6 +3591,14 @@ export class CaspioService {
   
   // Service methods
   getService(serviceId: string): Observable<any> {
+    // Use API Gateway if enabled
+    if (this.useApiGateway()) {
+      console.log('[CaspioService] Using API Gateway for getService');
+      return this.apiGateway.get(`/services/${serviceId}`);
+    }
+    
+    // Fallback to direct Caspio API
+    console.log('[CaspioService] Using direct Caspio API for getService');
     // Services table uses PK_ID as primary key, not ServiceID
     return this.get<any>(`/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)

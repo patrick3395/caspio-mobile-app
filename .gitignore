@@ -74,3 +74,6 @@ Thumbs.db
 omnara_env/
 __pycache__/
 *.pyc
+
+# Backend (deployed separately to AWS, not to Vercel)
+/backend

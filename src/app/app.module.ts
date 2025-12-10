@@ -8,6 +8,7 @@ import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
 import { CaspioInterceptor } from './interceptors/caspio.interceptor';
+import { AuthInterceptor } from './interceptors/auth.interceptor';
 import { ThemeToggleComponent } from './components/theme-toggle/theme-toggle.component';
 import { SyncToggleComponent } from './components/sync-toggle/sync-toggle.component';
 
@@ -16,7 +17,8 @@ import { SyncToggleComponent } from './components/sync-toggle/sync-toggle.compon
   imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    { provide: HTTP_INTERCEPTORS, useClass: CaspioInterceptor, multi: true }
+    { provide: HTTP_INTERCEPTORS, useClass: CaspioInterceptor, multi: true },
+    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }
   ],
   bootstrap: [AppComponent],
 })
