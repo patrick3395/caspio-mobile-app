@@ -236,6 +236,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
     console.log('[UPLOAD UPDATE] Using AttachID:', attachId);
 
+    // Revoke old blob URL if it exists
+    const oldPhoto = this.visualPhotos[key][photoIndex];
+    if (oldPhoto && oldPhoto.url && oldPhoto.url.startsWith('blob:')) {
+      console.log('[UPLOAD UPDATE] Revoking old blob URL');
+      URL.revokeObjectURL(oldPhoto.url);
+    }
+
     // Update photo object
     this.visualPhotos[key][photoIndex] = {
       ...this.visualPhotos[key][photoIndex],

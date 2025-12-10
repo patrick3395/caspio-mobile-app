@@ -230,6 +230,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
     console.log('[UPLOAD UPDATE] Using AttachID:', attachId);
 
+    // Revoke old blob URL
+    const oldPhoto = this.visualPhotos[key][photoIndex];
+    if (oldPhoto?.url?.startsWith('blob:')) URL.revokeObjectURL(oldPhoto.url);
+
     // Update photo object
     this.visualPhotos[key][photoIndex] = {
       ...this.visualPhotos[key][photoIndex],

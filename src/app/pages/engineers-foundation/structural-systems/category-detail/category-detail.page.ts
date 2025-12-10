@@ -217,6 +217,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
     }
 
+    // Revoke old blob URL if it exists
+    const oldPhoto = this.visualPhotos[key][photoIndex];
+    if (oldPhoto && oldPhoto.url && oldPhoto.url.startsWith('blob:')) {
+      URL.revokeObjectURL(oldPhoto.url);
+    }
+
     // Update photo object
     this.visualPhotos[key][photoIndex] = {
       ...this.visualPhotos[key][photoIndex],

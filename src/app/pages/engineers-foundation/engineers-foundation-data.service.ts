@@ -200,17 +200,48 @@ export class EngineersFoundationDataService {
   // ============================================
 
   async createVisual(visualData: any): Promise<any> {
-    console.log('[Visual Data] Creating new visual:', visualData);
-    
-    // Use original direct method (works immediately)
-    const result = await firstValueFrom(this.caspioService.createServicesVisual(visualData));
+    console.log('[Visual Data] Creating new visual (PERSISTENT):', visualData);
 
-    // Clear cache for this service to force reload
+    // ALWAYS save to IndexedDB first (whether online or offline)
+    const tempId = this.tempId.generateTempId('visual');
+
+    // Create placeholder for immediate UI
+    const placeholder = {
+      ...visualData,
+      PK_ID: tempId,
+      _tempId: tempId,
+      _localOnly: true,
+      _syncing: true,
+      _createdAt: Date.now(),
+    };
+
+    // Store in IndexedDB
+    await this.indexedDb.addPendingRequest({
+      type: 'CREATE',
+      tempId: tempId,
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_Visuals/records?response=rows',
+      method: 'POST',
+      data: visualData,
+      dependencies: [],
+      status: 'pending',
+      priority: 'high',
+    }).catch(err => {
+      console.error('[Visual Data] Failed to store in IndexedDB:', err);
+    });
+
+    // Clear cache
     if (visualData.ServiceID) {
       this.visualsCache.delete(String(visualData.ServiceID));
     }
 
-    return result;
+    // Trigger background sync (will sync immediately if online)
+    this.backgroundSync.triggerSync();
+
+    // Show feedback
+    await this.showToast('Visual saved');
+
+    // Return placeholder (user sees it instantly)
+    return placeholder;
   }
 
   async updateVisual(visualId: string, visualData: any): Promise<any> {
