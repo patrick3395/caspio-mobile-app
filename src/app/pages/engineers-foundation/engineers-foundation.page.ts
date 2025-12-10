@@ -1,4 +1,5 @@
 ﻿import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, ChangeDetectionStrategy, NgZone } from '@angular/core';
+import { IndexedDbService } from '../../services/indexed-db.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -476,7 +477,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private offlineService: OfflineService,
     private foundationData: EngineersFoundationDataService,
     public operationsQueue: OperationsQueueService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private indexedDb: IndexedDbService
   ) {
     // CRITICAL FIX: Setup scroll lock mechanism on webapp only
     if (typeof window !== 'undefined') {
@@ -10781,20 +10783,30 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Now do the actual upload in background
     try {
-      // Check if this is a temp ID (Visual not synced yet)
-      const isTempVisualId = String(actualVisualId).startsWith('temp_');
+      // Check if this is a temp ID (Visual might be synced now)
+      let isTempVisualId = String(actualVisualId).startsWith('temp_');
+      let finalVisualId = actualVisualId;
       
       if (isTempVisualId) {
-        // Photo will be queued by data service, just pass the temp ID
-        console.log('[GALLERY UPLOAD] Visual has temp ID, will queue photo upload');
-        // Continue with upload - data service handles temp IDs
+        // Check if Visual has been synced and has a real ID now
+        const realId = await this.indexedDb.getRealId(String(actualVisualId));
+        if (realId) {
+          console.log(`[GALLERY UPLOAD] Visual synced! Using real ID ${realId} instead of ${actualVisualId}`);
+          finalVisualId = realId;
+          isTempVisualId = false;
+          
+          // Update stored ID for future uploads
+          this.visualRecordIds[key] = realId;
+        } else {
+          console.log('[GALLERY UPLOAD] Visual not synced yet, will queue photo upload');
+        }
       }
 
-      // Parse visualId to number (only if not temp)
-      const visualIdNum = isTempVisualId ? 0 : parseInt(actualVisualId, 10);
+      // Parse visualId to number
+      const visualIdNum = isTempVisualId ? finalVisualId : parseInt(String(finalVisualId), 10);
       
-      if (!isTempVisualId && isNaN(visualIdNum)) {
-        throw new Error(`Invalid VisualID: ${actualVisualId}`);
+      if (!isTempVisualId && isNaN(visualIdNum as number)) {
+        throw new Error(`Invalid VisualID: ${finalVisualId}`);
       }
       
       // Prepare debug information
