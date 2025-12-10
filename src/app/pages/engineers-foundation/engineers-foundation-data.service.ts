@@ -267,23 +267,23 @@ export class EngineersFoundationDataService {
     console.log('[Visual Photo] Uploading photo for VisualID:', visualId);
     
     const visualIdStr = String(visualId);
-    const isTempId = this.tempId.isTempId(visualIdStr);
+    const isTempId = visualIdStr.startsWith('temp_');
+
+    // SIMPLE APPROACH: Always store file in IndexedDB first, queue upload
+    const tempPhotoId = `temp_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Create object URL for immediate thumbnail
+    const objectUrl = URL.createObjectURL(file);
+    
+    // Store file in IndexedDB
+    await this.indexedDb.storePhotoFile(tempPhotoId, file, visualIdStr, caption);
 
     if (isTempId) {
-      // Visual not synced yet - queue photo with dependency
-      console.log('[Visual Photo] Visual has temp ID, queuing photo upload');
-      
-      const tempPhotoId = this.tempId.generateTempId('image' as any);
-      
-      // Store file in IndexedDB
-      await this.indexedDb.storePhotoFile(tempPhotoId, file, visualIdStr, caption);
-
-      // Find Visual creation request
+      // Visual not synced - queue with dependency
       const pending = await this.indexedDb.getPendingRequests();
       const visualRequest = pending.find(r => r.tempId === visualIdStr);
       const dependencies = visualRequest ? [visualRequest.requestId] : [];
 
-      // Queue photo upload with dependency on Visual
       await this.indexedDb.addPendingRequest({
         type: 'UPLOAD_FILE',
         tempId: tempPhotoId,
@@ -294,38 +294,69 @@ export class EngineersFoundationDataService {
           fileId: tempPhotoId,
           caption: caption || '',
           drawings: drawings || '',
-          fileName: file.name,
-          hasOriginalFile: !!originalFile,
         },
-        dependencies: dependencies,  // Wait for Visual to be created
+        dependencies: dependencies,
         status: 'pending',
         priority: 'normal',
       });
 
-      console.log('[Visual Photo] Photo queued, will upload after Visual syncs');
+      console.log('[Visual Photo] Photo queued (waiting for Visual)');
 
-      // Return placeholder for UI
+      // Return placeholder with thumbnail
       return {
         AttachID: tempPhotoId,
         VisualID: visualIdStr,
         Annotation: caption,
+        Photo: objectUrl,  // Show from object URL
         _tempId: tempPhotoId,
+        _thumbnailUrl: objectUrl,
         _syncing: true,
-        _waitingForVisual: true,
       };
     }
 
-    // Visual has real ID - upload normally
-    const visualIdNum = typeof visualId === 'number' ? visualId : parseInt(visualId, 10);
+    // Visual has real ID - upload now
+    const visualIdNum = parseInt(visualIdStr, 10);
     
-    const result = await firstValueFrom(
-      this.caspioService.createServicesVisualsAttachWithFile(visualIdNum, caption, file, drawings, originalFile)
-    );
+    try {
+      const result = await firstValueFrom(
+        this.caspioService.createServicesVisualsAttachWithFile(visualIdNum, caption, file, drawings, originalFile)
+      );
 
-    // Clear attachment cache
-    this.visualAttachmentsCache.delete(String(visualId));
+      // Success - delete from IndexedDB
+      await this.indexedDb.deleteStoredFile(tempPhotoId);
 
-    return result;
+      // Clear cache
+      this.visualAttachmentsCache.delete(visualIdStr);
+
+      return result;
+    } catch (error) {
+      // Failed - keep in IndexedDB, queue for retry
+      await this.indexedDb.addPendingRequest({
+        type: 'UPLOAD_FILE',
+        tempId: tempPhotoId,
+        endpoint: 'VISUAL_PHOTO_UPLOAD',
+        method: 'POST',
+        data: {
+          visualId: visualIdNum,
+          fileId: tempPhotoId,
+          caption: caption || '',
+          drawings: drawings || '',
+        },
+        dependencies: [],
+        status: 'pending',
+        priority: 'high',
+      });
+
+      console.log('[Visual Photo] Upload failed, queued for retry');
+      
+      // Return placeholder
+      return {
+        AttachID: tempPhotoId,
+        Photo: objectUrl,
+        _thumbnailUrl: objectUrl,
+        _syncing: true,
+      };
+    }
   }
 
   async deleteVisualPhoto(attachId: string): Promise<any> {
