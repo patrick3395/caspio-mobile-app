@@ -13968,20 +13968,38 @@ Stack: ${error?.stack}`;
           continue;
         }
 
-        // CRITICAL FIX: Fetch photo using AttachID as unique identifier
-        // Multiple photos can have the same filename, so we must use AttachID
         const attachId = record.AttachID || record.id || record.PK_ID;
+        let imageUrl = '';
 
-        // [PERFORMANCE] Load low-quality thumbnail first for fast display
-        const thumbnailUrl = await this.fetchPhotoThumbnail(record.filePath, attachId);
+        // EXACT HUD PATTERN: Check for S3 first, then fallback to Caspio
+        if (record.Attachment && this.caspioService.isS3Key(record.Attachment)) {
+          console.log('[LOAD PHOTO] ✨ S3 image detected:', record.Attachment);
+          try {
+            console.log('[LOAD PHOTO] Fetching S3 pre-signed URL...');
+            imageUrl = await this.caspioService.getS3FileUrl(record.Attachment);
+            console.log('[LOAD PHOTO] ✅ Got S3 pre-signed URL');
+          } catch (err) {
+            console.error('[LOAD PHOTO] ❌ Failed to load S3 image:', record.Attachment, err);
+            imageUrl = this.photoPlaceholder;
+          }
+        }
+        // Fallback to old Photo field (Caspio Files API)
+        else if (record.Photo) {
+          console.log('[LOAD PHOTO] 📁 Caspio Files API image detected');
+          const thumbnailUrl = await this.fetchPhotoThumbnail(record.Photo, attachId);
+          imageUrl = thumbnailUrl || this.photoPlaceholder;
+        } else {
+          console.warn('[LOAD PHOTO] ⚠️ No photo path or S3 key');
+          imageUrl = this.photoPlaceholder;
+        }
 
-        if (thumbnailUrl) {
-          record.url = thumbnailUrl;
-          record.originalUrl = thumbnailUrl;
-          record.thumbnailUrl = thumbnailUrl;
-          record.displayUrl = thumbnailUrl;
-          record.isLowQuality = true; // Mark as low quality
-          record.fullQualityLoaded = false;
+        if (imageUrl && imageUrl !== this.photoPlaceholder) {
+          record.url = imageUrl;
+          record.originalUrl = imageUrl;
+          record.thumbnailUrl = imageUrl;
+          record.displayUrl = imageUrl;
+          record.isLowQuality = false; // S3 URLs are full quality
+          record.fullQualityLoaded = true;
         } else {
           record.thumbnailUrl = this.photoPlaceholder;
           record.displayUrl = this.photoPlaceholder;
@@ -14062,15 +14080,7 @@ Stack: ${error?.stack}`;
     }
 
     try {
-      // Check if this is an S3 key (starts with 'uploads/')
-      if (this.caspioService.isS3Key(photoPath)) {
-        console.log(`📸 [S3] Fetching S3 pre-signed URL for ${attachId}`);
-        const s3Url = await this.caspioService.getS3FileUrl(photoPath);
-        // For S3, we just return the pre-signed URL directly (no compression needed)
-        return s3Url;
-      }
-
-      // Fallback to Caspio Files API for old photos
+      // Fetch original blob (Caspio Files API only - S3 handled separately)
       const blob = await firstValueFrom(this.caspioService.getImageBlobFromFilesAPI(photoPath));
 
       // [PERFORMANCE] On slow connections (mobile/2g/3g), skip compression for speed
