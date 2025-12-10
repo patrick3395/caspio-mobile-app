@@ -2195,20 +2195,34 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
 
       // If no valid URL and we have a file path, try to fetch it
-      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo)) {
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo || photo.Attachment)) {
         try {
-          const filePath = photo.filePath || photo.Photo;
-          const fetchedImage = await firstValueFrom(
-            this.caspioService.getImageFromFilesAPI(filePath)
-          );
-          if (fetchedImage && fetchedImage.startsWith('data:')) {
-            imageUrl = fetchedImage;
-            photo.url = fetchedImage;
-            photo.originalUrl = fetchedImage;
-            photo.thumbnailUrl = fetchedImage;
-            photo.displayUrl = fetchedImage;
-            this.changeDetectorRef.detectChanges();
+          // Check if this is an S3 key
+          if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {
+            console.log('[VIEW PHOTO] ✨ S3 image detected, fetching URL...');
+            imageUrl = await this.caspioService.getS3FileUrl(photo.Attachment);
+            photo.url = imageUrl;
+            photo.originalUrl = imageUrl;
+            photo.thumbnailUrl = imageUrl;
+            photo.displayUrl = imageUrl;
+            console.log('[VIEW PHOTO] ✅ Got S3 URL');
           }
+          // Fallback to Caspio Files API
+          else {
+            const filePath = photo.filePath || photo.Photo;
+            console.log('[VIEW PHOTO] 📁 Fetching from Caspio Files API...');
+            const fetchedImage = await firstValueFrom(
+              this.caspioService.getImageFromFilesAPI(filePath)
+            );
+            if (fetchedImage && fetchedImage.startsWith('data:')) {
+              imageUrl = fetchedImage;
+              photo.url = fetchedImage;
+              photo.originalUrl = fetchedImage;
+              photo.thumbnailUrl = fetchedImage;
+              photo.displayUrl = fetchedImage;
+            }
+          }
+          this.changeDetectorRef.detectChanges();
         } catch (err) {
           console.error('[VIEW PHOTO] Failed to fetch image:', err);
         }

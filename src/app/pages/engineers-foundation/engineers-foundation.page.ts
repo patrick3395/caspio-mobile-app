@@ -7219,16 +7219,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // Try to get a valid image URL
       let imageUrl = photo.url || photo.thumbnailUrl || photo.displayUrl;
       
-      // If no valid URL and we have a file path, try to fetch it
-      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && photo.filePath) {
+      // If no valid URL and we have a file path or attachment, try to fetch it
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Attachment || photo.Photo)) {
         try {
           // Check if this is an S3 key
-          if (this.caspioService.isS3Key(photo.filePath) || this.caspioService.isS3Key(photo.Attachment)) {
+          if (this.caspioService.isS3Key(photo.Attachment) || this.caspioService.isS3Key(photo.filePath)) {
             const s3Key = photo.Attachment || photo.filePath;
-            console.log('[VIEW PHOTO] S3 image detected:', s3Key);
+            console.log('[VIEW PHOTO] ✨ S3 image detected, fetching URL...');
             imageUrl = await this.caspioService.getS3FileUrl(s3Key);
             photo.url = imageUrl;
             photo.originalUrl = imageUrl;
+            console.log('[VIEW PHOTO] ✅ Got S3 URL');
           } else {
             // Fallback to Caspio Files API
             const fetchedImage = await this.caspioService.getImageFromFilesAPI(photo.filePath).toPromise();
@@ -15010,34 +15011,16 @@ Stack: ${error?.stack}`;
                   mappingIndex
                 });
 
-                // For S3, get pre-signed URL
+                // For S3, get pre-signed URL (returns HTTPS URL, not base64)
                 imagePromises.push(
                   this.caspioService.getS3FileUrl(attachment.Attachment)
-                    .then(async (base64Data) => {
-                      if (base64Data && base64Data.startsWith('data:')) {
-                        let finalUrl = base64Data;
-
-                        // CRITICAL FIX: Render annotations if Drawings data exists
-                        const drawingsData = attachment.Drawings;
-                        if (drawingsData) {
-                          try {
-                            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
-                            if (annotatedUrl && annotatedUrl !== finalUrl) {
-                              finalUrl = annotatedUrl;
-                            }
-                          } catch (renderError) {
-                            console.error(`[Point Photos] Error rendering annotations:`, renderError);
-                            // Continue with original photo if rendering fails
-                          }
-                        }
-
-                        return finalUrl;
-                      }
-                      return photoUrl; // Fallback to original
+                    .then((s3Url) => {
+                      console.log('[Point Photos S3] ✅ Got S3 URL for attachment:', attachment.AttachID);
+                      return s3Url;
                     })
                     .catch(error => {
-                      console.error(`Failed to convert photo:`, error);
-                      return photoUrl; // Fallback to original
+                      console.error('[Point Photos S3] ❌ Failed:', error);
+                      return 'assets/img/photo-placeholder.svg';
                     })
                 );
               }
