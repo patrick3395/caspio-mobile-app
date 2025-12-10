@@ -3,6 +3,7 @@ import { BehaviorSubject, interval, Subscription } from 'rxjs';
 import { IndexedDbService, PendingRequest } from './indexed-db.service';
 import { ApiGatewayService } from './api-gateway.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
+import { CaspioService } from './caspio.service';
 
 export interface SyncStatus {
   isSyncing: boolean;
@@ -37,7 +38,8 @@ export class BackgroundSyncService {
     private indexedDb: IndexedDbService,
     private apiGateway: ApiGatewayService,
     private connectionMonitor: ConnectionMonitorService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private caspioService: CaspioService
   ) {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
@@ -248,40 +250,41 @@ export class BackgroundSyncService {
   }
 
   /**
-   * Sync photo upload for a Visual
+   * Sync photo upload for a Visual using existing S3 upload
    */
   private async syncVisualPhotoUpload(request: PendingRequest): Promise<any> {
     const data = request.data;
 
     // Get file from IndexedDB
-    const file = await (this.indexedDb as any).getStoredFile(data.fileId);
+    const file = await this.indexedDb.getStoredFile(data.fileId);
     if (!file) {
       throw new Error(`Photo file not found: ${data.fileId}`);
     }
 
-    // Resolve temp Visual ID to real ID
-    let visualId = data.tempVisualId;
+    // Resolve temp Visual ID to real ID if needed
+    let visualId = data.tempVisualId || data.visualId;
     if (visualId && String(visualId).startsWith('temp_')) {
-      const realId = await (this.indexedDb as any).getRealId(String(visualId));
+      const realId = await this.indexedDb.getRealId(String(visualId));
       if (!realId) {
         throw new Error(`Visual not synced yet: ${visualId}`);
       }
       visualId = parseInt(realId);
+    } else {
+      visualId = parseInt(String(visualId));
     }
 
-    // Convert file to FormData for upload
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('caption', data.caption || '');
-    formData.append('drawings', data.drawings || '');
+    console.log('[BackgroundSync] Uploading photo to Visual:', visualId);
 
-    // Call S3 upload endpoint
-    const response = await this.apiGateway.post(
-      `/caspio-proxy/upload-visual-photo`,  // This will need to be handled by the proxy
-      formData
-    ).toPromise();
+    // Call the EXISTING S3 upload method (fully working!)
+    const result = await this.caspioService.uploadVisualsAttachWithS3(
+      visualId,
+      data.drawings || '',
+      file
+    );
 
-    return response;
+    console.log('[BackgroundSync] Photo uploaded successfully');
+
+    return result;
   }
 
   /**
