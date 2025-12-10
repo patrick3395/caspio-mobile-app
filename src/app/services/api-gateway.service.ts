@@ -29,9 +29,17 @@ export class ApiGatewayService {
   /**
    * Make POST request to API Gateway
    */
-  post<T>(endpoint: string, body: any, options?: { headers?: HttpHeaders }): Observable<T> {
+  post<T>(endpoint: string, body: any, options?: { headers?: HttpHeaders, idempotencyKey?: string }): Observable<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    return this.http.post<T>(url, body, options);
+    
+    // Add idempotency key if provided
+    let headers = options?.headers;
+    if (options?.idempotencyKey) {
+      headers = headers || new HttpHeaders();
+      headers = headers.set('Idempotency-Key', options.idempotencyKey);
+    }
+    
+    return this.http.post<T>(url, body, { ...options, headers });
   }
 
   /**

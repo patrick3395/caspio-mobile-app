@@ -275,6 +275,25 @@ export class EngineersFoundationDataService {
     // Create object URL for immediate thumbnail
     const objectUrl = URL.createObjectURL(file);
     
+    // Check if this exact photo is already queued (prevent duplicates)
+    const pending = await this.indexedDb.getPendingRequests();
+    const alreadyQueued = pending.some(r => 
+      r.type === 'UPLOAD_FILE' &&
+      r.endpoint === 'VISUAL_PHOTO_UPLOAD' &&
+      r.data.visualId === parseInt(visualIdStr) &&
+      r.data.fileName === file.name &&
+      r.status !== 'synced'
+    );
+
+    if (alreadyQueued) {
+      console.log('[Visual Photo] Photo already queued, skipping duplicate');
+      return {
+        AttachID: tempPhotoId,
+        _thumbnailUrl: objectUrl,
+        _duplicate: true,
+      };
+    }
+    
     // Store file in IndexedDB
     await this.indexedDb.storePhotoFile(tempPhotoId, file, visualIdStr, caption);
 
@@ -331,6 +350,8 @@ export class EngineersFoundationDataService {
       return result;
     } catch (error) {
       // Failed - keep in IndexedDB, queue for retry
+      const idempotencyKey = `photo_upload_${visualIdNum}_${file.name}_${file.size}`;
+      
       await this.indexedDb.addPendingRequest({
         type: 'UPLOAD_FILE',
         tempId: tempPhotoId,
@@ -341,6 +362,9 @@ export class EngineersFoundationDataService {
           fileId: tempPhotoId,
           caption: caption || '',
           drawings: drawings || '',
+          fileName: file.name,
+          fileSize: file.size,
+          idempotencyKey: idempotencyKey,
         },
         dependencies: [],
         status: 'pending',
