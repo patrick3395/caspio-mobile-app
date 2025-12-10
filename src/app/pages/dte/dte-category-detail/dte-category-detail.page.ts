@@ -1792,16 +1792,29 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           // CRITICAL: Get the uploaded photo URL from the result
           // Handle both direct result and Result array format
           const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
-          const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
-          let displayableUrl = uploadedPhotoUrl;
+          const s3Key = actualResult.Attachment; // S3 key
+          const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url; // Old Caspio path
+          let displayableUrl = uploadedPhotoUrl || '';
 
           console.log('[DTE PHOTO UPLOAD] Actual result:', actualResult);
-          console.log('[DTE PHOTO UPLOAD] Uploaded photo path:', uploadedPhotoUrl);
+          console.log('[DTE PHOTO UPLOAD] S3 key:', s3Key);
+          console.log('[DTE PHOTO UPLOAD] Uploaded photo path (old):', uploadedPhotoUrl);
 
-          // If we got a file path, convert it to a displayable URL
-          if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+          // Check if this is an S3 image
+          if (s3Key && this.caspioService.isS3Key(s3Key)) {
             try {
-              console.log('[DTE PHOTO UPLOAD] Fetching image data from Files API...');
+              console.log('[DTE PHOTO UPLOAD] ✨ S3 image detected, fetching pre-signed URL...');
+              displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
+              console.log('[DTE PHOTO UPLOAD] ✅ Got S3 pre-signed URL');
+            } catch (err) {
+              console.error('[DTE PHOTO UPLOAD] ❌ Failed to fetch S3 URL:', err);
+              displayableUrl = 'assets/img/photo-placeholder.png';
+            }
+          }
+          // Fallback to old Caspio Files API logic
+          else if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+            try {
+              console.log('[DTE PHOTO UPLOAD] 📁 Caspio Files API path detected, fetching image data...');
               const imageData = await firstValueFrom(
                 this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
               );

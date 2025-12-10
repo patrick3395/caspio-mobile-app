@@ -1783,34 +1783,47 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           // CRITICAL: Get the uploaded photo URL from the result
           // Handle both direct result and Result array format
           const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
-          const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
-          let displayableUrl = uploadedPhotoUrl;
+          const s3Key = actualResult.Attachment; // S3 key
+          const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url; // Old Caspio path
+          let displayableUrl = uploadedPhotoUrl || '';
 
-          console.log('[HUD PHOTO UPLOAD] Actual result:', actualResult);
-          console.log('[HUD PHOTO UPLOAD] Uploaded photo path:', uploadedPhotoUrl);
+          console.log('[LBW PHOTO UPLOAD] Actual result:', actualResult);
+          console.log('[LBW PHOTO UPLOAD] S3 key:', s3Key);
+          console.log('[LBW PHOTO UPLOAD] Uploaded photo path (old):', uploadedPhotoUrl);
 
-          // If we got a file path, convert it to a displayable URL
-          if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+          // Check if this is an S3 image
+          if (s3Key && this.caspioService.isS3Key(s3Key)) {
             try {
-              console.log('[HUD PHOTO UPLOAD] Fetching image data from Files API...');
+              console.log('[LBW PHOTO UPLOAD] ✨ S3 image detected, fetching pre-signed URL...');
+              displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
+              console.log('[LBW PHOTO UPLOAD] ✅ Got S3 pre-signed URL');
+            } catch (err) {
+              console.error('[LBW PHOTO UPLOAD] ❌ Failed to fetch S3 URL:', err);
+              displayableUrl = 'assets/img/photo-placeholder.png';
+            }
+          }
+          // Fallback to old Caspio Files API logic
+          else if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+            try {
+              console.log('[LBW PHOTO UPLOAD] 📁 Caspio Files API path detected, fetching image data...');
               const imageData = await firstValueFrom(
                 this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
               );
-              console.log('[HUD PHOTO UPLOAD] Files API response:', imageData?.substring(0, 100));
+              console.log('[LBW PHOTO UPLOAD] Files API response:', imageData?.substring(0, 100));
               
               if (imageData && imageData.startsWith('data:')) {
                 displayableUrl = imageData;
-                console.log('[HUD PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
+                console.log('[LBW PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
               } else {
-                console.warn('[HUD PHOTO UPLOAD] ❌ Files API returned invalid data');
+                console.warn('[LBW PHOTO UPLOAD] ❌ Files API returned invalid data');
                 displayableUrl = 'assets/img/photo-placeholder.png';
               }
             } catch (err) {
-              console.error('[HUD PHOTO UPLOAD] ❌ Failed to fetch image from Files API:', err);
+              console.error('[LBW PHOTO UPLOAD] ❌ Failed to fetch image from Files API:', err);
               displayableUrl = 'assets/img/photo-placeholder.png';
             }
           } else {
-            console.log('[HUD PHOTO UPLOAD] Using URL directly (already data/blob URL)');
+            console.log('[LBW PHOTO UPLOAD] Using URL directly (already data/blob URL)');
           }
 
           console.log('[HUD PHOTO UPLOAD] Final displayableUrl length:', displayableUrl?.length || 0);

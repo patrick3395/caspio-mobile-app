@@ -1657,25 +1657,41 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           }
 
           // CRITICAL: Get the uploaded photo URL from the result
-          const uploadedPhotoUrl = result.thumbnailUrl || result.url || result.Photo;
-          let displayableUrl = uploadedPhotoUrl;
+          const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
+          const s3Key = actualResult.Attachment; // S3 key
+          const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
+          let displayableUrl = uploadedPhotoUrl || '';
 
-          // If we got a file path, convert it to a displayable URL
-          if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+          console.log('[PHOTO UPLOAD] Actual result:', actualResult);
+          console.log('[PHOTO UPLOAD] S3 key:', s3Key);
+          console.log('[PHOTO UPLOAD] Uploaded photo path (old):', uploadedPhotoUrl);
+
+          // Check if this is an S3 image
+          if (s3Key && this.caspioService.isS3Key(s3Key)) {
             try {
-              console.log('[PHOTO UPLOAD] Converting file path to displayable URL:', uploadedPhotoUrl);
+              console.log('[PHOTO UPLOAD] ✨ S3 image detected, fetching pre-signed URL...');
+              displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
+              console.log('[PHOTO UPLOAD] ✅ Got S3 pre-signed URL');
+            } catch (err) {
+              console.error('[PHOTO UPLOAD] ❌ Failed to fetch S3 URL:', err);
+              displayableUrl = 'assets/img/photo-placeholder.png';
+            }
+          }
+          // Fallback to old Caspio Files API logic
+          else if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+            try {
+              console.log('[PHOTO UPLOAD] 📁 Caspio Files API path detected, fetching image data...');
               const imageData = await firstValueFrom(
                 this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
               );
               if (imageData && imageData.startsWith('data:')) {
                 displayableUrl = imageData;
-                console.log('[PHOTO UPLOAD] Successfully converted to data URL, length:', imageData.length);
-                console.log('[PHOTO UPLOAD] Data URL prefix:', imageData.substring(0, 100));
+                console.log('[PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
               } else {
-                console.warn('[PHOTO UPLOAD] Files API returned invalid data:', imageData?.substring(0, 50));
+                console.warn('[PHOTO UPLOAD] ❌ Files API returned invalid data:', imageData?.substring(0, 50));
               }
             } catch (err) {
-              console.error('[PHOTO UPLOAD] Failed to load uploaded image:', err);
+              console.error('[PHOTO UPLOAD] ❌ Failed to load uploaded image:', err);
               displayableUrl = 'assets/img/photo-placeholder.png';
             }
           } else {
