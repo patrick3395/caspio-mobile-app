@@ -1182,10 +1182,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         const imageUrl = URL.createObjectURL(blob);
 
         // Open photo editor directly
-        const modal = await this.modalController.create({
-          component: FabricPhotoAnnotatorComponent,
-          componentProps: {
-            imageUrl: imageUrl,
+      const modal = await this.modalController.create({
+        component: FabricPhotoAnnotatorComponent,
+        componentProps: {
+          imageUrl: imageUrl,
             existingAnnotations: null,
             existingCaption: '',
             photoData: {
@@ -1927,18 +1927,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       const attachId = photo.AttachID || photo.id;
       const isTempPhoto = String(attachId).startsWith('temp_');
 
-      // If temp photo, get from IndexedDB
-      let imageUrl = photo.url || photo.thumbnailUrl;
-      
+      // If temp photo, get from IndexedDB and use it instead of fetching
       if (isTempPhoto) {
         console.log('[VIEW PHOTO] Temp photo, loading from IndexedDB:', attachId);
         
         // Get file from IndexedDB
         const file = await this.indexedDb.getStoredFile(attachId);
         if (file) {
-          imageUrl = URL.createObjectURL(file);
+          const tempImageUrl = URL.createObjectURL(file);
           console.log('[VIEW PHOTO] Created object URL from IndexedDB file');
-        } else if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') {
+          
+          // Override photo.url for annotator
+          photo.url = tempImageUrl;
+          photo.thumbnailUrl = tempImageUrl;
+        } else {
           await this.showToast('Photo not available yet', 'warning');
           return;
         }
