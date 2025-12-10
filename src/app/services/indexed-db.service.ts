@@ -384,6 +384,101 @@ export class IndexedDbService {
   }
 
   /**
+   * Store photo file for offline upload
+   */
+  async storePhotoFile(tempId: string, file: File, visualId: string, caption?: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readwrite');
+      const store = transaction.objectStore('pendingImages');
+
+      const imageData = {
+        imageId: tempId,
+        file: file,  // Store actual File object
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        visualId: visualId,
+        caption: caption || '',
+        status: 'pending',
+        createdAt: Date.now(),
+      };
+
+      const addRequest = store.put(imageData);
+
+      addRequest.onsuccess = () => {
+        console.log('[IndexedDB] Photo file stored:', tempId);
+        resolve();
+      };
+
+      addRequest.onerror = () => {
+        console.error('[IndexedDB] Failed to store photo:', addRequest.error);
+        reject(addRequest.error);
+      };
+    });
+  }
+
+  /**
+   * Get stored photo file
+   */
+  async getStoredFile(fileId: string): Promise<File | null> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readonly');
+      const store = transaction.objectStore('pendingImages');
+      const getRequest = store.get(fileId);
+
+      getRequest.onsuccess = () => {
+        const imageData = getRequest.result;
+        resolve(imageData ? imageData.file : null);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Delete stored photo file after successful upload
+   */
+  async deleteStoredFile(fileId: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readwrite');
+      const store = transaction.objectStore('pendingImages');
+      const deleteRequest = store.delete(fileId);
+
+      deleteRequest.onsuccess = () => {
+        console.log('[IndexedDB] Photo file deleted:', fileId);
+        resolve();
+      };
+
+      deleteRequest.onerror = () => reject(deleteRequest.error);
+    });
+  }
+
+  /**
+   * Get all pending photo files
+   */
+  async getAllPendingPhotos(): Promise<any[]> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readonly');
+      const store = transaction.objectStore('pendingImages');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        resolve(getAllRequest.result || []);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
    * Clear all data (for testing/debugging)
    */
   async clearAll(): Promise<void> {
