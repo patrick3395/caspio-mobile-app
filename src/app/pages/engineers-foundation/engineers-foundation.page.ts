@@ -7207,12 +7207,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // If no valid URL and we have a file path, try to fetch it
       if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && photo.filePath) {
         try {
-          const fetchedImage = await this.caspioService.getImageFromFilesAPI(photo.filePath).toPromise();
-          if (fetchedImage && fetchedImage.startsWith('data:')) {
-            imageUrl = fetchedImage;
-            // Update the photo object for future use
-            photo.url = fetchedImage;
-            photo.originalUrl = fetchedImage;
+          // Check if this is an S3 key
+          if (this.caspioService.isS3Key(photo.filePath) || this.caspioService.isS3Key(photo.Attachment)) {
+            const s3Key = photo.Attachment || photo.filePath;
+            console.log('[VIEW PHOTO] S3 image detected:', s3Key);
+            imageUrl = await this.caspioService.getS3FileUrl(s3Key);
+            photo.url = imageUrl;
+            photo.originalUrl = imageUrl;
+          } else {
+            // Fallback to Caspio Files API
+            const fetchedImage = await this.caspioService.getImageFromFilesAPI(photo.filePath).toPromise();
+            if (fetchedImage && fetchedImage.startsWith('data:')) {
+              imageUrl = fetchedImage;
+              photo.url = fetchedImage;
+              photo.originalUrl = fetchedImage;
+            }
           }
         } catch (err) {
           console.error('Failed to fetch image from file path:', err);
@@ -13904,12 +13913,14 @@ Stack: ${error?.stack}`;
     }
 
     const filePath = typeof attachment.Photo === 'string' ? attachment.Photo : '';
+    const s3Key = typeof attachment.Attachment === 'string' ? attachment.Attachment : '';
     const attachId = attachment.AttachID || attachment.PK_ID || attachment.id;
 
     return {
       ...attachment,
       name: `Photo_${attachId}`,  // CRITICAL FIX: Use AttachID for unique naming, not filename
       Photo: filePath,
+      Attachment: s3Key,  // S3 key for new uploads
       caption: attachment.Annotation || '',
       annotations: annotationData,
       annotationsData: annotationData,
@@ -13923,8 +13934,8 @@ Stack: ${error?.stack}`;
       thumbnailUrl: this.photoPlaceholder,
       displayUrl: undefined,
       originalUrl: undefined,
-      filePath,
-      hasPhoto: !!filePath,
+      filePath: s3Key || filePath,  // Prefer S3 key, fallback to Photo path
+      hasPhoto: !!(s3Key || filePath),
       uploading: false,  // CRITICAL: Explicitly set to false to match newly uploaded photos
       queued: false      // CRITICAL: Explicitly set to false to match newly uploaded photos
     };
@@ -14051,7 +14062,15 @@ Stack: ${error?.stack}`;
     }
 
     try {
-      // Fetch original blob
+      // Check if this is an S3 key (starts with 'uploads/')
+      if (this.caspioService.isS3Key(photoPath)) {
+        console.log(`📸 [S3] Fetching S3 pre-signed URL for ${attachId}`);
+        const s3Url = await this.caspioService.getS3FileUrl(photoPath);
+        // For S3, we just return the pre-signed URL directly (no compression needed)
+        return s3Url;
+      }
+
+      // Fallback to Caspio Files API for old photos
       const blob = await firstValueFrom(this.caspioService.getImageBlobFromFilesAPI(photoPath));
 
       // [PERFORMANCE] On slow connections (mobile/2g/3g), skip compression for speed
