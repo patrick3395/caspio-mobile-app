@@ -327,9 +327,14 @@ export class EngineersFoundationDataService {
         VisualID: visualIdStr,
         Annotation: caption,
         Photo: objectUrl,  // Show from object URL
+        url: objectUrl,
+        thumbnailUrl: objectUrl,
         _tempId: tempPhotoId,
         _thumbnailUrl: objectUrl,
         _syncing: true,
+        uploading: false,  // Not actively uploading
+        queued: true,      // Queued for background sync
+        isObjectUrl: true,
       };
     }
 
@@ -378,8 +383,13 @@ export class EngineersFoundationDataService {
       return {
         AttachID: tempPhotoId,
         Photo: objectUrl,
+        url: objectUrl,
+        thumbnailUrl: objectUrl,
         _thumbnailUrl: objectUrl,
         _syncing: true,
+        uploading: false,  // Saved to IndexedDB, not actively uploading
+        queued: true,      // Will upload in background
+        isObjectUrl: true,
       };
     }
   }

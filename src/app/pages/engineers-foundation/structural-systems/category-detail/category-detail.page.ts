@@ -1924,17 +1924,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     try {
       const key = `${category}_${itemId}`;
 
-      // Check if photo is still uploading
-      if (photo.uploading || photo.queued) {
-        // Toast removed per user request
-        // await this.showToast('Photo is still uploading. Please try again once it finishes.', 'warning');
-        return;
+      const attachId = photo.AttachID || photo.id;
+      const isTempPhoto = String(attachId).startsWith('temp_');
+
+      // If temp photo, get from IndexedDB
+      let imageUrl = photo.url || photo.thumbnailUrl;
+      
+      if (isTempPhoto) {
+        console.log('[VIEW PHOTO] Temp photo, loading from IndexedDB:', attachId);
+        
+        // Get file from IndexedDB
+        const file = await this.indexedDb.getStoredFile(attachId);
+        if (file) {
+          imageUrl = URL.createObjectURL(file);
+          console.log('[VIEW PHOTO] Created object URL from IndexedDB file');
+        } else if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') {
+          await this.showToast('Photo not available yet', 'warning');
+          return;
+        }
       }
 
-      const attachId = photo.AttachID || photo.id;
-      if (!attachId || String(attachId).startsWith('temp_')) {
-        // Toast removed per user request
-        // await this.showToast('Photo is still processing. Please try again in a moment.', 'warning');
+      // Check if still uploading (but allow queued photos to be edited)
+      if (photo.uploading && !isTempPhoto) {
+        await this.showToast('Photo is still uploading', 'warning');
         return;
       }
 
