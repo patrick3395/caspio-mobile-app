@@ -211,6 +211,11 @@ export class BackgroundSyncService {
    * Perform the actual API request
    */
   private async performSync(request: PendingRequest): Promise<any> {
+    // Handle file uploads specially
+    if (request.type === 'UPLOAD_FILE' && request.data.file) {
+      return this.syncFileUpload(request);
+    }
+
     switch (request.method) {
       case 'GET':
         return this.apiGateway.get(request.endpoint).toPromise();
@@ -223,6 +228,54 @@ export class BackgroundSyncService {
       default:
         throw new Error(`Unsupported method: ${request.method}`);
     }
+  }
+
+  /**
+   * Sync file upload - convert base64 back to File
+   */
+  private async syncFileUpload(request: PendingRequest): Promise<any> {
+    const data = request.data;
+    
+    // Get real Visual ID if using temp ID
+    let visualId = data.visualId;
+    if (visualId && typeof visualId === 'string' && visualId.startsWith('temp_')) {
+      const realId = await this.indexedDb.getRealId(visualId);
+      if (realId) {
+        visualId = parseInt(realId);
+      } else {
+        throw new Error(`Visual not synced yet: ${visualId}`);
+      }
+    }
+
+    // Convert base64 back to File
+    const file = this.base64ToFile(data.file, data.fileName);
+    const originalFile = data.originalFile ? this.base64ToFile(data.originalFile, 'original_' + data.fileName) : undefined;
+
+    // Use the Caspio service method directly (it handles FormData)
+    // Import CaspioService and call createServicesVisualsAttachWithFile
+    // For now, throw error to prevent silent failures
+    console.error('[BackgroundSync] File upload needs CaspioService integration');
+    throw new Error('File upload not yet integrated with background sync');
+  }
+
+  /**
+   * Convert base64 to File object
+   */
+  private base64ToFile(base64: string, fileName: string): File {
+    // Remove data URL prefix if present
+    const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+    
+    // Convert base64 to blob
+    const byteString = atob(base64Data);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    
+    const blob = new Blob([ab], { type: 'image/jpeg' });
+    return new File([blob], fileName, { type: 'image/jpeg' });
   }
 
   /**

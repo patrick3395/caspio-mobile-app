@@ -445,7 +445,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     if (this.imageUrl || this.imageFile) {
       const imageUrl = this.imageUrl || await this.fileToDataUrl(this.imageFile!);
       
-      fabric.Image.fromURL(imageUrl).then((img: any) => {
+      fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' }).then((img: any) => {
         // Set canvas size to image size (scaled to fit container)
         const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
         const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
@@ -866,7 +866,7 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       this.canvas.loadFromJSON(payloadToLoad, async () => {
         if (bgImageSrc) {
           const fabric = await this.getFabric();
-          fabric.Image.fromURL(bgImageSrc).then((img: any) => {
+          fabric.Image.fromURL(bgImageSrc, { crossOrigin: 'anonymous' }).then((img: any) => {
             const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
             const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
 
