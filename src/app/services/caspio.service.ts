@@ -1205,14 +1205,12 @@ export class CaspioService {
     );
   }
   
-  // Create Services_EFE_Points_Attach record with file using two-step Files API method
+  // Create Services_EFE_Points_Attach record with file using S3
   createServicesEFEPointsAttachWithFile(pointId: number, drawingsData: string, file: File, photoType?: string): Observable<any> {
-    
-    // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
-      this.uploadEFEPointsAttachWithFilesAPI(pointId, drawingsData, file, photoType)
+      this.uploadEFEPointsAttachWithS3(pointId, drawingsData, file, photoType)
         .then(result => {
-          observer.next(result); // Return the created record
+          observer.next(result);
           observer.complete();
         })
         .catch(error => {
@@ -2082,6 +2080,10 @@ export class CaspioService {
     }
   }
 
+  // ============================================
+  // S3 UPLOAD METHODS FOR ALL _ATTACH TABLES
+  // ============================================
+
   /**
    * Upload HUD attach photo to S3 (new S3-based flow)
    * @param hudId - The HUD ID
@@ -2231,6 +2233,213 @@ export class CaspioService {
     }
   }
 
+  /**
+   * Upload EFE Points attach photo to S3
+   */
+  private async uploadEFEPointsAttachWithS3(pointId: number, drawingsData: string, file: File, photoType?: string): Promise<any> {
+    console.log('[EFE ATTACH S3] ========== Starting S3 EFE Attach Upload ==========');
+    
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      const recordData: any = {
+        PointID: parseInt(pointId.toString()),
+        Annotation: '',
+        PhotoType: photoType || ''
+      };
+
+      if (drawingsData && drawingsData.length > 0) {
+        let compressedDrawings = drawingsData;
+        if (drawingsData.length > 50000) {
+          compressedDrawings = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+        }
+        if (compressedDrawings.length <= 64000) {
+          recordData.Drawings = compressedDrawings;
+        }
+      }
+
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(recordData)
+      });
+
+      if (!recordResponse.ok) throw new Error('EFE attach record creation failed');
+
+      const recordResult = await recordResponse.json();
+      const attachId = recordResult.Result?.[0]?.AttachID || recordResult.AttachID;
+
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `efe_${pointId}_${timestamp}_${randomId}.${fileExt}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_EFE_Points_Attach');
+      formData.append('attachId', attachId.toString());
+
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+      if (!uploadResponse.ok) throw new Error('S3 upload failed');
+
+      const { s3Key } = await uploadResponse.json();
+
+      await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Attachment: s3Key })
+      });
+
+      console.log('[EFE ATTACH S3] ✅ Complete!');
+      return { Result: [{ AttachID: attachId, PointID: pointId, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
+    } catch (error) {
+      console.error('[EFE ATTACH S3] ❌ Failed:', error);
+      throw error;
+    }
+  }
+
+  private async uploadLBWAttachWithS3(lbwId: number, annotation: string, file: File, drawings?: string): Promise<any> {
+    console.log('[LBW ATTACH S3] ========== Starting S3 Upload ==========');
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      const recordData: any = { LBWID: parseInt(lbwId.toString()), Annotation: annotation || '' };
+      if (drawings && drawings.length > 0) {
+        let compressedDrawings = drawings;
+        if (drawings.length > 50000) compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+        if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
+      }
+
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(recordData)
+      });
+      if (!recordResponse.ok) throw new Error('LBW record creation failed');
+
+      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      const timestamp = Date.now();
+      const uniqueFilename = `lbw_${lbwId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_LBW_Attach');
+      formData.append('attachId', attachId.toString());
+
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+      if (!uploadResponse.ok) throw new Error('S3 upload failed');
+      const { s3Key } = await uploadResponse.json();
+
+      await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Attachment: s3Key })
+      });
+
+      console.log('[LBW ATTACH S3] ✅ Complete!');
+      return { Result: [{ AttachID: attachId, LBWID: lbwId, Annotation: annotation, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
+    } catch (error) {
+      console.error('[LBW ATTACH S3] ❌ Failed:', error);
+      throw error;
+    }
+  }
+
+  private async uploadVisualsAttachWithS3(visualId: number, drawingsData: string, file: File): Promise<any> {
+    console.log('[VISUALS ATTACH S3] ========== Starting S3 Upload ==========');
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      const recordData: any = { VisualID: parseInt(visualId.toString()), Annotation: '' };
+      if (drawingsData && drawingsData.length > 0) {
+        let compressedDrawings = drawingsData;
+        if (drawingsData.length > 50000) compressedDrawings = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+        if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
+      }
+
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(recordData)
+      });
+      if (!recordResponse.ok) throw new Error('Visuals record creation failed');
+
+      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      const timestamp = Date.now();
+      const uniqueFilename = `visual_${visualId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_Visuals_Attach');
+      formData.append('attachId', attachId.toString());
+
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+      if (!uploadResponse.ok) throw new Error('S3 upload failed');
+      const { s3Key } = await uploadResponse.json();
+
+      await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Attachment: s3Key })
+      });
+
+      console.log('[VISUALS ATTACH S3] ✅ Complete!');
+      return { Result: [{ AttachID: attachId, VisualID: visualId, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
+    } catch (error) {
+      console.error('[VISUALS ATTACH S3] ❌ Failed:', error);
+      throw error;
+    }
+  }
+
+  private async uploadDTEAttachWithS3(dteId: number, annotation: string, file: File, drawings?: string): Promise<any> {
+    console.log('[DTE ATTACH S3] ========== Starting S3 Upload ==========');
+    const accessToken = this.tokenSubject.value;
+    const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+    try {
+      const recordData: any = { DTEID: parseInt(dteId.toString()), Annotation: annotation || '' };
+      if (drawings && drawings.length > 0) {
+        let compressedDrawings = drawings;
+        if (drawings.length > 50000) compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+        if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
+      }
+
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(recordData)
+      });
+      if (!recordResponse.ok) throw new Error('DTE record creation failed');
+
+      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      const timestamp = Date.now();
+      const uniqueFilename = `dte_${dteId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_DTE_Attach');
+      formData.append('attachId', attachId.toString());
+
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+      if (!uploadResponse.ok) throw new Error('S3 upload failed');
+      const { s3Key } = await uploadResponse.json();
+
+      await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Attachment: s3Key })
+      });
+
+      console.log('[DTE ATTACH S3] ✅ Complete!');
+      return { Result: [{ AttachID: attachId, DTEID: dteId, Annotation: annotation, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
+    } catch (error) {
+      console.error('[DTE ATTACH S3] ❌ Failed:', error);
+      throw error;
+    }
+  }
+
   // ============================================
   // LBW (Load Bearing Wall) API Methods
   // ============================================
@@ -2278,7 +2487,7 @@ export class CaspioService {
 
   createServicesLBWAttachWithFile(lbwId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
     return new Observable(observer => {
-      this.uploadLBWAttachWithFilesAPI(lbwId, annotation, file, drawings, originalFile)
+      this.uploadLBWAttachWithS3(lbwId, annotation, file, drawings)
         .then(result => {
           observer.next(result);
           observer.complete();
@@ -2637,7 +2846,7 @@ export class CaspioService {
 
   createServicesDTEAttachWithFile(dteId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
     return new Observable(observer => {
-      this.uploadDTEAttachWithFilesAPI(dteId, annotation, file, drawings, originalFile)
+      this.uploadDTEAttachWithS3(dteId, annotation, file, drawings)
         .then(result => {
           observer.next(result);
           observer.complete();
@@ -3460,14 +3669,12 @@ export class CaspioService {
     return this.imageWorker;
   }
 
-  // Create Services_Visuals_Attach with file using PROVEN Files API method
+  // Create Services_Visuals_Attach with file using S3
   createServicesVisualsAttachWithFile(visualId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
-    
-    // Wrap the entire async function in Observable to return to Angular
     return new Observable(observer => {
-      this.uploadVisualsAttachWithFilesAPI(visualId, annotation, file, drawings, originalFile)
+      this.uploadVisualsAttachWithS3(visualId, drawings || '', file)
         .then(result => {
-          observer.next(result); // Return the created record
+          observer.next(result);
           observer.complete();
         })
         .catch(error => {
