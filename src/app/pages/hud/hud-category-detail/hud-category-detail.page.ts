@@ -188,27 +188,38 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     
     // Handle both direct result and Result array format
     const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
+    const s3Key = actualResult.Attachment;
     const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
-    let displayableUrl = uploadedPhotoUrl;
+    let displayableUrl = uploadedPhotoUrl || '';
 
     console.log('[UPLOAD UPDATE] Actual result:', actualResult);
-    console.log('[UPLOAD UPDATE] Photo path from result:', uploadedPhotoUrl);
+    console.log('[UPLOAD UPDATE] S3 key:', s3Key);
+    console.log('[UPLOAD UPDATE] Photo path (old):', uploadedPhotoUrl);
 
-    // Convert file path to displayable URL if needed
-    if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+    // Check if this is an S3 image
+    if (s3Key && this.caspioService.isS3Key(s3Key)) {
       try {
-        console.log('[UPLOAD UPDATE] Fetching image data from Files API...');
+        console.log('[UPLOAD UPDATE] ✨ S3 image detected, fetching URL...');
+        displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
+        console.log('[UPLOAD UPDATE] ✅ Got S3 URL');
+      } catch (err) {
+        console.error('[UPLOAD UPDATE] ❌ Failed to fetch S3 URL:', err);
+        displayableUrl = 'assets/img/photo-placeholder.png';
+      }
+    }
+    // Fallback to old Caspio Files API
+    else if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
+      try {
+        console.log('[UPLOAD UPDATE] 📁 Caspio Files API, fetching...');
         const imageData = await firstValueFrom(
           this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
         );
-        console.log('[UPLOAD UPDATE] Files API returned data, length:', imageData?.length || 0);
-        console.log('[UPLOAD UPDATE] Data prefix:', imageData?.substring(0, 50));
         
         if (imageData && imageData.startsWith('data:')) {
           displayableUrl = imageData;
-          console.log('[UPLOAD UPDATE] ✅ Successfully got displayable image');
+          console.log('[UPLOAD UPDATE] ✅ Got displayable image');
         } else {
-          console.warn('[UPLOAD UPDATE] ❌ Files API returned invalid data');
+          console.warn('[UPLOAD UPDATE] ❌ Invalid data');
           displayableUrl = 'assets/img/photo-placeholder.png';
         }
       } catch (err) {
