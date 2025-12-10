@@ -1921,13 +1921,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               this.caspioService.getImageFromFilesAPI(filePath)
             );
             if (fetchedImage && fetchedImage.startsWith('data:')) {
-            imageUrl = fetchedImage;
-            // Update the photo object for future use
-            photo.url = fetchedImage;
-            photo.originalUrl = fetchedImage;  // CRITICAL: Set originalUrl to base image
-            photo.thumbnailUrl = fetchedImage;
-            photo.displayUrl = fetchedImage;
-            this.changeDetectorRef.detectChanges();
+              imageUrl = fetchedImage;
+              // Update the photo object for future use
+              photo.url = fetchedImage;
+              photo.originalUrl = fetchedImage;  // CRITICAL: Set originalUrl to base image
+              photo.thumbnailUrl = fetchedImage;
+              photo.displayUrl = fetchedImage;
+              this.changeDetectorRef.detectChanges();
+            }
           }
         } catch (err) {
           console.error('[VIEW PHOTO] Failed to fetch image from file path:', err);
