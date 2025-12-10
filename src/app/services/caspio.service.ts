@@ -1375,10 +1375,10 @@ export class CaspioService {
     }
   }
 
-  // Step 2: Upload photo and update existing EFE Points record
+  // Step 2: Upload photo and update existing EFE Points record (S3)
   updateServicesEFEPointsAttachPhoto(attachId: number, file: File): Observable<any> {
     return new Observable(observer => {
-      this.uploadAndUpdateEFEPointsAttachPhoto(attachId, file)
+      this.uploadAndUpdateEFEPointsAttachPhotoToS3(attachId, file)
         .then(result => {
           observer.next(result);
           observer.complete();
@@ -2295,6 +2295,51 @@ export class CaspioService {
       return { Result: [{ AttachID: attachId, PointID: pointId, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
     } catch (error) {
       console.error('[EFE ATTACH S3] ❌ Failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload photo to S3 and update existing EFE Points attach record
+   */
+  private async uploadAndUpdateEFEPointsAttachPhotoToS3(attachId: number, file: File): Promise<any> {
+    try {
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `efe_point_${attachId}_${timestamp}_${randomId}.${fileExt}`;
+
+      // Upload to S3
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_EFE_Points_Attach');
+      formData.append('attachId', attachId.toString());
+
+      const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
+      const uploadResponse = await fetch(uploadUrl, { method: 'POST', body: formData });
+
+      if (!uploadResponse.ok) throw new Error('S3 upload failed');
+
+      const { s3Key } = await uploadResponse.json();
+      console.log('[EFE ATTACH S3 UPDATE] File uploaded:', s3Key);
+
+      // Update record with S3 key
+      const token = await firstValueFrom(this.getValidToken());
+      const API_BASE_URL = environment.caspio.apiBaseUrl;
+
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Attachment: s3Key })
+      });
+
+      if (!updateResponse.ok) throw new Error('Failed to update record');
+
+      console.log('[EFE ATTACH S3 UPDATE] ✅ Complete!');
+      return { AttachID: attachId, Attachment: s3Key, success: true };
+
+    } catch (error) {
+      console.error('[EFE ATTACH S3 UPDATE] ❌ Failed:', error);
       throw error;
     }
   }

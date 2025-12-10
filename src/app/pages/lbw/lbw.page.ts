@@ -5730,11 +5730,25 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
             console.log(`[Fast Upload] Found photo at index ${tempPhotoIndex} for AttachID: ${attachId}`);
 
             if (tempPhotoIndex !== -1) {
-              const filePath = uploadResponse?.Photo || '';
+              const s3Key = uploadResponse?.Attachment; // S3 key
+              const filePath = uploadResponse?.Photo || ''; // Old Caspio path
               let imageUrl = keyPhotos[tempPhotoIndex].url;
 
-              if (filePath) {
+              // Check if this is an S3 image
+              if (s3Key && this.caspioService.isS3Key(s3Key)) {
                 try {
+                  console.log('[Fast Upload] ✨ S3 image detected, fetching pre-signed URL...');
+                  imageUrl = await this.caspioService.getS3FileUrl(s3Key);
+                  console.log('[Fast Upload] ✅ Got S3 pre-signed URL');
+                } catch (err) {
+                  console.error('[Fast Upload] ❌ Failed to fetch S3 URL:', err);
+                  imageUrl = 'assets/img/photo-placeholder.png';
+                }
+              }
+              // Fallback to old Caspio Files API
+              else if (filePath) {
+                try {
+                  console.log('[Fast Upload] 📁 Caspio Files API path detected');
                   const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
                   if (imageData && imageData.startsWith('data:')) {
                     imageUrl = imageData;
@@ -5748,7 +5762,8 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
               keyPhotos[tempPhotoIndex] = {
                 ...keyPhotos[tempPhotoIndex],
                 Photo: filePath,
-                filePath: filePath,
+                Attachment: s3Key,
+                filePath: s3Key || filePath,
                 url: imageUrl,
                 thumbnailUrl: imageUrl,
                 uploading: false  // CRITICAL: Clear the uploading flag

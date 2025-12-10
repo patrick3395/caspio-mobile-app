@@ -4290,11 +4290,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
 
             if (foundPoint && foundPhotoIndex !== -1) {
-              const filePath = uploadResponse?.Photo || '';
+              const s3Key = uploadResponse?.Attachment; // S3 key
+              const filePath = uploadResponse?.Photo || ''; // Old Caspio path
               let imageUrl = foundPoint.photos[foundPhotoIndex].url;
 
-              if (filePath) {
+              // Check if this is an S3 image
+              if (s3Key && this.caspioService.isS3Key(s3Key)) {
                 try {
+                  console.log('[Fast Upload Room Point] ✨ S3 image detected, fetching pre-signed URL...');
+                  imageUrl = await this.caspioService.getS3FileUrl(s3Key);
+                  console.log('[Fast Upload Room Point] ✅ Got S3 pre-signed URL');
+                } catch (err) {
+                  console.error('[Fast Upload Room Point] ❌ Failed to fetch S3 URL:', err);
+                  imageUrl = 'assets/img/photo-placeholder.png';
+                }
+              }
+              // Fallback to old Caspio Files API
+              else if (filePath) {
+                try {
+                  console.log('[Fast Upload Room Point] 📁 Caspio Files API path detected');
                   const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
                   if (imageData && imageData.startsWith('data:')) {
                     imageUrl = imageData;
@@ -4308,6 +4322,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               foundPoint.photos[foundPhotoIndex] = {
                 ...foundPoint.photos[foundPhotoIndex],
                 Photo: filePath,
+                Attachment: s3Key,
                 url: imageUrl,
                 thumbnailUrl: imageUrl,
                 uploading: false  // CRITICAL: Clear the uploading flag
@@ -10906,11 +10921,25 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             console.log(`[Fast Upload] Found photo at index ${tempPhotoIndex} for AttachID: ${attachId}`);
 
             if (tempPhotoIndex !== -1) {
-              const filePath = uploadResponse?.Photo || '';
+              const s3Key = uploadResponse?.Attachment; // S3 key
+              const filePath = uploadResponse?.Photo || ''; // Old Caspio path
               let imageUrl = keyPhotos[tempPhotoIndex].url;
 
-              if (filePath) {
+              // Check if this is an S3 image
+              if (s3Key && this.caspioService.isS3Key(s3Key)) {
                 try {
+                  console.log('[Fast Upload] ✨ S3 image detected, fetching pre-signed URL...');
+                  imageUrl = await this.caspioService.getS3FileUrl(s3Key);
+                  console.log('[Fast Upload] ✅ Got S3 pre-signed URL');
+                } catch (err) {
+                  console.error('[Fast Upload] ❌ Failed to fetch S3 URL:', err);
+                  imageUrl = 'assets/img/photo-placeholder.png';
+                }
+              }
+              // Fallback to old Caspio Files API
+              else if (filePath) {
+                try {
+                  console.log('[Fast Upload] 📁 Caspio Files API path detected');
                   const imageData = await this.caspioService.getImageFromFilesAPI(filePath).toPromise();
                   if (imageData && imageData.startsWith('data:')) {
                     imageUrl = imageData;
@@ -10924,7 +10953,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               keyPhotos[tempPhotoIndex] = {
                 ...keyPhotos[tempPhotoIndex],
                 Photo: filePath,
-                filePath: filePath,
+                Attachment: s3Key,
+                filePath: s3Key || filePath,
                 url: imageUrl,
                 thumbnailUrl: imageUrl,
                 uploading: false  // CRITICAL: Clear the uploading flag
@@ -14971,10 +15001,8 @@ Stack: ${error?.stack}`;
             if (!pointData) continue;
             
             for (const attachment of (attachments || [])) {
-              let photoUrl = attachment.Photo || '';
-
-              // Convert Caspio file paths to base64
-              if (photoUrl && photoUrl.startsWith('/')) {
+              // Check if this is an S3 image
+              if (attachment.Attachment && this.caspioService.isS3Key(attachment.Attachment)) {
                 const mappingIndex = imagePromises.length;
                 imageMapping.push({
                   pointData,
@@ -14982,8 +15010,9 @@ Stack: ${error?.stack}`;
                   mappingIndex
                 });
 
+                // For S3, get pre-signed URL
                 imagePromises.push(
-                  this.caspioService.getImageFromFilesAPI(photoUrl).toPromise()
+                  this.caspioService.getS3FileUrl(attachment.Attachment)
                     .then(async (base64Data) => {
                       if (base64Data && base64Data.startsWith('data:')) {
                         let finalUrl = base64Data;
@@ -15011,10 +15040,45 @@ Stack: ${error?.stack}`;
                       return photoUrl; // Fallback to original
                     })
                 );
+              }
+              // Fallback to old Caspio Files API
+              else if (attachment.Photo && attachment.Photo.startsWith('/')) {
+                const mappingIndex = imagePromises.length;
+                imageMapping.push({
+                  pointData,
+                  attachment,
+                  mappingIndex
+                });
+
+                imagePromises.push(
+                  this.caspioService.getImageFromFilesAPI(attachment.Photo).toPromise()
+                    .then(async (base64Data) => {
+                      if (base64Data && base64Data.startsWith('data:')) {
+                        let finalUrl = base64Data;
+                        const drawingsData = attachment.Drawings;
+                        if (drawingsData) {
+                          try {
+                            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
+                            if (annotatedUrl && annotatedUrl !== finalUrl) {
+                              finalUrl = annotatedUrl;
+                            }
+                          } catch (renderError) {
+                            console.error(`[Point Photos] Error rendering annotations:`, renderError);
+                          }
+                        }
+                        return finalUrl;
+                      }
+                      return attachment.Photo;
+                    })
+                    .catch(error => {
+                      console.error(`Failed to convert photo:`, error);
+                      return attachment.Photo;
+                    })
+                );
               } else {
                 // Non-Caspio URLs can be added directly
                 pointData.photos.push({
-                  url: photoUrl,
+                  url: attachment.Photo || '',
                   annotation: attachment.Annotation || '',
                   attachId: attachment.AttachID || attachment.PK_ID
                 });
@@ -15389,27 +15453,38 @@ Stack: ${error?.stack}`;
       const processedPhotos = [];
       
       for (const attach of attachments) {
-        let photoUrl = attach.Photo || '';
-        let finalUrl = photoUrl;
+        let finalUrl = '';
         
-        // Convert Caspio file paths to base64
-        if (photoUrl && photoUrl.startsWith('/')) {
+        // Check if this is an S3 image
+        if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
           try {
-            const base64Data = await this.caspioService.getImageFromFilesAPI(photoUrl).toPromise();
+            console.log('[Room Photos] ✨ S3 image detected:', attach.Attachment);
+            finalUrl = await this.caspioService.getS3FileUrl(attach.Attachment);
+            console.log('[Room Photos] ✅ Got S3 pre-signed URL');
+          } catch (error) {
+            console.error('[Room Photos] ❌ Failed to load S3 image:', error);
+            finalUrl = 'assets/img/photo-placeholder.svg';
+          }
+        }
+        // Fallback to old Caspio Files API
+        else if (attach.Photo && attach.Photo.startsWith('/')) {
+          try {
+            console.log('[Room Photos] 📁 Caspio Files API path detected');
+            const base64Data = await this.caspioService.getImageFromFilesAPI(attach.Photo).toPromise();
             
             if (base64Data && base64Data.startsWith('data:')) {
               finalUrl = base64Data;
             } else {
-              console.error(`Failed to convert room photo to base64: ${photoUrl}`);
+              console.error(`Failed to convert room photo to base64: ${attach.Photo}`);
               finalUrl = 'assets/img/photo-placeholder.svg';
             }
           } catch (error) {
             console.error(`Error converting room photo:`, error);
             finalUrl = 'assets/img/photo-placeholder.svg';
           }
-        } else if (photoUrl && (photoUrl.startsWith('blob:') || photoUrl.startsWith('data:'))) {
+        } else if (attach.Photo && (attach.Photo.startsWith('blob:') || attach.Photo.startsWith('data:'))) {
           // Keep blob and data URLs as-is
-          finalUrl = photoUrl;
+          finalUrl = attach.Photo;
         }
         
         // Find the corresponding point for this attachment
