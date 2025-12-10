@@ -10781,10 +10781,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     // Now do the actual upload in background
     try {
-      // Parse visualId to number as required by the service
-      const visualIdNum = parseInt(actualVisualId, 10);
+      // Check if this is a temp ID (Visual not synced yet)
+      const isTempVisualId = String(actualVisualId).startsWith('temp_');
       
-      if (isNaN(visualIdNum)) {
+      if (isTempVisualId) {
+        // Photo will be queued by data service, just pass the temp ID
+        console.log('[GALLERY UPLOAD] Visual has temp ID, will queue photo upload');
+        // Continue with upload - data service handles temp IDs
+      }
+
+      // Parse visualId to number (only if not temp)
+      const visualIdNum = isTempVisualId ? 0 : parseInt(actualVisualId, 10);
+      
+      if (!isTempVisualId && isNaN(visualIdNum)) {
         throw new Error(`Invalid VisualID: ${actualVisualId}`);
       }
       
@@ -10877,7 +10886,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         await alert.present();
       } else {
         // For batch uploads, proceed directly without popup
-        await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, true, annotationData, originalPhoto, tempId, caption);
+        const idToUse = isTempVisualId ? actualVisualId : visualIdNum;
+        await this.performVisualPhotoUpload(idToUse, uploadFile, key, true, annotationData, originalPhoto, tempId, caption);
       }
 
     } catch (error) {
@@ -10914,7 +10924,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
   // Separate method to perform the actual upload - REFACTORED for instant record creation
   private async performVisualPhotoUpload(
-    visualIdNum: number,
+    visualIdNum: number | string,  // Allow temp IDs
     photo: File,
     key: string,
     isBatchUpload: boolean = false,
