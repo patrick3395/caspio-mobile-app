@@ -385,9 +385,13 @@ export class IndexedDbService {
 
   /**
    * Store photo file for offline upload
+   * Stores as Blob (File objects don't persist reliably in IndexedDB)
    */
   async storePhotoFile(tempId: string, file: File, visualId: string, caption?: string): Promise<void> {
     const db = await this.ensureDb();
+
+    // Read file as ArrayBuffer (more reliable than storing File object)
+    const arrayBuffer = await file.arrayBuffer();
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['pendingImages'], 'readwrite');
@@ -395,7 +399,7 @@ export class IndexedDbService {
 
       const imageData = {
         imageId: tempId,
-        file: file,  // Store actual File object
+        fileData: arrayBuffer,  // Store as ArrayBuffer
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
@@ -408,7 +412,7 @@ export class IndexedDbService {
       const addRequest = store.put(imageData);
 
       addRequest.onsuccess = () => {
-        console.log('[IndexedDB] Photo file stored:', tempId);
+        console.log('[IndexedDB] Photo file stored as ArrayBuffer:', tempId, file.size, 'bytes');
         resolve();
       };
 
@@ -421,6 +425,7 @@ export class IndexedDbService {
 
   /**
    * Get stored photo file
+   * Reconstructs File from ArrayBuffer
    */
   async getStoredFile(fileId: string): Promise<File | null> {
     const db = await this.ensureDb();
@@ -432,7 +437,19 @@ export class IndexedDbService {
 
       getRequest.onsuccess = () => {
         const imageData = getRequest.result;
-        resolve(imageData ? imageData.file : null);
+        
+        if (!imageData || !imageData.fileData) {
+          console.warn('[IndexedDB] No file data found for:', fileId);
+          resolve(null);
+          return;
+        }
+
+        // Reconstruct File from ArrayBuffer
+        const blob = new Blob([imageData.fileData], { type: imageData.fileType });
+        const file = new File([blob], imageData.fileName, { type: imageData.fileType });
+        
+        console.log('[IndexedDB] File reconstructed:', file.name, file.size, 'bytes');
+        resolve(file);
       };
 
       getRequest.onerror = () => reject(getRequest.error);
