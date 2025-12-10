@@ -10727,8 +10727,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const uploadFile = compressedPhoto || photo;
 
     // Use the ID from visualRecordIds to ensure consistency
-    const actualVisualId = this.visualRecordIds[key] || visualId;
-    // CRITICAL FIX: Don't treat temp_ IDs as pending - they're being created and will resolve
+    let actualVisualId = this.visualRecordIds[key] || visualId;
+    
+    // CHECK: If temp ID, try to resolve to real ID from IndexedDB
+    if (String(actualVisualId).startsWith('temp_')) {
+      const realId = await this.indexedDb.getRealId(String(actualVisualId));
+      if (realId) {
+        console.log(`[GALLERY UPLOAD] Visual synced! Using real ID ${realId} instead of ${actualVisualId}`);
+        actualVisualId = realId;
+        this.visualRecordIds[key] = realId;  // Update for future uploads
+      }
+    }
+    
+    // Now check if still pending (only if no real ID found)
     const isPendingVisual = !actualVisualId || actualVisualId === '__pending__' || String(actualVisualId).startsWith('temp_');
 
     // INSTANTLY show preview with object URL
