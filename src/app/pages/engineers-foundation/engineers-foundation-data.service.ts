@@ -4,7 +4,6 @@ import { CaspioService } from '../../services/caspio.service';
 import { IndexedDbService } from '../../services/indexed-db.service';
 import { TempIdService } from '../../services/temp-id.service';
 import { BackgroundSyncService } from '../../services/background-sync.service';
-import { ToastController } from '@ionic/angular';
 
 interface CacheEntry<T> {
   value: Promise<T>;
@@ -29,8 +28,7 @@ export class EngineersFoundationDataService {
     private readonly caspioService: CaspioService,
     private readonly indexedDb: IndexedDbService,
     private readonly tempId: TempIdService,
-    private readonly backgroundSync: BackgroundSyncService,
-    private readonly toastController: ToastController
+    private readonly backgroundSync: BackgroundSyncService
   ) {}
 
   async getProject(projectId: string | null | undefined): Promise<any> {
@@ -237,8 +235,7 @@ export class EngineersFoundationDataService {
     // Trigger background sync (will sync immediately if online)
     this.backgroundSync.triggerSync();
 
-    // Show feedback
-    await this.showToast('Visual saved');
+    console.log('[Visual Data] Visual saved to IndexedDB, background sync triggered');
 
     // Return placeholder (user sees it instantly)
     return placeholder;
