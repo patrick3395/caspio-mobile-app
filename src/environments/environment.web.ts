@@ -3,7 +3,7 @@ export const environment = {
   isWeb: true, // Flag to identify web build
   
   // AWS API Gateway backend
-  apiGatewayUrl: 'https://iaopezyqb4aak4zpakgunea2hi0qoiqh.lambda-url.us-east-1.on.aws',
+  apiGatewayUrl: 'https://45qxu5joc6.execute-api.us-east-1.amazonaws.com',
   cognito: {
     userPoolId: 'us-east-1_jefJY80nY',
     clientId: 'j044eki6ektqi155srd1a6ke9',
