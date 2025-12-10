@@ -2404,9 +2404,9 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
+      const recordResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
       if (!recordResponse.ok) throw new Error('Visuals record creation failed');
@@ -2424,9 +2424,9 @@ export class CaspioService {
       if (!uploadResponse.ok) throw new Error('S3 upload failed');
       const { s3Key } = await uploadResponse.json();
 
-      await fetch(`${API_BASE_URL}/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
+      await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Attachment: s3Key })
       });
 

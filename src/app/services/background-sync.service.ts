@@ -145,11 +145,20 @@ export class BackgroundSyncService {
       if (request.tempId) {
         let realId = null;
         
-        // Check different response formats
-        if (result && result.PK_ID) {
-          realId = result.PK_ID;
-        } else if (result && result.Result && result.Result[0] && result.Result[0].PK_ID) {
-          realId = result.Result[0].PK_ID;
+        // For Visuals, use VisualID field (not PK_ID) - attachments link to this
+        if (request.endpoint.includes('Services_Visuals')) {
+          if (result && result.VisualID) {
+            realId = result.VisualID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].VisualID || result.Result[0].PK_ID;
+          }
+        } else {
+          // For other tables, use PK_ID
+          if (result && result.PK_ID) {
+            realId = result.PK_ID;
+          } else if (result && result.Result && result.Result[0] && result.Result[0].PK_ID) {
+            realId = result.Result[0].PK_ID;
+          }
         }
 
         if (realId) {
@@ -158,7 +167,7 @@ export class BackgroundSyncService {
             realId.toString(),
             this.getTempIdType(request.tempId)
           );
-          console.log(`[BackgroundSync] Mapped ${request.tempId} → ${realId}`);
+          console.log(`[BackgroundSync] Mapped ${request.tempId} → ${realId} (VisualID for attachments)`);
         }
       }
 
@@ -255,16 +264,24 @@ export class BackgroundSyncService {
   private async syncVisualPhotoUpload(request: PendingRequest): Promise<any> {
     const data = request.data;
 
+    console.log('[BackgroundSync] Photo upload - raw data:', data);
+
     // Get file from IndexedDB
     const file = await this.indexedDb.getStoredFile(data.fileId);
     if (!file) {
       throw new Error(`Photo file not found: ${data.fileId}`);
     }
 
+    console.log('[BackgroundSync] File retrieved:', file.name);
+
     // Resolve temp Visual ID to real ID if needed
     let visualId = data.tempVisualId || data.visualId;
+    console.log('[BackgroundSync] Visual ID from request:', visualId);
+
     if (visualId && String(visualId).startsWith('temp_')) {
       const realId = await this.indexedDb.getRealId(String(visualId));
+      console.log('[BackgroundSync] Resolved temp ID:', visualId, '→', realId);
+      
       if (!realId) {
         throw new Error(`Visual not synced yet: ${visualId}`);
       }
@@ -273,7 +290,7 @@ export class BackgroundSyncService {
       visualId = parseInt(String(visualId));
     }
 
-    console.log('[BackgroundSync] Uploading photo to Visual:', visualId);
+    console.log('[BackgroundSync] Final Visual ID for upload:', visualId);
 
     // Call the EXISTING S3 upload method (fully working!)
     const result = await this.caspioService.uploadVisualsAttachWithS3(
@@ -282,7 +299,7 @@ export class BackgroundSyncService {
       file
     );
 
-    console.log('[BackgroundSync] Photo uploaded successfully');
+    console.log('[BackgroundSync] Photo uploaded successfully to Visual', visualId);
 
     return result;
   }
