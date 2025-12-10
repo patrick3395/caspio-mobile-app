@@ -564,13 +564,25 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               caption: attach.Annotation || '',
               drawings: attach.Drawings || null,
               hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null' && attach.Drawings !== '' && attach.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS),
-              path: attach.Photo || null,
+              path: attach.Attachment || attach.Photo || null,
+              Attachment: attach.Attachment,
+              Photo: attach.Photo,
               uploading: false
             };
 
-            // CRITICAL: Set loading state and placeholder immediately
-            // Load actual image in background
-            if (attach.Photo) {
+            // Load image based on storage type
+            if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
+              photoData.loading = true;
+              this.caspioService.getS3FileUrl(attach.Attachment).then(url => {
+                photoData.url = url;
+                photoData.displayUrl = url;
+                photoData.loading = false;
+                this.changeDetectorRef.detectChanges();
+              }).catch(() => {
+                photoData.loading = false;
+                this.changeDetectorRef.detectChanges();
+              });
+            } else if (attach.Photo) {
               photoData.url = 'assets/img/photo-placeholder.png';
               photoData.displayUrl = 'assets/img/photo-placeholder.png';
               photoData.loading = true;
@@ -692,13 +704,25 @@ export class RoomElevationPage implements OnInit, OnDestroy {
                 caption: attach.Annotation || '',
                 drawings: attach.Drawings || null,
                 hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null' && attach.Drawings !== '' && attach.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS),
-                path: attach.Photo || null,
+                path: attach.Attachment || attach.Photo || null,
+                Attachment: attach.Attachment,
+                Photo: attach.Photo,
                 uploading: false
               };
 
-              // CRITICAL: Set loading state and placeholder immediately
-              // Load actual image in background
-              if (attach.Photo) {
+              // Load image based on storage type
+              if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
+                photoData.loading = true;
+                this.caspioService.getS3FileUrl(attach.Attachment).then(url => {
+                  photoData.url = url;
+                  photoData.displayUrl = url;
+                  photoData.loading = false;
+                  this.changeDetectorRef.detectChanges();
+                }).catch(() => {
+                  photoData.loading = false;
+                  this.changeDetectorRef.detectChanges();
+                });
+              } else if (attach.Photo) {
                 photoData.url = 'assets/img/photo-placeholder.png';
                 photoData.displayUrl = 'assets/img/photo-placeholder.png';
                 photoData.loading = true;
