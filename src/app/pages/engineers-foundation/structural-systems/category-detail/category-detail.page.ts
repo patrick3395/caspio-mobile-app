@@ -687,30 +687,49 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   }
 
   private async loadSinglePhoto(attach: any, key: string): Promise<void> {
-    const filePath = attach.Photo;
-    let imageUrl = '';
-
     console.log('[LOAD PHOTO] Loading AttachID:', attach.AttachID, 'for key:', key);
+    console.log('[LOAD PHOTO] Photo path:', attach.Photo);
+    console.log('[LOAD PHOTO] Attachment S3 key:', attach.Attachment);
 
-    // Convert file path to base64 image using Files API
-    if (filePath) {
+    let imageUrl = '';
+    let filePath = '';
+
+    // Check if this is an S3 image (Attachment field contains S3 key)
+    if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
+      console.log('[LOAD PHOTO] ✨ S3 image detected:', attach.Attachment);
+      filePath = attach.Attachment;
+      
+      try {
+        console.log('[LOAD PHOTO] Fetching S3 pre-signed URL...');
+        imageUrl = await this.caspioService.getS3FileUrl(attach.Attachment);
+        console.log('[LOAD PHOTO] ✅ Got S3 pre-signed URL');
+      } catch (err) {
+        console.error('[LOAD PHOTO] ❌ Failed to load S3 image:', attach.Attachment, err);
+        imageUrl = 'assets/img/photo-placeholder.png';
+      }
+    }
+    // Fallback to old Photo field (Caspio Files API)
+    else if (attach.Photo) {
+      console.log('[LOAD PHOTO] 📁 Caspio Files API image detected');
+      filePath = attach.Photo;
+      
       try {
         const imageData = await firstValueFrom(
           this.caspioService.getImageFromFilesAPI(filePath)
         );
         if (imageData && imageData.startsWith('data:')) {
           imageUrl = imageData;
-          console.log('[LOAD PHOTO] Successfully loaded image data for', attach.AttachID);
+          console.log('[LOAD PHOTO] ✅ Successfully loaded image data for', attach.AttachID);
         } else {
-          console.warn('[LOAD PHOTO] Invalid image data received for', attach.AttachID);
+          console.warn('[LOAD PHOTO] ❌ Invalid image data received for', attach.AttachID);
           imageUrl = 'assets/img/photo-placeholder.png';
         }
       } catch (err) {
-        console.error('[LOAD PHOTOS] Failed to load image:', filePath, err);
+        console.error('[LOAD PHOTO] ❌ Failed to load image:', filePath, err);
         imageUrl = 'assets/img/photo-placeholder.png';
       }
     } else {
-      console.warn('[LOAD PHOTO] No file path for attachment', attach.AttachID);
+      console.warn('[LOAD PHOTO] ⚠️ No photo path or S3 key for attachment', attach.AttachID);
       imageUrl = 'assets/img/photo-placeholder.png';
     }
 

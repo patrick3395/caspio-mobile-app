@@ -653,12 +653,30 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     console.log('[LOAD PHOTO] Attachment object:', attach);
     console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'PK_ID:', attach.PK_ID);
     console.log('[LOAD PHOTO] Photo path:', attach.Photo);
+    console.log('[LOAD PHOTO] Attachment S3 key:', attach.Attachment);
     
-    const filePath = attach.Photo;
     let imageUrl = '';
+    let filePath = '';
 
-    // Fetch the actual image data
-    if (filePath) {
+    // Check if this is an S3 image (Attachment field contains S3 key)
+    if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
+      console.log('[LOAD PHOTO] ✨ S3 image detected:', attach.Attachment);
+      filePath = attach.Attachment;
+      
+      try {
+        console.log('[LOAD PHOTO] Fetching S3 pre-signed URL...');
+        imageUrl = await this.caspioService.getS3FileUrl(attach.Attachment);
+        console.log('[LOAD PHOTO] ✅ Got S3 pre-signed URL');
+      } catch (err) {
+        console.error('[LOAD PHOTO] ❌ Failed to load S3 image:', attach.Attachment, err);
+        imageUrl = 'assets/img/photo-placeholder.png';
+      }
+    }
+    // Fallback to old Photo field (Caspio Files API)
+    else if (attach.Photo) {
+      console.log('[LOAD PHOTO] 📁 Caspio Files API image detected');
+      filePath = attach.Photo;
+      
       try {
         console.log('[LOAD PHOTO] Fetching image from path:', filePath);
         imageUrl = await this.hudData.getImage(filePath);
@@ -676,7 +694,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         imageUrl = 'assets/img/photo-placeholder.png';
       }
     } else {
-      console.warn('[LOAD PHOTO] ⚠️ No photo path in attachment');
+      console.warn('[LOAD PHOTO] ⚠️ No photo path or S3 key in attachment');
       imageUrl = 'assets/img/photo-placeholder.png';
     }
 
