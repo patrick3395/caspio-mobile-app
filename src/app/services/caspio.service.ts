@@ -2391,7 +2391,7 @@ export class CaspioService {
     }
   }
 
-  private async uploadVisualsAttachWithS3(visualId: number, drawingsData: string, file: File): Promise<any> {
+  async uploadVisualsAttachWithS3(visualId: number, drawingsData: string, file: File): Promise<any> {
     console.log('[VISUALS ATTACH S3] ========== Starting S3 Upload ==========');
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
