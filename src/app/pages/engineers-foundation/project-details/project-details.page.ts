@@ -23,25 +23,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   projectData: any = {};  // Use any to match original structure
   serviceData: any = {};  // Add serviceData for Services table fields
 
-  // Dropdown options
-  inAttendanceOptions: string[] = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
-  typeOfBuildingOptions: string[] = ['Single Family', 'Multi-Family', 'Commercial', 'Other'];
-  styleOptions: string[] = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level', 'Other'];
-  occupancyFurnishingsOptions: string[] = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
-  weatherConditionsOptions: string[] = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
-  outdoorTemperatureOptions: string[] = ['30°F -', '30°F to 60°F', '60°F to 70°F', '70°F to 80°F', '80°F to 90°F', '90°F to 100°F', '100°F+', 'Other'];
-  firstFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
-  secondFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
-  thirdFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
-  secondFoundationRoomsOptions: string[] = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
-  thirdFoundationRoomsOptions: string[] = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
-  ownerOccupantInterviewOptions: string[] = [
-    'Owner/occupant not available for discussion',
-    'Owner/occupant not aware of any previous foundation work',
-    'Owner/occupant provided the information documented in Support Documents',
-    'Owner/occupant is aware of previous work and will email documents asap',
-    'Other'
-  ];
+  // Dropdown options - empty by default, populated from LPS_Services_Drop API
+  inAttendanceOptions: string[] = [];
+  typeOfBuildingOptions: string[] = [];
+  styleOptions: string[] = [];
+  occupancyFurnishingsOptions: string[] = [];
+  weatherConditionsOptions: string[] = [];
+  outdoorTemperatureOptions: string[] = [];
+  firstFoundationTypeOptions: string[] = [];
+  secondFoundationTypeOptions: string[] = [];
+  thirdFoundationTypeOptions: string[] = [];
+  secondFoundationRoomsOptions: string[] = [];
+  thirdFoundationRoomsOptions: string[] = [];
+  ownerOccupantInterviewOptions: string[] = [];
 
   // Multi-select arrays
   inAttendanceSelections: string[] = [];
@@ -384,20 +378,39 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.inAttendanceOptions.includes('Other')) {
             this.inAttendanceOptions.push('Other');
           }
-          // Add any current selections that aren't in the new options
+          // Normalize selections to match API options, or add if truly missing
           if (this.inAttendanceSelections && this.inAttendanceSelections.length > 0) {
-            this.inAttendanceSelections.forEach(selection => {
-              if (selection && selection !== 'Other' && !this.optionsIncludeNormalized(this.inAttendanceOptions, selection)) {
+            this.inAttendanceSelections = this.inAttendanceSelections.map(selection => {
+              if (!selection || selection === 'Other') return selection;
+              const normalizedSelection = this.normalizeForComparison(selection);
+              const matchingOption = this.inAttendanceOptions.find(opt =>
+                this.normalizeForComparison(opt) === normalizedSelection
+              );
+              if (matchingOption) {
+                if (matchingOption !== selection) {
+                  console.log(`[ProjectDetails] Normalizing InAttendance selection: "${selection}" -> "${matchingOption}"`);
+                }
+                return matchingOption;
+              } else {
+                // Add missing selection to options (before Other)
                 console.log(`[ProjectDetails] Adding missing InAttendance selection to options: "${selection}"`);
-                // Add before 'Other' if it exists
                 const otherIndex = this.inAttendanceOptions.indexOf('Other');
                 if (otherIndex > 0) {
                   this.inAttendanceOptions.splice(otherIndex, 0, selection);
                 } else {
                   this.inAttendanceOptions.push(selection);
                 }
+                return selection;
               }
             });
+          }
+          // Sort options alphabetically, keeping "Other" at the end
+          const otherOption = this.inAttendanceOptions.includes('Other') ? 'Other' : null;
+          this.inAttendanceOptions = this.inAttendanceOptions
+            .filter(opt => opt !== 'Other')
+            .sort((a, b) => a.localeCompare(b));
+          if (otherOption) {
+            this.inAttendanceOptions.push(otherOption);
           }
         }
 
@@ -476,10 +489,21 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.secondFoundationRoomsOptions.includes('Other')) {
             this.secondFoundationRoomsOptions.push('Other');
           }
-          // Add any current selections that aren't in the new options
+          // Normalize selections to match API options, or add if truly missing
           if (this.secondFoundationRoomsSelections && this.secondFoundationRoomsSelections.length > 0) {
-            this.secondFoundationRoomsSelections.forEach(selection => {
-              if (selection && selection !== 'Other' && !this.optionsIncludeNormalized(this.secondFoundationRoomsOptions, selection)) {
+            this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.map(selection => {
+              if (!selection || selection === 'Other') return selection;
+              const normalizedSelection = this.normalizeForComparison(selection);
+              const matchingOption = this.secondFoundationRoomsOptions.find(opt =>
+                this.normalizeForComparison(opt) === normalizedSelection
+              );
+              if (matchingOption) {
+                if (matchingOption !== selection) {
+                  console.log(`[ProjectDetails] Normalizing SecondFoundationRooms selection: "${selection}" -> "${matchingOption}"`);
+                }
+                return matchingOption;
+              } else {
+                // Add missing selection to options (before Other)
                 console.log(`[ProjectDetails] Adding missing SecondFoundationRooms selection to options: "${selection}"`);
                 const otherIndex = this.secondFoundationRoomsOptions.indexOf('Other');
                 if (otherIndex > 0) {
@@ -487,8 +511,17 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
                 } else {
                   this.secondFoundationRoomsOptions.push(selection);
                 }
+                return selection;
               }
             });
+          }
+          // Sort options alphabetically, keeping "Other" at the end
+          const otherOption = this.secondFoundationRoomsOptions.includes('Other') ? 'Other' : null;
+          this.secondFoundationRoomsOptions = this.secondFoundationRoomsOptions
+            .filter(opt => opt !== 'Other')
+            .sort((a, b) => a.localeCompare(b));
+          if (otherOption) {
+            this.secondFoundationRoomsOptions.push(otherOption);
           }
         }
 
@@ -498,10 +531,21 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.thirdFoundationRoomsOptions.includes('Other')) {
             this.thirdFoundationRoomsOptions.push('Other');
           }
-          // Add any current selections that aren't in the new options
+          // Normalize selections to match API options, or add if truly missing
           if (this.thirdFoundationRoomsSelections && this.thirdFoundationRoomsSelections.length > 0) {
-            this.thirdFoundationRoomsSelections.forEach(selection => {
-              if (selection && selection !== 'Other' && !this.optionsIncludeNormalized(this.thirdFoundationRoomsOptions, selection)) {
+            this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.map(selection => {
+              if (!selection || selection === 'Other') return selection;
+              const normalizedSelection = this.normalizeForComparison(selection);
+              const matchingOption = this.thirdFoundationRoomsOptions.find(opt =>
+                this.normalizeForComparison(opt) === normalizedSelection
+              );
+              if (matchingOption) {
+                if (matchingOption !== selection) {
+                  console.log(`[ProjectDetails] Normalizing ThirdFoundationRooms selection: "${selection}" -> "${matchingOption}"`);
+                }
+                return matchingOption;
+              } else {
+                // Add missing selection to options (before Other)
                 console.log(`[ProjectDetails] Adding missing ThirdFoundationRooms selection to options: "${selection}"`);
                 const otherIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
                 if (otherIndex > 0) {
@@ -509,8 +553,17 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
                 } else {
                   this.thirdFoundationRoomsOptions.push(selection);
                 }
+                return selection;
               }
             });
+          }
+          // Sort options alphabetically, keeping "Other" at the end
+          const otherOption = this.thirdFoundationRoomsOptions.includes('Other') ? 'Other' : null;
+          this.thirdFoundationRoomsOptions = this.thirdFoundationRoomsOptions
+            .filter(opt => opt !== 'Other')
+            .sort((a, b) => a.localeCompare(b));
+          if (otherOption) {
+            this.thirdFoundationRoomsOptions.push(otherOption);
           }
         }
 

@@ -1945,25 +1945,9 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   // Load dropdown options from Services_Drop table
   async loadServicesDropdownOptions() {
     try {
-      
-      // Set default options first
-      this.weatherConditionsOptions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
-      this.outdoorTemperatureOptions = ['30°F -', '30°F to 60°F', '60°F to 70°F', '70°F to 80°F', '80°F to 90°F', '90°F to 100°F', '100°F+', 'Other'];
-      this.occupancyFurnishingsOptions = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
-      this.inAttendanceOptions = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
-      this.firstFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
-      this.secondFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
-      this.thirdFoundationTypeOptions = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
-      this.secondFoundationRoomsOptions = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
-      this.thirdFoundationRoomsOptions = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
-      this.ownerOccupantInterviewOptions = [
-        'Owner/occupant not available for discussion',
-        'Owner/occupant not aware of any previous foundation work',
-        'Owner/occupant provided the information documented in Support Documents',
-        'Owner/occupant is aware of previous work and will email documents asap',
-        'Other'
-      ];
-      
+      // Options are loaded from LPS_Services_Drop API - no hardcoded defaults
+      // This ensures consistency between initial load and after sync/reload
+
       // Load from Services_Drop table
       const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
       
@@ -2041,6 +2025,32 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (!this.inAttendanceOptions.includes('Other')) {
             this.inAttendanceOptions.push('Other');
           }
+          // Normalize selections to match API options
+          if (this.inAttendanceSelections && this.inAttendanceSelections.length > 0) {
+            this.inAttendanceSelections = this.inAttendanceSelections.map(selection => {
+              if (!selection || selection === 'Other') return selection;
+              const normalizedSelection = this.normalizeForComparison(selection);
+              const matchingOption = this.inAttendanceOptions.find(opt =>
+                this.normalizeForComparison(opt) === normalizedSelection
+              );
+              if (matchingOption) {
+                return matchingOption;
+              } else {
+                // Add missing selection to options
+                const otherIndex = this.inAttendanceOptions.indexOf('Other');
+                if (otherIndex > 0) {
+                  this.inAttendanceOptions.splice(otherIndex, 0, selection);
+                } else {
+                  this.inAttendanceOptions.push(selection);
+                }
+                return selection;
+              }
+            });
+          }
+          // Sort options alphabetically, keeping "Other" at the end
+          const otherOpt = this.inAttendanceOptions.includes('Other') ? 'Other' : null;
+          this.inAttendanceOptions = this.inAttendanceOptions.filter(opt => opt !== 'Other').sort((a, b) => a.localeCompare(b));
+          if (otherOpt) this.inAttendanceOptions.push(otherOpt);
         }
 
         // Set FirstFoundationType options
@@ -2073,6 +2083,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (!this.secondFoundationRoomsOptions.includes('Other')) {
             this.secondFoundationRoomsOptions.push('Other');
           }
+          // Normalize selections to match API options
+          if (this.secondFoundationRoomsSelections && this.secondFoundationRoomsSelections.length > 0) {
+            this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.map(selection => {
+              if (!selection || selection === 'Other') return selection;
+              const normalizedSelection = this.normalizeForComparison(selection);
+              const matchingOption = this.secondFoundationRoomsOptions.find(opt =>
+                this.normalizeForComparison(opt) === normalizedSelection
+              );
+              if (matchingOption) {
+                return matchingOption;
+              } else {
+                const otherIndex = this.secondFoundationRoomsOptions.indexOf('Other');
+                if (otherIndex > 0) {
+                  this.secondFoundationRoomsOptions.splice(otherIndex, 0, selection);
+                } else {
+                  this.secondFoundationRoomsOptions.push(selection);
+                }
+                return selection;
+              }
+            });
+          }
+          // Sort options alphabetically, keeping "Other" at the end
+          const otherOpt2 = this.secondFoundationRoomsOptions.includes('Other') ? 'Other' : null;
+          this.secondFoundationRoomsOptions = this.secondFoundationRoomsOptions.filter(opt => opt !== 'Other').sort((a, b) => a.localeCompare(b));
+          if (otherOpt2) this.secondFoundationRoomsOptions.push(otherOpt2);
         }
 
         // Set ThirdFoundationRooms options
@@ -2081,6 +2116,31 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (!this.thirdFoundationRoomsOptions.includes('Other')) {
             this.thirdFoundationRoomsOptions.push('Other');
           }
+          // Normalize selections to match API options
+          if (this.thirdFoundationRoomsSelections && this.thirdFoundationRoomsSelections.length > 0) {
+            this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.map(selection => {
+              if (!selection || selection === 'Other') return selection;
+              const normalizedSelection = this.normalizeForComparison(selection);
+              const matchingOption = this.thirdFoundationRoomsOptions.find(opt =>
+                this.normalizeForComparison(opt) === normalizedSelection
+              );
+              if (matchingOption) {
+                return matchingOption;
+              } else {
+                const otherIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
+                if (otherIndex > 0) {
+                  this.thirdFoundationRoomsOptions.splice(otherIndex, 0, selection);
+                } else {
+                  this.thirdFoundationRoomsOptions.push(selection);
+                }
+                return selection;
+              }
+            });
+          }
+          // Sort options alphabetically, keeping "Other" at the end
+          const otherOpt3 = this.thirdFoundationRoomsOptions.includes('Other') ? 'Other' : null;
+          this.thirdFoundationRoomsOptions = this.thirdFoundationRoomsOptions.filter(opt => opt !== 'Other').sort((a, b) => a.localeCompare(b));
+          if (otherOpt3) this.thirdFoundationRoomsOptions.push(otherOpt3);
         }
 
         // Set OwnerOccupantInterview options
