@@ -1,9 +1,16 @@
 import { Injectable, NgZone } from '@angular/core';
-import { BehaviorSubject, interval, Subscription } from 'rxjs';
+import { BehaviorSubject, Subject, interval, Subscription } from 'rxjs';
 import { IndexedDbService, PendingRequest } from './indexed-db.service';
 import { ApiGatewayService } from './api-gateway.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
 import { CaspioService } from './caspio.service';
+
+export interface PhotoUploadComplete {
+  tempFileId: string;
+  tempVisualId?: string;
+  realVisualId: number;
+  result: any; // Contains AttachID, S3 URL, etc.
+}
 
 export interface SyncStatus {
   isSyncing: boolean;
@@ -33,6 +40,9 @@ export class BackgroundSyncService {
     syncedCount: 0,
     failedCount: 0,
   });
+
+  // Emits when a photo upload completes - pages can subscribe to update local state
+  public photoUploadComplete$ = new Subject<PhotoUploadComplete>();
 
   constructor(
     private indexedDb: IndexedDbService,
@@ -317,6 +327,16 @@ export class BackgroundSyncService {
       );
 
       console.log('[BackgroundSync] Photo uploaded successfully to Visual', visualId, 'with', drawings.length, 'chars of drawings');
+
+      // Emit event so pages can update their local state
+      this.ngZone.run(() => {
+        this.photoUploadComplete$.next({
+          tempFileId: data.fileId,
+          tempVisualId: data.tempVisualId,
+          realVisualId: visualId,
+          result: result
+        });
+      });
 
       // Clean up stored photo after successful upload
       await this.indexedDb.deleteStoredFile(data.fileId);

@@ -5,6 +5,20 @@ import * as LiveUpdates from '@capacitor/live-updates';
 import { ThemeService } from './services/theme.service';
 import { PerformanceMonitorService } from './services/performance-monitor.service';
 import { FabricService } from './services/fabric.service';
+import { addIcons } from 'ionicons';
+import {
+  arrowBack,
+  handLeftOutline,
+  colorPaletteOutline,
+  arrowForwardOutline,
+  squareOutline,
+  textOutline,
+  trashOutline,
+  arrowUndoOutline,
+  brushOutline,
+  checkmark,
+  backspaceOutline
+} from 'ionicons/icons';
 
 @Component({
   selector: 'app-root',
@@ -19,6 +33,21 @@ export class AppComponent {
     private readonly performanceMonitor: PerformanceMonitorService,
     private readonly fabricService: FabricService
   ) {
+    // Register icons for offline use (photo annotator toolbar)
+    addIcons({
+      'arrow-back': arrowBack,
+      'hand-left-outline': handLeftOutline,
+      'color-palette-outline': colorPaletteOutline,
+      'arrow-forward-outline': arrowForwardOutline,
+      'square-outline': squareOutline,
+      'text-outline': textOutline,
+      'trash-outline': trashOutline,
+      'arrow-undo-outline': arrowUndoOutline,
+      'brush-outline': brushOutline,
+      'checkmark': checkmark,
+      'backspace-outline': backspaceOutline
+    });
+
     // Ensure theme service initialises global styles
     void this.themeService;
     this.initializeApp();

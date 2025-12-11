@@ -79,6 +79,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   // Background upload subscriptions
   private uploadSubscription?: Subscription;
   private taskSubscription?: Subscription;
+  private photoSyncSubscription?: Subscription;
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -141,6 +142,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     if (this.taskSubscription) {
       this.taskSubscription.unsubscribe();
     }
+    if (this.photoSyncSubscription) {
+      this.photoSyncSubscription.unsubscribe();
+    }
     console.log('[HUD CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
@@ -179,6 +183,45 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       }
 
       this.changeDetectorRef.detectChanges();
+    });
+
+    // Subscribe to background sync photo upload completions
+    // This handles the case where photos are uploaded via IndexedDB queue (offline -> online)
+    this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
+      console.log('[PHOTO SYNC] Photo upload completed:', event.tempFileId);
+
+      // Find the photo in our visualPhotos by temp file ID
+      for (const key of Object.keys(this.visualPhotos)) {
+        const photoIndex = this.visualPhotos[key].findIndex(p =>
+          p.AttachID === event.tempFileId ||
+          p._pendingFileId === event.tempFileId ||
+          p.id === event.tempFileId
+        );
+
+        if (photoIndex !== -1) {
+          console.log('[PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
+
+          // Update the photo with the result from sync
+          const result = event.result;
+          const actualResult = result?.Result?.[0] || result;
+          const caption = this.visualPhotos[key][photoIndex].caption || '';
+
+          await this.updatePhotoAfterUpload(key, photoIndex, {
+            AttachID: actualResult.PK_ID || actualResult.AttachID,
+            Result: [actualResult],
+            ...actualResult
+          }, caption);
+
+          // Also remove queued flag
+          if (this.visualPhotos[key][photoIndex]) {
+            this.visualPhotos[key][photoIndex].queued = false;
+            this.visualPhotos[key][photoIndex]._pendingFileId = undefined;
+          }
+
+          this.changeDetectorRef.detectChanges();
+          break;
+        }
+      }
     });
   }
 
