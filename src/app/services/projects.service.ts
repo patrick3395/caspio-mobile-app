@@ -157,293 +157,188 @@ export class ProjectsService {
 
   // Create new project (exact same logic as local server)
   createProject(projectData: ProjectCreationData): Observable<any> {
-    return from(this.caspioService.ensureAuthenticated()).pipe(
-      switchMap(() => {
-        
-        // Save original data for later lookup
-        const originalAddress = projectData.address;
-        const originalCity = projectData.city || '';
-        const originalDate = new Date().toISOString().split('T')[0];
-        
-        // StateID must be a number - handle both string and number input
-        const stateId = typeof projectData.state === 'number' 
-          ? projectData.state 
-          : (projectData.state ? parseInt(projectData.state.toString()) : null);
-        
-        // Format date as MM/DD/YYYY HH:MM:SS for Caspio Date/Time field
-        const formatDateTimeForCaspio = (dateStr: string | undefined) => {
-          if (!dateStr) {
-            // Use current datetime if not provided
-            const now = new Date();
-            const month = (now.getMonth() + 1).toString().padStart(2, '0');
-            const day = now.getDate().toString().padStart(2, '0');
-            const year = now.getFullYear();
-            const hours = now.getHours().toString().padStart(2, '0');
-            const minutes = now.getMinutes().toString().padStart(2, '0');
-            const seconds = now.getSeconds().toString().padStart(2, '0');
-            return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
+    // Save original data for later lookup
+    const originalAddress = projectData.address;
+    const originalCity = projectData.city || '';
+    const originalDate = new Date().toISOString().split('T')[0];
+
+    // StateID must be a number - handle both string and number input
+    const stateId = typeof projectData.state === 'number'
+      ? projectData.state
+      : (projectData.state ? parseInt(projectData.state.toString()) : null);
+
+    // Format date as MM/DD/YYYY HH:MM:SS for Caspio Date/Time field
+    const formatDateTimeForCaspio = (dateStr: string | undefined) => {
+      if (!dateStr) {
+        // Use current datetime if not provided
+        const now = new Date();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        const year = now.getFullYear();
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const seconds = now.getSeconds().toString().padStart(2, '0');
+        return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
+      }
+      const date = new Date(dateStr);
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const year = date.getFullYear();
+      // Add time component (default to noon if not specified)
+      return `${month}/${day}/${year} 12:00:00`;
+    };
+
+    // Validate required fields
+    if (!projectData.address) {
+      console.error('Address is required but missing!');
+      return throwError(() => new Error('Address is required'));
+    }
+
+    if (!stateId) {
+      console.error('StateID is required but missing!');
+      return throwError(() => new Error('State is required'));
+    }
+
+    // Build payload matching exact Caspio table structure
+    const caspioData: any = {
+      // Required fields - all must be integers
+      CompanyID: 1, // Integer - Noble Property Inspections (REQUIRED)
+      StateID: stateId, // Integer - must be numeric (VERIFIED)
+      UserID: 1, // Integer - Default user (REQUIRED)
+      StatusID: 1, // Integer - Active status (REQUIRED)
+      Address: projectData.address.trim(), // Text(255) - Required
+
+      // Date field - Date/Time type
+      Date: formatDateTimeForCaspio(new Date().toISOString()), // Current datetime
+
+      // Optional fields
+      City: projectData.city || '', // Text(255)
+      Zip: projectData.zip || '', // Text(255)
+
+      // Set these to null as requested
+      OffersID: null, // Set to null
+      Fee: null, // Set to null
+
+      // Inspection date if provided
+      InspectionDate: projectData.inspectionDate ?
+        formatDateTimeForCaspio(projectData.inspectionDate) :
+        formatDateTimeForCaspio(new Date().toISOString())
+    };
+
+    // Add notes only if provided
+    if (projectData.notes && projectData.notes.trim()) {
+      caspioData.Notes = projectData.notes;
+    }
+
+    // Use caspioService.post which routes through AWS when useApiGateway is true
+    // Add response=rows to get the created record back
+    return this.caspioService.post<any>(`/tables/LPS_Projects/records?response=rows`, caspioData).pipe(
+      switchMap(response => {
+        let createdProjectId = null;
+        let createdProject = null;
+
+        // With response=rows, Caspio returns {"Result": [{created record}]}
+        if (response && typeof response === 'object') {
+          const result = response.Result;
+          if (Array.isArray(result) && result.length > 0) {
+            createdProject = result[0];
+            createdProjectId = createdProject.PK_ID;
           }
-          const date = new Date(dateStr);
-          const month = (date.getMonth() + 1).toString().padStart(2, '0');
-          const day = date.getDate().toString().padStart(2, '0');
-          const year = date.getFullYear();
-          // Add time component (default to noon if not specified)
-          return `${month}/${day}/${year} 12:00:00`;
-        };
-        
-        // Validate required fields
-        if (!projectData.address) {
-          console.error('❌ Address is required but missing!');
-          return throwError(() => new Error('Address is required'));
         }
-        
-        if (!stateId) {
-          console.error('❌ StateID is required but missing!');
-          return throwError(() => new Error('State is required'));
+
+        // If we got the project directly from the response, use it
+        if (createdProjectId && createdProject) {
+          // Clear cache so the new project appears immediately
+          this.clearProjectCache();
+
+          // OPTIMIZATION: Track mutation for instant cache invalidation
+          this.mutationTracker.trackProjectMutation(
+            MutationType.CREATE,
+            createdProjectId,
+            createdProject
+          );
+
+          return of({
+            success: true,
+            message: 'Project created',
+            projectId: createdProjectId,
+            projectData: createdProject
+          });
         }
-        
-        // Build payload matching exact Caspio table structure
-        const caspioData: any = {
-          // Required fields - all must be integers
-          CompanyID: 1, // Integer - Noble Property Inspections (REQUIRED)
-          StateID: stateId, // Integer - must be numeric (VERIFIED)
-          UserID: 1, // Integer - Default user (REQUIRED)
-          StatusID: 1, // Integer - Active status (REQUIRED)
-          Address: projectData.address.trim(), // Text(255) - Required
-          
-          // Date field - Date/Time type
-          Date: formatDateTimeForCaspio(new Date().toISOString()), // Current datetime
-          
-          // Optional fields
-          City: projectData.city || '', // Text(255)
-          Zip: projectData.zip || '', // Text(255)
-          
-          // Set these to null as requested
-          OffersID: null, // Set to null
-          Fee: null, // Set to null
-          
-          // Inspection date if provided
-          InspectionDate: projectData.inspectionDate ? 
-            formatDateTimeForCaspio(projectData.inspectionDate) : 
-            formatDateTimeForCaspio(new Date().toISOString())
-        };
-        
-        // Add notes only if provided
-        if (projectData.notes && projectData.notes.trim()) {
-          caspioData.Notes = projectData.notes;
-        }
-        
-        // List each field with its column name, value, and type
-        const fieldMapping = [
-          { column: 'CompanyID', value: caspioData.CompanyID, dataType: 'Integer', required: 'YES' },
-          { column: 'StateID', value: caspioData.StateID, dataType: 'Integer', required: 'YES' },
-          { column: 'UserID', value: caspioData.UserID, dataType: 'Integer', required: 'YES' },
-          { column: 'StatusID', value: caspioData.StatusID, dataType: 'Integer', required: 'YES' },
-          { column: 'Address', value: caspioData.Address, dataType: 'Text(255)', required: 'YES' },
-          { column: 'City', value: caspioData.City, dataType: 'Text(255)', required: 'NO' },
-          { column: 'Zip', value: caspioData.Zip, dataType: 'Text(255)', required: 'NO' },
-          { column: 'Date', value: caspioData.Date, dataType: 'Date/Time', required: 'YES' },
-          { column: 'InspectionDate', value: caspioData.InspectionDate, dataType: 'Date/Time', required: 'NO' },
-          { column: 'OffersID', value: caspioData.OffersID, dataType: 'Integer', required: 'NO (NULL)' },
-          { column: 'Fee', value: caspioData.Fee, dataType: 'Currency', required: 'NO (NULL)' },
-          { column: 'Notes', value: caspioData.Notes, dataType: 'Text(64000)', required: 'NO' }
-        ];
-        
-        fieldMapping.forEach(field => {
-          if (field.value !== undefined) {
-            const jsType = typeof field.value;
-          }
-        });
-        
-        const headers = new HttpHeaders({
-          'Authorization': `Bearer ${this.caspioService.getCurrentToken()}`,
-          'Content-Type': 'application/json'
-        });
-        
-        // Add response=rows to get the created record back
-        return this.http.post<any>(`${this.apiBaseUrl}/tables/LPS_Projects/records?response=rows`, caspioData, { 
-          headers,
-          observe: 'response' // Get full response to check status
-        }).pipe(
-          switchMap(response => {
-            
-            // Check if Caspio returns the ID in Location header or response body
-            const locationHeader = response.headers.get('Location');
-            
-            let createdProjectId = null;
-            let createdProject = null;
-            
-            // With response=rows, Caspio returns {"Result": [{created record}]}
-            if (response.body && typeof response.body === 'object') {
-              const result = (response.body as any).Result;
-              if (Array.isArray(result) && result.length > 0) {
-                createdProject = result[0];
-                createdProjectId = createdProject.PK_ID;
-              }
-            }
-            
-            if (!createdProjectId && locationHeader) {
-              const idMatch = locationHeader.match(/\/records\/(\d+)/i);
-              if (idMatch) {
-                createdProjectId = idMatch[1];
-              }
-            }
-            
-            // Caspio returns 201 Created
-            if (response.status === 201 || response.status === 200) {
-              
-              // If we got the project directly from the response, use it
-              if (createdProjectId && createdProject) {
-                // Clear cache so the new project appears immediately
-                this.clearProjectCache();
 
-                // OPTIMIZATION: Track mutation for instant cache invalidation
-                this.mutationTracker.trackProjectMutation(
-                  MutationType.CREATE,
-                  createdProjectId,
-                  createdProject
-                );
-
-                return of({
-                  success: true,
-                  message: 'Project created',
-                  projectId: createdProjectId,
-                  projectData: createdProject
-                });
-              }
-              return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
-                map(newProject => {
-                  if (newProject && newProject.PK_ID) {
-                    // OPTIMIZATION: Track mutation for instant cache invalidation
-                    this.mutationTracker.trackProjectMutation(
-                      MutationType.CREATE,
-                      newProject.PK_ID,
-                      newProject
-                    );
-
-                    return {
-                      success: true,
-                      message: 'Project created',
-                      projectId: newProject.PK_ID,
-                      projectData: newProject
-                    };
-                  }
-                  // This shouldn't happen with instantaneous API
-                  console.error('❌ Could not find project after creation - this is unexpected');
-                  return {
-                    success: true,
-                    message: 'Project created but ID not found',
-                    projectId: null
-                  };
-                })
+        // Fallback: fetch the newly created project
+        return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
+          map(newProject => {
+            if (newProject && newProject.PK_ID) {
+              // OPTIMIZATION: Track mutation for instant cache invalidation
+              this.mutationTracker.trackProjectMutation(
+                MutationType.CREATE,
+                newProject.PK_ID,
+                newProject
               );
-            } else {
-              return throwError(() => new Error('Failed to create project'));
-            }
-          }),
-          catchError(error => {
-            console.error('❌ ERROR CREATING PROJECT - DETAILED ANALYSIS:');
-            console.error('════════════════════════════════════════════════');
-            console.error('HTTP STATUS:', error.status, '(' + error.statusText + ')');
-            console.error('API ENDPOINT:', error.url);
-            console.error('════════════════════════════════════════════════');
-            
-            // Show Caspio's error response
-            if (error.error) {
-              console.error('📛 CASPIO ERROR RESPONSE:');
-              if (typeof error.error === 'object') {
-                console.error(JSON.stringify(error.error, null, 2));
-                if (error.error.Message) {
-                  console.error('⚠️ ERROR MESSAGE:', error.error.Message);
-                }
-                if (error.error.Details) {
-                  console.error('📝 ERROR DETAILS:', error.error.Details);
-                }
-              } else {
-                console.error(error.error);
-              }
-            }
-            
-            console.error('════════════════════════════════════════════════');
-            console.error('📤 WHAT WE ATTEMPTED TO SEND:');
-            console.error('────────────────────────────────────────────────');
-            
-            // Show each field we tried to send
-            const sentFields = [
-              { column: 'CompanyID', value: caspioData.CompanyID, expected: 'Integer' },
-              { column: 'StateID', value: caspioData.StateID, expected: 'Integer' },
-              { column: 'UserID', value: caspioData.UserID, expected: 'Integer' },
-              { column: 'OffersID', value: caspioData.OffersID, expected: 'Integer' },
-              { column: 'Address', value: caspioData.Address, expected: 'Text(255)' },
-              { column: 'City', value: caspioData.City, expected: 'Text(255)' },
-              { column: 'Zip', value: caspioData.Zip, expected: 'Text(255)' },
-              { column: 'Date', value: caspioData.Date, expected: 'Date/Time' },
-              { column: 'InspectionDate', value: caspioData.InspectionDate, expected: 'Date/Time' },
-              { column: 'Fee', value: caspioData.Fee, expected: 'Currency' }
-            ];
-            
-            sentFields.forEach(field => {
-              if (field.value !== undefined) {
-                console.error(`  ${field.column.padEnd(15)}: ${field.value} (${typeof field.value})`);
-              }
-            });
-            
-            console.error('════════════════════════════════════════════════');
-            console.error('💡 POSSIBLE ISSUES:');
-            console.error('1. Missing required field (Address, StateID, OffersID, Fee)');
-            console.error('2. Wrong data type (StateID should be number)');
-            console.error('3. Invalid StateID value (not in States table)');
-            console.error('4. Invalid OffersID value (not in Offers table)');
-            console.error('5. Authentication token expired');
-            console.error('════════════════════════════════════════════════');
-            
-            // Check if it's actually a success (201 status)
-            if (error.status === 201) {
-              
-              // Check if we have the created record in error body (with response=rows)
-              if (error.error && error.error.Result && Array.isArray(error.error.Result)) {
-                const createdProject = error.error.Result[0];
-                if (createdProject && createdProject.PK_ID) {
-                  return of({
-                    success: true,
-                    message: 'Project created',
-                    projectId: createdProject.PK_ID,
-                    projectData: createdProject
-                  });
-                }
-              }
-              
-              // Fallback to search
-              return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
-                map(newProject => {
-                  if (newProject && newProject.PK_ID) {
-                    // OPTIMIZATION: Track mutation for instant cache invalidation
-                    this.mutationTracker.trackProjectMutation(
-                      MutationType.CREATE,
-                      newProject.PK_ID,
-                      newProject
-                    );
 
-                    return {
-                      success: true,
-                      message: 'Project created',
-                      projectId: newProject.PK_ID,
-                      projectData: newProject
-                    };
-                  }
-                  console.error('❌ Could not find project after 201 response');
-                  return {
-                    success: true,
-                    message: 'Project created but ID not found',
-                    projectId: null
-                  };
-                })
-              );
+              return {
+                success: true,
+                message: 'Project created',
+                projectId: newProject.PK_ID,
+                projectData: newProject
+              };
             }
-            
-            return throwError(() => error);
+            console.error('Could not find project after creation - this is unexpected');
+            return {
+              success: true,
+              message: 'Project created but ID not found',
+              projectId: null
+            };
           })
         );
+      }),
+      catchError(error => {
+        console.error('ERROR CREATING PROJECT:', error);
+
+        // Check if it's actually a success (201 status)
+        if (error.status === 201) {
+          // Check if we have the created record in error body (with response=rows)
+          if (error.error && error.error.Result && Array.isArray(error.error.Result)) {
+            const createdProject = error.error.Result[0];
+            if (createdProject && createdProject.PK_ID) {
+              return of({
+                success: true,
+                message: 'Project created',
+                projectId: createdProject.PK_ID,
+                projectData: createdProject
+              });
+            }
+          }
+
+          // Fallback to search
+          return this.fetchNewProject(originalAddress, originalCity, originalDate).pipe(
+            map(newProject => {
+              if (newProject && newProject.PK_ID) {
+                this.mutationTracker.trackProjectMutation(
+                  MutationType.CREATE,
+                  newProject.PK_ID,
+                  newProject
+                );
+
+                return {
+                  success: true,
+                  message: 'Project created',
+                  projectId: newProject.PK_ID,
+                  projectData: newProject
+                };
+              }
+              console.error('Could not find project after 201 response');
+              return {
+                success: true,
+                message: 'Project created but ID not found',
+                projectId: null
+              };
+            })
+          );
+        }
+
+        return throwError(() => error);
       })
     );
   }
@@ -454,37 +349,26 @@ export class ProjectsService {
       return throwError(() => new Error('No project ID provided'));
     }
 
-    return this.caspioService.authenticate().pipe(
-      switchMap(() => {
-        const account = this.caspioService.getAccountID();
-        const token = this.caspioService.getCurrentToken();
-        const url = `https://${account}.caspio.com/rest/v2/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
+    const updateData = { StatusID: statusId };
 
-        const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        });
+    // Use caspioService.put which routes through AWS when useApiGateway is true
+    return this.caspioService.put<any>(
+      `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`,
+      updateData
+    ).pipe(
+      tap(() => {
+        this.cache.clear(this.getProjectDetailCacheKey(projectId));
 
-        const updateData = {
-          StatusID: statusId
-        };
-
-        return this.http.put(url, updateData, { headers }).pipe(
-          tap(() => {
-            this.cache.clear(this.getProjectDetailCacheKey(projectId));
-
-            // OPTIMIZATION: Track mutation for instant cache invalidation
-            this.mutationTracker.trackProjectMutation(
-              MutationType.UPDATE,
-              projectId,
-              { StatusID: statusId }
-            );
-          }),
-          catchError(error => {
-            console.error('Error updating project status:', error);
-            return throwError(() => error);
-          })
+        // OPTIMIZATION: Track mutation for instant cache invalidation
+        this.mutationTracker.trackProjectMutation(
+          MutationType.UPDATE,
+          projectId,
+          { StatusID: statusId }
         );
+      }),
+      catchError(error => {
+        console.error('Error updating project status:', error);
+        return throwError(() => error);
       })
     );
   }
@@ -494,38 +378,27 @@ export class ProjectsService {
       return throwError(() => new Error('No project ID provided'));
     }
 
-    return this.caspioService.authenticate().pipe(
-      switchMap(() => {
-        const account = this.caspioService.getAccountID();
-        const token = this.caspioService.getCurrentToken();
-        const url = `https://${account}.caspio.com/rest/v2/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
+    const updateData = { PrimaryPhoto: photoUrl };
 
-        const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        });
+    // Use caspioService.put which routes through AWS when useApiGateway is true
+    return this.caspioService.put<any>(
+      `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`,
+      updateData
+    ).pipe(
+      tap(() => {
+        console.log(`Updated PrimaryPhoto for project ${projectId}`);
+        this.cache.clear(this.getProjectDetailCacheKey(projectId));
 
-        const updateData = {
-          PrimaryPhoto: photoUrl
-        };
-
-        return this.http.put(url, updateData, { headers }).pipe(
-          tap(() => {
-            console.log(`✅ Updated PrimaryPhoto for project ${projectId}`);
-            this.cache.clear(this.getProjectDetailCacheKey(projectId));
-
-            // OPTIMIZATION: Track mutation for instant cache invalidation
-            this.mutationTracker.trackProjectMutation(
-              MutationType.UPDATE,
-              projectId,
-              { PrimaryPhoto: photoUrl }
-            );
-          }),
-          catchError(error => {
-            console.error('Error updating project primary photo:', error);
-            return throwError(() => error);
-          })
+        // OPTIMIZATION: Track mutation for instant cache invalidation
+        this.mutationTracker.trackProjectMutation(
+          MutationType.UPDATE,
+          projectId,
+          { PrimaryPhoto: photoUrl }
         );
+      }),
+      catchError(error => {
+        console.error('Error updating project primary photo:', error);
+        return throwError(() => error);
       })
     );
   }

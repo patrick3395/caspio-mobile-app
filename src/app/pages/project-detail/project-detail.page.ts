@@ -426,6 +426,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async loadProject() {
+    // When using API Gateway, AWS handles authentication - no need to auth here
+    if (environment.useApiGateway) {
+      await this.fetchProjectOptimized();
+      return;
+    }
+
+    // Legacy direct Caspio mode - requires frontend authentication
     if (!this.caspioService.isAuthenticated()) {
       return new Promise<void>((resolve, reject) => {
         this.caspioService.authenticate().subscribe({

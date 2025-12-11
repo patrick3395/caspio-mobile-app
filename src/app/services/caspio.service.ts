@@ -625,6 +625,20 @@ export class CaspioService {
   }
 
   delete<T>(endpoint: string): Observable<T> {
+    // Route through API Gateway if enabled
+    if (this.useApiGateway()) {
+      console.log(`[CaspioService] ✅ Using AWS API Gateway for DELETE ${endpoint}`);
+      return this.apiGateway.delete<T>(`/api/caspio-proxy${endpoint}`).pipe(
+        tap(() => this.invalidateCacheForEndpoint(endpoint, 'DELETE')),
+        catchError(error => {
+          console.error(`[CaspioService] AWS API Gateway error for DELETE ${endpoint}:`, error);
+          return throwError(() => error);
+        })
+      );
+    }
+
+    console.log(`[CaspioService] 📡 Using direct Caspio API for DELETE ${endpoint}`);
+
     if (!this.offline.isOnline()) {
       return from(this.queueOfflineRequest<T>('DELETE', endpoint, null));
     }

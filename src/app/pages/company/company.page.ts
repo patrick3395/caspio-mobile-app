@@ -5669,24 +5669,15 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   private async fetchTableRecords(tableName: string, params: Record<string, string> = {}): Promise<any[]> {
-    const token = await this.caspioService.getAuthToken();
-    if (!token) {
-      throw new Error('No authentication token available');
-    }
-
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
-
     // Normalize table name to include LPS_ prefix if not already present
     const normalizedTableName = tableName.startsWith('LPS_') ? tableName : `LPS_${tableName}`;
 
     const searchParams = new URLSearchParams(params);
     const query = searchParams.toString();
-    const url = `${environment.caspio.apiBaseUrl}/tables/${normalizedTableName}/records${query ? `?${query}` : ''}`;
+    const endpoint = `/tables/${normalizedTableName}/records${query ? `?${query}` : ''}`;
 
-    const response = await firstValueFrom(this.http.get<any>(url, { headers }));
+    // Use caspioService.get() which routes through AWS when useApiGateway is true
+    const response = await firstValueFrom(this.caspioService.get<any>(endpoint));
     return response?.Result ?? [];
   }
 

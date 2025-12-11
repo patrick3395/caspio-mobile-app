@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CaspioService } from '../services/caspio.service';
 import { ModelGeneratorService } from '../services/model-generator.service';
 import { TableAnalyzerService } from '../services/table-analyzer.service';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-home',
@@ -28,11 +29,24 @@ export class HomePage implements OnInit {
   }
 
   checkAuthentication() {
+    // When using API Gateway, AWS handles authentication
+    if (environment.useApiGateway) {
+      this.isAuthenticated = true;
+      this.authStatus = 'Using AWS API Gateway (no frontend auth needed)';
+      return;
+    }
     this.isAuthenticated = this.caspioService.isAuthenticated();
     this.authStatus = this.isAuthenticated ? 'Authenticated' : 'Not authenticated';
   }
 
   authenticate() {
+    // When using API Gateway, AWS handles authentication - no need to auth here
+    if (environment.useApiGateway) {
+      this.authStatus = 'Using AWS API Gateway (no frontend auth needed)';
+      this.isAuthenticated = true;
+      return;
+    }
+
     this.authStatus = 'Authenticating...';
     this.caspioService.authenticate().subscribe({
       next: (response) => {

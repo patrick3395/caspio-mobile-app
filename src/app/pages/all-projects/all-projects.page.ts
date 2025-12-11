@@ -66,6 +66,13 @@ export class AllProjectsPage implements OnInit {
   }
 
   checkAuthAndLoadProjects() {
+    // When using API Gateway, AWS handles authentication - no need to auth here
+    if (environment.useApiGateway) {
+      this.loadAllProjects();
+      return;
+    }
+
+    // Legacy direct Caspio mode - requires frontend authentication
     if (!this.caspioService.isAuthenticated()) {
       this.authenticateAndLoad();
     } else {
