@@ -2305,13 +2305,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     try {
       const key = `${category}_${itemId}`;
 
-      // Check if photo is still uploading
-      if (photo.uploading || photo.queued) {
+      const attachId = photo.AttachID || photo.id;
+      if (!attachId) {
         return;
       }
 
-      const attachId = photo.AttachID || photo.id;
-      if (!attachId) {
+      // Check if this is a pending/offline photo (temp ID) - these CAN be viewed while uploading
+      const isPendingPhoto = String(attachId).startsWith('temp_') || photo._pendingFileId;
+      const pendingFileId = photo._pendingFileId || attachId;
+
+      // Only block viewing for non-pending photos that are actively uploading
+      // Pending photos should be viewable from IndexedDB even while queued
+      if ((photo.uploading || photo.queued) && !isPendingPhoto) {
         return;
       }
 
@@ -2320,10 +2325,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
       // Get image URL
       let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
-
-      // Check if this is a pending/offline photo (temp ID) - retrieve from IndexedDB
-      const isPendingPhoto = String(attachId).startsWith('temp_') || photo._pendingFileId;
-      const pendingFileId = photo._pendingFileId || attachId;
 
       if (isPendingPhoto) {
         console.log('[VIEW PHOTO] Pending photo detected, retrieving from IndexedDB:', pendingFileId);
