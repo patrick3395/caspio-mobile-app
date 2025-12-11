@@ -390,17 +390,29 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
 
         // Set Weather Conditions options
         if (optionsByService['WeatherConditions'] && optionsByService['WeatherConditions'].length > 0) {
+          const currentValue = this.serviceData?.WeatherConditions;
           this.weatherConditionsOptions = optionsByService['WeatherConditions'];
           if (!this.weatherConditionsOptions.includes('Other')) {
             this.weatherConditionsOptions.push('Other');
+          }
+          // Preserve current value if not in options
+          if (currentValue && !this.weatherConditionsOptions.includes(currentValue) && currentValue !== 'Other') {
+            console.log(`[ProjectDetails] Adding missing WeatherConditions value to options: "${currentValue}"`);
+            this.weatherConditionsOptions.unshift(currentValue);
           }
         }
 
         // Set Outdoor Temperature options
         if (optionsByService['OutdoorTemperature'] && optionsByService['OutdoorTemperature'].length > 0) {
+          const currentValue = this.serviceData?.OutdoorTemperature;
           this.outdoorTemperatureOptions = optionsByService['OutdoorTemperature'];
           if (!this.outdoorTemperatureOptions.includes('Other')) {
             this.outdoorTemperatureOptions.push('Other');
+          }
+          // Preserve current value if not in options
+          if (currentValue && !this.outdoorTemperatureOptions.includes(currentValue) && currentValue !== 'Other') {
+            console.log(`[ProjectDetails] Adding missing OutdoorTemperature value to options: "${currentValue}"`);
+            this.outdoorTemperatureOptions.unshift(currentValue);
           }
 
           // Reorder to put "30°F -" first (if it exists)
@@ -415,13 +427,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
 
         // Set Occupancy Furnishings options
         if (optionsByService['OccupancyFurnishings'] && optionsByService['OccupancyFurnishings'].length > 0) {
+          const currentValue = this.serviceData?.OccupancyFurnishings;
           this.occupancyFurnishingsOptions = optionsByService['OccupancyFurnishings'];
           if (!this.occupancyFurnishingsOptions.includes('Other')) {
             this.occupancyFurnishingsOptions.push('Other');
           }
+          // Preserve current value if not in options
+          if (currentValue && !this.occupancyFurnishingsOptions.includes(currentValue) && currentValue !== 'Other') {
+            console.log(`[ProjectDetails] Adding missing OccupancyFurnishings value to options: "${currentValue}"`);
+            this.occupancyFurnishingsOptions.unshift(currentValue);
+          }
         }
 
-        // Set InAttendance options
+        // Set InAttendance options (multi-select - no current value preservation needed)
         if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
           this.inAttendanceOptions = optionsByService['InAttendance'];
           if (!this.inAttendanceOptions.includes('Other')) {
@@ -431,25 +449,43 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
 
         // Set FirstFoundationType options
         if (optionsByService['FirstFoundationType'] && optionsByService['FirstFoundationType'].length > 0) {
+          const currentValue = this.serviceData?.FirstFoundationType;
           this.firstFoundationTypeOptions = optionsByService['FirstFoundationType'];
           if (!this.firstFoundationTypeOptions.includes('Other')) {
             this.firstFoundationTypeOptions.push('Other');
+          }
+          // Preserve current value if not in options
+          if (currentValue && !this.firstFoundationTypeOptions.includes(currentValue) && currentValue !== 'Other') {
+            console.log(`[ProjectDetails] Adding missing FirstFoundationType value to options: "${currentValue}"`);
+            this.firstFoundationTypeOptions.unshift(currentValue);
           }
         }
 
         // Set SecondFoundationType options
         if (optionsByService['SecondFoundationType'] && optionsByService['SecondFoundationType'].length > 0) {
+          const currentValue = this.serviceData?.SecondFoundationType;
           this.secondFoundationTypeOptions = optionsByService['SecondFoundationType'];
           if (!this.secondFoundationTypeOptions.includes('Other')) {
             this.secondFoundationTypeOptions.push('Other');
+          }
+          // Preserve current value if not in options
+          if (currentValue && !this.secondFoundationTypeOptions.includes(currentValue) && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
+            console.log(`[ProjectDetails] Adding missing SecondFoundationType value to options: "${currentValue}"`);
+            this.secondFoundationTypeOptions.unshift(currentValue);
           }
         }
 
         // Set ThirdFoundationType options
         if (optionsByService['ThirdFoundationType'] && optionsByService['ThirdFoundationType'].length > 0) {
+          const currentValue = this.serviceData?.ThirdFoundationType;
           this.thirdFoundationTypeOptions = optionsByService['ThirdFoundationType'];
           if (!this.thirdFoundationTypeOptions.includes('Other')) {
             this.thirdFoundationTypeOptions.push('Other');
+          }
+          // Preserve current value if not in options
+          if (currentValue && !this.thirdFoundationTypeOptions.includes(currentValue) && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
+            console.log(`[ProjectDetails] Adding missing ThirdFoundationType value to options: "${currentValue}"`);
+            this.thirdFoundationTypeOptions.unshift(currentValue);
           }
         }
 
@@ -471,11 +507,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
 
         // Set OwnerOccupantInterview options
         if (optionsByService['OwnerOccupantInterview'] && optionsByService['OwnerOccupantInterview'].length > 0) {
+          const currentValue = this.serviceData?.OwnerOccupantInterview;
           this.ownerOccupantInterviewOptions = optionsByService['OwnerOccupantInterview'];
           if (!this.ownerOccupantInterviewOptions.includes('Other')) {
             this.ownerOccupantInterviewOptions.push('Other');
           }
+          // Preserve current value if not in options
+          if (currentValue && !this.ownerOccupantInterviewOptions.includes(currentValue) && currentValue !== 'Other') {
+            console.log(`[ProjectDetails] Adding missing OwnerOccupantInterview value to options: "${currentValue}"`);
+            this.ownerOccupantInterviewOptions.unshift(currentValue);
+          }
         }
+        console.log('[ProjectDetails] loadDropdownOptions(): Options loaded, forcing change detection');
+        this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
       console.error('Error loading Services_Drop options:', error);
