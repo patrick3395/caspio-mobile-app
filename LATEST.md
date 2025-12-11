@@ -80,6 +80,58 @@ UI updated via photoUploadComplete$ event
 
 ## Recent Fixes (This Session)
 
+### 7. Offline Navigation (ChunkLoadError)
+**Problem**: When offline, navigating to structural systems, categories, or any template pages resulted in ChunkLoadError because these modules were lazy-loaded.
+
+**Fix**: Converted all template modules from lazy loading to eager loading. All components are now bundled in the main chunk and available offline.
+
+**Files Changed**:
+- `src/app/app-routing.module.ts` - Routes now use direct component references instead of `loadChildren`/`loadComponent`
+- `src/app/pages/engineers-foundation/engineers-foundation-routing.module.ts` - Direct imports
+- `src/app/pages/hud/hud-routing.module.ts` - Direct imports
+- `src/app/pages/lbw/lbw-routing.module.ts` - Direct imports
+- `src/app/pages/dte/dte-routing.module.ts` - Direct imports
+
+### 8. TRUE OFFLINE-FIRST ARCHITECTURE
+**Problem**: Template categories and rooms weren't showing when offline. App required network for reads.
+
+**Solution**: Complete offline-first architecture where **IndexedDB is the PRIMARY data source**.
+
+**New Service**: `src/app/services/offline-template.service.ts`
+- Downloads complete template data when service is opened (while online)
+- All reads come from IndexedDB (instant, no network needed)
+- All writes go to IndexedDB first, then queue for background sync
+- Handles temp ID → real ID mapping after sync
+
+**How It Works**:
+```
+User Opens Service (online)
+        ↓
+Download ALL template data to IndexedDB (~100-200KB)
+- Visual templates (categories, fields)
+- EFE templates (room definitions)
+- Service visuals (existing items)
+- EFE rooms and points
+- Service record
+        ↓
+User Works (online OR offline)
+        ↓
+All READS from IndexedDB (instant, no network)
+All WRITES to IndexedDB + sync queue
+        ↓
+BackgroundSync pushes to server when online
+```
+
+**Files Changed**:
+- `src/app/services/offline-template.service.ts` - **NEW**: Complete offline-first service
+- `src/app/services/indexed-db.service.ts` - Added: cacheServiceRecord, markTemplateDownloaded, updatePendingRequestData
+- `src/app/pages/engineers-foundation/engineers-foundation-data.service.ts` - Now reads from IndexedDB first
+- All container pages - Trigger full template download on entry
+
+**Storage Impact**: ~100-200KB for templates. Photos handled separately (deleted after S3 upload).
+
+---
+
 ### 1. Duplicate Photo Records (Blank Rows)
 **Problem**: When online, photos were being uploaded via TWO paths:
 - IndexedDB → BackgroundSyncService

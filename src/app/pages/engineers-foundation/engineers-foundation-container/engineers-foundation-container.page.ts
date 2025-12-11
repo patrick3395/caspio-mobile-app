@@ -5,6 +5,8 @@ import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/ro
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
 import { EngineersFoundationPdfService } from '../services/engineers-foundation-pdf.service';
 import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
+import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { filter } from 'rxjs/operators';
 
 interface Breadcrumb {
@@ -34,7 +36,9 @@ export class EngineersFoundationContainerPage implements OnInit {
     private route: ActivatedRoute,
     private stateService: EngineersFoundationStateService,
     private pdfService: EngineersFoundationPdfService,
-    private location: Location
+    private location: Location,
+    private offlineCache: OfflineDataCacheService,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   ngOnInit() {
@@ -52,6 +56,9 @@ export class EngineersFoundationContainerPage implements OnInit {
           this.projectName = data.projectName;
         }
       });
+
+      // Pre-cache templates and service data for offline use (non-blocking)
+      this.preCacheForOffline();
     });
 
     // Subscribe to router events to update breadcrumbs
@@ -203,5 +210,35 @@ export class EngineersFoundationContainerPage implements OnInit {
     };
 
     return iconMap[categoryName] || 'construct-outline';
+  }
+
+  /**
+   * Download complete template for offline use.
+   * This downloads EVERYTHING needed to work offline from scratch.
+   * Runs in background, doesn't block UI.
+   */
+  private async preCacheForOffline(): Promise<void> {
+    if (!this.serviceId) return;
+
+    console.log('[EF Container] Downloading template for offline use...');
+
+    try {
+      // Download complete template data for offline-first operation
+      await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE');
+      console.log('[EF Container] Template downloaded - ready for offline use');
+    } catch (error) {
+      // Non-critical - just log and continue (may already be cached or offline)
+      console.warn('[EF Container] Template download skipped:', error);
+
+      // Fallback to simpler pre-cache if full download fails
+      try {
+        await Promise.all([
+          this.offlineCache.refreshAllTemplates(),
+          this.offlineCache.preCacheServiceData(this.serviceId)
+        ]);
+      } catch (fallbackError) {
+        console.warn('[EF Container] Fallback pre-cache also failed:', fallbackError);
+      }
+    }
   }
 }

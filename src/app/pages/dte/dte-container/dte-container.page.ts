@@ -4,6 +4,8 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { DteStateService } from '../services/dte-state.service';
 import { DtePdfService } from '../services/dte-pdf.service';
+import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { filter } from 'rxjs/operators';
 
 interface Breadcrumb {
@@ -33,7 +35,9 @@ export class DteContainerPage implements OnInit {
     private route: ActivatedRoute,
     private stateService: DteStateService,
     private pdfService: DtePdfService,
-    private location: Location
+    private location: Location,
+    private offlineCache: OfflineDataCacheService,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   ngOnInit() {
@@ -51,6 +55,9 @@ export class DteContainerPage implements OnInit {
           this.projectName = data.projectName;
         }
       });
+
+      // Pre-cache templates and service data for offline use (non-blocking)
+      this.preCacheForOffline();
     });
 
     // Subscribe to router events to update breadcrumbs
@@ -180,6 +187,31 @@ export class DteContainerPage implements OnInit {
     };
 
     return iconMap[categoryName] || 'document-text-outline';
+  }
+
+  /**
+   * Download complete template for offline use.
+   * Runs in background, doesn't block UI.
+   */
+  private async preCacheForOffline(): Promise<void> {
+    if (!this.serviceId) return;
+
+    console.log('[DTE Container] Downloading template for offline use...');
+
+    try {
+      await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'DTE');
+      console.log('[DTE Container] Template downloaded - ready for offline use');
+    } catch (error) {
+      console.warn('[DTE Container] Template download skipped:', error);
+      try {
+        await Promise.all([
+          this.offlineCache.refreshAllTemplates(),
+          this.offlineCache.preCacheServiceData(this.serviceId)
+        ]);
+      } catch (fallbackError) {
+        console.warn('[DTE Container] Fallback pre-cache also failed:', fallbackError);
+      }
+    }
   }
 }
 

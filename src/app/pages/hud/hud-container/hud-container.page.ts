@@ -4,6 +4,8 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { HudStateService } from '../services/hud-state.service';
 import { HudPdfService } from '../services/hud-pdf.service';
+import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { filter } from 'rxjs/operators';
 
 interface Breadcrumb {
@@ -33,7 +35,9 @@ export class HudContainerPage implements OnInit {
     private route: ActivatedRoute,
     private stateService: HudStateService,
     private pdfService: HudPdfService,
-    private location: Location
+    private location: Location,
+    private offlineCache: OfflineDataCacheService,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   ngOnInit() {
@@ -51,6 +55,9 @@ export class HudContainerPage implements OnInit {
           this.projectName = data.projectName;
         }
       });
+
+      // Pre-cache templates and service data for offline use (non-blocking)
+      this.preCacheForOffline();
     });
 
     // Subscribe to router events to update breadcrumbs
@@ -177,6 +184,31 @@ export class HudContainerPage implements OnInit {
     };
 
     return iconMap[categoryName] || 'document-text-outline';
+  }
+
+  /**
+   * Download complete template for offline use.
+   * Runs in background, doesn't block UI.
+   */
+  private async preCacheForOffline(): Promise<void> {
+    if (!this.serviceId) return;
+
+    console.log('[HUD Container] Downloading template for offline use...');
+
+    try {
+      await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'HUD');
+      console.log('[HUD Container] Template downloaded - ready for offline use');
+    } catch (error) {
+      console.warn('[HUD Container] Template download skipped:', error);
+      try {
+        await Promise.all([
+          this.offlineCache.refreshAllTemplates(),
+          this.offlineCache.preCacheServiceData(this.serviceId)
+        ]);
+      } catch (fallbackError) {
+        console.warn('[HUD Container] Fallback pre-cache also failed:', fallbackError);
+      }
+    }
   }
 }
 

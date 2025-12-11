@@ -5,6 +5,7 @@ import { IndexedDbService } from '../../services/indexed-db.service';
 import { TempIdService } from '../../services/temp-id.service';
 import { BackgroundSyncService } from '../../services/background-sync.service';
 import { OfflineDataCacheService } from '../../services/offline-data-cache.service';
+import { OfflineTemplateService } from '../../services/offline-template.service';
 import { OfflineService } from '../../services/offline.service';
 
 interface CacheEntry<T> {
@@ -32,6 +33,7 @@ export class EngineersFoundationDataService {
     private readonly tempId: TempIdService,
     private readonly backgroundSync: BackgroundSyncService,
     private readonly offlineCache: OfflineDataCacheService,
+    private readonly offlineTemplate: OfflineTemplateService,
     private readonly offlineService: OfflineService
   ) {}
 
@@ -48,6 +50,15 @@ export class EngineersFoundationDataService {
     if (!serviceId) {
       return null;
     }
+
+    // OFFLINE-FIRST: Try IndexedDB first
+    const cachedService = await this.offlineTemplate.getService(serviceId);
+    if (cachedService) {
+      console.log('[Service Data] Loaded service from IndexedDB cache');
+      return cachedService;
+    }
+
+    // Fallback to API (and cache the result)
     return this.resolveWithCache(this.serviceCache, serviceId, () =>
       firstValueFrom(this.caspioService.getService(serviceId))
     );
@@ -63,29 +74,26 @@ export class EngineersFoundationDataService {
   }
 
   async getEFETemplates(forceRefresh = false): Promise<any[]> {
-    // Use offline cache for templates (with IndexedDB persistence)
-    if (!forceRefresh) {
-      // Check in-memory cache first
-      if (this.efeTemplatesCache && !this.isExpired(this.efeTemplatesCache.timestamp)) {
-        return this.efeTemplatesCache.value;
-      }
-    }
+    console.log('[EFE Data] Loading EFE templates');
 
-    // Use OfflineDataCacheService which handles IndexedDB caching
-    const templatesPromise = this.offlineCache.getEFETemplates();
+    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+    const templates = await this.offlineTemplate.getEFETemplates();
+    console.log('[EFE Data] Loaded templates:', templates.length, '(from IndexedDB)');
 
-    // Update in-memory cache
-    this.efeTemplatesCache = { value: templatesPromise, timestamp: Date.now() };
-
-    return templatesPromise;
+    return templates;
   }
 
   /**
    * Get visual templates with offline support
    */
   async getVisualsTemplates(forceRefresh = false): Promise<any[]> {
-    // Use offline cache for templates (with IndexedDB persistence)
-    return this.offlineCache.getVisualsTemplates();
+    console.log('[Visual Data] Loading visual templates');
+
+    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+    const templates = await this.offlineTemplate.getVisualTemplates();
+    console.log('[Visual Data] Loaded templates:', templates.length, '(from IndexedDB)');
+
+    return templates;
   }
 
   async getEFEByService(serviceId: string, forceRefresh = true): Promise<any[]> {
@@ -94,36 +102,13 @@ export class EngineersFoundationDataService {
       return [];
     }
 
-    try {
-      // Try network first
-      if (forceRefresh) {
-        console.log('[EFE Data] FORCE REFRESH - Loading fresh rooms for ServiceID:', serviceId);
-        this.caspioService.clearServicesCache();
-      }
+    console.log('[EFE Data] Loading EFE rooms for ServiceID:', serviceId);
 
-      const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
-      console.log('[EFE Data] API returned rooms:', rooms.length, 'rooms');
+    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+    const rooms = await this.offlineTemplate.getEFERooms(serviceId);
+    console.log('[EFE Data] Loaded rooms:', rooms.length, '(from IndexedDB + pending)');
 
-      // Cache the result for offline use
-      if (rooms.length > 0) {
-        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', rooms);
-      }
-
-      return rooms;
-    } catch (error) {
-      console.warn('[EFE Data] API call failed, falling back to cache:', error);
-
-      // Fall back to cached data when offline
-      const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms');
-      if (cached) {
-        console.log('[EFE Data] Returning cached rooms:', cached.length);
-        return cached;
-      }
-
-      // No cache, return empty array
-      console.warn('[EFE Data] No cached data available');
-      return [];
-    }
+    return rooms;
   }
 
   async getImage(filePath: string): Promise<string> {
@@ -140,13 +125,14 @@ export class EngineersFoundationDataService {
       console.warn('[Visual Data] getVisualsByService called with empty serviceId');
       return [];
     }
-    console.log('[Visual Data] Loading existing visuals for ServiceID:', serviceId);
-    const visuals = await this.resolveWithCache(this.visualsCache, serviceId, () =>
-      firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId))
-    );
-    console.log('[Visual Data] API returned visuals:', visuals.length, 'visuals');
+    console.log('[Visual Data] Loading visuals for ServiceID:', serviceId);
+
+    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+    const visuals = await this.offlineTemplate.getVisualsByService(serviceId);
+    console.log('[Visual Data] Loaded visuals:', visuals.length, '(from IndexedDB + pending)');
+
     if (visuals.length > 0) {
-      console.log('[Visual Data] Sample visual data:', visuals[0]);
+      console.log('[Visual Data] Sample visual:', visuals[0]);
     }
     return visuals;
   }
@@ -166,9 +152,13 @@ export class EngineersFoundationDataService {
       return [];
     }
     const key = String(roomId);
-    return this.resolveWithCache(this.efePointsCache, key, () =>
-      firstValueFrom(this.caspioService.getServicesEFEPoints(String(roomId)))
-    );
+    console.log('[EFE Data] Loading EFE points for RoomID:', key);
+
+    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+    const points = await this.offlineTemplate.getEFEPoints(key);
+    console.log('[EFE Data] Loaded points:', points.length, '(from IndexedDB + pending)');
+
+    return points;
   }
 
   async getEFEAttachments(pointIds: string | string[]): Promise<any[]> {

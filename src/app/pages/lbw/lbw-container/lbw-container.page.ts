@@ -4,6 +4,8 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { LbwStateService } from '../services/lbw-state.service';
 import { LbwPdfService } from '../services/lbw-pdf.service';
+import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { filter } from 'rxjs/operators';
 
 interface Breadcrumb {
@@ -33,7 +35,9 @@ export class LbwContainerPage implements OnInit {
     private route: ActivatedRoute,
     private stateService: LbwStateService,
     private pdfService: LbwPdfService,
-    private location: Location
+    private location: Location,
+    private offlineCache: OfflineDataCacheService,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   ngOnInit() {
@@ -51,6 +55,9 @@ export class LbwContainerPage implements OnInit {
           this.projectName = data.projectName;
         }
       });
+
+      // Pre-cache templates and service data for offline use (non-blocking)
+      this.preCacheForOffline();
     });
 
     // Subscribe to router events to update breadcrumbs
@@ -62,6 +69,31 @@ export class LbwContainerPage implements OnInit {
 
     // Initial breadcrumb update
     this.updateBreadcrumbs();
+  }
+
+  /**
+   * Download complete template for offline use.
+   * Runs in background, doesn't block UI.
+   */
+  private async preCacheForOffline(): Promise<void> {
+    if (!this.serviceId) return;
+
+    console.log('[LBW Container] Downloading template for offline use...');
+
+    try {
+      await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'LBW');
+      console.log('[LBW Container] Template downloaded - ready for offline use');
+    } catch (error) {
+      console.warn('[LBW Container] Template download skipped:', error);
+      try {
+        await Promise.all([
+          this.offlineCache.refreshAllTemplates(),
+          this.offlineCache.preCacheServiceData(this.serviceId)
+        ]);
+      } catch (fallbackError) {
+        console.warn('[LBW Container] Fallback pre-cache also failed:', fallbackError);
+      }
+    }
   }
 
   private updateBreadcrumbs() {

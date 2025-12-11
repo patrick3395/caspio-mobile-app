@@ -1146,5 +1146,194 @@ export class IndexedDbService {
       };
     });
   }
+
+  // ============================================
+  // SERVICE RECORD CACHING
+  // ============================================
+
+  /**
+   * Cache a service record for offline access
+   */
+  async cacheServiceRecord(serviceId: string, service: any): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      console.warn('[IndexedDB] cachedServiceData store not available');
+      return;
+    }
+
+    const cacheEntry = {
+      cacheKey: `service_record_${serviceId}`,
+      serviceId,
+      dataType: 'service_record',
+      data: [service], // Wrap in array for consistency
+      lastUpdated: Date.now(),
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const putRequest = store.put(cacheEntry);
+
+      putRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Cached service record for ${serviceId}`);
+        resolve();
+      };
+
+      putRequest.onerror = () => reject(putRequest.error);
+    });
+  }
+
+  /**
+   * Get cached service record
+   */
+  async getCachedServiceRecord(serviceId: string): Promise<any | null> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readonly');
+      const store = transaction.objectStore('cachedServiceData');
+      const getRequest = store.get(`service_record_${serviceId}`);
+
+      getRequest.onsuccess = () => {
+        const cached = getRequest.result;
+        if (cached && cached.data && cached.data.length > 0) {
+          resolve(cached.data[0]);
+        } else {
+          resolve(null);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  // ============================================
+  // TEMPLATE DOWNLOAD TRACKING
+  // ============================================
+
+  /**
+   * Mark a template as fully downloaded for offline use
+   */
+  async markTemplateDownloaded(serviceId: string, templateType: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return;
+    }
+
+    const cacheEntry = {
+      cacheKey: `download_status_${templateType}_${serviceId}`,
+      serviceId,
+      dataType: 'download_status',
+      data: [{ downloaded: true, timestamp: Date.now(), templateType }],
+      lastUpdated: Date.now(),
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const putRequest = store.put(cacheEntry);
+
+      putRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Marked ${templateType} template as downloaded for service ${serviceId}`);
+        resolve();
+      };
+
+      putRequest.onerror = () => reject(putRequest.error);
+    });
+  }
+
+  /**
+   * Check if a template has been downloaded
+   */
+  async isTemplateDownloaded(serviceId: string, templateType: string): Promise<boolean> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return false;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readonly');
+      const store = transaction.objectStore('cachedServiceData');
+      const getRequest = store.get(`download_status_${templateType}_${serviceId}`);
+
+      getRequest.onsuccess = () => {
+        const cached = getRequest.result;
+        if (cached && cached.data && cached.data.length > 0 && cached.data[0].downloaded) {
+          // Check if download is recent (within 7 days)
+          const downloadAge = Date.now() - cached.data[0].timestamp;
+          const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+          resolve(downloadAge < maxAge);
+        } else {
+          resolve(false);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  // ============================================
+  // PENDING REQUEST DATA UPDATES
+  // ============================================
+
+  /**
+   * Update data in a pending request (for editing before sync)
+   */
+  async updatePendingRequestData(tempId: string, updates: any): Promise<void> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingRequests'], 'readwrite');
+      const store = transaction.objectStore('pendingRequests');
+      const index = store.index('tempId');
+      const getRequest = index.get(tempId);
+
+      getRequest.onsuccess = () => {
+        const request = getRequest.result as PendingRequest;
+        if (request) {
+          // Merge updates into existing data
+          request.data = { ...request.data, ...updates };
+
+          const putRequest = store.put(request);
+          putRequest.onsuccess = () => {
+            console.log(`[IndexedDB] Updated pending request data for ${tempId}`);
+            resolve();
+          };
+          putRequest.onerror = () => reject(putRequest.error);
+        } else {
+          console.warn(`[IndexedDB] No pending request found with tempId ${tempId}`);
+          resolve();
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Get all pending requests (including non-pending statuses)
+   */
+  async getAllRequests(): Promise<PendingRequest[]> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingRequests'], 'readonly');
+      const store = transaction.objectStore('pendingRequests');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        resolve(getAllRequest.result as PendingRequest[]);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
 }
 
