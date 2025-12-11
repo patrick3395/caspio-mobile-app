@@ -312,6 +312,12 @@ export class BackgroundSyncService {
       visualId = parseInt(String(visualId));
     }
 
+    // CRITICAL: Check for NaN before proceeding
+    if (isNaN(visualId)) {
+      console.error('[BackgroundSync] Visual ID is NaN after parsing:', data.visualId, data.tempVisualId);
+      throw new Error(`Invalid visual ID: ${data.visualId || data.tempVisualId}`);
+    }
+
     console.log('[BackgroundSync] Final Visual ID for upload:', visualId);
 
     // Generate idempotency key for AWS deduplication

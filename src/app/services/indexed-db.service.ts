@@ -537,6 +537,86 @@ export class IndexedDbService {
   }
 
   /**
+   * Get pending photos for a specific visual ID
+   * Returns photos with blob URLs for display
+   */
+  async getPendingPhotosForVisual(visualId: string): Promise<any[]> {
+    const allPhotos = await this.getAllPendingPhotos();
+
+    // Filter by visual ID (compare as strings)
+    const visualPhotos = allPhotos.filter(p => String(p.visualId) === String(visualId));
+
+    // Convert to displayable format with blob URLs
+    return visualPhotos.map(photo => {
+      // Create blob URL from stored ArrayBuffer
+      const blob = new Blob([photo.fileData], { type: photo.fileType || 'image/jpeg' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      return {
+        AttachID: photo.imageId,
+        id: photo.imageId,
+        _pendingFileId: photo.imageId,
+        url: blobUrl,
+        originalUrl: blobUrl,
+        thumbnailUrl: blobUrl,
+        displayUrl: blobUrl,
+        caption: photo.caption || '',
+        annotation: photo.caption || '',
+        Annotation: photo.caption || '',
+        drawings: photo.drawings || '',
+        Drawings: photo.drawings || '',
+        queued: true,
+        uploading: false,
+        isPending: true,
+        createdAt: photo.createdAt
+      };
+    });
+  }
+
+  /**
+   * Get all pending photos grouped by visual ID
+   * Returns a map of visualId -> photos array
+   */
+  async getAllPendingPhotosGroupedByVisual(): Promise<Map<string, any[]>> {
+    const allPhotos = await this.getAllPendingPhotos();
+    const grouped = new Map<string, any[]>();
+
+    for (const photo of allPhotos) {
+      const visualId = String(photo.visualId);
+
+      // Create blob URL from stored ArrayBuffer
+      const blob = new Blob([photo.fileData], { type: photo.fileType || 'image/jpeg' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      const displayPhoto = {
+        AttachID: photo.imageId,
+        id: photo.imageId,
+        _pendingFileId: photo.imageId,
+        url: blobUrl,
+        originalUrl: blobUrl,
+        thumbnailUrl: blobUrl,
+        displayUrl: blobUrl,
+        caption: photo.caption || '',
+        annotation: photo.caption || '',
+        Annotation: photo.caption || '',
+        drawings: photo.drawings || '',
+        Drawings: photo.drawings || '',
+        queued: true,
+        uploading: false,
+        isPending: true,
+        createdAt: photo.createdAt
+      };
+
+      if (!grouped.has(visualId)) {
+        grouped.set(visualId, []);
+      }
+      grouped.get(visualId)!.push(displayPhoto);
+    }
+
+    return grouped;
+  }
+
+  /**
    * Clear all data (for testing/debugging)
    */
   async clearAll(): Promise<void> {

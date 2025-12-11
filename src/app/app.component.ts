@@ -7,6 +7,7 @@ import { PerformanceMonitorService } from './services/performance-monitor.servic
 import { FabricService } from './services/fabric.service';
 import { addIcons } from 'ionicons';
 import {
+  // Photo annotator toolbar icons
   arrowBack,
   handLeftOutline,
   colorPaletteOutline,
@@ -17,7 +18,46 @@ import {
   arrowUndoOutline,
   brushOutline,
   checkmark,
-  backspaceOutline
+  backspaceOutline,
+  // Category detail page icons
+  searchOutline,
+  closeCircle,
+  informationCircleOutline,
+  addCircleOutline,
+  camera,
+  images,
+  close,
+  alertCircleOutline,
+  warningOutline,
+  // Common icons used across the app
+  chevronDown,
+  chevronUp,
+  chevronForward,
+  chevronBack,
+  ellipsisVertical,
+  trash,
+  create,
+  save,
+  refresh,
+  sync,
+  cloudUpload,
+  cloudOffline,
+  checkmarkCircle,
+  checkmarkCircleOutline,
+  closeCircleOutline,
+  image,
+  document,
+  download,
+  share,
+  menu,
+  home,
+  settings,
+  person,
+  logOut,
+  helpCircleOutline,
+  arrowForward,
+  cameraOutline,
+  imagesOutline
 } from 'ionicons/icons';
 
 @Component({
@@ -33,8 +73,9 @@ export class AppComponent {
     private readonly performanceMonitor: PerformanceMonitorService,
     private readonly fabricService: FabricService
   ) {
-    // Register icons for offline use (photo annotator toolbar)
+    // Register icons for offline use
     addIcons({
+      // Photo annotator toolbar
       'arrow-back': arrowBack,
       'hand-left-outline': handLeftOutline,
       'color-palette-outline': colorPaletteOutline,
@@ -45,7 +86,46 @@ export class AppComponent {
       'arrow-undo-outline': arrowUndoOutline,
       'brush-outline': brushOutline,
       'checkmark': checkmark,
-      'backspace-outline': backspaceOutline
+      'backspace-outline': backspaceOutline,
+      // Category detail page
+      'search-outline': searchOutline,
+      'close-circle': closeCircle,
+      'information-circle-outline': informationCircleOutline,
+      'add-circle-outline': addCircleOutline,
+      'camera': camera,
+      'images': images,
+      'close': close,
+      'alert-circle-outline': alertCircleOutline,
+      'warning-outline': warningOutline,
+      // Common icons
+      'chevron-down': chevronDown,
+      'chevron-up': chevronUp,
+      'chevron-forward': chevronForward,
+      'chevron-back': chevronBack,
+      'ellipsis-vertical': ellipsisVertical,
+      'trash': trash,
+      'create': create,
+      'save': save,
+      'refresh': refresh,
+      'sync': sync,
+      'cloud-upload': cloudUpload,
+      'cloud-offline': cloudOffline,
+      'checkmark-circle': checkmarkCircle,
+      'checkmark-circle-outline': checkmarkCircleOutline,
+      'close-circle-outline': closeCircleOutline,
+      'image': image,
+      'document': document,
+      'download': download,
+      'share': share,
+      'menu': menu,
+      'home': home,
+      'settings': settings,
+      'person': person,
+      'log-out': logOut,
+      'help-circle-outline': helpCircleOutline,
+      'arrow-forward': arrowForward,
+      'camera-outline': cameraOutline,
+      'images-outline': imagesOutline
     });
 
     // Ensure theme service initialises global styles
