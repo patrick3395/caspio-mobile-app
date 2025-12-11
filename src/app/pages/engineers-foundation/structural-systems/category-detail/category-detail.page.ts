@@ -1935,11 +1935,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         const file = await this.indexedDb.getStoredFile(attachId);
         if (file) {
           const tempImageUrl = URL.createObjectURL(file);
-          console.log('[VIEW PHOTO] Created object URL from IndexedDB file');
-          
-          // Override photo.url for annotator
+          console.log('[VIEW PHOTO] Created object URL from IndexedDB file:', tempImageUrl.substring(0, 50));
+
+          // Override ALL photo URLs for annotator - critical for offline viewing
           photo.url = tempImageUrl;
           photo.thumbnailUrl = tempImageUrl;
+          photo.originalUrl = tempImageUrl;  // CRITICAL: Must set originalUrl too, used at line 2000
         } else {
           await this.showToast('Photo not available yet', 'warning');
           return;

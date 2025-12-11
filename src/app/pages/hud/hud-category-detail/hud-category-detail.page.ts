@@ -2334,7 +2334,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
             // Convert file to data URL for the annotator
             const blob = photoData.file;
             imageUrl = await this.blobToDataUrl(blob);
-            console.log('[VIEW PHOTO] ✅ Retrieved pending photo from IndexedDB');
+            // CRITICAL: Must also set photo.originalUrl - it's checked first at line 2394
+            photo.url = imageUrl;
+            photo.originalUrl = imageUrl;
+            photo.thumbnailUrl = imageUrl;
+            console.log('[VIEW PHOTO] ✅ Retrieved pending photo from IndexedDB, URL set');
           } else {
             console.warn('[VIEW PHOTO] Pending photo not found in IndexedDB');
             // If the photo has a data URL already, use it
