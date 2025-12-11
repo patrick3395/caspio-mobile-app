@@ -121,24 +121,10 @@ export class OfflineTemplateService {
       }
 
       // 5. Service record itself (also extract projectId if not provided)
+      // IMPORTANT: Bypass localStorage cache (false) to get fresh data from API
+      // Also check for pending UPDATE requests - don't overwrite local changes
       downloads.push(
-        firstValueFrom(this.caspioService.getService(serviceId))
-          .then(async (service) => {
-            await this.indexedDb.cacheServiceRecord(serviceId, service);
-            console.log('[OfflineTemplate] Service record cached');
-
-            // Also cache the project if we have the ID
-            const pId = projectId || service?.ProjectID;
-            if (pId) {
-              try {
-                const project = await firstValueFrom(this.caspioService.getProject(String(pId)));
-                await this.indexedDb.cacheProjectRecord(String(pId), project);
-                console.log('[OfflineTemplate] Project record cached');
-              } catch (err) {
-                console.warn('[OfflineTemplate] Could not cache project:', err);
-              }
-            }
-          })
+        this.safeCacheServiceRecord(serviceId, projectId)
       );
 
       await Promise.all(downloads);
@@ -150,6 +136,99 @@ export class OfflineTemplateService {
     } catch (error) {
       console.error(`[OfflineTemplate] Error downloading ${cacheKey}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Safely cache service record - checks for pending updates first
+   * If there are pending updates, merge API data with local changes
+   * This prevents overwriting offline changes during template download
+   */
+  private async safeCacheServiceRecord(serviceId: string, projectId?: string): Promise<void> {
+    try {
+      // Check if there are pending OR syncing UPDATE requests for this service
+      // Use getAllRequests() to include 'syncing' status (not just 'pending')
+      const allRequests = await this.indexedDb.getAllRequests();
+      const hasPendingServiceUpdates = allRequests.some(r =>
+        r.type === 'UPDATE' &&
+        (r.status === 'pending' || r.status === 'syncing') &&
+        r.endpoint.includes('LPS_Services') &&
+        r.endpoint.includes(`PK_ID=${serviceId}`)
+      );
+
+      // Get existing local cache (may have offline changes)
+      const existingLocalService = await this.indexedDb.getCachedServiceRecord(serviceId);
+
+      // Fetch fresh data from API - BYPASS localStorage cache to get latest from server
+      const apiService = await firstValueFrom(this.caspioService.getService(serviceId, false));
+
+      if (hasPendingServiceUpdates && existingLocalService) {
+        // Merge: Start with API data, then overlay local changes
+        // This preserves any fields that were updated locally but not yet synced
+        console.log('[OfflineTemplate] Service has pending updates - merging with local changes');
+
+        // Extract the pending update data to identify changed fields
+        const pendingServiceUpdates = allRequests
+          .filter(r => r.type === 'UPDATE' && (r.status === 'pending' || r.status === 'syncing') && r.endpoint.includes('LPS_Services') && r.endpoint.includes(`PK_ID=${serviceId}`))
+          .reduce((acc, r) => ({ ...acc, ...r.data }), {});
+
+        // Merged service = API base + pending local changes
+        const mergedService = { ...apiService, ...pendingServiceUpdates };
+        await this.indexedDb.cacheServiceRecord(serviceId, mergedService);
+        console.log('[OfflineTemplate] Service record cached (merged with local changes)');
+      } else if (apiService) {
+        // No pending updates - safe to use API data directly
+        await this.indexedDb.cacheServiceRecord(serviceId, apiService);
+        console.log('[OfflineTemplate] Service record cached');
+      }
+
+      // Also cache the project (same logic)
+      const pId = projectId || apiService?.ProjectID;
+      if (pId) {
+        await this.safeCacheProjectRecord(String(pId));
+      }
+    } catch (err) {
+      console.warn('[OfflineTemplate] Could not cache service record:', err);
+    }
+  }
+
+  /**
+   * Safely cache project record - checks for pending updates first
+   */
+  private async safeCacheProjectRecord(projectId: string): Promise<void> {
+    try {
+      // Check for pending OR syncing UPDATE requests for this project
+      const allRequests = await this.indexedDb.getAllRequests();
+      const hasPendingProjectUpdates = allRequests.some(r =>
+        r.type === 'UPDATE' &&
+        (r.status === 'pending' || r.status === 'syncing') &&
+        r.endpoint.includes('LPS_Projects') &&
+        r.endpoint.includes(`PK_ID=${projectId}`)
+      );
+
+      // Get existing local cache
+      const existingLocalProject = await this.indexedDb.getCachedProjectRecord(projectId);
+
+      // Fetch fresh from API - BYPASS localStorage cache
+      const apiProject = await firstValueFrom(this.caspioService.getProject(projectId, false));
+
+      if (hasPendingProjectUpdates && existingLocalProject) {
+        // Merge API data with pending local changes
+        console.log('[OfflineTemplate] Project has pending updates - merging with local changes');
+
+        const pendingProjectUpdates = allRequests
+          .filter(r => r.type === 'UPDATE' && (r.status === 'pending' || r.status === 'syncing') && r.endpoint.includes('LPS_Projects') && r.endpoint.includes(`PK_ID=${projectId}`))
+          .reduce((acc, r) => ({ ...acc, ...r.data }), {});
+
+        const mergedProject = { ...apiProject, ...pendingProjectUpdates };
+        await this.indexedDb.cacheProjectRecord(projectId, mergedProject);
+        console.log('[OfflineTemplate] Project record cached (merged with local changes)');
+      } else if (apiProject) {
+        await this.indexedDb.cacheProjectRecord(projectId, apiProject);
+        console.log('[OfflineTemplate] Project record cached');
+      }
+    } catch (err) {
+      console.warn('[OfflineTemplate] Could not cache project:', err);
     }
   }
 
