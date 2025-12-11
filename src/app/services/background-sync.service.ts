@@ -32,7 +32,7 @@ export interface EFEPhotoUploadComplete {
 }
 
 export interface ServiceDataSyncComplete {
-  serviceId: string;
+  serviceId?: string;
   projectId?: string;
 }
 

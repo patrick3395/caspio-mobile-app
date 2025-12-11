@@ -32,7 +32,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   styleOptions: string[] = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level', 'Other'];
   occupancyFurnishingsOptions: string[] = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
   weatherConditionsOptions: string[] = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
-  outdoorTemperatureOptions: string[] = ['30Â°F -', '30Â°F to 60Â°F', '60Â°F to 70Â°F', '70Â°F to 80Â°F', '80Â°F to 90Â°F', '90Â°F to 100Â°F', '100Â°F+', 'Other'];
+  outdoorTemperatureOptions: string[] = ['30°F -', '30°F to 60°F', '60°F to 70°F', '70°F to 80°F', '80°F to 90°F', '90°F to 100°F', '100°F+', 'Other'];
   firstFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
   secondFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
   thirdFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
@@ -375,7 +375,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
             this.outdoorTemperatureOptions.push('Other');
           }
 
-          // Reorder to put "30Â°F -" first (if it exists)
+          // Reorder to put "30°F -" first (if it exists)
           const thirtyBelowIndex = this.outdoorTemperatureOptions.findIndex(opt =>
             opt.includes('30') && opt.includes('-') && !opt.includes('to')
           );
