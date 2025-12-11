@@ -452,10 +452,10 @@ export class OfflineTemplateService {
    * Update service record - saves to IndexedDB and queues for sync
    */
   async updateService(serviceId: string, updates: any): Promise<void> {
-    // Queue the update - use caspio-proxy and ServiceID (not PK_ID)
+    // Queue the update - use /api/caspio-proxy and ServiceID (matching CaspioService pattern)
     await this.indexedDb.addPendingRequest({
       type: 'UPDATE',
-      endpoint: `/caspio-proxy/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`,
+      endpoint: `/api/caspio-proxy/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`,
       method: 'PUT',
       data: updates,
       dependencies: [],
@@ -476,10 +476,10 @@ export class OfflineTemplateService {
    * Update project record - saves to IndexedDB and queues for sync
    */
   async updateProject(projectId: string, updates: any): Promise<void> {
-    // Queue the update - use caspio-proxy
+    // Queue the update - use /api/caspio-proxy (matching CaspioService pattern)
     await this.indexedDb.addPendingRequest({
       type: 'UPDATE',
-      endpoint: `/caspio-proxy/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`,
+      endpoint: `/api/caspio-proxy/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`,
       method: 'PUT',
       data: updates,
       dependencies: [],

@@ -83,16 +83,17 @@ UI updated via photoUploadComplete$ event
 ### 9. Project Details Sync Endpoint Fix
 **Problem**: When syncing Project Details changes offline, BackgroundSync failed with:
 1. `ERR_NAME_NOT_RESOLVED` - malformed URLs missing `/` separator
-2. `404 Not Found` - route `PUT /tables/LPS_Services/records` doesn't exist on backend
+2. `404 Not Found` - route not found on backend
 
 **Root Cause**:
-- Backend doesn't have direct PUT routes for `/tables/*`
-- Must use `/caspio-proxy/*` prefix to forward requests to Caspio
+- Backend routes are mounted at `/api` prefix (see app.ts line 47)
+- The caspio-proxy route is at `/api/caspio-proxy/*` (not `/caspio-proxy/*`)
+- CaspioService uses pattern: `/api/caspio-proxy${endpoint}` (see caspio.service.ts line 581)
 - Service updates should use `ServiceID` (not `PK_ID`)
 
-**Fix**: Updated endpoints to use caspio-proxy:
-- `updateService()`: `/caspio-proxy/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`
-- `updateProject()`: `/caspio-proxy/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`
+**Fix**: Updated endpoints to match CaspioService pattern:
+- `updateService()`: `/api/caspio-proxy/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`
+- `updateProject()`: `/api/caspio-proxy/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`
 
 **Files Changed**:
 - `src/app/services/offline-template.service.ts` - Fixed endpoint formats in updateService() and updateProject()
