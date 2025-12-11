@@ -256,6 +256,25 @@ export class BackgroundSyncService {
         }
       }
 
+        // Emit sync complete event for Service/Project updates so pages can reload
+        if (request.type === 'UPDATE') {
+          if (request.endpoint.includes('LPS_Services/records')) {
+            const match = request.endpoint.match(/PK_ID=(\d+)/);
+            if (match) {
+              this.ngZone.run(() => {
+                this.serviceDataSyncComplete$.next({ serviceId: match[1] });
+              });
+            }
+          } else if (request.endpoint.includes('LPS_Projects/records')) {
+            const match = request.endpoint.match(/PK_ID=(\d+)/);
+            if (match) {
+              this.ngZone.run(() => {
+                this.serviceDataSyncComplete$.next({ projectId: match[1] });
+              });
+            }
+          }
+        }
+
         // Mark as synced
         await this.indexedDb.updateRequestStatus(request.requestId, 'synced');
         console.log(`[BackgroundSync] ✅ Synced: ${request.requestId}`);

@@ -53,11 +53,7 @@ export class OfflineTemplateService {
     if (isReady) {
       console.log(`[OfflineTemplate] Template ${cacheKey} already cached`);
       this.downloadStatus.set(cacheKey, 'ready');
-
-      // Still refresh service/project records if online (they might be stale)
-      if (this.offlineService.isOnline()) {
-        this.refreshServiceAndProjectRecords(serviceId, projectId);
-      }
+      // Don't refresh here - it would overwrite offline changes before sync completes
       return;
     }
 

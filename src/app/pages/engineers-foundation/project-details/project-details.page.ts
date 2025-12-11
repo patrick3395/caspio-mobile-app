@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
 import { EngineersFoundationStateService, ProjectData } from '../services/engineers-foundation-state.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { OfflineService } from '../../../services/offline.service';
@@ -23,8 +22,6 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   serviceId: string = '';
   projectData: any = {};  // Use any to match original structure
   serviceData: any = {};  // Add serviceData for Services table fields
-
-  private syncSubscription?: Subscription;
 
   // Dropdown options
   inAttendanceOptions: string[] = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
@@ -112,21 +109,12 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
       }
     });
 
-    // Subscribe to sync complete events to reload data after sync
-    this.syncSubscription = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
-      console.log('[ProjectDetails] Sync complete event received:', event);
-      // Reload data if this service or project was synced
-      if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
-        console.log('[ProjectDetails] Reloading data after sync...');
-        this.loadData();
-      }
-    });
+    // Note: We don't reload on sync complete - IndexedDB already has the correct data
+    // The user's changes were saved to IndexedDB when they made them
   }
 
   ngOnDestroy() {
-    if (this.syncSubscription) {
-      this.syncSubscription.unsubscribe();
-    }
+    // Cleanup if needed
   }
 
   private async loadData() {
@@ -144,29 +132,24 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   }
 
   private async loadProjectData() {
-    // Try IndexedDB first
+    // Try IndexedDB first - this is the source of truth for offline-first
     let project = await this.offlineTemplate.getProject(this.projectId);
 
-    // Check if cache has complete data (not just partial updates)
-    const isComplete = project && (project.ProjectID || project.ClientID || project.Address);
-
-    if (!project || !isComplete) {
-      // Fall back to API if not in cache or incomplete - bypass localStorage cache to get fresh data
-      console.log('[ProjectDetails] Project not in cache or incomplete, fetching fresh from API...');
+    if (project) {
+      console.log('[ProjectDetails] Loaded project from IndexedDB cache');
+    } else {
+      // Only fetch from API if IndexedDB has nothing at all
+      console.log('[ProjectDetails] Project not in cache, fetching from API...');
       try {
         const freshProject = await this.caspioService.getProject(this.projectId, false).toPromise();
-        // Cache it for next time
         if (freshProject) {
           await this.indexedDb.cacheProjectRecord(this.projectId, freshProject);
           project = freshProject;
         }
       } catch (error) {
         console.error('[ProjectDetails] Error loading project from API:', error);
-        // Use partial cache if available
-        if (!project) return;
+        return;
       }
-    } else {
-      console.log('[ProjectDetails] Loaded project from IndexedDB cache');
     }
 
     this.projectData = project || {};
@@ -195,29 +178,24 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   }
 
   private async loadServiceData() {
-    // Try IndexedDB first
+    // Try IndexedDB first - this is the source of truth for offline-first
     let service = await this.offlineTemplate.getService(this.serviceId);
 
-    // Check if cache has complete data (not just partial updates)
-    const isComplete = service && (service.ServiceID || service.ProjectID || service.ServiceType);
-
-    if (!service || !isComplete) {
-      // Fall back to API if not in cache or incomplete - bypass localStorage cache to get fresh data
-      console.log('[ProjectDetails] Service not in cache or incomplete, fetching fresh from API...');
+    if (service) {
+      console.log('[ProjectDetails] Loaded service from IndexedDB cache');
+    } else {
+      // Only fetch from API if IndexedDB has nothing at all
+      console.log('[ProjectDetails] Service not in cache, fetching from API...');
       try {
         const freshService = await this.caspioService.getService(this.serviceId, false).toPromise();
-        // Cache it for next time
         if (freshService) {
           await this.indexedDb.cacheServiceRecord(this.serviceId, freshService);
           service = freshService;
         }
       } catch (error) {
         console.error('[ProjectDetails] Error loading service from API:', error);
-        // Use partial cache if available
-        if (!service) return;
+        return;
       }
-    } else {
-      console.log('[ProjectDetails] Loaded service from IndexedDB cache');
     }
 
     this.serviceData = service || {};
