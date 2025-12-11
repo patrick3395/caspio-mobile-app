@@ -67,19 +67,27 @@ export class EngineersFoundationMainPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    // Load status options from Status table
-    await this.loadStatusOptions();
-    
-    // Get IDs from parent route
+    // Load status options from Status table (non-blocking)
+    this.loadStatusOptions();
+
+    // Get IDs from parent route snapshot immediately (for offline reliability)
+    const parentParams = this.route.parent?.snapshot?.params;
+    if (parentParams) {
+      this.projectId = parentParams['projectId'] || '';
+      this.serviceId = parentParams['serviceId'] || '';
+      console.log('[EngFoundation Main] Got params from snapshot:', this.projectId, this.serviceId);
+    }
+
+    // Also subscribe to param changes (for dynamic updates)
     this.route.parent?.params.subscribe(async params => {
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
-      
-      // Check if report is already finalized
-      await this.checkIfFinalized();
-      
-      // Check if report can be finalized (for button styling)
-      await this.checkCanFinalize();
+
+      // Check if report is already finalized (non-blocking - fail silently offline)
+      this.checkIfFinalized();
+
+      // Check if report can be finalized (non-blocking - fail silently offline)
+      this.checkCanFinalize();
     });
   }
 
@@ -111,7 +119,8 @@ export class EngineersFoundationMainPage implements OnInit {
         this.hasChangesAfterFinalization = true;
         console.log('[EngFoundation Main] Marked changes after finalization');
       }
-      await this.checkCanFinalize();
+      // Non-blocking - fail silently offline
+      this.checkCanFinalize();
     }
   }
 
@@ -162,7 +171,15 @@ export class EngineersFoundationMainPage implements OnInit {
   }
 
   navigateTo(card: NavigationCard) {
-    this.router.navigate([card.route], { relativeTo: this.route.parent });
+    console.log('[EngFoundation Main] Navigating to:', card.route, 'projectId:', this.projectId, 'serviceId:', this.serviceId);
+
+    // Use absolute navigation to ensure it works even if parent route isn't ready
+    if (this.projectId && this.serviceId) {
+      this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, card.route]);
+    } else {
+      // Fallback to relative navigation
+      this.router.navigate([card.route], { relativeTo: this.route.parent });
+    }
   }
 
   async finalizeReport() {

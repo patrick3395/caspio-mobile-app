@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../../../services/caspio.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
+import { OfflineDataCacheService } from '../../../../services/offline-data-cache.service';
 
 @Component({
   selector: 'app-structural-systems-hub',
@@ -25,25 +26,40 @@ export class StructuralSystemsHubPage implements OnInit {
     private route: ActivatedRoute,
     private caspioService: CaspioService,
     private changeDetectorRef: ChangeDetectorRef,
-    private foundationData: EngineersFoundationDataService
+    private foundationData: EngineersFoundationDataService,
+    private offlineCache: OfflineDataCacheService
   ) {}
 
   async ngOnInit() {
-    // Get IDs from parent route (container level)
-    // Route structure: engineers-foundation/:projectId/:serviceId -> structural -> (hub is here)
-    // So we need to go up 2 levels: route.parent.parent
-    this.route.parent?.parent?.params.subscribe(params => {
-      console.log('Route params from parent.parent:', params);
-      this.projectId = params['projectId'];
-      this.serviceId = params['serviceId'];
-
-      console.log('ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+    // Get IDs from parent route snapshot immediately (for offline reliability)
+    const parentParams = this.route.parent?.parent?.snapshot?.params;
+    if (parentParams) {
+      this.projectId = parentParams['projectId'] || '';
+      this.serviceId = parentParams['serviceId'] || '';
+      console.log('[StructuralHub] Got params from snapshot:', this.projectId, this.serviceId);
 
       if (this.projectId && this.serviceId) {
         this.loadData();
-      } else {
-        console.error('Missing projectId or serviceId');
-        this.loading = false;
+      }
+    }
+
+    // Also subscribe to param changes (for dynamic updates)
+    this.route.parent?.parent?.params.subscribe(params => {
+      const newProjectId = params['projectId'];
+      const newServiceId = params['serviceId'];
+
+      // Only reload if IDs changed
+      if (newProjectId !== this.projectId || newServiceId !== this.serviceId) {
+        this.projectId = newProjectId;
+        this.serviceId = newServiceId;
+        console.log('[StructuralHub] ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+
+        if (this.projectId && this.serviceId) {
+          this.loadData();
+        } else {
+          console.error('[StructuralHub] Missing projectId or serviceId');
+          this.loading = false;
+        }
       }
     });
   }
@@ -52,34 +68,34 @@ export class StructuralSystemsHubPage implements OnInit {
     this.loading = true;
 
     try {
-      // Load service data to check StructuralSystemsStatus
+      // Load service data to check StructuralSystemsStatus (non-blocking)
       this.caspioService.getService(this.serviceId).subscribe({
-        next: async (service) => {
+        next: (service) => {
           this.serviceData = service || {};
-
-          // Always load categories - just disable if needed
-          await this.loadCategories();
-
-          this.loading = false;
+          this.changeDetectorRef.detectChanges();
         },
         error: (error) => {
-          console.error('Error loading service:', error);
-          this.loading = false;
+          console.error('[StructuralHub] Error loading service (continuing offline):', error);
         }
       });
+
+      // Always load categories - works offline via cache
+      await this.loadCategories();
     } catch (error) {
-      console.error('Error in loadData:', error);
+      console.error('[StructuralHub] Error in loadData:', error);
+    } finally {
       this.loading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   private async loadCategories() {
     try {
-      // Get all templates for TypeID = 1 (Foundation Evaluation)
-      const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
+      // Get all templates using offline cache (falls back to cached data when offline)
+      const allTemplates = await this.offlineCache.getVisualsTemplates();
       const visualTemplates = (allTemplates || []).filter((template: any) => template.TypeID === 1);
 
-      console.log('Loaded templates:', visualTemplates.length);
+      console.log('[StructuralHub] Loaded templates:', visualTemplates.length);
 
       // Extract unique categories in order
       const categoriesSet = new Set<string>();
@@ -89,12 +105,10 @@ export class StructuralSystemsHubPage implements OnInit {
         if (template.Category && !categoriesSet.has(template.Category)) {
           categoriesSet.add(template.Category);
           categoriesOrder.push(template.Category);
-          console.log('Found category:', template.Category);
         }
       });
 
-      console.log('Total unique categories:', categoriesOrder.length);
-      console.log('Categories:', categoriesOrder);
+      console.log('[StructuralHub] Found', categoriesOrder.length, 'unique categories');
 
       // Get deficiency counts for each category from saved visuals
       const deficiencyCounts = await this.getDeficiencyCountsByCategory();
@@ -104,19 +118,19 @@ export class StructuralSystemsHubPage implements OnInit {
         deficiencyCount: deficiencyCounts[cat] || 0
       }));
 
-      console.log('Categories with deficiency counts:', this.categories);
+      console.log('[StructuralHub] Categories loaded:', this.categories.length);
 
     } catch (error) {
-      console.error('Error loading categories:', error);
+      console.error('[StructuralHub] Error loading categories:', error);
     }
   }
 
   private async getDeficiencyCountsByCategory(): Promise<{ [category: string]: number }> {
     try {
-      // Load all existing visuals for this service
-      const visuals = await this.foundationData.getVisualsByService(this.serviceId);
-      
-      console.log('[Deficiency Count] Found', visuals.length, 'total visuals');
+      // Load all existing visuals for this service (merged with offline pending)
+      const visuals = await this.offlineCache.getVisualsByService(this.serviceId);
+
+      console.log('[StructuralHub] Counting deficiencies from', visuals.length, 'visuals');
 
       // Count deficiencies by category
       const counts: { [category: string]: number } = {};
@@ -131,11 +145,9 @@ export class StructuralSystemsHubPage implements OnInit {
         }
       });
 
-      console.log('[Deficiency Count] Counts by category:', counts);
-
       return counts;
     } catch (error) {
-      console.error('Error counting deficiencies:', error);
+      console.error('[StructuralHub] Error counting deficiencies:', error);
       return {};
     }
   }

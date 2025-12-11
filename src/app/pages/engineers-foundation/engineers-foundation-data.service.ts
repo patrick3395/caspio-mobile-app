@@ -93,23 +93,37 @@ export class EngineersFoundationDataService {
       console.warn('[EFE Data] getEFEByService called with empty serviceId');
       return [];
     }
-    
-    // CRITICAL: Always bypass cache for room data to ensure we get latest changes
-    // Room data changes frequently (adding, renaming, deleting rooms)
-    if (forceRefresh) {
-      console.log('[EFE Data] FORCE REFRESH - Clearing cache and loading fresh rooms for ServiceID:', serviceId);
-      // Clear the specific cache in CaspioService for this service's EFE data
-      this.caspioService.clearServicesCache();
-    } else {
-      console.log('[EFE Data] Loading existing rooms for ServiceID:', serviceId);
+
+    try {
+      // Try network first
+      if (forceRefresh) {
+        console.log('[EFE Data] FORCE REFRESH - Loading fresh rooms for ServiceID:', serviceId);
+        this.caspioService.clearServicesCache();
+      }
+
+      const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
+      console.log('[EFE Data] API returned rooms:', rooms.length, 'rooms');
+
+      // Cache the result for offline use
+      if (rooms.length > 0) {
+        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', rooms);
+      }
+
+      return rooms;
+    } catch (error) {
+      console.warn('[EFE Data] API call failed, falling back to cache:', error);
+
+      // Fall back to cached data when offline
+      const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms');
+      if (cached) {
+        console.log('[EFE Data] Returning cached rooms:', cached.length);
+        return cached;
+      }
+
+      // No cache, return empty array
+      console.warn('[EFE Data] No cached data available');
+      return [];
     }
-    
-    const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
-    console.log('[EFE Data] API returned rooms:', rooms.length, 'rooms');
-    if (rooms.length > 0) {
-      console.log('[EFE Data] Sample room data:', rooms[0]);
-    }
-    return rooms;
   }
 
   async getImage(filePath: string): Promise<string> {

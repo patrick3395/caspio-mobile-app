@@ -74,17 +74,33 @@ export class ProjectDetailsPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    // Load dropdown options from database tables
-    await this.loadDropdownOptions();
-    await this.loadProjectDropdownOptions();
+    // Load dropdown options from database tables (non-blocking for offline support)
+    this.loadDropdownOptions();
+    this.loadProjectDropdownOptions();
 
-    // Get IDs from parent route
+    // Get IDs from parent route snapshot immediately (for offline reliability)
+    const parentParams = this.route.parent?.snapshot?.params;
+    if (parentParams) {
+      this.projectId = parentParams['projectId'] || '';
+      this.serviceId = parentParams['serviceId'] || '';
+      console.log('[ProjectDetails] Got params from snapshot:', this.projectId, this.serviceId);
+
+      if (this.projectId && this.serviceId) {
+        this.loadData();
+      }
+    }
+
+    // Also subscribe to param changes (for dynamic updates)
     this.route.parent?.params.subscribe(params => {
-      this.projectId = params['projectId'];
-      this.serviceId = params['serviceId'];
+      const newProjectId = params['projectId'];
+      const newServiceId = params['serviceId'];
 
-      // Load project and service data
-      this.loadData();
+      // Only reload if IDs changed
+      if (newProjectId !== this.projectId || newServiceId !== this.serviceId) {
+        this.projectId = newProjectId;
+        this.serviceId = newServiceId;
+        this.loadData();
+      }
     });
   }
 
