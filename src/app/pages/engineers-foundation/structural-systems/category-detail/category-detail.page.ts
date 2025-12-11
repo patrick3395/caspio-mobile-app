@@ -2195,7 +2195,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       // If temp photo, get from IndexedDB and use it instead of fetching
       if (isTempPhoto) {
         console.log('[VIEW PHOTO] Temp photo, loading from IndexedDB:', attachId);
-        
+
         // Get file from IndexedDB
         const file = await this.indexedDb.getStoredFile(attachId);
         if (file) {
@@ -2207,8 +2207,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           photo.thumbnailUrl = tempImageUrl;
           photo.originalUrl = tempImageUrl;  // CRITICAL: Must set originalUrl too, used at line 2000
         } else {
-          await this.showToast('Photo not available yet', 'warning');
-          return;
+          // FIX: Fall back to existing blob URL if getStoredFile fails
+          // The photo may already have valid blob URLs from restorePendingPhotosFromIndexedDB
+          const existingBlobUrl = photo.url || photo.displayUrl || photo.originalUrl || photo.thumbnailUrl;
+          if (existingBlobUrl && existingBlobUrl.startsWith('blob:')) {
+            console.log('[VIEW PHOTO] Using existing blob URL for temp photo:', existingBlobUrl.substring(0, 50));
+            // Ensure all URL fields are set consistently for the annotator
+            photo.url = existingBlobUrl;
+            photo.thumbnailUrl = existingBlobUrl;
+            photo.originalUrl = existingBlobUrl;
+          } else {
+            console.warn('[VIEW PHOTO] No blob URL available for temp photo:', attachId);
+            await this.showToast('Photo not available yet', 'warning');
+            return;
+          }
         }
       }
 

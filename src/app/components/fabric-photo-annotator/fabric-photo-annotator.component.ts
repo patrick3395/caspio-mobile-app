@@ -452,7 +452,20 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     
     // Load the image
     if (this.imageUrl || this.imageFile) {
-      const imageUrl = this.imageUrl || await this.fileToDataUrl(this.imageFile!);
+      let imageUrl = this.imageUrl || await this.fileToDataUrl(this.imageFile!);
+
+      // Convert blob URLs to data URLs for more reliable loading in Fabric.js
+      // Blob URLs can become stale after page navigation, but data URLs are self-contained
+      if (imageUrl.startsWith('blob:')) {
+        console.log('[FabricAnnotator] Converting blob URL to data URL for reliable loading');
+        try {
+          imageUrl = await this.blobUrlToDataUrl(imageUrl);
+          console.log('[FabricAnnotator] Blob URL converted to data URL successfully');
+        } catch (conversionError) {
+          console.error('[FabricAnnotator] Failed to convert blob URL to data URL:', conversionError);
+          // Continue with blob URL as fallback
+        }
+      }
 
       // Only use crossOrigin for remote URLs, not for data URLs or blob URLs (offline photos)
       // Data URLs and blob URLs are same-origin by default and crossOrigin can cause them to fail silently
@@ -521,6 +534,29 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target?.result as string);
       reader.readAsDataURL(file);
+    });
+  }
+
+  /**
+   * Convert a blob URL to a data URL
+   * Blob URLs can be unreliable in Fabric.js, especially after page navigation
+   * Data URLs are more universally supported
+   */
+  private async blobUrlToDataUrl(blobUrl: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = function() {
+        const reader = new FileReader();
+        reader.onloadend = function() {
+          resolve(reader.result as string);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(xhr.response);
+      };
+      xhr.onerror = reject;
+      xhr.open('GET', blobUrl);
+      xhr.responseType = 'blob';
+      xhr.send();
     });
   }
   
