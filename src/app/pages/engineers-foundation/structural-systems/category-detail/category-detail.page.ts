@@ -1420,6 +1420,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               type: 'UPLOAD_FILE',
               tempId: tempPhotoId,
               endpoint: 'VISUAL_PHOTO_UPLOAD',
+              method: 'POST',
+              status: 'pending',
+              priority: 'high',
               dependencies: [],
               data: {
                 fileId: tempPhotoId,

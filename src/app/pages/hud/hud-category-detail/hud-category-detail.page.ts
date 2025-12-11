@@ -1672,7 +1672,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           let drawingsString = '';
           if (annotationsData) {
             try {
-              const { compressAnnotationData } = await import('../../../../utils/annotation-utils');
+              const { compressAnnotationData } = await import('../../../utils/annotation-utils');
               const rawData = typeof annotationsData === 'string'
                 ? annotationsData
                 : JSON.stringify(annotationsData);
