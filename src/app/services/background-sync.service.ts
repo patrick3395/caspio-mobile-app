@@ -256,11 +256,6 @@ export class BackgroundSyncService {
         }
       }
 
-        // For UPDATE operations on Services/Projects, refresh the cache with server response
-        if (request.type === 'UPDATE' && result) {
-          await this.updateCacheAfterSync(request, result);
-        }
-
         // Mark as synced
         await this.indexedDb.updateRequestStatus(request.requestId, 'synced');
         console.log(`[BackgroundSync] ✅ Synced: ${request.requestId}`);

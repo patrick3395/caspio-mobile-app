@@ -151,10 +151,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     const isComplete = project && (project.ProjectID || project.ClientID || project.Address);
 
     if (!project || !isComplete) {
-      // Fall back to API if not in cache or incomplete
-      console.log('[ProjectDetails] Project not in cache or incomplete, fetching from API...');
+      // Fall back to API if not in cache or incomplete - bypass localStorage cache to get fresh data
+      console.log('[ProjectDetails] Project not in cache or incomplete, fetching fresh from API...');
       try {
-        const freshProject = await this.caspioService.getProject(this.projectId).toPromise();
+        const freshProject = await this.caspioService.getProject(this.projectId, false).toPromise();
         // Cache it for next time
         if (freshProject) {
           await this.indexedDb.cacheProjectRecord(this.projectId, freshProject);
@@ -202,10 +202,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     const isComplete = service && (service.ServiceID || service.ProjectID || service.ServiceType);
 
     if (!service || !isComplete) {
-      // Fall back to API if not in cache or incomplete
-      console.log('[ProjectDetails] Service not in cache or incomplete, fetching from API...');
+      // Fall back to API if not in cache or incomplete - bypass localStorage cache to get fresh data
+      console.log('[ProjectDetails] Service not in cache or incomplete, fetching fresh from API...');
       try {
-        const freshService = await this.caspioService.getService(this.serviceId).toPromise();
+        const freshService = await this.caspioService.getService(this.serviceId, false).toPromise();
         // Cache it for next time
         if (freshService) {
           await this.indexedDb.cacheServiceRecord(this.serviceId, freshService);

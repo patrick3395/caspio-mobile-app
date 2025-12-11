@@ -199,16 +199,16 @@ export class OfflineTemplateService {
     console.log('[OfflineTemplate] Refreshing service/project records from server...');
 
     try {
-      // Fetch service record
-      const service = await firstValueFrom(this.caspioService.getService(serviceId));
+      // Fetch service record - bypass localStorage cache to get fresh data
+      const service = await firstValueFrom(this.caspioService.getService(serviceId, false));
       if (service) {
         await this.indexedDb.cacheServiceRecord(serviceId, service);
         console.log('[OfflineTemplate] Service record refreshed');
 
-        // Also refresh project if we have the ID
+        // Also refresh project if we have the ID - bypass cache
         const pId = projectId || service?.ProjectID;
         if (pId) {
-          const project = await firstValueFrom(this.caspioService.getProject(String(pId)));
+          const project = await firstValueFrom(this.caspioService.getProject(String(pId), false));
           if (project) {
             await this.indexedDb.cacheProjectRecord(String(pId), project);
             console.log('[OfflineTemplate] Project record refreshed');

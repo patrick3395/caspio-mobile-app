@@ -4267,9 +4267,9 @@ export class CaspioService {
   }
 
   // Project methods
-  getProject(projectId: string): Observable<any> {
+  getProject(projectId: string, useCache: boolean = true): Observable<any> {
     // All requests go through generic proxy or direct Caspio
-    return this.get<any>(`/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`).pipe(
+    return this.get<any>(`/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`, useCache).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
   }
@@ -4293,9 +4293,9 @@ export class CaspioService {
   }
   
   // Service methods
-  getService(serviceId: string): Observable<any> {
+  getService(serviceId: string, useCache: boolean = true): Observable<any> {
     // Services table uses PK_ID as primary key, not ServiceID
-    return this.get<any>(`/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`).pipe(
+    return this.get<any>(`/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`, useCache).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
   }
