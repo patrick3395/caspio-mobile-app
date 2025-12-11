@@ -1486,6 +1486,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 console.log(`[GALLERY UPLOAD] Stored photo ${i + 1} in IndexedDB for offline access`);
 
                 // Queue the upload request in IndexedDB
+                // NOTE: Don't use dependencies - the sync process will resolve temp visual IDs
+                // and retry if the visual hasn't synced yet
                 await this.indexedDb.addPendingRequest({
                   type: 'UPLOAD_FILE',
                   tempId: tempPhotoId,
@@ -1499,11 +1501,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                     fileName: file.name,
                     fileSize: file.size,
                   },
-                  dependencies: visualIsTempId ? [String(visualId)] : [],
+                  dependencies: [],  // No dependencies - sync handles temp ID resolution
                   status: 'pending',
                   priority: 'high',
                 });
-                console.log(`[GALLERY UPLOAD] Photo ${i + 1} queued in IndexedDB`);
+                console.log(`[GALLERY UPLOAD] Photo ${i + 1} queued in IndexedDB (visualId: ${finalVisualId})`);
 
                 // If online, also add to background upload queue for immediate upload
                 if (!isOfflineMode) {
@@ -2081,22 +2083,34 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       const existingCaption = photo.caption || photo.annotation || photo.Annotation || '';
 
       // Open FabricPhotoAnnotatorComponent (EXACTLY like original at line 12443)
-      const modal = await this.modalController.create({
-        component: FabricPhotoAnnotatorComponent,
-        componentProps: {
-          imageUrl: originalImageUrl,  // CRITICAL: Always use original, not display URL
-          existingAnnotations: existingAnnotations,
-          existingCaption: existingCaption,
-          photoData: {
-            ...photo,
-            AttachID: attachId,
-            id: attachId,
-            caption: existingCaption
+      let modal;
+      try {
+        modal = await this.modalController.create({
+          component: FabricPhotoAnnotatorComponent,
+          componentProps: {
+            imageUrl: originalImageUrl,  // CRITICAL: Always use original, not display URL
+            existingAnnotations: existingAnnotations,
+            existingCaption: existingCaption,
+            photoData: {
+              ...photo,
+              AttachID: attachId,
+              id: attachId,
+              caption: existingCaption
+            },
+            isReEdit: !!existingAnnotations
           },
-          isReEdit: !!existingAnnotations
-        },
-        cssClass: 'fullscreen-modal'
-      });
+          cssClass: 'fullscreen-modal'
+        });
+      } catch (chunkError: any) {
+        // Handle ChunkLoadError when offline - component chunk not cached
+        console.error('[VIEW PHOTO] Failed to load photo editor component:', chunkError);
+        if (chunkError.name === 'ChunkLoadError' || chunkError.message?.includes('Loading chunk')) {
+          await this.showToast('Photo editor not available offline. Please connect to internet and refresh.', 'warning');
+        } else {
+          await this.showToast('Failed to open photo editor', 'danger');
+        }
+        return;
+      }
 
       await modal.present();
 
