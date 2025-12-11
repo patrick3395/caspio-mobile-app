@@ -248,6 +248,11 @@ export class BackgroundSyncService {
         }
       }
 
+        // For UPDATE operations on Services/Projects, refresh the cache with server response
+        if (request.type === 'UPDATE' && result) {
+          await this.updateCacheAfterSync(request, result);
+        }
+
         // Mark as synced
         await this.indexedDb.updateRequestStatus(request.requestId, 'synced');
         console.log(`[BackgroundSync] ✅ Synced: ${request.requestId}`);
@@ -662,6 +667,46 @@ export class BackgroundSyncService {
    */
   getSyncStatus(): SyncStatus {
     return this.syncStatus$.value;
+  }
+
+  /**
+   * Update IndexedDB cache after successful UPDATE sync
+   * This ensures the cache stays in sync with the server
+   */
+  private async updateCacheAfterSync(request: PendingRequest, result: any): Promise<void> {
+    try {
+      // Extract the updated record from result
+      const updatedRecord = result?.Result?.[0] || result;
+      if (!updatedRecord) return;
+
+      // Check endpoint to determine which cache to update
+      if (request.endpoint.includes('LPS_Services/records')) {
+        // Extract service ID from endpoint (q.where=PK_ID=XXX)
+        const match = request.endpoint.match(/PK_ID=(\d+)/);
+        if (match) {
+          const serviceId = match[1];
+          // Merge with existing cache data
+          const existing = await this.indexedDb.getCachedServiceRecord(serviceId);
+          const merged = existing ? { ...existing, ...updatedRecord } : updatedRecord;
+          await this.indexedDb.cacheServiceRecord(serviceId, merged);
+          console.log(`[BackgroundSync] Updated service cache for ${serviceId}`);
+        }
+      } else if (request.endpoint.includes('LPS_Projects/records')) {
+        // Extract project ID from endpoint (q.where=PK_ID=XXX)
+        const match = request.endpoint.match(/PK_ID=(\d+)/);
+        if (match) {
+          const projectId = match[1];
+          // Merge with existing cache data
+          const existing = await this.indexedDb.getCachedProjectRecord(projectId);
+          const merged = existing ? { ...existing, ...updatedRecord } : updatedRecord;
+          await this.indexedDb.cacheProjectRecord(projectId, merged);
+          console.log(`[BackgroundSync] Updated project cache for ${projectId}`);
+        }
+      }
+    } catch (error) {
+      console.warn('[BackgroundSync] Failed to update cache after sync:', error);
+      // Non-critical - don't throw
+    }
   }
 
   /**

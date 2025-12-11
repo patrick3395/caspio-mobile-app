@@ -463,11 +463,12 @@ export class OfflineTemplateService {
       priority: 'normal',
     });
 
-    // Update local cache
+    // Update local cache - ALWAYS update, even if no existing record
     const existingService = await this.indexedDb.getCachedServiceRecord(serviceId);
-    if (existingService) {
-      await this.indexedDb.cacheServiceRecord(serviceId, { ...existingService, ...updates });
-    }
+    const updatedService = existingService
+      ? { ...existingService, ...updates }
+      : { PK_ID: serviceId, ...updates };
+    await this.indexedDb.cacheServiceRecord(serviceId, updatedService);
 
     console.log(`[OfflineTemplate] Updated service ${serviceId} (pending sync)`);
   }
@@ -487,11 +488,12 @@ export class OfflineTemplateService {
       priority: 'normal',
     });
 
-    // Update local cache
+    // Update local cache - ALWAYS update, even if no existing record
     const existingProject = await this.indexedDb.getCachedProjectRecord(projectId);
-    if (existingProject) {
-      await this.indexedDb.cacheProjectRecord(projectId, { ...existingProject, ...updates });
-    }
+    const updatedProject = existingProject
+      ? { ...existingProject, ...updates }
+      : { PK_ID: projectId, ...updates };
+    await this.indexedDb.cacheProjectRecord(projectId, updatedProject);
 
     console.log(`[OfflineTemplate] Updated project ${projectId} (pending sync)`);
   }

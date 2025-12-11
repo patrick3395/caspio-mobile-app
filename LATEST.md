@@ -84,19 +84,39 @@ UI updated via photoUploadComplete$ event
 **Problem**: When syncing Project Details changes offline, BackgroundSync failed with:
 1. `ERR_NAME_NOT_RESOLVED` - malformed URLs missing `/` separator
 2. `404 Not Found` - route not found on backend
+3. UI showing blank after sync - cache not properly maintained
 
 **Root Cause**:
 - Backend routes are mounted at `/api` prefix (see app.ts line 47)
 - The caspio-proxy route is at `/api/caspio-proxy/*` (not `/caspio-proxy/*`)
 - CaspioService uses pattern: `/api/caspio-proxy${endpoint}` (see caspio.service.ts line 581)
-- Service updates should use `ServiceID` (not `PK_ID`)
+- Route param is `PK_ID` not `ServiceID`
+- Cache wasn't updated when no existing record existed
+- Cache wasn't refreshed after sync completed
 
-**Fix**: Updated endpoints to match CaspioService pattern:
-- `updateService()`: `/api/caspio-proxy/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`
-- `updateProject()`: `/api/caspio-proxy/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`
+**Fix**:
+1. Updated endpoints to match CaspioService pattern:
+   - `updateService()`: `/api/caspio-proxy/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`
+   - `updateProject()`: `/api/caspio-proxy/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`
+
+2. Always update cache even if no existing record:
+   ```typescript
+   const updatedService = existingService
+     ? { ...existingService, ...updates }
+     : { PK_ID: serviceId, ...updates };
+   await this.indexedDb.cacheServiceRecord(serviceId, updatedService);
+   ```
+
+3. Refresh cache after sync with server response:
+   ```typescript
+   if (request.type === 'UPDATE' && result) {
+     await this.updateCacheAfterSync(request, result);
+   }
+   ```
 
 **Files Changed**:
-- `src/app/services/offline-template.service.ts` - Fixed endpoint formats in updateService() and updateProject()
+- `src/app/services/offline-template.service.ts` - Fixed endpoints, always update cache
+- `src/app/services/background-sync.service.ts` - Added updateCacheAfterSync() method
 
 ### 7. Offline Navigation (ChunkLoadError)
 **Problem**: When offline, navigating to structural systems, categories, or any template pages resulted in ChunkLoadError because these modules were lazy-loaded.
