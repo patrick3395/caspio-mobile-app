@@ -1,33 +1,34 @@
-.sync-status-card {
-  margin: 8px;
-  
-  ion-card-header {
-    padding-bottom: 8px;
+.sync-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  font-size: 12px;
+
+  ion-icon {
+    font-size: 14px;
   }
 
-  ion-list {
-    background: transparent;
-    
-    ion-item {
-      --padding-start: 0;
-      --inner-padding-end: 0;
+  .sync-count {
+    font-weight: 500;
+    color: var(--ion-color-medium);
+  }
+
+  &.syncing {
+    ion-icon {
+      animation: spin 1s linear infinite;
     }
   }
 
-  ion-button {
-    margin-top: 12px;
+  &:active {
+    background: rgba(0, 0, 0, 0.1);
   }
 }
 
-// Floating widget style (optional - for always-visible indicator)
-:host(.floating) {
-  position: fixed;
-  bottom: 60px;
-  right: 16px;
-  z-index: 1000;
-
-  ion-chip {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
-

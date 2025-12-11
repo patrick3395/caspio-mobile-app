@@ -81,13 +81,18 @@ UI updated via photoUploadComplete$ event
 ## Recent Fixes (This Session)
 
 ### 9. Project Details Sync Endpoint Fix
-**Problem**: When syncing Project Details changes offline, BackgroundSync failed with `ERR_NAME_NOT_RESOLVED` due to malformed URLs like `45qxu5joc6.execute-api.us-east-1.amazonaws.comlps_services/498` (missing `/` separator).
+**Problem**: When syncing Project Details changes offline, BackgroundSync failed with:
+1. `ERR_NAME_NOT_RESOLVED` - malformed URLs missing `/` separator
+2. `404 Not Found` - route `PUT /tables/LPS_Services/records` doesn't exist on backend
 
-**Root Cause**: The `updateService()` and `updateProject()` methods in `OfflineTemplateService` were using incorrect endpoint formats without a leading `/`.
+**Root Cause**:
+- Backend doesn't have direct PUT routes for `/tables/*`
+- Must use `/caspio-proxy/*` prefix to forward requests to Caspio
+- Service updates should use `ServiceID` (not `PK_ID`)
 
-**Fix**: Updated endpoints to use the same format as CaspioService:
-- `updateService()`: `/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`
-- `updateProject()`: `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`
+**Fix**: Updated endpoints to use caspio-proxy:
+- `updateService()`: `/caspio-proxy/tables/LPS_Services/records?q.where=ServiceID=${serviceId}`
+- `updateProject()`: `/caspio-proxy/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`
 
 **Files Changed**:
 - `src/app/services/offline-template.service.ts` - Fixed endpoint formats in updateService() and updateProject()
