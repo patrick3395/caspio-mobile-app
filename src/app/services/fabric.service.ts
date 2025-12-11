@@ -27,17 +27,26 @@ export class FabricService {
   }
 
   private async loadFabric(): Promise<any> {
+    console.log('[FabricService] loadFabric starting...');
     try {
       const module = await import('fabric');
+      console.log('[FabricService] Fabric module imported:', Object.keys(module));
       // fabric.js exports the fabric object directly, not as module.fabric
       return module;
     } catch (error) {
-      console.error('Failed to load Fabric.js:', error);
+      console.error('[FabricService] Failed to load Fabric.js:', error);
       throw error;
     }
   }
 
   async ensureFabricLoaded(): Promise<void> {
-    await this.getFabric();
+    console.log('[FabricService] ensureFabricLoaded called, fabric already loaded:', !!this.fabric);
+    try {
+      await this.getFabric();
+      console.log('[FabricService] Fabric loaded successfully');
+    } catch (error) {
+      console.error('[FabricService] Failed to load Fabric:', error);
+      throw error;
+    }
   }
 }

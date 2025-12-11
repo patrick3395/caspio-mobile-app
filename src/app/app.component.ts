@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import * as LiveUpdates from '@capacitor/live-updates';
 import { ThemeService } from './services/theme.service';
 import { PerformanceMonitorService } from './services/performance-monitor.service';
+import { FabricService } from './services/fabric.service';
 
 @Component({
   selector: 'app-root',
@@ -15,7 +16,8 @@ export class AppComponent {
   constructor(
     private platform: Platform,
     private readonly themeService: ThemeService,
-    private readonly performanceMonitor: PerformanceMonitorService
+    private readonly performanceMonitor: PerformanceMonitorService,
+    private readonly fabricService: FabricService
   ) {
     // Ensure theme service initialises global styles
     void this.themeService;
@@ -34,6 +36,14 @@ export class AppComponent {
       }
 
       this.performanceMonitor.start();
+
+      // Preload Fabric.js for offline photo annotation support
+      // This ensures the Fabric chunk is cached by the service worker
+      this.fabricService.ensureFabricLoaded().then(() => {
+        console.log('[App] Fabric.js preloaded for offline use');
+      }).catch(err => {
+        console.warn('[App] Failed to preload Fabric.js:', err);
+      });
     });
   }
 
