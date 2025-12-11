@@ -390,6 +390,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   ) {}
   
   ngOnInit() {
+    console.log('[FabricAnnotator] ngOnInit - imageUrl:', this.imageUrl ? this.imageUrl.substring(0, 50) : 'UNDEFINED');
+    console.log('[FabricAnnotator] ngOnInit - imageFile:', this.imageFile ? 'FILE EXISTS' : 'NO FILE');
+
     // Load existing caption - prioritize existingCaption input, then photoData fields
     if (this.existingCaption) {
       this.photoCaption = this.existingCaption;
@@ -403,7 +406,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   }
   
   async ngAfterViewInit() {
+    console.log('[FabricAnnotator] ngAfterViewInit called');
     await this.fabricService.ensureFabricLoaded();
+    console.log('[FabricAnnotator] Fabric loaded, calling initializeFabricCanvas in 100ms');
     setTimeout(() => this.initializeFabricCanvas(), 100);
     
     // Add keyboard listener for delete key
@@ -429,9 +434,13 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
   }
   
   async initializeFabricCanvas() {
+    console.log('[FabricAnnotator] initializeFabricCanvas called');
+    console.log('[FabricAnnotator] imageUrl at init:', this.imageUrl ? this.imageUrl.substring(0, 60) : 'UNDEFINED');
+    console.log('[FabricAnnotator] imageFile at init:', this.imageFile ? 'FILE EXISTS' : 'NO FILE');
+
     const fabric = await this.fabricService.getFabric();
     if (!this.canvasElement) {
-      console.error('Canvas element not found');
+      console.error('[FabricAnnotator] Canvas element not found');
       return;
     }
     
@@ -449,44 +458,52 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       // Data URLs and blob URLs are same-origin by default and crossOrigin can cause them to fail silently
       const isLocalUrl = imageUrl.startsWith('data:') || imageUrl.startsWith('blob:');
       const loadOptions = isLocalUrl ? {} : { crossOrigin: 'anonymous' };
-      console.log('[FabricAnnotator] Loading image, isLocalUrl:', isLocalUrl, 'url prefix:', imageUrl.substring(0, 30));
+      console.log('[FabricAnnotator] Loading image, isLocalUrl:', isLocalUrl, 'url prefix:', imageUrl.substring(0, 50));
 
       fabric.Image.fromURL(imageUrl, loadOptions).then((img: any) => {
+        console.log('[FabricAnnotator] Image loaded successfully, dimensions:', img.width, 'x', img.height);
+
         // Set canvas size to image size (scaled to fit container)
         const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
         const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
-        
+
         let scale = 1;
         if (img.width! > containerWidth || img.height! > containerHeight) {
           scale = Math.min(containerWidth / img.width!, containerHeight / img.height!);
         }
-        
+
         this.canvas.setWidth(img.width! * scale);
         this.canvas.setHeight(img.height! * scale);
-        
+
         img.scale(scale);
         img.selectable = false;
         img.evented = false;
-        
+
         // Add image as background
         this.canvas.backgroundImage = img;
         this.canvas.renderAll();
-        
+        console.log('[FabricAnnotator] Canvas rendered with background image');
+
         // Update caption container width to match canvas
         this.updateCaptionWidth(img.width! * scale);
-        
+
         // Load existing annotations if any
         if (this.existingAnnotations) {
           // Check if it's an array with length or an object with properties
-          const hasAnnotations = Array.isArray(this.existingAnnotations) 
+          const hasAnnotations = Array.isArray(this.existingAnnotations)
             ? this.existingAnnotations.length > 0
             : Object.keys(this.existingAnnotations).length > 0;
-            
+
           if (hasAnnotations) {
             setTimeout(() => this.loadExistingAnnotations(), 100); // Small delay to ensure canvas is ready
           }
         }
+      }).catch((error: any) => {
+        console.error('[FabricAnnotator] FAILED to load image:', error);
+        console.error('[FabricAnnotator] Image URL was:', imageUrl.substring(0, 100));
       });
+    } else {
+      console.error('[FabricAnnotator] NO IMAGE URL OR FILE PROVIDED');
     }
     
     // Set up drawing brush
