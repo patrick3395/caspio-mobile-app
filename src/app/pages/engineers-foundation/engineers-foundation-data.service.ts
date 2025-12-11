@@ -628,7 +628,7 @@ export class EngineersFoundationDataService {
       throw new Error('Point not yet synced. Please wait for sync to complete.');
     }
 
-    const result = await firstValueFrom(this.caspioService.updateServicesEFEPoints(pointId, pointData));
+    const result = await firstValueFrom(this.caspioService.updateServicesEFEPoint(pointId, pointData));
 
     // Clear point caches
     this.efePointsCache.clear();
@@ -650,7 +650,7 @@ export class EngineersFoundationDataService {
       return { deleted: true };
     }
 
-    const result = await firstValueFrom(this.caspioService.deleteServicesEFEPoints(pointId));
+    const result = await firstValueFrom(this.caspioService.deleteServicesEFEPoint(pointId));
 
     // Clear point caches
     this.efePointsCache.clear();
@@ -727,7 +727,7 @@ export class EngineersFoundationDataService {
 
     try {
       const result = await firstValueFrom(
-        this.caspioService.uploadEFEPointsAttachWithS3(pointIdNum, drawings || '', file, photoType)
+        this.caspioService.createServicesEFEPointsAttachWithFile(pointIdNum, drawings || '', file, photoType)
       );
 
       // Success - delete stored file
@@ -793,7 +793,7 @@ export class EngineersFoundationDataService {
       return { deleted: true };
     }
 
-    const result = await firstValueFrom(this.caspioService.deleteServicesEFEAttach(attachId));
+    const result = await firstValueFrom(this.caspioService.deleteServicesEFEPointsAttach(attachId));
 
     // Clear attachment caches
     this.efeAttachmentsCache.clear();

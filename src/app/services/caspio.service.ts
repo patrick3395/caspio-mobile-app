@@ -2285,8 +2285,9 @@ export class CaspioService {
 
   /**
    * Upload EFE Points attach photo to S3
+   * Public for BackgroundSyncService to call during offline sync
    */
-  private async uploadEFEPointsAttachWithS3(pointId: number, drawingsData: string, file: File, photoType?: string): Promise<any> {
+  async uploadEFEPointsAttachWithS3(pointId: number, drawingsData: string, file: File, photoType?: string): Promise<any> {
     console.log('[EFE ATTACH S3] ========== Starting S3 EFE Attach Upload ==========');
     
     const accessToken = this.tokenSubject.value;

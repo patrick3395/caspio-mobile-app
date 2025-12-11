@@ -177,7 +177,7 @@ export class BackgroundSyncService {
 
       // If this created a new record, store ID mapping and emit events
       if (request.tempId) {
-        let realId = null;
+        let realId: number | string | null = null;
 
         // Determine the correct ID field based on the endpoint
         if (request.endpoint.includes('Services_Visuals') && !request.endpoint.includes('Attach')) {
