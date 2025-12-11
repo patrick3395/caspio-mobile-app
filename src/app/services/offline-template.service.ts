@@ -455,7 +455,7 @@ export class OfflineTemplateService {
     // Queue the update
     await this.indexedDb.addPendingRequest({
       type: 'UPDATE',
-      endpoint: `LPS_Services/${serviceId}`,
+      endpoint: `/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`,
       method: 'PUT',
       data: updates,
       dependencies: [],
@@ -479,7 +479,7 @@ export class OfflineTemplateService {
     // Queue the update
     await this.indexedDb.addPendingRequest({
       type: 'UPDATE',
-      endpoint: `LPS_Projects/${projectId}`,
+      endpoint: `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`,
       method: 'PUT',
       data: updates,
       dependencies: [],
