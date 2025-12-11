@@ -1,22 +1,28 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
+// Eager load all components for offline support (no lazy loading = no ChunkLoadError offline)
+import { HudContainerPage } from './hud-container/hud-container.page';
+import { HudMainPage } from './hud-main/hud-main.page';
+import { HudProjectDetailsPage } from './hud-project-details/hud-project-details.page';
+import { HudCategoryDetailPage } from './hud-category-detail/hud-category-detail.page';
+
 const routes: Routes = [
   {
     path: '',
-    loadComponent: () => import('./hud-container/hud-container.page').then(m => m.HudContainerPage),
+    component: HudContainerPage,
     children: [
       {
         path: '',
-        loadComponent: () => import('./hud-main/hud-main.page').then(m => m.HudMainPage)
+        component: HudMainPage
       },
       {
         path: 'project-details',
-        loadComponent: () => import('./hud-project-details/hud-project-details.page').then(m => m.HudProjectDetailsPage)
+        component: HudProjectDetailsPage
       },
       {
         path: 'category/:category',
-        loadComponent: () => import('./hud-category-detail/hud-category-detail.page').then(m => m.HudCategoryDetailPage)
+        component: HudCategoryDetailPage
       }
     ]
   }

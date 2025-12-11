@@ -1,26 +1,33 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
+// Eager load all components for offline support (no lazy loading = no ChunkLoadError offline)
+import { DteContainerPage } from './dte-container/dte-container.page';
+import { DteMainPage } from './dte-main/dte-main.page';
+import { DteProjectDetailsPage } from './dte-project-details/dte-project-details.page';
+import { DteCategoriesPage } from './dte-categories/dte-categories.page';
+import { DteCategoryDetailPage } from './dte-category-detail/dte-category-detail.page';
+
 const routes: Routes = [
   {
     path: '',
-    loadComponent: () => import('./dte-container/dte-container.page').then(m => m.DteContainerPage),
+    component: DteContainerPage,
     children: [
       {
         path: '',
-        loadComponent: () => import('./dte-main/dte-main.page').then(m => m.DteMainPage)
+        component: DteMainPage
       },
       {
         path: 'project-details',
-        loadComponent: () => import('./dte-project-details/dte-project-details.page').then(m => m.DteProjectDetailsPage)
+        component: DteProjectDetailsPage
       },
       {
         path: 'categories',
-        loadComponent: () => import('./dte-categories/dte-categories.page').then(m => m.DteCategoriesPage)
+        component: DteCategoriesPage
       },
       {
         path: 'category/:category',
-        loadComponent: () => import('./dte-category-detail/dte-category-detail.page').then(m => m.DteCategoryDetailPage)
+        component: DteCategoryDetailPage
       }
     ]
   }

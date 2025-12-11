@@ -3,10 +3,44 @@ import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth.guard';
 import { SelectivePreloadingStrategy } from './routing/selective-preloading-strategy.service';
 
+// Eager load standalone pages for offline support
+import { LoginPage } from './pages/login/login.page';
+import { NewProjectPage } from './pages/new-project/new-project.page';
+import { HudTemplatePage } from './pages/hud-template/hud-template.page';
+
+// Eager load Engineers Foundation components for offline support
+import { EngineersFoundationContainerPage } from './pages/engineers-foundation/engineers-foundation-container/engineers-foundation-container.page';
+import { EngineersFoundationMainPage } from './pages/engineers-foundation/engineers-foundation-main/engineers-foundation-main.page';
+import { ProjectDetailsPage } from './pages/engineers-foundation/project-details/project-details.page';
+import { StructuralSystemsHubPage } from './pages/engineers-foundation/structural-systems/structural-systems-hub/structural-systems-hub.page';
+import { CategoryDetailPage } from './pages/engineers-foundation/structural-systems/category-detail/category-detail.page';
+import { ElevationPlotHubPage } from './pages/engineers-foundation/elevation-plot-hub/elevation-plot-hub.page';
+import { RoomElevationPage } from './pages/engineers-foundation/room-elevation/room-elevation.page';
+
+// Eager load HUD components for offline support
+import { HudContainerPage } from './pages/hud/hud-container/hud-container.page';
+import { HudMainPage } from './pages/hud/hud-main/hud-main.page';
+import { HudProjectDetailsPage } from './pages/hud/hud-project-details/hud-project-details.page';
+import { HudCategoryDetailPage } from './pages/hud/hud-category-detail/hud-category-detail.page';
+
+// Eager load LBW components for offline support
+import { LbwContainerPage } from './pages/lbw/lbw-container/lbw-container.page';
+import { LbwMainPage } from './pages/lbw/lbw-main/lbw-main.page';
+import { LbwProjectDetailsPage } from './pages/lbw/lbw-project-details/lbw-project-details.page';
+import { LbwCategoriesPage } from './pages/lbw/lbw-categories/lbw-categories.page';
+import { LbwCategoryDetailPage } from './pages/lbw/lbw-category-detail/lbw-category-detail.page';
+
+// Eager load DTE components for offline support
+import { DteContainerPage } from './pages/dte/dte-container/dte-container.page';
+import { DteMainPage } from './pages/dte/dte-main/dte-main.page';
+import { DteProjectDetailsPage } from './pages/dte/dte-project-details/dte-project-details.page';
+import { DteCategoriesPage } from './pages/dte/dte-categories/dte-categories.page';
+import { DteCategoryDetailPage } from './pages/dte/dte-category-detail/dte-category-detail.page';
+
 const routes: Routes = [
   {
     path: 'login',
-    loadComponent: () => import('./pages/login/login.page').then( m => m.LoginPage),
+    component: LoginPage,
     data: { preload: false }
   },
   {
@@ -35,37 +69,73 @@ const routes: Routes = [
   },
   {
     path: 'new-project',
-    loadComponent: () => import('./pages/new-project/new-project.page').then( m => m.NewProjectPage),
+    component: NewProjectPage,
     canActivate: [AuthGuard],
     data: { preload: false }
   },
+  // Engineers Foundation routes - eager loaded for offline support
   {
     path: 'engineers-foundation/:projectId/:serviceId',
-    loadChildren: () => import('./pages/engineers-foundation/engineers-foundation-routing.module').then( m => m.EngineersFoundationRoutingModule),
+    component: EngineersFoundationContainerPage,
     canActivate: [AuthGuard],
-    data: { preload: false }
+    children: [
+      { path: '', component: EngineersFoundationMainPage },
+      { path: 'project-details', component: ProjectDetailsPage },
+      {
+        path: 'structural',
+        children: [
+          { path: '', component: StructuralSystemsHubPage },
+          { path: 'category/:category', component: CategoryDetailPage }
+        ]
+      },
+      {
+        path: 'elevation',
+        children: [
+          { path: '', component: ElevationPlotHubPage },
+          { path: 'base-station', component: RoomElevationPage },
+          { path: 'room/:roomName', component: RoomElevationPage }
+        ]
+      }
+    ]
   },
+  // HUD routes - eager loaded for offline support
   {
     path: 'hud/:projectId/:serviceId',
-    loadChildren: () => import('./pages/hud/hud-routing.module').then( m => m.HudRoutingModule),
+    component: HudContainerPage,
     canActivate: [AuthGuard],
-    data: { preload: false }
+    children: [
+      { path: '', component: HudMainPage },
+      { path: 'project-details', component: HudProjectDetailsPage },
+      { path: 'category/:category', component: HudCategoryDetailPage }
+    ]
   },
+  // LBW routes - eager loaded for offline support
   {
     path: 'lbw/:projectId/:serviceId',
-    loadChildren: () => import('./pages/lbw/lbw-routing.module').then( m => m.LbwRoutingModule),
+    component: LbwContainerPage,
     canActivate: [AuthGuard],
-    data: { preload: false }
+    children: [
+      { path: '', component: LbwMainPage },
+      { path: 'project-details', component: LbwProjectDetailsPage },
+      { path: 'categories', component: LbwCategoriesPage },
+      { path: 'category/:category', component: LbwCategoryDetailPage }
+    ]
   },
+  // DTE routes - eager loaded for offline support
   {
     path: 'dte/:projectId/:serviceId',
-    loadChildren: () => import('./pages/dte/dte-routing.module').then( m => m.DteRoutingModule),
+    component: DteContainerPage,
     canActivate: [AuthGuard],
-    data: { preload: false }
+    children: [
+      { path: '', component: DteMainPage },
+      { path: 'project-details', component: DteProjectDetailsPage },
+      { path: 'categories', component: DteCategoriesPage },
+      { path: 'category/:category', component: DteCategoryDetailPage }
+    ]
   },
   {
     path: 'hud-template/:projectId/:serviceId',
-    loadComponent: () => import('./pages/hud-template/hud-template.page').then( m => m.HudTemplatePage),
+    component: HudTemplatePage,
     canActivate: [AuthGuard],
     data: { preload: false }
   }
