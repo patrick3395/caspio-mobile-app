@@ -6667,6 +6667,17 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
+  // Normalize string for comparison - handles different degree symbol encodings
+  private normalizeForComparison(str: string): string {
+    if (!str) return '';
+    // Replace various degree-like symbols with standard degree
+    // U+00B0 (°), U+02DA (˚), U+00BA (º) all become °
+    return str.trim()
+      .replace(/[\u02DA\u00BA]/g, '°')  // Ring above and masculine ordinal to degree
+      .replace(/\s+/g, ' ')              // Normalize whitespace
+      .toLowerCase();
+  }
+
   // Load custom values from database into dropdown options (called after loading data)
   // FIX: Instead of converting to "Other", add the value to the options array
   loadCustomValuesIntoDropdowns() {
@@ -6689,15 +6700,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       if (value && value.trim() !== '' && value !== 'Other') {
         // Get the current options array
         const options = (this as any)[mapping.optionsArrayName] as string[];
+        const normalizedValue = this.normalizeForComparison(value);
 
-        // Check if value is NOT in current options (use case-insensitive comparison for robustness)
-        const valueExists = options.some(opt =>
-          opt.toLowerCase().trim() === value.toLowerCase().trim()
+        // Find matching option using normalized comparison (handles degree symbol encoding differences)
+        const matchingOption = options.find(opt =>
+          this.normalizeForComparison(opt) === normalizedValue
         );
 
-        if (!valueExists) {
-          // ADD the value to options instead of converting to "Other"
-          // Insert before "Other" if it exists, otherwise just add
+        if (matchingOption) {
+          // Option exists but might have different encoding - update value to match option exactly
+          if (matchingOption !== value) {
+            console.log(`[loadCustomValuesIntoDropdowns] Normalizing "${value}" to "${matchingOption}" for ${mapping.fieldName}`);
+            mapping.dataSource[mapping.fieldName] = matchingOption;
+          }
+        } else {
+          // Value truly doesn't exist in options - add it
           const otherIndex = options.indexOf('Other');
           if (otherIndex > 0) {
             options.splice(otherIndex, 0, value);
@@ -6706,7 +6723,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
           console.log(`[loadCustomValuesIntoDropdowns] Added "${value}" to ${mapping.optionsArrayName}`);
         }
-        // Keep the original value - don't convert to "Other"
       }
     });
   }
