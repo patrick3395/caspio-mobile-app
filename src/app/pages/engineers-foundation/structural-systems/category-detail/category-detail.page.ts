@@ -1452,98 +1452,56 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           this.changeDetectorRef.detectChanges();
           console.log('[CAMERA UPLOAD] Added photo placeholder, offline:', isOfflineMode);
 
-          if (isOfflineMode) {
-            // OFFLINE MODE: Store in IndexedDB for background sync
-            console.log('[CAMERA UPLOAD] Offline mode - storing in IndexedDB');
+          // ALWAYS store in IndexedDB first for reliability (handles poor connectivity)
+          // This ensures photos are never lost, even with intermittent connection
+          console.log('[CAMERA UPLOAD] Storing in IndexedDB for reliability');
 
-            // Compress annotations if present
-            let compressedDrawings = '';
-            if (annotationsData) {
-              const { compressAnnotationData } = await import('../../../../utils/annotation-utils');
-              if (typeof annotationsData === 'object') {
-                compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
-              } else if (typeof annotationsData === 'string') {
-                compressedDrawings = compressAnnotationData(annotationsData);
-              }
+          // Compress annotations if present
+          let compressedDrawings = '';
+          if (annotationsData) {
+            const { compressAnnotationData } = await import('../../../../utils/annotation-utils');
+            if (typeof annotationsData === 'object') {
+              compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+            } else if (typeof annotationsData === 'string') {
+              compressedDrawings = compressAnnotationData(annotationsData);
             }
-
-            // Store photo file in IndexedDB
-            await this.indexedDb.storePhotoFile(
-              tempPhotoId,
-              originalFile,
-              String(visualId),
-              caption,
-              compressedDrawings
-            );
-
-            // Queue upload request for background sync
-            await this.indexedDb.addPendingRequest({
-              type: 'UPLOAD_FILE',
-              tempId: tempPhotoId,
-              endpoint: 'VISUAL_PHOTO_UPLOAD',
-              method: 'POST',
-              status: 'pending',
-              priority: 'high',
-              dependencies: [],
-              data: {
-                fileId: tempPhotoId,
-                visualId: visualId,
-                tempVisualId: visualIsTempId ? visualId : undefined,
-                fileName: originalFile.name,
-                fileSize: originalFile.size,
-                caption: caption,
-                drawings: compressedDrawings
-              }
-            });
-
-            console.log('[CAMERA UPLOAD] Photo queued for offline sync:', tempPhotoId);
-
-          } else {
-            // ONLINE MODE: Use background upload service
-            const uploadFn = async (vId: number, photo: File, cap: string) => {
-              console.log('[CAMERA UPLOAD] Uploading photo via background service');
-              const result = await this.performVisualPhotoUpload(vId, photo, key, true, null, null, tempPhotoId, cap);
-
-              // If there are annotations, save them after upload completes
-              if (annotationsData && result) {
-                try {
-                  console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', result);
-                  await this.saveAnnotationToDatabase(result, annotatedBlob, annotationsData, cap);
-
-                  const displayUrl = URL.createObjectURL(annotatedBlob);
-                  const photos = this.visualPhotos[key] || [];
-                  const photoIndex = photos.findIndex(p => p.AttachID === result);
-                  if (photoIndex !== -1) {
-                    this.visualPhotos[key][photoIndex] = {
-                      ...this.visualPhotos[key][photoIndex],
-                      displayUrl: displayUrl,
-                      hasAnnotations: true,
-                      annotations: annotationsData,
-                      annotationsData: annotationsData
-                    };
-                    this.changeDetectorRef.detectChanges();
-                    console.log('[CAMERA UPLOAD] Annotations saved and display updated');
-                  }
-                } catch (error) {
-                  console.error('[CAMERA UPLOAD] Error saving annotations:', error);
-                }
-              }
-
-              return result;
-            };
-
-            // Add to background upload queue
-            this.backgroundUploadService.addToQueue(
-              visualIdNum,
-              originalFile,
-              key,
-              caption,
-              tempPhotoId,
-              uploadFn
-            );
-
-            console.log('[CAMERA UPLOAD] Photo queued for background upload');
           }
+
+          // Store photo file in IndexedDB
+          await this.indexedDb.storePhotoFile(
+            tempPhotoId,
+            originalFile,
+            String(visualId),
+            caption,
+            compressedDrawings
+          );
+
+          // Queue upload request for background sync
+          await this.indexedDb.addPendingRequest({
+            type: 'UPLOAD_FILE',
+            tempId: tempPhotoId,
+            endpoint: 'VISUAL_PHOTO_UPLOAD',
+            method: 'POST',
+            status: 'pending',
+            priority: 'high',
+            dependencies: [],
+            data: {
+              fileId: tempPhotoId,
+              visualId: visualId,
+              tempVisualId: visualIsTempId ? visualId : undefined,
+              fileName: originalFile.name,
+              fileSize: originalFile.size,
+              caption: caption,
+              drawings: compressedDrawings
+            }
+          });
+
+          console.log('[CAMERA UPLOAD] Photo stored in IndexedDB:', tempPhotoId);
+
+          // Trigger background sync to process the queue
+          // This works whether online or offline - BackgroundSyncService handles retries
+          this.backgroundSync.triggerSync();
+          console.log('[CAMERA UPLOAD] Triggered background sync');
         }
 
         // Clean up blob URL
@@ -1709,13 +1667,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                   console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview (${isOfflineMode ? 'queued' : 'uploading'})`);
                 }
 
-                // Store in IndexedDB for offline support
+                // ALWAYS store in IndexedDB first for reliability (handles poor connectivity)
                 await this.indexedDb.storePhotoFile(tempPhotoId, file, String(finalVisualId), '', '');
-                console.log(`[GALLERY UPLOAD] Stored photo ${i + 1} in IndexedDB for offline access`);
+                console.log(`[GALLERY UPLOAD] Stored photo ${i + 1} in IndexedDB`);
 
                 // Queue the upload request in IndexedDB
-                // NOTE: Don't use dependencies - the sync process will resolve temp visual IDs
-                // and retry if the visual hasn't synced yet
                 await this.indexedDb.addPendingRequest({
                   type: 'UPLOAD_FILE',
                   tempId: tempPhotoId,
@@ -1729,27 +1685,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                     fileName: file.name,
                     fileSize: file.size,
                   },
-                  dependencies: [],  // No dependencies - sync handles temp ID resolution
+                  dependencies: [],
                   status: 'pending',
                   priority: 'high',
                 });
                 console.log(`[GALLERY UPLOAD] Photo ${i + 1} queued in IndexedDB (visualId: ${finalVisualId})`);
 
-                // If online, also add to background upload queue for immediate upload
+                // If online, trigger background sync to process the queue immediately
+                // DON'T use BackgroundPhotoUploadService - use only IndexedDB + BackgroundSyncService
+                // to prevent duplicate uploads
                 if (!isOfflineMode) {
-                  const uploadFn = async (vId: number, photo: File, caption: string) => {
-                    console.log(`[GALLERY UPLOAD] Uploading photo ${i + 1}/${images.photos.length}`);
-                    return await this.performVisualPhotoUpload(vId, photo, key, true, null, null, tempPhotoId, caption);
-                  };
-
-                  this.backgroundUploadService.addToQueue(
-                    visualIdNum,
-                    file,
-                    key,
-                    '', // caption
-                    tempPhotoId,
-                    uploadFn
-                  );
+                  this.backgroundSync.triggerSync();
+                  console.log(`[GALLERY UPLOAD] Triggered background sync for immediate upload`);
                 }
 
                 console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} processed successfully`);
