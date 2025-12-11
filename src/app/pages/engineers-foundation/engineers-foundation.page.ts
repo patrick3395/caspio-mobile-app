@@ -6668,33 +6668,45 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
 
   // Load custom values from database into dropdown options (called after loading data)
+  // FIX: Instead of converting to "Other", add the value to the options array
   loadCustomValuesIntoDropdowns() {
     // CRITICAL FIX: Exclude multi-select fields (InAttendance, SecondFoundationRooms, ThirdFoundationRooms)
     // They handle their own custom values via parseXXXField() methods
     const fieldMappings = [
-      { fieldName: 'WeatherConditions', dataSource: this.serviceData, options: this.weatherConditionsOptions, otherValueProp: 'weatherConditionsOtherValue' },
-      { fieldName: 'OutdoorTemperature', dataSource: this.serviceData, options: this.outdoorTemperatureOptions, otherValueProp: 'outdoorTemperatureOtherValue' },
-      { fieldName: 'OccupancyFurnishings', dataSource: this.serviceData, options: this.occupancyFurnishingsOptions, otherValueProp: 'occupancyFurnishingsOtherValue' },
-      { fieldName: 'FirstFoundationType', dataSource: this.serviceData, options: this.firstFoundationTypeOptions, otherValueProp: 'firstFoundationTypeOtherValue' },
-      { fieldName: 'SecondFoundationType', dataSource: this.serviceData, options: this.secondFoundationTypeOptions, otherValueProp: 'secondFoundationTypeOtherValue' },
-      { fieldName: 'ThirdFoundationType', dataSource: this.serviceData, options: this.thirdFoundationTypeOptions, otherValueProp: 'thirdFoundationTypeOtherValue' },
-      { fieldName: 'OwnerOccupantInterview', dataSource: this.serviceData, options: this.ownerOccupantInterviewOptions, otherValueProp: 'ownerOccupantInterviewOtherValue' },
-      { fieldName: 'TypeOfBuilding', dataSource: this.projectData, options: this.typeOfBuildingOptions, otherValueProp: 'typeOfBuildingOtherValue' },
-      { fieldName: 'Style', dataSource: this.projectData, options: this.styleOptions, otherValueProp: 'styleOtherValue' }
+      { fieldName: 'WeatherConditions', dataSource: this.serviceData, optionsArrayName: 'weatherConditionsOptions' },
+      { fieldName: 'OutdoorTemperature', dataSource: this.serviceData, optionsArrayName: 'outdoorTemperatureOptions' },
+      { fieldName: 'OccupancyFurnishings', dataSource: this.serviceData, optionsArrayName: 'occupancyFurnishingsOptions' },
+      { fieldName: 'FirstFoundationType', dataSource: this.serviceData, optionsArrayName: 'firstFoundationTypeOptions' },
+      { fieldName: 'SecondFoundationType', dataSource: this.serviceData, optionsArrayName: 'secondFoundationTypeOptions' },
+      { fieldName: 'ThirdFoundationType', dataSource: this.serviceData, optionsArrayName: 'thirdFoundationTypeOptions' },
+      { fieldName: 'OwnerOccupantInterview', dataSource: this.serviceData, optionsArrayName: 'ownerOccupantInterviewOptions' },
+      { fieldName: 'TypeOfBuilding', dataSource: this.projectData, optionsArrayName: 'typeOfBuildingOptions' },
+      { fieldName: 'Style', dataSource: this.projectData, optionsArrayName: 'styleOptions' }
     ];
 
     fieldMappings.forEach(mapping => {
       const value = mapping.dataSource?.[mapping.fieldName];
-      if (value && value.trim() !== '') {
-        // Check if value is a custom value (not in predefined options)
-        const isCustomValue = !mapping.options.includes(value) && value !== 'Other';
+      if (value && value.trim() !== '' && value !== 'Other') {
+        // Get the current options array
+        const options = (this as any)[mapping.optionsArrayName] as string[];
 
-        if (isCustomValue) {
-          // Set dropdown to "Other" and populate the inline input field
-          this.customOtherValues[mapping.fieldName] = value;
-          (this as any)[mapping.otherValueProp] = value;
-          mapping.dataSource[mapping.fieldName] = 'Other';
+        // Check if value is NOT in current options (use case-insensitive comparison for robustness)
+        const valueExists = options.some(opt =>
+          opt.toLowerCase().trim() === value.toLowerCase().trim()
+        );
+
+        if (!valueExists) {
+          // ADD the value to options instead of converting to "Other"
+          // Insert before "Other" if it exists, otherwise just add
+          const otherIndex = options.indexOf('Other');
+          if (otherIndex > 0) {
+            options.splice(otherIndex, 0, value);
+          } else {
+            options.push(value);
+          }
+          console.log(`[loadCustomValuesIntoDropdowns] Added "${value}" to ${mapping.optionsArrayName}`);
         }
+        // Keep the original value - don't convert to "Other"
       }
     });
   }
