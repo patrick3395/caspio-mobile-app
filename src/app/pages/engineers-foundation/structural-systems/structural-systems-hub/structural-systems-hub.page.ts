@@ -6,6 +6,8 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../../../services/caspio.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { OfflineDataCacheService } from '../../../../services/offline-data-cache.service';
+import { OfflineTemplateService } from '../../../../services/offline-template.service';
+import { BackgroundSyncService } from '../../../../services/background-sync.service';
 
 @Component({
   selector: 'app-structural-systems-hub',
@@ -27,7 +29,9 @@ export class StructuralSystemsHubPage implements OnInit {
     private caspioService: CaspioService,
     private changeDetectorRef: ChangeDetectorRef,
     private foundationData: EngineersFoundationDataService,
-    private offlineCache: OfflineDataCacheService
+    private offlineCache: OfflineDataCacheService,
+    private offlineTemplate: OfflineTemplateService,
+    private backgroundSync: BackgroundSyncService
   ) {}
 
   async ngOnInit() {
@@ -68,16 +72,28 @@ export class StructuralSystemsHubPage implements OnInit {
     this.loading = true;
 
     try {
-      // Load service data to check StructuralSystemsStatus (non-blocking)
-      this.caspioService.getService(this.serviceId).subscribe({
-        next: (service) => {
-          this.serviceData = service || {};
-          this.changeDetectorRef.detectChanges();
-        },
-        error: (error) => {
-          console.error('[StructuralHub] Error loading service (continuing offline):', error);
+      // OFFLINE-FIRST: Load service data from IndexedDB cache first
+      console.log(`[StructuralHub] Loading service data for serviceId=${this.serviceId}`);
+      let service = await this.offlineTemplate.getService(this.serviceId);
+
+      if (service) {
+        console.log('[StructuralHub] Loaded service from IndexedDB cache, StructStat =', service.StructStat);
+        this.serviceData = service;
+      } else {
+        // Fallback to API if not in cache
+        console.log('[StructuralHub] Service not in cache, fetching from API...');
+        try {
+          const apiService = await this.caspioService.getService(this.serviceId).toPromise();
+          if (apiService) {
+            this.serviceData = apiService;
+            console.log('[StructuralHub] Loaded from API, StructStat =', apiService.StructStat);
+          }
+        } catch (error) {
+          console.error('[StructuralHub] Error loading service from API:', error);
         }
-      });
+      }
+
+      this.changeDetectorRef.detectChanges();
 
       // Always load categories - works offline via cache
       await this.loadCategories();
@@ -93,9 +109,18 @@ export class StructuralSystemsHubPage implements OnInit {
     try {
       // Get all templates using offline cache (falls back to cached data when offline)
       const allTemplates = await this.offlineCache.getVisualsTemplates();
-      const visualTemplates = (allTemplates || []).filter((template: any) => template.TypeID === 1);
+      console.log('[StructuralHub] All templates loaded:', allTemplates?.length || 0);
 
-      console.log('[StructuralHub] Loaded templates:', visualTemplates.length);
+      // Filter for TypeID === 1 (handle both string and number)
+      const visualTemplates = (allTemplates || []).filter((template: any) => {
+        const typeId = template.TypeID;
+        return typeId === 1 || typeId === '1';
+      });
+
+      console.log('[StructuralHub] Visual templates (TypeID=1):', visualTemplates.length);
+      if (allTemplates && allTemplates.length > 0) {
+        console.log('[StructuralHub] Sample template TypeIDs:', allTemplates.slice(0, 3).map((t: any) => ({ TypeID: t.TypeID, type: typeof t.TypeID })));
+      }
 
       // Extract unique categories in order
       const categoriesSet = new Set<string>();
@@ -108,7 +133,7 @@ export class StructuralSystemsHubPage implements OnInit {
         }
       });
 
-      console.log('[StructuralHub] Found', categoriesOrder.length, 'unique categories');
+      console.log('[StructuralHub] Found', categoriesOrder.length, 'unique categories:', categoriesOrder);
 
       // Get deficiency counts for each category from saved visuals
       const deficiencyCounts = await this.getDeficiencyCountsByCategory();
@@ -118,7 +143,8 @@ export class StructuralSystemsHubPage implements OnInit {
         deficiencyCount: deficiencyCounts[cat] || 0
       }));
 
-      console.log('[StructuralHub] Categories loaded:', this.categories.length);
+      console.log('[StructuralHub] Categories loaded:', this.categories.length, this.categories.map(c => c.name));
+      this.changeDetectorRef.detectChanges();
 
     } catch (error) {
       console.error('[StructuralHub] Error loading categories:', error);
@@ -193,23 +219,26 @@ export class StructuralSystemsHubPage implements OnInit {
     this.autoSaveServiceField('StructStat', value);
   }
 
-  private autoSaveServiceField(fieldName: string, value: any) {
+  private async autoSaveServiceField(fieldName: string, value: any) {
     if (!this.serviceId) {
-      console.error('Cannot save: serviceId is missing');
+      console.error('[StructuralHub] Cannot save: serviceId is missing');
       return;
     }
 
-    console.log(`Saving service field ${fieldName}:`, value);
+    console.log(`[StructuralHub] Saving service field ${fieldName}:`, value);
 
-    const updateData = { [fieldName]: value };
+    // 1. Update local data immediately
+    this.serviceData[fieldName] = value;
 
-    this.caspioService.updateService(this.serviceId, updateData).subscribe({
-      next: () => {
-        console.log(`Successfully saved ${fieldName}`);
-      },
-      error: (error) => {
-        console.error(`Error saving ${fieldName}:`, error);
-      }
-    });
+    // 2. Update IndexedDB cache immediately (offline-first)
+    try {
+      await this.offlineTemplate.updateService(this.serviceId, { [fieldName]: value });
+      console.log(`[StructuralHub] ${fieldName} saved to IndexedDB`);
+    } catch (error) {
+      console.error(`[StructuralHub] Error saving ${fieldName} to IndexedDB:`, error);
+    }
+
+    // 3. Trigger background sync (will push to server when online)
+    this.backgroundSync.triggerSync();
   }
 }
