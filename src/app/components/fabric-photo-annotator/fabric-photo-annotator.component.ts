@@ -444,8 +444,14 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     // Load the image
     if (this.imageUrl || this.imageFile) {
       const imageUrl = this.imageUrl || await this.fileToDataUrl(this.imageFile!);
-      
-      fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' }).then((img: any) => {
+
+      // Only use crossOrigin for remote URLs, not for data URLs or blob URLs (offline photos)
+      // Data URLs and blob URLs are same-origin by default and crossOrigin can cause them to fail silently
+      const isLocalUrl = imageUrl.startsWith('data:') || imageUrl.startsWith('blob:');
+      const loadOptions = isLocalUrl ? {} : { crossOrigin: 'anonymous' };
+      console.log('[FabricAnnotator] Loading image, isLocalUrl:', isLocalUrl, 'url prefix:', imageUrl.substring(0, 30));
+
+      fabric.Image.fromURL(imageUrl, loadOptions).then((img: any) => {
         // Set canvas size to image size (scaled to fit container)
         const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
         const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
@@ -866,7 +872,10 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       this.canvas.loadFromJSON(payloadToLoad, async () => {
         if (bgImageSrc) {
           const fabric = await this.getFabric();
-          fabric.Image.fromURL(bgImageSrc, { crossOrigin: 'anonymous' }).then((img: any) => {
+          // Only use crossOrigin for remote URLs, not for data URLs or blob URLs (offline photos)
+          const isLocalBgUrl = bgImageSrc.startsWith('data:') || bgImageSrc.startsWith('blob:');
+          const restoreOptions = isLocalBgUrl ? {} : { crossOrigin: 'anonymous' };
+          fabric.Image.fromURL(bgImageSrc, restoreOptions).then((img: any) => {
             const containerWidth = this.canvasContainer.nativeElement.clientWidth * 0.9;
             const containerHeight = this.canvasContainer.nativeElement.clientHeight * 0.9;
 
