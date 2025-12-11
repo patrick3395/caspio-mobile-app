@@ -645,6 +645,22 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     return allItems.find(item => item.id === id || item.id === Number(id));
   }
 
+  private findItemByNameAndCategory(name: string, category: string, kind: string): VisualItem | undefined {
+    // Search in all three sections for matching name/category/kind
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+
+    return allItems.find(item => {
+      const nameMatch = item.name === name;
+      const categoryMatch = item.category === category || category === this.categoryName;
+      const kindMatch = item.type?.toLowerCase() === kind?.toLowerCase();
+      return nameMatch && categoryMatch && kindMatch;
+    });
+  }
+
   private async loadPhotosForVisual(DTEID: string, key: string) {
     try {
       this.loadingPhotosByKey[key] = true;
@@ -814,17 +830,52 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Restore pending photos from IndexedDB
-   * Called on page load to show photos that were added offline but not yet synced
+   * Restore pending visuals and photos from IndexedDB
+   * Called on page load to show items that were created offline but not yet synced
    */
   private async restorePendingPhotosFromIndexedDB(): Promise<void> {
     try {
-      console.log('[RESTORE PENDING] Checking for pending photos in IndexedDB...');
+      console.log('[RESTORE PENDING] Checking for pending data in IndexedDB...');
 
+      // STEP 1: Restore pending VISUAL records first
+      const pendingRequests = await this.indexedDb.getPendingRequests();
+      const pendingVisuals = pendingRequests.filter(r =>
+        r.type === 'CREATE' &&
+        r.endpoint?.includes('LPS_Services_DTE_Visuals') &&
+        r.status !== 'synced' &&
+        r.data?.ServiceID === parseInt(this.serviceId, 10) &&
+        r.data?.Category === this.categoryName
+      );
+
+      console.log('[RESTORE PENDING] Found', pendingVisuals.length, 'pending visual records');
+
+      for (const pendingVisual of pendingVisuals) {
+        const visualData = pendingVisual.data;
+        const tempId = pendingVisual.tempId;
+
+        const matchingItem = this.findItemByNameAndCategory(
+          visualData.Name,
+          visualData.Category,
+          visualData.Kind
+        );
+
+        if (matchingItem) {
+          const key = `${visualData.Category}_${matchingItem.id}`;
+          console.log('[RESTORE PENDING] Restoring visual:', key, 'tempId:', tempId);
+          this.selectedItems[key] = true;
+          this.visualRecordIds[key] = tempId;
+          if (!this.visualPhotos[key]) {
+            this.visualPhotos[key] = [];
+          }
+        }
+      }
+
+      // STEP 2: Restore pending photos
       const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByVisual();
 
       if (pendingPhotosMap.size === 0) {
         console.log('[RESTORE PENDING] No pending photos found');
+        this.changeDetectorRef.detectChanges();
         return;
       }
 
@@ -841,10 +892,13 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         }
 
         if (!matchingKey) {
-          for (const key of Object.keys(this.visualRecordIds)) {
-            if (key.includes(visualId) || this.visualRecordIds[key]?.toString().includes(visualId)) {
-              matchingKey = key;
-              break;
+          const realId = await this.indexedDb.getRealId(visualId);
+          if (realId) {
+            for (const key of Object.keys(this.visualRecordIds)) {
+              if (String(this.visualRecordIds[key]) === realId) {
+                matchingKey = key;
+                break;
+              }
             }
           }
         }
@@ -867,19 +921,22 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           );
 
           if (existingIndex === -1) {
-            console.log('[RESTORE PENDING] Adding pending photo:', pendingPhoto.AttachID);
             this.visualPhotos[matchingKey].push(pendingPhoto);
           }
         }
 
         this.photoCountsByKey[matchingKey] = this.visualPhotos[matchingKey].length;
+
+        if (!this.selectedItems[matchingKey] && this.visualPhotos[matchingKey].length > 0) {
+          this.selectedItems[matchingKey] = true;
+        }
       }
 
       this.changeDetectorRef.detectChanges();
-      console.log('[RESTORE PENDING] Pending photos restored');
+      console.log('[RESTORE PENDING] Pending data restored');
 
     } catch (error) {
-      console.error('[RESTORE PENDING] Error restoring pending photos:', error);
+      console.error('[RESTORE PENDING] Error restoring pending data:', error);
     }
   }
 
@@ -1762,12 +1819,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
             );
 
             console.log('[CAMERA UPLOAD] Photo queued for immediate background upload');
+          } else {
+            // Only trigger background sync for offline mode
+            // When online, the in-memory upload service handles it
+            this.backgroundSync.triggerSync();
+            console.log('[CAMERA UPLOAD] Photo queued for background sync (offline mode)');
           }
-
-          // Trigger background sync (will sync when online)
-          this.backgroundSync.triggerSync();
-
-          console.log('[CAMERA UPLOAD] Photo queued for background sync');
         }
 
         // Clean up blob URL
@@ -1962,10 +2019,10 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
                   uploadFn
                 );
 
-                // Trigger background sync
-                this.backgroundSync.triggerSync();
+                // NOTE: Don't call triggerSync() here - the in-memory upload service handles it
+                // triggerSync would cause duplicate uploads when both services try to upload the same photo
 
-                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} queued for upload (IndexedDB + in-memory)`);
+                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} queued for upload (in-memory queue)`);
 
               } catch (error) {
                 console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);

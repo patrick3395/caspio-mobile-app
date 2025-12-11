@@ -2136,25 +2136,57 @@ export class CaspioService {
         }
       }
 
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(recordData)
-      });
+      let attachId: number;
 
-      if (!recordResponse.ok) {
-        const errorText = await recordResponse.text();
-        console.error('[HUD ATTACH S3] ❌ Record creation failed:', errorText);
-        throw new Error(`HUD attach record creation failed: ${recordResponse.status} - ${errorText}`);
+      // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
+      try {
+        const orphanQuery = `q.where=HUDID=${hudId} AND (Attachment IS NULL OR Attachment='')&q.orderBy=AttachID DESC&q.limit=1`;
+        const orphanResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?${orphanQuery}`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+        });
+
+        if (orphanResponse.ok) {
+          const orphanData = await orphanResponse.json();
+          const orphanRecords = orphanData.Result || [];
+
+          if (orphanRecords.length > 0) {
+            attachId = orphanRecords[0].AttachID;
+            console.log('[HUD ATTACH S3] ♻️ Reusing orphaned record AttachID:', attachId);
+
+            if (recordData.Drawings) {
+              await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ Drawings: recordData.Drawings })
+              });
+            }
+          }
+        }
+      } catch (orphanError) {
+        console.warn('[HUD ATTACH S3] Could not check for orphaned records:', orphanError);
       }
 
-      const recordResult = await recordResponse.json();
-      const attachId = recordResult.Result && recordResult.Result[0] ? recordResult.Result[0].AttachID : recordResult.AttachID;
+      if (!attachId) {
+        const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(recordData)
+        });
 
-      console.log('[HUD ATTACH S3] ✅ Record created with AttachID:', attachId);
+        if (!recordResponse.ok) {
+          const errorText = await recordResponse.text();
+          console.error('[HUD ATTACH S3] ❌ Record creation failed:', errorText);
+          throw new Error(`HUD attach record creation failed: ${recordResponse.status} - ${errorText}`);
+        }
+
+        const recordResult = await recordResponse.json();
+        attachId = recordResult.Result && recordResult.Result[0] ? recordResult.Result[0].AttachID : recordResult.AttachID;
+        console.log('[HUD ATTACH S3] ✨ Created new record AttachID:', attachId);
+      }
 
       // STEP 2: Upload file to S3
       console.log('[HUD ATTACH S3] Step 2: Uploading file to S3...');
@@ -2357,14 +2389,48 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(recordData)
-      });
-      if (!recordResponse.ok) throw new Error('LBW record creation failed');
+      let attachId: number;
 
-      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
+      try {
+        const orphanQuery = `q.where=LBWID=${lbwId} AND (Attachment IS NULL OR Attachment='')&q.orderBy=AttachID DESC&q.limit=1`;
+        const orphanResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?${orphanQuery}`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+        });
+
+        if (orphanResponse.ok) {
+          const orphanData = await orphanResponse.json();
+          const orphanRecords = orphanData.Result || [];
+
+          if (orphanRecords.length > 0) {
+            attachId = orphanRecords[0].AttachID;
+            console.log('[LBW ATTACH S3] ♻️ Reusing orphaned record AttachID:', attachId);
+
+            if (recordData.Drawings) {
+              await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ Drawings: recordData.Drawings })
+              });
+            }
+          }
+        }
+      } catch (orphanError) {
+        console.warn('[LBW ATTACH S3] Could not check for orphaned records:', orphanError);
+      }
+
+      if (!attachId) {
+        const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(recordData)
+        });
+        if (!recordResponse.ok) throw new Error('LBW record creation failed');
+
+        attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+        console.log('[LBW ATTACH S3] ✨ Created new record AttachID:', attachId);
+      }
       const timestamp = Date.now();
       const uniqueFilename = `lbw_${lbwId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
 
@@ -2404,14 +2470,52 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      const recordResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(recordData)
-      });
-      if (!recordResponse.ok) throw new Error('Visuals record creation failed');
+      let attachId: number;
 
-      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
+      // These have VisualID and optionally Drawings, but empty Attachment
+      try {
+        const orphanQuery = `q.where=VisualID=${visualId} AND (Attachment IS NULL OR Attachment='')&q.orderBy=AttachID DESC&q.limit=1`;
+        const orphanResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?${orphanQuery}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (orphanResponse.ok) {
+          const orphanData = await orphanResponse.json();
+          const orphanRecords = orphanData.Result || [];
+
+          if (orphanRecords.length > 0) {
+            // Found orphaned record - reuse it instead of creating duplicate
+            attachId = orphanRecords[0].AttachID;
+            console.log('[VISUALS ATTACH S3] ♻️ Reusing orphaned record AttachID:', attachId);
+
+            // Update drawings if needed (in case they changed)
+            if (recordData.Drawings) {
+              await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ Drawings: recordData.Drawings })
+              });
+            }
+          }
+        }
+      } catch (orphanError) {
+        console.warn('[VISUALS ATTACH S3] Could not check for orphaned records:', orphanError);
+      }
+
+      // If no orphaned record found, create new one
+      if (!attachId) {
+        const recordResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(recordData)
+        });
+        if (!recordResponse.ok) throw new Error('Visuals record creation failed');
+
+        attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+        console.log('[VISUALS ATTACH S3] ✨ Created new record AttachID:', attachId);
+      }
       const timestamp = Date.now();
       const uniqueFilename = `visual_${visualId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
 
@@ -2451,14 +2555,48 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(recordData)
-      });
-      if (!recordResponse.ok) throw new Error('DTE record creation failed');
+      let attachId: number;
 
-      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
+      try {
+        const orphanQuery = `q.where=DTEID=${dteId} AND (Attachment IS NULL OR Attachment='')&q.orderBy=AttachID DESC&q.limit=1`;
+        const orphanResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?${orphanQuery}`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+        });
+
+        if (orphanResponse.ok) {
+          const orphanData = await orphanResponse.json();
+          const orphanRecords = orphanData.Result || [];
+
+          if (orphanRecords.length > 0) {
+            attachId = orphanRecords[0].AttachID;
+            console.log('[DTE ATTACH S3] ♻️ Reusing orphaned record AttachID:', attachId);
+
+            if (recordData.Drawings) {
+              await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ Drawings: recordData.Drawings })
+              });
+            }
+          }
+        }
+      } catch (orphanError) {
+        console.warn('[DTE ATTACH S3] Could not check for orphaned records:', orphanError);
+      }
+
+      if (!attachId) {
+        const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(recordData)
+        });
+        if (!recordResponse.ok) throw new Error('DTE record creation failed');
+
+        attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+        console.log('[DTE ATTACH S3] ✨ Created new record AttachID:', attachId);
+      }
       const timestamp = Date.now();
       const uniqueFilename = `dte_${dteId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
 

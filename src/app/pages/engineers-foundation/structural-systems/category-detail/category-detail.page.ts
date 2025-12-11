@@ -851,18 +851,63 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Restore pending photos from IndexedDB
-   * Called on page load to show photos that were added offline but not yet synced
+   * Restore pending visuals and photos from IndexedDB
+   * Called on page load to show items that were created offline but not yet synced
    */
   private async restorePendingPhotosFromIndexedDB(): Promise<void> {
     try {
-      console.log('[RESTORE PENDING] Checking for pending photos in IndexedDB...');
+      console.log('[RESTORE PENDING] Checking for pending data in IndexedDB...');
 
-      // Get all pending photos grouped by visual ID
+      // STEP 1: Restore pending VISUAL records first
+      const pendingRequests = await this.indexedDb.getPendingRequests();
+      const pendingVisuals = pendingRequests.filter(r =>
+        r.type === 'CREATE' &&
+        r.endpoint?.includes('LPS_Services_Visuals') &&
+        r.status !== 'synced' &&
+        r.data?.ServiceID === parseInt(this.serviceId, 10) &&
+        r.data?.Category === this.categoryName
+      );
+
+      console.log('[RESTORE PENDING] Found', pendingVisuals.length, 'pending visual records');
+
+      // For each pending visual, find matching item and mark as selected
+      for (const pendingVisual of pendingVisuals) {
+        const visualData = pendingVisual.data;
+        const tempId = pendingVisual.tempId;
+
+        // Find the matching item by name, category, and kind
+        const matchingItem = this.findItemByNameAndCategory(
+          visualData.Name,
+          visualData.Category,
+          visualData.Kind
+        );
+
+        if (matchingItem) {
+          const key = `${visualData.Category}_${matchingItem.id}`;
+
+          console.log('[RESTORE PENDING] Restoring visual:', key, 'tempId:', tempId);
+
+          // Mark as selected
+          this.selectedItems[key] = true;
+
+          // Store the temp visual ID
+          this.visualRecordIds[key] = tempId;
+
+          // Initialize photo array if needed
+          if (!this.visualPhotos[key]) {
+            this.visualPhotos[key] = [];
+          }
+        } else {
+          console.log('[RESTORE PENDING] No matching item found for visual:', visualData.Name);
+        }
+      }
+
+      // STEP 2: Restore pending photos
       const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByVisual();
 
       if (pendingPhotosMap.size === 0) {
         console.log('[RESTORE PENDING] No pending photos found');
+        this.changeDetectorRef.detectChanges();
         return;
       }
 
@@ -873,6 +918,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         // Find the key for this visual ID
         let matchingKey: string | null = null;
 
+        // First check direct match in visualRecordIds
         for (const key of Object.keys(this.visualRecordIds)) {
           if (String(this.visualRecordIds[key]) === visualId) {
             matchingKey = key;
@@ -880,12 +926,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           }
         }
 
-        // Also check if the visualId itself is a temp ID used as a key
+        // If not found, the visual might have been synced - check if real ID exists
         if (!matchingKey) {
-          for (const key of Object.keys(this.visualRecordIds)) {
-            if (key.includes(visualId) || this.visualRecordIds[key]?.toString().includes(visualId)) {
-              matchingKey = key;
-              break;
+          // Check if there's a real ID mapping for this temp visual
+          const realId = await this.indexedDb.getRealId(visualId);
+          if (realId) {
+            for (const key of Object.keys(this.visualRecordIds)) {
+              if (String(this.visualRecordIds[key]) === realId) {
+                matchingKey = key;
+                console.log('[RESTORE PENDING] Found via real ID mapping:', visualId, '→', realId);
+                break;
+              }
             }
           }
         }
@@ -919,13 +970,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
         // Update photo count
         this.photoCountsByKey[matchingKey] = this.visualPhotos[matchingKey].length;
+
+        // Also mark item as selected if it has photos
+        if (!this.selectedItems[matchingKey] && this.visualPhotos[matchingKey].length > 0) {
+          this.selectedItems[matchingKey] = true;
+        }
       }
 
       this.changeDetectorRef.detectChanges();
-      console.log('[RESTORE PENDING] Pending photos restored');
+      console.log('[RESTORE PENDING] Pending data restored');
 
     } catch (error) {
-      console.error('[RESTORE PENDING] Error restoring pending photos:', error);
+      console.error('[RESTORE PENDING] Error restoring pending data:', error);
     }
   }
 
@@ -1709,8 +1765,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
           console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos processed successfully`);
 
-          // Trigger background sync to handle queued uploads
-          this.backgroundSync.triggerSync();
+          // Only trigger background sync for offline mode
+          // When online, the in-memory BackgroundPhotoUploadService handles uploads
+          // triggerSync would cause duplicate uploads when both services try to upload the same photo
+          if (isOfflineMode) {
+            this.backgroundSync.triggerSync();
+            console.log('[GALLERY UPLOAD] Triggered background sync for offline mode');
+          }
 
         }, 150); // Small delay to ensure skeletons render
       }
