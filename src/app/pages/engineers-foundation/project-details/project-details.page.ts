@@ -147,18 +147,23 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     // Try IndexedDB first
     let project = await this.offlineTemplate.getProject(this.projectId);
 
-    if (!project) {
-      // Fall back to API if not in cache
-      console.log('[ProjectDetails] Project not in cache, fetching from API...');
+    // Check if cache has complete data (not just partial updates)
+    const isComplete = project && (project.ProjectID || project.ClientID || project.Address);
+
+    if (!project || !isComplete) {
+      // Fall back to API if not in cache or incomplete
+      console.log('[ProjectDetails] Project not in cache or incomplete, fetching from API...');
       try {
-        project = await this.caspioService.getProject(this.projectId).toPromise();
+        const freshProject = await this.caspioService.getProject(this.projectId).toPromise();
         // Cache it for next time
-        if (project) {
-          await this.indexedDb.cacheProjectRecord(this.projectId, project);
+        if (freshProject) {
+          await this.indexedDb.cacheProjectRecord(this.projectId, freshProject);
+          project = freshProject;
         }
       } catch (error) {
         console.error('[ProjectDetails] Error loading project from API:', error);
-        return;
+        // Use partial cache if available
+        if (!project) return;
       }
     } else {
       console.log('[ProjectDetails] Loaded project from IndexedDB cache');
@@ -193,18 +198,23 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     // Try IndexedDB first
     let service = await this.offlineTemplate.getService(this.serviceId);
 
-    if (!service) {
-      // Fall back to API if not in cache
-      console.log('[ProjectDetails] Service not in cache, fetching from API...');
+    // Check if cache has complete data (not just partial updates)
+    const isComplete = service && (service.ServiceID || service.ProjectID || service.ServiceType);
+
+    if (!service || !isComplete) {
+      // Fall back to API if not in cache or incomplete
+      console.log('[ProjectDetails] Service not in cache or incomplete, fetching from API...');
       try {
-        service = await this.caspioService.getService(this.serviceId).toPromise();
+        const freshService = await this.caspioService.getService(this.serviceId).toPromise();
         // Cache it for next time
-        if (service) {
-          await this.indexedDb.cacheServiceRecord(this.serviceId, service);
+        if (freshService) {
+          await this.indexedDb.cacheServiceRecord(this.serviceId, freshService);
+          service = freshService;
         }
       } catch (error) {
         console.error('[ProjectDetails] Error loading service from API:', error);
-        return;
+        // Use partial cache if available
+        if (!service) return;
       }
     } else {
       console.log('[ProjectDetails] Loaded service from IndexedDB cache');

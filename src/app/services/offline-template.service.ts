@@ -53,6 +53,11 @@ export class OfflineTemplateService {
     if (isReady) {
       console.log(`[OfflineTemplate] Template ${cacheKey} already cached`);
       this.downloadStatus.set(cacheKey, 'ready');
+
+      // Still refresh service/project records if online (they might be stale)
+      if (this.offlineService.isOnline()) {
+        this.refreshServiceAndProjectRecords(serviceId, projectId);
+      }
       return;
     }
 
@@ -184,6 +189,36 @@ export class OfflineTemplateService {
    */
   async isTemplateReady(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE'): Promise<boolean> {
     return this.indexedDb.isTemplateDownloaded(serviceId, templateType);
+  }
+
+  /**
+   * Refresh service and project records from server (non-blocking)
+   * Called when template is already cached but we want fresh data
+   */
+  private async refreshServiceAndProjectRecords(serviceId: string, projectId?: string): Promise<void> {
+    console.log('[OfflineTemplate] Refreshing service/project records from server...');
+
+    try {
+      // Fetch service record
+      const service = await firstValueFrom(this.caspioService.getService(serviceId));
+      if (service) {
+        await this.indexedDb.cacheServiceRecord(serviceId, service);
+        console.log('[OfflineTemplate] Service record refreshed');
+
+        // Also refresh project if we have the ID
+        const pId = projectId || service?.ProjectID;
+        if (pId) {
+          const project = await firstValueFrom(this.caspioService.getProject(String(pId)));
+          if (project) {
+            await this.indexedDb.cacheProjectRecord(String(pId), project);
+            console.log('[OfflineTemplate] Project record refreshed');
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('[OfflineTemplate] Failed to refresh service/project records:', error);
+      // Non-critical - continue with cached data
+    }
   }
 
   /**
