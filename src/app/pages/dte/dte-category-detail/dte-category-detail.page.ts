@@ -863,7 +863,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           const key = `${visualData.Category}_${matchingItem.id}`;
           console.log('[RESTORE PENDING] Restoring visual:', key, 'tempId:', tempId);
           this.selectedItems[key] = true;
-          this.visualRecordIds[key] = tempId;
+          this.visualRecordIds[key] = tempId || '';
           if (!this.visualPhotos[key]) {
             this.visualPhotos[key] = [];
           }

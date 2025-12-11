@@ -2136,7 +2136,7 @@ export class CaspioService {
         }
       }
 
-      let attachId: number;
+      let attachId: number | undefined = undefined;
 
       // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
       try {
@@ -2389,7 +2389,7 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      let attachId: number;
+      let attachId: number | undefined = undefined;
 
       // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
       try {
@@ -2470,7 +2470,7 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      let attachId: number;
+      let attachId: number | undefined = undefined;
 
       // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
       // These have VisualID and optionally Drawings, but empty Attachment
@@ -2555,7 +2555,7 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      let attachId: number;
+      let attachId: number | undefined = undefined;
 
       // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
       try {

@@ -891,7 +891,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           this.selectedItems[key] = true;
 
           // Store the temp visual ID
-          this.visualRecordIds[key] = tempId;
+          this.visualRecordIds[key] = tempId || '';
 
           // Initialize photo array if needed
           if (!this.visualPhotos[key]) {
