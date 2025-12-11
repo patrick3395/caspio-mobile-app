@@ -80,32 +80,42 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
+    console.log('[ProjectDetails] ngOnInit() called');
+
     // Load dropdown options from database tables (non-blocking for offline support)
     this.loadDropdownOptions();
     this.loadProjectDropdownOptions();
 
     // Get IDs from parent route snapshot immediately (for offline reliability)
     const parentParams = this.route.parent?.snapshot?.params;
+    console.log('[ProjectDetails] parentParams from snapshot:', parentParams);
     if (parentParams) {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
       console.log('[ProjectDetails] Got params from snapshot:', this.projectId, this.serviceId);
 
       if (this.projectId && this.serviceId) {
+        console.log('[ProjectDetails] Calling loadData() from SNAPSHOT');
         this.loadData();
       }
     }
 
     // Also subscribe to param changes (for dynamic updates)
     this.route.parent?.params.subscribe(params => {
+      console.log('[ProjectDetails] params.subscribe fired with:', params);
       const newProjectId = params['projectId'];
       const newServiceId = params['serviceId'];
+      console.log('[ProjectDetails] newProjectId:', newProjectId, 'newServiceId:', newServiceId);
+      console.log('[ProjectDetails] current projectId:', this.projectId, 'current serviceId:', this.serviceId);
 
       // Only reload if IDs changed
       if (newProjectId !== this.projectId || newServiceId !== this.serviceId) {
+        console.log('[ProjectDetails] IDs CHANGED - calling loadData() from SUBSCRIPTION');
         this.projectId = newProjectId;
         this.serviceId = newServiceId;
         this.loadData();
+      } else {
+        console.log('[ProjectDetails] IDs unchanged - NOT reloading');
       }
     });
 
@@ -117,8 +127,13 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     // Cleanup if needed
   }
 
+  private loadDataCallCount = 0;
+
   private async loadData() {
-    console.log('[ProjectDetails] Loading data (OFFLINE-FIRST)...');
+    this.loadDataCallCount++;
+    const callNum = this.loadDataCallCount;
+    console.log(`[ProjectDetails] ========== loadData() CALL #${callNum} ==========`);
+    console.log(`[ProjectDetails] loadData() #${callNum}: projectId=${this.projectId}, serviceId=${this.serviceId}`);
 
     try {
       // OFFLINE-FIRST: Try IndexedDB first for both project and service data
@@ -126,8 +141,9 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
         this.loadProjectData(),
         this.loadServiceData()
       ]);
+      console.log(`[ProjectDetails] loadData() #${callNum}: COMPLETED`);
     } catch (error) {
-      console.error('[ProjectDetails] Error in loadData:', error);
+      console.error(`[ProjectDetails] loadData() #${callNum}: ERROR:`, error);
     }
   }
 
@@ -208,6 +224,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     }
 
     this.serviceData = service || {};
+    if (!service || Object.keys(service).length === 0) {
+      console.error('[ProjectDetails] ⚠️ WARNING: serviceData set to EMPTY! service was:', service);
+      console.trace('[ProjectDetails] Stack trace for empty serviceData:');
+    }
     console.log('[ProjectDetails] this.serviceData set to:', JSON.stringify(this.serviceData).substring(0, 300));
 
     // Check if OccupancyFurnishings is a custom value
@@ -345,8 +365,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
 
   // Load dropdown options from Services_Drop table
   private async loadDropdownOptions() {
+    console.log('[ProjectDetails] loadDropdownOptions() called');
     try {
       const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
+      console.log('[ProjectDetails] loadDropdownOptions(): got data, servicesDropData.length =', servicesDropData?.length);
 
       if (servicesDropData && servicesDropData.length > 0) {
         // Group by ServicesName
