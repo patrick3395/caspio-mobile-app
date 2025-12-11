@@ -260,22 +260,31 @@ export class BackgroundSyncService {
 
   /**
    * Sync photo upload for a Visual using existing S3 upload
+   * Now retrieves drawings from IndexedDB for offline annotation support
    */
   private async syncVisualPhotoUpload(request: PendingRequest): Promise<any> {
     const data = request.data;
 
     console.log('[BackgroundSync] Photo upload - raw data:', data);
 
-    // Get file from IndexedDB
-    const file = await this.indexedDb.getStoredFile(data.fileId);
-    if (!file) {
-      console.error('[BackgroundSync] Photo file not found in IndexedDB:', data.fileId);
+    // Get file AND annotations from IndexedDB
+    const photoData = await this.indexedDb.getStoredPhotoData(data.fileId);
+    if (!photoData) {
+      console.error('[BackgroundSync] Photo data not found in IndexedDB:', data.fileId);
       // Mark as failed - file is missing, can't upload
       await this.indexedDb.updateRequestStatus(request.requestId, 'failed', 'File not found in storage');
       throw new Error(`Photo file not found: ${data.fileId}`);
     }
 
+    const { file, drawings: storedDrawings, caption: storedCaption } = photoData;
+
+    // Use drawings from IndexedDB if available, otherwise fall back to request data
+    const drawings = storedDrawings || data.drawings || '';
+    const caption = storedCaption || data.caption || '';
+
     console.log('[BackgroundSync] File retrieved successfully:', file.name, file.size);
+    console.log('[BackgroundSync] Drawings from storage:', drawings.length, 'chars');
+    console.log('[BackgroundSync] Caption from storage:', caption);
 
     // Resolve temp Visual ID to real ID if needed
     let visualId = data.tempVisualId || data.visualId;
@@ -284,7 +293,7 @@ export class BackgroundSyncService {
     if (visualId && String(visualId).startsWith('temp_')) {
       const realId = await this.indexedDb.getRealId(String(visualId));
       console.log('[BackgroundSync] Resolved temp ID:', visualId, '→', realId);
-      
+
       if (!realId) {
         throw new Error(`Visual not synced yet: ${visualId}`);
       }
@@ -299,19 +308,19 @@ export class BackgroundSyncService {
     const idempotencyKey = data.idempotencyKey || `photo_${visualId}_${data.fileName}_${data.fileSize}`;
     console.log('[BackgroundSync] Using idempotency key:', idempotencyKey);
 
-    // Set idempotency header for AWS
-    // Note: Would need to modify CaspioService.uploadVisualsAttachWithS3 to accept headers
-    // For now, AWS will use request ID which partially helps
-
     try {
-      // Call the EXISTING S3 upload method (fully working!)
+      // Call the EXISTING S3 upload method with drawings from IndexedDB
       const result = await this.caspioService.uploadVisualsAttachWithS3(
         visualId,
-        data.drawings || '',
+        drawings,  // Now properly retrieved from IndexedDB
         file
       );
 
-      console.log('[BackgroundSync] Photo uploaded successfully to Visual', visualId);
+      console.log('[BackgroundSync] Photo uploaded successfully to Visual', visualId, 'with', drawings.length, 'chars of drawings');
+
+      // Clean up stored photo after successful upload
+      await this.indexedDb.deleteStoredFile(data.fileId);
+      console.log('[BackgroundSync] Cleaned up stored photo file:', data.fileId);
 
       return result;
     } catch (error: any) {

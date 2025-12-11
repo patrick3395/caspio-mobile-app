@@ -386,8 +386,9 @@ export class IndexedDbService {
   /**
    * Store photo file for offline upload
    * Stores as Blob (File objects don't persist reliably in IndexedDB)
+   * Now also stores drawings/annotations for offline support
    */
-  async storePhotoFile(tempId: string, file: File, visualId: string, caption?: string): Promise<void> {
+  async storePhotoFile(tempId: string, file: File, visualId: string, caption?: string, drawings?: string): Promise<void> {
     const db = await this.ensureDb();
 
     // Read file as ArrayBuffer (more reliable than storing File object)
@@ -405,6 +406,7 @@ export class IndexedDbService {
         fileType: file.type,
         visualId: visualId,
         caption: caption || '',
+        drawings: drawings || '',  // Store drawings/annotations data
         status: 'pending',
         createdAt: Date.now(),
       };
@@ -412,7 +414,7 @@ export class IndexedDbService {
       const addRequest = store.put(imageData);
 
       addRequest.onsuccess = () => {
-        console.log('[IndexedDB] Photo file stored as ArrayBuffer:', tempId, file.size, 'bytes');
+        console.log('[IndexedDB] Photo file stored as ArrayBuffer:', tempId, file.size, 'bytes', 'drawings:', (drawings || '').length, 'chars');
         resolve();
       };
 
@@ -437,7 +439,7 @@ export class IndexedDbService {
 
       getRequest.onsuccess = () => {
         const imageData = getRequest.result;
-        
+
         if (!imageData || !imageData.fileData) {
           console.warn('[IndexedDB] No file data found for:', fileId);
           resolve(null);
@@ -447,9 +449,48 @@ export class IndexedDbService {
         // Reconstruct File from ArrayBuffer
         const blob = new Blob([imageData.fileData], { type: imageData.fileType });
         const file = new File([blob], imageData.fileName, { type: imageData.fileType });
-        
+
         console.log('[IndexedDB] File reconstructed:', file.name, file.size, 'bytes');
         resolve(file);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Get stored photo data including file, caption, and drawings
+   * Returns full photo data for offline sync with annotations
+   */
+  async getStoredPhotoData(fileId: string): Promise<{ file: File; caption: string; drawings: string; visualId: string } | null> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readonly');
+      const store = transaction.objectStore('pendingImages');
+      const getRequest = store.get(fileId);
+
+      getRequest.onsuccess = () => {
+        const imageData = getRequest.result;
+
+        if (!imageData || !imageData.fileData) {
+          console.warn('[IndexedDB] No photo data found for:', fileId);
+          resolve(null);
+          return;
+        }
+
+        // Reconstruct File from ArrayBuffer
+        const blob = new Blob([imageData.fileData], { type: imageData.fileType });
+        const file = new File([blob], imageData.fileName, { type: imageData.fileType });
+
+        console.log('[IndexedDB] Photo data retrieved:', file.name, file.size, 'bytes', 'drawings:', (imageData.drawings || '').length, 'chars');
+
+        resolve({
+          file,
+          caption: imageData.caption || '',
+          drawings: imageData.drawings || '',
+          visualId: imageData.visualId || ''
+        });
       };
 
       getRequest.onerror = () => reject(getRequest.error);

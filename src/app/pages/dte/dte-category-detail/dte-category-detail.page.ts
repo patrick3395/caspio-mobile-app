@@ -13,6 +13,8 @@ import { DteDataService } from '../dte-data.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
+import { BackgroundSyncService } from '../../../services/background-sync.service';
 
 interface VisualItem {
   id: string | number;
@@ -99,7 +101,9 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     private imageCompression: ImageCompressionService,
     private hudData: DteDataService,
     private backgroundUploadService: BackgroundPhotoUploadService,
-    private cache: CacheService
+    private cache: CacheService,
+    private indexedDb: IndexedDbService,
+    private backgroundSync: BackgroundSyncService
   ) {}
 
   async ngOnInit() {
@@ -1534,10 +1538,65 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           this.changeDetectorRef.detectChanges();
           console.log('[CAMERA UPLOAD] Added skeleton placeholder');
 
-          // CRITICAL: Use background upload service for reliability
-          const uploadFn = async (visualId: number, photo: File, cap: string) => {
+          // Serialize annotations data to string for IndexedDB storage
+          let drawingsString = '';
+          if (annotationsData) {
+            try {
+              drawingsString = typeof annotationsData === 'string'
+                ? annotationsData
+                : JSON.stringify(annotationsData);
+              console.log('[CAMERA UPLOAD] Serialized annotations:', drawingsString.length, 'chars');
+            } catch (e) {
+              console.error('[CAMERA UPLOAD] Failed to serialize annotations:', e);
+            }
+          }
+
+          // CRITICAL: Store photo WITH drawings in IndexedDB for offline support
+          await this.indexedDb.storePhotoFile(tempId, originalFile, visualId, caption, drawingsString);
+          console.log('[CAMERA UPLOAD] Photo stored in IndexedDB with drawings');
+
+          // Queue the upload request in IndexedDB (survives app restart)
+          await this.indexedDb.addPendingRequest({
+            type: 'UPLOAD_FILE',
+            tempId: tempId,
+            endpoint: 'VISUAL_PHOTO_UPLOAD',
+            method: 'POST',
+            data: {
+              visualId: visualIdNum,
+              fileId: tempId,
+              caption: caption || '',
+              drawings: drawingsString,
+              fileName: originalFile.name,
+              fileSize: originalFile.size,
+            },
+            dependencies: [],
+            status: 'pending',
+            priority: 'high',
+          });
+
+          console.log('[CAMERA UPLOAD] Photo queued in IndexedDB for background sync');
+
+          // Also add to in-memory queue for immediate upload attempt
+          const uploadFn = async (vId: number, photo: File, cap: string) => {
             console.log('[CAMERA UPLOAD] Uploading photo via background service');
-            const result = await this.performVisualPhotoUpload(visualId, photo, key, true, null, null, tempId, cap);
+            const result = await this.performVisualPhotoUpload(vId, photo, key, true, null, null, tempId, cap);
+
+            if (result) {
+              // In-memory upload succeeded - mark IndexedDB request as synced to prevent duplicate
+              try {
+                const pendingRequests = await this.indexedDb.getPendingRequests();
+                const matchingRequest = pendingRequests.find(r =>
+                  r.tempId === tempId && r.endpoint === 'VISUAL_PHOTO_UPLOAD'
+                );
+                if (matchingRequest) {
+                  await this.indexedDb.updateRequestStatus(matchingRequest.requestId, 'synced');
+                  await this.indexedDb.deleteStoredFile(tempId);
+                  console.log('[CAMERA UPLOAD] Marked IndexedDB request as synced, cleaned up stored file');
+                }
+              } catch (cleanupError) {
+                console.warn('[CAMERA UPLOAD] Failed to cleanup IndexedDB:', cleanupError);
+              }
+            }
 
             // If there are annotations, save them after upload completes
             if (annotationsData && result) {
@@ -1572,7 +1631,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
             return result;
           };
 
-          // Add to background upload queue
+          // Add to in-memory background upload queue for immediate attempt
           this.backgroundUploadService.addToQueue(
             visualIdNum,
             originalFile,
@@ -1582,7 +1641,10 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
             uploadFn
           );
 
-          console.log('[CAMERA UPLOAD] Photo queued for background upload');
+          // Trigger background sync (will use IndexedDB data if in-memory fails)
+          this.backgroundSync.triggerSync();
+
+          console.log('[CAMERA UPLOAD] Photo queued for background upload (both in-memory and IndexedDB)');
         }
 
         // Clean up blob URL
