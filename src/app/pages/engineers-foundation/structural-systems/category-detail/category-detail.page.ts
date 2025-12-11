@@ -1404,30 +1404,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
         // Check if temp ID and try to resolve to real ID
         let finalVisualId = visualId;
-        if (String(visualId).startsWith('temp_')) {
+        const visualIsTempId = String(visualId).startsWith('temp_');
+        if (visualIsTempId) {
           const realId = await this.indexedDb.getRealId(String(visualId));
           if (realId) {
             console.log(`[GALLERY UPLOAD] Visual synced! Using real ID ${realId}`);
             finalVisualId = realId;
           } else {
-            console.log('[GALLERY UPLOAD] Visual not synced yet, queuing photos');
-            // Queue photos in IndexedDB to upload after Visual syncs
-            // For now, show as queued
-            skeletonPhotos.forEach(skeleton => {
-              const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-              if (photoIndex !== -1 && this.visualPhotos[key]) {
-                this.visualPhotos[key][photoIndex].uploading = false;
-                this.visualPhotos[key][photoIndex].queued = true;
-                this.visualPhotos[key][photoIndex].isSkeleton = false;
-              }
-            });
-            this.changeDetectorRef.detectChanges();
-            return;
+            console.log('[GALLERY UPLOAD] Visual not synced yet, will queue photos after showing previews');
+            // Don't return early! Continue to show images and queue them for later upload
           }
         }
 
+        // Parse visual ID - for temp IDs, we'll still show images but queue for later
         const visualIdNum = parseInt(String(finalVisualId), 10);
-        if (isNaN(visualIdNum)) {
+        const isOfflineMode = isNaN(visualIdNum) || visualIsTempId;
+
+        if (isNaN(visualIdNum) && !visualIsTempId) {
           console.error('[GALLERY UPLOAD] Invalid visual ID:', finalVisualId);
           // Mark all skeleton photos as failed
           skeletonPhotos.forEach(skeleton => {
@@ -1439,8 +1432,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             }
           });
           this.changeDetectorRef.detectChanges();
-          // Toast removed per user request
-          // await this.showToast('Invalid visual ID', 'danger');
           return;
         }
 
@@ -1453,7 +1444,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
             if (image.webPath) {
               try {
-                console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
+                console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}${isOfflineMode ? ' (offline mode)' : ''}`);
 
                 // Fetch the blob
                 const response = await fetch(image.webPath);
@@ -1463,39 +1454,73 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 // Create object URL for preview
                 const objectUrl = URL.createObjectURL(blob);
 
-                // Update skeleton to show preview + queued state
+                // Generate a proper temp photo ID for IndexedDB storage
+                const tempPhotoId = `temp_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+                // Update skeleton to show preview IMMEDIATELY
+                // Use 'queued' state for offline, 'uploading' for online
                 const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
                 if (skeletonIndex !== -1 && this.visualPhotos[key]) {
                   this.visualPhotos[key][skeletonIndex] = {
                     ...this.visualPhotos[key][skeletonIndex],
+                    AttachID: tempPhotoId,
+                    id: tempPhotoId,
                     url: objectUrl,
                     thumbnailUrl: objectUrl,
+                    originalUrl: objectUrl,
                     isObjectUrl: true,
-                    uploading: true,
+                    uploading: !isOfflineMode,  // Only show spinner if online
+                    queued: isOfflineMode,       // Show queued indicator if offline
                     isSkeleton: false,
-                    progress: 0
+                    progress: 0,
+                    _pendingFileId: tempPhotoId
                   };
                   this.changeDetectorRef.detectChanges();
-                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview`);
+                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview (${isOfflineMode ? 'queued' : 'uploading'})`);
                 }
 
-                // Add to background upload queue
-                // The upload will happen asynchronously and persist across navigation
-                const uploadFn = async (visualId: number, photo: File, caption: string) => {
-                  console.log(`[GALLERY UPLOAD] Uploading photo ${i + 1}/${images.photos.length}`);
-                  return await this.performVisualPhotoUpload(visualId, photo, key, true, null, null, skeleton.AttachID, caption);
-                };
+                // Store in IndexedDB for offline support
+                await this.indexedDb.storePhotoFile(tempPhotoId, file, String(finalVisualId), '', '');
+                console.log(`[GALLERY UPLOAD] Stored photo ${i + 1} in IndexedDB for offline access`);
 
-                this.backgroundUploadService.addToQueue(
-                  visualIdNum,
-                  file,
-                  key,
-                  '', // caption
-                  skeleton.AttachID,
-                  uploadFn
-                );
+                // Queue the upload request in IndexedDB
+                await this.indexedDb.addPendingRequest({
+                  type: 'UPLOAD_FILE',
+                  tempId: tempPhotoId,
+                  endpoint: 'VISUAL_PHOTO_UPLOAD',
+                  method: 'POST',
+                  data: {
+                    visualId: finalVisualId,
+                    fileId: tempPhotoId,
+                    caption: '',
+                    drawings: '',
+                    fileName: file.name,
+                    fileSize: file.size,
+                  },
+                  dependencies: visualIsTempId ? [String(visualId)] : [],
+                  status: 'pending',
+                  priority: 'high',
+                });
+                console.log(`[GALLERY UPLOAD] Photo ${i + 1} queued in IndexedDB`);
 
-                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} queued for upload`);
+                // If online, also add to background upload queue for immediate upload
+                if (!isOfflineMode) {
+                  const uploadFn = async (vId: number, photo: File, caption: string) => {
+                    console.log(`[GALLERY UPLOAD] Uploading photo ${i + 1}/${images.photos.length}`);
+                    return await this.performVisualPhotoUpload(vId, photo, key, true, null, null, tempPhotoId, caption);
+                  };
+
+                  this.backgroundUploadService.addToQueue(
+                    visualIdNum,
+                    file,
+                    key,
+                    '', // caption
+                    tempPhotoId,
+                    uploadFn
+                  );
+                }
+
+                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} processed successfully`);
 
               } catch (error) {
                 console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
@@ -1511,7 +1536,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             }
           }
 
-          console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos queued successfully`);
+          console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos processed successfully`);
+
+          // Trigger background sync to handle queued uploads
+          this.backgroundSync.triggerSync();
 
         }, 150); // Small delay to ensure skeletons render
       }
@@ -2157,6 +2185,73 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               console.error('[VIEW PHOTO] Error saving annotations:', error);
               // Toast removed per user request
               // await this.showToast('Failed to save annotations', 'danger');
+            }
+          } else if (String(attachId).startsWith('temp_')) {
+            // OFFLINE PHOTO: Update IndexedDB with the new annotations
+            // This ensures background sync will upload the photo WITH annotations
+            try {
+              console.log('[SAVE OFFLINE] Updating IndexedDB with annotations for temp photo:', attachId);
+
+              // Get the pending file ID (might be different from attachId)
+              const pendingFileId = currentPhoto._pendingFileId || attachId;
+
+              // Compress the annotation data for storage
+              const { compressAnnotationData } = await import('../../../../utils/annotation-utils');
+              let compressedDrawings = '';
+              if (annotationsData) {
+                if (typeof annotationsData === 'object') {
+                  compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+                } else if (typeof annotationsData === 'string') {
+                  compressedDrawings = compressAnnotationData(annotationsData);
+                }
+              }
+
+              // Get the original file from IndexedDB
+              const existingPhotoData = await this.indexedDb.getStoredPhotoData(pendingFileId);
+              if (existingPhotoData && existingPhotoData.file) {
+                // Re-store the photo with updated drawings and caption
+                await this.indexedDb.storePhotoFile(
+                  pendingFileId,
+                  existingPhotoData.file,
+                  existingPhotoData.visualId,
+                  data.caption || existingPhotoData.caption || '',
+                  compressedDrawings
+                );
+                console.log('[SAVE OFFLINE] ✅ Updated IndexedDB with drawings:', compressedDrawings.length, 'chars');
+
+                // Also update the pending request in IndexedDB with new drawings
+                const pendingRequests = await this.indexedDb.getPendingRequests();
+                const matchingRequest = pendingRequests.find(r =>
+                  r.tempId === pendingFileId || r.data?.fileId === pendingFileId
+                );
+                if (matchingRequest) {
+                  // Update the request data with new drawings
+                  matchingRequest.data.drawings = compressedDrawings;
+                  matchingRequest.data.caption = data.caption || '';
+                  // Note: We can't easily update a pending request, but the sync will read from storePhotoFile
+                  console.log('[SAVE OFFLINE] Found matching pending request, drawings will be read from IndexedDB on sync');
+                }
+              } else {
+                console.warn('[SAVE OFFLINE] Could not find original file in IndexedDB for:', pendingFileId);
+              }
+
+              // Update local photo object
+              this.visualPhotos[key][photoIndex] = {
+                ...currentPhoto,
+                originalUrl: currentPhoto.originalUrl || currentPhoto.url,
+                displayUrl: newUrl,
+                hasAnnotations: !!annotationsData,
+                caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
+                annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
+                Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
+                annotations: annotationsData,
+                Drawings: compressedDrawings,
+                rawDrawingsString: compressedDrawings
+              };
+
+              console.log('[SAVE OFFLINE] Updated local photo object');
+            } catch (error) {
+              console.error('[SAVE OFFLINE] Error saving annotations to IndexedDB:', error);
             }
           }
         }
