@@ -66,6 +66,27 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   saveStatus: string = '';
   saveStatusType: 'info' | 'success' | 'error' = 'info';
 
+  /**
+   * Normalize string for comparison - handles different degree symbols and whitespace
+   */
+  private normalizeForComparison(str: string): string {
+    if (!str) return '';
+    // Replace various degree-like symbols with standard degree
+    // U+00B0 (°), U+02DA (˚), U+00BA (º) all become °
+    return str.trim()
+      .replace(/[\u02DA\u00BA]/g, '°')  // Ring above and masculine ordinal to degree
+      .replace(/\s+/g, ' ')              // Normalize whitespace
+      .toLowerCase();
+  }
+
+  /**
+   * Check if options array includes a value (with normalized comparison)
+   */
+  private optionsIncludeNormalized(options: string[], value: string): boolean {
+    const normalizedValue = this.normalizeForComparison(value);
+    return options.some(opt => this.normalizeForComparison(opt) === normalizedValue);
+  }
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -395,8 +416,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.weatherConditionsOptions.includes('Other')) {
             this.weatherConditionsOptions.push('Other');
           }
-          // Preserve current value if not in options
-          if (currentValue && !this.weatherConditionsOptions.includes(currentValue) && currentValue !== 'Other') {
+          // Preserve current value if not in options (use normalized comparison)
+          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.weatherConditionsOptions, currentValue)) {
             console.log(`[ProjectDetails] Adding missing WeatherConditions value to options: "${currentValue}"`);
             this.weatherConditionsOptions.unshift(currentValue);
           }
@@ -409,8 +430,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.outdoorTemperatureOptions.includes('Other')) {
             this.outdoorTemperatureOptions.push('Other');
           }
-          // Preserve current value if not in options
-          if (currentValue && !this.outdoorTemperatureOptions.includes(currentValue) && currentValue !== 'Other') {
+          // Preserve current value if not in options (use normalized comparison)
+          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.outdoorTemperatureOptions, currentValue)) {
             console.log(`[ProjectDetails] Adding missing OutdoorTemperature value to options: "${currentValue}"`);
             this.outdoorTemperatureOptions.unshift(currentValue);
           }
@@ -432,18 +453,33 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.occupancyFurnishingsOptions.includes('Other')) {
             this.occupancyFurnishingsOptions.push('Other');
           }
-          // Preserve current value if not in options
-          if (currentValue && !this.occupancyFurnishingsOptions.includes(currentValue) && currentValue !== 'Other') {
+          // Preserve current value if not in options (use normalized comparison)
+          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.occupancyFurnishingsOptions, currentValue)) {
             console.log(`[ProjectDetails] Adding missing OccupancyFurnishings value to options: "${currentValue}"`);
             this.occupancyFurnishingsOptions.unshift(currentValue);
           }
         }
 
-        // Set InAttendance options (multi-select - no current value preservation needed)
+        // Set InAttendance options (multi-select - preserve current selections)
         if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
           this.inAttendanceOptions = optionsByService['InAttendance'];
           if (!this.inAttendanceOptions.includes('Other')) {
             this.inAttendanceOptions.push('Other');
+          }
+          // Add any current selections that aren't in the new options
+          if (this.inAttendanceSelections && this.inAttendanceSelections.length > 0) {
+            this.inAttendanceSelections.forEach(selection => {
+              if (selection && selection !== 'Other' && !this.optionsIncludeNormalized(this.inAttendanceOptions, selection)) {
+                console.log(`[ProjectDetails] Adding missing InAttendance selection to options: "${selection}"`);
+                // Add before 'Other' if it exists
+                const otherIndex = this.inAttendanceOptions.indexOf('Other');
+                if (otherIndex > 0) {
+                  this.inAttendanceOptions.splice(otherIndex, 0, selection);
+                } else {
+                  this.inAttendanceOptions.push(selection);
+                }
+              }
+            });
           }
         }
 
@@ -454,8 +490,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.firstFoundationTypeOptions.includes('Other')) {
             this.firstFoundationTypeOptions.push('Other');
           }
-          // Preserve current value if not in options
-          if (currentValue && !this.firstFoundationTypeOptions.includes(currentValue) && currentValue !== 'Other') {
+          // Preserve current value if not in options (use normalized comparison)
+          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.firstFoundationTypeOptions, currentValue)) {
             console.log(`[ProjectDetails] Adding missing FirstFoundationType value to options: "${currentValue}"`);
             this.firstFoundationTypeOptions.unshift(currentValue);
           }
@@ -468,8 +504,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.secondFoundationTypeOptions.includes('Other')) {
             this.secondFoundationTypeOptions.push('Other');
           }
-          // Preserve current value if not in options
-          if (currentValue && !this.secondFoundationTypeOptions.includes(currentValue) && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
+          // Preserve current value if not in options (use normalized comparison)
+          if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '' && !this.optionsIncludeNormalized(this.secondFoundationTypeOptions, currentValue)) {
             console.log(`[ProjectDetails] Adding missing SecondFoundationType value to options: "${currentValue}"`);
             this.secondFoundationTypeOptions.unshift(currentValue);
           }
@@ -482,26 +518,54 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.thirdFoundationTypeOptions.includes('Other')) {
             this.thirdFoundationTypeOptions.push('Other');
           }
-          // Preserve current value if not in options
-          if (currentValue && !this.thirdFoundationTypeOptions.includes(currentValue) && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
+          // Preserve current value if not in options (use normalized comparison)
+          if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '' && !this.optionsIncludeNormalized(this.thirdFoundationTypeOptions, currentValue)) {
             console.log(`[ProjectDetails] Adding missing ThirdFoundationType value to options: "${currentValue}"`);
             this.thirdFoundationTypeOptions.unshift(currentValue);
           }
         }
 
-        // Set SecondFoundationRooms options
+        // Set SecondFoundationRooms options (multi-select - preserve current selections)
         if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
           this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
           if (!this.secondFoundationRoomsOptions.includes('Other')) {
             this.secondFoundationRoomsOptions.push('Other');
           }
+          // Add any current selections that aren't in the new options
+          if (this.secondFoundationRoomsSelections && this.secondFoundationRoomsSelections.length > 0) {
+            this.secondFoundationRoomsSelections.forEach(selection => {
+              if (selection && selection !== 'Other' && !this.optionsIncludeNormalized(this.secondFoundationRoomsOptions, selection)) {
+                console.log(`[ProjectDetails] Adding missing SecondFoundationRooms selection to options: "${selection}"`);
+                const otherIndex = this.secondFoundationRoomsOptions.indexOf('Other');
+                if (otherIndex > 0) {
+                  this.secondFoundationRoomsOptions.splice(otherIndex, 0, selection);
+                } else {
+                  this.secondFoundationRoomsOptions.push(selection);
+                }
+              }
+            });
+          }
         }
 
-        // Set ThirdFoundationRooms options
+        // Set ThirdFoundationRooms options (multi-select - preserve current selections)
         if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
           this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
           if (!this.thirdFoundationRoomsOptions.includes('Other')) {
             this.thirdFoundationRoomsOptions.push('Other');
+          }
+          // Add any current selections that aren't in the new options
+          if (this.thirdFoundationRoomsSelections && this.thirdFoundationRoomsSelections.length > 0) {
+            this.thirdFoundationRoomsSelections.forEach(selection => {
+              if (selection && selection !== 'Other' && !this.optionsIncludeNormalized(this.thirdFoundationRoomsOptions, selection)) {
+                console.log(`[ProjectDetails] Adding missing ThirdFoundationRooms selection to options: "${selection}"`);
+                const otherIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
+                if (otherIndex > 0) {
+                  this.thirdFoundationRoomsOptions.splice(otherIndex, 0, selection);
+                } else {
+                  this.thirdFoundationRoomsOptions.push(selection);
+                }
+              }
+            });
           }
         }
 
@@ -512,8 +576,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.ownerOccupantInterviewOptions.includes('Other')) {
             this.ownerOccupantInterviewOptions.push('Other');
           }
-          // Preserve current value if not in options
-          if (currentValue && !this.ownerOccupantInterviewOptions.includes(currentValue) && currentValue !== 'Other') {
+          // Preserve current value if not in options (use normalized comparison)
+          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.ownerOccupantInterviewOptions, currentValue)) {
             console.log(`[ProjectDetails] Adding missing OwnerOccupantInterview value to options: "${currentValue}"`);
             this.ownerOccupantInterviewOptions.unshift(currentValue);
           }
