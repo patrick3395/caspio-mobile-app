@@ -223,8 +223,8 @@ export class EngineersFoundationContainerPage implements OnInit {
     console.log('[EF Container] Downloading template for offline use...');
 
     try {
-      // Download complete template data for offline-first operation
-      await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE');
+      // Download complete template data for offline-first operation (include projectId for Project Details)
+      await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
       console.log('[EF Container] Template downloaded - ready for offline use');
     } catch (error) {
       // Non-critical - just log and continue (may already be cached or offline)

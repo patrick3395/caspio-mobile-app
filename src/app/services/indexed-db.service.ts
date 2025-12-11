@@ -1148,6 +1148,71 @@ export class IndexedDbService {
   }
 
   // ============================================
+  // PROJECT RECORD CACHING
+  // ============================================
+
+  /**
+   * Cache a project record for offline access
+   */
+  async cacheProjectRecord(projectId: string, project: any): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      console.warn('[IndexedDB] cachedServiceData store not available');
+      return;
+    }
+
+    const cacheEntry = {
+      cacheKey: `project_record_${projectId}`,
+      serviceId: projectId, // Using serviceId field for consistency
+      dataType: 'project_record',
+      data: [project],
+      lastUpdated: Date.now(),
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const putRequest = store.put(cacheEntry);
+
+      putRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Cached project record for ${projectId}`);
+        resolve();
+      };
+
+      putRequest.onerror = () => reject(putRequest.error);
+    });
+  }
+
+  /**
+   * Get cached project record
+   */
+  async getCachedProjectRecord(projectId: string): Promise<any | null> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readonly');
+      const store = transaction.objectStore('cachedServiceData');
+      const getRequest = store.get(`project_record_${projectId}`);
+
+      getRequest.onsuccess = () => {
+        const cached = getRequest.result;
+        if (cached && cached.data && cached.data.length > 0) {
+          resolve(cached.data[0]);
+        } else {
+          resolve(null);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  // ============================================
   // SERVICE RECORD CACHING
   // ============================================
 

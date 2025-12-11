@@ -39,7 +39,7 @@ export class OfflineTemplateService {
    * Call this when user creates or opens a service.
    * Returns immediately if already downloaded.
    */
-  async downloadTemplateForOffline(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE'): Promise<void> {
+  async downloadTemplateForOffline(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', projectId?: string): Promise<void> {
     const cacheKey = `${templateType}_${serviceId}`;
 
     // Already downloading? Return existing promise
@@ -67,7 +67,7 @@ export class OfflineTemplateService {
     console.log(`[OfflineTemplate] Starting download for ${cacheKey}...`);
     this.downloadStatus.set(cacheKey, 'downloading');
 
-    const downloadPromise = this.performDownload(serviceId, templateType, cacheKey);
+    const downloadPromise = this.performDownload(serviceId, templateType, cacheKey, projectId);
     this.downloadPromises.set(cacheKey, downloadPromise);
 
     try {
@@ -86,7 +86,7 @@ export class OfflineTemplateService {
   /**
    * Perform the actual download of all template data
    */
-  private async performDownload(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', cacheKey: string): Promise<void> {
+  private async performDownload(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', cacheKey: string, projectId?: string): Promise<void> {
     console.log(`[OfflineTemplate] Downloading all data for ${cacheKey}...`);
 
     try {
@@ -119,11 +119,25 @@ export class OfflineTemplateService {
         downloads.push(this.downloadEFEData(serviceId));
       }
 
-      // 5. Service record itself
+      // 5. Service record itself (also extract projectId if not provided)
       downloads.push(
         firstValueFrom(this.caspioService.getService(serviceId))
-          .then(service => this.indexedDb.cacheServiceRecord(serviceId, service))
-          .then(() => console.log('[OfflineTemplate] Service record cached'))
+          .then(async (service) => {
+            await this.indexedDb.cacheServiceRecord(serviceId, service);
+            console.log('[OfflineTemplate] Service record cached');
+
+            // Also cache the project if we have the ID
+            const pId = projectId || service?.ProjectID;
+            if (pId) {
+              try {
+                const project = await firstValueFrom(this.caspioService.getProject(String(pId)));
+                await this.indexedDb.cacheProjectRecord(String(pId), project);
+                console.log('[OfflineTemplate] Project record cached');
+              } catch (err) {
+                console.warn('[OfflineTemplate] Could not cache project:', err);
+              }
+            }
+          })
       );
 
       await Promise.all(downloads);
@@ -456,6 +470,37 @@ export class OfflineTemplateService {
     }
 
     console.log(`[OfflineTemplate] Updated service ${serviceId} (pending sync)`);
+  }
+
+  /**
+   * Update project record - saves to IndexedDB and queues for sync
+   */
+  async updateProject(projectId: string, updates: any): Promise<void> {
+    // Queue the update
+    await this.indexedDb.addPendingRequest({
+      type: 'UPDATE',
+      endpoint: `LPS_Projects/${projectId}`,
+      method: 'PUT',
+      data: updates,
+      dependencies: [],
+      status: 'pending',
+      priority: 'normal',
+    });
+
+    // Update local cache
+    const existingProject = await this.indexedDb.getCachedProjectRecord(projectId);
+    if (existingProject) {
+      await this.indexedDb.cacheProjectRecord(projectId, { ...existingProject, ...updates });
+    }
+
+    console.log(`[OfflineTemplate] Updated project ${projectId} (pending sync)`);
+  }
+
+  /**
+   * Get project record from IndexedDB
+   */
+  async getProject(projectId: string): Promise<any | null> {
+    return this.indexedDb.getCachedProjectRecord(projectId);
   }
 
   // ============================================
