@@ -2481,6 +2481,16 @@ export class CaspioService {
 
   async uploadVisualsAttachWithS3(visualId: number, drawingsData: string, file: File): Promise<any> {
     console.log('[VISUALS ATTACH S3] ========== Starting S3 Upload ==========');
+    console.log('[VISUALS ATTACH S3] VisualID:', visualId);
+    console.log('[VISUALS ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
+    console.log('[VISUALS ATTACH S3] Drawings length:', drawingsData?.length || 0);
+
+    // VALIDATION: Reject empty or invalid files
+    if (!file || file.size === 0) {
+      console.error('[VISUALS ATTACH S3] ❌ REJECTING: Empty or missing file!');
+      throw new Error('Cannot upload empty or missing file');
+    }
+
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
