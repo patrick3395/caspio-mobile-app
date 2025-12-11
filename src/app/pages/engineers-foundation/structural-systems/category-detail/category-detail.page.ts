@@ -313,6 +313,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       // Load templates for this category (fast - just structure)
       await this.loadCategoryTemplates();
 
+      // Clear cache before loading to ensure we get fresh data
+      // This is important after offline sync to avoid showing stale data
+      this.foundationData.clearServiceCaches(this.serviceId);
+
       // CRITICAL: Load existing visuals and WAIT for photo counts to be fetched
       // This ensures all skeletons are ready before the page shows
       await this.loadExistingVisuals();
@@ -654,11 +658,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       ...this.organizedData.deficiencies
     ];
 
-    return allItems.find(item =>
-      item.name === name &&
-      item.category === category &&
-      item.type === kind
-    );
+    return allItems.find(item => {
+      const nameMatch = item.name === name;
+      const categoryMatch = item.category === category || category === this.categoryName;
+      const kindMatch = item.type?.toLowerCase() === kind?.toLowerCase();
+      return nameMatch && categoryMatch && kindMatch;
+    });
   }
 
   private findItemByTemplateId(templateId: number): VisualItem | undefined {
