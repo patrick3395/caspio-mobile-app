@@ -2195,6 +2195,10 @@ export class CaspioService {
       const fileExt = file.name.split('.').pop() || 'jpg';
       const uniqueFilename = `hud_${hudId}_${timestamp}_${randomId}.${fileExt}`;
 
+      if (!attachId) {
+        throw new Error('Failed to create or find HUD attach record');
+      }
+
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
       formData.append('tableName', 'LPS_Services_HUD_Attach');
@@ -2434,6 +2438,10 @@ export class CaspioService {
       const timestamp = Date.now();
       const uniqueFilename = `lbw_${lbwId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
 
+      if (!attachId) {
+        throw new Error('Failed to create or find LBW attach record');
+      }
+
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
       formData.append('tableName', 'LPS_Services_LBW_Attach');
@@ -2519,6 +2527,10 @@ export class CaspioService {
       const timestamp = Date.now();
       const uniqueFilename = `visual_${visualId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
 
+      if (!attachId) {
+        throw new Error('Failed to create or find Visuals attach record');
+      }
+
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
       formData.append('tableName', 'LPS_Services_Visuals_Attach');
@@ -2599,6 +2611,10 @@ export class CaspioService {
       }
       const timestamp = Date.now();
       const uniqueFilename = `dte_${dteId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
+
+      if (!attachId) {
+        throw new Error('Failed to create or find DTE attach record');
+      }
 
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
