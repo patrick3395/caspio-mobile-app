@@ -2090,11 +2090,55 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             this.ownerOccupantInterviewOptions.push('Other');
           }
         }
+
+        // After loading API options, normalize current values to match option encoding
+        this.normalizeServiceDataToMatchOptions();
       }
     } catch (error) {
       console.error('Error loading Services_Drop options:', error);
       // Keep default options on error
     }
+  }
+
+  // Normalize service data values to match dropdown option encoding (fixes degree symbol mismatches)
+  private normalizeServiceDataToMatchOptions() {
+    if (!this.serviceData) return;
+
+    const fieldMappings = [
+      { field: 'OutdoorTemperature', options: this.outdoorTemperatureOptions },
+      { field: 'WeatherConditions', options: this.weatherConditionsOptions },
+      { field: 'OccupancyFurnishings', options: this.occupancyFurnishingsOptions },
+      { field: 'FirstFoundationType', options: this.firstFoundationTypeOptions },
+      { field: 'SecondFoundationType', options: this.secondFoundationTypeOptions },
+      { field: 'ThirdFoundationType', options: this.thirdFoundationTypeOptions },
+      { field: 'OwnerOccupantInterview', options: this.ownerOccupantInterviewOptions }
+    ];
+
+    fieldMappings.forEach(({ field, options }) => {
+      const value = this.serviceData[field];
+      if (value && value !== 'Other' && value.trim() !== '') {
+        const normalizedValue = this.normalizeForComparison(value);
+        const matchingOption = options.find(opt =>
+          this.normalizeForComparison(opt) === normalizedValue
+        );
+
+        if (matchingOption && matchingOption !== value) {
+          console.log(`[normalizeServiceDataToMatchOptions] Updating ${field}: "${value}" -> "${matchingOption}"`);
+          this.serviceData[field] = matchingOption;
+        } else if (!matchingOption && value !== 'Other') {
+          // Value not in options - add it
+          const otherIndex = options.indexOf('Other');
+          if (otherIndex > 0) {
+            options.splice(otherIndex, 0, value);
+          } else {
+            options.push(value);
+          }
+          console.log(`[normalizeServiceDataToMatchOptions] Added "${value}" to ${field} options`);
+        }
+      }
+    });
+
+    this.changeDetectorRef.detectChanges();
   }
 
   // Load status options from Status table

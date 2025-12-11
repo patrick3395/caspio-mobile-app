@@ -305,10 +305,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.weatherConditionsOptions.includes('Other')) {
             this.weatherConditionsOptions.push('Other');
           }
-          // Preserve current value if not in options (use normalized comparison)
-          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.weatherConditionsOptions, currentValue)) {
-            console.log(`[ProjectDetails] Adding missing WeatherConditions value to options: "${currentValue}"`);
-            this.weatherConditionsOptions.unshift(currentValue);
+          // Handle current value - either normalize to match option or add to options
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.weatherConditionsOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing WeatherConditions: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.WeatherConditions = matchingOption;
+            } else if (!matchingOption) {
+              console.log(`[ProjectDetails] Adding missing WeatherConditions value to options: "${currentValue}"`);
+              this.weatherConditionsOptions.unshift(currentValue);
+            }
           }
         }
 
@@ -319,10 +328,21 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.outdoorTemperatureOptions.includes('Other')) {
             this.outdoorTemperatureOptions.push('Other');
           }
-          // Preserve current value if not in options (use normalized comparison)
-          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.outdoorTemperatureOptions, currentValue)) {
-            console.log(`[ProjectDetails] Adding missing OutdoorTemperature value to options: "${currentValue}"`);
-            this.outdoorTemperatureOptions.unshift(currentValue);
+          // Handle current value - either normalize to match option or add to options
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.outdoorTemperatureOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              // Option exists with different encoding - update value to match
+              console.log(`[ProjectDetails] Normalizing OutdoorTemperature: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.OutdoorTemperature = matchingOption;
+            } else if (!matchingOption) {
+              // Value truly not in options - add it
+              console.log(`[ProjectDetails] Adding missing OutdoorTemperature value to options: "${currentValue}"`);
+              this.outdoorTemperatureOptions.unshift(currentValue);
+            }
           }
 
           // Reorder to put "30°F -" first (if it exists)
@@ -342,10 +362,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.occupancyFurnishingsOptions.includes('Other')) {
             this.occupancyFurnishingsOptions.push('Other');
           }
-          // Preserve current value if not in options (use normalized comparison)
-          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.occupancyFurnishingsOptions, currentValue)) {
-            console.log(`[ProjectDetails] Adding missing OccupancyFurnishings value to options: "${currentValue}"`);
-            this.occupancyFurnishingsOptions.unshift(currentValue);
+          // Handle current value - either normalize to match option or add to options
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.occupancyFurnishingsOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing OccupancyFurnishings: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.OccupancyFurnishings = matchingOption;
+            } else if (!matchingOption) {
+              console.log(`[ProjectDetails] Adding missing OccupancyFurnishings value to options: "${currentValue}"`);
+              this.occupancyFurnishingsOptions.unshift(currentValue);
+            }
           }
         }
 
@@ -379,10 +408,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.firstFoundationTypeOptions.includes('Other')) {
             this.firstFoundationTypeOptions.push('Other');
           }
-          // Preserve current value if not in options (use normalized comparison)
-          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.firstFoundationTypeOptions, currentValue)) {
-            console.log(`[ProjectDetails] Adding missing FirstFoundationType value to options: "${currentValue}"`);
-            this.firstFoundationTypeOptions.unshift(currentValue);
+          // Handle current value - either normalize to match option or add to options
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.firstFoundationTypeOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing FirstFoundationType: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.FirstFoundationType = matchingOption;
+            } else if (!matchingOption) {
+              console.log(`[ProjectDetails] Adding missing FirstFoundationType value to options: "${currentValue}"`);
+              this.firstFoundationTypeOptions.unshift(currentValue);
+            }
           }
         }
 
@@ -393,10 +431,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.secondFoundationTypeOptions.includes('Other')) {
             this.secondFoundationTypeOptions.push('Other');
           }
-          // Preserve current value if not in options (use normalized comparison)
-          if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '' && !this.optionsIncludeNormalized(this.secondFoundationTypeOptions, currentValue)) {
-            console.log(`[ProjectDetails] Adding missing SecondFoundationType value to options: "${currentValue}"`);
-            this.secondFoundationTypeOptions.unshift(currentValue);
+          // Handle current value - either normalize to match option or add to options
+          if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.secondFoundationTypeOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing SecondFoundationType: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.SecondFoundationType = matchingOption;
+            } else if (!matchingOption) {
+              console.log(`[ProjectDetails] Adding missing SecondFoundationType value to options: "${currentValue}"`);
+              this.secondFoundationTypeOptions.unshift(currentValue);
+            }
           }
         }
 
@@ -407,10 +454,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.thirdFoundationTypeOptions.includes('Other')) {
             this.thirdFoundationTypeOptions.push('Other');
           }
-          // Preserve current value if not in options (use normalized comparison)
-          if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '' && !this.optionsIncludeNormalized(this.thirdFoundationTypeOptions, currentValue)) {
-            console.log(`[ProjectDetails] Adding missing ThirdFoundationType value to options: "${currentValue}"`);
-            this.thirdFoundationTypeOptions.unshift(currentValue);
+          // Handle current value - either normalize to match option or add to options
+          if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.thirdFoundationTypeOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing ThirdFoundationType: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.ThirdFoundationType = matchingOption;
+            } else if (!matchingOption) {
+              console.log(`[ProjectDetails] Adding missing ThirdFoundationType value to options: "${currentValue}"`);
+              this.thirdFoundationTypeOptions.unshift(currentValue);
+            }
           }
         }
 
@@ -465,10 +521,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.ownerOccupantInterviewOptions.includes('Other')) {
             this.ownerOccupantInterviewOptions.push('Other');
           }
-          // Preserve current value if not in options (use normalized comparison)
-          if (currentValue && currentValue !== 'Other' && !this.optionsIncludeNormalized(this.ownerOccupantInterviewOptions, currentValue)) {
-            console.log(`[ProjectDetails] Adding missing OwnerOccupantInterview value to options: "${currentValue}"`);
-            this.ownerOccupantInterviewOptions.unshift(currentValue);
+          // Handle current value - either normalize to match option or add to options
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.ownerOccupantInterviewOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing OwnerOccupantInterview: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.OwnerOccupantInterview = matchingOption;
+            } else if (!matchingOption) {
+              console.log(`[ProjectDetails] Adding missing OwnerOccupantInterview value to options: "${currentValue}"`);
+              this.ownerOccupantInterviewOptions.unshift(currentValue);
+            }
           }
         }
         console.log('[ProjectDetails] loadDropdownOptions(): Options loaded, forcing change detection');
