@@ -1753,29 +1753,72 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                 const blob = await response.blob();
                 const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
 
-                // Create object URL for preview
-                const objectUrl = URL.createObjectURL(blob);
+                // Convert blob to data URL for persistent offline storage
+                const dataUrl = await this.blobToDataUrl(blob);
 
                 // Update skeleton to show preview + queued state
                 const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
                 if (skeletonIndex !== -1 && this.visualPhotos[key]) {
                   this.visualPhotos[key][skeletonIndex] = {
                     ...this.visualPhotos[key][skeletonIndex],
-                    url: objectUrl,
-                    thumbnailUrl: objectUrl,
-                    isObjectUrl: true,
+                    url: dataUrl,
+                    thumbnailUrl: dataUrl,
+                    isObjectUrl: false,
                     uploading: true,
                     isSkeleton: false,
-                    progress: 0
+                    progress: 0,
+                    _pendingFileId: skeleton.AttachID  // Track for IndexedDB retrieval
                   };
                   this.changeDetectorRef.detectChanges();
-                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview`);
+                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview (data URL)`);
                 }
 
-                // Add to background upload queue
-                const uploadFn = async (visualId: number, photo: File, caption: string) => {
+                // CRITICAL: Store photo in IndexedDB for offline support
+                await this.indexedDb.storePhotoFile(skeleton.AttachID, file, visualId, '', '');
+                console.log(`[GALLERY UPLOAD] Photo ${i + 1} stored in IndexedDB`);
+
+                // Queue the upload request in IndexedDB (survives app restart)
+                await this.indexedDb.addPendingRequest({
+                  type: 'UPLOAD_FILE',
+                  tempId: skeleton.AttachID,
+                  endpoint: 'VISUAL_PHOTO_UPLOAD',
+                  method: 'POST',
+                  data: {
+                    visualId: visualIdNum,
+                    fileId: skeleton.AttachID,
+                    caption: '',
+                    drawings: '',
+                    fileName: file.name,
+                    fileSize: file.size,
+                  },
+                  dependencies: [],
+                  status: 'pending',
+                  priority: 'high',
+                });
+
+                // Add to in-memory background upload queue for immediate attempt
+                const uploadFn = async (vId: number, photo: File, caption: string) => {
                   console.log(`[GALLERY UPLOAD] Uploading photo ${i + 1}/${images.photos.length}`);
-                  return await this.performVisualPhotoUpload(visualId, photo, key, true, null, null, skeleton.AttachID, caption);
+                  const result = await this.performVisualPhotoUpload(vId, photo, key, true, null, null, skeleton.AttachID, caption);
+
+                  if (result) {
+                    // In-memory upload succeeded - mark IndexedDB request as synced
+                    try {
+                      const pendingRequests = await this.indexedDb.getPendingRequests();
+                      const matchingRequest = pendingRequests.find(r =>
+                        r.tempId === skeleton.AttachID && r.endpoint === 'VISUAL_PHOTO_UPLOAD'
+                      );
+                      if (matchingRequest) {
+                        await this.indexedDb.updateRequestStatus(matchingRequest.requestId, 'synced');
+                        await this.indexedDb.deleteStoredFile(skeleton.AttachID);
+                        console.log(`[GALLERY UPLOAD] Marked IndexedDB request as synced for photo ${i + 1}`);
+                      }
+                    } catch (cleanupError) {
+                      console.warn('[GALLERY UPLOAD] Failed to cleanup IndexedDB:', cleanupError);
+                    }
+                  }
+
+                  return result;
                 };
 
                 this.backgroundUploadService.addToQueue(
@@ -1787,7 +1830,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                   uploadFn
                 );
 
-                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} queued for upload`);
+                // Trigger background sync
+                this.backgroundSync.triggerSync();
+
+                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} queued for upload (IndexedDB + in-memory)`);
 
               } catch (error) {
                 console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
@@ -2247,7 +2293,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       }
 
       const attachId = photo.AttachID || photo.id;
-      if (!attachId || String(attachId).startsWith('temp_')) {
+      if (!attachId) {
         return;
       }
 
@@ -2257,8 +2303,42 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // Get image URL
       let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
 
+      // Check if this is a pending/offline photo (temp ID) - retrieve from IndexedDB
+      const isPendingPhoto = String(attachId).startsWith('temp_') || photo._pendingFileId;
+      const pendingFileId = photo._pendingFileId || attachId;
+
+      if (isPendingPhoto) {
+        console.log('[VIEW PHOTO] Pending photo detected, retrieving from IndexedDB:', pendingFileId);
+        try {
+          const photoData = await this.indexedDb.getStoredPhotoData(pendingFileId);
+          if (photoData && photoData.file) {
+            // Convert file to data URL for the annotator
+            const blob = photoData.file;
+            imageUrl = await this.blobToDataUrl(blob);
+            console.log('[VIEW PHOTO] ✅ Retrieved pending photo from IndexedDB');
+          } else {
+            console.warn('[VIEW PHOTO] Pending photo not found in IndexedDB');
+            // If the photo has a data URL already, use it
+            if (photo.url && photo.url.startsWith('data:')) {
+              imageUrl = photo.url;
+            } else {
+              await this.showToast('Photo not available offline', 'warning');
+              return;
+            }
+          }
+        } catch (err) {
+          console.error('[VIEW PHOTO] Error retrieving pending photo:', err);
+          // Try using existing URL if available
+          if (photo.url && photo.url.startsWith('data:')) {
+            imageUrl = photo.url;
+          } else {
+            await this.showToast('Photo not available offline', 'warning');
+            return;
+          }
+        }
+      }
       // If no valid URL and we have a file path, try to fetch it
-      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo || photo.Attachment)) {
+      else if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo || photo.Attachment)) {
         try {
           // Check if this is an S3 key
           if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {
@@ -2453,6 +2533,19 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       position: 'bottom'
     });
     await toast.present();
+  }
+
+  /**
+   * Convert a Blob to a data URL string
+   * Used for persistent offline storage (data URLs survive page navigation unlike blob URLs)
+   */
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
   // ============================================
