@@ -14,6 +14,7 @@ import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-pho
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
 import { IndexedDbService } from '../../../../services/indexed-db.service';
+import { BackgroundSyncService } from '../../../../services/background-sync.service';
 
 interface VisualItem {
   id: string | number;
@@ -100,7 +101,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     private foundationData: EngineersFoundationDataService,
     private backgroundUploadService: BackgroundPhotoUploadService,
     private cache: CacheService,
-    private indexedDb: IndexedDbService
+    private indexedDb: IndexedDbService,
+    private backgroundSync: BackgroundSyncService
   ) {}
 
   async ngOnInit() {
