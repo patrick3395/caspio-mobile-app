@@ -1,12 +1,14 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AlertController, ToastController, ActionSheetController } from '@ionic/angular';
+import { Subscription } from 'rxjs';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
 import { EngineersFoundationDataService } from '../engineers-foundation-data.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { OperationsQueueService } from '../../../services/operations-queue.service';
+import { BackgroundSyncService } from '../../../services/background-sync.service';
 
 interface RoomTemplate {
   RoomName: string;
@@ -30,7 +32,7 @@ interface RoomDisplayData extends RoomTemplate {
   standalone: true,
   imports: [CommonModule, IonicModule]
 })
-export class ElevationPlotHubPage implements OnInit {
+export class ElevationPlotHubPage implements OnInit, OnDestroy {
   projectId: string = '';
   serviceId: string = '';
   roomTemplates: RoomDisplayData[] = [];
@@ -44,6 +46,9 @@ export class ElevationPlotHubPage implements OnInit {
 
   allRoomTemplates: RoomTemplate[] = [];
 
+  // Subscriptions for offline sync events
+  private roomSyncSubscription?: Subscription;
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -54,7 +59,8 @@ export class ElevationPlotHubPage implements OnInit {
     private toastController: ToastController,
     private actionSheetController: ActionSheetController,
     private changeDetectorRef: ChangeDetectorRef,
-    public operationsQueue: OperationsQueueService
+    public operationsQueue: OperationsQueueService,
+    private backgroundSync: BackgroundSyncService
   ) {}
 
   async ngOnInit() {
@@ -115,7 +121,47 @@ export class ElevationPlotHubPage implements OnInit {
       return;
     }
 
+    // Subscribe to EFE room sync completions (for offline-first support)
+    this.subscribeToSyncEvents();
+
     await this.loadRoomTemplates();
+  }
+
+  /**
+   * Subscribe to background sync events to update UI when offline rooms sync
+   */
+  private subscribeToSyncEvents(): void {
+    this.roomSyncSubscription = this.backgroundSync.efeRoomSyncComplete$.subscribe(event => {
+      console.log('[ElevationPlotHub] Room sync complete event:', event);
+
+      // Find the room with the temp ID and update with real ID
+      const roomName = Object.keys(this.efeRecordIds).find(
+        name => this.efeRecordIds[name] === event.tempId
+      );
+
+      if (roomName) {
+        console.log('[ElevationPlotHub] Updating room', roomName, 'with real ID:', event.realId);
+
+        // Update with real ID
+        this.efeRecordIds[roomName] = String(event.realId);
+        this.savingRooms[roomName] = false;
+
+        // Update in roomTemplates array
+        const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
+        if (roomIndex >= 0) {
+          this.roomTemplates[roomIndex].isSaving = false;
+          this.roomTemplates[roomIndex].efeId = String(event.realId);
+        }
+
+        this.changeDetectorRef.detectChanges();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.roomSyncSubscription) {
+      this.roomSyncSubscription.unsubscribe();
+    }
   }
 
   async navigateToRoom(room: RoomDisplayData, event?: Event) {
@@ -155,8 +201,6 @@ export class ElevationPlotHubPage implements OnInit {
       console.error('  - ServiceId value:', this.serviceId);
       console.error('  - ServiceId is empty?:', !this.serviceId);
       console.error('  - ServiceId is NaN?:', isNaN(serviceIdNum));
-      // Toast removed per user request
-      // await this.showToast(`Error: Invalid ServiceID (${this.serviceId}). Ensure you have the correct service ID.`, 'danger');
       return;
     }
 
@@ -176,42 +220,32 @@ export class ElevationPlotHubPage implements OnInit {
     roomData.Organization = nextOrganization;
     console.log('[Create Room] Setting Organization to:', nextOrganization);
 
-    // OPTIMISTIC UI: Immediately show room as selected with temp ID
-    this.selectedRooms[roomName] = true;
-    this.efeRecordIds[roomName] = `temp_${Date.now()}`;
-    this.savingRooms[roomName] = true;
-
     // Update room display data
     const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
-    if (roomIndex >= 0) {
-      this.roomTemplates[roomIndex].isSelected = true;
-      this.roomTemplates[roomIndex].isSaving = true;
-    }
-
-    this.changeDetectorRef.detectChanges();
 
     try {
-      // Create room in database
-      const response = await this.caspioService.createServicesEFE(roomData).toPromise();
-      // Use EFEID field - this is what links to Services_EFE_Points
-      const roomId = response?.EFEID || response?.PK_ID || response?.id;
+      // OFFLINE-FIRST: Use foundationData.createEFERoom() which handles IndexedDB queuing
+      const response = await this.foundationData.createEFERoom(roomData);
+      // Response may contain temp ID (temp_efe_xxx) or real EFEID
+      const roomId = response?.EFEID || response?._tempId || response?.PK_ID;
 
-      if (roomId) {
-        this.efeRecordIds[roomName] = roomId;
-        this.savingRooms[roomName] = false;
+      console.log('[Create Room] Room created with ID:', roomId, response._tempId ? '(temp)' : '(real)');
 
-        if (roomIndex >= 0) {
-          this.roomTemplates[roomIndex].isSaving = false;
-          this.roomTemplates[roomIndex].efeId = roomId;
-        }
+      // Update local state
+      this.selectedRooms[roomName] = true;
+      this.efeRecordIds[roomName] = roomId;
+      this.savingRooms[roomName] = !!response._syncing; // True if pending sync
 
-        this.changeDetectorRef.detectChanges();
-
-        // Navigate to room detail page
-        this.router.navigate(['room', roomName], { relativeTo: this.route });
-      } else {
-        throw new Error('No room ID returned from creation');
+      if (roomIndex >= 0) {
+        this.roomTemplates[roomIndex].isSelected = true;
+        this.roomTemplates[roomIndex].isSaving = !!response._syncing;
+        this.roomTemplates[roomIndex].efeId = roomId;
       }
+
+      this.changeDetectorRef.detectChanges();
+
+      // Navigate to room detail page (works with temp ID too)
+      this.router.navigate(['room', roomName], { relativeTo: this.route });
     } catch (error) {
       console.error('Error creating room:', error);
 
@@ -226,8 +260,6 @@ export class ElevationPlotHubPage implements OnInit {
       }
 
       this.changeDetectorRef.detectChanges();
-      // Toast removed per user request
-      // await this.showToast(`Failed to create room "${roomName}"`, 'danger');
     }
   }
 

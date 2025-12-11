@@ -12,6 +12,25 @@ export interface PhotoUploadComplete {
   result: any; // Contains AttachID, S3 URL, etc.
 }
 
+export interface EFERoomSyncComplete {
+  tempId: string;
+  realId: number;
+  result: any;
+}
+
+export interface EFEPointSyncComplete {
+  tempId: string;
+  realId: number;
+  result: any;
+}
+
+export interface EFEPhotoUploadComplete {
+  tempFileId: string;
+  tempPointId?: string;
+  realPointId: number;
+  result: any;
+}
+
 export interface SyncStatus {
   isSyncing: boolean;
   pendingCount: number;
@@ -43,6 +62,11 @@ export class BackgroundSyncService {
 
   // Emits when a photo upload completes - pages can subscribe to update local state
   public photoUploadComplete$ = new Subject<PhotoUploadComplete>();
+
+  // EFE sync events - pages can subscribe to update UI when EFE data syncs
+  public efeRoomSyncComplete$ = new Subject<EFERoomSyncComplete>();
+  public efePointSyncComplete$ = new Subject<EFEPointSyncComplete>();
+  public efePhotoUploadComplete$ = new Subject<EFEPhotoUploadComplete>();
 
   constructor(
     private indexedDb: IndexedDbService,
@@ -151,16 +175,59 @@ export class BackgroundSyncService {
       try {
         const result = await this.performSync(resolvedRequest);
 
-      // If this created a new record, store ID mapping
+      // If this created a new record, store ID mapping and emit events
       if (request.tempId) {
         let realId = null;
-        
-        // For Visuals, use VisualID field (not PK_ID) - attachments link to this
-        if (request.endpoint.includes('Services_Visuals')) {
+
+        // Determine the correct ID field based on the endpoint
+        if (request.endpoint.includes('Services_Visuals') && !request.endpoint.includes('Attach')) {
+          // For Visuals, use VisualID field (not PK_ID) - attachments link to this
           if (result && result.VisualID) {
             realId = result.VisualID;
           } else if (result && result.Result && result.Result[0]) {
             realId = result.Result[0].VisualID || result.Result[0].PK_ID;
+          }
+        } else if (request.endpoint.includes('Services_EFE_Points')) {
+          // For EFE Points, use PointID
+          if (result && result.PointID) {
+            realId = result.PointID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].PointID || result.Result[0].PK_ID;
+          }
+
+          // Emit point sync complete event
+          if (realId) {
+            this.ngZone.run(() => {
+              this.efePointSyncComplete$.next({
+                tempId: request.tempId!,
+                realId: parseInt(String(realId)),
+                result: result
+              });
+            });
+
+            // Also remove from pendingEFEData
+            await this.indexedDb.removePendingEFE(request.tempId);
+          }
+        } else if (request.endpoint.includes('Services_EFE/')) {
+          // For EFE Rooms, use EFEID
+          if (result && result.EFEID) {
+            realId = result.EFEID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].EFEID || result.Result[0].PK_ID;
+          }
+
+          // Emit room sync complete event
+          if (realId) {
+            this.ngZone.run(() => {
+              this.efeRoomSyncComplete$.next({
+                tempId: request.tempId!,
+                realId: parseInt(String(realId)),
+                result: result
+              });
+            });
+
+            // Also remove from pendingEFEData
+            await this.indexedDb.removePendingEFE(request.tempId);
           }
         } else {
           // For other tables, use PK_ID
@@ -177,7 +244,7 @@ export class BackgroundSyncService {
             realId.toString(),
             this.getTempIdType(request.tempId)
           );
-          console.log(`[BackgroundSync] Mapped ${request.tempId} → ${realId} (VisualID for attachments)`);
+          console.log(`[BackgroundSync] Mapped ${request.tempId} → ${realId}`);
         }
       }
 
@@ -247,6 +314,11 @@ export class BackgroundSyncService {
     // Handle photo uploads with temp Visual IDs
     if (request.endpoint === 'VISUAL_PHOTO_UPLOAD') {
       return this.syncVisualPhotoUpload(request);
+    }
+
+    // Handle EFE point photo uploads
+    if (request.endpoint === 'EFE_POINT_PHOTO_UPLOAD') {
+      return this.syncEFEPointPhotoUpload(request);
     }
 
     // Handle file uploads specially
@@ -351,6 +423,84 @@ export class BackgroundSyncService {
       return result;
     } catch (error: any) {
       console.error('[BackgroundSync] Photo upload failed, will retry with same idempotency key');
+      throw error;
+    }
+  }
+
+  /**
+   * Sync EFE point photo upload
+   * Handles offline photo uploads for elevation plot points
+   */
+  private async syncEFEPointPhotoUpload(request: PendingRequest): Promise<any> {
+    const data = request.data;
+
+    console.log('[BackgroundSync] EFE photo upload - raw data:', data);
+
+    // Get file and annotations from IndexedDB
+    const photoData = await this.indexedDb.getStoredEFEPhotoData(data.fileId);
+    if (!photoData) {
+      console.error('[BackgroundSync] EFE photo data not found in IndexedDB:', data.fileId);
+      await this.indexedDb.updateRequestStatus(request.requestId, 'failed', 'File not found in storage');
+      throw new Error(`EFE photo file not found: ${data.fileId}`);
+    }
+
+    const { file, drawings, photoType, pointId: storedPointId } = photoData;
+
+    console.log('[BackgroundSync] EFE file retrieved:', file.name, file.size, 'bytes');
+    console.log('[BackgroundSync] Drawings:', drawings.length, 'chars, photoType:', photoType);
+
+    // Resolve temp Point ID to real ID if needed
+    let pointId = data.tempPointId || data.pointId || storedPointId;
+    console.log('[BackgroundSync] Point ID from request:', pointId);
+
+    if (pointId && String(pointId).startsWith('temp_')) {
+      const realId = await this.indexedDb.getRealId(String(pointId));
+      console.log('[BackgroundSync] Resolved temp Point ID:', pointId, '→', realId);
+
+      if (!realId) {
+        throw new Error(`EFE Point not synced yet: ${pointId}`);
+      }
+      pointId = parseInt(realId);
+    } else {
+      pointId = parseInt(String(pointId));
+    }
+
+    // Validate Point ID
+    if (isNaN(pointId)) {
+      console.error('[BackgroundSync] Point ID is NaN:', data.pointId, data.tempPointId);
+      throw new Error(`Invalid Point ID: ${data.pointId || data.tempPointId}`);
+    }
+
+    console.log('[BackgroundSync] Final Point ID for EFE upload:', pointId);
+
+    try {
+      // Call the S3 upload method for EFE point attachments
+      const result = await this.caspioService.uploadEFEPointsAttachWithS3(
+        pointId,
+        drawings || data.drawings || '',
+        file,
+        photoType || data.photoType || 'Measurement'
+      );
+
+      console.log('[BackgroundSync] EFE photo uploaded to Point', pointId);
+
+      // Emit event so pages can update their local state
+      this.ngZone.run(() => {
+        this.efePhotoUploadComplete$.next({
+          tempFileId: data.fileId,
+          tempPointId: data.tempPointId,
+          realPointId: pointId,
+          result: result
+        });
+      });
+
+      // Clean up stored photo
+      await this.indexedDb.deleteStoredFile(data.fileId);
+      console.log('[BackgroundSync] Cleaned up EFE photo file:', data.fileId);
+
+      return result;
+    } catch (error: any) {
+      console.error('[BackgroundSync] EFE photo upload failed, will retry');
       throw error;
     }
   }

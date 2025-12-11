@@ -86,5 +86,77 @@ export class OfflineRestoreService {
     const stats = await this.indexedDb.getSyncStats();
     return stats.pending + stats.failed;
   }
+
+  // ============================================
+  // EFE (ELEVATION PLOT) RESTORE METHODS
+  // ============================================
+
+  /**
+   * Restore pending EFE rooms for a service
+   * Call this in elevation-plot-hub ngOnInit
+   */
+  async restorePendingEFERooms(serviceId: string): Promise<any[]> {
+    const pendingEFE = await this.indexedDb.getPendingEFEByService(serviceId);
+
+    const pendingRooms = pendingEFE.filter(p => p.type === 'room');
+
+    console.log(`[OfflineRestore] Found ${pendingRooms.length} pending EFE rooms for service ${serviceId}`);
+
+    return pendingRooms.map(p => ({
+      ...p.data,
+      EFEID: p.tempId,
+      PK_ID: p.tempId,
+      _tempId: p.tempId,
+      _syncing: true,
+      _localOnly: true,
+      _createdAt: p.createdAt,
+    }));
+  }
+
+  /**
+   * Restore pending EFE points for a room
+   * Call this in room-elevation ngOnInit
+   */
+  async restorePendingEFEPoints(roomId: string): Promise<any[]> {
+    const pendingPoints = await this.indexedDb.getPendingEFEPoints(roomId);
+
+    console.log(`[OfflineRestore] Found ${pendingPoints.length} pending EFE points for room ${roomId}`);
+
+    return pendingPoints.map(p => ({
+      ...p.data,
+      PointID: p.tempId,
+      PK_ID: p.tempId,
+      _tempId: p.tempId,
+      _syncing: true,
+      _localOnly: true,
+      _createdAt: p.createdAt,
+    }));
+  }
+
+  /**
+   * Restore pending EFE photos for a point
+   */
+  async restorePendingEFEPhotos(pointId: string): Promise<any[]> {
+    const pendingPhotos = await this.indexedDb.getPendingPhotosForPoint(pointId);
+
+    console.log(`[OfflineRestore] Found ${pendingPhotos.length} pending EFE photos for point ${pointId}`);
+
+    return pendingPhotos;
+  }
+
+  /**
+   * Get all pending EFE items for a service (rooms + points + photos)
+   * Useful for showing sync status
+   */
+  async getPendingEFECount(serviceId: string): Promise<{ rooms: number; points: number; photos: number }> {
+    const pendingEFE = await this.indexedDb.getPendingEFEByService(serviceId);
+    const allPhotos = await this.indexedDb.getAllPendingPhotos();
+
+    const rooms = pendingEFE.filter(p => p.type === 'room').length;
+    const points = pendingEFE.filter(p => p.type === 'point').length;
+    const photos = allPhotos.filter(p => p.isEFE).length;
+
+    return { rooms, points, photos };
+  }
 }
 

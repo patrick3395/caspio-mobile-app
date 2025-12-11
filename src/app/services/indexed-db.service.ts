@@ -25,12 +25,36 @@ export interface TempIdMapping {
   timestamp: number;
 }
 
+export interface CachedTemplate {
+  cacheKey: string;
+  type: 'visual' | 'efe';
+  templates: any[];
+  lastUpdated: number;
+}
+
+export interface CachedServiceData {
+  cacheKey: string;
+  serviceId: string;
+  dataType: 'visuals' | 'efe_rooms' | 'efe_points';
+  data: any[];
+  lastUpdated: number;
+}
+
+export interface PendingEFEData {
+  tempId: string;
+  serviceId: string;
+  type: 'room' | 'point';
+  parentId?: string;  // For points, this is the room's tempId or realId
+  data: any;
+  createdAt: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class IndexedDbService {
   private dbName = 'CaspioOfflineDB';
-  private version = 1;
+  private version = 2;  // Bumped for new stores
   private db: IDBDatabase | null = null;
 
   constructor() {
@@ -79,6 +103,29 @@ export class IndexedDbService {
           const imageStore = db.createObjectStore('pendingImages', { keyPath: 'imageId' });
           imageStore.createIndex('requestId', 'requestId', { unique: false });
           imageStore.createIndex('status', 'status', { unique: false });
+        }
+
+        // Cached templates store (for visual/EFE templates - rarely change)
+        if (!db.objectStoreNames.contains('cachedTemplates')) {
+          const templateStore = db.createObjectStore('cachedTemplates', { keyPath: 'cacheKey' });
+          templateStore.createIndex('type', 'type', { unique: false });
+          templateStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
+        }
+
+        // Cached service data store (for visuals, EFE rooms per service)
+        if (!db.objectStoreNames.contains('cachedServiceData')) {
+          const serviceDataStore = db.createObjectStore('cachedServiceData', { keyPath: 'cacheKey' });
+          serviceDataStore.createIndex('serviceId', 'serviceId', { unique: false });
+          serviceDataStore.createIndex('dataType', 'dataType', { unique: false });
+          serviceDataStore.createIndex('lastUpdated', 'lastUpdated', { unique: false });
+        }
+
+        // Pending EFE data store (for offline-created rooms/points)
+        if (!db.objectStoreNames.contains('pendingEFEData')) {
+          const efeStore = db.createObjectStore('pendingEFEData', { keyPath: 'tempId' });
+          efeStore.createIndex('serviceId', 'serviceId', { unique: false });
+          efeStore.createIndex('type', 'type', { unique: false });
+          efeStore.createIndex('parentId', 'parentId', { unique: false });
         }
 
         console.log('[IndexedDB] Database schema created');
@@ -623,11 +670,14 @@ export class IndexedDbService {
     const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['pendingRequests', 'tempIdMappings', 'pendingImages'], 'readwrite');
-      
-      transaction.objectStore('pendingRequests').clear();
-      transaction.objectStore('tempIdMappings').clear();
-      transaction.objectStore('pendingImages').clear();
+      const storeNames = ['pendingRequests', 'tempIdMappings', 'pendingImages', 'cachedTemplates', 'cachedServiceData', 'pendingEFEData'];
+      const existingStores = storeNames.filter(name => db.objectStoreNames.contains(name));
+
+      const transaction = db.transaction(existingStores, 'readwrite');
+
+      existingStores.forEach(storeName => {
+        transaction.objectStore(storeName).clear();
+      });
 
       transaction.oncomplete = () => {
         console.log('[IndexedDB] All data cleared');
@@ -635,6 +685,465 @@ export class IndexedDbService {
       };
 
       transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  // ============================================
+  // TEMPLATE CACHING METHODS
+  // ============================================
+
+  /**
+   * Cache templates (visual or EFE) in IndexedDB
+   */
+  async cacheTemplates(type: 'visual' | 'efe', templates: any[]): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedTemplates')) {
+      console.warn('[IndexedDB] cachedTemplates store not available');
+      return;
+    }
+
+    const cacheEntry: CachedTemplate = {
+      cacheKey: `templates_${type}`,
+      type,
+      templates,
+      lastUpdated: Date.now(),
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedTemplates'], 'readwrite');
+      const store = transaction.objectStore('cachedTemplates');
+      const putRequest = store.put(cacheEntry);
+
+      putRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Cached ${templates.length} ${type} templates`);
+        resolve();
+      };
+
+      putRequest.onerror = () => reject(putRequest.error);
+    });
+  }
+
+  /**
+   * Get cached templates from IndexedDB
+   */
+  async getCachedTemplates(type: 'visual' | 'efe'): Promise<any[] | null> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedTemplates')) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedTemplates'], 'readonly');
+      const store = transaction.objectStore('cachedTemplates');
+      const getRequest = store.get(`templates_${type}`);
+
+      getRequest.onsuccess = () => {
+        const cached = getRequest.result as CachedTemplate;
+        if (cached) {
+          console.log(`[IndexedDB] Retrieved ${cached.templates.length} cached ${type} templates`);
+          resolve(cached.templates);
+        } else {
+          resolve(null);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Check if template cache is still valid
+   */
+  async isTemplateCacheValid(type: 'visual' | 'efe', maxAgeMs: number): Promise<boolean> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedTemplates')) {
+      return false;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedTemplates'], 'readonly');
+      const store = transaction.objectStore('cachedTemplates');
+      const getRequest = store.get(`templates_${type}`);
+
+      getRequest.onsuccess = () => {
+        const cached = getRequest.result as CachedTemplate;
+        if (cached && (Date.now() - cached.lastUpdated) < maxAgeMs) {
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  // ============================================
+  // SERVICE DATA CACHING METHODS
+  // ============================================
+
+  /**
+   * Cache service-specific data (visuals, EFE rooms, etc.)
+   */
+  async cacheServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points', data: any[]): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      console.warn('[IndexedDB] cachedServiceData store not available');
+      return;
+    }
+
+    const cacheEntry: CachedServiceData = {
+      cacheKey: `${dataType}_${serviceId}`,
+      serviceId,
+      dataType,
+      data,
+      lastUpdated: Date.now(),
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const putRequest = store.put(cacheEntry);
+
+      putRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Cached ${data.length} ${dataType} for service ${serviceId}`);
+        resolve();
+      };
+
+      putRequest.onerror = () => reject(putRequest.error);
+    });
+  }
+
+  /**
+   * Get cached service data from IndexedDB
+   */
+  async getCachedServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points'): Promise<any[] | null> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readonly');
+      const store = transaction.objectStore('cachedServiceData');
+      const getRequest = store.get(`${dataType}_${serviceId}`);
+
+      getRequest.onsuccess = () => {
+        const cached = getRequest.result as CachedServiceData;
+        if (cached) {
+          console.log(`[IndexedDB] Retrieved ${cached.data.length} cached ${dataType} for service ${serviceId}`);
+          resolve(cached.data);
+        } else {
+          resolve(null);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Check if service data cache is still valid
+   */
+  async isServiceDataCacheValid(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points', maxAgeMs: number): Promise<boolean> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return false;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readonly');
+      const store = transaction.objectStore('cachedServiceData');
+      const getRequest = store.get(`${dataType}_${serviceId}`);
+
+      getRequest.onsuccess = () => {
+        const cached = getRequest.result as CachedServiceData;
+        if (cached && (Date.now() - cached.lastUpdated) < maxAgeMs) {
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Invalidate all cached data for a specific service
+   */
+  async invalidateServiceCache(serviceId: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const index = store.index('serviceId');
+      const getRequest = index.getAllKeys(serviceId);
+
+      getRequest.onsuccess = () => {
+        const keys = getRequest.result;
+        keys.forEach(key => store.delete(key));
+        console.log(`[IndexedDB] Invalidated ${keys.length} cache entries for service ${serviceId}`);
+        resolve();
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  // ============================================
+  // PENDING EFE DATA METHODS
+  // ============================================
+
+  /**
+   * Add pending EFE data (offline-created room or point)
+   */
+  async addPendingEFE(data: Omit<PendingEFEData, 'createdAt'>): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('pendingEFEData')) {
+      console.warn('[IndexedDB] pendingEFEData store not available');
+      return;
+    }
+
+    const fullData: PendingEFEData = {
+      ...data,
+      createdAt: Date.now(),
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingEFEData'], 'readwrite');
+      const store = transaction.objectStore('pendingEFEData');
+      const addRequest = store.put(fullData);
+
+      addRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Added pending EFE ${data.type}:`, data.tempId);
+        resolve();
+      };
+
+      addRequest.onerror = () => reject(addRequest.error);
+    });
+  }
+
+  /**
+   * Get all pending EFE data for a service
+   */
+  async getPendingEFEByService(serviceId: string): Promise<PendingEFEData[]> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('pendingEFEData')) {
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingEFEData'], 'readonly');
+      const store = transaction.objectStore('pendingEFEData');
+      const index = store.index('serviceId');
+      const getRequest = index.getAll(serviceId);
+
+      getRequest.onsuccess = () => {
+        const results = getRequest.result as PendingEFEData[];
+        console.log(`[IndexedDB] Found ${results.length} pending EFE items for service ${serviceId}`);
+        resolve(results);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Get pending EFE points for a specific room
+   */
+  async getPendingEFEPoints(roomTempId: string): Promise<PendingEFEData[]> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('pendingEFEData')) {
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingEFEData'], 'readonly');
+      const store = transaction.objectStore('pendingEFEData');
+      const index = store.index('parentId');
+      const getRequest = index.getAll(roomTempId);
+
+      getRequest.onsuccess = () => {
+        const results = (getRequest.result as PendingEFEData[]).filter(r => r.type === 'point');
+        console.log(`[IndexedDB] Found ${results.length} pending points for room ${roomTempId}`);
+        resolve(results);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Remove pending EFE data after sync
+   */
+  async removePendingEFE(tempId: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('pendingEFEData')) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingEFEData'], 'readwrite');
+      const store = transaction.objectStore('pendingEFEData');
+      const deleteRequest = store.delete(tempId);
+
+      deleteRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Removed pending EFE:`, tempId);
+        resolve();
+      };
+
+      deleteRequest.onerror = () => reject(deleteRequest.error);
+    });
+  }
+
+  /**
+   * Get all pending EFE rooms (for restore on app start)
+   */
+  async getAllPendingEFERooms(): Promise<PendingEFEData[]> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('pendingEFEData')) {
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingEFEData'], 'readonly');
+      const store = transaction.objectStore('pendingEFEData');
+      const index = store.index('type');
+      const getRequest = index.getAll('room');
+
+      getRequest.onsuccess = () => {
+        resolve(getRequest.result as PendingEFEData[]);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  // ============================================
+  // EFE PHOTO STORAGE METHODS
+  // ============================================
+
+  /**
+   * Store EFE photo file for offline upload
+   */
+  async storeEFEPhotoFile(tempId: string, file: File, pointId: string, photoType: string, drawings?: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    const arrayBuffer = await file.arrayBuffer();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readwrite');
+      const store = transaction.objectStore('pendingImages');
+
+      const imageData = {
+        imageId: tempId,
+        fileData: arrayBuffer,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        pointId: pointId,  // EFE point ID (temp or real)
+        photoType: photoType || 'Measurement',
+        drawings: drawings || '',
+        isEFE: true,  // Flag to distinguish from visual photos
+        status: 'pending',
+        createdAt: Date.now(),
+      };
+
+      const addRequest = store.put(imageData);
+
+      addRequest.onsuccess = () => {
+        console.log('[IndexedDB] EFE photo file stored:', tempId, file.size, 'bytes');
+        resolve();
+      };
+
+      addRequest.onerror = () => reject(addRequest.error);
+    });
+  }
+
+  /**
+   * Get stored EFE photo data for sync
+   */
+  async getStoredEFEPhotoData(fileId: string): Promise<{ file: File; drawings: string; photoType: string; pointId: string } | null> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readonly');
+      const store = transaction.objectStore('pendingImages');
+      const getRequest = store.get(fileId);
+
+      getRequest.onsuccess = () => {
+        const imageData = getRequest.result;
+
+        if (!imageData || !imageData.fileData) {
+          console.warn('[IndexedDB] No EFE photo data found for:', fileId);
+          resolve(null);
+          return;
+        }
+
+        const blob = new Blob([imageData.fileData], { type: imageData.fileType });
+        const file = new File([blob], imageData.fileName, { type: imageData.fileType });
+
+        console.log('[IndexedDB] EFE photo data retrieved:', file.name, file.size, 'bytes');
+
+        resolve({
+          file,
+          drawings: imageData.drawings || '',
+          photoType: imageData.photoType || 'Measurement',
+          pointId: imageData.pointId || ''
+        });
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Get pending photos for a specific EFE point
+   */
+  async getPendingPhotosForPoint(pointId: string): Promise<any[]> {
+    const allPhotos = await this.getAllPendingPhotos();
+
+    // Filter by point ID (EFE photos)
+    const pointPhotos = allPhotos.filter(p => p.isEFE && String(p.pointId) === String(pointId));
+
+    return pointPhotos.map(photo => {
+      const blob = new Blob([photo.fileData], { type: photo.fileType || 'image/jpeg' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      return {
+        AttachID: photo.imageId,
+        id: photo.imageId,
+        _pendingFileId: photo.imageId,
+        url: blobUrl,
+        originalUrl: blobUrl,
+        thumbnailUrl: blobUrl,
+        displayUrl: blobUrl,
+        Type: photo.photoType || 'Measurement',
+        drawings: photo.drawings || '',
+        Drawings: photo.drawings || '',
+        queued: true,
+        uploading: false,
+        isPending: true,
+        isEFE: true,
+        createdAt: photo.createdAt
+      };
     });
   }
 }

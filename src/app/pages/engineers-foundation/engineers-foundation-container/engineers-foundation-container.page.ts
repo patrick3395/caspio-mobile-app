@@ -4,6 +4,7 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
 import { EngineersFoundationPdfService } from '../services/engineers-foundation-pdf.service';
+import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { filter } from 'rxjs/operators';
 
 interface Breadcrumb {
@@ -17,7 +18,7 @@ interface Breadcrumb {
   templateUrl: './engineers-foundation-container.page.html',
   styleUrls: ['./engineers-foundation-container.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule]
+  imports: [CommonModule, IonicModule, RouterModule, SyncStatusWidgetComponent]
 })
 export class EngineersFoundationContainerPage implements OnInit {
   projectId: string = '';

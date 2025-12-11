@@ -4,6 +4,8 @@ import { CaspioService } from '../../services/caspio.service';
 import { IndexedDbService } from '../../services/indexed-db.service';
 import { TempIdService } from '../../services/temp-id.service';
 import { BackgroundSyncService } from '../../services/background-sync.service';
+import { OfflineDataCacheService } from '../../services/offline-data-cache.service';
+import { OfflineService } from '../../services/offline.service';
 
 interface CacheEntry<T> {
   value: Promise<T>;
@@ -28,7 +30,9 @@ export class EngineersFoundationDataService {
     private readonly caspioService: CaspioService,
     private readonly indexedDb: IndexedDbService,
     private readonly tempId: TempIdService,
-    private readonly backgroundSync: BackgroundSyncService
+    private readonly backgroundSync: BackgroundSyncService,
+    private readonly offlineCache: OfflineDataCacheService,
+    private readonly offlineService: OfflineService
   ) {}
 
   async getProject(projectId: string | null | undefined): Promise<any> {
@@ -59,13 +63,29 @@ export class EngineersFoundationDataService {
   }
 
   async getEFETemplates(forceRefresh = false): Promise<any[]> {
-    if (!forceRefresh && this.efeTemplatesCache && !this.isExpired(this.efeTemplatesCache.timestamp)) {
-      return this.efeTemplatesCache.value;
+    // Use offline cache for templates (with IndexedDB persistence)
+    if (!forceRefresh) {
+      // Check in-memory cache first
+      if (this.efeTemplatesCache && !this.isExpired(this.efeTemplatesCache.timestamp)) {
+        return this.efeTemplatesCache.value;
+      }
     }
 
-    const loader = firstValueFrom(this.caspioService.getServicesEFETemplates());
-    this.efeTemplatesCache = { value: loader, timestamp: Date.now() };
-    return loader;
+    // Use OfflineDataCacheService which handles IndexedDB caching
+    const templatesPromise = this.offlineCache.getEFETemplates();
+
+    // Update in-memory cache
+    this.efeTemplatesCache = { value: templatesPromise, timestamp: Date.now() };
+
+    return templatesPromise;
+  }
+
+  /**
+   * Get visual templates with offline support
+   */
+  async getVisualsTemplates(forceRefresh = false): Promise<any[]> {
+    // Use offline cache for templates (with IndexedDB persistence)
+    return this.offlineCache.getVisualsTemplates();
   }
 
   async getEFEByService(serviceId: string, forceRefresh = true): Promise<any[]> {
@@ -432,5 +452,385 @@ export class EngineersFoundationDataService {
   clearEFEAttachmentsCache(): void {
     this.efeAttachmentsCache.clear();
     console.log('[EFE Photo] Cleared all EFE attachment caches');
+  }
+
+  // ============================================
+  // EFE ROOM METHODS (OFFLINE-FIRST)
+  // ============================================
+
+  /**
+   * Create an EFE room (offline-first pattern)
+   * Similar to createVisual() but for EFE records
+   */
+  async createEFERoom(roomData: any): Promise<any> {
+    console.log('[EFE Data] Creating new EFE room (OFFLINE-FIRST):', roomData);
+
+    // Generate temporary ID
+    const tempId = this.tempId.generateTempId('efe');
+
+    // Create placeholder for immediate UI
+    const placeholder = {
+      ...roomData,
+      EFEID: tempId,
+      PK_ID: tempId,
+      _tempId: tempId,
+      _localOnly: true,
+      _syncing: true,
+      _createdAt: Date.now(),
+    };
+
+    // Store in pendingEFEData for immediate display
+    await this.indexedDb.addPendingEFE({
+      tempId,
+      serviceId: String(roomData.ServiceID),
+      type: 'room',
+      data: placeholder,
+    });
+
+    // Store in IndexedDB for background sync
+    await this.indexedDb.addPendingRequest({
+      type: 'CREATE',
+      tempId: tempId,
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_EFE/records?response=rows',
+      method: 'POST',
+      data: roomData,
+      dependencies: [],
+      status: 'pending',
+      priority: 'high',
+    });
+
+    // Trigger background sync
+    this.backgroundSync.triggerSync();
+
+    console.log('[EFE Data] EFE room queued with temp ID:', tempId);
+
+    // Return placeholder immediately
+    return placeholder;
+  }
+
+  /**
+   * Update an EFE room
+   */
+  async updateEFERoom(efeId: string, roomData: any): Promise<any> {
+    console.log('[EFE Data] Updating EFE room:', efeId);
+
+    // Check if this is a temp ID (offline created room)
+    if (String(efeId).startsWith('temp_')) {
+      console.log('[EFE Data] Cannot update room with temp ID until synced');
+      throw new Error('Room not yet synced. Please wait for sync to complete.');
+    }
+
+    const result = await firstValueFrom(this.caspioService.updateServicesEFE(efeId, roomData));
+
+    // Invalidate service cache
+    if (roomData.ServiceID) {
+      await this.offlineCache.invalidateServiceCaches(String(roomData.ServiceID));
+    }
+
+    return result;
+  }
+
+  /**
+   * Delete an EFE room
+   */
+  async deleteEFERoom(efeId: string): Promise<any> {
+    console.log('[EFE Data] Deleting EFE room:', efeId);
+
+    // Check if this is a temp ID (offline created room)
+    if (String(efeId).startsWith('temp_')) {
+      // Remove from pending
+      await this.indexedDb.removePendingEFE(efeId);
+      console.log('[EFE Data] Removed pending EFE room:', efeId);
+      return { deleted: true };
+    }
+
+    const result = await firstValueFrom(this.caspioService.deleteServicesEFE(efeId));
+    return result;
+  }
+
+  // ============================================
+  // EFE POINT METHODS (OFFLINE-FIRST)
+  // ============================================
+
+  /**
+   * Create an EFE point (offline-first pattern with room dependency)
+   */
+  async createEFEPoint(pointData: any, roomTempId?: string): Promise<any> {
+    console.log('[EFE Data] Creating new EFE point (OFFLINE-FIRST):', pointData);
+
+    // Generate temporary ID
+    const tempId = this.tempId.generateTempId('point');
+
+    // Create placeholder for immediate UI
+    const placeholder = {
+      ...pointData,
+      PointID: tempId,
+      PK_ID: tempId,
+      _tempId: tempId,
+      _localOnly: true,
+      _syncing: true,
+      _createdAt: Date.now(),
+    };
+
+    // Determine parent ID (room's temp or real ID)
+    const parentId = roomTempId || String(pointData.EFEID);
+
+    // Store in pendingEFEData for immediate display
+    await this.indexedDb.addPendingEFE({
+      tempId,
+      serviceId: String(pointData.ServiceID || ''),
+      type: 'point',
+      parentId: parentId,
+      data: placeholder,
+    });
+
+    // Find dependencies if room uses temp ID
+    const dependencies: string[] = [];
+    if (roomTempId && String(roomTempId).startsWith('temp_')) {
+      const pending = await this.indexedDb.getPendingRequests();
+      const roomRequest = pending.find(r => r.tempId === roomTempId);
+      if (roomRequest) {
+        dependencies.push(roomRequest.requestId);
+        console.log('[EFE Data] Point depends on room request:', roomRequest.requestId);
+      }
+    }
+
+    // Store in IndexedDB for background sync
+    await this.indexedDb.addPendingRequest({
+      type: 'CREATE',
+      tempId: tempId,
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?response=rows',
+      method: 'POST',
+      data: pointData,
+      dependencies: dependencies,
+      status: 'pending',
+      priority: 'normal',
+    });
+
+    // Trigger background sync
+    this.backgroundSync.triggerSync();
+
+    console.log('[EFE Data] EFE point queued with temp ID:', tempId, 'dependencies:', dependencies);
+
+    // Return placeholder immediately
+    return placeholder;
+  }
+
+  /**
+   * Update an EFE point
+   */
+  async updateEFEPoint(pointId: string, pointData: any): Promise<any> {
+    console.log('[EFE Data] Updating EFE point:', pointId);
+
+    // Check if this is a temp ID
+    if (String(pointId).startsWith('temp_')) {
+      console.log('[EFE Data] Cannot update point with temp ID until synced');
+      throw new Error('Point not yet synced. Please wait for sync to complete.');
+    }
+
+    const result = await firstValueFrom(this.caspioService.updateServicesEFEPoints(pointId, pointData));
+
+    // Clear point caches
+    this.efePointsCache.clear();
+
+    return result;
+  }
+
+  /**
+   * Delete an EFE point
+   */
+  async deleteEFEPoint(pointId: string): Promise<any> {
+    console.log('[EFE Data] Deleting EFE point:', pointId);
+
+    // Check if this is a temp ID
+    if (String(pointId).startsWith('temp_')) {
+      // Remove from pending
+      await this.indexedDb.removePendingEFE(pointId);
+      console.log('[EFE Data] Removed pending EFE point:', pointId);
+      return { deleted: true };
+    }
+
+    const result = await firstValueFrom(this.caspioService.deleteServicesEFEPoints(pointId));
+
+    // Clear point caches
+    this.efePointsCache.clear();
+
+    return result;
+  }
+
+  // ============================================
+  // EFE PHOTO METHODS (OFFLINE-FIRST)
+  // ============================================
+
+  /**
+   * Upload EFE point photo (offline-first pattern with point dependency)
+   */
+  async uploadEFEPointPhoto(pointId: number | string, file: File, photoType: string = 'Measurement', drawings?: string): Promise<any> {
+    console.log('[EFE Photo] Uploading photo for PointID:', pointId);
+
+    const pointIdStr = String(pointId);
+    const isTempId = pointIdStr.startsWith('temp_');
+
+    // Generate temp photo ID
+    const tempPhotoId = `temp_efe_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create object URL for immediate thumbnail
+    const objectUrl = URL.createObjectURL(file);
+
+    // Store file in IndexedDB
+    await this.indexedDb.storeEFEPhotoFile(tempPhotoId, file, pointIdStr, photoType, drawings);
+
+    if (isTempId) {
+      // Point not synced - queue with dependency
+      const pending = await this.indexedDb.getPendingRequests();
+      const pointRequest = pending.find(r => r.tempId === pointIdStr);
+      const dependencies = pointRequest ? [pointRequest.requestId] : [];
+
+      await this.indexedDb.addPendingRequest({
+        type: 'UPLOAD_FILE',
+        tempId: tempPhotoId,
+        endpoint: 'EFE_POINT_PHOTO_UPLOAD',
+        method: 'POST',
+        data: {
+          tempPointId: pointIdStr,
+          fileId: tempPhotoId,
+          photoType: photoType || 'Measurement',
+          drawings: drawings || '',
+        },
+        dependencies: dependencies,
+        status: 'pending',
+        priority: 'normal',
+      });
+
+      console.log('[EFE Photo] Photo queued (waiting for Point):', tempPhotoId);
+
+      // Return placeholder with thumbnail
+      return {
+        AttachID: tempPhotoId,
+        PointID: pointIdStr,
+        Type: photoType,
+        Photo: objectUrl,
+        url: objectUrl,
+        thumbnailUrl: objectUrl,
+        _tempId: tempPhotoId,
+        _thumbnailUrl: objectUrl,
+        _syncing: true,
+        uploading: false,
+        queued: true,
+        isObjectUrl: true,
+        isEFE: true,
+      };
+    }
+
+    // Point has real ID - try to upload now
+    const pointIdNum = parseInt(pointIdStr, 10);
+
+    try {
+      const result = await firstValueFrom(
+        this.caspioService.uploadEFEPointsAttachWithS3(pointIdNum, drawings || '', file, photoType)
+      );
+
+      // Success - delete stored file
+      await this.indexedDb.deleteStoredFile(tempPhotoId);
+
+      // Clear caches
+      this.efeAttachmentsCache.clear();
+
+      console.log('[EFE Photo] Upload succeeded');
+      return result;
+    } catch (error) {
+      // Failed - keep in IndexedDB, queue for retry
+      await this.indexedDb.addPendingRequest({
+        type: 'UPLOAD_FILE',
+        tempId: tempPhotoId,
+        endpoint: 'EFE_POINT_PHOTO_UPLOAD',
+        method: 'POST',
+        data: {
+          pointId: pointIdNum,
+          fileId: tempPhotoId,
+          photoType: photoType || 'Measurement',
+          drawings: drawings || '',
+          fileName: file.name,
+          fileSize: file.size,
+        },
+        dependencies: [],
+        status: 'pending',
+        priority: 'high',
+      });
+
+      console.log('[EFE Photo] Upload failed, queued for retry');
+
+      // Return placeholder
+      return {
+        AttachID: tempPhotoId,
+        PointID: pointIdStr,
+        Type: photoType,
+        Photo: objectUrl,
+        url: objectUrl,
+        thumbnailUrl: objectUrl,
+        _tempId: tempPhotoId,
+        _thumbnailUrl: objectUrl,
+        _syncing: true,
+        uploading: false,
+        queued: true,
+        isObjectUrl: true,
+        isEFE: true,
+      };
+    }
+  }
+
+  /**
+   * Delete an EFE point photo
+   */
+  async deleteEFEPointPhoto(attachId: string): Promise<any> {
+    console.log('[EFE Photo] Deleting photo:', attachId);
+
+    // Check if this is a temp ID
+    if (String(attachId).startsWith('temp_')) {
+      // Remove from IndexedDB
+      await this.indexedDb.deleteStoredFile(attachId);
+      console.log('[EFE Photo] Removed pending photo:', attachId);
+      return { deleted: true };
+    }
+
+    const result = await firstValueFrom(this.caspioService.deleteServicesEFEAttach(attachId));
+
+    // Clear attachment caches
+    this.efeAttachmentsCache.clear();
+
+    return result;
+  }
+
+  /**
+   * Get merged EFE rooms (API + pending offline rooms)
+   */
+  async getMergedEFERooms(serviceId: string): Promise<any[]> {
+    // Get rooms from API (with offline cache fallback)
+    const apiRooms = await this.offlineCache.getEFEByService(serviceId);
+
+    // Merge with pending offline rooms
+    return this.offlineCache.getMergedEFERooms(serviceId, apiRooms);
+  }
+
+  /**
+   * Get merged EFE points (API + pending offline points)
+   */
+  async getMergedEFEPoints(roomId: string): Promise<any[]> {
+    // Get points from API (with offline cache fallback)
+    const apiPoints = await this.offlineCache.getEFEPoints(roomId);
+
+    // Merge with pending offline points
+    return this.offlineCache.getMergedEFEPoints(roomId, apiPoints);
+  }
+
+  /**
+   * Get merged visuals (API + pending offline visuals)
+   */
+  async getMergedVisuals(serviceId: string): Promise<any[]> {
+    // Get visuals from API (with offline cache fallback)
+    const apiVisuals = await this.offlineCache.getVisualsByService(serviceId);
+
+    // Merge with pending offline visuals
+    return this.offlineCache.getMergedVisuals(serviceId, apiVisuals);
   }
 }
