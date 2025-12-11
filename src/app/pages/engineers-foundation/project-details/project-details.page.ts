@@ -1,8 +1,9 @@
-﻿import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+﻿import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { EngineersFoundationStateService, ProjectData } from '../services/engineers-foundation-state.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { OfflineService } from '../../../services/offline.service';
@@ -17,11 +18,13 @@ import { OfflineTemplateService } from '../../../services/offline-template.servi
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class ProjectDetailsPage implements OnInit {
+export class ProjectDetailsPage implements OnInit, OnDestroy {
   projectId: string = '';
   serviceId: string = '';
   projectData: any = {};  // Use any to match original structure
   serviceData: any = {};  // Add serviceData for Services table fields
+
+  private syncSubscription?: Subscription;
 
   // Dropdown options
   inAttendanceOptions: string[] = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
@@ -108,6 +111,22 @@ export class ProjectDetailsPage implements OnInit {
         this.loadData();
       }
     });
+
+    // Subscribe to sync complete events to reload data after sync
+    this.syncSubscription = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
+      console.log('[ProjectDetails] Sync complete event received:', event);
+      // Reload data if this service or project was synced
+      if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
+        console.log('[ProjectDetails] Reloading data after sync...');
+        this.loadData();
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.syncSubscription) {
+      this.syncSubscription.unsubscribe();
+    }
   }
 
   private async loadData() {

@@ -31,6 +31,11 @@ export interface EFEPhotoUploadComplete {
   result: any;
 }
 
+export interface ServiceDataSyncComplete {
+  serviceId: string;
+  projectId?: string;
+}
+
 export interface SyncStatus {
   isSyncing: boolean;
   pendingCount: number;
@@ -67,6 +72,9 @@ export class BackgroundSyncService {
   public efeRoomSyncComplete$ = new Subject<EFERoomSyncComplete>();
   public efePointSyncComplete$ = new Subject<EFEPointSyncComplete>();
   public efePhotoUploadComplete$ = new Subject<EFEPhotoUploadComplete>();
+
+  // Service/Project data sync events - pages can subscribe to reload data after sync
+  public serviceDataSyncComplete$ = new Subject<ServiceDataSyncComplete>();
 
   constructor(
     private indexedDb: IndexedDbService,
@@ -671,40 +679,48 @@ export class BackgroundSyncService {
 
   /**
    * Update IndexedDB cache after successful UPDATE sync
-   * This ensures the cache stays in sync with the server
+   * Fetches fresh data from server to ensure cache has complete record
    */
   private async updateCacheAfterSync(request: PendingRequest, result: any): Promise<void> {
     try {
-      // Extract the updated record from result
-      const updatedRecord = result?.Result?.[0] || result;
-      if (!updatedRecord) return;
-
       // Check endpoint to determine which cache to update
       if (request.endpoint.includes('LPS_Services/records')) {
         // Extract service ID from endpoint (q.where=PK_ID=XXX)
         const match = request.endpoint.match(/PK_ID=(\d+)/);
         if (match) {
           const serviceId = match[1];
-          // Merge with existing cache data
-          const existing = await this.indexedDb.getCachedServiceRecord(serviceId);
-          const merged = existing ? { ...existing, ...updatedRecord } : updatedRecord;
-          await this.indexedDb.cacheServiceRecord(serviceId, merged);
-          console.log(`[BackgroundSync] Updated service cache for ${serviceId}`);
+          // Fetch complete record from server
+          const freshData = await this.caspioService.getService(serviceId).toPromise();
+          if (freshData) {
+            await this.indexedDb.cacheServiceRecord(serviceId, freshData);
+            console.log(`[BackgroundSync] Refreshed service cache for ${serviceId} from server`);
+
+            // Emit event so pages can reload their data
+            this.ngZone.run(() => {
+              this.serviceDataSyncComplete$.next({ serviceId });
+            });
+          }
         }
       } else if (request.endpoint.includes('LPS_Projects/records')) {
         // Extract project ID from endpoint (q.where=PK_ID=XXX)
         const match = request.endpoint.match(/PK_ID=(\d+)/);
         if (match) {
           const projectId = match[1];
-          // Merge with existing cache data
-          const existing = await this.indexedDb.getCachedProjectRecord(projectId);
-          const merged = existing ? { ...existing, ...updatedRecord } : updatedRecord;
-          await this.indexedDb.cacheProjectRecord(projectId, merged);
-          console.log(`[BackgroundSync] Updated project cache for ${projectId}`);
+          // Fetch complete record from server
+          const freshData = await this.caspioService.getProject(projectId).toPromise();
+          if (freshData) {
+            await this.indexedDb.cacheProjectRecord(projectId, freshData);
+            console.log(`[BackgroundSync] Refreshed project cache for ${projectId} from server`);
+
+            // Emit event so pages can reload their data
+            this.ngZone.run(() => {
+              this.serviceDataSyncComplete$.next({ projectId });
+            });
+          }
         }
       }
     } catch (error) {
-      console.warn('[BackgroundSync] Failed to update cache after sync:', error);
+      console.warn('[BackgroundSync] Failed to refresh cache after sync:', error);
       // Non-critical - don't throw
     }
   }

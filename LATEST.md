@@ -116,7 +116,8 @@ UI updated via photoUploadComplete$ event
 
 **Files Changed**:
 - `src/app/services/offline-template.service.ts` - Fixed endpoints, always update cache
-- `src/app/services/background-sync.service.ts` - Added updateCacheAfterSync() method
+- `src/app/services/background-sync.service.ts` - Added updateCacheAfterSync() method, serviceDataSyncComplete$ event
+- `src/app/pages/engineers-foundation/project-details/project-details.page.ts` - Subscribe to sync event to reload data
 
 ### 7. Offline Navigation (ChunkLoadError)
 **Problem**: When offline, navigating to structural systems, categories, or any template pages resulted in ChunkLoadError because these modules were lazy-loaded.
