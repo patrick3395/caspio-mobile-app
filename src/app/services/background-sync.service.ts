@@ -258,9 +258,12 @@ export class BackgroundSyncService {
 
         // Emit sync complete event for Service/Project updates so pages can reload
         if (request.type === 'UPDATE') {
+          console.log(`[BackgroundSync] UPDATE completed for endpoint: ${request.endpoint}`);
+          console.log(`[BackgroundSync] UPDATE data was:`, request.data);
           if (request.endpoint.includes('LPS_Services/records')) {
             const match = request.endpoint.match(/PK_ID=(\d+)/);
             if (match) {
+              console.log(`[BackgroundSync] Emitting serviceDataSyncComplete for serviceId=${match[1]}`);
               this.ngZone.run(() => {
                 this.serviceDataSyncComplete$.next({ serviceId: match[1] });
               });
@@ -268,6 +271,7 @@ export class BackgroundSyncService {
           } else if (request.endpoint.includes('LPS_Projects/records')) {
             const match = request.endpoint.match(/PK_ID=(\d+)/);
             if (match) {
+              console.log(`[BackgroundSync] Emitting serviceDataSyncComplete for projectId=${match[1]}`);
               this.ngZone.run(() => {
                 this.serviceDataSyncComplete$.next({ projectId: match[1] });
               });

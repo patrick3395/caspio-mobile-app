@@ -41,6 +41,7 @@ export class OfflineTemplateService {
    */
   async downloadTemplateForOffline(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', projectId?: string): Promise<void> {
     const cacheKey = `${templateType}_${serviceId}`;
+    console.log(`[OfflineTemplate] downloadTemplateForOffline(${serviceId}, ${templateType}) called`);
 
     // Already downloading? Return existing promise
     if (this.downloadPromises.has(cacheKey)) {
@@ -50,8 +51,9 @@ export class OfflineTemplateService {
 
     // Already ready? Check if data exists in IndexedDB
     const isReady = await this.isTemplateReady(serviceId, templateType);
+    console.log(`[OfflineTemplate] isTemplateReady(${serviceId}, ${templateType}) = ${isReady}`);
     if (isReady) {
-      console.log(`[OfflineTemplate] Template ${cacheKey} already cached`);
+      console.log(`[OfflineTemplate] Template ${cacheKey} already cached - NOT downloading again`);
       this.downloadStatus.set(cacheKey, 'ready');
       // Don't refresh here - it would overwrite offline changes before sync completes
       return;
@@ -145,22 +147,33 @@ export class OfflineTemplateService {
    * This prevents overwriting offline changes during template download
    */
   private async safeCacheServiceRecord(serviceId: string, projectId?: string): Promise<void> {
+    console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}) called`);
     try {
       // Check if there are pending OR syncing UPDATE requests for this service
       // Use getAllRequests() to include 'syncing' status (not just 'pending')
       const allRequests = await this.indexedDb.getAllRequests();
-      const hasPendingServiceUpdates = allRequests.some(r =>
+      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): found ${allRequests.length} total requests`);
+
+      const serviceUpdateRequests = allRequests.filter(r =>
         r.type === 'UPDATE' &&
-        (r.status === 'pending' || r.status === 'syncing') &&
         r.endpoint.includes('LPS_Services') &&
         r.endpoint.includes(`PK_ID=${serviceId}`)
       );
+      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): service update requests:`, serviceUpdateRequests.map(r => ({ status: r.status, data: r.data })));
+
+      const hasPendingServiceUpdates = serviceUpdateRequests.some(r =>
+        r.status === 'pending' || r.status === 'syncing'
+      );
+      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): hasPendingServiceUpdates = ${hasPendingServiceUpdates}`);
 
       // Get existing local cache (may have offline changes)
       const existingLocalService = await this.indexedDb.getCachedServiceRecord(serviceId);
+      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): existingLocalService =`, existingLocalService ? JSON.stringify(existingLocalService).substring(0, 200) : 'null');
 
       // Fetch fresh data from API - BYPASS localStorage cache to get latest from server
+      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): fetching from API...`);
       const apiService = await firstValueFrom(this.caspioService.getService(serviceId, false));
+      console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): apiService =`, apiService ? JSON.stringify(apiService).substring(0, 200) : 'null');
 
       if (hasPendingServiceUpdates && existingLocalService) {
         // Merge: Start with API data, then overlay local changes
@@ -168,18 +181,23 @@ export class OfflineTemplateService {
         console.log('[OfflineTemplate] Service has pending updates - merging with local changes');
 
         // Extract the pending update data to identify changed fields
-        const pendingServiceUpdates = allRequests
-          .filter(r => r.type === 'UPDATE' && (r.status === 'pending' || r.status === 'syncing') && r.endpoint.includes('LPS_Services') && r.endpoint.includes(`PK_ID=${serviceId}`))
+        const pendingServiceUpdates = serviceUpdateRequests
+          .filter(r => r.status === 'pending' || r.status === 'syncing')
           .reduce((acc, r) => ({ ...acc, ...r.data }), {});
+        console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): pendingServiceUpdates =`, pendingServiceUpdates);
 
         // Merged service = API base + pending local changes
         const mergedService = { ...apiService, ...pendingServiceUpdates };
+        console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): mergedService =`, JSON.stringify(mergedService).substring(0, 200));
         await this.indexedDb.cacheServiceRecord(serviceId, mergedService);
         console.log('[OfflineTemplate] Service record cached (merged with local changes)');
       } else if (apiService) {
         // No pending updates - safe to use API data directly
+        console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): NO pending updates - caching API data directly`);
         await this.indexedDb.cacheServiceRecord(serviceId, apiService);
         console.log('[OfflineTemplate] Service record cached');
+      } else {
+        console.log(`[OfflineTemplate] safeCacheServiceRecord(${serviceId}): apiService is null - not caching`);
       }
 
       // Also cache the project (same logic)
@@ -388,7 +406,10 @@ export class OfflineTemplateService {
    * Get service record from IndexedDB
    */
   async getService(serviceId: string): Promise<any | null> {
-    return this.indexedDb.getCachedServiceRecord(serviceId);
+    console.log(`[OfflineTemplate] getService(${serviceId}) called`);
+    const result = await this.indexedDb.getCachedServiceRecord(serviceId);
+    console.log(`[OfflineTemplate] getService(${serviceId}) returning:`, result ? JSON.stringify(result).substring(0, 200) : 'null');
+    return result;
   }
 
   /**
@@ -562,6 +583,8 @@ export class OfflineTemplateService {
    * Update service record - saves to IndexedDB and queues for sync
    */
   async updateService(serviceId: string, updates: any): Promise<void> {
+    console.log(`[OfflineTemplate] updateService(${serviceId}) called with updates:`, updates);
+
     // Queue the update - serviceId param is actually PK_ID from route
     await this.indexedDb.addPendingRequest({
       type: 'UPDATE',
@@ -572,15 +595,20 @@ export class OfflineTemplateService {
       status: 'pending',
       priority: 'normal',
     });
+    console.log(`[OfflineTemplate] updateService(${serviceId}): pending request added`);
 
     // Update local cache - ALWAYS update, even if no existing record
     const existingService = await this.indexedDb.getCachedServiceRecord(serviceId);
+    console.log(`[OfflineTemplate] updateService(${serviceId}): existingService =`, existingService ? JSON.stringify(existingService).substring(0, 200) : 'null');
+
     const updatedService = existingService
       ? { ...existingService, ...updates }
       : { PK_ID: serviceId, ...updates };
+    console.log(`[OfflineTemplate] updateService(${serviceId}): updatedService =`, JSON.stringify(updatedService).substring(0, 200));
+
     await this.indexedDb.cacheServiceRecord(serviceId, updatedService);
 
-    console.log(`[OfflineTemplate] Updated service ${serviceId} (pending sync)`);
+    console.log(`[OfflineTemplate] updateService(${serviceId}): DONE - service cached`);
   }
 
   /**

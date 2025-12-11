@@ -178,16 +178,25 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   }
 
   private async loadServiceData() {
+    console.log(`[ProjectDetails] loadServiceData() called for serviceId=${this.serviceId}`);
+
     // Try IndexedDB first - this is the source of truth for offline-first
     let service = await this.offlineTemplate.getService(this.serviceId);
 
+    console.log(`[ProjectDetails] getService(${this.serviceId}) returned:`, service);
+    console.log(`[ProjectDetails] service fields:`, service ? Object.keys(service) : 'null');
+
     if (service) {
       console.log('[ProjectDetails] Loaded service from IndexedDB cache');
+      console.log('[ProjectDetails] FirstFoundationType =', service.FirstFoundationType);
+      console.log('[ProjectDetails] OccupancyFurnishings =', service.OccupancyFurnishings);
+      console.log('[ProjectDetails] WeatherConditions =', service.WeatherConditions);
     } else {
       // Only fetch from API if IndexedDB has nothing at all
       console.log('[ProjectDetails] Service not in cache, fetching from API...');
       try {
         const freshService = await this.caspioService.getService(this.serviceId, false).toPromise();
+        console.log('[ProjectDetails] API returned:', freshService);
         if (freshService) {
           await this.indexedDb.cacheServiceRecord(this.serviceId, freshService);
           service = freshService;
@@ -199,6 +208,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     }
 
     this.serviceData = service || {};
+    console.log('[ProjectDetails] this.serviceData set to:', JSON.stringify(this.serviceData).substring(0, 300));
 
     // Check if OccupancyFurnishings is a custom value
     if (this.serviceData.OccupancyFurnishings) {
@@ -321,6 +331,14 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
         }
       }
     }
+
+    // FINAL STATE LOG
+    console.log('[ProjectDetails] loadServiceData COMPLETE - Final serviceData state:');
+    console.log('[ProjectDetails]   FirstFoundationType =', this.serviceData.FirstFoundationType);
+    console.log('[ProjectDetails]   OccupancyFurnishings =', this.serviceData.OccupancyFurnishings);
+    console.log('[ProjectDetails]   WeatherConditions =', this.serviceData.WeatherConditions);
+    console.log('[ProjectDetails]   OutdoorTemperature =', this.serviceData.OutdoorTemperature);
+    console.log('[ProjectDetails]   InAttendance =', this.serviceData.InAttendance);
 
     this.changeDetectorRef.detectChanges();
   }
@@ -811,6 +829,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
 
   // Auto-save to Services table (OFFLINE-FIRST)
   private async autoSaveServiceField(fieldName: string, value: any) {
+    console.log(`[ProjectDetails] autoSaveServiceField(${fieldName}, ${value}) called for serviceId=${this.serviceId}`);
+
     if (!this.serviceId) {
       console.error(`Cannot save ${fieldName} - No ServiceID! ServiceID is: ${this.serviceId}`);
       return;
@@ -820,17 +840,20 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
 
     // 1. Update local data immediately (for instant UI feedback)
     this.serviceData[fieldName] = value;
+    console.log(`[ProjectDetails] this.serviceData[${fieldName}] set to:`, this.serviceData[fieldName]);
 
     // 2. Update IndexedDB cache immediately
     try {
+      console.log(`[ProjectDetails] Calling offlineTemplate.updateService...`);
       await this.offlineTemplate.updateService(this.serviceId, { [fieldName]: value });
-      console.log(`[ProjectDetails] Service field ${fieldName} saved to IndexedDB`);
+      console.log(`[ProjectDetails] Service field ${fieldName} saved to IndexedDB - SUCCESS`);
     } catch (error) {
       console.error(`[ProjectDetails] Error saving to IndexedDB:`, error);
     }
 
     // 3. Show appropriate status message
     const isOnline = this.offlineService.isOnline();
+    console.log(`[ProjectDetails] isOnline = ${isOnline}`);
     if (isOnline) {
       this.showSaveStatus(`${fieldName} saved`, 'success');
     } else {
@@ -838,6 +861,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     }
 
     // 4. Trigger background sync (will push to server when online)
+    console.log(`[ProjectDetails] Triggering background sync...`);
     this.backgroundSync.triggerSync();
   }
 

@@ -218,12 +218,16 @@ export class EngineersFoundationContainerPage implements OnInit {
    * Runs in background, doesn't block UI.
    */
   private async preCacheForOffline(): Promise<void> {
-    if (!this.serviceId) return;
+    if (!this.serviceId) {
+      console.log('[EF Container] preCacheForOffline: no serviceId, skipping');
+      return;
+    }
 
-    console.log('[EF Container] Downloading template for offline use...');
+    console.log(`[EF Container] preCacheForOffline() called for serviceId=${this.serviceId}, projectId=${this.projectId}`);
 
     try {
       // Download complete template data for offline-first operation (include projectId for Project Details)
+      console.log('[EF Container] Calling downloadTemplateForOffline...');
       await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
       console.log('[EF Container] Template downloaded - ready for offline use');
     } catch (error) {
@@ -232,10 +236,12 @@ export class EngineersFoundationContainerPage implements OnInit {
 
       // Fallback to simpler pre-cache if full download fails
       try {
+        console.log('[EF Container] Trying fallback pre-cache...');
         await Promise.all([
           this.offlineCache.refreshAllTemplates(),
           this.offlineCache.preCacheServiceData(this.serviceId)
         ]);
+        console.log('[EF Container] Fallback pre-cache completed');
       } catch (fallbackError) {
         console.warn('[EF Container] Fallback pre-cache also failed:', fallbackError);
       }

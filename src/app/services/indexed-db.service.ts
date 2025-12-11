@@ -1222,6 +1222,8 @@ export class IndexedDbService {
   async cacheServiceRecord(serviceId: string, service: any): Promise<void> {
     const db = await this.ensureDb();
 
+    console.log(`[IndexedDB] cacheServiceRecord(${serviceId}): input service =`, JSON.stringify(service).substring(0, 300));
+
     if (!db.objectStoreNames.contains('cachedServiceData')) {
       console.warn('[IndexedDB] cachedServiceData store not available');
       return;
@@ -1235,17 +1237,22 @@ export class IndexedDbService {
       lastUpdated: Date.now(),
     };
 
+    console.log(`[IndexedDB] cacheServiceRecord(${serviceId}): cacheEntry.data =`, JSON.stringify(cacheEntry.data).substring(0, 300));
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['cachedServiceData'], 'readwrite');
       const store = transaction.objectStore('cachedServiceData');
       const putRequest = store.put(cacheEntry);
 
       putRequest.onsuccess = () => {
-        console.log(`[IndexedDB] Cached service record for ${serviceId}`);
+        console.log(`[IndexedDB] cacheServiceRecord(${serviceId}): SUCCESS - cached service record`);
         resolve();
       };
 
-      putRequest.onerror = () => reject(putRequest.error);
+      putRequest.onerror = () => {
+        console.error(`[IndexedDB] cacheServiceRecord(${serviceId}): FAILED`, putRequest.error);
+        reject(putRequest.error);
+      };
     });
   }
 
@@ -1256,6 +1263,7 @@ export class IndexedDbService {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {
+      console.log(`[IndexedDB] getCachedServiceRecord(${serviceId}): store not found`);
       return null;
     }
 
@@ -1266,9 +1274,12 @@ export class IndexedDbService {
 
       getRequest.onsuccess = () => {
         const cached = getRequest.result;
+        console.log(`[IndexedDB] getCachedServiceRecord(${serviceId}): raw cached =`, cached);
         if (cached && cached.data && cached.data.length > 0) {
+          console.log(`[IndexedDB] getCachedServiceRecord(${serviceId}): returning data[0] =`, JSON.stringify(cached.data[0]).substring(0, 200));
           resolve(cached.data[0]);
         } else {
+          console.log(`[IndexedDB] getCachedServiceRecord(${serviceId}): no data found, returning null`);
           resolve(null);
         }
       };
@@ -1318,24 +1329,31 @@ export class IndexedDbService {
    */
   async isTemplateDownloaded(serviceId: string, templateType: string): Promise<boolean> {
     const db = await this.ensureDb();
+    const cacheKey = `download_status_${templateType}_${serviceId}`;
+    console.log(`[IndexedDB] isTemplateDownloaded(${serviceId}, ${templateType}): checking key ${cacheKey}`);
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {
+      console.log(`[IndexedDB] isTemplateDownloaded: cachedServiceData store not found`);
       return false;
     }
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['cachedServiceData'], 'readonly');
       const store = transaction.objectStore('cachedServiceData');
-      const getRequest = store.get(`download_status_${templateType}_${serviceId}`);
+      const getRequest = store.get(cacheKey);
 
       getRequest.onsuccess = () => {
         const cached = getRequest.result;
+        console.log(`[IndexedDB] isTemplateDownloaded(${serviceId}, ${templateType}): cached =`, cached);
         if (cached && cached.data && cached.data.length > 0 && cached.data[0].downloaded) {
           // Check if download is recent (within 7 days)
           const downloadAge = Date.now() - cached.data[0].timestamp;
           const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-          resolve(downloadAge < maxAge);
+          const isRecent = downloadAge < maxAge;
+          console.log(`[IndexedDB] isTemplateDownloaded(${serviceId}, ${templateType}): downloadAge=${downloadAge}ms, maxAge=${maxAge}ms, isRecent=${isRecent}`);
+          resolve(isRecent);
         } else {
+          console.log(`[IndexedDB] isTemplateDownloaded(${serviceId}, ${templateType}): no download status found, returning false`);
           resolve(false);
         }
       };
