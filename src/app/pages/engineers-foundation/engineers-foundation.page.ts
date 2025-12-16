@@ -2063,25 +2063,28 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           }
         }
 
-        // Set SecondFoundationType options
-        if (optionsByService['SecondFoundationType'] && optionsByService['SecondFoundationType'].length > 0) {
-          this.secondFoundationTypeOptions = optionsByService['SecondFoundationType'];
+        // Set SecondFoundationType options (fall back to FirstFoundationType if not available)
+        const secondFoundationTypeSource = optionsByService['SecondFoundationType'] || optionsByService['FirstFoundationType'];
+        if (secondFoundationTypeSource && secondFoundationTypeSource.length > 0) {
+          this.secondFoundationTypeOptions = [...secondFoundationTypeSource];
           if (!this.secondFoundationTypeOptions.includes('Other')) {
             this.secondFoundationTypeOptions.push('Other');
           }
         }
 
-        // Set ThirdFoundationType options
-        if (optionsByService['ThirdFoundationType'] && optionsByService['ThirdFoundationType'].length > 0) {
-          this.thirdFoundationTypeOptions = optionsByService['ThirdFoundationType'];
+        // Set ThirdFoundationType options (fall back to FirstFoundationType if not available)
+        const thirdFoundationTypeSource = optionsByService['ThirdFoundationType'] || optionsByService['FirstFoundationType'];
+        if (thirdFoundationTypeSource && thirdFoundationTypeSource.length > 0) {
+          this.thirdFoundationTypeOptions = [...thirdFoundationTypeSource];
           if (!this.thirdFoundationTypeOptions.includes('Other')) {
             this.thirdFoundationTypeOptions.push('Other');
           }
         }
 
-        // Set SecondFoundationRooms options
-        if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
-          this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
+        // Set SecondFoundationRooms options (fall back to FoundationRooms if not available)
+        const secondFoundationRoomsSource = optionsByService['SecondFoundationRooms'] || optionsByService['FoundationRooms'];
+        if (secondFoundationRoomsSource && secondFoundationRoomsSource.length > 0) {
+          this.secondFoundationRoomsOptions = [...secondFoundationRoomsSource];
           if (!this.secondFoundationRoomsOptions.includes('Other')) {
             this.secondFoundationRoomsOptions.push('Other');
           }
@@ -2112,9 +2115,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
           if (otherOpt2) this.secondFoundationRoomsOptions.push(otherOpt2);
         }
 
-        // Set ThirdFoundationRooms options
-        if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
-          this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
+        // Set ThirdFoundationRooms options (fall back to FoundationRooms if not available)
+        const thirdFoundationRoomsSource = optionsByService['ThirdFoundationRooms'] || optionsByService['FoundationRooms'];
+        if (thirdFoundationRoomsSource && thirdFoundationRoomsSource.length > 0) {
+          this.thirdFoundationRoomsOptions = [...thirdFoundationRoomsSource];
           if (!this.thirdFoundationRoomsOptions.includes('Other')) {
             this.thirdFoundationRoomsOptions.push('Other');
           }

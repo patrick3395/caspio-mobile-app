@@ -15,6 +15,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
 import { IndexedDbService } from '../../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
+import { OfflineTemplateService } from '../../../../services/offline-template.service';
 
 interface VisualItem {
   id: string | number;
@@ -103,7 +104,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     private backgroundUploadService: BackgroundPhotoUploadService,
     private cache: CacheService,
     private indexedDb: IndexedDbService,
-    private backgroundSync: BackgroundSyncService
+    private backgroundSync: BackgroundSyncService,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   async ngOnInit() {
@@ -403,11 +405,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
   private async loadCategoryTemplates() {
     try {
-      // Get all templates for TypeID = 1 (Foundation Evaluation)
-      const allTemplates = await this.caspioService.getServicesVisualsTemplates().toPromise();
+      // OFFLINE-FIRST: Get all templates for TypeID = 1 (Foundation Evaluation) from IndexedDB
+      const allTemplates = await this.offlineTemplate.getVisualTemplates();
       const visualTemplates = (allTemplates || []).filter((template: any) =>
         template.TypeID === 1 && template.Category === this.categoryName
       );
+      
+      console.log('[CategoryDetail] Loaded', visualTemplates.length, 'templates from IndexedDB for category:', this.categoryName);
 
       // Organize templates by Kind
       visualTemplates.forEach((template: any) => {

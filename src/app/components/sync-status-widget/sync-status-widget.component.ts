@@ -1,8 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { BackgroundSyncService, SyncStatus } from '../../services/background-sync.service';
-import { Subscription } from 'rxjs';
+import { IndexedDbService } from '../../services/indexed-db.service';
+import { Subscription, interval } from 'rxjs';
 
 @Component({
   selector: 'app-sync-status-widget',
@@ -20,21 +21,63 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
   };
 
   private subscription?: Subscription;
+  private pollSubscription?: Subscription;
 
-  constructor(private backgroundSync: BackgroundSyncService) {}
+  constructor(
+    private backgroundSync: BackgroundSyncService,
+    private indexedDb: IndexedDbService,
+    private changeDetectorRef: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) {}
 
   ngOnInit() {
     // Subscribe to sync status updates
     this.subscription = this.backgroundSync.syncStatus$.subscribe(
       status => {
         this.syncStatus = status;
+        this.changeDetectorRef.detectChanges();
       }
     );
+
+    // Poll IndexedDB for accurate pending count every 2 seconds
+    // This ensures we show real counts even when BackgroundSync hasn't updated yet
+    this.ngZone.runOutsideAngular(() => {
+      this.pollSubscription = interval(2000).subscribe(() => {
+        this.refreshPendingCount();
+      });
+    });
+
+    // Initial count
+    this.refreshPendingCount();
+  }
+
+  private async refreshPendingCount() {
+    try {
+      const stats = await this.indexedDb.getSyncStats();
+      this.ngZone.run(() => {
+        // Only update if different to avoid unnecessary change detection
+        if (this.syncStatus.pendingCount !== stats.pending ||
+            this.syncStatus.failedCount !== stats.failed) {
+          this.syncStatus = {
+            ...this.syncStatus,
+            pendingCount: stats.pending,
+            failedCount: stats.failed,
+            syncedCount: stats.synced,
+          };
+          this.changeDetectorRef.detectChanges();
+        }
+      });
+    } catch (error) {
+      console.warn('[SyncWidget] Error refreshing count:', error);
+    }
   }
 
   ngOnDestroy() {
     if (this.subscription) {
       this.subscription.unsubscribe();
+    }
+    if (this.pollSubscription) {
+      this.pollSubscription.unsubscribe();
     }
   }
 

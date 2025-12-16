@@ -6,6 +6,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../../../services/caspio.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { OfflineDataCacheService } from '../../../../services/offline-data-cache.service';
+import { OfflineTemplateService } from '../../../../services/offline-template.service';
 
 @Component({
   selector: 'app-structural-systems-hub',
@@ -27,7 +28,8 @@ export class StructuralSystemsHubPage implements OnInit {
     private caspioService: CaspioService,
     private changeDetectorRef: ChangeDetectorRef,
     private foundationData: EngineersFoundationDataService,
-    private offlineCache: OfflineDataCacheService
+    private offlineCache: OfflineDataCacheService,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   async ngOnInit() {
@@ -68,16 +70,23 @@ export class StructuralSystemsHubPage implements OnInit {
     this.loading = true;
 
     try {
-      // Load service data to check StructuralSystemsStatus (non-blocking)
-      this.caspioService.getService(this.serviceId).subscribe({
-        next: (service) => {
-          this.serviceData = service || {};
-          this.changeDetectorRef.detectChanges();
-        },
-        error: (error) => {
-          console.error('[StructuralHub] Error loading service (continuing offline):', error);
-        }
-      });
+      // OFFLINE-FIRST: Load service data from IndexedDB
+      const cachedService = await this.offlineTemplate.getService(this.serviceId);
+      if (cachedService) {
+        this.serviceData = cachedService;
+        console.log('[StructuralHub] Loaded service from IndexedDB cache');
+      } else {
+        // Fallback to API
+        this.caspioService.getService(this.serviceId).subscribe({
+          next: (service) => {
+            this.serviceData = service || {};
+            this.changeDetectorRef.detectChanges();
+          },
+          error: (error) => {
+            console.error('[StructuralHub] Error loading service (continuing offline):', error);
+          }
+        });
+      }
 
       // Always load categories - works offline via cache
       await this.loadCategories();
@@ -91,11 +100,11 @@ export class StructuralSystemsHubPage implements OnInit {
 
   private async loadCategories() {
     try {
-      // Get all templates using offline cache (falls back to cached data when offline)
-      const allTemplates = await this.offlineCache.getVisualsTemplates();
+      // OFFLINE-FIRST: Get all templates using OfflineTemplateService (reads from IndexedDB)
+      const allTemplates = await this.offlineTemplate.getVisualTemplates();
       const visualTemplates = (allTemplates || []).filter((template: any) => template.TypeID === 1);
 
-      console.log('[StructuralHub] Loaded templates:', visualTemplates.length);
+      console.log('[StructuralHub] Loaded templates from IndexedDB:', visualTemplates.length);
 
       // Extract unique categories in order
       const categoriesSet = new Set<string>();
@@ -127,8 +136,8 @@ export class StructuralSystemsHubPage implements OnInit {
 
   private async getDeficiencyCountsByCategory(): Promise<{ [category: string]: number }> {
     try {
-      // Load all existing visuals for this service (merged with offline pending)
-      const visuals = await this.offlineCache.getVisualsByService(this.serviceId);
+      // OFFLINE-FIRST: Load all existing visuals for this service from IndexedDB
+      const visuals = await this.offlineTemplate.getVisualsByService(this.serviceId);
 
       console.log('[StructuralHub] Counting deficiencies from', visuals.length, 'visuals');
 

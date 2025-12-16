@@ -274,6 +274,12 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
       // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
       const servicesDropData = await this.offlineTemplate.getServicesDrop();
       console.log('[ProjectDetails] loadDropdownOptions(): got data, servicesDropData.length =', servicesDropData?.length);
+      
+      // Debug: Log all unique ServicesName values to see what's available
+      if (servicesDropData && servicesDropData.length > 0) {
+        const uniqueServiceNames = [...new Set(servicesDropData.map((row: any) => row.ServicesName))];
+        console.log('[ProjectDetails] Available ServicesName values:', uniqueServiceNames);
+      }
 
       if (servicesDropData && servicesDropData.length > 0) {
         // Group by ServicesName
@@ -438,10 +444,11 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           }
         }
 
-        // Set SecondFoundationType options
-        if (optionsByService['SecondFoundationType'] && optionsByService['SecondFoundationType'].length > 0) {
+        // Set SecondFoundationType options (fall back to FirstFoundationType options if not available)
+        const secondFoundationTypeSource = optionsByService['SecondFoundationType'] || optionsByService['FirstFoundationType'];
+        if (secondFoundationTypeSource && secondFoundationTypeSource.length > 0) {
           const currentValue = this.serviceData?.SecondFoundationType;
-          this.secondFoundationTypeOptions = optionsByService['SecondFoundationType'];
+          this.secondFoundationTypeOptions = [...secondFoundationTypeSource]; // Clone to avoid mutation
           if (!this.secondFoundationTypeOptions.includes('Other')) {
             this.secondFoundationTypeOptions.push('Other');
           }
@@ -461,10 +468,11 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           }
         }
 
-        // Set ThirdFoundationType options
-        if (optionsByService['ThirdFoundationType'] && optionsByService['ThirdFoundationType'].length > 0) {
+        // Set ThirdFoundationType options (fall back to FirstFoundationType options if not available)
+        const thirdFoundationTypeSource = optionsByService['ThirdFoundationType'] || optionsByService['FirstFoundationType'];
+        if (thirdFoundationTypeSource && thirdFoundationTypeSource.length > 0) {
           const currentValue = this.serviceData?.ThirdFoundationType;
-          this.thirdFoundationTypeOptions = optionsByService['ThirdFoundationType'];
+          this.thirdFoundationTypeOptions = [...thirdFoundationTypeSource]; // Clone to avoid mutation
           if (!this.thirdFoundationTypeOptions.includes('Other')) {
             this.thirdFoundationTypeOptions.push('Other');
           }
@@ -484,9 +492,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           }
         }
 
-        // Set SecondFoundationRooms options (multi-select - preserve current selections)
-        if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
-          this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
+        // Set SecondFoundationRooms options (multi-select - fall back to room options if not available)
+        const secondFoundationRoomsSource = optionsByService['SecondFoundationRooms'] || optionsByService['FoundationRooms'] || optionsByService['ThirdFoundationRooms'];
+        if (secondFoundationRoomsSource && secondFoundationRoomsSource.length > 0) {
+          this.secondFoundationRoomsOptions = [...secondFoundationRoomsSource]; // Clone
           if (!this.secondFoundationRoomsOptions.includes('Other')) {
             this.secondFoundationRoomsOptions.push('Other');
           }
@@ -526,9 +535,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           }
         }
 
-        // Set ThirdFoundationRooms options (multi-select - preserve current selections)
-        if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
-          this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
+        // Set ThirdFoundationRooms options (multi-select - fall back to room options if not available)
+        const thirdFoundationRoomsSource = optionsByService['ThirdFoundationRooms'] || optionsByService['FoundationRooms'] || optionsByService['SecondFoundationRooms'];
+        if (thirdFoundationRoomsSource && thirdFoundationRoomsSource.length > 0) {
+          this.thirdFoundationRoomsOptions = [...thirdFoundationRoomsSource]; // Clone
           if (!this.thirdFoundationRoomsOptions.includes('Other')) {
             this.thirdFoundationRoomsOptions.push('Other');
           }
