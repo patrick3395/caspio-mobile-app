@@ -844,19 +844,30 @@ export class OfflineTemplateService {
     const key = String(visualId);
     
     // Check IndexedDB first - null means not cached, empty array means cached but no attachments
-    const cached = await this.indexedDb.getCachedServiceData(key, 'visual_attachments');
-    if (cached !== null && cached !== undefined) {
-      console.log(`[OfflineTemplate] Visual attachments from cache for ${key}: ${cached.length}`);
-      return cached;
+    try {
+      const cached = await this.indexedDb.getCachedServiceData(key, 'visual_attachments');
+      if (cached !== null && cached !== undefined) {
+        console.log(`[OfflineTemplate] Visual attachments from cache for ${key}: ${cached.length}`);
+        return cached;
+      }
+    } catch (cacheError) {
+      console.warn(`[OfflineTemplate] Error reading cache for ${key}:`, cacheError);
     }
 
     // Cache miss - try API if online
     if (this.offlineService.isOnline()) {
       console.log(`[OfflineTemplate] Visual attachments cache miss for ${key}, fetching from API...`);
       try {
-        const attachments = await firstValueFrom(
-          this.caspioService.getServiceVisualsAttachByVisualId(key)
-        );
+        // Add timeout to prevent hanging - 10 seconds max
+        const timeoutPromise = new Promise<any[]>((_, reject) => {
+          setTimeout(() => reject(new Error('API timeout')), 10000);
+        });
+        
+        const attachments = await Promise.race([
+          firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(key)),
+          timeoutPromise
+        ]);
+        
         // Cache for future offline use
         await this.indexedDb.cacheServiceData(key, 'visual_attachments', attachments || []);
         console.log(`[OfflineTemplate] Visual attachments fetched and cached for ${key}: ${attachments?.length || 0}`);

@@ -686,15 +686,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         // This ensures we have the real skeleton count before showing the page
         this.loadingPhotosByKey[key] = true;
 
-        // Add promise to fetch the photo count
+        // Add promise to fetch the photo count WITH TIMEOUT to prevent hanging
         const countPromise = (async () => {
           try {
-            const attachments = await this.foundationData.getVisualAttachments(visualId);
+            // Wrap in timeout to prevent hanging - 5 seconds max
+            const timeoutPromise = new Promise<any[]>((_, reject) => {
+              setTimeout(() => reject(new Error('Timeout')), 5000);
+            });
+            
+            const attachments = await Promise.race([
+              this.foundationData.getVisualAttachments(visualId),
+              timeoutPromise
+            ]);
+            
             const count = attachments.length;
             this.photoCountsByKey[key] = count;
             console.log(`[LOAD VISUALS] Set photo count for ${key}: ${count}`);
           } catch (err) {
-            console.error(`[LOAD VISUALS] Error getting photo count for ${key}:`, err);
+            console.error(`[LOAD VISUALS] Error/timeout getting photo count for ${key}:`, err);
             this.photoCountsByKey[key] = 0; // Set to 0 on error so we don't wait forever
           }
         })();
@@ -885,10 +894,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
     }
 
-    // If not cached, try to fetch from source
+    // If not cached, try to fetch from source (but only if online)
     if (!imageUrl) {
+      // OFFLINE CHECK: If offline and not cached, use placeholder immediately
+      if (!this.offlineService.isOnline()) {
+        console.log('[LOAD PHOTO] ⚠️ Offline and no cached image for:', attachId);
+        imageUrl = 'assets/img/photo-placeholder.png';
+        filePath = attach.Attachment || attach.Photo || '';
+      }
       // Check if this is an S3 image (Attachment field contains S3 key)
-      if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
+      else if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
         console.log('[LOAD PHOTO] ✨ S3 image detected:', attach.Attachment);
         filePath = attach.Attachment;
         
