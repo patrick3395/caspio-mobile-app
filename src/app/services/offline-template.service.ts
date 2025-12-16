@@ -242,6 +242,8 @@ export class OfflineTemplateService {
             // CRITICAL: Also cache attachments for each visual (needed for photo counts offline)
             if (visuals && visuals.length > 0) {
               console.log(`    📸 Caching photo attachments for ${visuals.length} visuals...`);
+              const allAttachments: any[] = [];
+              
               const attachmentPromises = visuals.map(async (visual: any) => {
                 const visualId = visual.VisualID || visual.PK_ID;
                 if (visualId) {
@@ -250,6 +252,10 @@ export class OfflineTemplateService {
                       this.caspioService.getServiceVisualsAttachByVisualId(String(visualId))
                     );
                     await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', attachments || []);
+                    // Collect all attachments for image download
+                    if (attachments && attachments.length > 0) {
+                      allAttachments.push(...attachments);
+                    }
                     return attachments?.length || 0;
                   } catch (err) {
                     console.warn(`    ⚠️ Failed to cache attachments for visual ${visualId}:`, err);
@@ -260,7 +266,14 @@ export class OfflineTemplateService {
               });
               const counts = await Promise.all(attachmentPromises);
               downloadSummary.visualAttachments = counts.reduce((a, b) => a + b, 0);
-              console.log(`    ✅ Visual Attachments: ${downloadSummary.visualAttachments} photos cached`);
+              console.log(`    ✅ Visual Attachments: ${downloadSummary.visualAttachments} attachment records cached`);
+              
+              // CRITICAL: Download and cache actual image files for offline viewing
+              if (allAttachments.length > 0) {
+                console.log(`    🖼️ Downloading ${allAttachments.length} actual images for offline...`);
+                await this.downloadAndCacheImages(allAttachments, serviceId);
+                console.log(`    ✅ Images downloaded and cached for offline viewing`);
+              }
             } else {
               console.log('    ℹ️ No existing visuals - new template (this is normal)');
             }
@@ -371,6 +384,75 @@ export class OfflineTemplateService {
   }
 
   /**
+   * Download and cache actual image files for offline viewing
+   * Converts S3 images to base64 and stores in IndexedDB
+   */
+  private async downloadAndCacheImages(attachments: any[], serviceId: string): Promise<void> {
+    const batchSize = 5; // Process in batches to avoid overwhelming the network
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < attachments.length; i += batchSize) {
+      const batch = attachments.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (attach) => {
+        const attachId = String(attach.AttachID);
+        const s3Key = attach.Attachment;
+        
+        // Skip if no S3 key
+        if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
+          console.log(`    ⏭️ Skipping attachment ${attachId} - no S3 key`);
+          return;
+        }
+
+        try {
+          // Get pre-signed URL
+          const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+          
+          // Fetch the actual image
+          const response = await fetch(s3Url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          
+          // Convert to base64 data URL
+          const base64 = await this.blobToDataUrl(blob);
+          
+          // Cache in IndexedDB
+          await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
+          successCount++;
+        } catch (err) {
+          console.warn(`    ⚠️ Failed to cache image ${attachId}:`, err);
+          failCount++;
+        }
+      });
+
+      await Promise.all(batchPromises);
+      
+      // Progress update for large batches
+      if (attachments.length > 10) {
+        console.log(`    📊 Progress: ${Math.min(i + batchSize, attachments.length)}/${attachments.length} images processed`);
+      }
+    }
+
+    console.log(`    📸 Image caching complete: ${successCount} succeeded, ${failCount} failed`);
+  }
+
+  /**
+   * Convert blob to base64 data URL
+   */
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
    * Download EFE data with summary tracking
    */
   private async downloadEFEDataWithSummary(serviceId: string, summary: any): Promise<void> {
@@ -418,6 +500,7 @@ export class OfflineTemplateService {
       // Fetch attachments in batches
       const batchSize = 10;
       let totalAttachments = 0;
+      const allEfeAttachments: any[] = [];
       
       for (let i = 0; i < allPointIds.length; i += batchSize) {
         const batch = allPointIds.slice(i, i + batchSize);
@@ -428,6 +511,10 @@ export class OfflineTemplateService {
               this.caspioService.getServicesEFEAttachments(pointId)
             );
             await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', attachments || []);
+            // Collect all attachments for image download
+            if (attachments && attachments.length > 0) {
+              allEfeAttachments.push(...attachments);
+            }
             return attachments?.length || 0;
           } catch (err) {
             await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', []);
@@ -440,8 +527,63 @@ export class OfflineTemplateService {
       }
       
       summary.efePointAttachments = totalAttachments;
-      console.log(`    ✅ EFE Point Attachments: ${summary.efePointAttachments} photos cached`);
+      console.log(`    ✅ EFE Point Attachments: ${summary.efePointAttachments} attachment records cached`);
+      
+      // CRITICAL: Download and cache actual EFE images for offline viewing
+      if (allEfeAttachments.length > 0) {
+        console.log(`    🖼️ Downloading ${allEfeAttachments.length} EFE images for offline...`);
+        await this.downloadAndCacheEFEImages(allEfeAttachments, String(summary.efeRooms));
+        console.log(`    ✅ EFE images downloaded and cached`);
+      }
     }
+  }
+
+  /**
+   * Download and cache EFE point images for offline viewing
+   */
+  private async downloadAndCacheEFEImages(attachments: any[], serviceId: string): Promise<void> {
+    const batchSize = 5;
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < attachments.length; i += batchSize) {
+      const batch = attachments.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (attach) => {
+        const attachId = String(attach.AttachID || attach.PK_ID);
+        const s3Key = attach.Attachment;
+        
+        // Skip if no S3 key
+        if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
+          return;
+        }
+
+        try {
+          // Get pre-signed URL
+          const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+          
+          // Fetch the actual image
+          const response = await fetch(s3Url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          const base64 = await this.blobToDataUrl(blob);
+          
+          // Cache in IndexedDB
+          await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
+          successCount++;
+        } catch (err) {
+          console.warn(`    ⚠️ Failed to cache EFE image ${attachId}:`, err);
+          failCount++;
+        }
+      });
+
+      await Promise.all(batchPromises);
+    }
+
+    console.log(`    📸 EFE image caching: ${successCount} succeeded, ${failCount} failed`);
   }
 
   /**
