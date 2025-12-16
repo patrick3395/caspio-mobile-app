@@ -2286,6 +2286,7 @@ export class CaspioService {
   /**
    * Upload EFE Points attach photo to S3
    * Public for BackgroundSyncService to call during offline sync
+   * Uses AWS API Gateway proxy for all Caspio API calls
    */
   async uploadEFEPointsAttachWithS3(pointId: number, drawingsData: string, file: File, photoType?: string): Promise<any> {
     console.log('[EFE ATTACH S3] ========== Starting S3 EFE Attach Upload ==========');
@@ -2298,8 +2299,8 @@ export class CaspioService {
       throw new Error(`Invalid PointID for EFE photo upload: ${pointId}`);
     }
     
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    // Use API Gateway proxy instead of direct Caspio API
+    const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
       const recordData: any = {
@@ -2320,17 +2321,24 @@ export class CaspioService {
         }
       }
 
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`, {
+      // Step 1: Create record via AWS API Gateway proxy (handles auth)
+      const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
 
-      if (!recordResponse.ok) throw new Error('EFE attach record creation failed');
+      if (!recordResponse.ok) {
+        const errorText = await recordResponse.text();
+        console.error('[EFE ATTACH S3] Record creation failed:', recordResponse.status, errorText);
+        throw new Error(`EFE attach record creation failed: ${recordResponse.status}`);
+      }
 
       const recordResult = await recordResponse.json();
       const attachId = recordResult.Result?.[0]?.AttachID || recordResult.AttachID;
+      console.log('[EFE ATTACH S3] Record created with AttachID:', attachId);
 
+      // Step 2: Upload file to S3
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2, 8);
       const fileExt = file.name.split('.').pop() || 'jpg';
@@ -2342,15 +2350,25 @@ export class CaspioService {
       formData.append('attachId', attachId.toString());
 
       const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
-      if (!uploadResponse.ok) throw new Error('S3 upload failed');
+      if (!uploadResponse.ok) {
+        const uploadError = await uploadResponse.text();
+        console.error('[EFE ATTACH S3] S3 upload failed:', uploadError);
+        throw new Error('S3 upload failed');
+      }
 
       const { s3Key } = await uploadResponse.json();
+      console.log('[EFE ATTACH S3] S3 upload complete, key:', s3Key);
 
-      await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
+      // Step 3: Update record with S3 key via proxy
+      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Attachment: s3Key })
       });
+
+      if (!updateResponse.ok) {
+        console.warn('[EFE ATTACH S3] Record update failed but S3 upload succeeded');
+      }
 
       console.log('[EFE ATTACH S3] ✅ Complete!');
       return { Result: [{ AttachID: attachId, PointID: pointId, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
@@ -2384,13 +2402,12 @@ export class CaspioService {
       const { s3Key } = await uploadResponse.json();
       console.log('[EFE ATTACH S3 UPDATE] File uploaded:', s3Key);
 
-      // Update record with S3 key
-      const token = await firstValueFrom(this.getValidToken());
-      const API_BASE_URL = environment.caspio.apiBaseUrl;
+      // Update record with S3 key via API Gateway proxy
+      const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Attachment: s3Key })
       });
 

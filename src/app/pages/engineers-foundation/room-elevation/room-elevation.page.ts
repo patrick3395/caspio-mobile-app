@@ -1699,23 +1699,27 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const isPointTempId = String(point.pointId).startsWith('temp_');
       const isOfflineMode = isActuallyOffline || isPointTempId;
 
-      console.log('[Point Photo] isActuallyOffline:', isActuallyOffline, 'isOfflineMode:', isOfflineMode);
+      console.log(`[Point Photo] isActuallyOffline: ${isActuallyOffline}, isOfflineMode: ${isOfflineMode}`);
 
       // Find existing photo or create new one
       let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
 
       if (existingPhoto) {
-        // Update existing photo - show spinner only if online, queued indicator if offline
-        existingPhoto.uploading = !isOfflineMode;
+        // Update existing photo - NEVER show spinner, photo appears immediately
+        existingPhoto.uploading = false;
         existingPhoto.queued = isOfflineMode;
+        existingPhoto._backgroundSync = true;  // Silent background sync
         existingPhoto.url = webPath;
+        existingPhoto.displayUrl = webPath;
       } else {
-        // Add new photo placeholder - show spinner only if online
+        // Add new photo placeholder - NEVER show spinner, photo appears immediately
         existingPhoto = {
           photoType: photoType,
-          uploading: !isOfflineMode,
-          queued: isOfflineMode,
+          uploading: false,  // NEVER show spinner
+          queued: isOfflineMode,  // Show queued badge if offline
+          _backgroundSync: true,  // Silent background sync
           url: webPath,
+          displayUrl: webPath,
           caption: '',
           drawings: null,
           hasAnnotations: false,
@@ -1787,6 +1791,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       if (existingPhoto) {
         existingPhoto.uploading = false;
         existingPhoto.queued = false;
+        existingPhoto._backgroundSync = false;
         existingPhoto.uploadFailed = true;
       }
       this.changeDetectorRef.detectChanges();

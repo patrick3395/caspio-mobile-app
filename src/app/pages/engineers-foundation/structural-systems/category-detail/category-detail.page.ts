@@ -1727,11 +1727,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             _pendingFileId: tempPhotoId,
             name: 'camera-photo.jpg',
             url: objectUrl,
+            displayUrl: objectUrl,  // CRITICAL: Set displayUrl for template
             originalUrl: objectUrl,
             thumbnailUrl: objectUrl,
             isObjectUrl: true,
-            uploading: !isOfflineMode,
-            queued: isOfflineMode,
+            uploading: false,  // NEVER show spinner - photo appears immediately
+            queued: isOfflineMode,  // Show queued badge if offline
+            _backgroundSync: true,  // Flag for silent background sync
             isSkeleton: false,
             hasAnnotations: !!annotationsData,
             caption: caption || '',
@@ -1742,7 +1744,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           // Add photo to UI immediately
           this.visualPhotos[key].push(photoEntry);
           this.changeDetectorRef.detectChanges();
-          console.log('[CAMERA UPLOAD] Added photo placeholder, offline:', isOfflineMode);
+          console.log(`[CAMERA UPLOAD] Added photo placeholder (immediate display, ${isOfflineMode ? 'queued' : 'background sync'})`);
 
           // ALWAYS store in IndexedDB first for reliability (handles poor connectivity)
           // This ensures photos are never lost, even with intermittent connection
@@ -1941,7 +1943,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 const tempPhotoId = `temp_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
                 // Update skeleton to show preview IMMEDIATELY
-                // Use 'queued' state for offline, 'uploading' for online
+                // NEVER show spinner for new photos - upload happens silently in background
                 const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
                 if (skeletonIndex !== -1 && this.visualPhotos[key]) {
                   this.visualPhotos[key][skeletonIndex] = {
@@ -1949,17 +1951,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                     AttachID: tempPhotoId,
                     id: tempPhotoId,
                     url: objectUrl,
+                    displayUrl: objectUrl,  // CRITICAL: Set displayUrl for template
                     thumbnailUrl: objectUrl,
                     originalUrl: objectUrl,
                     isObjectUrl: true,
-                    uploading: !isOfflineMode,  // Only show spinner if online
-                    queued: isOfflineMode,       // Show queued indicator if offline
+                    uploading: false,  // NEVER show spinner - photo appears immediately
+                    queued: isOfflineMode,  // Show queued badge if offline
+                    _backgroundSync: true,  // Flag for silent background sync
                     isSkeleton: false,
                     progress: 0,
                     _pendingFileId: tempPhotoId
                   };
                   this.changeDetectorRef.detectChanges();
-                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview (${isOfflineMode ? 'queued' : 'uploading'})`);
+                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview (immediate display, ${isOfflineMode ? 'queued' : 'background sync'})`);
                 }
 
                 // ALWAYS store in IndexedDB first for reliability (handles poor connectivity)
