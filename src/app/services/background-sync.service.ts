@@ -76,6 +76,9 @@ export class BackgroundSyncService {
   // Service/Project data sync events - pages can subscribe to reload data after sync
   public serviceDataSyncComplete$ = new Subject<ServiceDataSyncComplete>();
 
+  // Visual sync events - emits when visuals are synced so pages can refresh
+  public visualSyncComplete$ = new Subject<{ serviceId: string; visualId: string; tempId?: string }>();
+
   constructor(
     private indexedDb: IndexedDbService,
     private apiGateway: ApiGatewayService,
@@ -279,6 +282,24 @@ export class BackgroundSyncService {
           }
         }
 
+        // Emit visual sync complete for CREATE operations on visuals
+        if (request.type === 'CREATE' && request.endpoint === 'LPS_Services_Visuals') {
+          const serviceId = request.data?.ServiceID;
+          if (serviceId && realId) {
+            console.log(`[BackgroundSync] Visual created - emitting visualSyncComplete for serviceId=${serviceId}, visualId=${realId}`);
+            this.ngZone.run(() => {
+              this.visualSyncComplete$.next({
+                serviceId: String(serviceId),
+                visualId: String(realId),
+                tempId: request.tempId
+              });
+            });
+            
+            // Also refresh the visuals cache from server
+            await this.refreshVisualsCache(String(serviceId));
+          }
+        }
+
         // Mark as synced
         await this.indexedDb.updateRequestStatus(request.requestId, 'synced');
         console.log(`[BackgroundSync] ✅ Synced: ${request.requestId}`);
@@ -450,6 +471,15 @@ export class BackgroundSyncService {
       // Clean up stored photo after successful upload
       await this.indexedDb.deleteStoredFile(data.fileId);
       console.log('[BackgroundSync] Cleaned up stored photo file:', data.fileId);
+
+      // Refresh visual attachments cache with new photo
+      try {
+        const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(String(visualId)).toPromise();
+        await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', attachments || []);
+        console.log(`[BackgroundSync] ✅ Refreshed attachments cache for visual ${visualId}: ${attachments?.length || 0} photos`);
+      } catch (cacheErr) {
+        console.warn(`[BackgroundSync] Failed to refresh attachments cache:`, cacheErr);
+      }
 
       return result;
     } catch (error: any) {
@@ -740,6 +770,95 @@ export class BackgroundSyncService {
     } catch (error) {
       console.warn('[BackgroundSync] Failed to refresh cache after sync:', error);
       // Non-critical - don't throw
+    }
+  }
+
+  /**
+   * Refresh visuals cache from server after sync
+   * This ensures the local cache has the latest data including real IDs
+   * Also downloads and caches actual images for offline viewing
+   */
+  private async refreshVisualsCache(serviceId: string): Promise<void> {
+    try {
+      console.log(`[BackgroundSync] Refreshing visuals cache for service ${serviceId}...`);
+      
+      // Fetch fresh visuals from server
+      const freshVisuals = await this.caspioService.getServicesVisualsByServiceId(serviceId).toPromise();
+      
+      if (freshVisuals && freshVisuals.length >= 0) {
+        // Clear old cached visuals and replace with fresh data
+        await this.indexedDb.cacheServiceData(serviceId, 'visuals', freshVisuals);
+        console.log(`[BackgroundSync] ✅ Visuals cache refreshed: ${freshVisuals.length} items for service ${serviceId}`);
+        
+        // Refresh attachments AND download actual images for each visual
+        for (const visual of freshVisuals) {
+          const visualId = visual.VisualID || visual.PK_ID;
+          if (visualId) {
+            try {
+              const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(String(visualId)).toPromise();
+              await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', attachments || []);
+              
+              // CRITICAL: Also download and cache actual images for offline
+              if (attachments && attachments.length > 0) {
+                await this.downloadAndCachePhotos(attachments, serviceId);
+              }
+            } catch (err) {
+              console.warn(`[BackgroundSync] Failed to refresh attachments for visual ${visualId}:`, err);
+            }
+          }
+        }
+        console.log(`[BackgroundSync] ✅ Visual attachments and images cache refreshed for service ${serviceId}`);
+      }
+    } catch (error) {
+      console.warn(`[BackgroundSync] Failed to refresh visuals cache for ${serviceId}:`, error);
+      // Non-critical - don't throw
+    }
+  }
+
+  /**
+   * Download and cache actual photo images as base64 for offline viewing
+   */
+  private async downloadAndCachePhotos(attachments: any[], serviceId: string): Promise<void> {
+    for (const attach of attachments) {
+      const attachId = String(attach.AttachID || attach.PK_ID);
+      const s3Key = attach.Attachment;
+      
+      // Skip if no S3 key or already cached
+      if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
+        continue;
+      }
+
+      // Check if already cached
+      const existing = await this.indexedDb.getCachedPhoto(attachId);
+      if (existing) {
+        continue; // Already cached
+      }
+
+      try {
+        // Get pre-signed URL and download image
+        const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+        const response = await fetch(s3Url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        
+        // Convert to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        
+        // Cache in IndexedDB
+        await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
+        console.log(`[BackgroundSync] Cached image for attachment ${attachId}`);
+      } catch (err) {
+        console.warn(`[BackgroundSync] Failed to cache image ${attachId}:`, err);
+      }
     }
   }
 

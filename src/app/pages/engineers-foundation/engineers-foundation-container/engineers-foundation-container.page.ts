@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
@@ -8,8 +8,10 @@ import { SyncStatusWidgetComponent } from '../../../components/sync-status-widge
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { OfflineService } from '../../../services/offline.service';
+import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { filter } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 
 interface Breadcrumb {
   label: string;
@@ -24,7 +26,7 @@ interface Breadcrumb {
   standalone: true,
   imports: [CommonModule, IonicModule, RouterModule, SyncStatusWidgetComponent]
 })
-export class EngineersFoundationContainerPage implements OnInit {
+export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   projectId: string = '';
   serviceId: string = '';
   projectName: string = 'Loading...';
@@ -37,6 +39,9 @@ export class EngineersFoundationContainerPage implements OnInit {
   templateReady: boolean = false;
   downloadProgress: string = 'Preparing template for offline use...';
 
+  // Subscriptions for cleanup
+  private syncSubscriptions: Subscription[] = [];
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -46,6 +51,7 @@ export class EngineersFoundationContainerPage implements OnInit {
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,
     private offlineService: OfflineService,
+    private backgroundSync: BackgroundSyncService,
     private indexedDb: IndexedDbService
   ) {}
 
@@ -65,6 +71,9 @@ export class EngineersFoundationContainerPage implements OnInit {
         }
       });
 
+      // Subscribe to sync events to refresh cache when data syncs
+      this.subscribeToSyncEvents();
+
       // CRITICAL: Download ALL template data for offline use
       // This MUST complete before user can work on template
       await this.downloadTemplateData();
@@ -79,6 +88,42 @@ export class EngineersFoundationContainerPage implements OnInit {
 
     // Initial breadcrumb update
     this.updateBreadcrumbs();
+  }
+
+  ngOnDestroy() {
+    // Clean up subscriptions
+    this.syncSubscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  /**
+   * Subscribe to background sync events to refresh cache when data syncs
+   */
+  private subscribeToSyncEvents(): void {
+    // When visuals sync, the cache is automatically refreshed by BackgroundSyncService
+    // But we also want to know so we can potentially refresh UI
+    const visualSub = this.backgroundSync.visualSyncComplete$.subscribe(event => {
+      if (event.serviceId === this.serviceId) {
+        console.log('[EF Container] Visual synced:', event);
+        // Cache is already refreshed by BackgroundSyncService
+      }
+    });
+    this.syncSubscriptions.push(visualSub);
+
+    // When photos sync, cache is automatically refreshed
+    const photoSub = this.backgroundSync.photoUploadComplete$.subscribe(event => {
+      console.log('[EF Container] Photo upload complete:', event);
+      // Cache is already refreshed by BackgroundSyncService
+    });
+    this.syncSubscriptions.push(photoSub);
+
+    // When service data syncs, trigger a full cache refresh
+    const serviceSub = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
+      if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
+        console.log('[EF Container] Service/Project data synced:', event);
+        // Cache is already refreshed by BackgroundSyncService.updateCacheAfterSync()
+      }
+    });
+    this.syncSubscriptions.push(serviceSub);
   }
 
   private updateBreadcrumbs() {
