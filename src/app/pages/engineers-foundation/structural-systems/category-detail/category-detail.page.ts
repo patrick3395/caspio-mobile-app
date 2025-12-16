@@ -87,6 +87,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   // Debounce timer for cache invalidation to prevent multiple rapid reloads
   private cacheInvalidationDebounceTimer: any = null;
   private isReloadingAfterSync = false;
+  
+  // Cooldown after local operations to prevent immediate reload
+  private localOperationCooldown = false;
+  private localOperationCooldownTimer: any = null;
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -189,11 +193,33 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     if (this.cacheInvalidationSubscription) {
       this.cacheInvalidationSubscription.unsubscribe();
     }
-    // Clear debounce timer
+    // Clear debounce timers
     if (this.cacheInvalidationDebounceTimer) {
       clearTimeout(this.cacheInvalidationDebounceTimer);
     }
+    if (this.localOperationCooldownTimer) {
+      clearTimeout(this.localOperationCooldownTimer);
+    }
     console.log('[CATEGORY DETAIL] Component destroyed, but uploads continue in background');
+  }
+
+  /**
+   * Start a cooldown period during which cache invalidation events are ignored.
+   * This prevents UI "flashing" when selecting items or uploading photos.
+   */
+  private startLocalOperationCooldown() {
+    // Clear any existing cooldown timer
+    if (this.localOperationCooldownTimer) {
+      clearTimeout(this.localOperationCooldownTimer);
+    }
+    
+    this.localOperationCooldown = true;
+    
+    // Cooldown lasts 2 seconds - enough time for sync to complete
+    this.localOperationCooldownTimer = setTimeout(() => {
+      this.localOperationCooldown = false;
+      console.log('[COOLDOWN] Local operation cooldown ended');
+    }, 2000);
   }
 
   /**
@@ -283,6 +309,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe((event) => {
       console.log('[CACHE INVALIDATED] Received event:', event);
       
+      // Skip if in local operation cooldown (prevents flash when selecting items)
+      if (this.localOperationCooldown) {
+        console.log('[CACHE INVALIDATED] Skipping - in local operation cooldown');
+        return;
+      }
+      
       // Only reload if this is our service or a global event
       if (!event.serviceId || event.serviceId === this.serviceId) {
         // Clear any existing debounce timer
@@ -361,7 +393,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             // CRITICAL: Use correct key format to match the rest of the codebase
             const key = `${visual.Category}_${existingItem.id}`;
             
-            // Update with fresh server data
+            // OPTIMIZATION: Only update if something actually changed
+            // This prevents UI "flashing" when data is already correct
+            const currentId = existingItem.id;
+            const alreadySelected = this.selectedItems[key] === true;
+            const alreadyHasRealId = currentId === visualId;
+            const hasTempMarkers = (existingItem as any)._tempId || (existingItem as any)._syncing;
+            
+            if (alreadySelected && alreadyHasRealId && !hasTempMarkers) {
+              // Data is already up-to-date, skip to avoid UI flash
+              console.log('[RELOAD AFTER SYNC] Item already up-to-date:', key);
+              continue;
+            }
+            
+            // Update with fresh server data (only if needed)
             existingItem.id = visualId;
             existingItem.isSelected = true;
             existingItem.isSaving = false;
@@ -384,10 +429,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
       
       // Refresh photo counts with fresh attachment data
-      await this.refreshPhotoCountsAfterSync(visuals);
+      const photosChanged = await this.refreshPhotoCountsAfterSync(visuals);
       
-      this.changeDetectorRef.detectChanges();
-      console.log('[RELOAD AFTER SYNC] Complete');
+      // Only trigger change detection if something actually changed
+      if (photosChanged) {
+        this.changeDetectorRef.detectChanges();
+      }
+      console.log('[RELOAD AFTER SYNC] Complete, photosChanged:', photosChanged);
       
     } catch (error) {
       console.error('[RELOAD AFTER SYNC] Error:', error);
@@ -398,8 +446,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
   /**
    * Refresh photo counts for all visuals after sync
+   * Returns true if any photos were added or updated
    */
-  private async refreshPhotoCountsAfterSync(visuals: any[]): Promise<void> {
+  private async refreshPhotoCountsAfterSync(visuals: any[]): Promise<boolean> {
+    let anyChanges = false;
+    
     for (const visual of visuals) {
       // Skip if not for current category
       if (visual.Category !== this.categoryName) {
@@ -469,19 +520,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                                   !existingPhoto.loading;
               
               if (hasValidUrl) {
-                console.log('[RELOAD AFTER SYNC] Preserving existing photo with valid URL:', realAttachId);
-                // Just update metadata, don't touch the URLs
-                this.visualPhotos[key][existingPhotoIndex] = {
-                  ...existingPhoto,
-                  caption: att.Annotation || att.Caption || existingPhoto.caption || '',
-                  Attachment: att.Attachment || existingPhoto.Attachment,
-                  uploading: false,
-                  queued: false,
-                };
+                // Check if metadata actually changed
+                const captionChanged = existingPhoto.caption !== (att.Annotation || att.Caption || '');
+                if (captionChanged) {
+                  console.log('[RELOAD AFTER SYNC] Updating metadata for photo:', realAttachId);
+                  this.visualPhotos[key][existingPhotoIndex] = {
+                    ...existingPhoto,
+                    caption: att.Annotation || att.Caption || existingPhoto.caption || '',
+                    Attachment: att.Attachment || existingPhoto.Attachment,
+                    uploading: false,
+                    queued: false,
+                  };
+                  anyChanges = true;
+                } else {
+                  console.log('[RELOAD AFTER SYNC] Photo already up-to-date:', realAttachId);
+                }
               } else if (att.Attachment) {
                 // Existing photo is broken/loading AND server has S3 key - reload it
                 console.log('[RELOAD AFTER SYNC] Reloading broken photo:', realAttachId);
                 this.loadSinglePhoto(att, key);
+                anyChanges = true;
               }
               continue; // Already handled this photo
             }
@@ -518,6 +576,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 displayUrl: preservedUrl,
                 thumbnailUrl: preservedUrl,
               };
+              anyChanges = true;
               
               // Only try to load if we have an S3 key AND don't have a valid URL
               if (att.Attachment && !preservedUrl) {
@@ -533,6 +592,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               // DON'T push to array here - let loadSinglePhoto add it with proper URL
               // loadSinglePhoto checks for existing entries and adds if not found
               this.loadSinglePhoto(att, key);
+              anyChanges = true;
             } else {
               console.log('[RELOAD AFTER SYNC] Skipping photo with empty Attachment:', realAttachId);
             }
@@ -542,6 +602,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         console.warn('[RELOAD AFTER SYNC] Error getting attachments for', key, error);
       }
     }
+    
+    return anyChanges;
   }
 
   /**
@@ -1478,6 +1540,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     this.selectedItems[key] = newState;
 
     console.log('[TOGGLE] Item:', key, 'Selected:', newState);
+    
+    // Set cooldown to prevent cache invalidation from causing UI flash
+    this.startLocalOperationCooldown();
 
     if (newState) {
       // Item was checked - create visual record if it doesn't exist, or unhide if it exists
@@ -1802,6 +1867,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   // ============================================
 
   async addPhotoFromCamera(category: string, itemId: string | number) {
+    // Set cooldown to prevent cache invalidation from causing UI flash
+    this.startLocalOperationCooldown();
+    
     try {
       // Capture photo with camera
       const image = await Camera.getPhoto({
@@ -1975,6 +2043,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async addPhotoFromGallery(category: string, itemId: string | number) {
+    // Set cooldown to prevent cache invalidation from causing UI flash
+    this.startLocalOperationCooldown();
+    
     try {
       // Use pickImages to allow multiple photo selection
       const images = await Camera.pickImages({
