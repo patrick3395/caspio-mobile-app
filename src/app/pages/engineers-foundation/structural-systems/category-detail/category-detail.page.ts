@@ -49,7 +49,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
   loading: boolean = true;
   searchTerm: string = '';
-  expandedAccordions: string[] = [];
+  expandedAccordions: string[] = ['information', 'limitations', 'deficiencies'];
   organizedData: {
     comments: VisualItem[];
     limitations: VisualItem[];
@@ -109,29 +109,51 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
+    console.log('[CategoryDetail] ========== ngOnInit START ==========');
+    
     // Subscribe to background upload task updates
     this.subscribeToUploadUpdates();
 
     // Get category name from route params
     this.categoryName = this.route.snapshot.params['category'];
+    console.log('[CategoryDetail] Category from route:', this.categoryName);
     
     // Get IDs from container route using snapshot (for offline reliability)
     // Route structure: '' (Container) -> 'structural' (anonymous) -> 'category/:category' (we are here)
     // So parent?.parent gets us to the Container which has :projectId/:serviceId
     const containerParams = this.route.parent?.parent?.snapshot?.params;
+    console.log('[CategoryDetail] Container params:', containerParams);
+    
     if (containerParams) {
       this.projectId = containerParams['projectId'];
       this.serviceId = containerParams['serviceId'];
     }
+    
+    // Fallback: Try parent?.parent?.parent for different route structures
+    if (!this.projectId || !this.serviceId) {
+      console.log('[CategoryDetail] Trying alternate route structure...');
+      const altParams = this.route.parent?.parent?.parent?.snapshot?.params;
+      console.log('[CategoryDetail] Alt params:', altParams);
+      if (altParams) {
+        this.projectId = this.projectId || altParams['projectId'];
+        this.serviceId = this.serviceId || altParams['serviceId'];
+      }
+    }
 
-    console.log('[CategoryDetail] Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+    console.log('[CategoryDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
     if (this.projectId && this.serviceId && this.categoryName) {
-      this.loadData();
+      console.log('[CategoryDetail] All params present, calling loadData()');
+      await this.loadData();
+      console.log('[CategoryDetail] loadData() completed');
     } else {
-      console.error('[CategoryDetail] Missing required route params');
+      console.error('[CategoryDetail] ❌ Missing required route params - cannot load data');
+      console.error('[CategoryDetail] Missing: projectId=', !this.projectId, 'serviceId=', !this.serviceId, 'categoryName=', !this.categoryName);
       this.loading = false;
+      this.changeDetectorRef.detectChanges();
     }
+    
+    console.log('[CategoryDetail] ========== ngOnInit END ==========');
 
     // Also subscribe to param changes for dynamic updates
     this.route.params.subscribe(params => {
@@ -306,7 +328,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   }
 
   private async loadData() {
+    console.log('[LOAD DATA] ========== loadData START ==========');
     this.loading = true;
+    this.changeDetectorRef.detectChanges();
 
     try {
       // CRITICAL: Clear all state to ensure fresh load from database
@@ -324,7 +348,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       };
 
       // Load templates for this category (fast - just structure)
+      console.log('[LOAD DATA] Step 1: Loading category templates...');
       await this.loadCategoryTemplates();
+      console.log('[LOAD DATA] Step 1 complete. Templates loaded:', {
+        comments: this.organizedData.comments.length,
+        limitations: this.organizedData.limitations.length,
+        deficiencies: this.organizedData.deficiencies.length
+      });
+
+      // Force change detection after templates load
+      this.changeDetectorRef.detectChanges();
 
       // Clear cache before loading to ensure we get fresh data
       // This is important after offline sync to avoid showing stale data
@@ -332,20 +365,37 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
       // CRITICAL: Load existing visuals and WAIT for photo counts to be fetched
       // This ensures all skeletons are ready before the page shows
+      console.log('[LOAD DATA] Step 2: Loading existing visuals...');
       await this.loadExistingVisuals();
+      console.log('[LOAD DATA] Step 2 complete');
 
       // Restore any pending photos from IndexedDB (offline uploads)
+      console.log('[LOAD DATA] Step 3: Restoring pending photos...');
       await this.restorePendingPhotosFromIndexedDB();
+      console.log('[LOAD DATA] Step 3 complete');
 
       // Show page with all skeleton loaders visible
       this.loading = false;
+      
+      // Expand all accordions by default so user can see content
+      this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
+      
+      console.log('[LOAD DATA] ✅ Data load complete. Final organizedData:', {
+        comments: this.organizedData.comments.length,
+        limitations: this.organizedData.limitations.length,
+        deficiencies: this.organizedData.deficiencies.length
+      });
 
-      // Images continue loading progressively in the background
+      // Force change detection to render the content
+      this.changeDetectorRef.detectChanges();
 
     } catch (error) {
-      console.error('Error loading category data:', error);
+      console.error('[LOAD DATA] ❌ Error loading category data:', error);
       this.loading = false;
+      this.changeDetectorRef.detectChanges();
     }
+    
+    console.log('[LOAD DATA] ========== loadData END ==========');
   }
 
   private async waitForSkeletonsReady(): Promise<void> {
@@ -417,15 +467,42 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   private async loadCategoryTemplates() {
     try {
       // OFFLINE-FIRST: Ensure visual templates are ready (waits for download if in progress)
+      console.log('[CategoryDetail] ========== loadCategoryTemplates START ==========');
       console.log('[CategoryDetail] Loading templates for category:', this.categoryName);
+      
       const allTemplates = await this.offlineTemplate.ensureVisualTemplatesReady();
       console.log('[CategoryDetail] Total templates from IndexedDB:', allTemplates?.length || 0);
+      
+      if (!allTemplates || allTemplates.length === 0) {
+        console.error('[CategoryDetail] ❌ NO TEMPLATES FOUND IN INDEXEDDB!');
+        console.error('[CategoryDetail] This means the templates were not cached properly or IndexedDB is not accessible');
+        return;
+      }
+      
+      // Log first few templates to understand structure
+      console.log('[CategoryDetail] Sample template structure:', JSON.stringify(allTemplates[0]).substring(0, 300));
+      
+      // Get unique categories in the data
+      const uniqueCategories = [...new Set(allTemplates.map((t: any) => t.Category))];
+      console.log('[CategoryDetail] Categories in data:', uniqueCategories.join(', '));
       
       const visualTemplates = (allTemplates || []).filter((template: any) =>
         template.TypeID === 1 && template.Category === this.categoryName
       );
       
       console.log('[CategoryDetail] ✅ Filtered', visualTemplates.length, 'templates for category:', this.categoryName);
+      
+      if (visualTemplates.length === 0) {
+        console.warn('[CategoryDetail] ⚠️ No templates found for category "' + this.categoryName + '"');
+        console.warn('[CategoryDetail] Available categories:', uniqueCategories.join(', '));
+        // Check if category name case mismatch
+        const caseInsensitiveMatch = allTemplates.filter((t: any) => 
+          t.TypeID === 1 && t.Category?.toLowerCase() === this.categoryName?.toLowerCase()
+        );
+        if (caseInsensitiveMatch.length > 0) {
+          console.warn('[CategoryDetail] ⚠️ CASE MISMATCH DETECTED! Found', caseInsensitiveMatch.length, 'templates with case-insensitive match');
+        }
+      }
       
       // Show breakdown by type
       const limitations = visualTemplates.filter((t: any) => t.Kind === 'Limitation').length;
@@ -486,9 +563,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         limitations: this.organizedData.limitations.length,
         deficiencies: this.organizedData.deficiencies.length
       });
+      
+      console.log('[CategoryDetail] ========== loadCategoryTemplates END ==========');
 
     } catch (error) {
-      console.error('Error loading category templates:', error);
+      console.error('[CategoryDetail] ❌ Error loading category templates:', error);
     }
   }
 
@@ -3361,12 +3440,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
   private updateExpandedAccordions(): void {
     if (!this.searchTerm || this.searchTerm.trim() === '') {
-      // No search term - collapse all accordions
-      this.expandedAccordions = [];
+      // No search term - expand all accordions by default for better UX
+      this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
       return;
     }
 
-    // Expand accordions that have matching results
+    // Expand only accordions that have matching results
     const expanded: string[] = [];
 
     if (this.filterItems(this.organizedData.comments).length > 0) {

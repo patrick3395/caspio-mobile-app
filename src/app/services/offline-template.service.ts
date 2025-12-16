@@ -43,11 +43,19 @@ export class OfflineTemplateService {
    * Call this from pages that need templates to ensure they're available.
    */
   async ensureVisualTemplatesReady(): Promise<any[]> {
+    console.log('[OfflineTemplate] ensureVisualTemplatesReady() called');
+    
     // Check if we have cached templates
-    const cached = await this.indexedDb.getCachedTemplates('visual');
-    if (cached && cached.length > 0) {
-      console.log(`[OfflineTemplate] ensureVisualTemplatesReady: ${cached.length} templates already cached`);
-      return cached;
+    try {
+      const cached = await this.indexedDb.getCachedTemplates('visual');
+      console.log('[OfflineTemplate] IndexedDB getCachedTemplates result:', cached ? `${cached.length} templates` : 'null/undefined');
+      
+      if (cached && cached.length > 0) {
+        console.log(`[OfflineTemplate] ✅ ensureVisualTemplatesReady: ${cached.length} templates already cached`);
+        return cached;
+      }
+    } catch (dbError) {
+      console.error('[OfflineTemplate] ❌ IndexedDB error when getting cached templates:', dbError);
     }
 
     // Check if any download is in progress - wait for it
