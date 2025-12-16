@@ -3461,6 +3461,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     this.expandedAccordions = expanded;
   }
 
+  // Simple accordion helpers (for offline reliability - ion-accordion can fail offline)
+  toggleSection(section: string): void {
+    const index = this.expandedAccordions.indexOf(section);
+    if (index > -1) {
+      this.expandedAccordions = this.expandedAccordions.filter(s => s !== section);
+    } else {
+      this.expandedAccordions = [...this.expandedAccordions, section];
+    }
+    this.changeDetectorRef.detectChanges();
+  }
+
+  isSectionExpanded(section: string): boolean {
+    return this.expandedAccordions.includes(section);
+  }
+
   async showToast(message: string, color: string = 'primary') {
     const toast = await this.toastController.create({
       message,

@@ -12,29 +12,6 @@
     <!-- Category Content -->
     <div *ngIf="!loading" class="category-content">
 
-      <!-- DEBUG: Data verification (remove after debugging) -->
-      <div style="background: #fffbe6; border: 2px solid #faad14; padding: 12px; margin-bottom: 16px; border-radius: 8px; font-size: 12px;">
-        <strong>🔍 Debug Info:</strong><br>
-        Category: {{ categoryName }}<br>
-        Comments: {{ organizedData.comments.length }}<br>
-        Limitations: {{ organizedData.limitations.length }}<br>
-        Deficiencies: {{ organizedData.deficiencies.length }}<br>
-        Expanded: {{ expandedAccordions | json }}<br>
-        <strong>First items:</strong><br>
-        <span *ngIf="organizedData.comments.length > 0">Comment: {{ organizedData.comments[0]?.name }}</span><br>
-        <span *ngIf="organizedData.limitations.length > 0">Limitation: {{ organizedData.limitations[0]?.name }}</span><br>
-        <span *ngIf="organizedData.deficiencies.length > 0">Deficiency: {{ organizedData.deficiencies[0]?.name }}</span>
-        <hr style="margin: 8px 0;">
-        <strong>All Comments (test ngFor):</strong>
-        <ul style="margin: 4px 0; padding-left: 20px;">
-          <li *ngFor="let item of organizedData.comments">{{ item.name }}</li>
-        </ul>
-        <strong>All Limitations:</strong>
-        <ul style="margin: 4px 0; padding-left: 20px;">
-          <li *ngFor="let item of organizedData.limitations">{{ item.name }}</li>
-        </ul>
-      </div>
-
       <!-- Search Bar -->
       <div class="search-container">
         <div class="search-input-wrapper">
@@ -53,23 +30,25 @@
 
       <!-- White container wrapper matching other pages -->
       <div class="white-container">
-        <ion-accordion-group [value]="expandedAccordions" [multiple]="true" (ionChange)="onAccordionChange($event)">
-        <!-- General Information Section -->
-        <ion-accordion *ngIf="organizedData.comments" value="information">
-          <ion-item slot="header" lines="none" class="accordion-header-item">
+        <!-- Simple accordion fallback for offline reliability -->
+        
+        <!-- Information Section -->
+        <div class="simple-accordion" *ngIf="organizedData.comments">
+          <div class="simple-accordion-header" (click)="toggleSection('information')">
             <div class="accordion-header-content">
               <div class="icon-container">
                 <ion-icon name="information-circle-outline"></ion-icon>
               </div>
-              <ion-label class="accordion-label">
-                <h4 class="type-header">Information</h4>
-              </ion-label>
+              <span class="type-header">Information ({{ organizedData.comments.length }})</span>
             </div>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom information">
-              <ion-icon name="add-circle-outline"></ion-icon>
-            </button>
-          </ion-item>
-          <div slot="content" class="accordion-content">
+            <div class="accordion-header-actions">
+              <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom information">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </button>
+              <ion-icon [name]="isSectionExpanded('information') ? 'chevron-up' : 'chevron-down'" class="expand-icon"></ion-icon>
+            </div>
+          </div>
+          <div class="simple-accordion-content" *ngIf="isSectionExpanded('information')">
             <div class="type-section">
               <div *ngIf="filterItems(organizedData.comments).length === 0 && !searchTerm" class="no-items-message">
                 No information yet.<br>Click + to add one.
@@ -244,25 +223,26 @@
           </div>
         </div>
             </div> <!-- Close type-section -->
-          </div> <!-- Close accordion-content -->
-        </ion-accordion>
+          </div> <!-- Close simple-accordion-content -->
+        </div> <!-- Close simple-accordion (Information) -->
 
         <!-- Limitations Section -->
-        <ion-accordion *ngIf="organizedData.limitations" value="limitations">
-          <ion-item slot="header" lines="none" class="accordion-header-item">
+        <div class="simple-accordion" *ngIf="organizedData.limitations">
+          <div class="simple-accordion-header" (click)="toggleSection('limitations')">
             <div class="accordion-header-content">
               <div class="icon-container">
                 <ion-icon name="alert-circle-outline"></ion-icon>
               </div>
-              <ion-label class="accordion-label">
-                <h4 class="type-header">Limitations</h4>
-              </ion-label>
+              <span class="type-header">Limitations ({{ organizedData.limitations.length }})</span>
             </div>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Limitation'); $event.stopPropagation()" title="Add custom limitation">
-              <ion-icon name="add-circle-outline"></ion-icon>
-            </button>
-          </ion-item>
-          <div slot="content" class="accordion-content">
+            <div class="accordion-header-actions">
+              <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Limitation'); $event.stopPropagation()" title="Add custom limitation">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </button>
+              <ion-icon [name]="isSectionExpanded('limitations') ? 'chevron-up' : 'chevron-down'" class="expand-icon"></ion-icon>
+            </div>
+          </div>
+          <div class="simple-accordion-content" *ngIf="isSectionExpanded('limitations')">
             <div class="type-section">
               <div *ngIf="filterItems(organizedData.limitations).length === 0 && !searchTerm" class="no-items-message">
                 No limitations yet.<br>Click + to add one.
@@ -428,25 +408,26 @@
           </div>
         </div>
             </div> <!-- Close type-section -->
-          </div> <!-- Close accordion-content -->
-        </ion-accordion>
+          </div> <!-- Close simple-accordion-content -->
+        </div> <!-- Close simple-accordion (Limitations) -->
 
         <!-- Deficiencies Section -->
-        <ion-accordion *ngIf="organizedData.deficiencies" value="deficiencies">
-          <ion-item slot="header" lines="none" class="accordion-header-item">
+        <div class="simple-accordion" *ngIf="organizedData.deficiencies">
+          <div class="simple-accordion-header" (click)="toggleSection('deficiencies')">
             <div class="accordion-header-content">
               <div class="icon-container">
                 <ion-icon name="warning-outline"></ion-icon>
               </div>
-              <ion-label class="accordion-label">
-                <h4 class="type-header">Deficiencies</h4>
-              </ion-label>
+              <span class="type-header">Deficiencies ({{ organizedData.deficiencies.length }})</span>
             </div>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Deficiency'); $event.stopPropagation()" title="Add custom deficiency">
-              <ion-icon name="add-circle-outline"></ion-icon>
-            </button>
-          </ion-item>
-          <div slot="content" class="accordion-content">
+            <div class="accordion-header-actions">
+              <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Deficiency'); $event.stopPropagation()" title="Add custom deficiency">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </button>
+              <ion-icon [name]="isSectionExpanded('deficiencies') ? 'chevron-up' : 'chevron-down'" class="expand-icon"></ion-icon>
+            </div>
+          </div>
+          <div class="simple-accordion-content" *ngIf="isSectionExpanded('deficiencies')">
             <div class="type-section">
               <div *ngIf="filterItems(organizedData.deficiencies).length === 0 && !searchTerm" class="no-items-message">
                 No deficiencies yet.<br>Click + to add one.
@@ -612,10 +593,9 @@
           </div>
         </div>
             </div> <!-- Close type-section -->
-          </div> <!-- Close accordion-content -->
-        </ion-accordion>
+          </div> <!-- Close simple-accordion-content -->
+        </div> <!-- Close simple-accordion (Deficiencies) -->
 
-        </ion-accordion-group>
       </div> <!-- Close white-container -->
 
     </div>

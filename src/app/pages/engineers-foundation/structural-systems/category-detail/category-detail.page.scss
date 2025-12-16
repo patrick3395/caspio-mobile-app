@@ -5,6 +5,88 @@ ion-content {
   --offset-top: auto !important;
 }
 
+// Simple accordion styles (offline-reliable replacement for ion-accordion)
+.simple-accordion {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  background: white;
+
+  .simple-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: #f9f9f9;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background: #f0f0f0;
+    }
+
+    .accordion-header-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .icon-container {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--noble-orange, #F15A27);
+        border-radius: 50%;
+
+        ion-icon {
+          font-size: 18px;
+          color: white;
+        }
+      }
+
+      .type-header {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+      }
+    }
+
+    .accordion-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .add-visual-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+
+        ion-icon {
+          font-size: 24px;
+          color: var(--noble-orange, #F15A27);
+        }
+      }
+
+      .expand-icon {
+        font-size: 20px;
+        color: #666;
+        transition: transform 0.2s ease;
+      }
+    }
+  }
+
+  .simple-accordion-content {
+    padding: 16px;
+    border-top: 1px solid #e0e0e0;
+    background: white;
+  }
+}
+
 .page-container {
   padding: 20px;
   max-width: 1200px;
