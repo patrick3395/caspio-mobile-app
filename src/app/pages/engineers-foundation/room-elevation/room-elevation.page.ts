@@ -11,6 +11,9 @@ import { CaspioService } from '../../../services/caspio.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { ImageCompressionService } from '../../../services/image-compression.service';
 import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { OfflineService } from '../../../services/offline.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 
 @Component({
@@ -42,6 +45,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   // Background upload subscriptions
   private uploadSubscription?: Subscription;
   private taskSubscription?: Subscription;
+  private cacheInvalidationSubscription?: Subscription;
 
   // Convenience getters for template
   get fdfPhotos() {
@@ -63,7 +67,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     private modalController: ModalController,
     private changeDetectorRef: ChangeDetectorRef,
     private imageCompression: ImageCompressionService,
-    private backgroundUploadService: BackgroundPhotoUploadService
+    private backgroundUploadService: BackgroundPhotoUploadService,
+    private offlineTemplate: OfflineTemplateService,
+    private offlineService: OfflineService,
+    private indexedDb: IndexedDbService
   ) {}
 
   async ngOnInit() {
@@ -184,6 +191,52 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
     await this.loadRoomData();
     await this.loadFDFOptions();
+
+    // Subscribe to cache invalidation events - reload data when sync completes
+    this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
+      if (!event.serviceId || event.serviceId === this.serviceId) {
+        console.log('[RoomElevation] Cache invalidated, reloading elevation data...');
+        this.reloadElevationDataAfterSync();
+      }
+    });
+  }
+
+  /**
+   * Reload elevation data after a sync event
+   */
+  private async reloadElevationDataAfterSync(): Promise<void> {
+    try {
+      console.log('[RoomElevation] Reloading points after sync...');
+      
+      // Reload points from fresh IndexedDB data
+      const existingPoints = await this.foundationData.getEFEPoints(this.roomId);
+      console.log('[RoomElevation] Reloaded', existingPoints?.length || 0, 'points from IndexedDB');
+      
+      // Update our local points array with fresh data
+      if (this.roomData?.elevationPoints && existingPoints) {
+        for (const serverPoint of existingPoints) {
+          const pointName = serverPoint.PointName;
+          const localPoint = this.roomData.elevationPoints.find((p: any) => p.name === pointName);
+          
+          if (localPoint) {
+            // Update with server data (real ID)
+            const realId = serverPoint.PointID || serverPoint.PK_ID;
+            console.log(`[RoomElevation] Updating point "${pointName}" with real ID: ${realId}`);
+            localPoint.pointId = realId;
+            localPoint.value = serverPoint.Elevation || localPoint.value || '';
+            delete localPoint._tempId;
+            delete localPoint._localOnly;
+            delete localPoint._syncing;
+          }
+        }
+      }
+      
+      this.changeDetectorRef.detectChanges();
+      console.log('[RoomElevation] Elevation data reload complete');
+      
+    } catch (error) {
+      console.error('[RoomElevation] Error reloading elevation data:', error);
+    }
   }
 
   ngOnDestroy() {
@@ -198,6 +251,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
     if (this.taskSubscription) {
       this.taskSubscription.unsubscribe();
+    }
+    if (this.cacheInvalidationSubscription) {
+      this.cacheInvalidationSubscription.unsubscribe();
     }
     console.log('[ROOM ELEVATION] Component destroyed, but uploads continue in background');
   }
@@ -363,39 +419,101 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
   }
 
-  // New helper method to load FDF photo images in background
+  // New helper method to load FDF photo images in background (OFFLINE-FIRST)
   private async loadFDFPhotoImage(photoPath: string, photoKey: string) {
+    const fdfPhotos = this.roomData.fdfPhotos;
+    // Use room ID + photoKey as cache ID for FDF photos
+    const cacheId = `fdf_${this.roomId}_${photoKey}`;
+    
     try {
+      // OFFLINE-FIRST: Check IndexedDB cached photo first
+      const cachedImage = await this.indexedDb.getCachedPhoto(cacheId);
+      if (cachedImage) {
+        console.log(`[FDF Photo] Using cached ${photoKey} image`);
+        fdfPhotos[`${photoKey}Url`] = cachedImage;
+        fdfPhotos[`${photoKey}DisplayUrl`] = cachedImage;
+        fdfPhotos[`${photoKey}Loading`] = false;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // If offline and no cache, use placeholder
+      if (!this.offlineService.isOnline()) {
+        console.log(`[FDF Photo] Offline and no cache for ${photoKey}, using placeholder`);
+        fdfPhotos[`${photoKey}Url`] = 'assets/img/photo-placeholder.png';
+        fdfPhotos[`${photoKey}DisplayUrl`] = 'assets/img/photo-placeholder.png';
+        fdfPhotos[`${photoKey}Loading`] = false;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // Online - fetch from API and cache
       const imageData = await this.foundationData.getImage(photoPath);
       if (imageData) {
-        const fdfPhotos = this.roomData.fdfPhotos;
         fdfPhotos[`${photoKey}Url`] = imageData;
         fdfPhotos[`${photoKey}DisplayUrl`] = imageData;
         fdfPhotos[`${photoKey}Loading`] = false;
+        
+        // Cache for offline use
+        await this.indexedDb.cachePhoto(cacheId, this.serviceId, imageData, photoPath);
+        console.log(`[FDF Photo] Loaded and cached ${photoKey} image`);
+        
         this.changeDetectorRef.detectChanges();
-        console.log(`[FDF Photo] Loaded ${photoKey} image`);
       }
     } catch (error) {
       console.error(`[FDF Photo] Error loading ${photoKey} image:`, error);
-      const fdfPhotos = this.roomData.fdfPhotos;
+      fdfPhotos[`${photoKey}Url`] = 'assets/img/photo-placeholder.png';
+      fdfPhotos[`${photoKey}DisplayUrl`] = 'assets/img/photo-placeholder.png';
       fdfPhotos[`${photoKey}Loading`] = false;
       this.changeDetectorRef.detectChanges();
     }
   }
 
-  // New helper method to load elevation point photo images in background
+  // New helper method to load elevation point photo images in background (OFFLINE-FIRST)
   private async loadPointPhotoImage(photoPath: string, photoData: any) {
+    const attachId = String(photoData.attachId);
+    
     try {
+      // OFFLINE-FIRST: Check IndexedDB cached photo first
+      const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
+      if (cachedImage) {
+        console.log(`[Point Photo] Using cached image for ${attachId}`);
+        photoData.url = cachedImage;
+        photoData.displayUrl = cachedImage;
+        photoData.loading = false;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // If offline and no cache, use placeholder
+      if (!this.offlineService.isOnline()) {
+        console.log(`[Point Photo] Offline and no cache for ${attachId}, using placeholder`);
+        photoData.url = 'assets/img/photo-placeholder.png';
+        photoData.displayUrl = 'assets/img/photo-placeholder.png';
+        photoData.loading = false;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // Online - fetch from API and cache
       const imageData = await this.foundationData.getImage(photoPath);
       if (imageData) {
         photoData.url = imageData;
         photoData.displayUrl = imageData;
         photoData.loading = false;
+        
+        // Cache for offline use
+        if (attachId && !attachId.startsWith('temp_')) {
+          await this.indexedDb.cachePhoto(attachId, this.serviceId, imageData, photoPath);
+          console.log(`[Point Photo] Loaded and cached image for ${attachId}`);
+        }
+        
         this.changeDetectorRef.detectChanges();
-        console.log(`[Point Photo] Loaded image for ${photoPath}`);
       }
     } catch (error) {
       console.error(`[Point Photo] Error loading image:`, error);
+      photoData.url = 'assets/img/photo-placeholder.png';
+      photoData.displayUrl = 'assets/img/photo-placeholder.png';
       photoData.loading = false;
       this.changeDetectorRef.detectChanges();
     }
@@ -484,7 +602,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
       let existingPoints: any[] = [];
       try {
-        existingPoints = await this.caspioService.getServicesEFEPoints(this.roomId).toPromise() || [];
+        // OFFLINE-FIRST: Use foundationData which reads from IndexedDB first
+        existingPoints = await this.foundationData.getEFEPoints(this.roomId) || [];
         console.log('[RoomElevation] âœ“ Found', existingPoints?.length || 0, 'existing points in database');
         if (existingPoints && existingPoints.length > 0) {
           console.log('[RoomElevation] Existing points:', existingPoints.map((p: any) => ({
@@ -632,13 +751,16 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
             console.log('[RoomElevation]     Request data:', newPointData);
 
-            const response = await this.caspioService.createServicesEFEPoint(newPointData).toPromise();
+            // OFFLINE-FIRST: Use foundationData.createEFEPoint which queues for background sync
+            const response = await this.foundationData.createEFEPoint(newPointData, String(this.roomId).startsWith('temp_') ? this.roomId : undefined);
             console.log('[RoomElevation]     Response received:', response);
 
-            const newPointId = response?.PointID || response?.PK_ID;
+            const newPointId = response?.PointID || response?.PK_ID || response?._tempId;
 
             if (newPointId) {
               point.pointId = newPointId;
+              point._tempId = response._tempId;
+              point._syncing = response._syncing;
               console.log(`[RoomElevation]     âœ“ Created with PointID: ${newPointId}`);
               console.log(`[RoomElevation]     Point now has pointId:`, point.pointId);
             } else {
@@ -766,9 +888,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
   private async loadFDFOptions() {
     try {
-      console.log('[RoomElevation] Loading FDF options from LPS_Services_EFE_Drop...');
-      const options = await this.caspioService.getServicesEFEDrop().toPromise();
-      console.log('[RoomElevation] Raw FDF options from database:', options);
+      console.log('[RoomElevation] Loading FDF options (OFFLINE-FIRST)...');
+      // OFFLINE-FIRST: Use offlineTemplate which reads from IndexedDB first
+      const options = await this.offlineTemplate.getEFEDropOptions();
+      console.log('[RoomElevation] FDF options loaded:', options?.length || 0, 'options');
       console.log('[RoomElevation] Options type:', typeof options);
       console.log('[RoomElevation] Options is array?', Array.isArray(options));
       console.log('[RoomElevation] Options length:', options?.length);
@@ -1375,25 +1498,31 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
   private async handleAddPoint(pointName: string) {
     try {
-      // Create point in database
+      // OFFLINE-FIRST: Use foundationData.createEFEPoint which queues for background sync
       const pointData = {
         EFEID: parseInt(this.roomId, 10),
         PointName: pointName
       };
 
-      const response = await this.caspioService.createServicesEFEPoint(pointData).toPromise();
-      const pointId = response?.PointID || response?.PK_ID;
+      const response = await this.foundationData.createEFEPoint(
+        pointData,
+        String(this.roomId).startsWith('temp_') ? this.roomId : undefined
+      );
+      const pointId = response?.PointID || response?.PK_ID || response?._tempId;
 
       if (pointId) {
-        // Add to local array
+        // Add to local array with offline sync status
         this.roomData.elevationPoints.push({
           pointId: pointId,
           name: pointName,
           value: '',
-          photos: []
+          photos: [],
+          _tempId: response._tempId,
+          _syncing: response._syncing
         });
 
         this.changeDetectorRef.detectChanges();
+        console.log(`[RoomElevation] Point "${pointName}" created with ID: ${pointId}${response._tempId ? ' (pending sync)' : ''}`);
       }
     } catch (error) {
       console.error('Error adding point:', error);

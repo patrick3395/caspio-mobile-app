@@ -198,7 +198,8 @@ export class OfflineTemplateService {
       projectRecord: false,
       servicesDrop: 0,
       projectsDrop: 0,
-      statusOptions: 0
+      statusOptions: 0,
+      efeDrop: 0
     };
 
     try {
@@ -333,7 +334,7 @@ export class OfflineTemplateService {
       );
 
       // 8. Status options for finalization
-      console.log('[8/8] 🏷️ Downloading STATUS OPTIONS...');
+      console.log('[8/9] 🏷️ Downloading STATUS OPTIONS...');
       downloads.push(
         firstValueFrom(this.caspioService.get('/tables/LPS_Status/records'))
           .then(async (response: any) => {
@@ -348,6 +349,24 @@ export class OfflineTemplateService {
             return [];
           })
       );
+
+      // 9. EFE Drop options (FDF dropdown for elevation plots)
+      if (templateType === 'EFE') {
+        console.log('[9/9] 📋 Downloading EFE_DROP (FDF dropdown options)...');
+        downloads.push(
+          firstValueFrom(this.caspioService.getServicesEFEDrop())
+            .then(async (data) => {
+              downloadSummary.efeDrop = data?.length || 0;
+              await this.indexedDb.cacheGlobalData('efe_drop', data);
+              console.log(`    ✅ EFE_Drop (FDF options): ${downloadSummary.efeDrop} options cached`);
+              return data;
+            })
+            .catch(err => {
+              console.warn('    ⚠️ EFE_Drop cache failed:', err);
+              return [];
+            })
+        );
+      }
 
       await Promise.all(downloads);
 
@@ -370,6 +389,7 @@ export class OfflineTemplateService {
       console.log(`║  📋 Services_Drop options:                 ${String(downloadSummary.servicesDrop).padStart(5)} options      ║`);
       console.log(`║  📋 Projects_Drop options:                 ${String(downloadSummary.projectsDrop).padStart(5)} options      ║`);
       console.log(`║  🏷️ Status options:                        ${String(downloadSummary.statusOptions).padStart(5)} options      ║`);
+      console.log(`║  📋 EFE_Drop (FDF) options:                ${String(downloadSummary.efeDrop).padStart(5)} options      ║`);
       console.log('╠════════════════════════════════════════════════════════════════╣');
       console.log('║  ✅ TEMPLATE IS READY FOR OFFLINE USE                           ║');
       console.log('╚════════════════════════════════════════════════════════════════╝\n');
@@ -907,11 +927,37 @@ export class OfflineTemplateService {
   }
 
   /**
-   * Get EFE points for a room from IndexedDB
+   * Get EFE points for a room from IndexedDB (offline-first with API fallback)
    */
   async getEFEPoints(roomId: string): Promise<any[]> {
-    // Get cached points
-    const cached = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
+    // Get cached points from IndexedDB first
+    let cached = await this.indexedDb.getCachedServiceData(roomId, 'efe_points');
+    
+    // If no cache and online, fetch from API
+    if ((cached === null || cached === undefined) && this.offlineService.isOnline()) {
+      console.log(`[OfflineTemplate] EFE Points cache miss for ${roomId}, fetching from API...`);
+      try {
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise<any[]>((_, reject) => {
+          setTimeout(() => reject(new Error('API timeout')), 10000);
+        });
+        
+        const points = await Promise.race([
+          firstValueFrom(this.caspioService.getServicesEFEPoints(roomId)),
+          timeoutPromise
+        ]);
+        
+        // Cache for future offline use
+        await this.indexedDb.cacheServiceData(roomId, 'efe_points', points || []);
+        cached = points || [];
+        console.log(`[OfflineTemplate] EFE Points fetched and cached for ${roomId}: ${cached.length}`);
+      } catch (error) {
+        console.error(`[OfflineTemplate] Failed to fetch EFE Points for ${roomId}:`, error);
+        cached = [];
+      }
+    }
+    
+    cached = cached || [];
 
     // Merge with pending offline points
     const pending = await this.indexedDb.getPendingEFEPoints(roomId);
@@ -1289,6 +1335,33 @@ export class OfflineTemplateService {
     }
 
     console.warn('[OfflineTemplate] No Status options available');
+    return [];
+  }
+
+  /**
+   * Get EFE Drop options (FDF dropdown for elevation plots) - IndexedDB first, API fallback
+   */
+  async getEFEDropOptions(): Promise<any[]> {
+    // Try IndexedDB first
+    const cached = await this.indexedDb.getCachedGlobalData('efe_drop');
+    if (cached && cached.length > 0) {
+      console.log('[OfflineTemplate] Loaded EFE_Drop options from cache:', cached.length);
+      return cached;
+    }
+
+    // If online, fetch and cache
+    if (this.offlineService.isOnline()) {
+      try {
+        const data = await firstValueFrom(this.caspioService.getServicesEFEDrop());
+        await this.indexedDb.cacheGlobalData('efe_drop', data);
+        console.log('[OfflineTemplate] Fetched and cached EFE_Drop options:', data?.length || 0);
+        return data || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] Failed to fetch EFE_Drop options:', error);
+      }
+    }
+
+    console.warn('[OfflineTemplate] No EFE_Drop options available');
     return [];
   }
 

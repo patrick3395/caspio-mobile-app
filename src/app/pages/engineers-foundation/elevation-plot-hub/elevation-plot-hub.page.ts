@@ -48,6 +48,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
 
   // Subscriptions for offline sync events
   private roomSyncSubscription?: Subscription;
+  private cacheInvalidationSubscription?: Subscription;
 
   constructor(
     private router: Router,
@@ -156,11 +157,62 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
         this.changeDetectorRef.detectChanges();
       }
     });
+
+    // Subscribe to cache invalidation to reload rooms when data syncs
+    this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
+      if (!event.serviceId || event.serviceId === this.serviceId) {
+        console.log('[ElevationPlotHub] Cache invalidated, reloading room list...');
+        this.reloadRoomsAfterSync();
+      }
+    });
+  }
+
+  /**
+   * Reload rooms after sync to update with real IDs and latest data
+   */
+  private async reloadRoomsAfterSync(): Promise<void> {
+    try {
+      console.log('[ElevationPlotHub] Reloading rooms after sync...');
+      
+      // Get fresh EFE rooms from IndexedDB (already updated by BackgroundSyncService)
+      const existingRooms = await this.foundationData.getEFERooms(this.serviceId);
+      console.log('[ElevationPlotHub] Got', existingRooms?.length || 0, 'rooms from IndexedDB');
+      
+      // Update our room data with fresh server data
+      if (existingRooms) {
+        for (const serverRoom of existingRooms) {
+          const roomName = serverRoom.RoomName;
+          const realId = serverRoom.EFEID || serverRoom.PK_ID;
+          
+          // Update efeRecordIds map
+          this.efeRecordIds[roomName] = String(realId);
+          this.selectedRooms[roomName] = true;
+          this.savingRooms[roomName] = false;
+          
+          // Update roomTemplates array
+          const roomTemplate = this.roomTemplates.find(r => r.RoomName === roomName);
+          if (roomTemplate) {
+            roomTemplate.isSelected = true;
+            roomTemplate.isSaving = false;
+            roomTemplate.efeId = String(realId);
+          }
+        }
+      }
+      
+      this.changeDetectorRef.detectChanges();
+      console.log('[ElevationPlotHub] Room reload complete');
+      
+    } catch (error) {
+      console.error('[ElevationPlotHub] Error reloading rooms:', error);
+    }
   }
 
   ngOnDestroy(): void {
     if (this.roomSyncSubscription) {
       this.roomSyncSubscription.unsubscribe();
+    }
+    if (this.cacheInvalidationSubscription) {
+      this.cacheInvalidationSubscription.unsubscribe();
     }
   }
 

@@ -932,7 +932,7 @@ export class IndexedDbService {
    * Cache global dropdown data (Services_Drop, Projects_Drop, Status, etc.)
    * These are shared across all services and don't change often.
    */
-  async cacheGlobalData(dataType: 'services_drop' | 'projects_drop' | 'status' | 'types', data: any[]): Promise<void> {
+  async cacheGlobalData(dataType: 'services_drop' | 'projects_drop' | 'status' | 'types' | 'efe_drop', data: any[]): Promise<void> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {
@@ -965,7 +965,7 @@ export class IndexedDbService {
   /**
    * Get cached global data from IndexedDB
    */
-  async getCachedGlobalData(dataType: 'services_drop' | 'projects_drop' | 'status' | 'types'): Promise<any[] | null> {
+  async getCachedGlobalData(dataType: 'services_drop' | 'projects_drop' | 'status' | 'types' | 'efe_drop'): Promise<any[] | null> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {

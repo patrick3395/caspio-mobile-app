@@ -21,13 +21,12 @@ Download ALL data to IndexedDB:
   1. Visual Templates (structural categories, comments, limitations, deficiencies)
   2. EFE Templates (room elevation definitions)
   3. Service Visuals (existing items for this service)
-  4. Visual Attachments (photo metadata)
-  5. Actual Images (downloaded and cached as base64)
-  6. EFE Rooms and Points
-  7. EFE Point Attachments + Images
-  8. Service Record
-  9. Project Record
-  10. Dropdown Options (Services_Drop, Projects_Drop, Status)
+  4. Visual Attachments (photo metadata) + Actual Images (base64)
+  5. EFE Rooms, Points, and Point Attachments + Images
+  6. Service Record + Project Record
+  7. Services_Drop (dropdown options)
+  8. Projects_Drop (dropdown options)
+  9. Status Options + EFE_Drop (FDF dropdown options)
        ↓
 Template Ready - User can work offline
 ```
@@ -95,7 +94,11 @@ UI stays in sync
 - ✅ Structural systems hub shows all categories offline
 - ✅ Category detail pages show all items offline
 - ✅ Project details work offline with all dropdowns
-- ✅ Elevation plot data works offline
+- ✅ Elevation plot rooms work offline
+- ✅ Elevation plot points load from IndexedDB cache
+- ✅ FDF dropdown options cached and work offline
+- ✅ Point creation works offline (queued for sync)
+- ✅ Point photos cached and display offline
 
 ### Photo System
 - ✅ Photos stored in IndexedDB immediately (camera or gallery)
@@ -160,23 +163,25 @@ When template downloads, you'll see:
 ║  Service: 499        | Type: EFE   | Key: EFE_499              ║
 ╚════════════════════════════════════════════════════════════════╝
 
-[1/8] 📋 Downloading VISUAL TEMPLATES...
+[1/9] 📋 Downloading VISUAL TEMPLATES...
     ✅ Visual Templates: 99 templates cached
-[2/8] 🏠 Downloading EFE TEMPLATES...
+[2/9] 🏠 Downloading EFE TEMPLATES...
     ✅ EFE Templates: 15 room templates cached
-[3/8] 🔍 Downloading SERVICE VISUALS...
+[3/9] 🔍 Downloading SERVICE VISUALS...
     ✅ Service Visuals: 2 existing items cached
     📸 Caching photo attachments for 2 visuals...
     ✅ Visual Attachments: 6 attachment records cached
     🖼️ Downloading 6 actual images for offline...
     📸 Image caching complete: 6 succeeded, 0 failed
-[4/8] 📐 Downloading EFE DATA...
+[4/9] 📐 Downloading EFE DATA...
     ✅ EFE Rooms: 3 rooms cached
     ✅ EFE Points: 12 points cached
-[5/8] 📝 Downloading SERVICE RECORD...
-[6/8] 📋 Downloading SERVICES_DROP...
-[7/8] 📋 Downloading PROJECTS_DROP...
-[8/8] 🏷️ Downloading STATUS OPTIONS...
+    ✅ EFE Point Attachments: 5 photos cached
+[5/9] 📝 Downloading SERVICE RECORD...
+[6/9] 📋 Downloading SERVICES_DROP...
+[7/9] 📋 Downloading PROJECTS_DROP...
+[8/9] 🏷️ Downloading STATUS OPTIONS...
+[9/9] 📋 Downloading EFE_DROP (FDF dropdown options)...
 
 ╔════════════════════════════════════════════════════════════════╗
 ║            📦 TEMPLATE DOWNLOAD COMPLETE                        ║
@@ -204,16 +209,24 @@ The system emits events when data syncs:
 
 ### Initial Load (Online)
 - [ ] Open template → "Preparing Template" screen appears
-- [ ] Console shows all 8 download steps completing
+- [ ] Console shows all 9 download steps completing
 - [ ] Console shows image download progress
 - [ ] Template ready message appears
 
-### Offline Usage
+### Offline Usage - Structural Systems
 - [ ] Enable airplane mode
 - [ ] Navigate to Structural Systems → all 10 categories show
 - [ ] Open Foundations category → all comments, limitations, deficiencies show
 - [ ] Previously uploaded photos display correctly
 - [ ] Can select items and add photos (queued for sync)
+
+### Offline Usage - Elevation Plot
+- [ ] Navigate to Elevation Plot → all rooms show
+- [ ] Open a room → points load from cache
+- [ ] FDF dropdown options work offline
+- [ ] Photos display from cache
+- [ ] Can add new points (queued for sync)
+- [ ] Can add photos to points (queued for sync)
 
 ### Sync After Offline Work
 - [ ] Disable airplane mode
@@ -268,6 +281,69 @@ Key log prefixes:
 
 ## Recent Session Changes (December 16, 2025)
 
+### Seamless Cache Invalidation After Sync (Latest)
+
+**Problem**: After data synced, the UI wouldn't show new data until multiple page refreshes.
+
+**Root Cause**: IndexedDB was updated by `BackgroundSyncService`, but **in-memory caches** in `EngineersFoundationDataService` and pages still had stale data.
+
+**Solution**: Implemented automatic cache invalidation with UI refresh:
+
+1. **EngineersFoundationDataService Enhancements**
+   - Added `cacheInvalidated$` Subject - emits when caches are cleared
+   - Added `invalidateCachesForService(serviceId)` - clears all in-memory caches
+   - Auto-subscribes to BackgroundSync events:
+     - `visualSyncComplete$` → clears visual caches
+     - `photoUploadComplete$` → clears attachment/image caches
+     - `serviceDataSyncComplete$` → clears service/project caches
+     - `efeRoomSyncComplete$` → clears EFE caches
+     - `efePointSyncComplete$` → clears point caches
+
+2. **Category Detail Page**
+   - Subscribes to `cacheInvalidated$`
+   - `reloadVisualsAfterSync()` - reloads visuals from fresh IndexedDB data
+   - `refreshPhotoCountsAfterSync()` - updates photo counts and loads new photos
+   - Immediately updates UI with synced data (real IDs, photos, etc.)
+
+3. **Structural Systems Hub**
+   - Subscribes to `cacheInvalidated$`
+   - Reloads deficiency counts when cache invalidates
+
+4. **Elevation Plot Hub**
+   - Subscribes to `cacheInvalidated$`
+   - `reloadRoomsAfterSync()` - updates rooms with real IDs from server
+
+5. **Room Elevation Page**
+   - Subscribes to `cacheInvalidated$`
+   - `reloadElevationDataAfterSync()` - updates points with real IDs
+
+**Result**: After sync, pages automatically refresh with new data - no manual refresh needed.
+
+### Elevation Plot Offline Mode
+
+1. **EFE Points Now Offline-First**
+   - `room-elevation.page.ts` now uses `foundationData.getEFEPoints()` instead of direct API calls
+   - Points load from IndexedDB cache first, with API fallback when online
+   - Point creation uses `foundationData.createEFEPoint()` with background sync
+
+2. **FDF Dropdown Options Cached**
+   - Added `efe_drop` to cached global data types
+   - Downloaded during template initialization (step 9/9)
+   - `offlineTemplate.getEFEDropOptions()` provides offline-first access
+   - Room elevation FDF dropdowns work offline
+
+3. **EFE Photo Loading Improved**
+   - `loadPointPhotoImage()` checks IndexedDB cache first
+   - `loadFDFPhotoImage()` checks IndexedDB cache first
+   - Falls back to placeholder when offline and no cache
+   - Caches images after loading for future offline use
+
+4. **API Timeout Protection**
+   - `getEFEPoints()` has 10-second timeout to prevent hanging
+   - Matches protection in `getVisualAttachments()` and `getEFEPointAttachments()`
+
+### Previous Changes
+
 1. **Photo Caching During Download**
    - Images now downloaded as base64 during initial template load
    - Stored in new `cachedPhotos` IndexedDB store
@@ -288,3 +364,4 @@ Key log prefixes:
    - Added `cachePhoto()`, `getCachedPhoto()` methods
    - Added `clearCachedPhotosForService()`, `clearAllCachedPhotos()`
    - Added `clearCachedServiceData()`, `removeTemplateDownloadStatus()`
+   - Added `efe_drop` as valid global data type

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { CaspioService } from '../../services/caspio.service';
 import { IndexedDbService } from '../../services/indexed-db.service';
 import { TempIdService } from '../../services/temp-id.service';
@@ -27,6 +27,11 @@ export class EngineersFoundationDataService {
   private efePointsCache = new Map<string, CacheEntry<any[]>>();
   private efeAttachmentsCache = new Map<string, CacheEntry<any[]>>();
 
+  // Event emitted when caches are invalidated - pages should reload their data
+  public cacheInvalidated$ = new Subject<{ serviceId?: string; reason: string }>();
+  
+  private syncSubscriptions: Subscription[] = [];
+
   constructor(
     private readonly caspioService: CaspioService,
     private readonly indexedDb: IndexedDbService,
@@ -35,7 +40,89 @@ export class EngineersFoundationDataService {
     private readonly offlineCache: OfflineDataCacheService,
     private readonly offlineTemplate: OfflineTemplateService,
     private readonly offlineService: OfflineService
-  ) {}
+  ) {
+    this.subscribeToSyncEvents();
+  }
+
+  /**
+   * Subscribe to BackgroundSyncService events and auto-invalidate caches
+   * This ensures in-memory caches are cleared when IndexedDB is updated
+   */
+  private subscribeToSyncEvents(): void {
+    // When a visual syncs, clear visual caches
+    this.syncSubscriptions.push(
+      this.backgroundSync.visualSyncComplete$.subscribe(event => {
+        console.log('[DataService] Visual synced, invalidating caches for service:', event.serviceId);
+        this.invalidateCachesForService(event.serviceId, 'visual_sync');
+      })
+    );
+
+    // When a photo syncs, clear attachment caches
+    this.syncSubscriptions.push(
+      this.backgroundSync.photoUploadComplete$.subscribe(event => {
+        console.log('[DataService] Photo synced, invalidating attachment caches');
+        this.visualAttachmentsCache.clear();
+        this.efeAttachmentsCache.clear();
+        this.imageCache.clear();
+        this.cacheInvalidated$.next({ reason: 'photo_sync' });
+      })
+    );
+
+    // When service data syncs, clear service/project caches
+    this.syncSubscriptions.push(
+      this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
+        console.log('[DataService] Service data synced, invalidating caches');
+        if (event.serviceId) {
+          this.serviceCache.delete(event.serviceId);
+        }
+        if (event.projectId) {
+          this.projectCache.delete(event.projectId);
+        }
+        this.cacheInvalidated$.next({ serviceId: event.serviceId, reason: 'service_data_sync' });
+      })
+    );
+
+    // When EFE room syncs, clear EFE caches
+    this.syncSubscriptions.push(
+      this.backgroundSync.efeRoomSyncComplete$.subscribe(event => {
+        console.log('[DataService] EFE room synced, invalidating EFE caches');
+        this.efePointsCache.clear();
+        this.efeAttachmentsCache.clear();
+        this.cacheInvalidated$.next({ reason: 'efe_room_sync' });
+      })
+    );
+
+    // When EFE point syncs, clear point caches
+    this.syncSubscriptions.push(
+      this.backgroundSync.efePointSyncComplete$.subscribe(event => {
+        console.log('[DataService] EFE point synced, invalidating point caches');
+        this.efePointsCache.clear();
+        this.efeAttachmentsCache.clear();
+        this.cacheInvalidated$.next({ reason: 'efe_point_sync' });
+      })
+    );
+  }
+
+  /**
+   * Invalidate all caches for a specific service
+   * Called after sync to ensure fresh data is loaded from IndexedDB
+   */
+  invalidateCachesForService(serviceId: string, reason: string = 'manual'): void {
+    console.log(`[DataService] Invalidating all caches for service ${serviceId} (reason: ${reason})`);
+    
+    // Clear service-specific caches
+    this.visualsCache.delete(serviceId);
+    this.serviceCache.delete(serviceId);
+    
+    // Clear all attachment caches (we don't track by service)
+    this.visualAttachmentsCache.clear();
+    this.efePointsCache.clear();
+    this.efeAttachmentsCache.clear();
+    this.imageCache.clear();
+    
+    // Emit event so pages can reload
+    this.cacheInvalidated$.next({ serviceId, reason });
+  }
 
   async getProject(projectId: string | null | undefined): Promise<any> {
     if (!projectId) {

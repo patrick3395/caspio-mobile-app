@@ -80,6 +80,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   private uploadSubscription?: Subscription;
   private taskSubscription?: Subscription;
   private photoSyncSubscription?: Subscription;
+  private cacheInvalidationSubscription?: Subscription;
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -179,6 +180,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     if (this.photoSyncSubscription) {
       this.photoSyncSubscription.unsubscribe();
     }
+    if (this.cacheInvalidationSubscription) {
+      this.cacheInvalidationSubscription.unsubscribe();
+    }
     console.log('[CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
@@ -262,6 +266,134 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         }
       }
     });
+
+    // Subscribe to cache invalidation events from EngineersFoundationDataService
+    // When data syncs, in-memory caches are cleared and we should reload fresh data
+    this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(async (event) => {
+      console.log('[CACHE INVALIDATED] Received event:', event);
+      
+      // Only reload if this is our service or a global event
+      if (!event.serviceId || event.serviceId === this.serviceId) {
+        console.log('[CACHE INVALIDATED] Reloading data for service:', this.serviceId);
+        
+        // Reload visuals from fresh IndexedDB data (which was updated by BackgroundSyncService)
+        await this.reloadVisualsAfterSync();
+      }
+    });
+  }
+
+  /**
+   * Reload visuals after a sync event to ensure UI shows fresh data
+   */
+  private async reloadVisualsAfterSync(): Promise<void> {
+    try {
+      console.log('[RELOAD AFTER SYNC] Starting fresh visual reload...');
+      
+      // Get fresh visuals from IndexedDB (already updated by BackgroundSyncService)
+      const visuals = await this.foundationData.getVisuals(this.serviceId);
+      console.log('[RELOAD AFTER SYNC] Got', visuals.length, 'visuals from IndexedDB');
+      
+      // Update existing items with fresh data from server
+      for (const visual of visuals) {
+        const kind = visual.Kind?.toLowerCase() || '';
+        const templateId = visual.VisualTemplateID || visual.TemplateID;
+        const key = `${kind}-${templateId}`;
+        
+        // Find the item in organizedData and update it
+        let targetArray: VisualItem[] | null = null;
+        if (kind === 'comment') {
+          targetArray = this.organizedData.comments;
+        } else if (kind === 'limitation') {
+          targetArray = this.organizedData.limitations;
+        } else if (kind === 'deficiency') {
+          targetArray = this.organizedData.deficiencies;
+        }
+        
+        if (targetArray) {
+          const existingItem = targetArray.find(item => 
+            item.templateId === templateId || item.key === key
+          );
+          
+          if (existingItem) {
+            // Update with fresh server data
+            existingItem.id = visual.VisualID || visual.PK_ID;
+            existingItem.isSelected = true;
+            existingItem.isSaving = false;
+            
+            // Clear any temp ID markers
+            delete (existingItem as any)._tempId;
+            delete (existingItem as any)._localOnly;
+            delete (existingItem as any)._syncing;
+            
+            // Store the record ID for photo uploads
+            this.visualRecordIds[key] = String(visual.VisualID || visual.PK_ID);
+            this.selectedItems[key] = true;
+            this.savingItems[key] = false;
+            
+            console.log('[RELOAD AFTER SYNC] Updated item:', key, 'with real ID:', existingItem.id);
+          }
+        }
+      }
+      
+      // Refresh photo counts with fresh attachment data
+      await this.refreshPhotoCountsAfterSync(visuals);
+      
+      this.changeDetectorRef.detectChanges();
+      console.log('[RELOAD AFTER SYNC] Complete');
+      
+    } catch (error) {
+      console.error('[RELOAD AFTER SYNC] Error:', error);
+    }
+  }
+
+  /**
+   * Refresh photo counts for all visuals after sync
+   */
+  private async refreshPhotoCountsAfterSync(visuals: any[]): Promise<void> {
+    for (const visual of visuals) {
+      const kind = visual.Kind?.toLowerCase() || '';
+      const templateId = visual.VisualTemplateID || visual.TemplateID;
+      const key = `${kind}-${templateId}`;
+      const visualId = visual.VisualID || visual.PK_ID;
+      
+      try {
+        const attachments = await this.foundationData.getVisualAttachments(visualId);
+        this.photoCountsByKey[key] = attachments?.length || 0;
+        
+        // Update photos array if we have attachments
+        if (attachments && attachments.length > 0) {
+          if (!this.visualPhotos[key]) {
+            this.visualPhotos[key] = [];
+          }
+          
+          // Add any new photos from server that we don't have locally
+          for (const att of attachments) {
+            const attachId = att.PK_ID || att.AttachID;
+            const existingPhoto = this.visualPhotos[key].find(p => 
+              p.AttachID === attachId || p.attachId === attachId
+            );
+            
+            if (!existingPhoto) {
+              // New photo from server - add it
+              this.visualPhotos[key].push({
+                attachId: attachId,
+                AttachID: attachId,
+                caption: att.Caption || '',
+                loading: true,
+                Attachment: att.Attachment
+              });
+              
+              // Load the photo image
+              if (att.Attachment) {
+                this.loadSinglePhoto(att.Attachment, key, this.visualPhotos[key].length - 1);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('[RELOAD AFTER SYNC] Error getting attachments for', key, error);
+      }
+    }
   }
 
   /**

@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { OfflineDataCacheService } from '../../../../services/offline-data-cache.service';
@@ -16,12 +17,14 @@ import { IndexedDbService } from '../../../../services/indexed-db.service';
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class StructuralSystemsHubPage implements OnInit {
+export class StructuralSystemsHubPage implements OnInit, OnDestroy {
   projectId: string = '';
   serviceId: string = '';
   categories: { name: string; deficiencyCount: number }[] = [];
   loading: boolean = true;
   serviceData: any = {};
+  
+  private cacheInvalidationSubscription?: Subscription;
 
   constructor(
     private router: Router,
@@ -66,6 +69,20 @@ export class StructuralSystemsHubPage implements OnInit {
         }
       }
     });
+
+    // Subscribe to cache invalidation events - reload data when sync completes
+    this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
+      if (!event.serviceId || event.serviceId === this.serviceId) {
+        console.log('[StructuralHub] Cache invalidated, reloading deficiency counts...');
+        this.loadCategories();
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.cacheInvalidationSubscription) {
+      this.cacheInvalidationSubscription.unsubscribe();
+    }
   }
 
   private async loadData() {
