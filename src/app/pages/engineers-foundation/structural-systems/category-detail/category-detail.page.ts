@@ -208,18 +208,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
    * This prevents UI "flashing" when selecting items or uploading photos.
    */
   private startLocalOperationCooldown() {
-    // Clear any existing cooldown timer
+    // Clear any existing timers
     if (this.localOperationCooldownTimer) {
       clearTimeout(this.localOperationCooldownTimer);
     }
     
+    // CRITICAL: Also clear any pending debounce timer to prevent delayed reloads
+    if (this.cacheInvalidationDebounceTimer) {
+      clearTimeout(this.cacheInvalidationDebounceTimer);
+      this.cacheInvalidationDebounceTimer = null;
+    }
+    
     this.localOperationCooldown = true;
     
-    // Cooldown lasts 2 seconds - enough time for sync to complete
+    // Cooldown lasts 3 seconds - enough time for sync to complete
     this.localOperationCooldownTimer = setTimeout(() => {
       this.localOperationCooldown = false;
       console.log('[COOLDOWN] Local operation cooldown ended');
-    }, 2000);
+    }, 3000);
   }
 
   /**
@@ -356,6 +362,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       console.log('[RELOAD AFTER SYNC] Got', visuals.length, 'visuals from IndexedDB');
       
       // Update existing items with fresh data from server
+      let anyVisualChanges = false;
+      
       for (const visual of visuals) {
         // Skip if not for current category
         if (visual.Category !== this.categoryName) {
@@ -395,19 +403,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             
             // OPTIMIZATION: Only update if something actually changed
             // This prevents UI "flashing" when data is already correct
-            const currentId = existingItem.id;
+            // NOTE: visualRecordIds[key] stores the server record ID, NOT existingItem.id which is the template ID
+            const currentRecordId = this.visualRecordIds[key];
             const alreadySelected = this.selectedItems[key] === true;
-            const alreadyHasRealId = currentId === visualId;
+            const alreadyHasRealId = String(currentRecordId) === visualId;
             const hasTempMarkers = (existingItem as any)._tempId || (existingItem as any)._syncing;
             
             if (alreadySelected && alreadyHasRealId && !hasTempMarkers) {
               // Data is already up-to-date, skip to avoid UI flash
-              console.log('[RELOAD AFTER SYNC] Item already up-to-date:', key);
+              console.log('[RELOAD AFTER SYNC] Item already up-to-date:', key, 'recordId:', currentRecordId);
               continue;
             }
             
+            anyVisualChanges = true;
+            
             // Update with fresh server data (only if needed)
-            existingItem.id = visualId;
+            // NOTE: DO NOT change existingItem.id - that's the template ID used for the key format
+            // Only update UI flags and store the visual record ID separately
             existingItem.isSelected = true;
             existingItem.isSaving = false;
             
@@ -416,12 +428,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             delete (existingItem as any)._localOnly;
             delete (existingItem as any)._syncing;
             
-            // Store the record ID for photo uploads using CORRECT key format
+            // Store the visual record ID (NOT template ID) for photo uploads
             this.visualRecordIds[key] = visualId;
             this.selectedItems[key] = true;
             this.savingItems[key] = false;
             
-            console.log('[RELOAD AFTER SYNC] Updated item:', key, 'with real ID:', visualId);
+            console.log('[RELOAD AFTER SYNC] Updated item:', key, 'with visual recordId:', visualId);
           } else {
             console.log('[RELOAD AFTER SYNC] No matching item found for visual:', visual.Name, 'templateId:', templateId);
           }
@@ -432,10 +444,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       const photosChanged = await this.refreshPhotoCountsAfterSync(visuals);
       
       // Only trigger change detection if something actually changed
-      if (photosChanged) {
+      if (anyVisualChanges || photosChanged) {
+        console.log('[RELOAD AFTER SYNC] Changes detected, running change detection');
         this.changeDetectorRef.detectChanges();
+      } else {
+        console.log('[RELOAD AFTER SYNC] No changes detected, skipping change detection');
       }
-      console.log('[RELOAD AFTER SYNC] Complete, photosChanged:', photosChanged);
+      console.log('[RELOAD AFTER SYNC] Complete, visualChanges:', anyVisualChanges, 'photosChanged:', photosChanged);
       
     } catch (error) {
       console.error('[RELOAD AFTER SYNC] Error:', error);
@@ -671,6 +686,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
   private async loadData() {
     console.log('[LOAD DATA] ========== loadData START ==========');
+    
+    // CRITICAL: Start cooldown to prevent cache invalidation events from causing UI flash
+    // during initial load. This is extended as visuals/photos are loaded.
+    this.startLocalOperationCooldown();
+    
     this.loading = true;
     this.changeDetectorRef.detectChanges();
 
