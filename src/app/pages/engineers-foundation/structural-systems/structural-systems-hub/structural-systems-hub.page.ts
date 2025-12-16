@@ -25,6 +25,7 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
   serviceData: any = {};
   
   private cacheInvalidationSubscription?: Subscription;
+  private cacheInvalidationDebounceTimer: any = null;
 
   constructor(
     private router: Router,
@@ -71,10 +72,19 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
     });
 
     // Subscribe to cache invalidation events - reload data when sync completes
+    // CRITICAL: Debounce to prevent multiple rapid reloads
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
       if (!event.serviceId || event.serviceId === this.serviceId) {
-        console.log('[StructuralHub] Cache invalidated, reloading deficiency counts...');
-        this.loadCategories();
+        // Clear any existing debounce timer
+        if (this.cacheInvalidationDebounceTimer) {
+          clearTimeout(this.cacheInvalidationDebounceTimer);
+        }
+        
+        // Debounce: wait 500ms before reloading to batch multiple rapid events
+        this.cacheInvalidationDebounceTimer = setTimeout(() => {
+          console.log('[StructuralHub] Cache invalidated (debounced), reloading deficiency counts...');
+          this.loadCategories();
+        }, 500);
       }
     });
   }
@@ -82,6 +92,9 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
   ngOnDestroy() {
     if (this.cacheInvalidationSubscription) {
       this.cacheInvalidationSubscription.unsubscribe();
+    }
+    if (this.cacheInvalidationDebounceTimer) {
+      clearTimeout(this.cacheInvalidationDebounceTimer);
     }
   }
 

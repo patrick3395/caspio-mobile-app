@@ -48,6 +48,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   private uploadSubscription?: Subscription;
   private taskSubscription?: Subscription;
   private cacheInvalidationSubscription?: Subscription;
+  private cacheInvalidationDebounceTimer: any = null;
+  private isReloadingAfterSync = false;
 
   // Convenience getters for template
   get fdfPhotos() {
@@ -196,10 +198,25 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     await this.loadFDFOptions();
 
     // Subscribe to cache invalidation events - reload data when sync completes
+    // CRITICAL: Debounce to prevent multiple rapid reloads
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
       if (!event.serviceId || event.serviceId === this.serviceId) {
-        console.log('[RoomElevation] Cache invalidated, reloading elevation data...');
-        this.reloadElevationDataAfterSync();
+        // Clear any existing debounce timer
+        if (this.cacheInvalidationDebounceTimer) {
+          clearTimeout(this.cacheInvalidationDebounceTimer);
+        }
+        
+        // Skip if already reloading
+        if (this.isReloadingAfterSync) {
+          console.log('[RoomElevation] Skipping - already reloading');
+          return;
+        }
+        
+        // Debounce: wait 500ms before reloading to batch multiple rapid events
+        this.cacheInvalidationDebounceTimer = setTimeout(() => {
+          console.log('[RoomElevation] Cache invalidated (debounced), reloading elevation data...');
+          this.reloadElevationDataAfterSync();
+        }, 500);
       }
     });
   }
@@ -208,6 +225,13 @@ export class RoomElevationPage implements OnInit, OnDestroy {
    * Reload elevation data after a sync event
    */
   private async reloadElevationDataAfterSync(): Promise<void> {
+    // Prevent concurrent reloads
+    if (this.isReloadingAfterSync) {
+      console.log('[RoomElevation] Skipping - already reloading');
+      return;
+    }
+    
+    this.isReloadingAfterSync = true;
     try {
       console.log('[RoomElevation] Reloading points after sync...');
       
@@ -239,13 +263,18 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       
     } catch (error) {
       console.error('[RoomElevation] Error reloading elevation data:', error);
+    } finally {
+      this.isReloadingAfterSync = false;
     }
   }
 
   ngOnDestroy() {
-    // Clean up debounce timer
+    // Clean up debounce timers
     if (this.notesDebounceTimer) {
       clearTimeout(this.notesDebounceTimer);
+    }
+    if (this.cacheInvalidationDebounceTimer) {
+      clearTimeout(this.cacheInvalidationDebounceTimer);
     }
 
     // Clean up upload subscriptions - but uploads will continue in background service

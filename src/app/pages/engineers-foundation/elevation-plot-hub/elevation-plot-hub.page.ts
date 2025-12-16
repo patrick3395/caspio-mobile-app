@@ -49,6 +49,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
   // Subscriptions for offline sync events
   private roomSyncSubscription?: Subscription;
   private cacheInvalidationSubscription?: Subscription;
+  private cacheInvalidationDebounceTimer: any = null;
 
   constructor(
     private router: Router,
@@ -159,10 +160,19 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
     });
 
     // Subscribe to cache invalidation to reload rooms when data syncs
+    // CRITICAL: Debounce to prevent multiple rapid reloads
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
       if (!event.serviceId || event.serviceId === this.serviceId) {
-        console.log('[ElevationPlotHub] Cache invalidated, reloading room list...');
-        this.reloadRoomsAfterSync();
+        // Clear any existing debounce timer
+        if (this.cacheInvalidationDebounceTimer) {
+          clearTimeout(this.cacheInvalidationDebounceTimer);
+        }
+        
+        // Debounce: wait 500ms before reloading to batch multiple rapid events
+        this.cacheInvalidationDebounceTimer = setTimeout(() => {
+          console.log('[ElevationPlotHub] Cache invalidated (debounced), reloading room list...');
+          this.reloadRoomsAfterSync();
+        }, 500);
       }
     });
   }
@@ -213,6 +223,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
     }
     if (this.cacheInvalidationSubscription) {
       this.cacheInvalidationSubscription.unsubscribe();
+    }
+    if (this.cacheInvalidationDebounceTimer) {
+      clearTimeout(this.cacheInvalidationDebounceTimer);
     }
   }
 

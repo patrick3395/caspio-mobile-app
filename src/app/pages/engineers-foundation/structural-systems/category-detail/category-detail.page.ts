@@ -83,6 +83,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   private taskSubscription?: Subscription;
   private photoSyncSubscription?: Subscription;
   private cacheInvalidationSubscription?: Subscription;
+  
+  // Debounce timer for cache invalidation to prevent multiple rapid reloads
+  private cacheInvalidationDebounceTimer: any = null;
+  private isReloadingAfterSync = false;
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -185,6 +189,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     if (this.cacheInvalidationSubscription) {
       this.cacheInvalidationSubscription.unsubscribe();
     }
+    // Clear debounce timer
+    if (this.cacheInvalidationDebounceTimer) {
+      clearTimeout(this.cacheInvalidationDebounceTimer);
+    }
     console.log('[CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
@@ -271,15 +279,28 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
     // Subscribe to cache invalidation events from EngineersFoundationDataService
     // When data syncs, in-memory caches are cleared and we should reload fresh data
-    this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(async (event) => {
+    // CRITICAL: Debounce to prevent multiple rapid reloads from causing issues
+    this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe((event) => {
       console.log('[CACHE INVALIDATED] Received event:', event);
       
       // Only reload if this is our service or a global event
       if (!event.serviceId || event.serviceId === this.serviceId) {
-        console.log('[CACHE INVALIDATED] Reloading data for service:', this.serviceId);
+        // Clear any existing debounce timer
+        if (this.cacheInvalidationDebounceTimer) {
+          clearTimeout(this.cacheInvalidationDebounceTimer);
+        }
         
-        // Reload visuals from fresh IndexedDB data (which was updated by BackgroundSyncService)
-        await this.reloadVisualsAfterSync();
+        // Skip if already reloading
+        if (this.isReloadingAfterSync) {
+          console.log('[CACHE INVALIDATED] Skipping - already reloading');
+          return;
+        }
+        
+        // Debounce: wait 500ms before reloading to batch multiple rapid events
+        this.cacheInvalidationDebounceTimer = setTimeout(async () => {
+          console.log('[CACHE INVALIDATED] Debounced reload for service:', this.serviceId);
+          await this.reloadVisualsAfterSync();
+        }, 500);
       }
     });
   }
@@ -288,6 +309,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
    * Reload visuals after a sync event to ensure UI shows fresh data
    */
   private async reloadVisualsAfterSync(): Promise<void> {
+    // Prevent concurrent reloads
+    if (this.isReloadingAfterSync) {
+      console.log('[RELOAD AFTER SYNC] Skipping - already reloading');
+      return;
+    }
+    
+    this.isReloadingAfterSync = true;
     try {
       console.log('[RELOAD AFTER SYNC] Starting fresh visual reload...');
       
@@ -363,6 +391,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       
     } catch (error) {
       console.error('[RELOAD AFTER SYNC] Error:', error);
+    } finally {
+      this.isReloadingAfterSync = false;
     }
   }
 
@@ -420,19 +450,74 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             this.visualPhotos[key] = [];
           }
           
-          // Add any new photos from server that we don't have locally
+          // CRITICAL: First, update any temp photos with their real IDs
+          // This prevents duplicates when a temp photo gets synced
           for (const att of attachments) {
-            const attachId = att.PK_ID || att.AttachID;
+            const realAttachId = String(att.PK_ID || att.AttachID);
+            
+            // Look for temp photos that should be replaced by this real photo
+            // Check _tempId, _pendingFileId, or any temp_ prefixed ID
+            const tempPhotoIndex = this.visualPhotos[key].findIndex(p => {
+              // Check if this is a temp photo
+              const isTempPhoto = (p.AttachID && String(p.AttachID).startsWith('temp_')) ||
+                                  (p._tempId && String(p._tempId).startsWith('temp_')) ||
+                                  (p._pendingFileId && String(p._pendingFileId).startsWith('temp_'));
+              
+              // If it's a temp photo, check if it matches by file similarity
+              // (same visual, similar upload time - within last few minutes)
+              if (isTempPhoto && p._backgroundSync) {
+                // This is a background-syncing photo, likely matches the server photo
+                return true;
+              }
+              return false;
+            });
+            
+            if (tempPhotoIndex !== -1) {
+              // Found a temp photo - update it with real data instead of adding duplicate
+              const existingTempPhoto = this.visualPhotos[key][tempPhotoIndex];
+              console.log('[RELOAD AFTER SYNC] Updating temp photo', existingTempPhoto.AttachID, 'with real ID:', realAttachId);
+              
+              // Preserve the displayUrl if it's valid
+              const preservedUrl = existingTempPhoto.displayUrl || existingTempPhoto.url;
+              
+              this.visualPhotos[key][tempPhotoIndex] = {
+                ...existingTempPhoto,
+                AttachID: realAttachId,
+                attachId: realAttachId,
+                id: realAttachId,
+                caption: att.Annotation || att.Caption || existingTempPhoto.caption || '',
+                Attachment: att.Attachment,
+                loading: false,
+                uploading: false,
+                queued: false,
+                _tempId: undefined,
+                _pendingFileId: undefined,
+                _backgroundSync: undefined,
+                // Keep the URL if we already have one
+                url: preservedUrl || existingTempPhoto.url,
+                displayUrl: preservedUrl || existingTempPhoto.displayUrl,
+                thumbnailUrl: preservedUrl || existingTempPhoto.thumbnailUrl,
+              };
+              
+              // Load fresh image if we have an S3 key
+              if (att.Attachment) {
+                this.loadSinglePhoto(att, key);
+              }
+              continue; // Skip the duplicate check below
+            }
+            
+            // Check for existing photo by real ID
             const existingPhoto = this.visualPhotos[key].find(p => 
-              p.AttachID === attachId || p.attachId === attachId
+              String(p.AttachID) === realAttachId || String(p.attachId) === realAttachId
             );
             
             if (!existingPhoto) {
-              // New photo from server - add it
+              // Truly new photo from server - add it
+              console.log('[RELOAD AFTER SYNC] Adding new photo from server:', realAttachId);
               this.visualPhotos[key].push({
-                attachId: attachId,
-                AttachID: attachId,
-                caption: att.Caption || '',
+                attachId: realAttachId,
+                AttachID: realAttachId,
+                caption: att.Annotation || att.Caption || '',
                 loading: true,
                 Attachment: att.Attachment
               });

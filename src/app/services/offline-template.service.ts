@@ -51,7 +51,7 @@ export class OfflineTemplateService {
   async ensureVisualTemplatesReady(): Promise<any[]> {
     console.log('[OfflineTemplate] ensureVisualTemplatesReady() called');
     
-    // Check if we have cached templates
+    // Check if we have cached templates FIRST (instant return for offline)
     try {
       const cached = await this.indexedDb.getCachedTemplates('visual');
       console.log('[OfflineTemplate] IndexedDB getCachedTemplates result:', cached ? `${cached.length} templates` : 'null/undefined');
@@ -64,11 +64,25 @@ export class OfflineTemplateService {
       console.error('[OfflineTemplate] ❌ IndexedDB error when getting cached templates:', dbError);
     }
 
-    // Check if any download is in progress - wait for it
+    // CRITICAL: If offline and no cache, return empty immediately - don't wait for downloads
+    if (!this.offlineService.isOnline()) {
+      console.log('[OfflineTemplate] ⚠️ Offline with no cached templates - returning empty');
+      return [];
+    }
+
+    // Only wait for downloads if ONLINE (they might complete soon)
     for (const [key, promise] of this.downloadPromises.entries()) {
       if (key.startsWith('EFE_')) {
         console.log(`[OfflineTemplate] ensureVisualTemplatesReady: waiting for download ${key}...`);
-        await promise;
+        try {
+          // Add timeout to prevent hanging
+          const timeoutPromise = new Promise<void>((_, reject) => 
+            setTimeout(() => reject(new Error('Download timeout')), 5000)
+          );
+          await Promise.race([promise, timeoutPromise]);
+        } catch (err) {
+          console.warn('[OfflineTemplate] Download wait timed out or failed:', err);
+        }
         // Check again after download completes
         const afterDownload = await this.indexedDb.getCachedTemplates('visual');
         if (afterDownload && afterDownload.length > 0) {
