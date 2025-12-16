@@ -35,7 +35,7 @@ export interface CachedTemplate {
 export interface CachedServiceData {
   cacheKey: string;
   serviceId: string;
-  dataType: 'visuals' | 'efe_rooms' | 'efe_points';
+  dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments';
   data: any[];
   lastUpdated: number;
 }
