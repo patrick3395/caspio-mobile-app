@@ -17,8 +17,18 @@
 </ion-header>
 
 <ion-content>
-  <!-- Child pages will be rendered here -->
-  <router-outlet></router-outlet>
+  <!-- Loading overlay while downloading template data -->
+  <div class="template-loading-overlay" *ngIf="!templateReady">
+    <div class="loading-content">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <h2>Preparing Template</h2>
+      <p>{{ downloadProgress }}</p>
+      <p class="loading-hint">This ensures you can work offline</p>
+    </div>
+  </div>
+
+  <!-- Child pages will be rendered here (only when template is ready) -->
+  <router-outlet *ngIf="templateReady"></router-outlet>
 </ion-content>
 
 <ion-footer class="breadcrumb-footer">

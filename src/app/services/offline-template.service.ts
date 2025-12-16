@@ -390,11 +390,29 @@ export class OfflineTemplateService {
   }
 
   /**
-   * Get download status for UI display
+   * Get download status for UI display (sync version - checks memory only)
    */
   getDownloadStatus(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE'): 'pending' | 'downloading' | 'ready' | 'error' | 'unknown' {
     const cacheKey = `${templateType}_${serviceId}`;
     return this.downloadStatus.get(cacheKey) || 'unknown';
+  }
+
+  /**
+   * Check if template data is ready (async version - checks IndexedDB)
+   */
+  async isTemplateDataReady(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE'): Promise<boolean> {
+    // Check in-memory status first (fastest)
+    const cacheKey = `${templateType}_${serviceId}`;
+    if (this.downloadStatus.get(cacheKey) === 'ready') {
+      return true;
+    }
+
+    // Check IndexedDB for cached data
+    const isReady = await this.isTemplateReady(serviceId, templateType);
+    if (isReady) {
+      this.downloadStatus.set(cacheKey, 'ready');
+    }
+    return isReady;
   }
 
   // ============================================

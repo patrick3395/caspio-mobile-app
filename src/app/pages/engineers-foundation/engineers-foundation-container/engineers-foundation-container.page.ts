@@ -30,6 +30,10 @@ export class EngineersFoundationContainerPage implements OnInit {
   currentPageTitle: string = 'Engineers Foundation Evaluation';
   currentPageShortTitle: string = 'EFE';
   isGeneratingPDF: boolean = false;
+  
+  // Offline-first: template loading state
+  templateReady: boolean = false;
+  downloadProgress: string = 'Preparing template for offline use...';
 
   constructor(
     private router: Router,
@@ -43,7 +47,7 @@ export class EngineersFoundationContainerPage implements OnInit {
 
   ngOnInit() {
     // Get project and service IDs from route params
-    this.route.params.subscribe(params => {
+    this.route.params.subscribe(async params => {
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
 
@@ -57,8 +61,9 @@ export class EngineersFoundationContainerPage implements OnInit {
         }
       });
 
-      // Pre-cache templates and service data for offline use (non-blocking)
-      this.preCacheForOffline();
+      // CRITICAL: Download ALL template data for offline use
+      // This MUST complete before user can work on template
+      await this.downloadTemplateData();
     });
 
     // Subscribe to router events to update breadcrumbs
@@ -215,36 +220,69 @@ export class EngineersFoundationContainerPage implements OnInit {
   /**
    * Download complete template for offline use.
    * This downloads EVERYTHING needed to work offline from scratch.
-   * Runs in background, doesn't block UI.
+   * BLOCKS until complete - user must wait for offline capability.
    */
-  private async preCacheForOffline(): Promise<void> {
+  private async downloadTemplateData(): Promise<void> {
     if (!this.serviceId) {
-      console.log('[EF Container] preCacheForOffline: no serviceId, skipping');
+      console.log('[EF Container] downloadTemplateData: no serviceId, skipping');
+      this.templateReady = true;
       return;
     }
 
-    console.log(`[EF Container] preCacheForOffline() called for serviceId=${this.serviceId}, projectId=${this.projectId}`);
+    console.log(`[EF Container] downloadTemplateData() called for serviceId=${this.serviceId}, projectId=${this.projectId}`);
+
+    // Check if already downloaded (fast path for returning to template)
+    const isReady = await this.offlineTemplate.isTemplateDataReady(this.serviceId, 'EFE');
+    if (isReady) {
+      console.log('[EF Container] Template already cached - ready immediately');
+      this.templateReady = true;
+      return;
+    }
+
+    // Show loading while downloading
+    this.templateReady = false;
+    this.downloadProgress = 'Downloading template data for offline use...';
 
     try {
-      // Download complete template data for offline-first operation (include projectId for Project Details)
+      // Download complete template data for offline-first operation
       console.log('[EF Container] Calling downloadTemplateForOffline...');
       await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
       console.log('[EF Container] Template downloaded - ready for offline use');
-    } catch (error) {
-      // Non-critical - just log and continue (may already be cached or offline)
-      console.warn('[EF Container] Template download skipped:', error);
-
-      // Fallback to simpler pre-cache if full download fails
-      try {
-        console.log('[EF Container] Trying fallback pre-cache...');
-        await Promise.all([
-          this.offlineCache.refreshAllTemplates(),
-          this.offlineCache.preCacheServiceData(this.serviceId)
-        ]);
-        console.log('[EF Container] Fallback pre-cache completed');
-      } catch (fallbackError) {
-        console.warn('[EF Container] Fallback pre-cache also failed:', fallbackError);
+      this.downloadProgress = 'Template ready!';
+    } catch (error: any) {
+      // Check if it's because we're offline but have cached data
+      if (error.message?.includes('offline') || error.message?.includes('Cannot download')) {
+        console.log('[EF Container] Offline - checking for cached data...');
+        this.downloadProgress = 'Offline - loading cached data...';
+        
+        // Try to verify we have some cached data
+        const hasTemplates = await this.offlineTemplate.getVisualTemplates();
+        if (hasTemplates && hasTemplates.length > 0) {
+          console.log('[EF Container] Have cached templates - continuing offline');
+          this.downloadProgress = 'Working offline with cached data';
+        } else {
+          console.warn('[EF Container] No cached data available offline');
+          this.downloadProgress = 'Limited offline - some data may be unavailable';
+        }
+      } else {
+        console.warn('[EF Container] Template download failed:', error);
+        this.downloadProgress = 'Download failed - some features may be unavailable';
+        
+        // Try fallback
+        try {
+          console.log('[EF Container] Trying fallback pre-cache...');
+          await Promise.all([
+            this.offlineCache.refreshAllTemplates(),
+            this.offlineCache.preCacheServiceData(this.serviceId)
+          ]);
+          console.log('[EF Container] Fallback pre-cache completed');
+        } catch (fallbackError) {
+          console.warn('[EF Container] Fallback also failed:', fallbackError);
+        }
       }
+    } finally {
+      // Always mark as ready (even if offline/failed - let user proceed)
+      this.templateReady = true;
     }
   }
 }
