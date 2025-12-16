@@ -206,8 +206,49 @@ export class BackgroundSyncService {
             realId = result.Result[0].PointID || result.Result[0].PK_ID;
           }
 
-          // Emit point sync complete event
+          // Update IndexedDB cache and emit sync complete event
           if (realId) {
+            // Get the room ID from request data (could be temp or real ID)
+            const roomId = String(request.data?.EFEID || '');
+            const pointData = result.Result?.[0] || result;
+            
+            // Update the IndexedDB cache for points
+            if (roomId) {
+              const existingPoints = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
+              
+              // Find and update the point with temp ID, or add new if not found
+              let pointUpdated = false;
+              const updatedPoints = existingPoints.map((p: any) => {
+                if (p._tempId === request.tempId || p.PointID === request.tempId || p.PK_ID === request.tempId) {
+                  pointUpdated = true;
+                  return {
+                    ...p,
+                    ...pointData,
+                    PointID: realId,
+                    PK_ID: realId,
+                    EFEID: roomId, // Use the resolved room ID
+                    _tempId: undefined,
+                    _localOnly: undefined,
+                    _syncing: undefined
+                  };
+                }
+                return p;
+              });
+              
+              // If point wasn't in cache (shouldn't happen but just in case), add it
+              if (!pointUpdated && pointData) {
+                updatedPoints.push({
+                  ...pointData,
+                  PointID: realId,
+                  PK_ID: realId,
+                  EFEID: roomId
+                });
+              }
+              
+              await this.indexedDb.cacheServiceData(roomId, 'efe_points', updatedPoints);
+              console.log(`[BackgroundSync] Updated EFE points cache for room ${roomId}`);
+            }
+
             this.ngZone.run(() => {
               this.efePointSyncComplete$.next({
                 tempId: request.tempId!,
@@ -216,10 +257,10 @@ export class BackgroundSyncService {
               });
             });
 
-            // Also remove from pendingEFEData
+            // Remove from pendingEFEData
             await this.indexedDb.removePendingEFE(request.tempId);
           }
-        } else if (request.endpoint.includes('Services_EFE/')) {
+        } else if (request.endpoint.includes('Services_EFE/') || request.endpoint.includes('Services_EFE')) {
           // For EFE Rooms, use EFEID
           if (result && result.EFEID) {
             realId = result.EFEID;
@@ -227,8 +268,46 @@ export class BackgroundSyncService {
             realId = result.Result[0].EFEID || result.Result[0].PK_ID;
           }
 
-          // Emit room sync complete event
+          // Update IndexedDB cache and emit sync complete event
           if (realId) {
+            const serviceId = String(request.data?.ServiceID || '');
+            
+            // Update the IndexedDB cache to replace temp ID with real room data
+            if (serviceId) {
+              const existingRooms = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
+              const roomData = result.Result?.[0] || result;
+              
+              // Find and update the room with temp ID, or add new if not found
+              let roomUpdated = false;
+              const updatedRooms = existingRooms.map((r: any) => {
+                if (r._tempId === request.tempId || r.EFEID === request.tempId || r.PK_ID === request.tempId) {
+                  roomUpdated = true;
+                  return {
+                    ...r,
+                    ...roomData,
+                    EFEID: realId,
+                    PK_ID: realId,
+                    _tempId: undefined,
+                    _localOnly: undefined,
+                    _syncing: undefined
+                  };
+                }
+                return r;
+              });
+              
+              // If room wasn't in cache (shouldn't happen but just in case), add it
+              if (!roomUpdated && roomData) {
+                updatedRooms.push({
+                  ...roomData,
+                  EFEID: realId,
+                  PK_ID: realId
+                });
+              }
+              
+              await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', updatedRooms);
+              console.log(`[BackgroundSync] Updated EFE rooms cache for service ${serviceId}`);
+            }
+
             this.ngZone.run(() => {
               this.efeRoomSyncComplete$.next({
                 tempId: request.tempId!,
@@ -237,7 +316,7 @@ export class BackgroundSyncService {
               });
             });
 
-            // Also remove from pendingEFEData
+            // Remove from pendingEFEData
             await this.indexedDb.removePendingEFE(request.tempId);
           }
         } else {
