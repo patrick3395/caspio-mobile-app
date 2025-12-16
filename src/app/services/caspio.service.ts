@@ -2305,9 +2305,13 @@ export class CaspioService {
     try {
       const recordData: any = {
         PointID: parsedPointId,
-        Annotation: '',
-        PhotoType: photoType || ''
+        Annotation: ''
       };
+      
+      // Add Type field only if specified (field name is "Type", not "PhotoType")
+      if (photoType) {
+        recordData.Type = photoType;
+      }
       
       console.log('[EFE ATTACH S3] Creating record with data:', JSON.stringify(recordData));
 

@@ -844,43 +844,66 @@ export class OfflineTemplateService {
   }
 
   /**
-   * Get visuals for a service from IndexedDB
+   * Get visuals for a service - NETWORK-FIRST when online, cache when offline
+   * This ensures fresh data is always shown after creating/updating visuals
    */
   async getVisualsByService(serviceId: string): Promise<any[]> {
-    // Get cached visuals
-    const cached = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
-
-    // Merge with pending offline visuals
+    // Get pending offline visuals (always needed for merge)
     const pending = await this.getPendingVisuals(serviceId);
 
+    // NETWORK-FIRST: When online, fetch fresh data from API
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log(`[OfflineTemplate] Fetching fresh visuals from API for service ${serviceId}...`);
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise<any[]>((_, reject) => {
+          setTimeout(() => reject(new Error('API timeout')), 8000);
+        });
+        
+        const freshVisuals = await Promise.race([
+          firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId)),
+          timeoutPromise
+        ]);
+        
+        // Update cache with fresh data
+        await this.indexedDb.cacheServiceData(serviceId, 'visuals', freshVisuals);
+        console.log(`[OfflineTemplate] Visuals: ${freshVisuals.length} fresh from API + ${pending.length} pending`);
+        
+        return [...freshVisuals, ...pending];
+      } catch (error) {
+        console.warn(`[OfflineTemplate] API fetch failed, falling back to cache:`, error);
+        // Fall through to cache
+      }
+    }
+
+    // OFFLINE or API failed: Use cached data
+    const cached = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
     console.log(`[OfflineTemplate] Visuals: ${cached.length} cached + ${pending.length} pending`);
     return [...cached, ...pending];
   }
 
   /**
-   * Get visual attachments from IndexedDB - IndexedDB first, API fallback if online
+   * Get visual attachments - NETWORK-FIRST when online, cache when offline
+   * This ensures fresh photos are always shown after uploading
    */
   async getVisualAttachments(visualId: string | number): Promise<any[]> {
     const key = String(visualId);
     
-    // Check IndexedDB first - null means not cached, empty array means cached but no attachments
-    try {
-      const cached = await this.indexedDb.getCachedServiceData(key, 'visual_attachments');
-      if (cached !== null && cached !== undefined) {
-        console.log(`[OfflineTemplate] Visual attachments from cache for ${key}: ${cached.length}`);
-        return cached;
-      }
-    } catch (cacheError) {
-      console.warn(`[OfflineTemplate] Error reading cache for ${key}:`, cacheError);
+    // Skip API calls for temp IDs - they won't have server data
+    if (key.startsWith('temp_')) {
+      console.log(`[OfflineTemplate] Skipping API for temp visual ${key}`);
+      return [];
     }
 
-    // Cache miss - try API if online
+    // NETWORK-FIRST: When online, fetch fresh data from API
     if (this.offlineService.isOnline()) {
-      console.log(`[OfflineTemplate] Visual attachments cache miss for ${key}, fetching from API...`);
       try {
-        // Add timeout to prevent hanging - 10 seconds max
+        console.log(`[OfflineTemplate] Fetching fresh attachments from API for visual ${key}...`);
+        
+        // Add timeout to prevent hanging - 8 seconds max
         const timeoutPromise = new Promise<any[]>((_, reject) => {
-          setTimeout(() => reject(new Error('API timeout')), 10000);
+          setTimeout(() => reject(new Error('API timeout')), 8000);
         });
         
         const attachments = await Promise.race([
@@ -890,26 +913,33 @@ export class OfflineTemplateService {
         
         // Cache for future offline use
         await this.indexedDb.cacheServiceData(key, 'visual_attachments', attachments || []);
-        console.log(`[OfflineTemplate] Visual attachments fetched and cached for ${key}: ${attachments?.length || 0}`);
+        console.log(`[OfflineTemplate] Visual attachments: ${attachments?.length || 0} fresh from API for ${key}`);
         return attachments || [];
       } catch (error) {
-        console.error(`[OfflineTemplate] Failed to fetch visual attachments for ${key}:`, error);
-        return [];
+        console.warn(`[OfflineTemplate] API fetch failed for attachments ${key}, falling back to cache:`, error);
+        // Fall through to cache
       }
     }
 
-    console.warn(`[OfflineTemplate] Visual attachments: offline and no cache for ${key}`);
+    // OFFLINE or API failed: Use cached data
+    try {
+      const cached = await this.indexedDb.getCachedServiceData(key, 'visual_attachments');
+      if (cached !== null && cached !== undefined) {
+        console.log(`[OfflineTemplate] Visual attachments from cache for ${key}: ${cached.length}`);
+        return cached;
+      }
+    } catch (cacheError) {
+      console.warn(`[OfflineTemplate] Error reading cache for ${key}:`, cacheError);
+    }
+    
     return [];
   }
 
   /**
-   * Get EFE rooms for a service from IndexedDB
+   * Get EFE rooms for a service - NETWORK-FIRST when online, cache when offline
    */
   async getEFERooms(serviceId: string): Promise<any[]> {
-    // Get cached rooms
-    const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
-
-    // Merge with pending offline rooms
+    // Get pending offline rooms (always needed for merge)
     const pending = await this.indexedDb.getPendingEFEByService(serviceId);
     const pendingRooms = pending
       .filter(p => p.type === 'room')
@@ -922,44 +952,45 @@ export class OfflineTemplateService {
         _syncing: true,
       }));
 
+    // NETWORK-FIRST: When online, fetch fresh data from API
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log(`[OfflineTemplate] Fetching fresh EFE rooms from API for service ${serviceId}...`);
+        
+        const timeoutPromise = new Promise<any[]>((_, reject) => {
+          setTimeout(() => reject(new Error('API timeout')), 8000);
+        });
+        
+        const freshRooms = await Promise.race([
+          firstValueFrom(this.caspioService.getServicesEFE(serviceId)),
+          timeoutPromise
+        ]);
+        
+        // Update cache with fresh data
+        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', freshRooms || []);
+        console.log(`[OfflineTemplate] EFE Rooms: ${freshRooms?.length || 0} fresh from API + ${pendingRooms.length} pending`);
+        
+        return [...(freshRooms || []), ...pendingRooms];
+      } catch (error) {
+        console.warn(`[OfflineTemplate] API fetch failed for EFE rooms, falling back to cache:`, error);
+        // Fall through to cache
+      }
+    }
+
+    // OFFLINE or API failed: Use cached data
+    const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
     console.log(`[OfflineTemplate] EFE Rooms: ${cached.length} cached + ${pendingRooms.length} pending`);
     return [...cached, ...pendingRooms];
   }
 
   /**
-   * Get EFE points for a room from IndexedDB (offline-first with API fallback)
+   * Get EFE points for a room - NETWORK-FIRST when online, cache when offline
    */
   async getEFEPoints(roomId: string): Promise<any[]> {
-    // Get cached points from IndexedDB first
-    let cached = await this.indexedDb.getCachedServiceData(roomId, 'efe_points');
+    // Skip API for temp room IDs
+    const isTemp = roomId.startsWith('temp_');
     
-    // If no cache and online, fetch from API
-    if ((cached === null || cached === undefined) && this.offlineService.isOnline()) {
-      console.log(`[OfflineTemplate] EFE Points cache miss for ${roomId}, fetching from API...`);
-      try {
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise<any[]>((_, reject) => {
-          setTimeout(() => reject(new Error('API timeout')), 10000);
-        });
-        
-        const points = await Promise.race([
-          firstValueFrom(this.caspioService.getServicesEFEPoints(roomId)),
-          timeoutPromise
-        ]);
-        
-        // Cache for future offline use
-        await this.indexedDb.cacheServiceData(roomId, 'efe_points', points || []);
-        cached = points || [];
-        console.log(`[OfflineTemplate] EFE Points fetched and cached for ${roomId}: ${cached.length}`);
-      } catch (error) {
-        console.error(`[OfflineTemplate] Failed to fetch EFE Points for ${roomId}:`, error);
-        cached = [];
-      }
-    }
-    
-    cached = cached || [];
-
-    // Merge with pending offline points
+    // Merge with pending offline points (always needed)
     const pending = await this.indexedDb.getPendingEFEPoints(roomId);
     const pendingPoints = pending.map(p => ({
       ...p.data,
@@ -970,41 +1001,80 @@ export class OfflineTemplateService {
       _syncing: true,
     }));
 
+    // NETWORK-FIRST: When online and not a temp room, fetch fresh data
+    if (!isTemp && this.offlineService.isOnline()) {
+      try {
+        console.log(`[OfflineTemplate] Fetching fresh EFE points from API for room ${roomId}...`);
+        
+        const timeoutPromise = new Promise<any[]>((_, reject) => {
+          setTimeout(() => reject(new Error('API timeout')), 8000);
+        });
+        
+        const freshPoints = await Promise.race([
+          firstValueFrom(this.caspioService.getServicesEFEPoints(roomId)),
+          timeoutPromise
+        ]);
+        
+        // Update cache with fresh data
+        await this.indexedDb.cacheServiceData(roomId, 'efe_points', freshPoints || []);
+        console.log(`[OfflineTemplate] EFE Points: ${freshPoints?.length || 0} fresh from API + ${pendingPoints.length} pending`);
+        
+        return [...(freshPoints || []), ...pendingPoints];
+      } catch (error) {
+        console.warn(`[OfflineTemplate] API fetch failed for EFE points, falling back to cache:`, error);
+        // Fall through to cache
+      }
+    }
+
+    // OFFLINE or API failed or temp room: Use cached data
+    const cached = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
     console.log(`[OfflineTemplate] EFE Points for ${roomId}: ${cached.length} cached + ${pendingPoints.length} pending`);
     return [...cached, ...pendingPoints];
   }
 
   /**
-   * Get EFE point attachments from IndexedDB (offline-first)
+   * Get EFE point attachments - NETWORK-FIRST when online, cache when offline
    */
   async getEFEPointAttachments(pointId: string | number): Promise<any[]> {
     const key = String(pointId);
     
-    // Check IndexedDB first
+    // Skip API for temp point IDs
+    if (key.startsWith('temp_')) {
+      console.log(`[OfflineTemplate] Skipping API for temp point ${key}`);
+      return [];
+    }
+
+    // NETWORK-FIRST: When online, fetch fresh data
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log(`[OfflineTemplate] Fetching fresh EFE point attachments from API for ${key}...`);
+        
+        const timeoutPromise = new Promise<any[]>((_, reject) => {
+          setTimeout(() => reject(new Error('API timeout')), 8000);
+        });
+        
+        const attachments = await Promise.race([
+          firstValueFrom(this.caspioService.getServicesEFEAttachments(key)),
+          timeoutPromise
+        ]);
+        
+        // Cache for future offline use
+        await this.indexedDb.cacheServiceData(key, 'efe_point_attachments', attachments || []);
+        console.log(`[OfflineTemplate] EFE point attachments: ${attachments?.length || 0} fresh from API for ${key}`);
+        return attachments || [];
+      } catch (error) {
+        console.warn(`[OfflineTemplate] API fetch failed for EFE point attachments ${key}, falling back to cache:`, error);
+        // Fall through to cache
+      }
+    }
+
+    // OFFLINE or API failed: Use cached data
     const cached = await this.indexedDb.getCachedServiceData(key, 'efe_point_attachments');
     if (cached !== null && cached !== undefined) {
       console.log(`[OfflineTemplate] EFE point attachments from cache for ${key}: ${cached.length}`);
       return cached;
     }
 
-    // Cache miss - try API if online
-    if (this.offlineService.isOnline()) {
-      console.log(`[OfflineTemplate] EFE point attachments cache miss for ${key}, fetching from API...`);
-      try {
-        const attachments = await firstValueFrom(
-          this.caspioService.getServicesEFEAttachments(key)
-        );
-        // Cache for future offline use
-        await this.indexedDb.cacheServiceData(key, 'efe_point_attachments', attachments || []);
-        console.log(`[OfflineTemplate] EFE point attachments fetched and cached for ${key}: ${attachments?.length || 0}`);
-        return attachments || [];
-      } catch (error) {
-        console.error(`[OfflineTemplate] Failed to fetch EFE point attachments for ${key}:`, error);
-        return [];
-      }
-    }
-
-    console.warn(`[OfflineTemplate] EFE point attachments: offline and no cache for ${key}`);
     return [];
   }
 
@@ -1501,3 +1571,6 @@ export class OfflineTemplateService {
     }
   }
 }
+
+
+

@@ -2641,8 +2641,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           // Save annotations to database FIRST
           if (attachId && !String(attachId).startsWith('temp_')) {
             try {
+              // Get the visualId for this attachment (needed for offline cache update)
+              const visualId = this.visualRecordIds[key];
+              
               // CRITICAL: Save and get back the compressed drawings that were saved
-              const compressedDrawings = await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, data.caption);
+              const compressedDrawings = await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, data.caption, visualId);
 
               // CRITICAL: Create NEW photo object (immutable update pattern from original line 12518-12542)
               // This ensures proper change detection and maintains separation between original and annotated
@@ -2783,7 +2786,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     });
   }
 
-  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<string> {
+  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string, visualId?: string): Promise<string> {
     // Using static import for offline support
 
     // CRITICAL: Process annotation data EXACTLY like the original 15,000 line code
@@ -2853,7 +2856,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
           drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
 
-          console.log(`[SAVE] Compressed annotations: ${originalSize} â†’ ${drawingsData.length} bytes`);
+          console.log(`[SAVE] Compressed annotations: ${originalSize} → ${drawingsData.length} bytes`);
 
           // Final size check
           if (drawingsData.length > 64000) {
@@ -2880,28 +2883,41 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
     console.log('[SAVE] Saving annotations to database:', {
       attachId,
+      visualId: visualId || '(unknown)',
       hasDrawings: !!updateData.Drawings,
       drawingsLength: updateData.Drawings?.length || 0,
       caption: caption || '(empty)',
-      annotation: updateData.Annotation || '(empty)'
+      isOffline: !this.offlineService.isOnline()
     });
 
-    // Validate attachId before making API call
+    // Validate attachId before saving
     if (!attachId || String(attachId).startsWith('temp_')) {
       console.error('[SAVE] Cannot update annotations - invalid or temp AttachID:', attachId);
       throw new Error('Cannot update annotations for temp photo');
     }
 
-    // CRITICAL FIX: Call updateServicesVisualsAttach directly to save BOTH fields
-    // (the updateVisualPhotoCaption method only updates caption, not drawings)
-    try {
-      const response = await firstValueFrom(
-        this.caspioService.updateServicesVisualsAttach(attachId, updateData)
-      );
-      console.log('[SAVE] Successfully saved caption and drawings for AttachID:', attachId, 'Response:', response);
-    } catch (apiError) {
-      console.error('[SAVE] API call failed for AttachID:', attachId, 'Error:', apiError);
-      throw apiError;
+    // OFFLINE-FIRST: Use data service which handles caching and queueing
+    // This works both online and offline
+    if (visualId) {
+      try {
+        await this.foundationData.updateVisualAttachment(attachId, visualId, updateData);
+        console.log('[SAVE] Annotation update queued (offline-first) for AttachID:', attachId);
+      } catch (queueError) {
+        console.error('[SAVE] Failed to queue annotation update:', queueError);
+        throw queueError;
+      }
+    } else {
+      // Fallback: Direct API call if no visualId (legacy behavior, will fail offline)
+      console.warn('[SAVE] No visualId provided, using direct API call (may fail offline)');
+      try {
+        const response = await firstValueFrom(
+          this.caspioService.updateServicesVisualsAttach(attachId, updateData)
+        );
+        console.log('[SAVE] Successfully saved via direct API for AttachID:', attachId);
+      } catch (apiError) {
+        console.error('[SAVE] API call failed for AttachID:', attachId, 'Error:', apiError);
+        throw apiError;
+      }
     }
 
     // Return the compressed drawings string so caller can update local photo object
@@ -3360,7 +3376,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 // The originalFile is what we uploaded, file is the one with annotations baked in
                 const annotatedBlob = file instanceof Blob ? file : new Blob([file]);
 
-                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationData, caption);
+                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationData, caption, visualId);
                 console.log(`[CREATE CUSTOM] Annotations saved for photo ${index + 1}`);
               } catch (annotError) {
                 console.error(`[CREATE CUSTOM] Failed to save annotations for photo ${index + 1}:`, annotError);

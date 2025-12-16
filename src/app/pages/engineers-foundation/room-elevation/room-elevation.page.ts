@@ -1859,11 +1859,14 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         const annotationsData = data.annotationData || data.annotationsData;
 
         // Save annotations to database FIRST
+        // Pass the pointId for offline cache update
+        const pointIdStr = String(point.pointId || point.PointID || '');
         const savedCompressedDrawings = await this.saveAnnotationToDatabase(
           attachId,
           annotatedBlob,
           annotationsData,
-          data.caption || ''
+          data.caption || '',
+          pointIdStr
         );
 
         // CRITICAL: Create blob URL for the annotated image (for display only)
@@ -2106,9 +2109,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
    * @param annotatedBlob The annotated image blob
    * @param annotationsData The raw annotation data from Fabric.js
    * @param caption The photo caption
+   * @param pointId The point ID for cache update (optional)
    * @returns The compressed drawings string that was saved
    */
-  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<string> {
+  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string, pointId?: string): Promise<string> {
     // Using static import for offline support
 
     // CRITICAL: Process annotation data EXACTLY like structural-systems
@@ -2207,13 +2211,32 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       attachId,
       hasDrawings: !!updateData.Drawings,
       drawingsLength: updateData.Drawings?.length || 0,
-      caption: caption || '(empty)'
+      caption: caption || '(empty)',
+      isOffline: !this.offlineService.isOnline()
     });
 
-    // Save BOTH Annotation and Drawings fields in a single call
-    await this.caspioService.updateServicesEFEPointsAttach(attachId, updateData).toPromise();
+    // Validate attachId before saving
+    if (!attachId || String(attachId).startsWith('temp_')) {
+      console.error('[SAVE] Cannot update annotations - invalid or temp AttachID:', attachId);
+      throw new Error('Cannot update annotations for temp photo');
+    }
 
-    console.log('[SAVE] Successfully saved caption and drawings for AttachID:', attachId);
+    // OFFLINE-FIRST: Use data service which handles caching and queueing
+    
+    if (pointId) {
+      try {
+        await this.foundationData.updateEFEPointAttachment(attachId, pointId, updateData);
+        console.log('[SAVE] Annotation update queued (offline-first) for AttachID:', attachId);
+      } catch (queueError) {
+        console.error('[SAVE] Failed to queue annotation update:', queueError);
+        throw queueError;
+      }
+    } else {
+      // Fallback: Direct API call if no pointId (legacy behavior, will fail offline)
+      console.warn('[SAVE] No pointId available, using direct API call (may fail offline)');
+      await this.caspioService.updateServicesEFEPointsAttach(attachId, updateData).toPromise();
+      console.log('[SAVE] Successfully saved via direct API for AttachID:', attachId);
+    }
 
     // CRITICAL: Clear the attachments cache to ensure annotations appear after navigation
     this.foundationData.clearEFEAttachmentsCache();

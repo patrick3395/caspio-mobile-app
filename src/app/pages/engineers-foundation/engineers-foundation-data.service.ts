@@ -602,6 +602,71 @@ export class EngineersFoundationDataService {
     return result;
   }
 
+  /**
+   * Update visual photo attachment (caption + annotations) - OFFLINE-FIRST
+   * Updates IndexedDB cache immediately and queues for background sync
+   */
+  async updateVisualAttachment(attachId: string, visualId: string, updateData: { Annotation?: string; Drawings?: string }): Promise<any> {
+    console.log('[Visual Attach] Updating attachment (OFFLINE-FIRST):', attachId, 'for visual:', visualId);
+    
+    const isTempId = String(attachId).startsWith('temp_');
+    
+    if (isTempId) {
+      console.warn('[Visual Attach] Cannot update temp attachment:', attachId);
+      return { success: false, error: 'Cannot update temp attachment' };
+    }
+
+    // 1. Update IndexedDB cache immediately
+    try {
+      const cachedAttachments = await this.indexedDb.getCachedServiceData(visualId, 'visual_attachments') || [];
+      const attachIndex = cachedAttachments.findIndex((a: any) => 
+        String(a.AttachID) === String(attachId) || String(a.PK_ID) === String(attachId)
+      );
+      
+      if (attachIndex !== -1) {
+        // Update the attachment in cache
+        cachedAttachments[attachIndex] = {
+          ...cachedAttachments[attachIndex],
+          ...updateData,
+          Annotation: updateData.Annotation !== undefined ? updateData.Annotation : cachedAttachments[attachIndex].Annotation,
+          Drawings: updateData.Drawings !== undefined ? updateData.Drawings : cachedAttachments[attachIndex].Drawings,
+          _pendingSync: true,
+          _updatedAt: Date.now()
+        };
+        await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', cachedAttachments);
+        console.log('[Visual Attach] Updated IndexedDB cache for attachment:', attachId);
+      } else {
+        console.warn('[Visual Attach] Attachment not found in cache:', attachId);
+      }
+    } catch (cacheError) {
+      console.error('[Visual Attach] Error updating cache:', cacheError);
+    }
+
+    // 2. Queue the update for background sync
+    const attachIdNum = parseInt(attachId, 10);
+    if (!isNaN(attachIdNum)) {
+      await this.indexedDb.addPendingRequest({
+        type: 'UPDATE',
+        endpoint: `/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`,
+        method: 'PUT',
+        data: updateData,
+        dependencies: [],
+        status: 'pending',
+        priority: 'normal',
+      });
+      console.log('[Visual Attach] Queued annotation update for sync:', attachId);
+    }
+
+    // 3. Clear in-memory cache
+    this.visualAttachmentsCache.clear();
+
+    // 4. Trigger background sync
+    this.backgroundSync.triggerSync();
+
+    // 5. Return immediately
+    return { success: true, attachId, ...updateData };
+  }
+
   // Clear cache for a specific visual's attachments
   clearVisualAttachmentsCache(visualId?: string | number): void {
     if (visualId) {
@@ -618,6 +683,71 @@ export class EngineersFoundationDataService {
   clearEFEAttachmentsCache(): void {
     this.efeAttachmentsCache.clear();
     console.log('[EFE Photo] Cleared all EFE attachment caches');
+  }
+
+  /**
+   * Update EFE point attachment (caption + annotations) - OFFLINE-FIRST
+   * Updates IndexedDB cache immediately and queues for background sync
+   */
+  async updateEFEPointAttachment(attachId: string, pointId: string, updateData: { Annotation?: string; Drawings?: string }): Promise<any> {
+    console.log('[EFE Attach] Updating attachment (OFFLINE-FIRST):', attachId, 'for point:', pointId);
+    
+    const isTempId = String(attachId).startsWith('temp_');
+    
+    if (isTempId) {
+      console.warn('[EFE Attach] Cannot update temp attachment:', attachId);
+      return { success: false, error: 'Cannot update temp attachment' };
+    }
+
+    // 1. Update IndexedDB cache immediately
+    try {
+      const cachedAttachments = await this.indexedDb.getCachedServiceData(pointId, 'efe_point_attachments') || [];
+      const attachIndex = cachedAttachments.findIndex((a: any) => 
+        String(a.AttachID) === String(attachId) || String(a.PK_ID) === String(attachId)
+      );
+      
+      if (attachIndex !== -1) {
+        // Update the attachment in cache
+        cachedAttachments[attachIndex] = {
+          ...cachedAttachments[attachIndex],
+          ...updateData,
+          Annotation: updateData.Annotation !== undefined ? updateData.Annotation : cachedAttachments[attachIndex].Annotation,
+          Drawings: updateData.Drawings !== undefined ? updateData.Drawings : cachedAttachments[attachIndex].Drawings,
+          _pendingSync: true,
+          _updatedAt: Date.now()
+        };
+        await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', cachedAttachments);
+        console.log('[EFE Attach] Updated IndexedDB cache for attachment:', attachId);
+      } else {
+        console.warn('[EFE Attach] Attachment not found in cache:', attachId);
+      }
+    } catch (cacheError) {
+      console.error('[EFE Attach] Error updating cache:', cacheError);
+    }
+
+    // 2. Queue the update for background sync
+    const attachIdNum = parseInt(attachId, 10);
+    if (!isNaN(attachIdNum)) {
+      await this.indexedDb.addPendingRequest({
+        type: 'UPDATE',
+        endpoint: `/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachIdNum}`,
+        method: 'PUT',
+        data: updateData,
+        dependencies: [],
+        status: 'pending',
+        priority: 'normal',
+      });
+      console.log('[EFE Attach] Queued annotation update for sync:', attachId);
+    }
+
+    // 3. Clear in-memory cache
+    this.efeAttachmentsCache.clear();
+
+    // 4. Trigger background sync
+    this.backgroundSync.triggerSync();
+
+    // 5. Return immediately
+    return { success: true, attachId, ...updateData };
   }
 
   // ============================================
