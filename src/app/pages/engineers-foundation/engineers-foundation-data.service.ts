@@ -141,10 +141,13 @@ export class EngineersFoundationDataService {
     if (!visualId) {
       return [];
     }
-    const key = String(visualId);
-    return this.resolveWithCache(this.visualAttachmentsCache, key, () =>
-      firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(String(visualId)))
-    );
+    console.log('[Visual Data] Loading attachments for VisualID:', visualId);
+
+    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+    const attachments = await this.offlineTemplate.getVisualAttachments(visualId);
+    console.log('[Visual Data] Loaded attachments:', attachments.length, '(from IndexedDB + API fallback)');
+
+    return attachments;
   }
 
   async getEFEPoints(roomId: string | number): Promise<any[]> {

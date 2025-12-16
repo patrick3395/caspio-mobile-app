@@ -158,11 +158,37 @@ export class OfflineTemplateService {
           .then(() => console.log('[OfflineTemplate] EFE templates cached'))
       );
 
-      // 3. Service-specific visuals (existing items for this service)
+      // 3. Service-specific visuals AND their attachments (existing items for this service)
       downloads.push(
         firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId))
-          .then(visuals => this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals))
-          .then(() => console.log('[OfflineTemplate] Service visuals cached'))
+          .then(async (visuals) => {
+            await this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals);
+            console.log('[OfflineTemplate] Service visuals cached:', visuals.length);
+            
+            // CRITICAL: Also cache attachments for each visual (needed for photo counts offline)
+            if (visuals && visuals.length > 0) {
+              console.log('[OfflineTemplate] Caching attachments for', visuals.length, 'visuals...');
+              const attachmentPromises = visuals.map(async (visual: any) => {
+                const visualId = visual.VisualID || visual.PK_ID;
+                if (visualId) {
+                  try {
+                    const attachments = await firstValueFrom(
+                      this.caspioService.getServiceVisualsAttachByVisualId(String(visualId))
+                    );
+                    await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', attachments || []);
+                    return attachments?.length || 0;
+                  } catch (err) {
+                    console.warn(`[OfflineTemplate] Failed to cache attachments for visual ${visualId}:`, err);
+                    return 0;
+                  }
+                }
+                return 0;
+              });
+              const counts = await Promise.all(attachmentPromises);
+              const totalAttachments = counts.reduce((a, b) => a + b, 0);
+              console.log('[OfflineTemplate] Visual attachments cached:', totalAttachments, 'total');
+            }
+          })
       );
 
       // 4. For EFE: Also download rooms and their points
@@ -491,6 +517,40 @@ export class OfflineTemplateService {
 
     console.log(`[OfflineTemplate] Visuals: ${cached.length} cached + ${pending.length} pending`);
     return [...cached, ...pending];
+  }
+
+  /**
+   * Get visual attachments from IndexedDB - IndexedDB first, API fallback if online
+   */
+  async getVisualAttachments(visualId: string | number): Promise<any[]> {
+    const key = String(visualId);
+    
+    // Check IndexedDB first - null means not cached, empty array means cached but no attachments
+    const cached = await this.indexedDb.getCachedServiceData(key, 'visual_attachments');
+    if (cached !== null && cached !== undefined) {
+      console.log(`[OfflineTemplate] Visual attachments from cache for ${key}: ${cached.length}`);
+      return cached;
+    }
+
+    // Cache miss - try API if online
+    if (this.offlineService.isOnline()) {
+      console.log(`[OfflineTemplate] Visual attachments cache miss for ${key}, fetching from API...`);
+      try {
+        const attachments = await firstValueFrom(
+          this.caspioService.getServiceVisualsAttachByVisualId(key)
+        );
+        // Cache for future offline use
+        await this.indexedDb.cacheServiceData(key, 'visual_attachments', attachments || []);
+        console.log(`[OfflineTemplate] Visual attachments fetched and cached for ${key}: ${attachments?.length || 0}`);
+        return attachments || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] Failed to fetch visual attachments for ${key}:`, error);
+        return [];
+      }
+    }
+
+    console.warn(`[OfflineTemplate] Visual attachments: offline and no cache for ${key}`);
+    return [];
   }
 
   /**
