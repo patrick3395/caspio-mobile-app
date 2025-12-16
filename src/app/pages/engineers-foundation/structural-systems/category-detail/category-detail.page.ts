@@ -290,7 +290,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       console.log('[RELOAD AFTER SYNC] Starting fresh visual reload...');
       
       // Get fresh visuals from IndexedDB (already updated by BackgroundSyncService)
-      const visuals = await this.foundationData.getVisuals(this.serviceId);
+      const visuals = await this.foundationData.getVisualsByService(this.serviceId);
       console.log('[RELOAD AFTER SYNC] Got', visuals.length, 'visuals from IndexedDB');
       
       // Update existing items with fresh data from server
@@ -385,7 +385,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               
               // Load the photo image
               if (att.Attachment) {
-                this.loadSinglePhoto(att.Attachment, key, this.visualPhotos[key].length - 1);
+                this.loadSinglePhoto(att, key);
               }
             }
           }

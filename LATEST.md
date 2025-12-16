@@ -193,15 +193,16 @@ When template downloads, you'll see:
 
 ## Sync Events
 
-The system emits events when data syncs:
+The system emits events when data syncs, which trigger automatic cache invalidation:
 
 | Event | When | Effect |
 |-------|------|--------|
-| `visualSyncComplete$` | Visual CREATE completes | Refreshes visuals + attachments + images cache |
-| `photoUploadComplete$` | Photo upload completes | Refreshes attachments cache |
-| `serviceDataSyncComplete$` | Service/Project UPDATE completes | Refreshes service/project cache |
-| `efeRoomSyncComplete$` | EFE room CREATE completes | Updates room with real ID |
-| `efePointSyncComplete$` | EFE point CREATE completes | Updates point with real ID |
+| `visualSyncComplete$` | Visual CREATE completes | Refreshes visuals + attachments + images cache → clears in-memory caches → UI reloads |
+| `photoUploadComplete$` | Photo upload completes | Refreshes attachments cache → clears image caches → UI updates photos |
+| `serviceDataSyncComplete$` | Service/Project UPDATE completes | Refreshes service/project cache → clears service caches |
+| `efeRoomSyncComplete$` | EFE room CREATE completes | Updates room with real ID → clears EFE caches → UI updates |
+| `efePointSyncComplete$` | EFE point CREATE completes | Updates point with real ID → clears point caches → UI updates |
+| `cacheInvalidated$` | Any sync event | **NEW** - Pages subscribe and reload their data from fresh IndexedDB |
 
 ---
 
@@ -232,7 +233,10 @@ The system emits events when data syncs:
 - [ ] Disable airplane mode
 - [ ] Pending count decreases as items sync
 - [ ] Console shows cache refresh after each sync
-- [ ] Refresh page → all synced data shows immediately
+- [ ] Console shows "[CACHE INVALIDATED]" messages
+- [ ] **UI updates automatically without page refresh** ← New behavior
+- [ ] Synced items show real IDs (not temp IDs)
+- [ ] New photos appear immediately after sync
 
 ### Photo Workflow
 - [ ] Take photo offline → shows in UI with "queued" indicator

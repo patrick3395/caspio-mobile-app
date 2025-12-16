@@ -175,7 +175,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
       console.log('[ElevationPlotHub] Reloading rooms after sync...');
       
       // Get fresh EFE rooms from IndexedDB (already updated by BackgroundSyncService)
-      const existingRooms = await this.foundationData.getEFERooms(this.serviceId);
+      const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
       console.log('[ElevationPlotHub] Got', existingRooms?.length || 0, 'rooms from IndexedDB');
       
       // Update our room data with fresh server data
