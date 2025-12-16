@@ -285,12 +285,15 @@ export class BackgroundSyncService {
         // Emit visual sync complete for CREATE operations on visuals
         if (request.type === 'CREATE' && request.endpoint === 'LPS_Services_Visuals') {
           const serviceId = request.data?.ServiceID;
-          if (serviceId && realId) {
-            console.log(`[BackgroundSync] Visual created - emitting visualSyncComplete for serviceId=${serviceId}, visualId=${realId}`);
+          // Extract visual ID from result
+          let visualId = result?.VisualID || result?.Result?.[0]?.VisualID || result?.PK_ID || result?.Result?.[0]?.PK_ID;
+          
+          if (serviceId && visualId) {
+            console.log(`[BackgroundSync] Visual created - emitting visualSyncComplete for serviceId=${serviceId}, visualId=${visualId}`);
             this.ngZone.run(() => {
               this.visualSyncComplete$.next({
                 serviceId: String(serviceId),
-                visualId: String(realId),
+                visualId: String(visualId),
                 tempId: request.tempId
               });
             });
