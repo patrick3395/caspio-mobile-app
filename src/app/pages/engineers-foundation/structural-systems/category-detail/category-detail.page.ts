@@ -297,11 +297,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       
       // Update existing items with fresh data from server
       for (const visual of visuals) {
+        // Skip if not for current category
+        if (visual.Category !== this.categoryName) {
+          continue;
+        }
+        
         const kind = visual.Kind?.toLowerCase() || '';
         const templateId = visual.VisualTemplateID || visual.TemplateID;
-        const key = `${kind}-${templateId}`;
+        const visualId = String(visual.VisualID || visual.PK_ID);
         
-        // Find the item in organizedData and update it
+        // Find the item in organizedData by matching templateId or name+category+kind
         let targetArray: VisualItem[] | null = null;
         if (kind === 'comment') {
           targetArray = this.organizedData.comments;
@@ -312,13 +317,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         }
         
         if (targetArray) {
-          const existingItem = targetArray.find(item => 
-            item.templateId === templateId || item.key === key
+          // Find by templateId first, then by name+category+kind
+          let existingItem = targetArray.find(item => 
+            item.templateId === templateId
           );
           
+          // If not found by templateId, try name+category+kind match
+          if (!existingItem) {
+            existingItem = targetArray.find(item =>
+              item.name === visual.Name && item.category === visual.Category
+            );
+          }
+          
           if (existingItem) {
+            // CRITICAL: Use correct key format to match the rest of the codebase
+            const key = `${visual.Category}_${existingItem.id}`;
+            
             // Update with fresh server data
-            existingItem.id = visual.VisualID || visual.PK_ID;
+            existingItem.id = visualId;
             existingItem.isSelected = true;
             existingItem.isSaving = false;
             
@@ -327,12 +343,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             delete (existingItem as any)._localOnly;
             delete (existingItem as any)._syncing;
             
-            // Store the record ID for photo uploads
-            this.visualRecordIds[key] = String(visual.VisualID || visual.PK_ID);
+            // Store the record ID for photo uploads using CORRECT key format
+            this.visualRecordIds[key] = visualId;
             this.selectedItems[key] = true;
             this.savingItems[key] = false;
             
-            console.log('[RELOAD AFTER SYNC] Updated item:', key, 'with real ID:', existingItem.id);
+            console.log('[RELOAD AFTER SYNC] Updated item:', key, 'with real ID:', visualId);
+          } else {
+            console.log('[RELOAD AFTER SYNC] No matching item found for visual:', visual.Name, 'templateId:', templateId);
           }
         }
       }
@@ -353,10 +371,44 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
    */
   private async refreshPhotoCountsAfterSync(visuals: any[]): Promise<void> {
     for (const visual of visuals) {
+      // Skip if not for current category
+      if (visual.Category !== this.categoryName) {
+        continue;
+      }
+      
       const kind = visual.Kind?.toLowerCase() || '';
       const templateId = visual.VisualTemplateID || visual.TemplateID;
-      const key = `${kind}-${templateId}`;
       const visualId = visual.VisualID || visual.PK_ID;
+      
+      // Find the matching item to get the correct key
+      let targetArray: VisualItem[] | null = null;
+      if (kind === 'comment') {
+        targetArray = this.organizedData.comments;
+      } else if (kind === 'limitation') {
+        targetArray = this.organizedData.limitations;
+      } else if (kind === 'deficiency') {
+        targetArray = this.organizedData.deficiencies;
+      }
+      
+      if (!targetArray) {
+        continue;
+      }
+      
+      // Find by templateId first, then by name+category
+      let existingItem = targetArray.find(item => item.templateId === templateId);
+      if (!existingItem) {
+        existingItem = targetArray.find(item => 
+          item.name === visual.Name && item.category === visual.Category
+        );
+      }
+      
+      if (!existingItem) {
+        console.log('[RELOAD AFTER SYNC] No matching item for photo refresh:', visual.Name);
+        continue;
+      }
+      
+      // CRITICAL: Use correct key format to match the rest of the codebase
+      const key = `${visual.Category}_${existingItem.id}`;
       
       try {
         const attachments = await this.foundationData.getVisualAttachments(visualId);
@@ -1094,11 +1146,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     }
 
     const hasDrawings = !!attach.Drawings;
-    console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'Has Drawings:', hasDrawings, 'Drawings length:', attach.Drawings?.length || 0);
+    console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'VisualID:', attach.VisualID, 'Has Drawings:', hasDrawings, 'Drawings length:', attach.Drawings?.length || 0);
 
     const photoData = {
       AttachID: attach.AttachID,
       id: attach.AttachID,
+      VisualID: attach.VisualID,     // CRITICAL: Store VisualID for annotation cache key lookup
       name: attach.Photo || 'photo.jpg',
       filePath: filePath,
       Photo: filePath,
@@ -2532,13 +2585,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         photo.Drawings
       ];
 
-      console.log('[VIEW PHOTO] AttachID:', attachId, 'Loading annotations from sources:', {
+      console.log('[VIEW PHOTO] AttachID:', attachId, 'Photo object:', {
         hasAnnotations: !!photo.annotations,
         hasAnnotationsData: !!photo.annotationsData,
         hasRawDrawingsString: !!photo.rawDrawingsString,
         hasDrawings: !!photo.Drawings,
+        hasAnnotationsFlag: photo.hasAnnotations,
         rawDrawingsStringLength: photo.rawDrawingsString?.length || 0,
-        drawingsLength: photo.Drawings?.length || 0
+        drawingsLength: photo.Drawings?.length || 0,
+        VisualID: photo.VisualID,
+        caption: photo.caption || photo.Annotation
       });
 
       for (const source of annotationSources) {
@@ -2674,7 +2730,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 rawDrawingsString: compressedDrawings
               };
 
-              console.log('[SAVE] Updated photo object with compressed drawings, length:', compressedDrawings?.length || 0);
+              console.log('[SAVE] Updated photo object in visualPhotos[' + key + '][' + photoIndex + ']');
+              console.log('[SAVE] Photo now has Drawings:', !!this.visualPhotos[key][photoIndex].Drawings, 'length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
+              console.log('[SAVE] Photo now has rawDrawingsString:', !!this.visualPhotos[key][photoIndex].rawDrawingsString, 'length:', this.visualPhotos[key][photoIndex].rawDrawingsString?.length || 0);
+              console.log('[SAVE] Photo hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
 
               // CRITICAL: Clear ALL visual attachment caches (not just this one)
               // This ensures when the user navigates away and back, ALL fresh data is loaded from database
@@ -2682,9 +2741,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               this.foundationData.clearVisualAttachmentsCache(); // Clear all caches
               console.log('[SAVE] Cleared ALL attachment caches to ensure fresh data on navigation');
 
-              // DON'T manually call detectChanges() - let Angular handle it automatically
-              // Manual detectChanges() was causing scroll position to reset
-              // Angular will automatically detect the change when the modal dismisses
+              // Force change detection to ensure Angular picks up the updated photo object
+              this.changeDetectorRef.detectChanges();
+              console.log('[SAVE] ✅ Change detection triggered');
 
               // Success toast removed per user request
             } catch (error) {
@@ -2897,19 +2956,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     try {
       // Find the visualId for this attachment by searching visualPhotos
       let visualIdForCache: string | null = null;
+      let foundKey: string | null = null;
       for (const [key, photos] of Object.entries(this.visualPhotos)) {
         const photo = (photos as any[]).find(p => String(p.AttachID) === String(attachId));
         if (photo) {
+          foundKey = key;
           visualIdForCache = String(photo.VisualID || this.visualRecordIds[key]);
+          console.log('[SAVE CACHE] Found photo for AttachID:', attachId, 'Key:', key, 'photo.VisualID:', photo.VisualID, 'visualRecordIds[key]:', this.visualRecordIds[key]);
           break;
         }
+      }
+
+      if (!visualIdForCache) {
+        console.warn('[SAVE CACHE] ⚠️ Could not find visualIdForCache for AttachID:', attachId, 'Searched keys:', Object.keys(this.visualPhotos));
       }
 
       if (visualIdForCache) {
         // Get existing cached attachments and update
         const cachedAttachments = await this.indexedDb.getCachedServiceData(visualIdForCache, 'visual_attachments') || [];
+        console.log('[SAVE CACHE] Found', cachedAttachments.length, 'cached attachments for visual', visualIdForCache);
+        
         const updatedAttachments = cachedAttachments.map((att: any) => {
           if (String(att.AttachID) === String(attachId)) {
+            console.log('[SAVE CACHE] Updating attachment', attachId, 'with Drawings length:', updateData.Drawings?.length || 0);
             return {
               ...att,
               Annotation: updateData.Annotation,
@@ -2921,7 +2990,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           return att;
         });
         await this.indexedDb.cacheServiceData(visualIdForCache, 'visual_attachments', updatedAttachments);
-        console.log('[SAVE] ✅ Annotation saved to IndexedDB cache for visual', visualIdForCache);
+        console.log('[SAVE] ✅ Annotation saved to IndexedDB cache for visual', visualIdForCache, 'with _localUpdate flag');
       }
     } catch (cacheError) {
       console.warn('[SAVE] Failed to update IndexedDB cache:', cacheError);
@@ -2930,10 +2999,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
     // OFFLINE-FIRST: Queue the update for background sync
     const isOffline = !this.offlineService.isOnline();
+    console.log('[SAVE] Network status check - isOnline:', this.offlineService.isOnline(), 'isOffline:', isOffline);
     
     if (isOffline) {
       // Queue for later sync
-      await this.indexedDb.addPendingRequest({
+      const requestId = await this.indexedDb.addPendingRequest({
         type: 'UPDATE',
         endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
         method: 'PUT',
@@ -2942,11 +3012,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         status: 'pending',
         priority: 'normal',
       });
-      console.log('[SAVE] ⏳ Annotation queued for sync (offline):', attachId);
+      console.log('[SAVE] ⏳ Annotation queued for sync (offline), requestId:', requestId, 'AttachID:', attachId);
+      console.log('[SAVE] ⏳ Sync button should now show pending update');
       this.backgroundSync.triggerSync(); // Will sync when back online
     } else {
       // Online - try API call, queue on failure
       try {
+        console.log('[SAVE] 🌐 Online - saving directly to API...');
         const response = await firstValueFrom(
           this.caspioService.updateServicesVisualsAttach(attachId, updateData)
         );
@@ -2954,7 +3026,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       } catch (apiError) {
         console.warn('[SAVE] API call failed, queuing for retry:', apiError);
         // Queue for retry
-        await this.indexedDb.addPendingRequest({
+        const requestId = await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
           endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
           method: 'PUT',
@@ -2963,6 +3035,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           status: 'pending',
           priority: 'high',
         });
+        console.log('[SAVE] ⏳ API failed, queued for retry, requestId:', requestId);
         this.backgroundSync.triggerSync();
       }
     }

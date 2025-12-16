@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
 import { IndexedDbService } from './indexed-db.service';
 import { CaspioService } from './caspio.service';
 import { OfflineService } from './offline.service';
@@ -23,6 +23,12 @@ export class OfflineTemplateService {
   // Track download status per service
   private downloadStatus = new Map<string, 'pending' | 'downloading' | 'ready' | 'error'>();
   private downloadPromises = new Map<string, Promise<void>>();
+
+  // Event emitted when background refresh completes - pages can subscribe to reload their data
+  public backgroundRefreshComplete$ = new Subject<{
+    serviceId: string;
+    dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments';
+  }>();
 
   constructor(
     private indexedDb: IndexedDbService,
@@ -1081,6 +1087,7 @@ export class OfflineTemplateService {
   /**
    * Refresh visuals cache in background (non-blocking)
    * Fire-and-forget pattern - doesn't block UI
+   * Emits backgroundRefreshComplete$ when done so pages can reload
    */
   private refreshVisualsInBackground(serviceId: string): void {
     setTimeout(async () => {
@@ -1088,6 +1095,9 @@ export class OfflineTemplateService {
         const freshVisuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', freshVisuals);
         console.log(`[OfflineTemplate] Background refresh: ${freshVisuals.length} visuals updated for ${serviceId}`);
+        
+        // Notify pages that fresh data is available
+        this.backgroundRefreshComplete$.next({ serviceId, dataType: 'visuals' });
       } catch (error) {
         // Silently fail - user has cached data
         console.debug(`[OfflineTemplate] Background refresh failed for visuals (ok - using cache)`);
@@ -1098,6 +1108,7 @@ export class OfflineTemplateService {
   /**
    * Refresh visual attachments cache in background (non-blocking)
    * Preserves local updates (_localUpdate flag) when merging
+   * Emits backgroundRefreshComplete$ when done so pages can reload
    */
   private refreshAttachmentsInBackground(visualId: string): void {
     setTimeout(async () => {
@@ -1127,6 +1138,9 @@ export class OfflineTemplateService {
         
         await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', mergedAttachments);
         console.log(`[OfflineTemplate] Background refresh: ${mergedAttachments.length} attachments updated for visual ${visualId}`);
+        
+        // Notify pages that fresh data is available
+        this.backgroundRefreshComplete$.next({ serviceId: visualId, dataType: 'visual_attachments' });
       } catch (error) {
         console.debug(`[OfflineTemplate] Background refresh failed for attachments (ok - using cache)`);
       }
@@ -1135,6 +1149,7 @@ export class OfflineTemplateService {
 
   /**
    * Refresh EFE rooms cache in background (non-blocking)
+   * Emits backgroundRefreshComplete$ when done so pages can reload
    */
   private refreshEFERoomsInBackground(serviceId: string): void {
     setTimeout(async () => {
@@ -1142,6 +1157,9 @@ export class OfflineTemplateService {
         const freshRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
         await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', freshRooms || []);
         console.log(`[OfflineTemplate] Background refresh: ${freshRooms?.length || 0} EFE rooms updated for ${serviceId}`);
+        
+        // Notify pages that fresh data is available
+        this.backgroundRefreshComplete$.next({ serviceId, dataType: 'efe_rooms' });
       } catch (error) {
         console.debug(`[OfflineTemplate] Background refresh failed for EFE rooms (ok - using cache)`);
       }
@@ -1150,6 +1168,7 @@ export class OfflineTemplateService {
 
   /**
    * Refresh EFE points cache in background (non-blocking)
+   * Emits backgroundRefreshComplete$ when done so pages can reload
    */
   private refreshEFEPointsInBackground(roomId: string): void {
     setTimeout(async () => {
@@ -1157,6 +1176,9 @@ export class OfflineTemplateService {
         const freshPoints = await firstValueFrom(this.caspioService.getServicesEFEPoints(roomId));
         await this.indexedDb.cacheServiceData(roomId, 'efe_points', freshPoints || []);
         console.log(`[OfflineTemplate] Background refresh: ${freshPoints?.length || 0} EFE points updated for room ${roomId}`);
+        
+        // Notify pages that fresh data is available
+        this.backgroundRefreshComplete$.next({ serviceId: roomId, dataType: 'efe_points' });
       } catch (error) {
         console.debug(`[OfflineTemplate] Background refresh failed for EFE points (ok - using cache)`);
       }
@@ -1166,6 +1188,7 @@ export class OfflineTemplateService {
   /**
    * Refresh EFE point attachments cache in background (non-blocking)
    * Preserves local updates (_localUpdate flag) when merging
+   * Emits backgroundRefreshComplete$ when done so pages can reload
    */
   private refreshEFEAttachmentsInBackground(pointId: string): void {
     setTimeout(async () => {
@@ -1195,6 +1218,9 @@ export class OfflineTemplateService {
         
         await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', mergedAttachments);
         console.log(`[OfflineTemplate] Background refresh: ${mergedAttachments.length} EFE attachments updated for point ${pointId}`);
+        
+        // Notify pages that fresh data is available
+        this.backgroundRefreshComplete$.next({ serviceId: pointId, dataType: 'efe_point_attachments' });
       } catch (error) {
         console.debug(`[OfflineTemplate] Background refresh failed for EFE attachments (ok - using cache)`);
       }

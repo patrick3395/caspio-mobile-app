@@ -101,6 +101,40 @@ export class EngineersFoundationDataService {
         this.cacheInvalidated$.next({ reason: 'efe_point_sync' });
       })
     );
+
+    // CRITICAL: When background refresh completes, clear in-memory caches and notify pages
+    // This ensures that stale in-memory data doesn't override fresh IndexedDB data
+    this.syncSubscriptions.push(
+      this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
+        console.log('[DataService] Background refresh complete:', event.dataType, 'for', event.serviceId);
+        
+        // Clear the corresponding in-memory cache
+        switch (event.dataType) {
+          case 'visuals':
+            this.visualsCache.delete(event.serviceId);
+            console.log('[DataService] Cleared visualsCache for', event.serviceId);
+            break;
+          case 'visual_attachments':
+            this.visualAttachmentsCache.delete(event.serviceId);
+            console.log('[DataService] Cleared visualAttachmentsCache for', event.serviceId);
+            break;
+          case 'efe_rooms':
+            // No specific room cache - just notify
+            break;
+          case 'efe_points':
+            this.efePointsCache.delete(event.serviceId);
+            console.log('[DataService] Cleared efePointsCache for', event.serviceId);
+            break;
+          case 'efe_point_attachments':
+            this.efeAttachmentsCache.delete(event.serviceId);
+            console.log('[DataService] Cleared efeAttachmentsCache for', event.serviceId);
+            break;
+        }
+        
+        // Emit cache invalidated event so pages reload with fresh data
+        this.cacheInvalidated$.next({ serviceId: event.serviceId, reason: `background_refresh_${event.dataType}` });
+      })
+    );
   }
 
   /**
