@@ -35,7 +35,7 @@ export interface CachedTemplate {
 export interface CachedServiceData {
   cacheKey: string;
   serviceId: string;
-  dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments';
+  dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments';
   data: any[];
   lastUpdated: number;
 }
@@ -855,7 +855,7 @@ export class IndexedDbService {
   /**
    * Cache service-specific data (visuals, EFE rooms, visual attachments, etc.)
    */
-  async cacheServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments', data: any[]): Promise<void> {
+  async cacheServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments', data: any[]): Promise<void> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {
@@ -888,7 +888,7 @@ export class IndexedDbService {
   /**
    * Get cached service data from IndexedDB
    */
-  async getCachedServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments'): Promise<any[] | null> {
+  async getCachedServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments'): Promise<any[] | null> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {

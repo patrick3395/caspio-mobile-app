@@ -168,10 +168,18 @@ export class EngineersFoundationDataService {
     if (!pointIds || (Array.isArray(pointIds) && pointIds.length === 0)) {
       return [];
     }
-    const key = Array.isArray(pointIds) ? pointIds.sort().join('|') : pointIds;
-    return this.resolveWithCache(this.efeAttachmentsCache, key, () =>
-      firstValueFrom(this.caspioService.getServicesEFEAttachments(pointIds))
-    );
+
+    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+    const ids = Array.isArray(pointIds) ? pointIds : [pointIds];
+    const allAttachments: any[] = [];
+
+    for (const pointId of ids) {
+      const attachments = await this.offlineTemplate.getEFEPointAttachments(pointId);
+      allAttachments.push(...attachments);
+    }
+
+    console.log('[EFE Data] Loaded attachments for', ids.length, 'points:', allAttachments.length, '(from IndexedDB + API fallback)');
+    return allAttachments;
   }
 
   private async resolveWithCache<T>(

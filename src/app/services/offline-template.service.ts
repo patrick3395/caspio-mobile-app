@@ -352,15 +352,18 @@ export class OfflineTemplateService {
   }
 
   /**
-   * Download EFE-specific data (rooms and points)
+   * Download EFE-specific data (rooms, points, and point attachments)
    */
   private async downloadEFEData(serviceId: string): Promise<void> {
-    console.log('[OfflineTemplate] Downloading EFE rooms and points...');
+    console.log('[OfflineTemplate] Downloading EFE rooms, points, and attachments...');
 
     // Get all rooms for this service
     const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
     await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', rooms);
     console.log(`[OfflineTemplate] Cached ${rooms.length} EFE rooms`);
+
+    // Collect all point IDs for attachment download
+    const allPointIds: string[] = [];
 
     // Get points for each room
     const pointPromises = rooms.map(async (room: any) => {
@@ -368,6 +371,15 @@ export class OfflineTemplateService {
       if (roomId) {
         const points = await firstValueFrom(this.caspioService.getServicesEFEPoints(String(roomId)));
         await this.indexedDb.cacheServiceData(String(roomId), 'efe_points', points);
+        
+        // Collect point IDs for attachment download
+        for (const point of points) {
+          const pointId = point.PointID || point.PK_ID;
+          if (pointId) {
+            allPointIds.push(String(pointId));
+          }
+        }
+        
         return points.length;
       }
       return 0;
@@ -376,6 +388,39 @@ export class OfflineTemplateService {
     const pointCounts = await Promise.all(pointPromises);
     const totalPoints = pointCounts.reduce((a, b) => a + b, 0);
     console.log(`[OfflineTemplate] Cached ${totalPoints} EFE points across ${rooms.length} rooms`);
+
+    // Download attachments for all points
+    if (allPointIds.length > 0) {
+      console.log(`[OfflineTemplate] Downloading attachments for ${allPointIds.length} points...`);
+      
+      // Fetch attachments in batches to avoid overwhelming the API
+      const batchSize = 10;
+      let totalAttachments = 0;
+      
+      for (let i = 0; i < allPointIds.length; i += batchSize) {
+        const batch = allPointIds.slice(i, i + batchSize);
+        
+        const attachmentPromises = batch.map(async (pointId) => {
+          try {
+            const attachments = await firstValueFrom(
+              this.caspioService.getServicesEFEAttachments(pointId)
+            );
+            await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', attachments || []);
+            return attachments?.length || 0;
+          } catch (err) {
+            console.warn(`[OfflineTemplate] Failed to fetch attachments for point ${pointId}:`, err);
+            // Cache empty array to indicate we tried
+            await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', []);
+            return 0;
+          }
+        });
+        
+        const counts = await Promise.all(attachmentPromises);
+        totalAttachments += counts.reduce((a, b) => a + b, 0);
+      }
+      
+      console.log(`[OfflineTemplate] Cached ${totalAttachments} EFE point attachments`);
+    }
   }
 
   /**
@@ -597,6 +642,40 @@ export class OfflineTemplateService {
 
     console.log(`[OfflineTemplate] EFE Points for ${roomId}: ${cached.length} cached + ${pendingPoints.length} pending`);
     return [...cached, ...pendingPoints];
+  }
+
+  /**
+   * Get EFE point attachments from IndexedDB (offline-first)
+   */
+  async getEFEPointAttachments(pointId: string | number): Promise<any[]> {
+    const key = String(pointId);
+    
+    // Check IndexedDB first
+    const cached = await this.indexedDb.getCachedServiceData(key, 'efe_point_attachments');
+    if (cached !== null && cached !== undefined) {
+      console.log(`[OfflineTemplate] EFE point attachments from cache for ${key}: ${cached.length}`);
+      return cached;
+    }
+
+    // Cache miss - try API if online
+    if (this.offlineService.isOnline()) {
+      console.log(`[OfflineTemplate] EFE point attachments cache miss for ${key}, fetching from API...`);
+      try {
+        const attachments = await firstValueFrom(
+          this.caspioService.getServicesEFEAttachments(key)
+        );
+        // Cache for future offline use
+        await this.indexedDb.cacheServiceData(key, 'efe_point_attachments', attachments || []);
+        console.log(`[OfflineTemplate] EFE point attachments fetched and cached for ${key}: ${attachments?.length || 0}`);
+        return attachments || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] Failed to fetch EFE point attachments for ${key}:`, error);
+        return [];
+      }
+    }
+
+    console.warn(`[OfflineTemplate] EFE point attachments: offline and no cache for ${key}`);
+    return [];
   }
 
   /**
