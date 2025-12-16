@@ -631,10 +631,13 @@ export class BackgroundSyncService {
 
     for (const field of foreignKeyFields) {
       if (data[field] && typeof data[field] === 'string' && data[field].startsWith('temp_')) {
-        const realId = await this.indexedDb.getRealId(data[field]);
+        const tempId = data[field];
+        const realId = await this.indexedDb.getRealId(tempId);
         if (realId) {
           data[field] = realId;
-          console.log(`[BackgroundSync] Resolved ${field}: ${data[field]} → ${realId}`);
+          console.log(`[BackgroundSync] Resolved ${field}: ${tempId} → ${realId}`);
+        } else {
+          console.warn(`[BackgroundSync] Could not resolve ${field}: ${tempId} - real ID not found`);
         }
       }
     }

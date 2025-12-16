@@ -16,6 +16,8 @@ import { BackgroundPhotoUploadService } from '../../../../services/background-ph
 import { IndexedDbService } from '../../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
 import { OfflineTemplateService } from '../../../../services/offline-template.service';
+import { compressAnnotationData, decompressAnnotationData } from '../../../../utils/annotation-utils';
+import { AddCustomVisualModalComponent } from '../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 
 interface VisualItem {
   id: string | number;
@@ -1744,10 +1746,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           // This ensures photos are never lost, even with intermittent connection
           console.log('[CAMERA UPLOAD] Storing in IndexedDB for reliability');
 
-          // Compress annotations if present
+          // Compress annotations if present (using static import for offline support)
           let compressedDrawings = '';
           if (annotationsData) {
-            const { compressAnnotationData } = await import('../../../../utils/annotation-utils');
             if (typeof annotationsData === 'object') {
               compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
             } else if (typeof annotationsData === 'string') {
@@ -2537,8 +2538,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         try {
           if (typeof source === 'string') {
             console.log('[VIEW PHOTO] Decompressing string source, length:', source.length);
-            // Import decompression utility
-            const { decompressAnnotationData } = await import('../../../../utils/annotation-utils');
+            // Using static import for offline support
             existingAnnotations = decompressAnnotationData(source);
             console.log('[VIEW PHOTO] Decompressed annotations:', existingAnnotations ? 'SUCCESS' : 'FAILED');
             if (existingAnnotations && existingAnnotations.objects) {
@@ -2691,8 +2691,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               // Get the pending file ID (might be different from attachId)
               const pendingFileId = currentPhoto._pendingFileId || attachId;
 
-              // Compress the annotation data for storage
-              const { compressAnnotationData } = await import('../../../../utils/annotation-utils');
+              // Compress the annotation data for storage (using static import for offline)
               let compressedDrawings = '';
               if (annotationsData) {
                 if (typeof annotationsData === 'object') {
@@ -2775,8 +2774,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   }
 
   private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<string> {
-    // Import compression utilities
-    const { compressAnnotationData } = await import('../../../../utils/annotation-utils');
+    // Using static import for offline support
 
     // CRITICAL: Process annotation data EXACTLY like the original 15,000 line code
     // Build the updateData object with Annotation and Drawings fields
@@ -3153,9 +3151,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   // ============================================
 
   async addCustomVisual(category: string, kind: string) {
-    // Dynamically import the modal component
-    const { AddCustomVisualModalComponent } = await import('../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component');
-
+    // Using static import for offline support
     const modal = await this.modalController.create({
       component: AddCustomVisualModalComponent,
       componentProps: {

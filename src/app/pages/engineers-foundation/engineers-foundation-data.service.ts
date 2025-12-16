@@ -477,9 +477,17 @@ export class EngineersFoundationDataService {
 
     if (isTempId) {
       // Visual not synced - queue with dependency
+      // Search in both pending and all requests to find the visual's requestId
       const pending = await this.indexedDb.getPendingRequests();
-      const visualRequest = pending.find(r => r.tempId === visualIdStr);
+      const allRequests = await this.indexedDb.getAllRequests();
+      const visualRequest = [...pending, ...allRequests].find(r => r.tempId === visualIdStr);
       const dependencies = visualRequest ? [visualRequest.requestId] : [];
+
+      if (dependencies.length === 0) {
+        console.warn('[Visual Photo] Visual request not found for', visualIdStr, '- photo may sync before visual!');
+      } else {
+        console.log('[Visual Photo] Photo depends on visual request:', visualRequest?.requestId);
+      }
 
       await this.indexedDb.addPendingRequest({
         type: 'UPLOAD_FILE',
@@ -719,19 +727,21 @@ export class EngineersFoundationDataService {
     // Generate temporary ID
     const tempId = this.tempId.generateTempId('point');
 
+    // Determine parent ID (room's temp or real ID)
+    // If roomTempId is provided, use it for both dependencies AND EFEID in the request
+    const parentId = roomTempId || String(pointData.EFEID);
+
     // Create placeholder for immediate UI
     const placeholder = {
       ...pointData,
       PointID: tempId,
       PK_ID: tempId,
+      EFEID: parentId, // Use the resolved parent ID
       _tempId: tempId,
       _localOnly: true,
       _syncing: true,
       _createdAt: Date.now(),
     };
-
-    // Determine parent ID (room's temp or real ID)
-    const parentId = roomTempId || String(pointData.EFEID);
 
     // Store in pendingEFEData for immediate display
     await this.indexedDb.addPendingEFE({
@@ -745,13 +755,24 @@ export class EngineersFoundationDataService {
     // Find dependencies if room uses temp ID
     const dependencies: string[] = [];
     if (roomTempId && String(roomTempId).startsWith('temp_')) {
+      // Search both pending and all requests to ensure we find the room request
       const pending = await this.indexedDb.getPendingRequests();
-      const roomRequest = pending.find(r => r.tempId === roomTempId);
+      const allRequests = await this.indexedDb.getAllRequests();
+      const roomRequest = [...pending, ...allRequests].find(r => r.tempId === roomTempId);
       if (roomRequest) {
         dependencies.push(roomRequest.requestId);
         console.log('[EFE Data] Point depends on room request:', roomRequest.requestId);
+      } else {
+        console.warn('[EFE Data] Room request not found for', roomTempId, '- point may sync before room!');
       }
     }
+
+    // Prepare data for sync - ensure EFEID is the temp ID string (if room is temp)
+    // BackgroundSyncService.resolveTempIds will convert temp_efe_xxx to real ID before API call
+    const syncData = {
+      ...pointData,
+      EFEID: parentId, // Use temp ID string, will be resolved by BackgroundSync
+    };
 
     // Store in IndexedDB for background sync
     await this.indexedDb.addPendingRequest({
@@ -759,7 +780,7 @@ export class EngineersFoundationDataService {
       tempId: tempId,
       endpoint: '/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?response=rows',
       method: 'POST',
-      data: pointData,
+      data: syncData,
       dependencies: dependencies,
       status: 'pending',
       priority: 'normal',
@@ -768,7 +789,7 @@ export class EngineersFoundationDataService {
     // Trigger background sync
     this.backgroundSync.triggerSync();
 
-    console.log('[EFE Data] EFE point queued with temp ID:', tempId, 'dependencies:', dependencies);
+    console.log('[EFE Data] EFE point queued with temp ID:', tempId, 'EFEID:', parentId, 'dependencies:', dependencies);
 
     // Return placeholder immediately
     return placeholder;

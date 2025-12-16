@@ -15,6 +15,7 @@ import { OfflineTemplateService } from '../../../services/offline-template.servi
 import { OfflineService } from '../../../services/offline.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { firstValueFrom, Subscription } from 'rxjs';
+import { compressAnnotationData, decompressAnnotationData } from '../../../utils/annotation-utils';
 
 @Component({
   selector: 'app-room-elevation',
@@ -744,15 +745,18 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           try {
             console.log(`[RoomElevation]   Creating database record for: "${point.name}"...`);
 
+            // For temp room IDs, pass the temp ID as EFEID for dependency resolution
+            // For real room IDs, parse as integer for the API
+            const isTempRoom = String(this.roomId).startsWith('temp_');
             const newPointData = {
-              EFEID: parseInt(this.roomId, 10),
+              EFEID: isTempRoom ? this.roomId : parseInt(this.roomId, 10),
               PointName: point.name
             };
 
-            console.log('[RoomElevation]     Request data:', newPointData);
+            console.log('[RoomElevation]     Request data:', newPointData, 'isTempRoom:', isTempRoom);
 
             // OFFLINE-FIRST: Use foundationData.createEFEPoint which queues for background sync
-            const response = await this.foundationData.createEFEPoint(newPointData, String(this.roomId).startsWith('temp_') ? this.roomId : undefined);
+            const response = await this.foundationData.createEFEPoint(newPointData, isTempRoom ? this.roomId : undefined);
             console.log('[RoomElevation]     Response received:', response);
 
             const newPointId = response?.PointID || response?.PK_ID || response?._tempId;
@@ -1286,7 +1290,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       if (compressedDrawings && compressedDrawings !== 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA') {
         try {
           console.log('[FDF Annotate] Decompressing existing annotations, length:', compressedDrawings.length);
-          const { decompressAnnotationData } = await import('../../../utils/annotation-utils');
+          // Using static import for offline support
           existingAnnotations = decompressAnnotationData(compressedDrawings);
           console.log('[FDF Annotate] Decompressed annotations:', existingAnnotations ? 'SUCCESS' : 'FAILED');
           if (existingAnnotations && existingAnnotations.objects) {
@@ -1499,14 +1503,17 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   private async handleAddPoint(pointName: string) {
     try {
       // OFFLINE-FIRST: Use foundationData.createEFEPoint which queues for background sync
+      // For temp room IDs, pass the temp ID as EFEID for dependency resolution
+      // For real room IDs, parse as integer for the API
+      const isTempRoom = String(this.roomId).startsWith('temp_');
       const pointData = {
-        EFEID: parseInt(this.roomId, 10),
+        EFEID: isTempRoom ? this.roomId : parseInt(this.roomId, 10),
         PointName: pointName
       };
 
       const response = await this.foundationData.createEFEPoint(
         pointData,
-        String(this.roomId).startsWith('temp_') ? this.roomId : undefined
+        isTempRoom ? this.roomId : undefined
       );
       const pointId = response?.PointID || response?.PK_ID || response?._tempId;
 
@@ -1806,7 +1813,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       if (compressedDrawings && compressedDrawings !== 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA') {
         try {
           console.log('[Point Annotate] Decompressing existing annotations, length:', compressedDrawings.length);
-          const { decompressAnnotationData } = await import('../../../utils/annotation-utils');
+          // Using static import for offline support
           existingAnnotations = decompressAnnotationData(compressedDrawings);
           console.log('[Point Annotate] Decompressed annotations:', existingAnnotations ? 'SUCCESS' : 'FAILED');
           if (existingAnnotations && existingAnnotations.objects) {
@@ -2007,8 +2014,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
    * @returns The compressed drawings string that was saved
    */
   private async saveFDFAnnotationToDatabase(roomId: string, photoType: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<string> {
-    // Import compression utilities
-    const { compressAnnotationData } = await import('../../../utils/annotation-utils');
+    // Using static import for offline support
 
     // CRITICAL: Process annotation data EXACTLY like structural-systems
     let drawingsData = '';
@@ -2103,8 +2109,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
    * @returns The compressed drawings string that was saved
    */
   private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<string> {
-    // Import compression utilities
-    const { compressAnnotationData } = await import('../../../utils/annotation-utils');
+    // Using static import for offline support
 
     // CRITICAL: Process annotation data EXACTLY like structural-systems
     // Build the updateData object with Annotation and Drawings fields
