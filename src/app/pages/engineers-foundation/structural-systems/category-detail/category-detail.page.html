@@ -12,6 +12,29 @@
     <!-- Category Content -->
     <div *ngIf="!loading" class="category-content">
 
+      <!-- DEBUG: Data verification (remove after debugging) -->
+      <div style="background: #fffbe6; border: 2px solid #faad14; padding: 12px; margin-bottom: 16px; border-radius: 8px; font-size: 12px;">
+        <strong>🔍 Debug Info:</strong><br>
+        Category: {{ categoryName }}<br>
+        Comments: {{ organizedData.comments.length }}<br>
+        Limitations: {{ organizedData.limitations.length }}<br>
+        Deficiencies: {{ organizedData.deficiencies.length }}<br>
+        Expanded: {{ expandedAccordions | json }}<br>
+        <strong>First items:</strong><br>
+        <span *ngIf="organizedData.comments.length > 0">Comment: {{ organizedData.comments[0]?.name }}</span><br>
+        <span *ngIf="organizedData.limitations.length > 0">Limitation: {{ organizedData.limitations[0]?.name }}</span><br>
+        <span *ngIf="organizedData.deficiencies.length > 0">Deficiency: {{ organizedData.deficiencies[0]?.name }}</span>
+        <hr style="margin: 8px 0;">
+        <strong>All Comments (test ngFor):</strong>
+        <ul style="margin: 4px 0; padding-left: 20px;">
+          <li *ngFor="let item of organizedData.comments">{{ item.name }}</li>
+        </ul>
+        <strong>All Limitations:</strong>
+        <ul style="margin: 4px 0; padding-left: 20px;">
+          <li *ngFor="let item of organizedData.limitations">{{ item.name }}</li>
+        </ul>
+      </div>
+
       <!-- Search Bar -->
       <div class="search-container">
         <div class="search-input-wrapper">
