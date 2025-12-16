@@ -417,12 +417,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   private async loadCategoryTemplates() {
     try {
       // OFFLINE-FIRST: Ensure visual templates are ready (waits for download if in progress)
+      console.log('[CategoryDetail] Loading templates for category:', this.categoryName);
       const allTemplates = await this.offlineTemplate.ensureVisualTemplatesReady();
+      console.log('[CategoryDetail] Total templates from IndexedDB:', allTemplates?.length || 0);
+      
       const visualTemplates = (allTemplates || []).filter((template: any) =>
         template.TypeID === 1 && template.Category === this.categoryName
       );
       
-      console.log('[CategoryDetail] Loaded', visualTemplates.length, 'templates for category:', this.categoryName);
+      console.log('[CategoryDetail] ✅ Filtered', visualTemplates.length, 'templates for category:', this.categoryName);
+      
+      // Show breakdown by type
+      const limitations = visualTemplates.filter((t: any) => t.Kind === 'Limitation').length;
+      const comments = visualTemplates.filter((t: any) => t.Kind === 'Comment').length;
+      const deficiencies = visualTemplates.filter((t: any) => t.Kind === 'Deficiency').length;
+      console.log(`[CategoryDetail]    📝 Limitations: ${limitations}, Comments: ${comments}, Deficiencies: ${deficiencies}`);
 
       // Organize templates by Kind
       visualTemplates.forEach((template: any) => {

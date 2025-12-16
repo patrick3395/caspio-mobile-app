@@ -111,10 +111,12 @@ export class StructuralSystemsHubPage implements OnInit {
   private async loadCategories() {
     try {
       // OFFLINE-FIRST: Ensure visual templates are ready (waits for download if in progress)
+      console.log('[StructuralHub] Loading visual templates from IndexedDB...');
       const allTemplates = await this.offlineTemplate.ensureVisualTemplatesReady();
+      console.log('[StructuralHub] Total templates from IndexedDB:', allTemplates?.length || 0);
+      
       const visualTemplates = (allTemplates || []).filter((template: any) => template.TypeID === 1);
-
-      console.log('[StructuralHub] Loaded templates:', visualTemplates.length);
+      console.log('[StructuralHub] ✅ Filtered TypeID=1 templates:', visualTemplates.length);
 
       // Extract unique categories in order
       const categoriesSet = new Set<string>();
@@ -127,7 +129,7 @@ export class StructuralSystemsHubPage implements OnInit {
         }
       });
 
-      console.log('[StructuralHub] Found', categoriesOrder.length, 'unique categories');
+      console.log('[StructuralHub] ✅ Found', categoriesOrder.length, 'unique categories:', categoriesOrder.join(', '));
 
       // Get deficiency counts for each category from saved visuals
       const deficiencyCounts = await this.getDeficiencyCountsByCategory();

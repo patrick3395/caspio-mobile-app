@@ -138,36 +138,68 @@ export class OfflineTemplateService {
    * Perform the actual download of all template data
    */
   private async performDownload(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', cacheKey: string, projectId?: string): Promise<void> {
-    console.log(`[OfflineTemplate] Downloading all data for ${cacheKey}...`);
+    console.log('╔════════════════════════════════════════════════════════════════╗');
+    console.log('║         OFFLINE TEMPLATE DOWNLOAD STARTING                      ║');
+    console.log(`║  Service: ${serviceId.padEnd(10)} | Type: ${templateType.padEnd(5)} | Key: ${cacheKey.padEnd(15)}  ║`);
+    console.log('╚════════════════════════════════════════════════════════════════╝');
+
+    // Track what we download for final summary
+    const downloadSummary = {
+      visualTemplates: 0,
+      efeTemplates: 0,
+      serviceVisuals: 0,
+      visualAttachments: 0,
+      efeRooms: 0,
+      efePoints: 0,
+      efePointAttachments: 0,
+      serviceRecord: false,
+      projectRecord: false,
+      servicesDrop: 0,
+      projectsDrop: 0,
+      statusOptions: 0
+    };
 
     try {
       // Download in parallel for speed
       const downloads: Promise<any>[] = [];
 
-      // 1. Visual Templates (categories, fields, etc.) - shared across all types
+      // 1. Visual Templates (Structural System categories - comments, limitations, deficiencies)
+      console.log('\n[1/8] 📋 Downloading VISUAL TEMPLATES (Structural System categories)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesVisualsTemplates())
-          .then(templates => this.indexedDb.cacheTemplates('visual', templates))
-          .then(() => console.log('[OfflineTemplate] Visual templates cached'))
+          .then(async (templates) => {
+            downloadSummary.visualTemplates = templates?.length || 0;
+            await this.indexedDb.cacheTemplates('visual', templates);
+            console.log(`    ✅ Visual Templates: ${downloadSummary.visualTemplates} templates cached`);
+            console.log(`    📦 Categories include: ${[...new Set(templates?.map((t: any) => t.Category) || [])].slice(0, 5).join(', ')}...`);
+            return templates;
+          })
       );
 
-      // 2. EFE Templates (room templates, point definitions)
+      // 2. EFE Templates (room templates with elevation points)
+      console.log('[2/8] 🏠 Downloading EFE TEMPLATES (Room elevation templates)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesEFETemplates())
-          .then(templates => this.indexedDb.cacheTemplates('efe', templates))
-          .then(() => console.log('[OfflineTemplate] EFE templates cached'))
+          .then(async (templates) => {
+            downloadSummary.efeTemplates = templates?.length || 0;
+            await this.indexedDb.cacheTemplates('efe', templates);
+            console.log(`    ✅ EFE Templates: ${downloadSummary.efeTemplates} room templates cached`);
+            return templates;
+          })
       );
 
       // 3. Service-specific visuals AND their attachments (existing items for this service)
+      console.log('[3/8] 🔍 Downloading SERVICE VISUALS (existing structural items for this service)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId))
           .then(async (visuals) => {
+            downloadSummary.serviceVisuals = visuals?.length || 0;
             await this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals);
-            console.log('[OfflineTemplate] Service visuals cached:', visuals.length);
+            console.log(`    ✅ Service Visuals: ${downloadSummary.serviceVisuals} existing items cached`);
             
             // CRITICAL: Also cache attachments for each visual (needed for photo counts offline)
             if (visuals && visuals.length > 0) {
-              console.log('[OfflineTemplate] Caching attachments for', visuals.length, 'visuals...');
+              console.log(`    📸 Caching photo attachments for ${visuals.length} visuals...`);
               const attachmentPromises = visuals.map(async (visual: any) => {
                 const visualId = visual.VisualID || visual.PK_ID;
                 if (visualId) {
@@ -178,56 +210,88 @@ export class OfflineTemplateService {
                     await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', attachments || []);
                     return attachments?.length || 0;
                   } catch (err) {
-                    console.warn(`[OfflineTemplate] Failed to cache attachments for visual ${visualId}:`, err);
+                    console.warn(`    ⚠️ Failed to cache attachments for visual ${visualId}:`, err);
                     return 0;
                   }
                 }
                 return 0;
               });
               const counts = await Promise.all(attachmentPromises);
-              const totalAttachments = counts.reduce((a, b) => a + b, 0);
-              console.log('[OfflineTemplate] Visual attachments cached:', totalAttachments, 'total');
+              downloadSummary.visualAttachments = counts.reduce((a, b) => a + b, 0);
+              console.log(`    ✅ Visual Attachments: ${downloadSummary.visualAttachments} photos cached`);
+            } else {
+              console.log('    ℹ️ No existing visuals - new template (this is normal)');
             }
+            return visuals;
           })
       );
 
-      // 4. For EFE: Also download rooms and their points
+      // 4. For EFE: Also download rooms, points, and point attachments
       if (templateType === 'EFE') {
-        downloads.push(this.downloadEFEData(serviceId));
+        console.log('[4/8] 📐 Downloading EFE DATA (rooms, points, and point attachments)...');
+        downloads.push(
+          this.downloadEFEDataWithSummary(serviceId, downloadSummary)
+        );
       }
 
-      // 5. Service record itself (also extract projectId if not provided)
-      // IMPORTANT: Bypass localStorage cache (false) to get fresh data from API
-      // Also check for pending UPDATE requests - don't overwrite local changes
+      // 5. Service record itself
+      console.log('[5/8] 📝 Downloading SERVICE RECORD...');
       downloads.push(
         this.safeCacheServiceRecord(serviceId, projectId)
+          .then(() => {
+            downloadSummary.serviceRecord = true;
+            downloadSummary.projectRecord = true;
+            console.log('    ✅ Service and Project records cached');
+          })
       );
 
-      // 6. Global dropdown data - Services_Drop (InAttendance, WeatherConditions, etc.)
+      // 6. Global dropdown data - Services_Drop
+      console.log('[6/8] 📋 Downloading SERVICES_DROP (dropdown options)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesDrop())
-          .then(data => this.indexedDb.cacheGlobalData('services_drop', data))
-          .then(() => console.log('[OfflineTemplate] Services_Drop cached'))
-          .catch(err => console.warn('[OfflineTemplate] Services_Drop cache failed:', err))
+          .then(async (data) => {
+            downloadSummary.servicesDrop = data?.length || 0;
+            await this.indexedDb.cacheGlobalData('services_drop', data);
+            console.log(`    ✅ Services_Drop: ${downloadSummary.servicesDrop} dropdown options cached`);
+            return data;
+          })
+          .catch(err => {
+            console.warn('    ⚠️ Services_Drop cache failed:', err);
+            return [];
+          })
       );
 
-      // 7. Global dropdown data - Projects_Drop (TypeOfBuilding, Style, etc.)
+      // 7. Global dropdown data - Projects_Drop
+      console.log('[7/8] 📋 Downloading PROJECTS_DROP (dropdown options)...');
       downloads.push(
         firstValueFrom(this.caspioService.getProjectsDrop())
-          .then(data => this.indexedDb.cacheGlobalData('projects_drop', data))
-          .then(() => console.log('[OfflineTemplate] Projects_Drop cached'))
-          .catch(err => console.warn('[OfflineTemplate] Projects_Drop cache failed:', err))
+          .then(async (data) => {
+            downloadSummary.projectsDrop = data?.length || 0;
+            await this.indexedDb.cacheGlobalData('projects_drop', data);
+            console.log(`    ✅ Projects_Drop: ${downloadSummary.projectsDrop} dropdown options cached`);
+            return data;
+          })
+          .catch(err => {
+            console.warn('    ⚠️ Projects_Drop cache failed:', err);
+            return [];
+          })
       );
 
       // 8. Status options for finalization
+      console.log('[8/8] 🏷️ Downloading STATUS OPTIONS...');
       downloads.push(
         firstValueFrom(this.caspioService.get('/tables/LPS_Status/records'))
-          .then((response: any) => {
+          .then(async (response: any) => {
             const statusData = response?.Result || [];
-            return this.indexedDb.cacheGlobalData('status', statusData);
+            downloadSummary.statusOptions = statusData.length;
+            await this.indexedDb.cacheGlobalData('status', statusData);
+            console.log(`    ✅ Status Options: ${downloadSummary.statusOptions} options cached`);
+            return statusData;
           })
-          .then(() => console.log('[OfflineTemplate] Status options cached'))
-          .catch(err => console.warn('[OfflineTemplate] Status cache failed:', err))
+          .catch(err => {
+            console.warn('    ⚠️ Status cache failed:', err);
+            return [];
+          })
       );
 
       await Promise.all(downloads);
@@ -235,10 +299,106 @@ export class OfflineTemplateService {
       // Mark as fully downloaded
       await this.indexedDb.markTemplateDownloaded(serviceId, templateType);
 
-      console.log(`[OfflineTemplate] All data cached for ${cacheKey}`);
+      // Print final summary
+      console.log('\n╔════════════════════════════════════════════════════════════════╗');
+      console.log('║            📦 TEMPLATE DOWNLOAD COMPLETE                        ║');
+      console.log('╠════════════════════════════════════════════════════════════════╣');
+      console.log(`║  📋 Visual Templates (Structural System):  ${String(downloadSummary.visualTemplates).padStart(5)} templates    ║`);
+      console.log(`║  🏠 EFE Templates (Room definitions):      ${String(downloadSummary.efeTemplates).padStart(5)} templates    ║`);
+      console.log(`║  🔍 Service Visuals (existing items):      ${String(downloadSummary.serviceVisuals).padStart(5)} items        ║`);
+      console.log(`║  📸 Visual Attachments (photos):           ${String(downloadSummary.visualAttachments).padStart(5)} photos       ║`);
+      console.log(`║  📐 EFE Rooms:                             ${String(downloadSummary.efeRooms).padStart(5)} rooms        ║`);
+      console.log(`║  📍 EFE Points:                            ${String(downloadSummary.efePoints).padStart(5)} points       ║`);
+      console.log(`║  🖼️ EFE Point Attachments:                 ${String(downloadSummary.efePointAttachments).padStart(5)} photos       ║`);
+      console.log(`║  📝 Service Record:                        ${downloadSummary.serviceRecord ? '  YES' : '   NO'}             ║`);
+      console.log(`║  📝 Project Record:                        ${downloadSummary.projectRecord ? '  YES' : '   NO'}             ║`);
+      console.log(`║  📋 Services_Drop options:                 ${String(downloadSummary.servicesDrop).padStart(5)} options      ║`);
+      console.log(`║  📋 Projects_Drop options:                 ${String(downloadSummary.projectsDrop).padStart(5)} options      ║`);
+      console.log(`║  🏷️ Status options:                        ${String(downloadSummary.statusOptions).padStart(5)} options      ║`);
+      console.log('╠════════════════════════════════════════════════════════════════╣');
+      console.log('║  ✅ TEMPLATE IS READY FOR OFFLINE USE                           ║');
+      console.log('╚════════════════════════════════════════════════════════════════╝\n');
+
     } catch (error) {
+      console.error('╔════════════════════════════════════════════════════════════════╗');
+      console.error('║  ❌ TEMPLATE DOWNLOAD FAILED                                    ║');
+      console.error('╚════════════════════════════════════════════════════════════════╝');
       console.error(`[OfflineTemplate] Error downloading ${cacheKey}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Download EFE data with summary tracking
+   */
+  private async downloadEFEDataWithSummary(serviceId: string, summary: any): Promise<void> {
+    // Get all rooms for this service
+    const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
+    summary.efeRooms = rooms?.length || 0;
+    await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', rooms);
+    console.log(`    ✅ EFE Rooms: ${summary.efeRooms} rooms cached`);
+
+    // Collect all point IDs for attachment download
+    const allPointIds: string[] = [];
+
+    // Get points for each room
+    if (rooms && rooms.length > 0) {
+      const pointPromises = rooms.map(async (room: any) => {
+        const roomId = room.EFEID || room.PK_ID;
+        if (roomId) {
+          const points = await firstValueFrom(this.caspioService.getServicesEFEPoints(String(roomId)));
+          await this.indexedDb.cacheServiceData(String(roomId), 'efe_points', points);
+          
+          // Collect point IDs for attachment download
+          for (const point of points) {
+            const pointId = point.PointID || point.PK_ID;
+            if (pointId) {
+              allPointIds.push(String(pointId));
+            }
+          }
+          
+          return points.length;
+        }
+        return 0;
+      });
+
+      const pointCounts = await Promise.all(pointPromises);
+      summary.efePoints = pointCounts.reduce((a, b) => a + b, 0);
+      console.log(`    ✅ EFE Points: ${summary.efePoints} points across ${summary.efeRooms} rooms`);
+    } else {
+      console.log('    ℹ️ No EFE rooms yet - new template (this is normal)');
+    }
+
+    // Download attachments for all points
+    if (allPointIds.length > 0) {
+      console.log(`    📸 Caching attachments for ${allPointIds.length} points...`);
+      
+      // Fetch attachments in batches
+      const batchSize = 10;
+      let totalAttachments = 0;
+      
+      for (let i = 0; i < allPointIds.length; i += batchSize) {
+        const batch = allPointIds.slice(i, i + batchSize);
+        
+        const attachmentPromises = batch.map(async (pointId) => {
+          try {
+            const attachments = await firstValueFrom(
+              this.caspioService.getServicesEFEAttachments(pointId)
+            );
+            await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', attachments || []);
+            return attachments?.length || 0;
+          } catch (err) {
+            await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', []);
+            return 0;
+          }
+        });
+        
+        const counts = await Promise.all(attachmentPromises);
+        totalAttachments += counts.reduce((a, b) => a + b, 0);
+      }
+      
+      summary.efePointAttachments = totalAttachments;
+      console.log(`    ✅ EFE Point Attachments: ${summary.efePointAttachments} photos cached`);
     }
   }
 
@@ -351,77 +511,6 @@ export class OfflineTemplateService {
     }
   }
 
-  /**
-   * Download EFE-specific data (rooms, points, and point attachments)
-   */
-  private async downloadEFEData(serviceId: string): Promise<void> {
-    console.log('[OfflineTemplate] Downloading EFE rooms, points, and attachments...');
-
-    // Get all rooms for this service
-    const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
-    await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', rooms);
-    console.log(`[OfflineTemplate] Cached ${rooms.length} EFE rooms`);
-
-    // Collect all point IDs for attachment download
-    const allPointIds: string[] = [];
-
-    // Get points for each room
-    const pointPromises = rooms.map(async (room: any) => {
-      const roomId = room.EFEID || room.PK_ID;
-      if (roomId) {
-        const points = await firstValueFrom(this.caspioService.getServicesEFEPoints(String(roomId)));
-        await this.indexedDb.cacheServiceData(String(roomId), 'efe_points', points);
-        
-        // Collect point IDs for attachment download
-        for (const point of points) {
-          const pointId = point.PointID || point.PK_ID;
-          if (pointId) {
-            allPointIds.push(String(pointId));
-          }
-        }
-        
-        return points.length;
-      }
-      return 0;
-    });
-
-    const pointCounts = await Promise.all(pointPromises);
-    const totalPoints = pointCounts.reduce((a, b) => a + b, 0);
-    console.log(`[OfflineTemplate] Cached ${totalPoints} EFE points across ${rooms.length} rooms`);
-
-    // Download attachments for all points
-    if (allPointIds.length > 0) {
-      console.log(`[OfflineTemplate] Downloading attachments for ${allPointIds.length} points...`);
-      
-      // Fetch attachments in batches to avoid overwhelming the API
-      const batchSize = 10;
-      let totalAttachments = 0;
-      
-      for (let i = 0; i < allPointIds.length; i += batchSize) {
-        const batch = allPointIds.slice(i, i + batchSize);
-        
-        const attachmentPromises = batch.map(async (pointId) => {
-          try {
-            const attachments = await firstValueFrom(
-              this.caspioService.getServicesEFEAttachments(pointId)
-            );
-            await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', attachments || []);
-            return attachments?.length || 0;
-          } catch (err) {
-            console.warn(`[OfflineTemplate] Failed to fetch attachments for point ${pointId}:`, err);
-            // Cache empty array to indicate we tried
-            await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', []);
-            return 0;
-          }
-        });
-        
-        const counts = await Promise.all(attachmentPromises);
-        totalAttachments += counts.reduce((a, b) => a + b, 0);
-      }
-      
-      console.log(`[OfflineTemplate] Cached ${totalAttachments} EFE point attachments`);
-    }
-  }
 
   /**
    * Check if template data is already downloaded

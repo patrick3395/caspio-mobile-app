@@ -7,6 +7,7 @@ import { EngineersFoundationPdfService } from '../services/engineers-foundation-
 import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
 import { filter } from 'rxjs/operators';
 
 interface Breadcrumb {
@@ -42,7 +43,8 @@ export class EngineersFoundationContainerPage implements OnInit {
     private pdfService: EngineersFoundationPdfService,
     private location: Location,
     private offlineCache: OfflineDataCacheService,
-    private offlineTemplate: OfflineTemplateService
+    private offlineTemplate: OfflineTemplateService,
+    private indexedDb: IndexedDbService
   ) {}
 
   ngOnInit() {
@@ -249,6 +251,9 @@ export class EngineersFoundationContainerPage implements OnInit {
       await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
       console.log('[EF Container] Template downloaded - ready for offline use');
       this.downloadProgress = 'Template ready!';
+      
+      // VERIFICATION: Confirm what was cached in IndexedDB
+      await this.verifyDownloadedData();
     } catch (error: any) {
       // Check if it's because we're offline but have cached data
       if (error.message?.includes('offline') || error.message?.includes('Cannot download')) {
@@ -283,6 +288,74 @@ export class EngineersFoundationContainerPage implements OnInit {
     } finally {
       // Always mark as ready (even if offline/failed - let user proceed)
       this.templateReady = true;
+    }
+  }
+
+  /**
+   * Verify what data was actually cached in IndexedDB after download
+   */
+  private async verifyDownloadedData(): Promise<void> {
+    console.log('\n╔════════════════════════════════════════════════════════════════╗');
+    console.log('║         📋 VERIFYING CACHED DATA IN INDEXEDDB                   ║');
+    console.log('╠════════════════════════════════════════════════════════════════╣');
+
+    try {
+      // Check Visual Templates (Structural System categories)
+      const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
+      const visualTemplateCount = visualTemplates?.length || 0;
+      const categories = [...new Set(visualTemplates?.map((t: any) => t.Category) || [])];
+      console.log(`║  📋 Visual Templates:        ${String(visualTemplateCount).padStart(5)} templates in ${categories.length} categories  ║`);
+      if (categories.length > 0) {
+        console.log(`║     Categories: ${categories.slice(0, 3).join(', ')}${categories.length > 3 ? '...' : ''}`);
+      }
+
+      // Check EFE Templates (Room definitions)
+      const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
+      const efeTemplateCount = efeTemplates?.length || 0;
+      console.log(`║  🏠 EFE Templates:           ${String(efeTemplateCount).padStart(5)} room templates                 ║`);
+
+      // Check Service Visuals
+      const serviceVisuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals');
+      const visualCount = serviceVisuals?.length || 0;
+      console.log(`║  🔍 Service Visuals:         ${String(visualCount).padStart(5)} existing items                  ║`);
+
+      // Check EFE Rooms
+      const efeRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms');
+      const roomCount = efeRooms?.length || 0;
+      console.log(`║  📐 EFE Rooms:               ${String(roomCount).padStart(5)} rooms                            ║`);
+
+      // Check Service Record
+      const serviceRecord = await this.indexedDb.getCachedServiceRecord(this.serviceId);
+      const hasService = serviceRecord ? 'YES' : 'NO';
+      console.log(`║  📝 Service Record:            ${hasService.padStart(3)}                                ║`);
+
+      // Check Project Record
+      const projectRecord = await this.indexedDb.getCachedProjectRecord(this.projectId);
+      const hasProject = projectRecord ? 'YES' : 'NO';
+      console.log(`║  📝 Project Record:            ${hasProject.padStart(3)}                                ║`);
+
+      // Check Global Data
+      const servicesDrop = await this.indexedDb.getCachedGlobalData('services_drop');
+      const projectsDrop = await this.indexedDb.getCachedGlobalData('projects_drop');
+      const status = await this.indexedDb.getCachedGlobalData('status');
+      console.log(`║  📋 Services_Drop:           ${String(servicesDrop?.length || 0).padStart(5)} options                        ║`);
+      console.log(`║  📋 Projects_Drop:           ${String(projectsDrop?.length || 0).padStart(5)} options                        ║`);
+      console.log(`║  🏷️ Status:                   ${String(status?.length || 0).padStart(5)} options                        ║`);
+
+      console.log('╠════════════════════════════════════════════════════════════════╣');
+      
+      // Summary verdict
+      const allGood = visualTemplateCount > 0 && efeTemplateCount > 0 && serviceRecord && projectRecord;
+      if (allGood) {
+        console.log('║  ✅ ALL REQUIRED DATA CACHED - READY FOR OFFLINE USE            ║');
+      } else {
+        console.log('║  ⚠️ SOME DATA MAY BE MISSING - CHECK ABOVE                       ║');
+      }
+      console.log('╚════════════════════════════════════════════════════════════════╝\n');
+
+    } catch (error) {
+      console.error('║  ❌ ERROR VERIFYING CACHED DATA:', error);
+      console.log('╚════════════════════════════════════════════════════════════════╝\n');
     }
   }
 }
