@@ -444,40 +444,61 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         const attachments = await this.foundationData.getVisualAttachments(visualId);
         this.photoCountsByKey[key] = attachments?.length || 0;
         
-        // Update photos array if we have attachments
+        // CRITICAL: If we already have photos with valid URLs, DON'T disrupt them
+        // Only update metadata, don't replace working photos with broken ones
         if (attachments && attachments.length > 0) {
           if (!this.visualPhotos[key]) {
             this.visualPhotos[key] = [];
           }
           
-          // CRITICAL: First, update any temp photos with their real IDs
-          // This prevents duplicates when a temp photo gets synced
           for (const att of attachments) {
             const realAttachId = String(att.PK_ID || att.AttachID);
             
-            // Look for temp photos that should be replaced by this real photo
-            // Check _tempId, _pendingFileId, or any temp_ prefixed ID
+            // First check if we already have this photo with a valid URL
+            const existingPhotoIndex = this.visualPhotos[key].findIndex(p => 
+              String(p.AttachID) === realAttachId || String(p.attachId) === realAttachId
+            );
+            
+            if (existingPhotoIndex !== -1) {
+              const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
+              
+              // CRITICAL: If existing photo has a valid URL, PRESERVE IT
+              // Only update if existing photo is broken (no displayUrl)
+              const hasValidUrl = existingPhoto.displayUrl && 
+                                  existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png' &&
+                                  !existingPhoto.loading;
+              
+              if (hasValidUrl) {
+                console.log('[RELOAD AFTER SYNC] Preserving existing photo with valid URL:', realAttachId);
+                // Just update metadata, don't touch the URLs
+                this.visualPhotos[key][existingPhotoIndex] = {
+                  ...existingPhoto,
+                  caption: att.Annotation || att.Caption || existingPhoto.caption || '',
+                  Attachment: att.Attachment || existingPhoto.Attachment,
+                  uploading: false,
+                  queued: false,
+                };
+              } else if (att.Attachment) {
+                // Existing photo is broken/loading AND server has S3 key - reload it
+                console.log('[RELOAD AFTER SYNC] Reloading broken photo:', realAttachId);
+                this.loadSinglePhoto(att, key);
+              }
+              continue; // Already handled this photo
+            }
+            
+            // Check for temp photos that should be replaced by this real photo
             const tempPhotoIndex = this.visualPhotos[key].findIndex(p => {
-              // Check if this is a temp photo
               const isTempPhoto = (p.AttachID && String(p.AttachID).startsWith('temp_')) ||
                                   (p._tempId && String(p._tempId).startsWith('temp_')) ||
                                   (p._pendingFileId && String(p._pendingFileId).startsWith('temp_'));
-              
-              // If it's a temp photo, check if it matches by file similarity
-              // (same visual, similar upload time - within last few minutes)
-              if (isTempPhoto && p._backgroundSync) {
-                // This is a background-syncing photo, likely matches the server photo
-                return true;
-              }
-              return false;
+              return isTempPhoto && p._backgroundSync;
             });
             
             if (tempPhotoIndex !== -1) {
-              // Found a temp photo - update it with real data instead of adding duplicate
               const existingTempPhoto = this.visualPhotos[key][tempPhotoIndex];
               console.log('[RELOAD AFTER SYNC] Updating temp photo', existingTempPhoto.AttachID, 'with real ID:', realAttachId);
               
-              // Preserve the displayUrl if it's valid
+              // Preserve the displayUrl if valid
               const preservedUrl = existingTempPhoto.displayUrl || existingTempPhoto.url;
               
               this.visualPhotos[key][tempPhotoIndex] = {
@@ -493,39 +514,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 _tempId: undefined,
                 _pendingFileId: undefined,
                 _backgroundSync: undefined,
-                // Keep the URL if we already have one
-                url: preservedUrl || existingTempPhoto.url,
-                displayUrl: preservedUrl || existingTempPhoto.displayUrl,
-                thumbnailUrl: preservedUrl || existingTempPhoto.thumbnailUrl,
+                url: preservedUrl,
+                displayUrl: preservedUrl,
+                thumbnailUrl: preservedUrl,
               };
               
-              // Load fresh image if we have an S3 key
-              if (att.Attachment) {
+              // Only try to load if we have an S3 key AND don't have a valid URL
+              if (att.Attachment && !preservedUrl) {
                 this.loadSinglePhoto(att, key);
               }
-              continue; // Skip the duplicate check below
+              continue;
             }
             
-            // Check for existing photo by real ID
-            const existingPhoto = this.visualPhotos[key].find(p => 
-              String(p.AttachID) === realAttachId || String(p.attachId) === realAttachId
-            );
-            
-            if (!existingPhoto) {
-              // Truly new photo from server - add it
-              console.log('[RELOAD AFTER SYNC] Adding new photo from server:', realAttachId);
-              this.visualPhotos[key].push({
-                attachId: realAttachId,
-                AttachID: realAttachId,
-                caption: att.Annotation || att.Caption || '',
-                loading: true,
-                Attachment: att.Attachment
-              });
-              
-              // Load the photo image
-              if (att.Attachment) {
-                this.loadSinglePhoto(att, key);
-              }
+            // Only add new photo if server has actual Attachment data
+            // Don't add broken skeleton entries - let loadSinglePhoto handle adding
+            if (att.Attachment) {
+              console.log('[RELOAD AFTER SYNC] Loading new photo from server:', realAttachId);
+              // DON'T push to array here - let loadSinglePhoto add it with proper URL
+              // loadSinglePhoto checks for existing entries and adds if not found
+              this.loadSinglePhoto(att, key);
+            } else {
+              console.log('[RELOAD AFTER SYNC] Skipping photo with empty Attachment:', realAttachId);
             }
           }
         }
@@ -1153,6 +1162,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     let filePath = '';
     const attachId = String(attach.AttachID);
 
+    // EARLY EXIT: If no image source at all, skip this photo entirely
+    // (unless we have a cached version)
+    const hasImageSource = attach.Attachment || attach.Photo;
+    
     // OFFLINE-FIRST: Check IndexedDB cache first
     try {
       const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
@@ -1163,6 +1176,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
     } catch (cacheErr) {
       console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
+    }
+
+    // EARLY EXIT: If no cached image AND no image source, skip entirely
+    // This prevents adding broken photos to the array
+    if (!imageUrl && !hasImageSource) {
+      console.log('[LOAD PHOTO] ⚠️ Skipping photo with no image source:', attachId);
+      return;
     }
 
     // If not cached, try to fetch from source (but only if online)
