@@ -6,6 +6,7 @@ import { EngineersFoundationStateService } from '../services/engineers-foundatio
 import { EngineersFoundationValidationService, IncompleteField } from '../services/engineers-foundation-validation.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { CacheService } from '../../../services/cache.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 
 interface NavigationCard {
   title: string;
@@ -63,7 +64,8 @@ export class EngineersFoundationMainPage implements OnInit {
     private caspioService: CaspioService,
     private cache: CacheService,
     private loadingController: LoadingController,
-    private navController: NavController
+    private navController: NavController,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   async ngOnInit() {
@@ -93,8 +95,8 @@ export class EngineersFoundationMainPage implements OnInit {
 
   async loadStatusOptions() {
     try {
-      const statusData: any = await this.caspioService.get('/tables/LPS_Status/records').toPromise();
-      this.statusOptions = statusData?.Result || [];
+      // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+      this.statusOptions = await this.offlineTemplate.getStatusOptions();
       console.log('[EngFoundation Main] Loaded status options:', this.statusOptions.length);
     } catch (error) {
       console.error('[EngFoundation Main] Error loading status options:', error);
@@ -128,7 +130,8 @@ export class EngineersFoundationMainPage implements OnInit {
     if (!this.serviceId) return;
     
     try {
-      const serviceData = await this.caspioService.getServiceById(this.serviceId).toPromise();
+      // OFFLINE-FIRST: Try IndexedDB first
+      const serviceData = await this.offlineTemplate.getService(this.serviceId);
       const status = serviceData?.Status || '';
       
       // Check if status indicates report is finalized

@@ -23,6 +23,7 @@ import { HelpModalComponent } from '../../components/help-modal/help-modal.compo
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { EngineersFoundationDataService } from './engineers-foundation-data.service';
+import { OfflineTemplateService } from '../../services/offline-template.service';
 
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -478,7 +479,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private foundationData: EngineersFoundationDataService,
     public operationsQueue: OperationsQueueService,
     private ngZone: NgZone,
-    private indexedDb: IndexedDbService
+    private indexedDb: IndexedDbService,
+    private offlineTemplate: OfflineTemplateService
   ) {
     // CRITICAL FIX: Setup scroll lock mechanism on webapp only
     if (typeof window !== 'undefined') {
@@ -1942,14 +1944,14 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Load dropdown options from Services_Drop table
+  // Load dropdown options from Services_Drop table (OFFLINE-FIRST)
   async loadServicesDropdownOptions() {
     try {
       // Options are loaded from LPS_Services_Drop API - no hardcoded defaults
       // This ensures consistency between initial load and after sync/reload
 
-      // Load from Services_Drop table
-      const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
+      // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+      const servicesDropData = await this.offlineTemplate.getServicesDrop();
       
       if (servicesDropData && servicesDropData.length > 0) {
         
@@ -2363,10 +2365,11 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Load project dropdown options from Projects_Drop table
+  // Load project dropdown options from Projects_Drop table (OFFLINE-FIRST)
   async loadProjectDropdownOptions() {
     try {
-      const dropdownData = await this.caspioService.getProjectsDrop().toPromise();
+      // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+      const dropdownData = await this.offlineTemplate.getProjectsDrop();
       
       if (dropdownData && dropdownData.length > 0) {
         // Initialize arrays for each field type

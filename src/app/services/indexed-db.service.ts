@@ -782,6 +782,73 @@ export class IndexedDbService {
   }
 
   // ============================================
+  // GLOBAL DATA CACHING (Dropdowns, Status, etc.)
+  // ============================================
+
+  /**
+   * Cache global dropdown data (Services_Drop, Projects_Drop, Status, etc.)
+   * These are shared across all services and don't change often.
+   */
+  async cacheGlobalData(dataType: 'services_drop' | 'projects_drop' | 'status' | 'types', data: any[]): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      console.warn('[IndexedDB] cachedServiceData store not available');
+      return;
+    }
+
+    const cacheEntry = {
+      cacheKey: `global_${dataType}`,
+      serviceId: 'global',
+      dataType: dataType,
+      data,
+      lastUpdated: Date.now(),
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const putRequest = store.put(cacheEntry);
+
+      putRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Cached ${data.length} global ${dataType} records`);
+        resolve();
+      };
+
+      putRequest.onerror = () => reject(putRequest.error);
+    });
+  }
+
+  /**
+   * Get cached global data from IndexedDB
+   */
+  async getCachedGlobalData(dataType: 'services_drop' | 'projects_drop' | 'status' | 'types'): Promise<any[] | null> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readonly');
+      const store = transaction.objectStore('cachedServiceData');
+      const getRequest = store.get(`global_${dataType}`);
+
+      getRequest.onsuccess = () => {
+        const cached = getRequest.result;
+        if (cached && cached.data) {
+          console.log(`[IndexedDB] Retrieved ${cached.data.length} cached global ${dataType} records`);
+          resolve(cached.data);
+        } else {
+          resolve(null);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  // ============================================
   // SERVICE DATA CACHING METHODS
   // ============================================
 

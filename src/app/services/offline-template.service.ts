@@ -129,6 +129,33 @@ export class OfflineTemplateService {
         this.safeCacheServiceRecord(serviceId, projectId)
       );
 
+      // 6. Global dropdown data - Services_Drop (InAttendance, WeatherConditions, etc.)
+      downloads.push(
+        firstValueFrom(this.caspioService.getServicesDrop())
+          .then(data => this.indexedDb.cacheGlobalData('services_drop', data))
+          .then(() => console.log('[OfflineTemplate] Services_Drop cached'))
+          .catch(err => console.warn('[OfflineTemplate] Services_Drop cache failed:', err))
+      );
+
+      // 7. Global dropdown data - Projects_Drop (TypeOfBuilding, Style, etc.)
+      downloads.push(
+        firstValueFrom(this.caspioService.getProjectsDrop())
+          .then(data => this.indexedDb.cacheGlobalData('projects_drop', data))
+          .then(() => console.log('[OfflineTemplate] Projects_Drop cached'))
+          .catch(err => console.warn('[OfflineTemplate] Projects_Drop cache failed:', err))
+      );
+
+      // 8. Status options for finalization
+      downloads.push(
+        firstValueFrom(this.caspioService.get('/tables/LPS_Status/records'))
+          .then((response: any) => {
+            const statusData = response?.Result || [];
+            return this.indexedDb.cacheGlobalData('status', statusData);
+          })
+          .then(() => console.log('[OfflineTemplate] Status options cached'))
+          .catch(err => console.warn('[OfflineTemplate] Status cache failed:', err))
+      );
+
       await Promise.all(downloads);
 
       // Mark as fully downloaded
@@ -641,6 +668,95 @@ export class OfflineTemplateService {
    */
   async getProject(projectId: string): Promise<any | null> {
     return this.indexedDb.getCachedProjectRecord(projectId);
+  }
+
+  // ============================================
+  // GLOBAL DATA ACCESS (Dropdowns, Status)
+  // ============================================
+
+  /**
+   * Get Services_Drop dropdown options from IndexedDB
+   * Falls back to API if not cached and online
+   */
+  async getServicesDrop(): Promise<any[]> {
+    // Try IndexedDB first
+    const cached = await this.indexedDb.getCachedGlobalData('services_drop');
+    if (cached && cached.length > 0) {
+      console.log('[OfflineTemplate] Loaded Services_Drop from cache:', cached.length);
+      return cached;
+    }
+
+    // If online, fetch and cache
+    if (this.offlineService.isOnline()) {
+      try {
+        const data = await firstValueFrom(this.caspioService.getServicesDrop());
+        await this.indexedDb.cacheGlobalData('services_drop', data);
+        console.log('[OfflineTemplate] Fetched and cached Services_Drop:', data.length);
+        return data;
+      } catch (error) {
+        console.error('[OfflineTemplate] Failed to fetch Services_Drop:', error);
+      }
+    }
+
+    console.warn('[OfflineTemplate] No Services_Drop data available');
+    return [];
+  }
+
+  /**
+   * Get Projects_Drop dropdown options from IndexedDB
+   * Falls back to API if not cached and online
+   */
+  async getProjectsDrop(): Promise<any[]> {
+    // Try IndexedDB first
+    const cached = await this.indexedDb.getCachedGlobalData('projects_drop');
+    if (cached && cached.length > 0) {
+      console.log('[OfflineTemplate] Loaded Projects_Drop from cache:', cached.length);
+      return cached;
+    }
+
+    // If online, fetch and cache
+    if (this.offlineService.isOnline()) {
+      try {
+        const data = await firstValueFrom(this.caspioService.getProjectsDrop());
+        await this.indexedDb.cacheGlobalData('projects_drop', data);
+        console.log('[OfflineTemplate] Fetched and cached Projects_Drop:', data.length);
+        return data;
+      } catch (error) {
+        console.error('[OfflineTemplate] Failed to fetch Projects_Drop:', error);
+      }
+    }
+
+    console.warn('[OfflineTemplate] No Projects_Drop data available');
+    return [];
+  }
+
+  /**
+   * Get Status options from IndexedDB
+   * Falls back to API if not cached and online
+   */
+  async getStatusOptions(): Promise<any[]> {
+    // Try IndexedDB first
+    const cached = await this.indexedDb.getCachedGlobalData('status');
+    if (cached && cached.length > 0) {
+      console.log('[OfflineTemplate] Loaded Status options from cache:', cached.length);
+      return cached;
+    }
+
+    // If online, fetch and cache
+    if (this.offlineService.isOnline()) {
+      try {
+        const response: any = await firstValueFrom(this.caspioService.get('/tables/LPS_Status/records'));
+        const data = response?.Result || [];
+        await this.indexedDb.cacheGlobalData('status', data);
+        console.log('[OfflineTemplate] Fetched and cached Status options:', data.length);
+        return data;
+      } catch (error) {
+        console.error('[OfflineTemplate] Failed to fetch Status options:', error);
+      }
+    }
+
+    console.warn('[OfflineTemplate] No Status options available');
+    return [];
   }
 
   // ============================================

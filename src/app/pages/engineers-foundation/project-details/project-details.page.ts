@@ -267,11 +267,12 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     this.changeDetectorRef.detectChanges();
   }
 
-  // Load dropdown options from Services_Drop table
+  // Load dropdown options from Services_Drop table (OFFLINE-FIRST)
   private async loadDropdownOptions() {
     console.log('[ProjectDetails] loadDropdownOptions() called');
     try {
-      const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
+      // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+      const servicesDropData = await this.offlineTemplate.getServicesDrop();
       console.log('[ProjectDetails] loadDropdownOptions(): got data, servicesDropData.length =', servicesDropData?.length);
 
       if (servicesDropData && servicesDropData.length > 0) {
@@ -598,10 +599,11 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     }
   }
 
-  // Load dropdown options from Projects_Drop table
+  // Load dropdown options from Projects_Drop table (OFFLINE-FIRST)
   private async loadProjectDropdownOptions() {
     try {
-      const dropdownData = await this.caspioService.getProjectsDrop().toPromise();
+      // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+      const dropdownData = await this.offlineTemplate.getProjectsDrop();
 
       if (dropdownData && dropdownData.length > 0) {
         // Initialize arrays for each field type
