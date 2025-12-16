@@ -354,19 +354,63 @@ export class OfflineTemplateService {
   // ============================================
 
   /**
-   * Get visual templates from IndexedDB
+   * Get visual templates - IndexedDB first, API fallback if empty and online
    */
   async getVisualTemplates(): Promise<any[]> {
+    // First try IndexedDB cache
     const cached = await this.indexedDb.getCachedTemplates('visual');
-    return cached || [];
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] Visual templates from cache: ${cached.length}`);
+      return cached;
+    }
+
+    // Cache empty - try API if online
+    if (this.offlineService.isOnline()) {
+      console.log('[OfflineTemplate] Visual templates cache empty, fetching from API...');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesVisualsTemplates());
+        // Cache for future offline use
+        await this.indexedDb.cacheTemplates('visual', templates);
+        console.log(`[OfflineTemplate] Visual templates fetched and cached: ${templates.length}`);
+        return templates;
+      } catch (error) {
+        console.error('[OfflineTemplate] Failed to fetch visual templates:', error);
+        return [];
+      }
+    }
+
+    console.warn('[OfflineTemplate] Visual templates: offline and no cache available');
+    return [];
   }
 
   /**
-   * Get EFE templates from IndexedDB
+   * Get EFE templates - IndexedDB first, API fallback if empty and online
    */
   async getEFETemplates(): Promise<any[]> {
+    // First try IndexedDB cache
     const cached = await this.indexedDb.getCachedTemplates('efe');
-    return cached || [];
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] EFE templates from cache: ${cached.length}`);
+      return cached;
+    }
+
+    // Cache empty - try API if online
+    if (this.offlineService.isOnline()) {
+      console.log('[OfflineTemplate] EFE templates cache empty, fetching from API...');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesEFETemplates());
+        // Cache for future offline use
+        await this.indexedDb.cacheTemplates('efe', templates);
+        console.log(`[OfflineTemplate] EFE templates fetched and cached: ${templates.length}`);
+        return templates;
+      } catch (error) {
+        console.error('[OfflineTemplate] Failed to fetch EFE templates:', error);
+        return [];
+      }
+    }
+
+    console.warn('[OfflineTemplate] EFE templates: offline and no cache available');
+    return [];
   }
 
   /**

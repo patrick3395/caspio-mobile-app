@@ -198,27 +198,26 @@ export class StructuralSystemsHubPage implements OnInit {
     // Trigger change detection for conditional content visibility
     this.changeDetectorRef.detectChanges();
 
-    // Save to Services table using the database column name "StructStat"
+    // OFFLINE-FIRST: Save to IndexedDB and queue for sync
     this.autoSaveServiceField('StructStat', value);
   }
 
-  private autoSaveServiceField(fieldName: string, value: any) {
+  private async autoSaveServiceField(fieldName: string, value: any) {
     if (!this.serviceId) {
-      console.error('Cannot save: serviceId is missing');
+      console.error('[StructuralHub] Cannot save: serviceId is missing');
       return;
     }
 
-    console.log(`Saving service field ${fieldName}:`, value);
+    console.log(`[StructuralHub] Saving service field ${fieldName}:`, value);
 
     const updateData = { [fieldName]: value };
 
-    this.caspioService.updateService(this.serviceId, updateData).subscribe({
-      next: () => {
-        console.log(`Successfully saved ${fieldName}`);
-      },
-      error: (error) => {
-        console.error(`Error saving ${fieldName}:`, error);
-      }
-    });
+    try {
+      // OFFLINE-FIRST: Use OfflineTemplateService to save to IndexedDB and queue for sync
+      await this.offlineTemplate.updateService(this.serviceId, updateData);
+      console.log(`[StructuralHub] Successfully saved ${fieldName} to IndexedDB`);
+    } catch (error) {
+      console.error(`[StructuralHub] Error saving ${fieldName}:`, error);
+    }
   }
 }
