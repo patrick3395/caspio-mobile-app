@@ -112,26 +112,37 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     // Subscribe to background upload task updates
     this.subscribeToUploadUpdates();
 
-    // Get category name from route
+    // Get category name from route params
+    this.categoryName = this.route.snapshot.params['category'];
+    
+    // Get IDs from container route using snapshot (for offline reliability)
+    // Route structure: '' (Container) -> 'structural' (anonymous) -> 'category/:category' (we are here)
+    // So parent?.parent gets us to the Container which has :projectId/:serviceId
+    const containerParams = this.route.parent?.parent?.snapshot?.params;
+    if (containerParams) {
+      this.projectId = containerParams['projectId'];
+      this.serviceId = containerParams['serviceId'];
+    }
+
+    console.log('[CategoryDetail] Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+
+    if (this.projectId && this.serviceId && this.categoryName) {
+      this.loadData();
+    } else {
+      console.error('[CategoryDetail] Missing required route params');
+      this.loading = false;
+    }
+
+    // Also subscribe to param changes for dynamic updates
     this.route.params.subscribe(params => {
-      this.categoryName = params['category'];
-
-      // Get IDs from container route
-      // Route structure: engineers-foundation/:projectId/:serviceId -> structural -> category/:category (we are here)
-      // So we need to go up 3 levels to get to container
-      this.route.parent?.parent?.parent?.params.subscribe(parentParams => {
-        this.projectId = parentParams['projectId'];
-        this.serviceId = parentParams['serviceId'];
-
-        console.log('Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
-
-        if (this.projectId && this.serviceId && this.categoryName) {
+      const newCategory = params['category'];
+      if (newCategory && newCategory !== this.categoryName) {
+        this.categoryName = newCategory;
+        console.log('[CategoryDetail] Category changed to:', this.categoryName);
+        if (this.projectId && this.serviceId) {
           this.loadData();
-        } else {
-          console.error('Missing required route params');
-          this.loading = false;
         }
-      });
+      }
     });
   }
 
