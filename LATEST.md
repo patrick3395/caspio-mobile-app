@@ -285,7 +285,71 @@ Key log prefixes:
 
 ## Recent Session Changes (December 16, 2025)
 
-### Seamless Cache Invalidation After Sync (Latest)
+### EFE Room/Point/Photo Dependency Chain Fixed (Latest)
+
+**Problem**: When syncing offline-created elevation data, points were missing the `EFEID` (real room ID), and photos were missing the `PointID` (real point ID). The sync order was not being respected.
+
+**Root Cause**: 
+1. `createEFERoom` and `createEFEPoint` only added to `pendingEFEData`, NOT to `pendingRequests`
+2. BackgroundSyncService only processes `pendingRequests`, so EFE data was never synced!
+3. Dependencies were set incorrectly (using tempId instead of requestId)
+
+**Solution**:
+
+1. **`createEFERoom()`** - Now adds to `pendingRequests` with:
+   - `type: 'CREATE'`, `endpoint: 'LPS_Services_EFE/'`
+   - `tempId: 'temp_efe_...'` for ID mapping
+   - `priority: 'high'` so rooms sync first
+   - No dependencies (rooms are top-level)
+
+2. **`createEFEPoint()`** - Now adds to `pendingRequests` with:
+   - `type: 'CREATE'`, `endpoint: 'LPS_Services_EFE_Points/'`
+   - `tempId: 'temp_point_...'` for ID mapping
+   - **Finds room's requestId** and uses it as dependency
+   - `EFEID: roomId` (temp ID resolved by BackgroundSync)
+   - `priority: 'normal'` (syncs after rooms)
+
+3. **`uploadEFEPointPhoto()`** - Now:
+   - Searches **both** pending AND all requests to find point's requestId
+   - Uses point's requestId as dependency
+   - Logs warnings if dependency not found
+
+**Sync Order Now Guaranteed**:
+```
+Room (temp_efe_...) syncs → gets real EFEID
+       ↓ (mapped in tempIdMappings)
+Point (temp_point_...) syncs → EFEID resolved to real ID
+       ↓ (mapped in tempIdMappings)
+Photo syncs → PointID resolved to real ID
+```
+
+### Visual Hide/Delete Now Works Offline
+
+**Problem**: When unchecking a visual (hiding it), the UI showed a spinning loader and hung. The operation wasn't being queued for sync.
+
+**Root Cause**: `EngineersFoundationDataService.updateVisual()` was making a direct network call via `firstValueFrom(caspioService.updateServicesVisual(...))` which blocks when offline.
+
+**Solution**: Made `updateVisual` and `deleteVisual` offline-first:
+
+1. **`updateVisual(visualId, data, serviceId)`** - Now:
+   - Updates IndexedDB cache immediately
+   - Queues the update for background sync
+   - Returns immediately (no network wait)
+   - Triggers background sync
+
+2. **`deleteVisual(visualId, serviceId)`** - Now:
+   - For temp IDs: removes the pending request
+   - For real IDs: queues DELETE for background sync
+   - Removes from IndexedDB cache
+   - Returns immediately
+
+3. **`IndexedDbService.removePendingRequest()`** - New method to remove pending requests by ID or tempId
+
+4. **All `updateVisual` calls** in `category-detail.page.ts` now pass `serviceId` for proper cache updates
+
+**Result**: Hiding/unhiding visuals now works instantly offline, with changes queued for sync when online.
+
+### Seamless Cache Invalidation After Sync
 
 **Problem**: After data synced, the UI wouldn't show new data until multiple page refreshes.
 

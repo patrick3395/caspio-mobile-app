@@ -1135,12 +1135,27 @@ export class OfflineTemplateService {
       _syncing: true,
     };
 
-    // Add to pending EFE data
+    // Add to pending EFE data (for local display)
     await this.indexedDb.addPendingEFE({
       tempId: tempId,
       serviceId: serviceId,
       type: 'room',
       data: roomData,
+    });
+
+    // IMPORTANT: Also add to pendingRequests for BackgroundSyncService to process
+    await this.indexedDb.addPendingRequest({
+      type: 'CREATE',
+      endpoint: 'LPS_Services_EFE/',
+      method: 'POST',
+      tempId: tempId,
+      data: {
+        ...roomData,
+        ServiceID: parseInt(serviceId),
+      },
+      dependencies: [], // Rooms have no dependencies
+      status: 'pending',
+      priority: 'high', // Rooms sync first
     });
 
     // Update local cache
@@ -1156,19 +1171,20 @@ export class OfflineTemplateService {
    */
   async createEFEPoint(pointData: any, roomId: string, serviceId: string): Promise<any> {
     const tempId = `temp_point_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const isRoomTempId = roomId.startsWith('temp_');
 
     // Create point object with temp ID
     const point = {
       ...pointData,
       PointID: tempId,
       PK_ID: tempId,
-      EFEID: roomId,
+      EFEID: roomId, // May be temp ID - will be resolved before sync
       _tempId: tempId,
       _localOnly: true,
       _syncing: true,
     };
 
-    // Add to pending EFE data
+    // Add to pending EFE data (for local display)
     await this.indexedDb.addPendingEFE({
       tempId: tempId,
       serviceId: serviceId,
@@ -1177,11 +1193,41 @@ export class OfflineTemplateService {
       data: pointData,
     });
 
-    // Update local cache
-    const existingPoints = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
-    await this.indexedDb.cacheServiceData(roomId, 'efe_points', [...existingPoints, point]);
+    // Find the room's pending request to get its requestId for dependency
+    let dependencies: string[] = [];
+    if (isRoomTempId) {
+      const pending = await this.indexedDb.getPendingRequests();
+      const allRequests = await this.indexedDb.getAllRequests();
+      const roomRequest = [...pending, ...allRequests].find(r => r.tempId === roomId);
+      if (roomRequest) {
+        dependencies = [roomRequest.requestId];
+        console.log(`[OfflineTemplate] Point ${tempId} depends on room request ${roomRequest.requestId}`);
+      } else {
+        console.warn(`[OfflineTemplate] Room request not found for ${roomId}, point may sync before room!`);
+      }
+    }
 
-    console.log(`[OfflineTemplate] Created EFE point ${tempId} (pending sync)`);
+    // IMPORTANT: Also add to pendingRequests for BackgroundSyncService to process
+    await this.indexedDb.addPendingRequest({
+      type: 'CREATE',
+      endpoint: 'LPS_Services_EFE_Points/',
+      method: 'POST',
+      tempId: tempId,
+      data: {
+        ...pointData,
+        EFEID: roomId, // BackgroundSync will resolve temp ID to real ID
+      },
+      dependencies: dependencies, // Wait for room to sync first
+      status: 'pending',
+      priority: 'normal', // Points sync after rooms
+    });
+
+    // Update local cache - use temp room ID as key for offline display
+    const cacheKey = roomId;
+    const existingPoints = await this.indexedDb.getCachedServiceData(cacheKey, 'efe_points') || [];
+    await this.indexedDb.cacheServiceData(cacheKey, 'efe_points', [...existingPoints, point]);
+
+    console.log(`[OfflineTemplate] Created EFE point ${tempId} for room ${roomId} (deps: ${dependencies.length > 0 ? dependencies[0] : 'none'})`);
     return point;
   }
 

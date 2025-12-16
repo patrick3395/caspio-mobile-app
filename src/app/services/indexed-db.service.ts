@@ -397,6 +397,45 @@ export class IndexedDbService {
   }
 
   /**
+   * Remove a pending request by requestId or tempId
+   */
+  async removePendingRequest(idOrTempId: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingRequests'], 'readwrite');
+      const store = transaction.objectStore('pendingRequests');
+
+      // First try to delete by requestId directly
+      const deleteRequest = store.delete(idOrTempId);
+
+      deleteRequest.onsuccess = () => {
+        // Also try to find by tempId and delete
+        const index = store.index('tempId');
+        const getByTempId = index.get(idOrTempId);
+
+        getByTempId.onsuccess = () => {
+          const request = getByTempId.result as PendingRequest;
+          if (request) {
+            store.delete(request.requestId);
+            console.log('[IndexedDB] Removed pending request by tempId:', idOrTempId);
+          } else {
+            console.log('[IndexedDB] Removed pending request by id:', idOrTempId);
+          }
+          resolve();
+        };
+
+        getByTempId.onerror = () => {
+          // Still resolve - the first delete may have worked
+          resolve();
+        };
+      };
+
+      deleteRequest.onerror = () => reject(deleteRequest.error);
+    });
+  }
+
+  /**
    * Get sync statistics
    */
   async getSyncStats(): Promise<{

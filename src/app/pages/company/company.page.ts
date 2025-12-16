@@ -581,37 +581,104 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       this.isLoading = true;
 
-      const [
-        stageRecords,
-        softwareRecords,
-        companyRecords,
-        contactRecords,
-        taskRecords,
-        touchRecords,
-        meetingRecords,
-        invoiceRecords,
-        projectRecords,
-        communicationRecords,
-        servicesRecords,
-        offersRecords,
-        typeRecords,
-        userRecords
-      ] = await Promise.all([
-        this.fetchTableRecords('Stage', { 'q.orderBy': 'StageID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Software', { 'q.orderBy': 'Software', 'q.limit': '2000' }),
-        this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '2000' }),
-        this.fetchTableRecords('Contacts', { 'q.orderBy': 'CompanyID,Name', 'q.limit': '2000' }),
-        this.fetchTableRecords('Tasks', { 'q.orderBy': 'Due DESC', 'q.limit': '2000' }),
-        this.fetchTableRecords('Touches', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
-        this.fetchTableRecords('Meetings', { 'q.orderBy': 'StartDate DESC', 'q.limit': '2000' }),
-        this.fetchTableRecords('Invoices', { 'q.orderBy': 'Date DESC', 'q.limit': '2000' }),
-        this.fetchTableRecords('Projects', { 'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID,Fee', 'q.limit': '2000' }),
-        this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Services', { 'q.select': 'PK_ID,ProjectID,TypeID', 'q.limit': '2000' }),
-        this.fetchTableRecords('Offers', { 'q.select': 'PK_ID,OffersID,TypeID,CompanyID', 'q.orderBy': 'OffersID', 'q.limit': '1000' }),
-        this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '2000' }),
-        this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' })
-      ]);
+      // Calculate date filters for time-sensitive data
+      // Tasks: Include tasks from 90 days ago to capture overdue items
+      const tasksDateFilter = this.getDateFilter(90);
+      // Touches/Communications: Last 180 days of activity
+      const touchesDateFilter = this.getDateFilter(180);
+      // Meetings: From 30 days ago (to include recent past) through future
+      const meetingsDateFilter = this.getDateFilter(30);
+      // Invoices: Last 365 days
+      const invoicesDateFilter = this.getDateFilter(365);
+
+      console.log('[CRM] Loading data with chunked requests and date filters...');
+
+      // Define all fetch tasks - will be executed in chunks to avoid overwhelming the API
+      // Group 1: Reference/lookup tables (small, fast)
+      const lookupTasks = [
+        () => this.fetchTableRecords('Stage', { 'q.orderBy': 'StageID', 'q.limit': '500' }),
+        () => this.fetchTableRecords('Software', { 'q.orderBy': 'Software', 'q.limit': '500' }),
+        () => this.fetchTableRecords('Communication', { 'q.orderBy': 'CommunicationID', 'q.limit': '500' }),
+        () => this.fetchTableRecords('Type', { 'q.select': 'TypeID,TypeName', 'q.limit': '500' })
+      ];
+
+      // Group 2: Core entity tables
+      const coreTasks = [
+        () => this.fetchTableRecords('Companies', { 'q.orderBy': 'CompanyName', 'q.limit': '1000' }),
+        () => this.fetchTableRecords('Contacts', { 'q.orderBy': 'CompanyID,Name', 'q.limit': '2000' }),
+        () => this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '1000' })
+      ];
+
+      // Group 3: Activity tables with date filters
+      const activityTasks = [
+        () => this.fetchTableRecords('Tasks', {
+          'q.where': `Due>='${tasksDateFilter}' OR Complete=0`,
+          'q.orderBy': 'Due DESC',
+          'q.limit': '1000'
+        }),
+        () => this.fetchTableRecords('Touches', {
+          'q.where': `Date>='${touchesDateFilter}'`,
+          'q.orderBy': 'Date DESC',
+          'q.limit': '1000'
+        }),
+        () => this.fetchTableRecords('Meetings', {
+          'q.where': `StartDate>='${meetingsDateFilter}'`,
+          'q.orderBy': 'StartDate DESC',
+          'q.limit': '1000'
+        })
+      ];
+
+      // Group 4: Financial and project data
+      const financialTasks = [
+        () => this.fetchTableRecords('Invoices', {
+          'q.where': `Date>='${invoicesDateFilter}'`,
+          'q.orderBy': 'Date DESC',
+          'q.limit': '2000'
+        }),
+        () => this.fetchTableRecords('Projects', {
+          'q.select': 'ProjectID,CompanyID,Date,OffersID,StatusID,Fee',
+          'q.limit': '2000'
+        }),
+        () => this.fetchTableRecords('Services', {
+          'q.select': 'PK_ID,ProjectID,TypeID',
+          'q.limit': '2000'
+        })
+      ];
+
+      // Group 5: Offers (may need pagination)
+      const offersTasks = [
+        () => this.fetchTableRecords('Offers', {
+          'q.select': 'PK_ID,OffersID,TypeID,CompanyID',
+          'q.orderBy': 'OffersID',
+          'q.limit': '1000'
+        })
+      ];
+
+      // Execute each group sequentially, with concurrent requests within each group
+      console.log('[CRM] Chunk 1/5: Loading lookup tables...');
+      const [stageRecords, softwareRecords, communicationRecords, typeRecords] =
+        await this.executeInChunks(lookupTasks, 4, 50);
+
+      if (cancelled) return;
+      console.log('[CRM] Chunk 2/5: Loading core entities...');
+      const [companyRecords, contactRecords, userRecords] =
+        await this.executeInChunks(coreTasks, 3, 100);
+
+      if (cancelled) return;
+      console.log('[CRM] Chunk 3/5: Loading activities...');
+      const [taskRecords, touchRecords, meetingRecords] =
+        await this.executeInChunks(activityTasks, 3, 100);
+
+      if (cancelled) return;
+      console.log('[CRM] Chunk 4/5: Loading financial data...');
+      const [invoiceRecords, projectRecords, servicesRecords] =
+        await this.executeInChunks(financialTasks, 3, 100);
+
+      if (cancelled) return;
+      console.log('[CRM] Chunk 5/5: Loading offers...');
+      let [offersRecords] = await this.executeInChunks(offersTasks, 1, 0);
+
+      console.log('[CRM] All chunks loaded successfully');
 
       // Fetch additional Offers in chunks using WHERE clauses
       if (offersRecords.length === 1000) {
@@ -5679,6 +5746,47 @@ export class CompanyPage implements OnInit, OnDestroy {
     // Use caspioService.get() which routes through AWS when useApiGateway is true
     const response = await firstValueFrom(this.caspioService.get<any>(endpoint));
     return response?.Result ?? [];
+  }
+
+  /**
+   * Execute an array of async functions in chunks to avoid overwhelming the API
+   * @param tasks Array of functions that return promises
+   * @param chunkSize Number of tasks to execute concurrently (default: 3)
+   * @param delayMs Delay between chunks in milliseconds (default: 100)
+   */
+  private async executeInChunks<T>(
+    tasks: (() => Promise<T>)[],
+    chunkSize: number = 3,
+    delayMs: number = 100
+  ): Promise<T[]> {
+    const results: T[] = [];
+
+    for (let i = 0; i < tasks.length; i += chunkSize) {
+      const chunk = tasks.slice(i, i + chunkSize);
+      const chunkResults = await Promise.all(chunk.map(task => task()));
+      results.push(...chunkResults);
+
+      // Add a small delay between chunks to avoid rate limiting
+      if (i + chunkSize < tasks.length && delayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Get a date string for filtering records (X days ago)
+   * @param daysAgo Number of days in the past
+   */
+  private getDateFilter(daysAgo: number): string {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    // Format as MM/DD/YYYY for Caspio
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
   }
 
   private async fetchAllTableRecords(tableName: string, params: Record<string, string> = {}): Promise<any[]> {

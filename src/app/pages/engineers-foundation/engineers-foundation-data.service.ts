@@ -361,24 +361,80 @@ export class EngineersFoundationDataService {
     return placeholder;
   }
 
-  async updateVisual(visualId: string, visualData: any): Promise<any> {
-    console.log('[Visual Data] Updating visual:', visualId);
-    const result = await firstValueFrom(this.caspioService.updateServicesVisual(visualId, visualData));
+  async updateVisual(visualId: string, visualData: any, serviceId?: string): Promise<any> {
+    console.log('[Visual Data] Updating visual (OFFLINE-FIRST):', visualId, visualData);
+    
+    const isTempId = String(visualId).startsWith('temp_');
+    
+    // OFFLINE-FIRST: Update IndexedDB cache immediately, queue for sync
+    if (serviceId) {
+      await this.offlineTemplate.updateVisual(visualId, visualData, serviceId);
+    } else {
+      // If no serviceId, still queue for sync but skip cache update
+      if (!isTempId) {
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `LPS_Services_Visuals/${visualId}`,
+          method: 'PUT',
+          data: visualData,
+          dependencies: [],
+          status: 'pending',
+          priority: 'normal',
+        });
+        console.log('[Visual Data] Queued update for sync:', visualId);
+      }
+    }
 
-    // Clear cache to force reload (we don't know which service this visual belongs to)
+    // Clear in-memory cache
     this.visualsCache.clear();
 
-    return result;
+    // Trigger background sync
+    this.backgroundSync.triggerSync();
+
+    // Return immediately with the updated data
+    return { success: true, visualId, ...visualData };
   }
 
-  async deleteVisual(visualId: string): Promise<any> {
-    console.log('[Visual Data] Deleting visual:', visualId);
-    const result = await firstValueFrom(this.caspioService.deleteServicesVisual(visualId));
+  async deleteVisual(visualId: string, serviceId?: string): Promise<any> {
+    console.log('[Visual Data] Deleting visual (OFFLINE-FIRST):', visualId);
+    
+    const isTempId = String(visualId).startsWith('temp_');
+    
+    // OFFLINE-FIRST: Remove from IndexedDB cache, queue delete for sync
+    if (isTempId) {
+      // For temp IDs, just remove the pending request
+      await this.indexedDb.removePendingRequest(visualId);
+      console.log('[Visual Data] Removed pending visual:', visualId);
+    } else {
+      // Queue delete for background sync
+      await this.indexedDb.addPendingRequest({
+        type: 'DELETE',
+        endpoint: `LPS_Services_Visuals/${visualId}`,
+        method: 'DELETE',
+        data: { visualId },
+        dependencies: [],
+        status: 'pending',
+        priority: 'normal',
+      });
+      console.log('[Visual Data] Queued delete for sync:', visualId);
+      
+      // Remove from IndexedDB cache if we have serviceId
+      if (serviceId) {
+        const existingVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
+        const filteredVisuals = existingVisuals.filter((v: any) => 
+          String(v.PK_ID) !== String(visualId) && String(v.VisualID) !== String(visualId)
+        );
+        await this.indexedDb.cacheServiceData(serviceId, 'visuals', filteredVisuals);
+      }
+    }
 
-    // Clear cache to force reload
+    // Clear in-memory cache
     this.visualsCache.clear();
 
-    return result;
+    // Trigger background sync
+    this.backgroundSync.triggerSync();
+
+    return { success: true, visualId };
   }
 
   // ============================================
@@ -784,9 +840,17 @@ export class EngineersFoundationDataService {
 
     if (isTempId) {
       // Point not synced - queue with dependency
+      // Search in both pending and all requests (in case point was created earlier)
       const pending = await this.indexedDb.getPendingRequests();
-      const pointRequest = pending.find(r => r.tempId === pointIdStr);
+      const allRequests = await this.indexedDb.getAllRequests();
+      const pointRequest = [...pending, ...allRequests].find(r => r.tempId === pointIdStr);
       const dependencies = pointRequest ? [pointRequest.requestId] : [];
+      
+      if (dependencies.length === 0) {
+        console.warn('[EFE Photo] Point request not found for', pointIdStr, '- photo may sync before point!');
+      } else {
+        console.log('[EFE Photo] Photo depends on point request:', pointRequest?.requestId);
+      }
 
       await this.indexedDb.addPendingRequest({
         type: 'UPLOAD_FILE',

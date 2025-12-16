@@ -1326,7 +1326,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         // Visual exists but was hidden - unhide it
         this.savingItems[key] = true;
         try {
-          await this.foundationData.updateVisual(visualId, { Notes: '' });
+          await this.foundationData.updateVisual(visualId, { Notes: '' }, this.serviceId);
           console.log('[TOGGLE] Unhid visual:', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error unhiding visual:', error);
@@ -1347,9 +1347,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       if (visualId && !String(visualId).startsWith('temp_')) {
         this.savingItems[key] = true;
         try {
-          await this.foundationData.updateVisual(visualId, { Notes: 'HIDDEN' });
+          // OFFLINE-FIRST: This now queues the update and returns immediately
+          await this.foundationData.updateVisual(visualId, { Notes: 'HIDDEN' }, this.serviceId);
           // Keep visualRecordIds and visualPhotos intact for when user reselects
-          console.log('[TOGGLE] Hid visual (preserved photos):', visualId);
+          console.log('[TOGGLE] Hid visual (queued for sync):', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error hiding visual:', error);
           // Revert selection on error
@@ -1358,6 +1359,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           // await this.showToast('Failed to hide selection', 'danger');
         }
         this.savingItems[key] = false;
+      } else if (visualId && String(visualId).startsWith('temp_')) {
+        // For temp IDs (created offline, not yet synced), just update local state
+        console.log('[TOGGLE] Hidden temp visual (not yet synced):', visualId);
+        // Clear selection but keep the visual data for potential re-select
       }
     }
   }
@@ -1379,8 +1384,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           await this.foundationData.updateVisual(visualId, {
             Answers: '',
             Notes: 'HIDDEN'
-          });
-          console.log('[ANSWER] Hid visual (preserved photos):', visualId);
+          }, this.serviceId);
+          console.log('[ANSWER] Hid visual (queued for sync):', visualId);
         }
         this.savingItems[key] = false;
         return;
@@ -1408,7 +1413,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         await this.foundationData.updateVisual(visualId, {
           Answers: item.answer || '',
           Notes: ''
-        });
+        }, this.serviceId);
         console.log('[ANSWER] Updated visual:', visualId);
       }
     } catch (error) {
@@ -1455,8 +1460,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           await this.foundationData.updateVisual(visualId, {
             Answers: '',
             Notes: 'HIDDEN'
-          });
-          console.log('[OPTION] Hid visual (preserved photos):', visualId);
+          }, this.serviceId);
+          console.log('[OPTION] Hid visual (queued for sync):', visualId);
         }
         this.savingItems[key] = false;
         return;
@@ -1485,7 +1490,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         await this.foundationData.updateVisual(visualId, {
           Answers: item.answer,
           Notes: notesValue
-        });
+        }, this.serviceId);
         console.log('[OPTION] Updated visual:', visualId);
       }
     } catch (error) {
@@ -1518,8 +1523,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           await this.foundationData.updateVisual(visualId, {
             Answers: '',
             Notes: 'HIDDEN'
-          });
-          console.log('[OTHER] Hid visual (preserved photos):', visualId);
+          }, this.serviceId);
+          console.log('[OTHER] Hid visual (queued for sync):', visualId);
         }
         this.savingItems[key] = false;
         return;
@@ -1547,7 +1552,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         await this.foundationData.updateVisual(visualId, {
           Notes: item.otherValue || '',
           Answers: item.answer || ''
-        });
+        }, this.serviceId);
         console.log('[OTHER] Updated visual:', visualId);
       }
     } catch (error) {
@@ -3546,7 +3551,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                   // Only update the Text field (Name must stay constant for matching)
                   await this.foundationData.updateVisual(visualId, {
                     Text: data.description
-                  });
+                  }, this.serviceId);
                   console.log('[TEXT EDIT] Updated visual text:', visualId);
                   this.changeDetectorRef.detectChanges();
                 } catch (error) {
