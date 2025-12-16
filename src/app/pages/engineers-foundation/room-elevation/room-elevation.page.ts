@@ -14,6 +14,7 @@ import { BackgroundPhotoUploadService } from '../../../services/background-photo
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { OfflineService } from '../../../services/offline.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
+import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { compressAnnotationData, decompressAnnotationData } from '../../../utils/annotation-utils';
 
@@ -71,7 +72,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     private backgroundUploadService: BackgroundPhotoUploadService,
     private offlineTemplate: OfflineTemplateService,
     private offlineService: OfflineService,
-    private indexedDb: IndexedDbService
+    private indexedDb: IndexedDbService,
+    private backgroundSync: BackgroundSyncService
   ) {}
 
   async ngOnInit() {
@@ -1859,14 +1861,11 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         const annotationsData = data.annotationData || data.annotationsData;
 
         // Save annotations to database FIRST
-        // Pass the pointId for offline cache update
-        const pointIdStr = String(point.pointId || point.PointID || '');
         const savedCompressedDrawings = await this.saveAnnotationToDatabase(
           attachId,
           annotatedBlob,
           annotationsData,
-          data.caption || '',
-          pointIdStr
+          data.caption || ''
         );
 
         // CRITICAL: Create blob URL for the annotated image (for display only)
@@ -1958,13 +1957,47 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           text: 'Save',
           handler: async (data) => {
             try {
-              await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, { Annotation: data.caption || '' }).toPromise();
+              const updateData = { Annotation: data.caption || '' };
+              
+              // Update local state immediately
               photo.caption = data.caption || '';
               this.changeDetectorRef.detectChanges();
+              
+              // Update IndexedDB cache
+              if (photo.attachId && !String(photo.attachId).startsWith('temp_')) {
+                // Find point for this photo
+                for (const point of this.elevationPoints) {
+                  const foundPhoto = point.photos?.find((p: any) => String(p.attachId) === String(photo.attachId));
+                  if (foundPhoto && point.pointId && !String(point.pointId).startsWith('temp_')) {
+                    const cached = await this.indexedDb.getCachedServiceData(String(point.pointId), 'efe_point_attachments') || [];
+                    const updated = cached.map((att: any) => 
+                      String(att.AttachID) === String(photo.attachId) 
+                        ? { ...att, Annotation: data.caption || '', _localUpdate: true }
+                        : att
+                    );
+                    await this.indexedDb.cacheServiceData(String(point.pointId), 'efe_point_attachments', updated);
+                    break;
+                  }
+                }
+              }
+              
+              // Try API if online, queue if offline
+              if (this.offlineService.isOnline()) {
+                await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
+              } else {
+                await this.indexedDb.addPendingRequest({
+                  type: 'UPDATE',
+                  endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+                  method: 'PUT',
+                  data: updateData,
+                  dependencies: [],
+                  status: 'pending',
+                  priority: 'normal',
+                });
+                this.backgroundSync.triggerSync();
+              }
             } catch (error) {
               console.error('Error saving caption:', error);
-              // Toast removed per user request
-              // await this.showToast('Failed to save caption', 'danger');
             }
           }
         }
@@ -2109,10 +2142,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
    * @param annotatedBlob The annotated image blob
    * @param annotationsData The raw annotation data from Fabric.js
    * @param caption The photo caption
-   * @param pointId The point ID for cache update (optional)
    * @returns The compressed drawings string that was saved
    */
-  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string, pointId?: string): Promise<string> {
+  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<string> {
     // Using static import for offline support
 
     // CRITICAL: Process annotation data EXACTLY like structural-systems
@@ -2211,31 +2243,80 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       attachId,
       hasDrawings: !!updateData.Drawings,
       drawingsLength: updateData.Drawings?.length || 0,
-      caption: caption || '(empty)',
-      isOffline: !this.offlineService.isOnline()
+      caption: caption || '(empty)'
     });
 
-    // Validate attachId before saving
-    if (!attachId || String(attachId).startsWith('temp_')) {
-      console.error('[SAVE] Cannot update annotations - invalid or temp AttachID:', attachId);
-      throw new Error('Cannot update annotations for temp photo');
+    // CRITICAL: Update IndexedDB cache FIRST (offline-first pattern)
+    // This ensures annotations persist locally even if API call fails
+    try {
+      // Find the pointId for this attachment
+      let pointIdForCache: string | null = null;
+      for (const point of this.elevationPoints) {
+        const photo = point.photos?.find((p: any) => String(p.attachId) === String(attachId));
+        if (photo) {
+          pointIdForCache = String(point.pointId);
+          break;
+        }
+      }
+
+      if (pointIdForCache && !pointIdForCache.startsWith('temp_')) {
+        // Get existing cached attachments and update
+        const cachedAttachments = await this.indexedDb.getCachedServiceData(pointIdForCache, 'efe_point_attachments') || [];
+        const updatedAttachments = cachedAttachments.map((att: any) => {
+          if (String(att.AttachID) === String(attachId)) {
+            return {
+              ...att,
+              Annotation: updateData.Annotation,
+              Drawings: updateData.Drawings,
+              _localUpdate: true,
+              _updatedAt: Date.now()
+            };
+          }
+          return att;
+        });
+        await this.indexedDb.cacheServiceData(pointIdForCache, 'efe_point_attachments', updatedAttachments);
+        console.log('[SAVE] ✅ EFE Annotation saved to IndexedDB cache for point', pointIdForCache);
+      }
+    } catch (cacheError) {
+      console.warn('[SAVE] Failed to update IndexedDB cache:', cacheError);
+      // Continue anyway - still try API
     }
 
-    // OFFLINE-FIRST: Use data service which handles caching and queueing
+    // OFFLINE-FIRST: Queue the update for background sync
+    const isOffline = !this.offlineService.isOnline();
     
-    if (pointId) {
-      try {
-        await this.foundationData.updateEFEPointAttachment(attachId, pointId, updateData);
-        console.log('[SAVE] Annotation update queued (offline-first) for AttachID:', attachId);
-      } catch (queueError) {
-        console.error('[SAVE] Failed to queue annotation update:', queueError);
-        throw queueError;
-      }
+    if (isOffline) {
+      // Queue for later sync
+      await this.indexedDb.addPendingRequest({
+        type: 'UPDATE',
+        endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`,
+        method: 'PUT',
+        data: updateData,
+        dependencies: [],
+        status: 'pending',
+        priority: 'normal',
+      });
+      console.log('[SAVE] ⏳ EFE Annotation queued for sync (offline):', attachId);
+      this.backgroundSync.triggerSync(); // Will sync when back online
     } else {
-      // Fallback: Direct API call if no pointId (legacy behavior, will fail offline)
-      console.warn('[SAVE] No pointId available, using direct API call (may fail offline)');
-      await this.caspioService.updateServicesEFEPointsAttach(attachId, updateData).toPromise();
-      console.log('[SAVE] Successfully saved via direct API for AttachID:', attachId);
+      // Online - try API call, queue on failure
+      try {
+        await this.caspioService.updateServicesEFEPointsAttach(attachId, updateData).toPromise();
+        console.log('[SAVE] ✅ Successfully saved EFE caption and drawings via API for AttachID:', attachId);
+      } catch (apiError) {
+        console.warn('[SAVE] API call failed, queuing for retry:', apiError);
+        // Queue for retry
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`,
+          method: 'PUT',
+          data: updateData,
+          dependencies: [],
+          status: 'pending',
+          priority: 'high',
+        });
+        this.backgroundSync.triggerSync();
+      }
     }
 
     // CRITICAL: Clear the attachments cache to ensure annotations appear after navigation

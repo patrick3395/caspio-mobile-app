@@ -358,6 +358,22 @@ export class BackgroundSyncService {
                 this.serviceDataSyncComplete$.next({ projectId: match[1] });
               });
             }
+          } else if (request.endpoint.includes('LPS_Services_Visuals_Attach')) {
+            // Clear _localUpdate flag from IndexedDB cache after successful annotation sync
+            const attachMatch = request.endpoint.match(/AttachID=(\d+)/);
+            if (attachMatch) {
+              const attachId = attachMatch[1];
+              console.log(`[BackgroundSync] Annotation synced for AttachID ${attachId}, clearing _localUpdate flag`);
+              await this.clearLocalUpdateFlag('visual_attachments', attachId);
+            }
+          } else if (request.endpoint.includes('LPS_Services_EFE_Points_Attach')) {
+            // Clear _localUpdate flag from EFE attachments cache
+            const attachMatch = request.endpoint.match(/AttachID=(\d+)/);
+            if (attachMatch) {
+              const attachId = attachMatch[1];
+              console.log(`[BackgroundSync] EFE Annotation synced for AttachID ${attachId}, clearing _localUpdate flag`);
+              await this.clearLocalUpdateFlag('efe_point_attachments', attachId);
+            }
           }
         }
 
@@ -884,6 +900,39 @@ export class BackgroundSyncService {
    * This ensures the local cache has the latest data including real IDs
    * Also downloads and caches actual images for offline viewing
    */
+  private async clearLocalUpdateFlag(dataType: 'visual_attachments' | 'efe_point_attachments', attachId: string): Promise<void> {
+    try {
+      // We need to find which visualId/pointId this attachment belongs to
+      // Search through all cached service data for this attachment
+      const allCaches = await this.indexedDb.getAllCachedServiceData(dataType);
+      
+      for (const cache of allCaches) {
+        const attachments = cache.data || [];
+        let found = false;
+        
+        const updatedAttachments = attachments.map((att: any) => {
+          if (String(att.AttachID) === String(attachId) && att._localUpdate) {
+            found = true;
+            // Remove the _localUpdate flag - the data is now synced
+            const { _localUpdate, _updatedAt, ...rest } = att;
+            return rest;
+          }
+          return att;
+        });
+        
+        if (found) {
+          await this.indexedDb.cacheServiceData(cache.serviceId, dataType, updatedAttachments);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for AttachID ${attachId} in ${cache.serviceId}`);
+          return;
+        }
+      }
+      
+      console.log(`[BackgroundSync] AttachID ${attachId} not found in any cache (may already be cleared)`);
+    } catch (error) {
+      console.warn(`[BackgroundSync] Error clearing _localUpdate flag for AttachID ${attachId}:`, error);
+    }
+  }
+  
   private async refreshVisualsCache(serviceId: string): Promise<void> {
     try {
       console.log(`[BackgroundSync] Refreshing visuals cache for service ${serviceId}...`);

@@ -1097,6 +1097,42 @@ export class IndexedDbService {
   }
 
   /**
+   * Get ALL cached service data entries of a specific type
+   * Used to find which serviceId/visualId contains a specific attachment
+   */
+  async getAllCachedServiceData(dataType: 'visual_attachments' | 'efe_point_attachments'): Promise<{ serviceId: string; data: any[] }[]> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readonly');
+      const store = transaction.objectStore('cachedServiceData');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const results: { serviceId: string; data: any[] }[] = [];
+        const allCached = getAllRequest.result as CachedServiceData[];
+        
+        for (const cached of allCached) {
+          if (cached.dataType === dataType) {
+            results.push({
+              serviceId: cached.serviceId,
+              data: cached.data || []
+            });
+          }
+        }
+        
+        resolve(results);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
    * Check if service data cache is still valid
    */
   async isServiceDataCacheValid(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points', maxAgeMs: number): Promise<boolean> {

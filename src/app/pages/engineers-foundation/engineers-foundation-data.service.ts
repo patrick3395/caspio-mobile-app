@@ -328,22 +328,12 @@ export class EngineersFoundationDataService {
     // Create placeholder for immediate UI
     const placeholder = {
       ...visualData,
-      VisualID: tempId,
       PK_ID: tempId,
       _tempId: tempId,
       _localOnly: true,
       _syncing: true,
       _createdAt: Date.now(),
     };
-
-    // CRITICAL: Add to IndexedDB visuals cache immediately so it shows up on page reload
-    const serviceId = String(visualData.ServiceID);
-    if (serviceId) {
-      const existingVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
-      existingVisuals.push(placeholder);
-      await this.indexedDb.cacheServiceData(serviceId, 'visuals', existingVisuals);
-      console.log('[Visual Data] Added visual to IndexedDB cache:', tempId);
-    }
 
     // Store in IndexedDB for background sync
     await this.indexedDb.addPendingRequest({
@@ -357,7 +347,7 @@ export class EngineersFoundationDataService {
       priority: 'high',
     });
 
-    // Clear in-memory cache (not IndexedDB)
+    // Clear cache
     if (visualData.ServiceID) {
       this.visualsCache.delete(String(visualData.ServiceID));
     }
@@ -517,8 +507,8 @@ export class EngineersFoundationDataService {
 
       console.log('[Visual Photo] Photo queued (waiting for Visual)');
 
-      // Create placeholder with thumbnail
-      const placeholder = {
+      // Return placeholder with thumbnail
+      return {
         AttachID: tempPhotoId,
         VisualID: visualIdStr,
         Annotation: caption,
@@ -532,14 +522,6 @@ export class EngineersFoundationDataService {
         queued: true,      // Queued for background sync
         isObjectUrl: true,
       };
-
-      // CRITICAL: Add to IndexedDB attachments cache immediately
-      const existingAttachments = await this.indexedDb.getCachedServiceData(visualIdStr, 'visual_attachments') || [];
-      existingAttachments.push(placeholder);
-      await this.indexedDb.cacheServiceData(visualIdStr, 'visual_attachments', existingAttachments);
-      console.log('[Visual Photo] Added photo to IndexedDB cache:', tempPhotoId);
-
-      return placeholder;
     }
 
     // Visual has real ID - upload now
@@ -551,15 +533,10 @@ export class EngineersFoundationDataService {
       );
 
       // Success - DON'T delete file yet (background sync might need it)
-      console.log('[Visual Photo] Upload succeeded');
+      // File will be deleted by background sync after confirming upload
+      console.log('[Visual Photo] Upload succeeded, file kept in IndexedDB for background sync');
 
-      // CRITICAL: Add to IndexedDB attachments cache immediately
-      const existingAttachments = await this.indexedDb.getCachedServiceData(visualIdStr, 'visual_attachments') || [];
-      existingAttachments.push(result);
-      await this.indexedDb.cacheServiceData(visualIdStr, 'visual_attachments', existingAttachments);
-      console.log('[Visual Photo] Added uploaded photo to IndexedDB cache');
-
-      // Clear in-memory cache
+      // Clear cache
       this.visualAttachmentsCache.delete(visualIdStr);
 
       return result;
@@ -588,10 +565,9 @@ export class EngineersFoundationDataService {
 
       console.log('[Visual Photo] Upload failed, queued for retry');
       
-      // Create placeholder
-      const placeholder = {
+      // Return placeholder
+      return {
         AttachID: tempPhotoId,
-        VisualID: visualIdStr,
         Photo: objectUrl,
         url: objectUrl,
         thumbnailUrl: objectUrl,
@@ -601,14 +577,6 @@ export class EngineersFoundationDataService {
         queued: true,      // Will upload in background
         isObjectUrl: true,
       };
-
-      // CRITICAL: Add to IndexedDB attachments cache immediately
-      const existingAttachments = await this.indexedDb.getCachedServiceData(visualIdStr, 'visual_attachments') || [];
-      existingAttachments.push(placeholder);
-      await this.indexedDb.cacheServiceData(visualIdStr, 'visual_attachments', existingAttachments);
-      console.log('[Visual Photo] Added photo to IndexedDB cache:', tempPhotoId);
-
-      return placeholder;
     }
   }
 
@@ -622,81 +590,68 @@ export class EngineersFoundationDataService {
     return result;
   }
 
-  async updateVisualPhotoCaption(attachId: string, caption: string): Promise<any> {
+  async updateVisualPhotoCaption(attachId: string, caption: string, visualId?: string): Promise<any> {
     console.log('[Visual Photo] Updating caption for AttachID:', attachId);
-    const result = await firstValueFrom(
-      this.caspioService.updateServicesVisualsAttach(attachId, { Annotation: caption })
-    );
+    const updateData = { Annotation: caption };
 
-    // Clear all attachment caches
-    this.visualAttachmentsCache.clear();
-
-    return result;
-  }
-
-  /**
-   * Update visual photo attachment (caption + annotations) - OFFLINE-FIRST
-   * Updates IndexedDB cache immediately and queues for background sync
-   */
-  async updateVisualAttachment(attachId: string, visualId: string, updateData: { Annotation?: string; Drawings?: string }): Promise<any> {
-    console.log('[Visual Attach] Updating attachment (OFFLINE-FIRST):', attachId, 'for visual:', visualId);
-    
-    const isTempId = String(attachId).startsWith('temp_');
-    
-    if (isTempId) {
-      console.warn('[Visual Attach] Cannot update temp attachment:', attachId);
-      return { success: false, error: 'Cannot update temp attachment' };
-    }
-
-    // 1. Update IndexedDB cache immediately
-    try {
-      const cachedAttachments = await this.indexedDb.getCachedServiceData(visualId, 'visual_attachments') || [];
-      const attachIndex = cachedAttachments.findIndex((a: any) => 
-        String(a.AttachID) === String(attachId) || String(a.PK_ID) === String(attachId)
-      );
-      
-      if (attachIndex !== -1) {
-        // Update the attachment in cache
-        cachedAttachments[attachIndex] = {
-          ...cachedAttachments[attachIndex],
-          ...updateData,
-          Annotation: updateData.Annotation !== undefined ? updateData.Annotation : cachedAttachments[attachIndex].Annotation,
-          Drawings: updateData.Drawings !== undefined ? updateData.Drawings : cachedAttachments[attachIndex].Drawings,
-          _pendingSync: true,
-          _updatedAt: Date.now()
-        };
-        await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', cachedAttachments);
-        console.log('[Visual Attach] Updated IndexedDB cache for attachment:', attachId);
-      } else {
-        console.warn('[Visual Attach] Attachment not found in cache:', attachId);
+    // OFFLINE-FIRST: Update IndexedDB cache immediately
+    if (visualId) {
+      try {
+        const cached = await this.indexedDb.getCachedServiceData(visualId, 'visual_attachments') || [];
+        const updated = cached.map((att: any) =>
+          String(att.AttachID) === String(attachId)
+            ? { ...att, Annotation: caption, _localUpdate: true }
+            : att
+        );
+        await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', updated);
+        console.log('[Visual Photo] ✅ Caption saved to IndexedDB for visual', visualId);
+      } catch (cacheError) {
+        console.warn('[Visual Photo] Failed to update IndexedDB cache:', cacheError);
       }
-    } catch (cacheError) {
-      console.error('[Visual Attach] Error updating cache:', cacheError);
     }
 
-    // 2. Queue the update for background sync
-    const attachIdNum = parseInt(attachId, 10);
-    if (!isNaN(attachIdNum)) {
+    // Check if we're online
+    if (!this.offlineService.isOnline()) {
+      // Queue for later sync
       await this.indexedDb.addPendingRequest({
         type: 'UPDATE',
-        endpoint: `/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`,
+        endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
         method: 'PUT',
         data: updateData,
         dependencies: [],
         status: 'pending',
         priority: 'normal',
       });
-      console.log('[Visual Attach] Queued annotation update for sync:', attachId);
+      console.log('[Visual Photo] ⏳ Caption queued for sync (offline)');
+      this.backgroundSync.triggerSync();
+      this.visualAttachmentsCache.clear();
+      return { success: true, queued: true };
     }
 
-    // 3. Clear in-memory cache
-    this.visualAttachmentsCache.clear();
-
-    // 4. Trigger background sync
-    this.backgroundSync.triggerSync();
-
-    // 5. Return immediately
-    return { success: true, attachId, ...updateData };
+    // Online - try API
+    try {
+      const result = await firstValueFrom(
+        this.caspioService.updateServicesVisualsAttach(attachId, updateData)
+      );
+      console.log('[Visual Photo] ✅ Caption saved via API');
+      this.visualAttachmentsCache.clear();
+      return result;
+    } catch (apiError) {
+      // Queue for retry
+      console.warn('[Visual Photo] API failed, queuing for retry');
+      await this.indexedDb.addPendingRequest({
+        type: 'UPDATE',
+        endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
+        method: 'PUT',
+        data: updateData,
+        dependencies: [],
+        status: 'pending',
+        priority: 'high',
+      });
+      this.backgroundSync.triggerSync();
+      this.visualAttachmentsCache.clear();
+      return { success: true, queued: true };
+    }
   }
 
   // Clear cache for a specific visual's attachments
@@ -717,71 +672,6 @@ export class EngineersFoundationDataService {
     console.log('[EFE Photo] Cleared all EFE attachment caches');
   }
 
-  /**
-   * Update EFE point attachment (caption + annotations) - OFFLINE-FIRST
-   * Updates IndexedDB cache immediately and queues for background sync
-   */
-  async updateEFEPointAttachment(attachId: string, pointId: string, updateData: { Annotation?: string; Drawings?: string }): Promise<any> {
-    console.log('[EFE Attach] Updating attachment (OFFLINE-FIRST):', attachId, 'for point:', pointId);
-    
-    const isTempId = String(attachId).startsWith('temp_');
-    
-    if (isTempId) {
-      console.warn('[EFE Attach] Cannot update temp attachment:', attachId);
-      return { success: false, error: 'Cannot update temp attachment' };
-    }
-
-    // 1. Update IndexedDB cache immediately
-    try {
-      const cachedAttachments = await this.indexedDb.getCachedServiceData(pointId, 'efe_point_attachments') || [];
-      const attachIndex = cachedAttachments.findIndex((a: any) => 
-        String(a.AttachID) === String(attachId) || String(a.PK_ID) === String(attachId)
-      );
-      
-      if (attachIndex !== -1) {
-        // Update the attachment in cache
-        cachedAttachments[attachIndex] = {
-          ...cachedAttachments[attachIndex],
-          ...updateData,
-          Annotation: updateData.Annotation !== undefined ? updateData.Annotation : cachedAttachments[attachIndex].Annotation,
-          Drawings: updateData.Drawings !== undefined ? updateData.Drawings : cachedAttachments[attachIndex].Drawings,
-          _pendingSync: true,
-          _updatedAt: Date.now()
-        };
-        await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', cachedAttachments);
-        console.log('[EFE Attach] Updated IndexedDB cache for attachment:', attachId);
-      } else {
-        console.warn('[EFE Attach] Attachment not found in cache:', attachId);
-      }
-    } catch (cacheError) {
-      console.error('[EFE Attach] Error updating cache:', cacheError);
-    }
-
-    // 2. Queue the update for background sync
-    const attachIdNum = parseInt(attachId, 10);
-    if (!isNaN(attachIdNum)) {
-      await this.indexedDb.addPendingRequest({
-        type: 'UPDATE',
-        endpoint: `/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachIdNum}`,
-        method: 'PUT',
-        data: updateData,
-        dependencies: [],
-        status: 'pending',
-        priority: 'normal',
-      });
-      console.log('[EFE Attach] Queued annotation update for sync:', attachId);
-    }
-
-    // 3. Clear in-memory cache
-    this.efeAttachmentsCache.clear();
-
-    // 4. Trigger background sync
-    this.backgroundSync.triggerSync();
-
-    // 5. Return immediately
-    return { success: true, attachId, ...updateData };
-  }
-
   // ============================================
   // EFE ROOM METHODS (OFFLINE-FIRST)
   // ============================================
@@ -795,7 +685,6 @@ export class EngineersFoundationDataService {
 
     // Generate temporary ID
     const tempId = this.tempId.generateTempId('efe');
-    const serviceId = String(roomData.ServiceID);
 
     // Create placeholder for immediate UI
     const placeholder = {
@@ -808,16 +697,10 @@ export class EngineersFoundationDataService {
       _createdAt: Date.now(),
     };
 
-    // CRITICAL: Add to IndexedDB efe_rooms cache immediately
-    const existingRooms = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
-    existingRooms.push(placeholder);
-    await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', existingRooms);
-    console.log('[EFE Data] Added room to IndexedDB cache:', tempId);
-
-    // Store in pendingEFEData for immediate display (legacy, kept for compatibility)
+    // Store in pendingEFEData for immediate display
     await this.indexedDb.addPendingEFE({
       tempId,
-      serviceId: serviceId,
+      serviceId: String(roomData.ServiceID),
       type: 'room',
       data: placeholder,
     });
@@ -912,13 +795,7 @@ export class EngineersFoundationDataService {
       _createdAt: Date.now(),
     };
 
-    // CRITICAL: Add to IndexedDB efe_points cache immediately
-    const existingPoints = await this.indexedDb.getCachedServiceData(parentId, 'efe_points') || [];
-    existingPoints.push(placeholder);
-    await this.indexedDb.cacheServiceData(parentId, 'efe_points', existingPoints);
-    console.log('[EFE Data] Added point to IndexedDB cache:', tempId);
-
-    // Store in pendingEFEData for immediate display (legacy, kept for compatibility)
+    // Store in pendingEFEData for immediate display
     await this.indexedDb.addPendingEFE({
       tempId,
       serviceId: String(pointData.ServiceID || ''),
@@ -1074,8 +951,8 @@ export class EngineersFoundationDataService {
 
       console.log('[EFE Photo] Photo queued (waiting for Point):', tempPhotoId);
 
-      // Create placeholder with thumbnail
-      const placeholder = {
+      // Return placeholder with thumbnail
+      return {
         AttachID: tempPhotoId,
         PointID: pointIdStr,
         Type: photoType,
@@ -1090,14 +967,6 @@ export class EngineersFoundationDataService {
         isObjectUrl: true,
         isEFE: true,
       };
-
-      // CRITICAL: Add to IndexedDB cache immediately
-      const existingAttachments = await this.indexedDb.getCachedServiceData(pointIdStr, 'efe_point_attachments') || [];
-      existingAttachments.push(placeholder);
-      await this.indexedDb.cacheServiceData(pointIdStr, 'efe_point_attachments', existingAttachments);
-      console.log('[EFE Photo] Added photo to IndexedDB cache:', tempPhotoId);
-
-      return placeholder;
     }
 
     // Point has real ID - check if we should try to upload now or queue
@@ -1128,8 +997,8 @@ export class EngineersFoundationDataService {
 
       console.log('[EFE Photo] ✅ Queued for offline sync with real PointID:', pointIdNum);
 
-      // Create placeholder with queued state
-      const placeholder = {
+      // Return placeholder with queued state
+      return {
         AttachID: tempPhotoId,
         PointID: pointIdNum,
         Type: photoType,
@@ -1144,14 +1013,6 @@ export class EngineersFoundationDataService {
         isObjectUrl: true,
         isEFE: true,
       };
-
-      // CRITICAL: Add to IndexedDB cache immediately
-      const existingAttachments = await this.indexedDb.getCachedServiceData(pointIdStr, 'efe_point_attachments') || [];
-      existingAttachments.push(placeholder);
-      await this.indexedDb.cacheServiceData(pointIdStr, 'efe_point_attachments', existingAttachments);
-      console.log('[EFE Photo] Added photo to IndexedDB cache:', tempPhotoId);
-
-      return placeholder;
     }
 
     // Online - try to upload now
@@ -1164,15 +1025,10 @@ export class EngineersFoundationDataService {
       // Success - delete stored file
       await this.indexedDb.deleteStoredFile(tempPhotoId);
 
-      // CRITICAL: Add to IndexedDB cache immediately
-      const existingAttachments = await this.indexedDb.getCachedServiceData(pointIdStr, 'efe_point_attachments') || [];
-      existingAttachments.push(result);
-      await this.indexedDb.cacheServiceData(pointIdStr, 'efe_point_attachments', existingAttachments);
-
-      // Clear in-memory cache
+      // Clear caches
       this.efeAttachmentsCache.clear();
 
-      console.log('[EFE Photo] Upload succeeded, added to IndexedDB cache');
+      console.log('[EFE Photo] Upload succeeded');
       return result;
     } catch (error) {
       // Failed - keep in IndexedDB, queue for retry
@@ -1198,8 +1054,8 @@ export class EngineersFoundationDataService {
 
       console.log('[EFE Photo] ✅ Queued for retry with pointId:', pointIdNum);
 
-      // Create placeholder
-      const placeholder = {
+      // Return placeholder
+      return {
         AttachID: tempPhotoId,
         PointID: pointIdStr,
         Type: photoType,
@@ -1214,14 +1070,6 @@ export class EngineersFoundationDataService {
         isObjectUrl: true,
         isEFE: true,
       };
-
-      // CRITICAL: Add to IndexedDB cache immediately
-      const existingAttachments = await this.indexedDb.getCachedServiceData(pointIdStr, 'efe_point_attachments') || [];
-      existingAttachments.push(placeholder);
-      await this.indexedDb.cacheServiceData(pointIdStr, 'efe_point_attachments', existingAttachments);
-      console.log('[EFE Photo] Added photo to IndexedDB cache:', tempPhotoId);
-
-      return placeholder;
     }
   }
 
