@@ -2289,16 +2289,26 @@ export class CaspioService {
    */
   async uploadEFEPointsAttachWithS3(pointId: number, drawingsData: string, file: File, photoType?: string): Promise<any> {
     console.log('[EFE ATTACH S3] ========== Starting S3 EFE Attach Upload ==========');
+    console.log('[EFE ATTACH S3] Input PointID:', pointId, 'type:', typeof pointId);
+    
+    // CRITICAL: Validate PointID before proceeding
+    const parsedPointId = parseInt(String(pointId), 10);
+    if (isNaN(parsedPointId) || parsedPointId <= 0) {
+      console.error('[EFE ATTACH S3] ❌ INVALID PointID:', pointId);
+      throw new Error(`Invalid PointID for EFE photo upload: ${pointId}`);
+    }
     
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
     try {
       const recordData: any = {
-        PointID: parseInt(pointId.toString()),
+        PointID: parsedPointId,
         Annotation: '',
         PhotoType: photoType || ''
       };
+      
+      console.log('[EFE ATTACH S3] Creating record with data:', JSON.stringify(recordData));
 
       if (drawingsData && drawingsData.length > 0) {
         let compressedDrawings = drawingsData;

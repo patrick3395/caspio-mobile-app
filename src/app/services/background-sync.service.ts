@@ -619,10 +619,24 @@ export class BackgroundSyncService {
       throw new Error(`Invalid Point ID: ${data.pointId || data.tempPointId || storedPointId}`);
     }
 
-    console.log('[BackgroundSync] Final Point ID for EFE upload:', pointId);
+    console.log('[BackgroundSync] Final Point ID for EFE upload:', pointId, 'type:', typeof pointId);
+    console.log('[BackgroundSync] Full request data for debugging:', JSON.stringify({
+      tempPointId: data.tempPointId,
+      pointId: data.pointId,
+      storedPointId: storedPointId,
+      fileId: data.fileId,
+      photoType: photoType || data.photoType
+    }));
+
+    // CRITICAL: Validate PointID is a valid number before API call
+    if (!pointId || isNaN(pointId) || pointId <= 0) {
+      console.error('[BackgroundSync] ❌ INVALID PointID detected before API call:', pointId);
+      throw new Error(`Invalid PointID for EFE photo: ${pointId}`);
+    }
 
     try {
       // Call the S3 upload method for EFE point attachments
+      console.log('[BackgroundSync] Calling uploadEFEPointsAttachWithS3 with PointID:', pointId);
       const result = await this.caspioService.uploadEFEPointsAttachWithS3(
         pointId,
         drawings || data.drawings || '',
@@ -630,7 +644,7 @@ export class BackgroundSyncService {
         photoType || data.photoType || 'Measurement'
       );
 
-      console.log('[BackgroundSync] EFE photo uploaded to Point', pointId);
+      console.log('[BackgroundSync] ✅ EFE photo uploaded to Point', pointId, 'Result:', JSON.stringify(result));
 
       // Emit event so pages can update their local state
       this.ngZone.run(() => {

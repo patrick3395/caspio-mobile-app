@@ -845,10 +845,17 @@ export class EngineersFoundationDataService {
    * Upload EFE point photo (offline-first pattern with point dependency)
    */
   async uploadEFEPointPhoto(pointId: number | string, file: File, photoType: string = 'Measurement', drawings?: string): Promise<any> {
-    console.log('[EFE Photo] Uploading photo for PointID:', pointId);
+    console.log('[EFE Photo] ========== uploadEFEPointPhoto START ==========');
+    console.log('[EFE Photo] Input PointID:', pointId, 'type:', typeof pointId);
+    console.log('[EFE Photo] PhotoType:', photoType, 'Drawings length:', drawings?.length || 0);
 
     const pointIdStr = String(pointId);
     const isTempId = pointIdStr.startsWith('temp_');
+    const isActuallyOffline = !this.offlineService.isOnline();
+    
+    console.log('[EFE Photo] pointIdStr:', pointIdStr);
+    console.log('[EFE Photo] isTempId:', isTempId);
+    console.log('[EFE Photo] isActuallyOffline:', isActuallyOffline);
 
     // Generate temp photo ID
     const tempPhotoId = `temp_efe_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -856,7 +863,8 @@ export class EngineersFoundationDataService {
     // Create object URL for immediate thumbnail
     const objectUrl = URL.createObjectURL(file);
 
-    // Store file in IndexedDB
+    // Store file in IndexedDB with correct pointId
+    console.log('[EFE Photo] Storing in IndexedDB with pointId:', pointIdStr);
     await this.indexedDb.storeEFEPhotoFile(tempPhotoId, file, pointIdStr, photoType, drawings);
 
     if (isTempId) {
@@ -909,10 +917,55 @@ export class EngineersFoundationDataService {
       };
     }
 
-    // Point has real ID - try to upload now
+    // Point has real ID - check if we should try to upload now or queue
     const pointIdNum = parseInt(pointIdStr, 10);
+    console.log('[EFE Photo] Real PointID:', pointIdNum, 'isActuallyOffline:', isActuallyOffline);
 
+    // If we're offline, skip the API call and queue directly
+    if (isActuallyOffline) {
+      console.log('[EFE Photo] Offline - queueing directly without API attempt');
+      
+      await this.indexedDb.addPendingRequest({
+        type: 'UPLOAD_FILE',
+        tempId: tempPhotoId,
+        endpoint: 'EFE_POINT_PHOTO_UPLOAD',
+        method: 'POST',
+        data: {
+          pointId: pointIdNum,  // Real point ID
+          fileId: tempPhotoId,
+          photoType: photoType || 'Measurement',
+          drawings: drawings || '',
+          fileName: file.name,
+          fileSize: file.size,
+        },
+        dependencies: [],
+        status: 'pending',
+        priority: 'high',
+      });
+
+      console.log('[EFE Photo] ✅ Queued for offline sync with real PointID:', pointIdNum);
+
+      // Return placeholder with queued state
+      return {
+        AttachID: tempPhotoId,
+        PointID: pointIdNum,
+        Type: photoType,
+        Photo: objectUrl,
+        url: objectUrl,
+        thumbnailUrl: objectUrl,
+        _tempId: tempPhotoId,
+        _thumbnailUrl: objectUrl,
+        _syncing: true,
+        uploading: false,
+        queued: true,
+        isObjectUrl: true,
+        isEFE: true,
+      };
+    }
+
+    // Online - try to upload now
     try {
+      console.log('[EFE Photo] Online - attempting direct upload for PointID:', pointIdNum);
       const result = await firstValueFrom(
         this.caspioService.createServicesEFEPointsAttachWithFile(pointIdNum, drawings || '', file, photoType)
       );
@@ -927,13 +980,15 @@ export class EngineersFoundationDataService {
       return result;
     } catch (error) {
       // Failed - keep in IndexedDB, queue for retry
+      console.log('[EFE Photo] Upload failed, queueing for retry with PointID:', pointIdNum);
+      
       await this.indexedDb.addPendingRequest({
         type: 'UPLOAD_FILE',
         tempId: tempPhotoId,
         endpoint: 'EFE_POINT_PHOTO_UPLOAD',
         method: 'POST',
         data: {
-          pointId: pointIdNum,
+          pointId: pointIdNum,  // Real point ID (not temp)
           fileId: tempPhotoId,
           photoType: photoType || 'Measurement',
           drawings: drawings || '',
@@ -945,7 +1000,7 @@ export class EngineersFoundationDataService {
         priority: 'high',
       });
 
-      console.log('[EFE Photo] Upload failed, queued for retry');
+      console.log('[EFE Photo] ✅ Queued for retry with pointId:', pointIdNum);
 
       // Return placeholder
       return {

@@ -1703,12 +1703,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             return;
           }
 
-          // Check if this is a temp ID (offline mode) or real ID
+          // Check if we're actually offline OR if the visual is a temp ID
           const visualIsTempId = String(visualId).startsWith('temp_');
           const visualIdNum = parseInt(visualId, 10);
-          const isOfflineMode = isNaN(visualIdNum) || visualIsTempId;
+          // Use actual network status, not just visual ID type
+          const isActuallyOffline = !this.offlineService.isOnline();
+          const isOfflineMode = isActuallyOffline || isNaN(visualIdNum) || visualIsTempId;
 
-          console.log('[CAMERA UPLOAD] Visual ID:', visualId, 'isOffline:', isOfflineMode);
+          console.log('[CAMERA UPLOAD] Visual ID:', visualId, 'isActuallyOffline:', isActuallyOffline, 'isOfflineMode:', isOfflineMode);
 
           // Initialize photo array if it doesn't exist
           if (!this.visualPhotos[key]) {
@@ -1895,7 +1897,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
         // Parse visual ID - for temp IDs, we'll still show images but queue for later
         const visualIdNum = parseInt(String(finalVisualId), 10);
-        const isOfflineMode = isNaN(visualIdNum) || visualIsTempId;
+        // Use actual network status, not just visual ID type
+        const isActuallyOffline = !this.offlineService.isOnline();
+        const isOfflineMode = isActuallyOffline || isNaN(visualIdNum) || visualIsTempId;
+
+        console.log('[GALLERY UPLOAD] isActuallyOffline:', isActuallyOffline, 'isOfflineMode:', isOfflineMode);
 
         if (isNaN(visualIdNum) && !visualIsTempId) {
           console.error('[GALLERY UPLOAD] Invalid visual ID:', finalVisualId);

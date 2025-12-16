@@ -1694,18 +1694,27 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const blob = await response.blob();
       const file = new File([blob], `point-${photoType.toLowerCase()}-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
+      // Check actual offline status
+      const isActuallyOffline = !this.offlineService.isOnline();
+      const isPointTempId = String(point.pointId).startsWith('temp_');
+      const isOfflineMode = isActuallyOffline || isPointTempId;
+
+      console.log('[Point Photo] isActuallyOffline:', isActuallyOffline, 'isOfflineMode:', isOfflineMode);
+
       // Find existing photo or create new one
       let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
 
       if (existingPhoto) {
-        // Mark as uploading
-        existingPhoto.uploading = true;
+        // Update existing photo - show spinner only if online, queued indicator if offline
+        existingPhoto.uploading = !isOfflineMode;
+        existingPhoto.queued = isOfflineMode;
         existingPhoto.url = webPath;
       } else {
-        // Add new photo placeholder
+        // Add new photo placeholder - show spinner only if online
         existingPhoto = {
           photoType: photoType,
-          uploading: true,
+          uploading: !isOfflineMode,
+          queued: isOfflineMode,
           url: webPath,
           caption: '',
           drawings: null,
@@ -1717,82 +1726,68 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
       this.changeDetectorRef.detectChanges();
 
-      // CRITICAL: Use background upload service for reliability
-      // Upload will persist even if user navigates away
-      const tempId = `temp_point_${photoType}_${Date.now()}`;
-      const pointIdNum = parseInt(point.pointId, 10);
+      // Compress image before storing/uploading
+      const compressedFile = await this.imageCompression.compressImage(file, {
+        maxSizeMB: 0.4,
+        maxWidthOrHeight: 1024,
+        useWebWorker: true
+      }) as File;
 
-      const uploadFn = async (visualId: number, photo: File, caption: string) => {
-        console.log(`[Point Upload] Uploading ${photoType} photo for point ${point.pointName} via background service`);
-
-        // Compress image
-        const compressedFile = await this.imageCompression.compressImage(photo, {
-          maxSizeMB: 0.4,
-          maxWidthOrHeight: 1024,
-          useWebWorker: true
-        }) as File;
-
-        let uploadResponse;
-
-        if (existingPhoto.attachId) {
-          // Update existing photo
-          uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(existingPhoto.attachId, compressedFile).toPromise();
-        } else {
-          // Create new photo record
-          const photoResponse = await this.caspioService.createServicesEFEPointsAttachRecord(point.pointId, '', photoType).toPromise();
-          const attachId = photoResponse?.AttachID || photoResponse?.PK_ID;
-
-          if (attachId) {
-            existingPhoto.attachId = attachId;
-
-            // Upload photo to the new record
-            uploadResponse = await this.caspioService.updateServicesEFEPointsAttachPhoto(attachId, compressedFile).toPromise();
-          }
-        }
-
-        // Reload photo using the path returned from upload
-        const photoPath = uploadResponse?.Photo;
-        if (photoPath) {
-          existingPhoto.path = photoPath;
-          const imageData = await this.foundationData.getImage(photoPath);
-          if (imageData) {
-            existingPhoto.url = imageData;
-            existingPhoto.displayUrl = imageData;
-          }
-        }
-
-        existingPhoto.uploading = false;
-
-        // CRITICAL: Clear the attachments cache to ensure photos appear after navigation
-        this.foundationData.clearEFEAttachmentsCache();
-        console.log('[Point Photo] Cleared EFE attachments cache after upload');
-
-        this.changeDetectorRef.detectChanges();
-
-        return uploadResponse;
-      };
-
-      // Add to background upload queue
-      this.backgroundUploadService.addToQueue(
-        pointIdNum,
-        file,
-        `point_${point.pointId}_${photoType}`,
-        '',
-        tempId,
-        uploadFn
+      // OFFLINE-FIRST: Use foundationData.uploadEFEPointPhoto which handles both
+      // online (immediate upload) and offline (IndexedDB queue) scenarios
+      const result = await this.foundationData.uploadEFEPointPhoto(
+        point.pointId,
+        compressedFile,
+        photoType,
+        '' // No drawings initially
       );
 
-      console.log(`[Point Upload] Photo ${photoType} for point ${point.pointName} queued for background upload`);
+      console.log(`[Point Photo] Photo ${photoType} processed for point ${point.pointName}:`, result);
+
+      // Update local state with result
+      if (result) {
+        existingPhoto.attachId = result.AttachID || result._tempId;
+        existingPhoto._tempId = result._tempId;
+        
+        // If offline (result has _syncing flag), photo is queued - don't clear uploading yet
+        if (result._syncing) {
+          existingPhoto.uploading = false;
+          existingPhoto.queued = true;
+          console.log(`[Point Photo] Photo queued for sync (offline mode)`);
+        } else {
+          // Online upload completed
+          existingPhoto.uploading = false;
+          existingPhoto.queued = false;
+          
+          // Load the uploaded photo URL
+          if (result.Photo) {
+            existingPhoto.path = result.Photo;
+            const imageData = await this.foundationData.getImage(result.Photo);
+            if (imageData) {
+              existingPhoto.url = imageData;
+              existingPhoto.displayUrl = imageData;
+            }
+          }
+        }
+        
+        // Clear cache to ensure fresh data
+        this.foundationData.clearEFEAttachmentsCache();
+      }
+      
+      this.changeDetectorRef.detectChanges();
+      console.log(`[Point Photo] Photo ${photoType} for point ${point.pointName} processed successfully`);
 
     } catch (error) {
       console.error('Error processing point photo:', error);
       // Toast removed per user request
       // await this.showToast('Failed to upload photo', 'danger');
 
-      // Remove uploading state
+      // Remove uploading/queued state on error
       const existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
       if (existingPhoto) {
         existingPhoto.uploading = false;
+        existingPhoto.queued = false;
+        existingPhoto.uploadFailed = true;
       }
       this.changeDetectorRef.detectChanges();
     }
