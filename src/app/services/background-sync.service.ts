@@ -592,11 +592,16 @@ export class BackgroundSyncService {
     console.log('[BackgroundSync] EFE file retrieved:', file.name, file.size, 'bytes');
     console.log('[BackgroundSync] Drawings:', drawings.length, 'chars, photoType:', photoType);
 
-    // Resolve temp Point ID to real ID if needed
+    // IMPORTANT: tempPointId may have already been resolved by resolveTempIds()
+    // Check if it's already a number (resolved) or still a temp string
     let pointId = data.tempPointId || data.pointId || storedPointId;
-    console.log('[BackgroundSync] Point ID from request:', pointId);
+    console.log('[BackgroundSync] Point ID from request data:', pointId, 'type:', typeof pointId);
 
-    if (pointId && String(pointId).startsWith('temp_')) {
+    // If it's already a number (resolved by resolveTempIds), use it directly
+    if (typeof pointId === 'number' && !isNaN(pointId)) {
+      console.log('[BackgroundSync] Point ID already resolved to number:', pointId);
+    } else if (pointId && String(pointId).startsWith('temp_')) {
+      // Still a temp ID - try to resolve it
       const realId = await this.indexedDb.getRealId(String(pointId));
       console.log('[BackgroundSync] Resolved temp Point ID:', pointId, '→', realId);
 
@@ -610,8 +615,8 @@ export class BackgroundSyncService {
 
     // Validate Point ID
     if (isNaN(pointId)) {
-      console.error('[BackgroundSync] Point ID is NaN:', data.pointId, data.tempPointId);
-      throw new Error(`Invalid Point ID: ${data.pointId || data.tempPointId}`);
+      console.error('[BackgroundSync] Point ID is NaN:', data.pointId, data.tempPointId, storedPointId);
+      throw new Error(`Invalid Point ID: ${data.pointId || data.tempPointId || storedPointId}`);
     }
 
     console.log('[BackgroundSync] Final Point ID for EFE upload:', pointId);
@@ -703,9 +708,11 @@ export class BackgroundSyncService {
     const data = { ...request.data };
 
     // Check common foreign key fields for temp IDs
+    // Include both standard fields and custom field names used for offline queuing
     const foreignKeyFields = [
       'VisualID', 'EFEID', 'ProjectID', 'ServiceID', 
-      'PointID', 'HUDID', 'LBWID', 'ParentID'
+      'PointID', 'HUDID', 'LBWID', 'ParentID',
+      'tempVisualId', 'tempPointId', 'tempRoomId'  // Custom fields used for offline photo uploads
     ];
 
     for (const field of foreignKeyFields) {

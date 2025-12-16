@@ -3431,8 +3431,30 @@ export class CaspioService {
   
   // Update Services_Visuals_Attach record (for caption/annotation updates)
   updateServicesVisualsAttach(attachId: string, data: any): Observable<any> {
-    const url = `/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
-    return this.put<any>(url, data);
+    // Validate AttachID is a valid number
+    const attachIdNum = typeof attachId === 'string' ? parseInt(attachId, 10) : attachId;
+    if (isNaN(attachIdNum)) {
+      console.error('[CaspioService] Invalid AttachID for annotation update:', attachId);
+      return throwError(() => new Error(`Invalid AttachID: ${attachId}`));
+    }
+    
+    console.log('[CaspioService] updateServicesVisualsAttach called:', {
+      attachId: attachIdNum,
+      dataKeys: Object.keys(data),
+      annotationLength: data.Annotation?.length || 0,
+      drawingsLength: data.Drawings?.length || 0
+    });
+    
+    const url = `/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachIdNum}`;
+    return this.put<any>(url, data).pipe(
+      tap(response => {
+        console.log('[CaspioService] Annotation update successful for AttachID:', attachIdNum, response);
+      }),
+      catchError(error => {
+        console.error('[CaspioService] Annotation update FAILED for AttachID:', attachIdNum, error);
+        return throwError(() => error);
+      })
+    );
   }
   
   // Update Services_Visuals_Attach record

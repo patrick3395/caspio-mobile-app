@@ -2872,16 +2872,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       attachId,
       hasDrawings: !!updateData.Drawings,
       drawingsLength: updateData.Drawings?.length || 0,
-      caption: caption || '(empty)'
+      caption: caption || '(empty)',
+      annotation: updateData.Annotation || '(empty)'
     });
+
+    // Validate attachId before making API call
+    if (!attachId || String(attachId).startsWith('temp_')) {
+      console.error('[SAVE] Cannot update annotations - invalid or temp AttachID:', attachId);
+      throw new Error('Cannot update annotations for temp photo');
+    }
 
     // CRITICAL FIX: Call updateServicesVisualsAttach directly to save BOTH fields
     // (the updateVisualPhotoCaption method only updates caption, not drawings)
-    await firstValueFrom(
-      this.caspioService.updateServicesVisualsAttach(attachId, updateData)
-    );
-
-    console.log('[SAVE] Successfully saved caption and drawings for AttachID:', attachId);
+    try {
+      const response = await firstValueFrom(
+        this.caspioService.updateServicesVisualsAttach(attachId, updateData)
+      );
+      console.log('[SAVE] Successfully saved caption and drawings for AttachID:', attachId, 'Response:', response);
+    } catch (apiError) {
+      console.error('[SAVE] API call failed for AttachID:', attachId, 'Error:', apiError);
+      throw apiError;
+    }
 
     // Return the compressed drawings string so caller can update local photo object
     return updateData.Drawings;
