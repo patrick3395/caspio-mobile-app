@@ -416,13 +416,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
   private async loadCategoryTemplates() {
     try {
-      // OFFLINE-FIRST: Get all templates for TypeID = 1 (Foundation Evaluation) from IndexedDB
-      const allTemplates = await this.offlineTemplate.getVisualTemplates();
+      // OFFLINE-FIRST: Ensure visual templates are ready (waits for download if in progress)
+      const allTemplates = await this.offlineTemplate.ensureVisualTemplatesReady();
       const visualTemplates = (allTemplates || []).filter((template: any) =>
         template.TypeID === 1 && template.Category === this.categoryName
       );
       
-      console.log('[CategoryDetail] Loaded', visualTemplates.length, 'templates from IndexedDB for category:', this.categoryName);
+      console.log('[CategoryDetail] Loaded', visualTemplates.length, 'templates for category:', this.categoryName);
 
       // Organize templates by Kind
       visualTemplates.forEach((template: any) => {

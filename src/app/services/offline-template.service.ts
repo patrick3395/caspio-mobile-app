@@ -35,6 +35,54 @@ export class OfflineTemplateService {
   // ============================================
 
   /**
+   * Ensure visual templates are ready for use.
+   * - If cached: returns immediately
+   * - If download in progress: waits for it
+   * - If not started: fetches from API and caches
+   * 
+   * Call this from pages that need templates to ensure they're available.
+   */
+  async ensureVisualTemplatesReady(): Promise<any[]> {
+    // Check if we have cached templates
+    const cached = await this.indexedDb.getCachedTemplates('visual');
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] ensureVisualTemplatesReady: ${cached.length} templates already cached`);
+      return cached;
+    }
+
+    // Check if any download is in progress - wait for it
+    for (const [key, promise] of this.downloadPromises.entries()) {
+      if (key.startsWith('EFE_')) {
+        console.log(`[OfflineTemplate] ensureVisualTemplatesReady: waiting for download ${key}...`);
+        await promise;
+        // Check again after download completes
+        const afterDownload = await this.indexedDb.getCachedTemplates('visual');
+        if (afterDownload && afterDownload.length > 0) {
+          console.log(`[OfflineTemplate] ensureVisualTemplatesReady: ${afterDownload.length} templates available after download`);
+          return afterDownload;
+        }
+      }
+    }
+
+    // No cache, no download in progress - fetch directly if online
+    if (this.offlineService.isOnline()) {
+      console.log('[OfflineTemplate] ensureVisualTemplatesReady: fetching from API...');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesVisualsTemplates());
+        await this.indexedDb.cacheTemplates('visual', templates);
+        console.log(`[OfflineTemplate] ensureVisualTemplatesReady: fetched and cached ${templates.length} templates`);
+        return templates;
+      } catch (error) {
+        console.error('[OfflineTemplate] ensureVisualTemplatesReady: API fetch failed:', error);
+        return [];
+      }
+    }
+
+    console.warn('[OfflineTemplate] ensureVisualTemplatesReady: offline and no cache available');
+    return [];
+  }
+
+  /**
    * Download complete template data for offline use.
    * Call this when user creates or opens a service.
    * Returns immediately if already downloaded.

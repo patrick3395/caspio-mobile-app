@@ -7,6 +7,7 @@ import { CaspioService } from '../../../../services/caspio.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { OfflineDataCacheService } from '../../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../../services/offline-template.service';
+import { IndexedDbService } from '../../../../services/indexed-db.service';
 
 @Component({
   selector: 'app-structural-systems-hub',
@@ -29,7 +30,8 @@ export class StructuralSystemsHubPage implements OnInit {
     private changeDetectorRef: ChangeDetectorRef,
     private foundationData: EngineersFoundationDataService,
     private offlineCache: OfflineDataCacheService,
-    private offlineTemplate: OfflineTemplateService
+    private offlineTemplate: OfflineTemplateService,
+    private indexedDb: IndexedDbService
   ) {}
 
   async ngOnInit() {
@@ -67,14 +69,22 @@ export class StructuralSystemsHubPage implements OnInit {
   }
 
   private async loadData() {
-    this.loading = true;
+    // Quick check: do we have cached data? Don't show loading if so
+    const hasCachedService = await this.offlineTemplate.getService(this.serviceId);
+    const hasCachedTemplates = await this.indexedDb.getCachedTemplates('visual');
+    
+    // Only show loading spinner if we need to fetch from network
+    const needsLoading = !hasCachedService || !hasCachedTemplates || (hasCachedTemplates as any[]).length === 0;
+    if (needsLoading) {
+      this.loading = true;
+      this.changeDetectorRef.detectChanges();
+    }
 
     try {
       // OFFLINE-FIRST: Load service data from IndexedDB
-      const cachedService = await this.offlineTemplate.getService(this.serviceId);
-      if (cachedService) {
-        this.serviceData = cachedService;
-        console.log('[StructuralHub] Loaded service from IndexedDB cache');
+      if (hasCachedService) {
+        this.serviceData = hasCachedService;
+        console.log('[StructuralHub] Loaded service from IndexedDB cache (instant)');
       } else {
         // Fallback to API
         this.caspioService.getService(this.serviceId).subscribe({
@@ -88,7 +98,7 @@ export class StructuralSystemsHubPage implements OnInit {
         });
       }
 
-      // Always load categories - works offline via cache
+      // Load categories (will be instant if templates are cached)
       await this.loadCategories();
     } catch (error) {
       console.error('[StructuralHub] Error in loadData:', error);
@@ -100,11 +110,11 @@ export class StructuralSystemsHubPage implements OnInit {
 
   private async loadCategories() {
     try {
-      // OFFLINE-FIRST: Get all templates using OfflineTemplateService (reads from IndexedDB)
-      const allTemplates = await this.offlineTemplate.getVisualTemplates();
+      // OFFLINE-FIRST: Ensure visual templates are ready (waits for download if in progress)
+      const allTemplates = await this.offlineTemplate.ensureVisualTemplatesReady();
       const visualTemplates = (allTemplates || []).filter((template: any) => template.TypeID === 1);
 
-      console.log('[StructuralHub] Loaded templates from IndexedDB:', visualTemplates.length);
+      console.log('[StructuralHub] Loaded templates:', visualTemplates.length);
 
       // Extract unique categories in order
       const categoriesSet = new Set<string>();
