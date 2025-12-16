@@ -7,6 +7,7 @@ import { EngineersFoundationPdfService } from '../services/engineers-foundation-
 import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { OfflineService } from '../../../services/offline.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { filter } from 'rxjs/operators';
 
@@ -44,6 +45,7 @@ export class EngineersFoundationContainerPage implements OnInit {
     private location: Location,
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,
+    private offlineService: OfflineService,
     private indexedDb: IndexedDbService
   ) {}
 
@@ -232,12 +234,20 @@ export class EngineersFoundationContainerPage implements OnInit {
     }
 
     console.log(`[EF Container] downloadTemplateData() called for serviceId=${this.serviceId}, projectId=${this.projectId}`);
+    const isOnline = this.offlineService.isOnline();
+    console.log(`[EF Container] Online status: ${isOnline}`);
 
     // Check if already downloaded (fast path for returning to template)
     const isReady = await this.offlineTemplate.isTemplateDataReady(this.serviceId, 'EFE');
     if (isReady) {
       console.log('[EF Container] Template already cached - ready immediately');
       this.templateReady = true;
+      
+      // If online, refresh service data in background (non-blocking) to get latest changes
+      if (isOnline) {
+        console.log('[EF Container] Refreshing service data in background...');
+        this.refreshServiceDataInBackground();
+      }
       return;
     }
 
@@ -356,6 +366,24 @@ export class EngineersFoundationContainerPage implements OnInit {
     } catch (error) {
       console.error('║  ❌ ERROR VERIFYING CACHED DATA:', error);
       console.log('╚════════════════════════════════════════════════════════════════╝\n');
+    }
+  }
+
+  /**
+   * Refresh service data in background when online.
+   * This ensures we have the latest data from the server without blocking the UI.
+   */
+  private async refreshServiceDataInBackground(): Promise<void> {
+    try {
+      console.log('[EF Container] Background refresh starting...');
+      
+      // Force refresh the template data to get latest from server
+      await this.offlineTemplate.forceRefreshTemplateData(this.serviceId, 'EFE', this.projectId);
+      
+      console.log('[EF Container] Background refresh complete - latest data loaded');
+    } catch (error) {
+      console.warn('[EF Container] Background refresh failed (non-critical):', error);
+      // Don't throw - this is a background operation
     }
   }
 }

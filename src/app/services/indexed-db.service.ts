@@ -54,7 +54,7 @@ export interface PendingEFEData {
 })
 export class IndexedDbService {
   private dbName = 'CaspioOfflineDB';
-  private version = 2;  // Bumped for new stores
+  private version = 3;  // Bumped for cachedPhotos store
   private db: IDBDatabase | null = null;
 
   constructor() {
@@ -126,6 +126,14 @@ export class IndexedDbService {
           efeStore.createIndex('serviceId', 'serviceId', { unique: false });
           efeStore.createIndex('type', 'type', { unique: false });
           efeStore.createIndex('parentId', 'parentId', { unique: false });
+        }
+
+        // Cached photos store (for offline viewing of synced photos)
+        if (!db.objectStoreNames.contains('cachedPhotos')) {
+          const photoStore = db.createObjectStore('cachedPhotos', { keyPath: 'photoKey' });
+          photoStore.createIndex('attachId', 'attachId', { unique: false });
+          photoStore.createIndex('serviceId', 'serviceId', { unique: false });
+          photoStore.createIndex('cachedAt', 'cachedAt', { unique: false });
         }
 
         console.log('[IndexedDB] Database schema created');
@@ -663,6 +671,141 @@ export class IndexedDbService {
     return grouped;
   }
 
+  // ============================================
+  // CACHED PHOTOS (for offline viewing of synced photos)
+  // ============================================
+
+  /**
+   * Cache a photo image for offline viewing
+   * Stores the image data as base64 for reliable retrieval
+   */
+  async cachePhoto(attachId: string, serviceId: string, imageDataUrl: string, s3Key?: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      console.warn('[IndexedDB] cachedPhotos store not available - skipping cache');
+      return;
+    }
+
+    const photoKey = `photo_${attachId}`;
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readwrite');
+      const store = transaction.objectStore('cachedPhotos');
+
+      const photoData = {
+        photoKey: photoKey,
+        attachId: attachId,
+        serviceId: serviceId,
+        imageData: imageDataUrl,  // base64 data URL
+        s3Key: s3Key || '',
+        cachedAt: Date.now()
+      };
+
+      const putRequest = store.put(photoData);
+
+      putRequest.onsuccess = () => {
+        console.log('[IndexedDB] Photo cached:', attachId);
+        resolve();
+      };
+
+      putRequest.onerror = () => {
+        console.error('[IndexedDB] Failed to cache photo:', putRequest.error);
+        reject(putRequest.error);
+      };
+    });
+  }
+
+  /**
+   * Get cached photo image
+   * Returns the base64 data URL or null if not cached
+   */
+  async getCachedPhoto(attachId: string): Promise<string | null> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      return null;
+    }
+
+    const photoKey = `photo_${attachId}`;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readonly');
+      const store = transaction.objectStore('cachedPhotos');
+      const getRequest = store.get(photoKey);
+
+      getRequest.onsuccess = () => {
+        const result = getRequest.result;
+        if (result && result.imageData) {
+          console.log('[IndexedDB] Cached photo found:', attachId);
+          resolve(result.imageData);
+        } else {
+          resolve(null);
+        }
+      };
+
+      getRequest.onerror = () => {
+        console.error('[IndexedDB] Error getting cached photo:', getRequest.error);
+        resolve(null);
+      };
+    });
+  }
+
+  /**
+   * Clear all cached photos for a service
+   */
+  async clearCachedPhotosForService(serviceId: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readwrite');
+      const store = transaction.objectStore('cachedPhotos');
+      const index = store.index('serviceId');
+      const request = index.openCursor(IDBKeyRange.only(serviceId));
+
+      request.onsuccess = (event: any) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        } else {
+          console.log('[IndexedDB] Cleared cached photos for service:', serviceId);
+          resolve();
+        }
+      };
+
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Clear all cached photos (for fresh refresh)
+   */
+  async clearAllCachedPhotos(): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readwrite');
+      const store = transaction.objectStore('cachedPhotos');
+      const clearRequest = store.clear();
+
+      clearRequest.onsuccess = () => {
+        console.log('[IndexedDB] All cached photos cleared');
+        resolve();
+      };
+
+      clearRequest.onerror = () => reject(clearRequest.error);
+    });
+  }
+
   /**
    * Clear all data (for testing/debugging)
    */
@@ -670,7 +813,7 @@ export class IndexedDbService {
     const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const storeNames = ['pendingRequests', 'tempIdMappings', 'pendingImages', 'cachedTemplates', 'cachedServiceData', 'pendingEFEData'];
+      const storeNames = ['pendingRequests', 'tempIdMappings', 'pendingImages', 'cachedTemplates', 'cachedServiceData', 'pendingEFEData', 'cachedPhotos'];
       const existingStores = storeNames.filter(name => db.objectStoreNames.contains(name));
 
       const transaction = db.transaction(existingStores, 'readwrite');
@@ -966,6 +1109,60 @@ export class IndexedDbService {
       };
 
       getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Clear cached service data of a specific type
+   */
+  async clearCachedServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments'): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return;
+    }
+
+    const cacheKey = `${dataType}_${serviceId}`;
+    console.log(`[IndexedDB] Clearing cached data: ${cacheKey}`);
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const deleteRequest = store.delete(cacheKey);
+
+      deleteRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Cleared: ${cacheKey}`);
+        resolve();
+      };
+
+      deleteRequest.onerror = () => reject(deleteRequest.error);
+    });
+  }
+
+  /**
+   * Remove template download status to allow re-download
+   */
+  async removeTemplateDownloadStatus(serviceId: string, templateType: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return;
+    }
+
+    const cacheKey = `template_downloaded_${templateType}_${serviceId}`;
+    console.log(`[IndexedDB] Removing download status: ${cacheKey}`);
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const deleteRequest = store.delete(cacheKey);
+
+      deleteRequest.onsuccess = () => {
+        console.log(`[IndexedDB] Download status removed: ${cacheKey}`);
+        resolve();
+      };
+
+      deleteRequest.onerror = () => reject(deleteRequest.error);
     });
   }
 

@@ -871,44 +871,77 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
     let imageUrl = '';
     let filePath = '';
+    const attachId = String(attach.AttachID);
 
-    // Check if this is an S3 image (Attachment field contains S3 key)
-    if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
-      console.log('[LOAD PHOTO] ✨ S3 image detected:', attach.Attachment);
-      filePath = attach.Attachment;
-      
-      try {
-        console.log('[LOAD PHOTO] Fetching S3 pre-signed URL...');
-        imageUrl = await this.caspioService.getS3FileUrl(attach.Attachment);
-        console.log('[LOAD PHOTO] ✅ Got S3 pre-signed URL');
-      } catch (err) {
-        console.error('[LOAD PHOTO] ❌ Failed to load S3 image:', attach.Attachment, err);
-        imageUrl = 'assets/img/photo-placeholder.png';
+    // OFFLINE-FIRST: Check IndexedDB cache first
+    try {
+      const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
+      if (cachedImage) {
+        console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
+        imageUrl = cachedImage;
+        filePath = attach.Attachment || attach.Photo || '';
       }
+    } catch (cacheErr) {
+      console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
     }
-    // Fallback to old Photo field (Caspio Files API)
-    else if (attach.Photo) {
-      console.log('[LOAD PHOTO] 📁 Caspio Files API image detected');
-      filePath = attach.Photo;
-      
-      try {
-        const imageData = await firstValueFrom(
-          this.caspioService.getImageFromFilesAPI(filePath)
-        );
-        if (imageData && imageData.startsWith('data:')) {
-          imageUrl = imageData;
-          console.log('[LOAD PHOTO] ✅ Successfully loaded image data for', attach.AttachID);
-        } else {
-          console.warn('[LOAD PHOTO] ❌ Invalid image data received for', attach.AttachID);
+
+    // If not cached, try to fetch from source
+    if (!imageUrl) {
+      // Check if this is an S3 image (Attachment field contains S3 key)
+      if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
+        console.log('[LOAD PHOTO] ✨ S3 image detected:', attach.Attachment);
+        filePath = attach.Attachment;
+        
+        try {
+          console.log('[LOAD PHOTO] Fetching S3 pre-signed URL...');
+          const s3Url = await this.caspioService.getS3FileUrl(attach.Attachment);
+          console.log('[LOAD PHOTO] ✅ Got S3 pre-signed URL');
+          
+          // Fetch and convert to base64 for caching
+          try {
+            const response = await fetch(s3Url);
+            const blob = await response.blob();
+            imageUrl = await this.blobToDataUrl(blob);
+            
+            // Cache the image for offline use
+            await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl, attach.Attachment);
+            console.log('[LOAD PHOTO] ✅ Image cached for offline use');
+          } catch (fetchErr) {
+            console.warn('[LOAD PHOTO] Could not fetch/cache image, using S3 URL directly');
+            imageUrl = s3Url;
+          }
+        } catch (err) {
+          console.error('[LOAD PHOTO] ❌ Failed to load S3 image:', attach.Attachment, err);
           imageUrl = 'assets/img/photo-placeholder.png';
         }
-      } catch (err) {
-        console.error('[LOAD PHOTO] ❌ Failed to load image:', filePath, err);
+      }
+      // Fallback to old Photo field (Caspio Files API)
+      else if (attach.Photo) {
+        console.log('[LOAD PHOTO] 📁 Caspio Files API image detected');
+        filePath = attach.Photo;
+        
+        try {
+          const imageData = await firstValueFrom(
+            this.caspioService.getImageFromFilesAPI(filePath)
+          );
+          if (imageData && imageData.startsWith('data:')) {
+            imageUrl = imageData;
+            console.log('[LOAD PHOTO] ✅ Successfully loaded image data for', attach.AttachID);
+            
+            // Cache the image for offline use
+            await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl);
+          } else {
+            console.warn('[LOAD PHOTO] ❌ Invalid image data received for', attach.AttachID);
+            imageUrl = 'assets/img/photo-placeholder.png';
+          }
+        } catch (err) {
+          console.error('[LOAD PHOTO] ❌ Failed to load image:', filePath, err);
+          imageUrl = 'assets/img/photo-placeholder.png';
+        }
+      } else {
+        console.warn('[LOAD PHOTO] ⚠️ No photo path or S3 key for attachment', attach.AttachID);
         imageUrl = 'assets/img/photo-placeholder.png';
       }
-    } else {
-      console.warn('[LOAD PHOTO] ⚠️ No photo path or S3 key for attachment', attach.AttachID);
-      imageUrl = 'assets/img/photo-placeholder.png';
     }
 
     const hasDrawings = !!attach.Drawings;
@@ -2573,6 +2606,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       // Toast removed per user request
       // await this.showToast('Failed to open photo annotator', 'danger');
     }
+  }
+
+  /**
+   * Convert a Blob to a base64 data URL for caching
+   */
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
   private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<string> {

@@ -143,6 +143,40 @@ export class OfflineTemplateService {
   }
 
   /**
+   * Force refresh template data from the server.
+   * Clears cached data and re-downloads everything.
+   * Use this when user wants to sync or when data appears stale.
+   */
+  async forceRefreshTemplateData(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', projectId?: string): Promise<void> {
+    if (!this.offlineService.isOnline()) {
+      console.warn('[OfflineTemplate] Cannot force refresh while offline');
+      return;
+    }
+
+    const cacheKey = `${templateType}_${serviceId}`;
+    console.log(`[OfflineTemplate] Force refreshing ${cacheKey}...`);
+
+    // Clear the download status to allow re-download
+    this.downloadStatus.delete(cacheKey);
+
+    // Clear cached service data (but NOT templates as those are shared)
+    await this.indexedDb.clearCachedServiceData(serviceId, 'visuals');
+    await this.indexedDb.clearCachedServiceData(serviceId, 'efe_rooms');
+    
+    // Clear cached photos for this service
+    await this.indexedDb.clearCachedPhotosForService(serviceId);
+    
+    // Mark template as not downloaded so it will re-download
+    await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+
+    // Re-download
+    await this.performDownload(serviceId, templateType, cacheKey, projectId);
+    this.downloadStatus.set(cacheKey, 'ready');
+    
+    console.log(`[OfflineTemplate] Force refresh complete for ${cacheKey}`);
+  }
+
+  /**
    * Perform the actual download of all template data
    */
   private async performDownload(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', cacheKey: string, projectId?: string): Promise<void> {
