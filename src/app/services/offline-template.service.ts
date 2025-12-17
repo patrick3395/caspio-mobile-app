@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { firstValueFrom, Subject } from 'rxjs';
+import { Capacitor } from '@capacitor/core';
 import { IndexedDbService } from './indexed-db.service';
 import { CaspioService } from './caspio.service';
 import { OfflineService } from './offline.service';
@@ -426,11 +427,18 @@ export class OfflineTemplateService {
   /**
    * Download and cache actual image files for offline viewing
    * Converts S3 images to base64 and stores in IndexedDB
+   * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)
    */
   private async downloadAndCacheImages(attachments: any[], serviceId: string): Promise<void> {
     const batchSize = 5; // Process in batches to avoid overwhelming the network
     let successCount = 0;
     let failCount = 0;
+    const isNative = Capacitor.isNativePlatform();
+    
+    // Log database diagnostics for debugging mobile issues
+    const diagnostics = await this.indexedDb.getDatabaseDiagnostics();
+    console.log(`    🖼️ Starting image download (platform: ${isNative ? 'mobile' : 'web'}, count: ${attachments.length})`);
+    console.log(`    📊 DB Status: version=${diagnostics.version}, cachedPhotosStore=${diagnostics.hasCachedPhotosStore}, existingPhotos=${diagnostics.cachedPhotosCount}`);
 
     for (let i = 0; i < attachments.length; i += batchSize) {
       const batch = attachments.slice(i, i + batchSize);
@@ -449,22 +457,19 @@ export class OfflineTemplateService {
           // Get pre-signed URL
           const s3Url = await this.caspioService.getS3FileUrl(s3Key);
           
-          // Fetch the actual image
-          const response = await fetch(s3Url);
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          
-          const blob = await response.blob();
-          
-          // Convert to base64 data URL
-          const base64 = await this.blobToDataUrl(blob);
+          // Use XMLHttpRequest-based fetch for cross-platform compatibility
+          // Standard fetch() can have CORS issues on native mobile platforms
+          const base64 = await this.fetchImageAsBase64(s3Url);
           
           // Cache in IndexedDB
           await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
           successCount++;
-        } catch (err) {
-          console.warn(`    ⚠️ Failed to cache image ${attachId}:`, err);
+          
+          if (isNative) {
+            console.log(`    ✅ [Mobile] Cached image ${attachId}`);
+          }
+        } catch (err: any) {
+          console.warn(`    ⚠️ Failed to cache image ${attachId}:`, err?.message || err);
           failCount++;
         }
       });
@@ -477,7 +482,7 @@ export class OfflineTemplateService {
       }
     }
 
-    console.log(`    📸 Image caching complete: ${successCount} succeeded, ${failCount} failed`);
+    console.log(`    📸 Image caching complete: ${successCount} succeeded, ${failCount} failed (platform: ${isNative ? 'mobile' : 'web'})`);
   }
 
   /**
@@ -489,6 +494,35 @@ export class OfflineTemplateService {
       reader.onloadend = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * Fetch image and convert to base64 data URL
+   * Uses XMLHttpRequest which works reliably on both web and mobile (Capacitor)
+   * The standard fetch() API can have CORS issues on native mobile platforms
+   */
+  private fetchImageAsBase64(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'blob';
+      xhr.timeout = 30000; // 30 second timeout
+      
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('FileReader error'));
+          reader.readAsDataURL(xhr.response);
+        } else {
+          reject(new Error(`HTTP ${xhr.status}`));
+        }
+      };
+      
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.ontimeout = () => reject(new Error('Request timeout'));
+      xhr.send();
     });
   }
 
@@ -581,10 +615,17 @@ export class OfflineTemplateService {
   /**
    * Download and cache EFE point images for offline viewing
    */
+  /**
+   * Download and cache EFE (Elevation Plot) images for offline viewing
+   * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)
+   */
   private async downloadAndCacheEFEImages(attachments: any[], serviceId: string): Promise<void> {
     const batchSize = 5;
     let successCount = 0;
     let failCount = 0;
+    const isNative = Capacitor.isNativePlatform();
+    
+    console.log(`    🖼️ Starting EFE image download (platform: ${isNative ? 'mobile' : 'web'}, count: ${attachments.length})`);
 
     for (let i = 0; i < attachments.length; i += batchSize) {
       const batch = attachments.slice(i, i + batchSize);
@@ -602,20 +643,18 @@ export class OfflineTemplateService {
           // Get pre-signed URL
           const s3Url = await this.caspioService.getS3FileUrl(s3Key);
           
-          // Fetch the actual image
-          const response = await fetch(s3Url);
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          
-          const blob = await response.blob();
-          const base64 = await this.blobToDataUrl(blob);
+          // Use XMLHttpRequest-based fetch for cross-platform compatibility
+          const base64 = await this.fetchImageAsBase64(s3Url);
           
           // Cache in IndexedDB
           await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
           successCount++;
-        } catch (err) {
-          console.warn(`    ⚠️ Failed to cache EFE image ${attachId}:`, err);
+          
+          if (isNative) {
+            console.log(`    ✅ [Mobile] Cached EFE image ${attachId}`);
+          }
+        } catch (err: any) {
+          console.warn(`    ⚠️ Failed to cache EFE image ${attachId}:`, err?.message || err);
           failCount++;
         }
       });
@@ -623,7 +662,7 @@ export class OfflineTemplateService {
       await Promise.all(batchPromises);
     }
 
-    console.log(`    📸 EFE image caching: ${successCount} succeeded, ${failCount} failed`);
+    console.log(`    📸 EFE image caching: ${successCount} succeeded, ${failCount} failed (platform: ${isNative ? 'mobile' : 'web'})`);
   }
 
   /**

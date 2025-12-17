@@ -81,6 +81,10 @@ export class IndexedDbService {
 
       request.onupgradeneeded = (event: any) => {
         const db = event.target.result;
+        const oldVersion = event.oldVersion;
+        const newVersion = event.newVersion;
+        console.log(`[IndexedDB] Database upgrade: v${oldVersion} -> v${newVersion}`);
+        console.log(`[IndexedDB] Existing stores:`, Array.from(db.objectStoreNames || []));
 
         // Pending requests store
         if (!db.objectStoreNames.contains('pendingRequests')) {
@@ -130,13 +134,17 @@ export class IndexedDbService {
 
         // Cached photos store (for offline viewing of synced photos)
         if (!db.objectStoreNames.contains('cachedPhotos')) {
+          console.log('[IndexedDB] Creating cachedPhotos store...');
           const photoStore = db.createObjectStore('cachedPhotos', { keyPath: 'photoKey' });
           photoStore.createIndex('attachId', 'attachId', { unique: false });
           photoStore.createIndex('serviceId', 'serviceId', { unique: false });
           photoStore.createIndex('cachedAt', 'cachedAt', { unique: false });
+          console.log('[IndexedDB] cachedPhotos store created successfully');
+        } else {
+          console.log('[IndexedDB] cachedPhotos store already exists');
         }
 
-        console.log('[IndexedDB] Database schema created');
+        console.log('[IndexedDB] Database schema created/updated. Final stores:', Array.from(db.objectStoreNames || []));
       };
     });
   }
@@ -763,6 +771,7 @@ export class IndexedDbService {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedPhotos')) {
+      console.warn('[IndexedDB] getCachedPhoto: cachedPhotos store does not exist! DB version:', db.version, 'Stores:', Array.from(db.objectStoreNames));
       return null;
     }
 
@@ -776,9 +785,10 @@ export class IndexedDbService {
       getRequest.onsuccess = () => {
         const result = getRequest.result;
         if (result && result.imageData) {
-          console.log('[IndexedDB] Cached photo found:', attachId);
+          console.log('[IndexedDB] Cached photo found:', attachId, '(data length:', result.imageData.length, ')');
           resolve(result.imageData);
         } else {
+          console.log('[IndexedDB] No cached photo found for:', attachId);
           resolve(null);
         }
       };
@@ -868,6 +878,42 @@ export class IndexedDbService {
 
       transaction.onerror = () => reject(transaction.error);
     });
+  }
+
+  /**
+   * Get database diagnostics for debugging
+   * Useful for troubleshooting mobile vs web differences
+   */
+  async getDatabaseDiagnostics(): Promise<{
+    version: number;
+    objectStores: string[];
+    cachedPhotosCount: number;
+    hasCachedPhotosStore: boolean;
+  }> {
+    const db = await this.ensureDb();
+    
+    const hasCachedPhotosStore = db.objectStoreNames.contains('cachedPhotos');
+    let cachedPhotosCount = 0;
+    
+    if (hasCachedPhotosStore) {
+      cachedPhotosCount = await new Promise((resolve) => {
+        const transaction = db.transaction(['cachedPhotos'], 'readonly');
+        const store = transaction.objectStore('cachedPhotos');
+        const countRequest = store.count();
+        countRequest.onsuccess = () => resolve(countRequest.result);
+        countRequest.onerror = () => resolve(0);
+      });
+    }
+    
+    const diagnostics = {
+      version: db.version,
+      objectStores: Array.from(db.objectStoreNames),
+      cachedPhotosCount,
+      hasCachedPhotosStore
+    };
+    
+    console.log('[IndexedDB] Database diagnostics:', diagnostics);
+    return diagnostics;
   }
 
   // ============================================

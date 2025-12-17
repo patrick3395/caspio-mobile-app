@@ -1,5 +1,6 @@
 import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, Subject, interval, Subscription } from 'rxjs';
+import { Capacitor } from '@capacitor/core';
 import { IndexedDbService, PendingRequest } from './indexed-db.service';
 import { ApiGatewayService } from './api-gateway.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
@@ -973,7 +974,13 @@ export class BackgroundSyncService {
   /**
    * Download and cache actual photo images as base64 for offline viewing
    */
+  /**
+   * Download and cache photos for offline viewing
+   * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)
+   */
   private async downloadAndCachePhotos(attachments: any[], serviceId: string): Promise<void> {
+    const isNative = Capacitor.isNativePlatform();
+    
     for (const attach of attachments) {
       const attachId = String(attach.AttachID || attach.PK_ID);
       const s3Key = attach.Attachment;
@@ -992,29 +999,45 @@ export class BackgroundSyncService {
       try {
         // Get pre-signed URL and download image
         const s3Url = await this.caspioService.getS3FileUrl(s3Key);
-        const response = await fetch(s3Url);
         
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const blob = await response.blob();
-        
-        // Convert to base64
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
+        // Use XMLHttpRequest for cross-platform compatibility
+        const base64 = await this.fetchImageAsBase64(s3Url);
         
         // Cache in IndexedDB
         await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
-        console.log(`[BackgroundSync] Cached image for attachment ${attachId}`);
-      } catch (err) {
-        console.warn(`[BackgroundSync] Failed to cache image ${attachId}:`, err);
+        console.log(`[BackgroundSync] Cached image for attachment ${attachId}${isNative ? ' [Mobile]' : ''}`);
+      } catch (err: any) {
+        console.warn(`[BackgroundSync] Failed to cache image ${attachId}:`, err?.message || err);
       }
     }
+  }
+
+  /**
+   * Fetch image and convert to base64 data URL
+   * Uses XMLHttpRequest which works reliably on both web and mobile (Capacitor)
+   */
+  private fetchImageAsBase64(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'blob';
+      xhr.timeout = 30000; // 30 second timeout
+      
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('FileReader error'));
+          reader.readAsDataURL(xhr.response);
+        } else {
+          reject(new Error(`HTTP ${xhr.status}`));
+        }
+      };
+      
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.ontimeout = () => reject(new Error('Request timeout'));
+      xhr.send();
+    });
   }
 
   /**
