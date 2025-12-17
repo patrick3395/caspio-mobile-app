@@ -24,6 +24,8 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { EngineersFoundationDataService } from './engineers-foundation-data.service';
 import { OfflineTemplateService } from '../../services/offline-template.service';
+// STATIC import for offline support - prevents ChunkLoadError when offline
+import { AddCustomVisualModalComponent } from '../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -11350,9 +11352,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   // Add custom visual comment with photo support
   async addCustomVisual(category: string, kind: string) {
-    // Dynamically import the modal component
-    const { AddCustomVisualModalComponent } = await import('../../modals/add-custom-visual-modal/add-custom-visual-modal.component');
-
+    // Using static import for offline support (prevents ChunkLoadError)
     const modal = await this.modalController.create({
       component: AddCustomVisualModalComponent,
       componentProps: {

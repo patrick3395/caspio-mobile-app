@@ -345,6 +345,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
   /**
    * Reload visuals after a sync event to ensure UI shows fresh data
+   * CRITICAL FIX: Uses VisualTemplateID for reliable matching, prevents key collisions
    */
   private async reloadVisualsAfterSync(): Promise<void> {
     // Prevent concurrent reloads
@@ -360,6 +361,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       // Get fresh visuals from IndexedDB (already updated by BackgroundSyncService)
       const visuals = await this.foundationData.getVisualsByService(this.serviceId);
       console.log('[RELOAD AFTER SYNC] Got', visuals.length, 'visuals from IndexedDB');
+      
+      // Track processed keys to prevent collisions within this reload
+      const processedKeys = new Set<string>();
       
       // Update existing items with fresh data from server
       let anyVisualChanges = false;
@@ -389,21 +393,36 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         }
         
         if (targetArray) {
-          // Find by templateId first, then by name+category+kind
-          let existingItem = targetArray.find(item => 
-            item.templateId === templateId
-          );
+          // CRITICAL: Find by templateId first (most reliable), then by name+category+kind
+          let existingItem: VisualItem | undefined;
+          
+          if (templateId) {
+            existingItem = targetArray.find(item => item.templateId === templateId);
+            if (existingItem) {
+              console.log(`[RELOAD AFTER SYNC] Matched visual ${visualId} by TemplateID ${templateId}`);
+            }
+          }
           
           // If not found by templateId, try name+category+kind match
           if (!existingItem) {
             existingItem = targetArray.find(item =>
               item.name === visual.Name && item.category === visual.Category
             );
+            if (existingItem && templateId) {
+              console.warn(`[RELOAD AFTER SYNC] Visual ${visualId} TemplateID ${templateId} didn't match, fell back to name: "${visual.Name}"`);
+            }
           }
           
           if (existingItem) {
             // CRITICAL: Use correct key format to match the rest of the codebase
             const key = `${visual.Category}_${existingItem.id}`;
+            
+            // CRITICAL: Check for collision - skip if this key was already processed
+            if (processedKeys.has(key)) {
+              console.warn(`[RELOAD AFTER SYNC] ⚠️ KEY COLLISION: Key "${key}" already processed, skipping visual ${visualId} (Name: "${visual.Name}")`);
+              continue;
+            }
+            processedKeys.add(key);
             
             // Store the visual record ID for later operations (select/unselect/photo uploads)
             this.visualRecordIds[key] = visualId;
@@ -929,11 +948,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   /**
    * FAST: Load visuals directly from IndexedDB cache - no pending request check
    * Optimized for instant display with deferred photo loading
+   * CRITICAL FIX: Uses VisualTemplateID for reliable matching, prevents key collisions
    */
   private async loadExistingVisualsFromCache() {
     // ONE IndexedDB read - no pending request overhead
     const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
     console.log('[LOAD VISUALS FAST] Cached visuals:', visuals.length);
+    
+    // Track which keys have already been assigned to prevent collisions
+    const assignedKeys = new Set<string>();
     
     // Process each visual for this category - sync operation, fast
     for (const visual of visuals) {
@@ -941,21 +964,47 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       const name = visual.Name;
       const kind = visual.Kind;
       const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const templateId = visual.VisualTemplateID || visual.TemplateID;
 
       // Only process visuals for current category
       if (category !== this.categoryName) continue;
       
-      // Skip hidden visuals
+      // CRITICAL: Match by VisualTemplateID first (most reliable), then fall back to name
+      let item: VisualItem | undefined;
+      
+      if (templateId) {
+        // Try matching by template ID first (most reliable)
+        item = this.findItemByTemplateId(Number(templateId));
+        if (item) {
+          console.log(`[LOAD VISUALS FAST] Matched visual ${visualId} by TemplateID ${templateId}`);
+        }
+      }
+      
+      // Fall back to name matching if template ID didn't match
+      if (!item) {
+        item = this.findItemByNameAndCategory(name, category, kind);
+        if (item && templateId) {
+          console.warn(`[LOAD VISUALS FAST] Visual ${visualId} TemplateID ${templateId} didn't match, fell back to name: "${name}"`);
+        }
+      }
+      
+      // Skip hidden visuals - but still store the mapping for unhiding later
       if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) {
-        const templateItem = this.findItemByNameAndCategory(name, category, kind);
-        if (templateItem) {
-          this.visualRecordIds[`${category}_${templateItem.id}`] = visualId;
+        if (item) {
+          const hiddenKey = `${category}_${item.id}`;
+          // Only assign if not already assigned to prevent collision
+          if (!assignedKeys.has(hiddenKey)) {
+            this.visualRecordIds[hiddenKey] = visualId;
+            assignedKeys.add(hiddenKey);
+            console.log(`[LOAD VISUALS FAST] Stored HIDDEN visual ${visualId} at key ${hiddenKey}`);
+          } else {
+            console.warn(`[LOAD VISUALS FAST] ⚠️ COLLISION: Key ${hiddenKey} already assigned, visual ${visualId} orphaned`);
+          }
         }
         continue;
       }
 
-      // Find or create item
-      let item = this.findItemByNameAndCategory(name, category, kind);
+      // Find or create item (if not found above)
       if (!item) {
         // Custom visual - create dynamic item
         const customItem: VisualItem = {
@@ -979,10 +1028,47 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         else this.organizedData.comments.push(customItem);
         
         item = customItem;
+        console.log(`[LOAD VISUALS FAST] Created custom item for visual ${visualId}: "${name}"`);
       }
 
       const key = `${category}_${item.id}`;
+      
+      // CRITICAL: Check for key collision before assigning
+      if (assignedKeys.has(key)) {
+        console.error(`[LOAD VISUALS FAST] ⚠️ KEY COLLISION DETECTED! Key "${key}" already has visual ${this.visualRecordIds[key]}, visual ${visualId} (Name: "${name}") would overwrite it!`);
+        // Create a custom item for this orphaned visual instead of overwriting
+        const orphanedItem: VisualItem = {
+          id: `orphan_${visualId}`,
+          templateId: 0,
+          name: visual.Name || 'Orphaned Item',
+          text: visual.Text || '',
+          originalText: visual.Text || '',
+          type: visual.Kind || 'Comment',
+          category: visual.Category,
+          answerType: 0,
+          required: false,
+          answer: visual.Answers || '',
+          isSelected: true,
+          photos: []
+        };
+        
+        if (kind === 'Comment') this.organizedData.comments.push(orphanedItem);
+        else if (kind === 'Limitation') this.organizedData.limitations.push(orphanedItem);
+        else if (kind === 'Deficiency') this.organizedData.deficiencies.push(orphanedItem);
+        else this.organizedData.comments.push(orphanedItem);
+        
+        const orphanKey = `${category}_orphan_${visualId}`;
+        this.visualRecordIds[orphanKey] = visualId;
+        assignedKeys.add(orphanKey);
+        this.selectedItems[orphanKey] = true;
+        this.photoCountsByKey[orphanKey] = 0;
+        this.loadingPhotosByKey[orphanKey] = true;
+        console.log(`[LOAD VISUALS FAST] Created orphan item with key ${orphanKey} for visual ${visualId}`);
+        continue;
+      }
+      
       this.visualRecordIds[key] = visualId;
+      assignedKeys.add(key);
       
       // Restore edited values
       if (visual.Name) item.name = visual.Name;
@@ -1002,6 +1088,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       this.photoCountsByKey[key] = 0;
       this.loadingPhotosByKey[key] = true;
     }
+    
+    console.log(`[LOAD VISUALS FAST] Finished loading. Keys assigned: ${assignedKeys.size}, visualRecordIds entries: ${Object.keys(this.visualRecordIds).length}`);
     
     // Render immediately
     this.changeDetectorRef.detectChanges();
@@ -1774,7 +1862,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
-          Answers: item.answer || ''
+          Answers: item.answer || '',
+          VisualTemplateID: item.templateId || 0  // CRITICAL: Store template ID for reliable matching
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -1850,7 +1939,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Answers: item.answer
+          Answers: item.answer,
+          VisualTemplateID: item.templateId || 0  // CRITICAL: Store template ID for reliable matching
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -1913,7 +2003,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Answers: item.answer || ''
+          Answers: item.answer || '',
+          VisualTemplateID: item.templateId || 0  // CRITICAL: Store template ID for reliable matching
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -2716,13 +2807,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
 
       // Create the Services_Visuals record using EXACT same structure as original
+      // CRITICAL: Include VisualTemplateID for reliable matching on reload
       const visualData: any = {
         ServiceID: serviceIdNum,
         Category: category,
         Kind: item.type,      // CRITICAL: Use item.type which is now set from template.Kind
         Name: item.name,
         Text: item.text || item.originalText || '',
-        Notes: ''
+        Notes: '',
+        VisualTemplateID: item.templateId || Number(itemId)  // CRITICAL: Store template ID for reliable matching
       };
 
       console.log('[SAVE VISUAL] Visual data being saved:', visualData);
