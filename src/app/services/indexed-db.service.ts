@@ -898,6 +898,40 @@ export class IndexedDbService {
   }
 
   /**
+   * Delete a single cached photo by attachId
+   * CRITICAL: Must be called when deleting photos to prevent stale cache
+   */
+  async deleteCachedPhoto(attachId: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      return;
+    }
+
+    const photoKey = `photo_${attachId}`;
+    const annotatedKey = `annotated_${attachId}`;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readwrite');
+      const store = transaction.objectStore('cachedPhotos');
+      
+      // Delete both the base photo and any annotated version
+      store.delete(photoKey);
+      store.delete(annotatedKey);
+
+      transaction.oncomplete = () => {
+        console.log('[IndexedDB] Deleted cached photo:', attachId);
+        resolve();
+      };
+
+      transaction.onerror = () => {
+        console.error('[IndexedDB] Failed to delete cached photo:', attachId);
+        reject(transaction.error);
+      };
+    });
+  }
+
+  /**
    * Clear all cached photos for a service
    */
   async clearCachedPhotosForService(serviceId: string): Promise<void> {

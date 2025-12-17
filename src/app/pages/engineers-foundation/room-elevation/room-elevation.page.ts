@@ -590,18 +590,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     // This allows skeletons to show while images load in background
 
     // Load Top photo metadata - PREFER S3 Attachment column over legacy Files API path
+    // Column names: FDFPhotoTop (legacy path), FDFPhotoTopAttachment (S3), FDFTopAnnotation, FDFTopDrawings
     const topS3Key = room.FDFPhotoTopAttachment;
     const topLegacyPath = room.FDFPhotoTop;
     if (topS3Key || topLegacyPath) {
       fdfPhotos.top = true;
       fdfPhotos.topPath = topLegacyPath;
       fdfPhotos.topAttachment = topS3Key;
-      fdfPhotos.topCaption = room.FDFPhotoTopAnnotation || '';
-      fdfPhotos.topDrawings = room.FDFPhotoTopDrawings || null;
+      fdfPhotos.topCaption = room.FDFTopAnnotation || '';
+      fdfPhotos.topDrawings = room.FDFTopDrawings || null;
       fdfPhotos.topLoading = true; // Skeleton state
       fdfPhotos.topUrl = 'assets/img/photo-placeholder.png'; // Placeholder
       fdfPhotos.topDisplayUrl = 'assets/img/photo-placeholder.png';
-      fdfPhotos.topHasAnnotations = !!(room.FDFPhotoTopDrawings && room.FDFPhotoTopDrawings !== 'null' && room.FDFPhotoTopDrawings !== '' && room.FDFPhotoTopDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
+      fdfPhotos.topHasAnnotations = !!(room.FDFTopDrawings && room.FDFTopDrawings !== 'null' && room.FDFTopDrawings !== '' && room.FDFTopDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
       // Load actual image in background - PREFER S3 key
       this.loadFDFPhotoImage(topS3Key || topLegacyPath, 'top').catch(err => {
@@ -610,18 +611,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
 
     // Load Bottom photo metadata - PREFER S3 Attachment column over legacy Files API path
+    // Column names: FDFPhotoBottom (legacy path), FDFPhotoBottomAttachment (S3), FDFBottomAnnotation, FDFBottomDrawings
     const bottomS3Key = room.FDFPhotoBottomAttachment;
     const bottomLegacyPath = room.FDFPhotoBottom;
     if (bottomS3Key || bottomLegacyPath) {
       fdfPhotos.bottom = true;
       fdfPhotos.bottomPath = bottomLegacyPath;
       fdfPhotos.bottomAttachment = bottomS3Key;
-      fdfPhotos.bottomCaption = room.FDFPhotoBottomAnnotation || '';
-      fdfPhotos.bottomDrawings = room.FDFPhotoBottomDrawings || null;
+      fdfPhotos.bottomCaption = room.FDFBottomAnnotation || '';
+      fdfPhotos.bottomDrawings = room.FDFBottomDrawings || null;
       fdfPhotos.bottomLoading = true; // Skeleton state
       fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
       fdfPhotos.bottomDisplayUrl = 'assets/img/photo-placeholder.png';
-      fdfPhotos.bottomHasAnnotations = !!(room.FDFPhotoBottomDrawings && room.FDFPhotoBottomDrawings !== 'null' && room.FDFPhotoBottomDrawings !== '' && room.FDFPhotoBottomDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
+      fdfPhotos.bottomHasAnnotations = !!(room.FDFBottomDrawings && room.FDFBottomDrawings !== 'null' && room.FDFBottomDrawings !== '' && room.FDFBottomDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
       // Load actual image in background - PREFER S3 key
       this.loadFDFPhotoImage(bottomS3Key || bottomLegacyPath, 'bottom').catch(err => {
@@ -630,18 +632,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
 
     // Load Threshold (Location) photo metadata - PREFER S3 Attachment column over legacy Files API path
+    // Column names: FDFPhotoThreshold (legacy path), FDFPhotoThresholdAttachment (S3), FDFThresholdAnnotation, FDFThresholdDrawings
     const thresholdS3Key = room.FDFPhotoThresholdAttachment;
     const thresholdLegacyPath = room.FDFPhotoThreshold;
     if (thresholdS3Key || thresholdLegacyPath) {
       fdfPhotos.threshold = true;
       fdfPhotos.thresholdPath = thresholdLegacyPath;
       fdfPhotos.thresholdAttachment = thresholdS3Key;
-      fdfPhotos.thresholdCaption = room.FDFPhotoThresholdAnnotation || '';
-      fdfPhotos.thresholdDrawings = room.FDFPhotoThresholdDrawings || null;
+      fdfPhotos.thresholdCaption = room.FDFThresholdAnnotation || '';
+      fdfPhotos.thresholdDrawings = room.FDFThresholdDrawings || null;
       fdfPhotos.thresholdLoading = true; // Skeleton state
       fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
       fdfPhotos.thresholdDisplayUrl = 'assets/img/photo-placeholder.png';
-      fdfPhotos.thresholdHasAnnotations = !!(room.FDFPhotoThresholdDrawings && room.FDFPhotoThresholdDrawings !== 'null' && room.FDFPhotoThresholdDrawings !== '' && room.FDFPhotoThresholdDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
+      fdfPhotos.thresholdHasAnnotations = !!(room.FDFThresholdDrawings && room.FDFThresholdDrawings !== 'null' && room.FDFThresholdDrawings !== '' && room.FDFThresholdDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
       // Load actual image in background - PREFER S3 key
       this.loadFDFPhotoImage(thresholdS3Key || thresholdLegacyPath, 'threshold').catch(err => {
@@ -1627,7 +1630,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
       fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
       fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
-      fdfPhotos[`${photoKey}Uploading`] = true; // Show subtle uploading indicator
+      fdfPhotos[`${photoKey}Loading`] = false;  // CRITICAL: Clear loading to show the photo
+      fdfPhotos[`${photoKey}Uploading`] = true; // Show subtle uploading indicator (spinner only)
       fdfPhotos[`${photoKey}TempId`] = tempId;
       fdfPhotos[`${photoKey}Queued`] = true;
 
@@ -1938,14 +1942,24 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           text: 'Delete',
           handler: async () => {
             const photoKey = photoType.toLowerCase();
-            const columnName = `FDFPhoto${photoType}`;
+            // CRITICAL: Clear all related columns
+            // Photo path: FDFPhoto{Type}
+            // S3 attachment: FDFPhoto{Type}Attachment  
+            // Annotation/Caption: FDF{Type}Annotation
+            // Drawings: FDF{Type}Drawings
             const updateData: any = {};
-            updateData[columnName] = null;
-            updateData[`${columnName}Annotation`] = null;
-            updateData[`${columnName}Drawings`] = null;
+            updateData[`FDFPhoto${photoType}`] = null;
+            updateData[`FDFPhoto${photoType}Attachment`] = null;
+            updateData[`FDF${photoType}Annotation`] = null;
+            updateData[`FDF${photoType}Drawings`] = null;
 
             try {
               await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
+
+              // CRITICAL: Clear cached photo from IndexedDB to prevent stale cache
+              const cacheId = `fdf_${this.roomId}_${photoKey}`;
+              await this.indexedDb.deleteCachedPhoto(cacheId);
+              console.log('[FDF Delete] Cleared cached photo from IndexedDB:', cacheId);
 
               // Clear local state
               const fdfPhotos = this.roomData.fdfPhotos;
@@ -1953,9 +1967,12 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               fdfPhotos[`${photoKey}Url`] = null;
               fdfPhotos[`${photoKey}DisplayUrl`] = null;
               fdfPhotos[`${photoKey}Path`] = null;
+              fdfPhotos[`${photoKey}Attachment`] = null;
               fdfPhotos[`${photoKey}Caption`] = '';
               fdfPhotos[`${photoKey}Drawings`] = null;
               fdfPhotos[`${photoKey}HasAnnotations`] = false;
+              fdfPhotos[`${photoKey}Loading`] = false;
+              fdfPhotos[`${photoKey}Uploading`] = false;
 
               this.changeDetectorRef.detectChanges();
               // Toast removed per user request
@@ -2520,6 +2537,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             try {
               if (photo.attachId) {
                 await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
+                
+                // CRITICAL: Clear cached photo from IndexedDB to prevent stale cache
+                await this.indexedDb.deleteCachedPhoto(String(photo.attachId));
+                console.log('[Point Photo] Cleared cached photo from IndexedDB:', photo.attachId);
               }
 
               // Remove from local array
@@ -2729,10 +2750,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
 
     // Build update object with dynamic column names
-    const columnName = `FDFPhoto${photoType}`;
+    // CRITICAL: Column names are FDF{Type}Drawings and FDF{Type}Annotation (not FDFPhoto{Type}...)
     const updateData: any = {};
-    updateData[`${columnName}Drawings`] = drawingsData;
-    updateData[`${columnName}Annotation`] = caption || '';
+    updateData[`FDF${photoType}Drawings`] = drawingsData;
+    updateData[`FDF${photoType}Annotation`] = caption || '';
 
     console.log('[SAVE FDF] Saving annotations to database:', {
       roomId,
