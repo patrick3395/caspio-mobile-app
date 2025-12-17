@@ -495,6 +495,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       console.error('[RELOAD AFTER SYNC] Error:', error);
     } finally {
       this.isReloadingAfterSync = false;
+      
+      // CRITICAL FIX: Set a cooldown period after reload to prevent background_refresh from triggering another reload
+      // This prevents the duplicate photo issue caused by rapid sequential reloads
+      this.localOperationCooldown = true;
+      if (this.localOperationCooldownTimer) {
+        clearTimeout(this.localOperationCooldownTimer);
+      }
+      this.localOperationCooldownTimer = setTimeout(() => {
+        this.localOperationCooldown = false;
+        console.log('[RELOAD AFTER SYNC] Cooldown period ended');
+      }, 2000); // 2 second cooldown after reload
     }
   }
 
@@ -1631,13 +1642,28 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       this.visualPhotos[key] = [];
     }
 
-    // CRITICAL: Check if photo already exists before adding
-    const existingIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attach.AttachID);
+    // CRITICAL FIX: Use String() conversion for comparison to handle number/string type mismatches
+    // Also check multiple ID fields to be thorough
+    const attachIdStr = String(attach.AttachID);
+    const existingIndex = this.visualPhotos[key].findIndex(p => 
+      String(p.AttachID) === attachIdStr || 
+      String(p.id) === attachIdStr ||
+      String(p.attachId) === attachIdStr
+    );
     if (existingIndex !== -1) {
       console.log('[LOAD PHOTO] Photo', attach.AttachID, 'already exists at index', existingIndex, '- updating instead of adding');
       // Update existing photo instead of adding duplicate
       this.visualPhotos[key][existingIndex] = photoData;
     } else {
+      // CRITICAL FIX: Double-check for duplicates right before adding
+      // This prevents race conditions with concurrent reloads
+      const doubleCheckIndex = this.visualPhotos[key].findIndex(p => 
+        String(p.AttachID) === attachIdStr
+      );
+      if (doubleCheckIndex !== -1) {
+        console.log('[LOAD PHOTO] ⚠️ Race condition detected! Photo', attach.AttachID, 'was added by concurrent operation - skipping');
+        return;
+      }
       console.log('[LOAD PHOTO] Adding photo', attach.AttachID, 'to array (current count:', this.visualPhotos[key].length, ')');
       this.visualPhotos[key].push(photoData);
     }
