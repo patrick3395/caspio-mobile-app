@@ -1534,6 +1534,54 @@ export class IndexedDbService {
     });
   }
 
+  /**
+   * Get all pending EFE photos grouped by point ID
+   * Returns a map of pointId -> photos array
+   * CRITICAL: Call this ONCE and reuse the map to avoid N+1 IndexedDB reads
+   */
+  async getAllPendingPhotosGroupedByPoint(): Promise<Map<string, any[]>> {
+    const allPhotos = await this.getAllPendingPhotos();
+    const grouped = new Map<string, any[]>();
+
+    // Only process EFE photos
+    const efePhotos = allPhotos.filter(p => p.isEFE);
+
+    for (const photo of efePhotos) {
+      const pointId = String(photo.pointId);
+
+      // Create blob URL from stored ArrayBuffer
+      const blob = new Blob([photo.fileData], { type: photo.fileType || 'image/jpeg' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      const displayPhoto = {
+        AttachID: photo.imageId,
+        id: photo.imageId,
+        _pendingFileId: photo.imageId,
+        PointID: pointId,
+        url: blobUrl,
+        originalUrl: blobUrl,
+        thumbnailUrl: blobUrl,
+        displayUrl: blobUrl,
+        Type: photo.photoType || 'Measurement',
+        photoType: photo.photoType || 'Measurement',
+        drawings: photo.drawings || '',
+        Drawings: photo.drawings || '',
+        queued: true,
+        uploading: false,
+        isPending: true,
+        isEFE: true,
+        createdAt: photo.createdAt
+      };
+
+      if (!grouped.has(pointId)) {
+        grouped.set(pointId, []);
+      }
+      grouped.get(pointId)!.push(displayPhoto);
+    }
+
+    return grouped;
+  }
+
   // ============================================
   // PROJECT RECORD CACHING
   // ============================================

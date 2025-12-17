@@ -651,6 +651,12 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       // STEP 4: Load all attachments for existing points
       console.log('\n[RoomElevation] STEP 4: Loading attachments...');
       let attachments: any[] = [];
+      
+      // CRITICAL: Get ALL pending photos grouped by point in ONE IndexedDB call
+      // This avoids N+1 reads when processing each point (matches structural systems pattern)
+      const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByPoint();
+      console.log('[RoomElevation] Pending photos map has', pendingPhotosMap.size, 'points with pending photos');
+      
       if (existingPoints && existingPoints.length > 0) {
         const pointIds = existingPoints.map((p: any) => p.PointID || p.PK_ID).filter(id => id);
         console.log('[RoomElevation] Point IDs to fetch attachments for:', pointIds);
@@ -770,8 +776,32 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             }
           }
         }
+        
+        // CRITICAL: Add pending photos from the pre-grouped map (ONE IndexedDB read total)
+        // This matches the structural systems pattern for performance
+        const pointIdStr = String(pointData.pointId);
+        const pendingPhotos = pendingPhotosMap.get(pointIdStr) || [];
+        if (pendingPhotos.length > 0) {
+          console.log(`[RoomElevation]   Adding ${pendingPhotos.length} pending photos for point ${pointIdStr}`);
+          for (const pendingPhoto of pendingPhotos) {
+            const pendingPhotoData: any = {
+              attachId: pendingPhoto.AttachID || pendingPhoto._pendingFileId,
+              photoType: pendingPhoto.Type || pendingPhoto.photoType || 'Measurement',
+              url: pendingPhoto.displayUrl || pendingPhoto.url || pendingPhoto.thumbnailUrl,
+              displayUrl: pendingPhoto.displayUrl || pendingPhoto.url || pendingPhoto.thumbnailUrl,
+              caption: '',
+              drawings: pendingPhoto.Drawings || pendingPhoto.drawings || null,
+              hasAnnotations: !!(pendingPhoto.Drawings || pendingPhoto.drawings),
+              uploading: false,
+              queued: true,
+              isPending: true,
+              _tempId: pendingPhoto.AttachID || pendingPhoto._pendingFileId,
+            };
+            pointData.photos.push(pendingPhotoData);
+          }
+        }
 
-        console.log(`[RoomElevation]   âœ“ Point "${templatePoint.name}" complete:`, {
+        console.log(`[RoomElevation] Point "${templatePoint.name}" complete:`, {
           pointId: pointData.pointId,
           value: pointData.value,
           photoCount: pointData.photos.length

@@ -1084,56 +1084,45 @@ export class OfflineTemplateService {
    * Get EFE point attachments - CACHE-FIRST for instant loading
    * Returns cached data immediately, refreshes in background when online
    * CRITICAL: Preserves local updates (annotations) when merging with server data
-   * CRITICAL: Also merges pending offline photos that haven't been synced yet
+   * NOTE: Pending photos are merged at page level using getAllPendingPhotosGroupedByPoint()
+   * to avoid N+1 IndexedDB reads (matches getVisualAttachments pattern)
    */
   async getEFEPointAttachments(pointId: string | number): Promise<any[]> {
     const key = String(pointId);
     
-    // For temp point IDs, only return pending photos (nothing in cache yet)
+    // Skip for temp point IDs - they won't have server data
     if (key.startsWith('temp_')) {
-      console.log(`[OfflineTemplate] Getting pending photos for temp point ${key}`);
-      const pendingPhotos = await this.indexedDb.getPendingPhotosForPoint(key);
-      console.log(`[OfflineTemplate] Found ${pendingPhotos.length} pending photos for temp point ${key}`);
-      return pendingPhotos;
+      console.log(`[OfflineTemplate] Skipping for temp point ${key}`);
+      return [];
     }
 
     // 1. Read from cache IMMEDIATELY
-    const cached = await this.indexedDb.getCachedServiceData(key, 'efe_point_attachments') || [];
+    const cached = await this.indexedDb.getCachedServiceData(key, 'efe_point_attachments');
     
-    // 2. Also get pending photos for this point (not yet synced)
-    const pendingPhotos = await this.indexedDb.getPendingPhotosForPoint(key);
-    
-    // 3. Merge cached and pending, avoiding duplicates by temp ID
-    const pendingIds = new Set(pendingPhotos.map(p => p.AttachID || p._pendingFileId));
-    const filteredCached = cached.filter((c: any) => !pendingIds.has(c.AttachID));
-    const merged = [...filteredCached, ...pendingPhotos];
-    
-    // 4. Return immediately if we have data
-    if (merged.length > 0) {
-      console.log(`[OfflineTemplate] EFE attachments for ${key}: ${cached.length} cached + ${pendingPhotos.length} pending (instant)`);
+    // 2. Return immediately if we have data
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] EFE attachments for ${key}: ${cached.length} (instant from cache)`);
       
-      // 5. Background refresh (non-blocking) when online
+      // 3. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
         this.refreshEFEAttachmentsInBackground(key);
       }
-      return merged;
+      return cached;
     }
     
-    // 6. Cache empty - fetch from API if online (blocking only when no cache)
+    // 4. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
         console.log(`[OfflineTemplate] No cached EFE attachments for ${key}, fetching from API...`);
         const attachments = await firstValueFrom(this.caspioService.getServicesEFEAttachments(key));
         await this.indexedDb.cacheServiceData(key, 'efe_point_attachments', attachments || []);
-        // Still include any pending photos
-        return [...(attachments || []), ...pendingPhotos];
+        return attachments || [];
       } catch (error) {
         console.warn(`[OfflineTemplate] API fetch failed for ${key}:`, error);
       }
     }
     
-    // Return pending photos even if cache is empty
-    return pendingPhotos;
+    return [];
   }
 
   /**
