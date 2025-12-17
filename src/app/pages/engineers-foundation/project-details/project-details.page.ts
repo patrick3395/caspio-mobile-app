@@ -97,10 +97,6 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   async ngOnInit() {
     console.log('[ProjectDetails] ngOnInit() called');
 
-    // Load dropdown options from database tables (non-blocking for offline support)
-    this.loadDropdownOptions();
-    this.loadProjectDropdownOptions();
-
     // Get IDs from parent route snapshot immediately (for offline reliability)
     const parentParams = this.route.parent?.snapshot?.params;
     console.log('[ProjectDetails] parentParams from snapshot:', parentParams);
@@ -111,12 +107,17 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
 
       if (this.projectId && this.serviceId) {
         console.log('[ProjectDetails] Calling loadData() from SNAPSHOT');
-        this.loadData();
+        await this.loadData();
+        
+        // CRITICAL: Load dropdown options AFTER data is loaded
+        // This ensures "Other" values are properly detected and text fields populated
+        await this.loadDropdownOptions();
+        await this.loadProjectDropdownOptions();
       }
     }
 
     // Also subscribe to param changes (for dynamic updates)
-    this.route.parent?.params.subscribe(params => {
+    this.route.parent?.params.subscribe(async params => {
       console.log('[ProjectDetails] params.subscribe fired with:', params);
       const newProjectId = params['projectId'];
       const newServiceId = params['serviceId'];
@@ -128,7 +129,11 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
         console.log('[ProjectDetails] IDs CHANGED - calling loadData() from SUBSCRIPTION');
         this.projectId = newProjectId;
         this.serviceId = newServiceId;
-        this.loadData();
+        await this.loadData();
+        
+        // CRITICAL: Reload dropdown options after data loads
+        await this.loadDropdownOptions();
+        await this.loadProjectDropdownOptions();
       } else {
         console.log('[ProjectDetails] IDs unchanged - NOT reloading');
       }
@@ -675,6 +680,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           this.projectData.Style = 'Other';
         }
 
+        console.log('[ProjectDetails] loadProjectDropdownOptions(): Options loaded, forcing change detection');
+        this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
       console.error('Error loading Projects_Drop options:', error);

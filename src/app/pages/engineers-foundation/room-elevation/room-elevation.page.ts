@@ -504,6 +504,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   // New helper method to load elevation point photo images in background (OFFLINE-FIRST)
   private async loadPointPhotoImage(photoPath: string, photoData: any) {
     const attachId = String(photoData.attachId);
+    // Also check if we have an S3 key in the Attachment field
+    const s3Key = photoData.Attachment || photoPath;
     
     try {
       // OFFLINE-FIRST: Check IndexedDB cached photo first
@@ -528,7 +530,24 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       }
 
       // Online - fetch from API and cache
-      const imageData = await this.foundationData.getImage(photoPath);
+      let imageData: string | null = null;
+      
+      // Check if this is an S3 key - use XMLHttpRequest to fetch as data URL
+      if (s3Key && this.caspioService.isS3Key(s3Key)) {
+        console.log(`[Point Photo] Fetching S3 image for ${attachId}:`, s3Key);
+        try {
+          const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+          imageData = await this.fetchS3ImageAsDataUrl(s3Url);
+        } catch (err) {
+          console.warn(`[Point Photo] S3 fetch failed for ${attachId}, trying fallback:`, err);
+        }
+      }
+      
+      // Fallback to Caspio Files API for non-S3 paths
+      if (!imageData && photoPath && !this.caspioService.isS3Key(photoPath)) {
+        imageData = await this.foundationData.getImage(photoPath);
+      }
+      
       if (imageData) {
         photoData.url = imageData;
         photoData.displayUrl = imageData;
@@ -536,7 +555,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         
         // Cache for offline use
         if (attachId && !attachId.startsWith('temp_')) {
-          await this.indexedDb.cachePhoto(attachId, this.serviceId, imageData, photoPath);
+          await this.indexedDb.cachePhoto(attachId, this.serviceId, imageData, s3Key || photoPath);
           console.log(`[Point Photo] Loaded and cached image for ${attachId}`);
         }
         
@@ -747,30 +766,24 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               uploading: false
             };
 
-            // Load image based on storage type
-            if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
-              photoData.loading = true;
-              this.caspioService.getS3FileUrl(attach.Attachment).then(url => {
-                photoData.url = url;
-                photoData.displayUrl = url;
-                photoData.loading = false;
-                this.changeDetectorRef.detectChanges();
-              }).catch(() => {
-                photoData.loading = false;
-                this.changeDetectorRef.detectChanges();
-              });
-            } else if (attach.Photo) {
+            // Set loading state for all photos
+            const hasS3Key = attach.Attachment && this.caspioService.isS3Key(attach.Attachment);
+            const hasPhotoPath = !!attach.Photo;
+            
+            if (hasS3Key || hasPhotoPath) {
               photoData.url = 'assets/img/photo-placeholder.png';
               photoData.displayUrl = 'assets/img/photo-placeholder.png';
               photoData.loading = true;
-              console.log(`[RoomElevation]       Setting photo to skeleton state`);
+              console.log(`[RoomElevation]       Setting photo to loading state (S3: ${hasS3Key})`);
             }
 
             pointData.photos.push(photoData);
 
             // Load the actual image in background (non-blocking)
-            if (attach.Photo) {
-              this.loadPointPhotoImage(attach.Photo, photoData).catch(err => {
+            // CRITICAL FIX: Always use loadPointPhotoImage which fetches as data URL and caches
+            // This ensures fabric.js can use the image without CORS issues
+            if (hasS3Key || hasPhotoPath) {
+              this.loadPointPhotoImage(attach.Photo || attach.Attachment, photoData).catch(err => {
                 console.error(`[RoomElevation]       âŒ Error loading photo:`, err);
               });
             }
@@ -917,30 +930,24 @@ export class RoomElevationPage implements OnInit, OnDestroy {
                 uploading: false
               };
 
-              // Load image based on storage type
-              if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
-                photoData.loading = true;
-                this.caspioService.getS3FileUrl(attach.Attachment).then(url => {
-                  photoData.url = url;
-                  photoData.displayUrl = url;
-                  photoData.loading = false;
-                  this.changeDetectorRef.detectChanges();
-                }).catch(() => {
-                  photoData.loading = false;
-                  this.changeDetectorRef.detectChanges();
-                });
-              } else if (attach.Photo) {
+              // Set loading state for all photos
+              const hasS3Key = attach.Attachment && this.caspioService.isS3Key(attach.Attachment);
+              const hasPhotoPath = !!attach.Photo;
+              
+              if (hasS3Key || hasPhotoPath) {
                 photoData.url = 'assets/img/photo-placeholder.png';
                 photoData.displayUrl = 'assets/img/photo-placeholder.png';
                 photoData.loading = true;
-                console.log(`[RoomElevation]         Setting photo to skeleton state`);
+                console.log(`[RoomElevation]         Setting photo to loading state (S3: ${hasS3Key})`);
               }
 
               customPointData.photos.push(photoData);
 
               // Load the actual image in background (non-blocking)
-              if (attach.Photo) {
-                this.loadPointPhotoImage(attach.Photo, photoData).catch(err => {
+              // CRITICAL FIX: Always use loadPointPhotoImage which fetches as data URL and caches
+              // This ensures fabric.js can use the image without CORS issues
+              if (hasS3Key || hasPhotoPath) {
+                this.loadPointPhotoImage(attach.Photo || attach.Attachment, photoData).catch(err => {
                   console.error(`[RoomElevation]         âŒ Error loading photo:`, err);
                 });
               }
@@ -1355,15 +1362,61 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   async annotateFDFPhoto(photoType: 'Top' | 'Bottom' | 'Threshold') {
     const photoKey = photoType.toLowerCase();
     const fdfPhotos = this.roomData.fdfPhotos;
-    const photoUrl = fdfPhotos[`${photoKey}Url`];
-
-    if (!photoUrl) {
-      // Toast removed per user request
-      // await this.showToast('No photo to annotate', 'warning');
-      return;
-    }
 
     try {
+      // CRITICAL FIX: Wait for photo to load if still loading
+      if (fdfPhotos[`${photoKey}Loading`]) {
+        console.log('[FDF Annotate] Photo still loading, waiting...');
+        const startTime = Date.now();
+        while (fdfPhotos[`${photoKey}Loading`] && (Date.now() - startTime) < 10000) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        if (fdfPhotos[`${photoKey}Loading`]) {
+          console.warn('[FDF Annotate] Photo loading timed out');
+        }
+      }
+
+      // CRITICAL FIX: Get image as data URL to avoid CORS issues in Fabric.js canvas
+      let photoUrl = fdfPhotos[`${photoKey}Url`];
+      const s3Key = fdfPhotos[`${photoKey}Path`];
+      const cacheId = `fdf_${this.roomId}_${photoKey}`;
+      
+      // ALWAYS try IndexedDB cache first - it stores data URLs which work with canvas
+      console.log('[FDF Annotate] Checking IndexedDB cache for:', cacheId);
+      const cachedDataUrl = await this.indexedDb.getCachedPhoto(cacheId);
+      if (cachedDataUrl && cachedDataUrl.startsWith('data:')) {
+        console.log('[FDF Annotate] ✅ Using cached data URL from IndexedDB');
+        photoUrl = cachedDataUrl;
+      }
+      
+      // If still no valid data URL and we have an S3 path, fetch and cache it
+      if ((!photoUrl || photoUrl === 'assets/img/photo-placeholder.png' || photoUrl.startsWith('https://')) && s3Key) {
+        if (this.caspioService.isS3Key(s3Key)) {
+          console.log('[FDF Annotate] Fetching S3 image as data URL via XMLHttpRequest:', s3Key);
+          try {
+            // Get pre-signed S3 URL first
+            const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+            
+            // Fetch image as base64 data URL using XMLHttpRequest (avoids CORS issues with fabric.js canvas)
+            photoUrl = await this.fetchS3ImageAsDataUrl(s3Url);
+            
+            if (photoUrl && photoUrl.startsWith('data:')) {
+              fdfPhotos[`${photoKey}Url`] = photoUrl;
+              fdfPhotos[`${photoKey}DisplayUrl`] = photoUrl;
+              // Cache for future use
+              await this.indexedDb.cachePhoto(cacheId, this.serviceId, photoUrl, s3Key);
+              console.log('[FDF Annotate] ✅ Got data URL via XMLHttpRequest');
+            }
+          } catch (err) {
+            console.error('[FDF Annotate] Failed to fetch S3 image:', err);
+          }
+        }
+      }
+
+      if (!photoUrl || photoUrl === 'assets/img/photo-placeholder.png') {
+        console.warn('[FDF Annotate] No valid image URL available');
+        return;
+      }
       // CRITICAL: Decompress existing annotations before opening modal - EXACT pattern from structural-systems
       let existingAnnotations: any = null;
       const compressedDrawings = fdfPhotos[`${photoKey}Drawings`];
@@ -1880,13 +1933,69 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   }
 
   async annotatePointPhoto(point: any, photo: any) {
-    if (!photo.url) {
-      // Toast removed per user request
-      // await this.showToast('No photo to annotate', 'warning');
-      return;
-    }
-
     try {
+      // CRITICAL FIX: Wait for photo to load if still loading
+      if (photo.loading) {
+        console.log('[Point Annotate] Photo still loading, waiting...');
+        // Wait for loading to complete (poll every 100ms, timeout after 10s)
+        const startTime = Date.now();
+        while (photo.loading && (Date.now() - startTime) < 10000) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        if (photo.loading) {
+          console.warn('[Point Annotate] Photo loading timed out');
+        }
+      }
+
+      // CRITICAL FIX: Get image as data URL to avoid CORS issues in Fabric.js canvas
+      let imageUrl = photo.url || photo.displayUrl;
+      
+      // ALWAYS try IndexedDB cache first - it stores data URLs which work with canvas
+      const attachId = photo.attachId;
+      if (attachId) {
+        console.log('[Point Annotate] Checking IndexedDB cache for:', attachId);
+        const cachedDataUrl = await this.indexedDb.getCachedPhoto(attachId);
+        if (cachedDataUrl && cachedDataUrl.startsWith('data:')) {
+          console.log('[Point Annotate] ✅ Using cached data URL from IndexedDB');
+          imageUrl = cachedDataUrl;
+        }
+      }
+      
+      // If still no valid data URL and we have a path, fetch and cache it
+      if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.png' || imageUrl.startsWith('https://')) {
+        const s3Key = photo.Attachment || photo.path;
+        
+        // For S3 images, fetch via XMLHttpRequest to get data URL (avoids CORS issues with fabric.js canvas)
+        if (s3Key && this.caspioService.isS3Key(s3Key)) {
+          console.log('[Point Annotate] Fetching S3 image as data URL via XMLHttpRequest:', s3Key);
+          try {
+            // Get pre-signed S3 URL first
+            const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+            
+            // Fetch image as base64 data URL using XMLHttpRequest (same pattern as offline-template.service.ts)
+            // This avoids CORS issues because XMLHttpRequest can load the blob without CORS headers affecting canvas
+            imageUrl = await this.fetchS3ImageAsDataUrl(s3Url);
+            
+            if (imageUrl && imageUrl.startsWith('data:')) {
+              photo.url = imageUrl;
+              photo.displayUrl = imageUrl;
+              // Cache for future use
+              if (attachId) {
+                await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl, s3Key);
+              }
+              console.log('[Point Annotate] ✅ Got data URL via XMLHttpRequest');
+            }
+          } catch (err) {
+            console.error('[Point Annotate] Failed to fetch S3 image:', err);
+          }
+        }
+        
+      }
+
+      if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') {
+        console.warn('[Point Annotate] No valid image URL available');
+        return;
+      }
       // CRITICAL: Decompress existing annotations before opening modal - EXACT pattern from structural-systems
       let existingAnnotations: any = null;
       const compressedDrawings = photo.drawings;
@@ -1912,7 +2021,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
-          imageUrl: photo.url,
+          imageUrl: imageUrl,  // Use the fetched/verified URL
           existingAnnotations: existingAnnotations,
           existingCaption: existingCaption,
           photoData: {
@@ -2447,5 +2556,36 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   openHelp(helpId: number, helpTitle: string) {
     // Help system - can be implemented later
     console.log(`Help requested for ${helpTitle}`);
+  }
+
+  /**
+   * Fetch S3 image as base64 data URL using XMLHttpRequest
+   * This approach avoids CORS issues with fabric.js canvas because:
+   * 1. XMLHttpRequest loads the image as a blob (not affected by canvas taint rules)
+   * 2. We convert the blob to base64 data URL which is always same-origin
+   * Same pattern as offline-template.service.ts fetchImageAsBase64()
+   */
+  private fetchS3ImageAsDataUrl(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'blob';
+      xhr.timeout = 30000; // 30 second timeout
+      
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('FileReader error'));
+          reader.readAsDataURL(xhr.response);
+        } else {
+          reject(new Error(`HTTP ${xhr.status}`));
+        }
+      };
+      
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.ontimeout = () => reject(new Error('Request timeout'));
+      xhr.send();
+    });
   }
 }

@@ -466,6 +466,19 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
           // Continue with blob URL as fallback
         }
       }
+      
+      // CRITICAL FIX: Convert S3 URLs to data URLs to avoid CORS issues
+      // S3 presigned URLs don't have proper CORS headers for cross-origin canvas access
+      if (imageUrl.startsWith('https://') && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
+        console.log('[FabricAnnotator] S3 URL detected, fetching as data URL to avoid CORS...');
+        try {
+          imageUrl = await this.fetchRemoteImageAsDataUrl(imageUrl);
+          console.log('[FabricAnnotator] ✅ S3 image converted to data URL successfully');
+        } catch (conversionError) {
+          console.error('[FabricAnnotator] ❌ Failed to convert S3 URL to data URL:', conversionError);
+          // Continue with original URL as fallback (may fail due to CORS)
+        }
+      }
 
       // Only use crossOrigin for remote URLs, not for data URLs or blob URLs (offline photos)
       // Data URLs and blob URLs are same-origin by default and crossOrigin can cause them to fail silently
@@ -556,6 +569,35 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       xhr.onerror = reject;
       xhr.open('GET', blobUrl);
       xhr.responseType = 'blob';
+      xhr.send();
+    });
+  }
+
+  /**
+   * Fetch a remote image URL and convert to data URL
+   * This is necessary for S3 presigned URLs which don't have CORS headers
+   * By fetching the image data directly, we avoid CORS issues when drawing on canvas
+   */
+  private async fetchRemoteImageAsDataUrl(imageUrl: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          const reader = new FileReader();
+          reader.onloadend = function() {
+            resolve(reader.result as string);
+          };
+          reader.onerror = () => reject(new Error('Failed to read blob as data URL'));
+          reader.readAsDataURL(xhr.response);
+        } else {
+          reject(new Error(`HTTP error ${xhr.status}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error fetching image'));
+      xhr.ontimeout = () => reject(new Error('Timeout fetching image'));
+      xhr.open('GET', imageUrl);
+      xhr.responseType = 'blob';
+      xhr.timeout = 30000; // 30 second timeout
       xhr.send();
     });
   }
