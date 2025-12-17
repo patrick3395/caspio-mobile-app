@@ -1140,14 +1140,46 @@ export class OfflineTemplateService {
   /**
    * Refresh visuals cache in background (non-blocking)
    * Fire-and-forget pattern - doesn't block UI
+   * PRESERVES local updates (_localUpdate flag) when merging with fresh server data
    * Emits backgroundRefreshComplete$ when done so pages can reload
    */
   private refreshVisualsInBackground(serviceId: string): void {
     setTimeout(async () => {
       try {
         const freshVisuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
-        await this.indexedDb.cacheServiceData(serviceId, 'visuals', freshVisuals);
-        console.log(`[OfflineTemplate] Background refresh: ${freshVisuals.length} visuals updated for ${serviceId}`);
+        
+        // Get existing cached visuals to find local updates that should be preserved
+        const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
+        
+        // Build a map of locally updated visuals that should NOT be overwritten
+        const localUpdates = new Map<string, any>();
+        for (const visual of existingCache) {
+          if (visual._localUpdate) {
+            // Use PK_ID (VisualID) as key
+            const visualId = String(visual.PK_ID || visual._tempId);
+            localUpdates.set(visualId, visual);
+            console.log(`[OfflineTemplate] Preserving local update for visual ${visualId} (Notes: ${visual.Notes})`);
+          }
+        }
+        
+        // Merge: use local version for items with pending updates, server version for others
+        const mergedVisuals = freshVisuals.map((serverVisual: any) => {
+          const visualId = String(serverVisual.PK_ID);
+          const localVersion = localUpdates.get(visualId);
+          if (localVersion) {
+            // Keep local version since it has pending changes not yet on server
+            console.log(`[OfflineTemplate] Keeping local version of visual ${visualId} with Notes: ${localVersion.Notes}`);
+            return localVersion;
+          }
+          return serverVisual;
+        });
+        
+        // Also add any temp visuals (created offline, not yet synced) from existing cache
+        const tempVisuals = existingCache.filter((v: any) => v._tempId && String(v._tempId).startsWith('temp_'));
+        const finalVisuals = [...mergedVisuals, ...tempVisuals];
+        
+        await this.indexedDb.cacheServiceData(serviceId, 'visuals', finalVisuals);
+        console.log(`[OfflineTemplate] Background refresh: ${freshVisuals.length} server visuals, ${localUpdates.size} local updates preserved, ${tempVisuals.length} temp visuals for ${serviceId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId, dataType: 'visuals' });
@@ -1373,17 +1405,18 @@ export class OfflineTemplateService {
       });
     }
 
-    // Update local cache
+    // Update local cache with _localUpdate flag to preserve during background refresh
     const existingVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
     const updatedVisuals = existingVisuals.map((v: any) => {
       if (String(v.PK_ID) === String(visualId) || v._tempId === visualId) {
-        return { ...v, ...updates };
+        // Add _localUpdate flag so background refresh won't overwrite
+        return { ...v, ...updates, _localUpdate: true };
       }
       return v;
     });
     await this.indexedDb.cacheServiceData(serviceId, 'visuals', updatedVisuals);
 
-    console.log(`[OfflineTemplate] Updated visual ${visualId} (pending sync)`);
+    console.log(`[OfflineTemplate] Updated visual ${visualId} with _localUpdate flag (pending sync)`);
   }
 
   /**

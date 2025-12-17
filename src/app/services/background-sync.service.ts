@@ -375,6 +375,15 @@ export class BackgroundSyncService {
               console.log(`[BackgroundSync] EFE Annotation synced for AttachID ${attachId}, clearing _localUpdate flag`);
               await this.clearLocalUpdateFlag('efe_point_attachments', attachId);
             }
+          } else if (request.endpoint.includes('LPS_Services_Visuals/records') && !request.endpoint.includes('Attach')) {
+            // Clear _localUpdate flag from Visuals cache after successful update (e.g., Notes: 'HIDDEN')
+            const visualMatch = request.endpoint.match(/VisualID=(\d+)/);
+            if (visualMatch) {
+              const visualId = visualMatch[1];
+              const serviceId = request.data?.ServiceID;
+              console.log(`[BackgroundSync] Visual UPDATE synced for VisualID ${visualId}, clearing _localUpdate flag`);
+              await this.clearVisualLocalUpdateFlag(visualId, serviceId);
+            }
           }
         }
 
@@ -934,6 +943,63 @@ export class BackgroundSyncService {
     }
   }
   
+  /**
+   * Clear the _localUpdate flag from a visual after successful sync
+   * This allows future background refreshes to use server data
+   */
+  private async clearVisualLocalUpdateFlag(visualId: string, serviceId?: string): Promise<void> {
+    try {
+      // If we have the serviceId, update directly
+      if (serviceId) {
+        const visuals = await this.indexedDb.getCachedServiceData(String(serviceId), 'visuals') || [];
+        let found = false;
+        
+        const updatedVisuals = visuals.map((v: any) => {
+          if (String(v.PK_ID) === String(visualId) && v._localUpdate) {
+            found = true;
+            // Remove the _localUpdate flag - the data is now synced
+            const { _localUpdate, ...rest } = v;
+            return rest;
+          }
+          return v;
+        });
+        
+        if (found) {
+          await this.indexedDb.cacheServiceData(String(serviceId), 'visuals', updatedVisuals);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for VisualID ${visualId} in service ${serviceId}`);
+          return;
+        }
+      }
+      
+      // Otherwise search all services for this visual
+      const allCaches = await this.indexedDb.getAllCachedServiceData('visuals');
+      
+      for (const cache of allCaches) {
+        const visuals = cache.data || [];
+        let found = false;
+        
+        const updatedVisuals = visuals.map((v: any) => {
+          if (String(v.PK_ID) === String(visualId) && v._localUpdate) {
+            found = true;
+            const { _localUpdate, ...rest } = v;
+            return rest;
+          }
+          return v;
+        });
+        
+        if (found) {
+          await this.indexedDb.cacheServiceData(cache.serviceId, 'visuals', updatedVisuals);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for VisualID ${visualId} in ${cache.serviceId}`);
+          return;
+        }
+      }
+      
+      console.log(`[BackgroundSync] VisualID ${visualId} not found in any cache (may already be cleared)`);
+    } catch (error) {
+      console.warn(`[BackgroundSync] Error clearing _localUpdate flag for VisualID ${visualId}:`, error);
+    }
+  }
+  
   private async refreshVisualsCache(serviceId: string): Promise<void> {
     try {
       console.log(`[BackgroundSync] Refreshing visuals cache for service ${serviceId}...`);
@@ -942,9 +1008,36 @@ export class BackgroundSyncService {
       const freshVisuals = await this.caspioService.getServicesVisualsByServiceId(serviceId).toPromise();
       
       if (freshVisuals && freshVisuals.length >= 0) {
-        // Clear old cached visuals and replace with fresh data
-        await this.indexedDb.cacheServiceData(serviceId, 'visuals', freshVisuals);
-        console.log(`[BackgroundSync] ✅ Visuals cache refreshed: ${freshVisuals.length} items for service ${serviceId}`);
+        // Get existing cached visuals to preserve local updates
+        const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
+        
+        // Build map of locally updated visuals that should NOT be overwritten
+        const localUpdates = new Map<string, any>();
+        for (const visual of existingCache) {
+          if (visual._localUpdate) {
+            const visualId = String(visual.PK_ID || visual._tempId);
+            localUpdates.set(visualId, visual);
+            console.log(`[BackgroundSync] Preserving local update for visual ${visualId} (Notes: ${visual.Notes})`);
+          }
+        }
+        
+        // Merge: use local version for items with pending updates, server version for others
+        const mergedVisuals = freshVisuals.map((serverVisual: any) => {
+          const visualId = String(serverVisual.PK_ID);
+          const localVersion = localUpdates.get(visualId);
+          if (localVersion) {
+            console.log(`[BackgroundSync] Keeping local version of visual ${visualId} with Notes: ${localVersion.Notes}`);
+            return localVersion;
+          }
+          return serverVisual;
+        });
+        
+        // Also add any temp visuals from existing cache
+        const tempVisuals = existingCache.filter((v: any) => v._tempId && String(v._tempId).startsWith('temp_'));
+        const finalVisuals = [...mergedVisuals, ...tempVisuals];
+        
+        await this.indexedDb.cacheServiceData(serviceId, 'visuals', finalVisuals);
+        console.log(`[BackgroundSync] ✅ Visuals cache refreshed: ${freshVisuals.length} server, ${localUpdates.size} local updates preserved, ${tempVisuals.length} temp for service ${serviceId}`);
         
         // Refresh attachments AND download actual images for each visual
         for (const visual of freshVisuals) {
