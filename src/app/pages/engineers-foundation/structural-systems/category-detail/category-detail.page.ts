@@ -1428,12 +1428,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         } else {
           console.log('[LOAD PHOTOS] Photo array already exists with', this.visualPhotos[key].length, 'photos');
 
-          // Check if we already have all the photos loaded
-          const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => p.AttachID));
-          const attachmentIds = new Set(attachments.map(a => a.AttachID));
+          // CRITICAL FIX: Use String() conversion for consistent comparison to avoid type mismatch duplicates
+          const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => String(p.AttachID)));
 
           // If we already have all photos, don't reload them
-          const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(a.AttachID));
+          const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(String(a.AttachID)));
           if (allPhotosLoaded) {
             console.log('[LOAD PHOTOS] All photos already loaded for', key, '- skipping reload');
             this.loadingPhotosByKey[key] = false;
@@ -1454,9 +1453,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
         for (let i = 0; i < attachments.length; i++) {
           const attach = attachments[i];
+          const attachIdStr = String(attach.AttachID);
 
-          // Check if this photo is already loaded
-          const existingPhoto = this.visualPhotos[key]?.find(p => p.AttachID === attach.AttachID);
+          // CRITICAL FIX: Use String() conversion for consistent comparison to avoid type mismatch duplicates
+          const existingPhoto = this.visualPhotos[key]?.find(p => String(p.AttachID) === attachIdStr);
           if (existingPhoto) {
             console.log('[LOAD PHOTOS] Photo', attach.AttachID, 'already loaded, skipping');
             continue;
@@ -1779,9 +1779,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
         // Add pending photos that aren't already in the array
         for (const pendingPhoto of photos) {
+          const pendingAttachIdStr = String(pendingPhoto.AttachID);
+          const pendingFileIdStr = pendingPhoto._pendingFileId ? String(pendingPhoto._pendingFileId) : null;
+          
+          // CRITICAL FIX: Use String() conversion for consistent comparison to avoid type mismatch duplicates
           const existingIndex = this.visualPhotos[matchingKey].findIndex(p =>
-            p.AttachID === pendingPhoto.AttachID ||
-            p._pendingFileId === pendingPhoto._pendingFileId
+            String(p.AttachID) === pendingAttachIdStr ||
+            (pendingFileIdStr && String(p._pendingFileId) === pendingFileIdStr)
           );
 
           if (existingIndex === -1) {
