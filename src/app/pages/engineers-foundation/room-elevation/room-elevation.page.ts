@@ -1553,44 +1553,50 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     const photoKey = photoType.toLowerCase();
     const fdfPhotos = this.roomData.fdfPhotos;
 
-    const alert = await this.alertController.create({
-      header: `${photoType} Photo Caption`,
-      inputs: [
-        {
-          name: 'caption',
-          type: 'textarea',
-          value: fdfPhotos[`${photoKey}Caption`] || '',
-          placeholder: 'Enter caption'
-        }
-      ],
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Save',
-          handler: async (data) => {
-            const columnName = `FDFPhoto${photoType}Annotation`;
-            const updateData: any = {};
-            updateData[columnName] = data.caption || '';
+    try {
+      const alert = await this.alertController.create({
+        header: `${photoType} Photo Caption`,
+        inputs: [
+          {
+            name: 'caption',
+            type: 'textarea',
+            value: fdfPhotos[`${photoKey}Caption`] || '',
+            placeholder: 'Enter caption'
+          }
+        ],
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Save',
+            handler: async (data) => {
+              const columnName = `FDFPhoto${photoType}Annotation`;
+              const updateData: any = {};
+              updateData[columnName] = data.caption || '';
 
-            try {
-              await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-              fdfPhotos[`${photoKey}Caption`] = data.caption || '';
-              this.changeDetectorRef.detectChanges();
-            } catch (error) {
-              console.error('Error saving caption:', error);
-              // Toast removed per user request
-              // await this.showToast('Failed to save caption', 'danger');
+              try {
+                await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
+                fdfPhotos[`${photoKey}Caption`] = data.caption || '';
+                this.changeDetectorRef.detectChanges();
+              } catch (error) {
+                console.error('Error saving caption:', error);
+              }
             }
           }
-        }
-      ],
-      cssClass: 'custom-document-alert'
-    });
+        ],
+        cssClass: 'custom-document-alert'
+      });
 
-    await alert.present();
+      await alert.present();
+    } catch (chunkError: any) {
+      // Handle ChunkLoadError when Ionic components fail to load
+      console.error('[FDF Caption] Failed to create alert:', chunkError);
+      if (chunkError.name === 'ChunkLoadError' || chunkError.message?.includes('Loading chunk')) {
+        await this.showToast('Please refresh the page and try again', 'warning');
+      }
+    }
   }
 
   getFdfPhotoCaption(photoType: 'Top' | 'Bottom' | 'Threshold'): string {
@@ -2125,74 +2131,82 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   async openPointCaptionPopup(point: any, photo: any, event: Event) {
     event.stopPropagation();
 
-    const alert = await this.alertController.create({
-      header: `${photo.photoType} Photo Caption`,
-      inputs: [
-        {
-          name: 'caption',
-          type: 'textarea',
-          value: photo.caption || '',
-          placeholder: 'Enter caption'
-        }
-      ],
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Save',
-          handler: async (data) => {
-            try {
-              const updateData = { Annotation: data.caption || '' };
-              
-              // Update local state immediately
-              photo.caption = data.caption || '';
-              this.changeDetectorRef.detectChanges();
-              
-              // Update IndexedDB cache
-              if (photo.attachId && !String(photo.attachId).startsWith('temp_')) {
-                // Find point for this photo
-                for (const point of this.elevationPoints) {
-                  const foundPhoto = point.photos?.find((p: any) => String(p.attachId) === String(photo.attachId));
-                  if (foundPhoto && point.pointId && !String(point.pointId).startsWith('temp_')) {
-                    const cached = await this.indexedDb.getCachedServiceData(String(point.pointId), 'efe_point_attachments') || [];
-                    const updated = cached.map((att: any) => 
-                      String(att.AttachID) === String(photo.attachId) 
-                        ? { ...att, Annotation: data.caption || '', _localUpdate: true }
-                        : att
-                    );
-                    await this.indexedDb.cacheServiceData(String(point.pointId), 'efe_point_attachments', updated);
-                    break;
+    try {
+      const alert = await this.alertController.create({
+        header: `${photo.photoType} Photo Caption`,
+        inputs: [
+          {
+            name: 'caption',
+            type: 'textarea',
+            value: photo.caption || '',
+            placeholder: 'Enter caption'
+          }
+        ],
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Save',
+            handler: async (data) => {
+              try {
+                const updateData = { Annotation: data.caption || '' };
+                
+                // Update local state immediately
+                photo.caption = data.caption || '';
+                this.changeDetectorRef.detectChanges();
+                
+                // Update IndexedDB cache
+                if (photo.attachId && !String(photo.attachId).startsWith('temp_')) {
+                  // Find point for this photo
+                  for (const point of this.elevationPoints) {
+                    const foundPhoto = point.photos?.find((p: any) => String(p.attachId) === String(photo.attachId));
+                    if (foundPhoto && point.pointId && !String(point.pointId).startsWith('temp_')) {
+                      const cached = await this.indexedDb.getCachedServiceData(String(point.pointId), 'efe_point_attachments') || [];
+                      const updated = cached.map((att: any) => 
+                        String(att.AttachID) === String(photo.attachId) 
+                          ? { ...att, Annotation: data.caption || '', _localUpdate: true }
+                          : att
+                      );
+                      await this.indexedDb.cacheServiceData(String(point.pointId), 'efe_point_attachments', updated);
+                      break;
+                    }
                   }
                 }
+                
+                // Try API if online, queue if offline
+                if (this.offlineService.isOnline()) {
+                  await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
+                } else {
+                  await this.indexedDb.addPendingRequest({
+                    type: 'UPDATE',
+                    endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+                    method: 'PUT',
+                    data: updateData,
+                    dependencies: [],
+                    status: 'pending',
+                    priority: 'normal',
+                  });
+                  this.backgroundSync.triggerSync();
+                }
+              } catch (error) {
+                console.error('Error saving caption:', error);
               }
-              
-              // Try API if online, queue if offline
-              if (this.offlineService.isOnline()) {
-                await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
-              } else {
-                await this.indexedDb.addPendingRequest({
-                  type: 'UPDATE',
-                  endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
-                  method: 'PUT',
-                  data: updateData,
-                  dependencies: [],
-                  status: 'pending',
-                  priority: 'normal',
-                });
-                this.backgroundSync.triggerSync();
-              }
-            } catch (error) {
-              console.error('Error saving caption:', error);
             }
           }
-        }
-      ],
-      cssClass: 'custom-document-alert'
-    });
+        ],
+        cssClass: 'custom-document-alert'
+      });
 
-    await alert.present();
+      await alert.present();
+    } catch (chunkError: any) {
+      // Handle ChunkLoadError when Ionic components fail to load
+      console.error('[Point Caption] Failed to create alert:', chunkError);
+      if (chunkError.name === 'ChunkLoadError' || chunkError.message?.includes('Loading chunk')) {
+        await this.showToast('Please refresh the page and try again', 'warning');
+      }
+    }
   }
 
   getPointPhoto(point: any, photoType: string): any {
