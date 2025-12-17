@@ -1034,13 +1034,60 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
   }
 
+  // ============================================
+  // TEMP ID RESOLUTION HELPER
+  // ============================================
+
+  /**
+   * Resolve room ID - handles temp IDs by checking if real ID is available
+   * Returns the ID to use and whether it's still a temp ID
+   */
+  private async resolveRoomId(): Promise<{ id: string; isTempId: boolean }> {
+    if (!this.roomId) {
+      throw new Error('No room ID available');
+    }
+
+    if (!String(this.roomId).startsWith('temp_')) {
+      return { id: this.roomId, isTempId: false };
+    }
+
+    // Try to resolve real ID from IndexedDB
+    const realId = await this.indexedDb.getRealId(this.roomId);
+    if (realId) {
+      console.log('[RoomElevation] Resolved temp ID to real ID:', this.roomId, '->', realId);
+      // Update local roomId reference for future calls
+      this.roomId = realId;
+      return { id: realId, isTempId: false };
+    }
+
+    console.log('[RoomElevation] Room still has temp ID, update will be queued:', this.roomId);
+    return { id: this.roomId, isTempId: true };
+  }
+
   // FDF Methods
   async onFDFChange() {
     if (!this.roomId) return;
 
     this.isSavingFdf = true;
     try {
-      await this.caspioService.updateServicesEFE(this.roomId, { FDF: this.roomData.fdf }).toPromise();
+      const { id, isTempId } = await this.resolveRoomId();
+
+      if (isTempId) {
+        // Queue for background sync - room not synced yet
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+          method: 'PUT',
+          data: { FDF: this.roomData.fdf, _tempEfeId: this.roomId },
+          dependencies: [this.roomId],
+          status: 'pending',
+          priority: 'normal'
+        });
+        console.log('[RoomElevation] FDF update queued for sync (room not yet synced)');
+        return;
+      }
+
+      await this.caspioService.updateServicesEFE(id, { FDF: this.roomData.fdf }).toPromise();
     } catch (error) {
       console.error('Error saving FDF:', error);
       // Toast removed per user request
@@ -1068,7 +1115,24 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
     this.isSavingLocation = true;
     try {
-      await this.caspioService.updateServicesEFE(this.roomId, { Location: this.roomData.location }).toPromise();
+      const { id, isTempId } = await this.resolveRoomId();
+
+      if (isTempId) {
+        // Queue for background sync - room not synced yet
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+          method: 'PUT',
+          data: { Location: this.roomData.location, _tempEfeId: this.roomId },
+          dependencies: [this.roomId],
+          status: 'pending',
+          priority: 'normal'
+        });
+        console.log('[RoomElevation] Location update queued for sync (room not yet synced)');
+        return;
+      }
+
+      await this.caspioService.updateServicesEFE(id, { Location: this.roomData.location }).toPromise();
     } catch (error) {
       console.error('Error saving location:', error);
       // Toast removed per user request
@@ -1116,7 +1180,24 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
     this.isSavingNotes = true;
     try {
-      await this.caspioService.updateServicesEFE(this.roomId, { Notes: this.roomData.notes }).toPromise();
+      const { id, isTempId } = await this.resolveRoomId();
+
+      if (isTempId) {
+        // Queue for background sync - room not synced yet
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+          method: 'PUT',
+          data: { Notes: this.roomData.notes, _tempEfeId: this.roomId },
+          dependencies: [this.roomId],
+          status: 'pending',
+          priority: 'normal'
+        });
+        console.log('[RoomElevation] Notes update queued for sync (room not yet synced)');
+        return;
+      }
+
+      await this.caspioService.updateServicesEFE(id, { Notes: this.roomData.notes }).toPromise();
     } catch (error) {
       console.error('Error saving notes:', error);
       // Toast removed per user request
@@ -2312,10 +2393,33 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       caption: caption || '(empty)'
     });
 
-    // Save BOTH Annotation and Drawings fields in a single call
-    await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
+    // CRITICAL: Handle temp IDs - resolve to real ID or queue for sync
+    let resolvedRoomId = roomId;
+    if (String(roomId).startsWith('temp_')) {
+      const realId = await this.indexedDb.getRealId(roomId);
+      if (realId) {
+        console.log('[SAVE FDF] Resolved temp ID to real ID:', roomId, '->', realId);
+        resolvedRoomId = realId;
+      } else {
+        // Queue for background sync - room not synced yet
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+          method: 'PUT',
+          data: { ...updateData, _tempEfeId: roomId },
+          dependencies: [roomId],
+          status: 'pending',
+          priority: 'normal'
+        });
+        console.log('[SAVE FDF] FDF annotation update queued for sync (room not yet synced)');
+        return drawingsData;
+      }
+    }
 
-    console.log('[SAVE FDF] Successfully saved caption and drawings for room:', roomId);
+    // Save BOTH Annotation and Drawings fields in a single call
+    await this.caspioService.updateServicesEFEByEFEID(resolvedRoomId, updateData).toPromise();
+
+    console.log('[SAVE FDF] Successfully saved caption and drawings for room:', resolvedRoomId);
 
     // Return the compressed drawings string
     return drawingsData;
