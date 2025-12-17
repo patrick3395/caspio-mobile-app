@@ -306,7 +306,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.weatherConditionsOptions.includes('Other')) {
             this.weatherConditionsOptions.push('Other');
           }
-          // Handle current value - either normalize to match option or add to options
+          // Handle current value - normalize to match option OR show as "Other"
           if (currentValue && currentValue !== 'Other') {
             const normalizedCurrentValue = this.normalizeForComparison(currentValue);
             const matchingOption = this.weatherConditionsOptions.find(opt =>
@@ -316,8 +316,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
               console.log(`[ProjectDetails] Normalizing WeatherConditions: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.WeatherConditions = matchingOption;
             } else if (!matchingOption) {
-              console.log(`[ProjectDetails] Adding missing WeatherConditions value to options: "${currentValue}"`);
-              this.weatherConditionsOptions.unshift(currentValue);
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] WeatherConditions "${currentValue}" not in options - showing as Other`);
+              this.weatherConditionsOtherValue = currentValue;
+              this.serviceData.WeatherConditions = 'Other';
             }
           }
         }
@@ -329,20 +331,20 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.outdoorTemperatureOptions.includes('Other')) {
             this.outdoorTemperatureOptions.push('Other');
           }
-          // Handle current value - either normalize to match option or add to options
+          // Handle current value - normalize to match option OR show as "Other"
           if (currentValue && currentValue !== 'Other') {
             const normalizedCurrentValue = this.normalizeForComparison(currentValue);
             const matchingOption = this.outdoorTemperatureOptions.find(opt =>
               this.normalizeForComparison(opt) === normalizedCurrentValue
             );
             if (matchingOption && matchingOption !== currentValue) {
-              // Option exists with different encoding - update value to match
               console.log(`[ProjectDetails] Normalizing OutdoorTemperature: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.OutdoorTemperature = matchingOption;
             } else if (!matchingOption) {
-              // Value truly not in options - add it
-              console.log(`[ProjectDetails] Adding missing OutdoorTemperature value to options: "${currentValue}"`);
-              this.outdoorTemperatureOptions.unshift(currentValue);
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] OutdoorTemperature "${currentValue}" not in options - showing as Other`);
+              this.outdoorTemperatureOtherValue = currentValue;
+              this.serviceData.OutdoorTemperature = 'Other';
             }
           }
 
@@ -363,7 +365,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.occupancyFurnishingsOptions.includes('Other')) {
             this.occupancyFurnishingsOptions.push('Other');
           }
-          // Handle current value - either normalize to match option or add to options
+          // Handle current value - normalize to match option OR show as "Other"
           if (currentValue && currentValue !== 'Other') {
             const normalizedCurrentValue = this.normalizeForComparison(currentValue);
             const matchingOption = this.occupancyFurnishingsOptions.find(opt =>
@@ -373,8 +375,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
               console.log(`[ProjectDetails] Normalizing OccupancyFurnishings: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.OccupancyFurnishings = matchingOption;
             } else if (!matchingOption) {
-              console.log(`[ProjectDetails] Adding missing OccupancyFurnishings value to options: "${currentValue}"`);
-              this.occupancyFurnishingsOptions.unshift(currentValue);
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] OccupancyFurnishings "${currentValue}" not in options - showing as Other`);
+              this.occupancyFurnishingsOtherValue = currentValue;
+              this.serviceData.OccupancyFurnishings = 'Other';
             }
           }
         }
@@ -428,7 +432,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.firstFoundationTypeOptions.includes('Other')) {
             this.firstFoundationTypeOptions.push('Other');
           }
-          // Handle current value - either normalize to match option or add to options
+          // Handle current value - normalize to match option OR show as "Other"
           if (currentValue && currentValue !== 'Other') {
             const normalizedCurrentValue = this.normalizeForComparison(currentValue);
             const matchingOption = this.firstFoundationTypeOptions.find(opt =>
@@ -438,8 +442,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
               console.log(`[ProjectDetails] Normalizing FirstFoundationType: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.FirstFoundationType = matchingOption;
             } else if (!matchingOption) {
-              console.log(`[ProjectDetails] Adding missing FirstFoundationType value to options: "${currentValue}"`);
-              this.firstFoundationTypeOptions.unshift(currentValue);
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] FirstFoundationType "${currentValue}" not in options - showing as Other`);
+              this.firstFoundationTypeOtherValue = currentValue;
+              this.serviceData.FirstFoundationType = 'Other';
             }
           }
         }
@@ -452,7 +458,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.secondFoundationTypeOptions.includes('Other')) {
             this.secondFoundationTypeOptions.push('Other');
           }
-          // Handle current value - either normalize to match option or add to options
+          // Handle current value - normalize to match option OR show as "Other"
           if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
             const normalizedCurrentValue = this.normalizeForComparison(currentValue);
             const matchingOption = this.secondFoundationTypeOptions.find(opt =>
@@ -462,8 +468,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
               console.log(`[ProjectDetails] Normalizing SecondFoundationType: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.SecondFoundationType = matchingOption;
             } else if (!matchingOption) {
-              console.log(`[ProjectDetails] Adding missing SecondFoundationType value to options: "${currentValue}"`);
-              this.secondFoundationTypeOptions.unshift(currentValue);
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] SecondFoundationType "${currentValue}" not in options - showing as Other`);
+              this.secondFoundationTypeOtherValue = currentValue;
+              this.serviceData.SecondFoundationType = 'Other';
             }
           }
         }
@@ -476,7 +484,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.thirdFoundationTypeOptions.includes('Other')) {
             this.thirdFoundationTypeOptions.push('Other');
           }
-          // Handle current value - either normalize to match option or add to options
+          // Handle current value - normalize to match option OR show as "Other"
           if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
             const normalizedCurrentValue = this.normalizeForComparison(currentValue);
             const matchingOption = this.thirdFoundationTypeOptions.find(opt =>
@@ -486,8 +494,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
               console.log(`[ProjectDetails] Normalizing ThirdFoundationType: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.ThirdFoundationType = matchingOption;
             } else if (!matchingOption) {
-              console.log(`[ProjectDetails] Adding missing ThirdFoundationType value to options: "${currentValue}"`);
-              this.thirdFoundationTypeOptions.unshift(currentValue);
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] ThirdFoundationType "${currentValue}" not in options - showing as Other`);
+              this.thirdFoundationTypeOtherValue = currentValue;
+              this.serviceData.ThirdFoundationType = 'Other';
             }
           }
         }
@@ -585,7 +595,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           if (!this.ownerOccupantInterviewOptions.includes('Other')) {
             this.ownerOccupantInterviewOptions.push('Other');
           }
-          // Handle current value - either normalize to match option or add to options
+          // Handle current value - normalize to match option OR show as "Other"
           if (currentValue && currentValue !== 'Other') {
             const normalizedCurrentValue = this.normalizeForComparison(currentValue);
             const matchingOption = this.ownerOccupantInterviewOptions.find(opt =>
@@ -595,8 +605,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
               console.log(`[ProjectDetails] Normalizing OwnerOccupantInterview: "${currentValue}" -> "${matchingOption}"`);
               this.serviceData.OwnerOccupantInterview = matchingOption;
             } else if (!matchingOption) {
-              console.log(`[ProjectDetails] Adding missing OwnerOccupantInterview value to options: "${currentValue}"`);
-              this.ownerOccupantInterviewOptions.unshift(currentValue);
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] OwnerOccupantInterview "${currentValue}" not in options - showing as Other`);
+              this.ownerOccupantInterviewOtherValue = currentValue;
+              this.serviceData.OwnerOccupantInterview = 'Other';
             }
           }
         }
@@ -641,31 +653,28 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
           this.styleOptions.push('Other');
         }
 
-        // Preserve current TypeOfBuilding value if not in API options
+        // Handle TypeOfBuilding: if value is not in options, show "Other" with the value in text field
         if (this.projectData.TypeOfBuilding &&
             this.projectData.TypeOfBuilding !== 'Other' &&
             !this.optionsIncludeNormalized(this.typeOfBuildingOptions, this.projectData.TypeOfBuilding)) {
-          console.log(`[ProjectDetails] Adding missing TypeOfBuilding value to options: "${this.projectData.TypeOfBuilding}"`);
-          const otherIndex = this.typeOfBuildingOptions.indexOf('Other');
-          if (otherIndex > 0) {
-            this.typeOfBuildingOptions.splice(otherIndex, 0, this.projectData.TypeOfBuilding);
-          } else {
-            this.typeOfBuildingOptions.push(this.projectData.TypeOfBuilding);
-          }
+          console.log(`[ProjectDetails] TypeOfBuilding "${this.projectData.TypeOfBuilding}" not in options - showing as Other`);
+          // Store the custom value in the Other text field
+          this.typeOfBuildingOtherValue = this.projectData.TypeOfBuilding;
+          // Set dropdown to "Other"
+          this.projectData.TypeOfBuilding = 'Other';
         }
 
-        // Preserve current Style value if not in API options
+        // Handle Style: if value is not in options, show "Other" with the value in text field
         if (this.projectData.Style &&
             this.projectData.Style !== 'Other' &&
             !this.optionsIncludeNormalized(this.styleOptions, this.projectData.Style)) {
-          console.log(`[ProjectDetails] Adding missing Style value to options: "${this.projectData.Style}"`);
-          const otherIndex = this.styleOptions.indexOf('Other');
-          if (otherIndex > 0) {
-            this.styleOptions.splice(otherIndex, 0, this.projectData.Style);
-          } else {
-            this.styleOptions.push(this.projectData.Style);
-          }
+          console.log(`[ProjectDetails] Style "${this.projectData.Style}" not in options - showing as Other`);
+          // Store the custom value in the Other text field
+          this.styleOtherValue = this.projectData.Style;
+          // Set dropdown to "Other"
+          this.projectData.Style = 'Other';
         }
+
       }
     } catch (error) {
       console.error('Error loading Projects_Drop options:', error);
@@ -910,247 +919,77 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   }
 
   // "Other" value change handlers for dropdowns
-  // CRITICAL: Must add custom value to options AND update the data field
+  // Keep dropdown as "Other" and save custom value to database
+  // The custom value is stored in the database field, dropdown stays on "Other"
   async onTypeOfBuildingOtherChange() {
     if (this.typeOfBuildingOtherValue && this.typeOfBuildingOtherValue.trim()) {
       const customValue = this.typeOfBuildingOtherValue.trim();
-      
-      // Add custom value to options (before "Other")
-      if (!this.typeOfBuildingOptions.includes(customValue)) {
-        const otherIndex = this.typeOfBuildingOptions.indexOf('Other');
-        if (otherIndex > -1) {
-          this.typeOfBuildingOptions.splice(otherIndex, 0, customValue);
-        } else {
-          this.typeOfBuildingOptions.push(customValue);
-        }
-      }
-      
-      // Update dropdown to show the custom value
-      this.projectData.TypeOfBuilding = customValue;
-      
-      // Save to database
+      // Save custom value to database (dropdown stays on "Other")
       this.autoSaveProjectField('TypeOfBuilding', customValue);
-      
-      // Clear the other input
-      this.typeOfBuildingOtherValue = '';
-      
-      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onStyleOtherChange() {
     if (this.styleOtherValue && this.styleOtherValue.trim()) {
       const customValue = this.styleOtherValue.trim();
-      
-      // Add custom value to options (before "Other")
-      if (!this.styleOptions.includes(customValue)) {
-        const otherIndex = this.styleOptions.indexOf('Other');
-        if (otherIndex > -1) {
-          this.styleOptions.splice(otherIndex, 0, customValue);
-        } else {
-          this.styleOptions.push(customValue);
-        }
-      }
-      
-      // Update dropdown to show the custom value
-      this.projectData.Style = customValue;
-      
-      // Save to database
+      // Save custom value to database (dropdown stays on "Other")
       this.autoSaveProjectField('Style', customValue);
-      
-      // Clear the other input
-      this.styleOtherValue = '';
-      
-      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onOccupancyFurnishingsOtherChange() {
     if (this.occupancyFurnishingsOtherValue && this.occupancyFurnishingsOtherValue.trim()) {
       const customValue = this.occupancyFurnishingsOtherValue.trim();
-      
-      // Add custom value to options (before "Other")
-      if (!this.occupancyFurnishingsOptions.includes(customValue)) {
-        const otherIndex = this.occupancyFurnishingsOptions.indexOf('Other');
-        if (otherIndex > -1) {
-          this.occupancyFurnishingsOptions.splice(otherIndex, 0, customValue);
-        } else {
-          this.occupancyFurnishingsOptions.push(customValue);
-        }
-      }
-      
-      // Update dropdown to show the custom value
-      this.serviceData.OccupancyFurnishings = customValue;
-      
-      // Save to database
+      // Save custom value to database (dropdown stays on "Other")
       this.autoSaveServiceField('OccupancyFurnishings', customValue);
-      
-      // Clear the other input
-      this.occupancyFurnishingsOtherValue = '';
-      
-      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onWeatherConditionsOtherChange() {
     if (this.weatherConditionsOtherValue && this.weatherConditionsOtherValue.trim()) {
       const customValue = this.weatherConditionsOtherValue.trim();
-      
-      // Add custom value to options (before "Other")
-      if (!this.weatherConditionsOptions.includes(customValue)) {
-        const otherIndex = this.weatherConditionsOptions.indexOf('Other');
-        if (otherIndex > -1) {
-          this.weatherConditionsOptions.splice(otherIndex, 0, customValue);
-        } else {
-          this.weatherConditionsOptions.push(customValue);
-        }
-      }
-      
-      // Update dropdown to show the custom value
-      this.serviceData.WeatherConditions = customValue;
-      
-      // Save to database
+      // Save custom value to database (dropdown stays on "Other")
       this.autoSaveServiceField('WeatherConditions', customValue);
-      
-      // Clear the other input
-      this.weatherConditionsOtherValue = '';
-      
-      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onOutdoorTemperatureOtherChange() {
     if (this.outdoorTemperatureOtherValue && this.outdoorTemperatureOtherValue.trim()) {
       const customValue = this.outdoorTemperatureOtherValue.trim();
-      
-      // Add custom value to options (before "Other")
-      if (!this.outdoorTemperatureOptions.includes(customValue)) {
-        const otherIndex = this.outdoorTemperatureOptions.indexOf('Other');
-        if (otherIndex > -1) {
-          this.outdoorTemperatureOptions.splice(otherIndex, 0, customValue);
-        } else {
-          this.outdoorTemperatureOptions.push(customValue);
-        }
-      }
-      
-      // Update dropdown to show the custom value
-      this.serviceData.OutdoorTemperature = customValue;
-      
-      // Save to database
+      // Save custom value to database (dropdown stays on "Other")
       this.autoSaveServiceField('OutdoorTemperature', customValue);
-      
-      // Clear the other input
-      this.outdoorTemperatureOtherValue = '';
-      
-      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onFirstFoundationTypeOtherChange() {
     if (this.firstFoundationTypeOtherValue && this.firstFoundationTypeOtherValue.trim()) {
       const customValue = this.firstFoundationTypeOtherValue.trim();
-      
-      // Add custom value to options (before "Other")
-      if (!this.firstFoundationTypeOptions.includes(customValue)) {
-        const otherIndex = this.firstFoundationTypeOptions.indexOf('Other');
-        if (otherIndex > -1) {
-          this.firstFoundationTypeOptions.splice(otherIndex, 0, customValue);
-        } else {
-          this.firstFoundationTypeOptions.push(customValue);
-        }
-      }
-      
-      // Update dropdown to show the custom value
-      this.serviceData.FirstFoundationType = customValue;
-      
-      // Save to database
+      // Save custom value to database (dropdown stays on "Other")
       this.autoSaveServiceField('FirstFoundationType', customValue);
-      
-      // Clear the other input
-      this.firstFoundationTypeOtherValue = '';
-      
-      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onSecondFoundationTypeOtherChange() {
     if (this.secondFoundationTypeOtherValue && this.secondFoundationTypeOtherValue.trim()) {
       const customValue = this.secondFoundationTypeOtherValue.trim();
-      
-      // Add custom value to options (before "Other")
-      if (!this.secondFoundationTypeOptions.includes(customValue)) {
-        const otherIndex = this.secondFoundationTypeOptions.indexOf('Other');
-        if (otherIndex > -1) {
-          this.secondFoundationTypeOptions.splice(otherIndex, 0, customValue);
-        } else {
-          this.secondFoundationTypeOptions.push(customValue);
-        }
-      }
-      
-      // Update dropdown to show the custom value
-      this.serviceData.SecondFoundationType = customValue;
-      
-      // Save to database
+      // Save custom value to database (dropdown stays on "Other")
       this.autoSaveServiceField('SecondFoundationType', customValue);
-      
-      // Clear the other input
-      this.secondFoundationTypeOtherValue = '';
-      
-      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onThirdFoundationTypeOtherChange() {
     if (this.thirdFoundationTypeOtherValue && this.thirdFoundationTypeOtherValue.trim()) {
       const customValue = this.thirdFoundationTypeOtherValue.trim();
-      
-      // Add custom value to options (before "Other")
-      if (!this.thirdFoundationTypeOptions.includes(customValue)) {
-        const otherIndex = this.thirdFoundationTypeOptions.indexOf('Other');
-        if (otherIndex > -1) {
-          this.thirdFoundationTypeOptions.splice(otherIndex, 0, customValue);
-        } else {
-          this.thirdFoundationTypeOptions.push(customValue);
-        }
-      }
-      
-      // Update dropdown to show the custom value
-      this.serviceData.ThirdFoundationType = customValue;
-      
-      // Save to database
+      // Save custom value to database (dropdown stays on "Other")
       this.autoSaveServiceField('ThirdFoundationType', customValue);
-      
-      // Clear the other input
-      this.thirdFoundationTypeOtherValue = '';
-      
-      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onOwnerOccupantInterviewOtherChange() {
     if (this.ownerOccupantInterviewOtherValue && this.ownerOccupantInterviewOtherValue.trim()) {
       const customValue = this.ownerOccupantInterviewOtherValue.trim();
-      
-      // Add custom value to options (before "Other")
-      if (!this.ownerOccupantInterviewOptions.includes(customValue)) {
-        const otherIndex = this.ownerOccupantInterviewOptions.indexOf('Other');
-        if (otherIndex > -1) {
-          this.ownerOccupantInterviewOptions.splice(otherIndex, 0, customValue);
-        } else {
-          this.ownerOccupantInterviewOptions.push(customValue);
-        }
-      }
-      
-      // Update dropdown to show the custom value
-      this.serviceData.OwnerOccupantInterview = customValue;
-      
-      // Save to database
+      // Save custom value to database (dropdown stays on "Other")
       this.autoSaveServiceField('OwnerOccupantInterview', customValue);
-      
-      // Clear the other input
-      this.ownerOccupantInterviewOtherValue = '';
-      
-      this.changeDetectorRef.detectChanges();
     }
   }
 
