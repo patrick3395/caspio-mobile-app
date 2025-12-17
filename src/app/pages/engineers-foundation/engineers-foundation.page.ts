@@ -38,6 +38,7 @@ interface ServicesVisualRecord {
   Name: string;
   Text: string;  // The full text content
   Notes: string;  // Made required, will send empty string if not provided
+  Hidden?: string;  // 'Yes' or 'No' - whether the visual is hidden
   Answers?: string;  // Optional field for storing Yes/No or comma-delimited multi-select answers
 }
 
@@ -10053,7 +10054,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         Kind: template.Kind || '',
         Name: template.Name || '',
         Text: textValue,
-        Notes: ''
+        Notes: '',
+        Hidden: 'No'  // CRITICAL: New visuals are not hidden
       };
 
       if (answers) {
