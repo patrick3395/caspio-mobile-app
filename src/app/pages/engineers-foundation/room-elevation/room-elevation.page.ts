@@ -722,14 +722,27 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         // If point exists in database, load its photos
         if (existingPoint) {
           const pointId = existingPoint.PointID || existingPoint.PK_ID;
-          const pointAttachments = attachments.filter((att: any) => att.PointID === pointId);
-          console.log(`[RoomElevation]   Found ${pointAttachments.length} attachments for this point`);
+          const pointIdStr = String(pointId);
+          // CRITICAL FIX: Use String() conversion to avoid type mismatch when comparing IDs
+          const pointAttachments = attachments.filter((att: any) => String(att.PointID) === pointIdStr);
+          console.log(`[RoomElevation]   Found ${pointAttachments.length} attachments for this point (ID: ${pointIdStr})`);
 
           // Process each attachment
           for (const attach of pointAttachments) {
             // CRITICAL: Database column is "Type", not "PhotoType"
             const photoType = attach.Type || attach.photoType || 'Measurement';
-            console.log(`[RoomElevation]     Processing attachment: Type=${photoType}, Photo=${attach.Photo}, isPending=${attach.isPending}`);
+            const attachIdStr = String(attach.AttachID || attach.PK_ID);
+            console.log(`[RoomElevation]     Processing attachment: Type=${photoType}, Photo=${attach.Photo}, isPending=${attach.isPending}, ID=${attachIdStr}`);
+            
+            // CRITICAL FIX: Check for duplicate before adding - use String() conversion for consistent comparison
+            const alreadyExists = pointData.photos.some((p: any) => 
+              String(p.attachId) === attachIdStr
+            );
+            
+            if (alreadyExists) {
+              console.log(`[RoomElevation]     Skipping duplicate attachment: ${attachIdStr}`);
+              continue;
+            }
             
             // Check if this is a pending photo (uploaded offline, not yet synced)
             if (attach.isPending || attach.queued) {
@@ -797,6 +810,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         if (pendingPhotos.length > 0) {
           console.log(`[RoomElevation]   Adding ${pendingPhotos.length} pending photos for point ${pointIdStr}`);
           for (const pendingPhoto of pendingPhotos) {
+            const pendingAttachId = String(pendingPhoto.AttachID || pendingPhoto._pendingFileId);
+            
+            // CRITICAL FIX: Check for duplicate before adding - use String() conversion for consistent comparison
+            const alreadyExists = pointData.photos.some((p: any) => 
+              String(p.attachId) === pendingAttachId || 
+              String(p._tempId) === pendingAttachId
+            );
+            
+            if (alreadyExists) {
+              console.log(`[RoomElevation]     Skipping duplicate pending photo: ${pendingAttachId}`);
+              continue;
+            }
+            
             const pendingPhotoData: any = {
               attachId: pendingPhoto.AttachID || pendingPhoto._pendingFileId,
               photoType: pendingPhoto.Type || pendingPhoto.photoType || 'Measurement',
@@ -907,13 +933,26 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             };
 
             // Load photos for custom point
-            const pointAttachments = attachments.filter((att: any) => att.PointID === pointId);
-            console.log(`[RoomElevation]     Found ${pointAttachments.length} attachments for custom point`);
+            const pointIdStr = String(pointId);
+            // CRITICAL FIX: Use String() conversion to avoid type mismatch when comparing IDs
+            const pointAttachments = attachments.filter((att: any) => String(att.PointID) === pointIdStr);
+            console.log(`[RoomElevation]     Found ${pointAttachments.length} attachments for custom point (ID: ${pointIdStr})`);
 
             for (const attach of pointAttachments) {
               // CRITICAL: Database column is "Type", not "PhotoType"
               const photoType = attach.Type || 'Measurement';
-              console.log(`[RoomElevation]       Processing attachment: Type=${photoType}`);
+              const attachIdStr = String(attach.AttachID || attach.PK_ID);
+              console.log(`[RoomElevation]       Processing attachment: Type=${photoType}, ID=${attachIdStr}`);
+
+              // CRITICAL FIX: Check for duplicate before adding - use String() conversion for consistent comparison
+              const alreadyExists = customPointData.photos.some((p: any) => 
+                String(p.attachId) === attachIdStr
+              );
+              
+              if (alreadyExists) {
+                console.log(`[RoomElevation]       Skipping duplicate attachment: ${attachIdStr}`);
+                continue;
+              }
 
               const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
               const photoData: any = {
@@ -1087,7 +1126,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         return;
       }
 
-      await this.caspioService.updateServicesEFE(id, { FDF: this.roomData.fdf }).toPromise();
+      // CRITICAL: Use updateServicesEFEByEFEID since this.roomId contains EFEID, not PK_ID
+      await this.caspioService.updateServicesEFEByEFEID(id, { FDF: this.roomData.fdf }).toPromise();
     } catch (error) {
       console.error('Error saving FDF:', error);
       // Toast removed per user request
@@ -1132,7 +1172,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         return;
       }
 
-      await this.caspioService.updateServicesEFE(id, { Location: this.roomData.location }).toPromise();
+      // CRITICAL: Use updateServicesEFEByEFEID since this.roomId contains EFEID, not PK_ID
+      await this.caspioService.updateServicesEFEByEFEID(id, { Location: this.roomData.location }).toPromise();
     } catch (error) {
       console.error('Error saving location:', error);
       // Toast removed per user request
@@ -1197,7 +1238,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         return;
       }
 
-      await this.caspioService.updateServicesEFE(id, { Notes: this.roomData.notes }).toPromise();
+      // CRITICAL: Use updateServicesEFEByEFEID since this.roomId contains EFEID, not PK_ID
+      await this.caspioService.updateServicesEFEByEFEID(id, { Notes: this.roomData.notes }).toPromise();
     } catch (error) {
       console.error('Error saving notes:', error);
       // Toast removed per user request
