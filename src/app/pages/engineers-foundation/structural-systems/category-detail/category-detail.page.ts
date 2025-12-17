@@ -745,6 +745,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       AttachID: result.AttachID,
       id: result.AttachID,
       _originalTempId: originalTempId,  // Store for finding photo during annotation save
+      // CRITICAL FIX: Clear temp flags to prevent reloadVisualsAfterSync from matching this photo as "temp"
+      _tempId: undefined,
+      _pendingFileId: undefined,
+      _backgroundSync: undefined,
       uploading: false,
       progress: 100,
       Attachment: s3Key,
@@ -2791,6 +2795,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             ...this.visualPhotos[key][photoIndex],
             AttachID: result.AttachID,
             id: result.AttachID,
+            // CRITICAL FIX: Clear temp flags to prevent reloadVisualsAfterSync from matching this photo as "temp"
+            _tempId: undefined,
+            _pendingFileId: undefined,
+            _backgroundSync: undefined,
             uploading: false,
             queued: false,
             filePath: uploadedPhotoUrl,
@@ -2935,7 +2943,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             this.visualPhotos[key][photoIndex].queued = false;
           }
 
-          // Upload the photo
+          // Upload the photo - CRITICAL: Pass existingTempId to prevent duplicate photo creation
           await this.uploadPhotoForVisual(
             result.PK_ID,
             pending.file,
@@ -2943,7 +2951,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             pending.isBatchUpload,
             pending.annotationData,
             pending.originalFile,
-            pending.caption
+            pending.caption,
+            pending.tempId  // CRITICAL FIX: Pass existing temp ID to update existing photo instead of creating duplicate
           );
         }
       }
@@ -3732,6 +3741,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                     // Show error toast but don't revert UI - user already sees their caption
                     this.showToast('Caption saved to device, will sync when online', 'warning');
                   });
+              } else if (photo._pendingFileId || String(photo.AttachID || '').startsWith('temp_')) {
+                // CRITICAL FIX: For temp photos (still uploading/queued), update IndexedDB so background sync picks up the caption
+                const pendingFileId = photo._pendingFileId || photo.AttachID;
+                console.log('[CAPTION] Updating IndexedDB caption for temp photo:', pendingFileId);
+                
+                this.indexedDb.getStoredPhotoData(pendingFileId).then(existingData => {
+                  if (existingData && existingData.file) {
+                    this.indexedDb.storePhotoFile(
+                      pendingFileId,
+                      existingData.file,
+                      existingData.visualId,
+                      newCaption,
+                      existingData.drawings || ''
+                    ).then(() => {
+                      console.log('[CAPTION] ✅ Updated IndexedDB caption for temp photo:', pendingFileId, 'caption:', newCaption);
+                      // Mark as local update to prevent server overwriting on reload
+                      photo._localUpdate = true;
+                    }).catch((error: any) => {
+                      console.error('[CAPTION] Error updating IndexedDB caption:', error);
+                    });
+                  } else {
+                    console.warn('[CAPTION] Could not find pending photo in IndexedDB:', pendingFileId);
+                    // Still mark as local update to preserve caption on sync
+                    photo._localUpdate = true;
+                  }
+                });
               }
 
               return true; // Close popup immediately
