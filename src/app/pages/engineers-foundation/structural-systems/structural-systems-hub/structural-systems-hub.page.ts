@@ -115,66 +115,66 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
   private async loadData() {
     console.log('[StructuralHub] loadData() starting...');
     
-    // Quick check: do we have cached data? Don't show loading if so
-    const hasCachedService = await this.offlineTemplate.getService(this.serviceId);
-    const hasCachedTemplates = await this.indexedDb.getCachedTemplates('visual');
+    // Read templates ONCE and reuse
+    const cachedTemplates = await this.indexedDb.getCachedTemplates('visual');
+    const hasCachedTemplates = cachedTemplates && cachedTemplates.length > 0;
     
-    // Only show loading spinner if we need to fetch from network
-    const needsLoading = !hasCachedService || !hasCachedTemplates || (hasCachedTemplates as any[]).length === 0;
-    if (needsLoading) {
+    // Read service ONCE and reuse
+    const cachedService = await this.offlineTemplate.getService(this.serviceId);
+    
+    // Only show loading spinner if we TRULY need to fetch from network
+    if (!hasCachedTemplates || !cachedService) {
       this.loading = true;
       this.changeDetectorRef.detectChanges();
     }
 
     try {
-      // OFFLINE-FIRST: Load service data from IndexedDB
-      if (hasCachedService) {
-        this.serviceData = hasCachedService;
-        console.log('[StructuralHub] Loaded service from IndexedDB cache (instant)');
+      // Use cached service data directly
+      if (cachedService) {
+        this.serviceData = cachedService;
+        console.log('[StructuralHub] ✅ Service loaded from cache (instant)');
       } else {
-        // Fallback to API
+        // Fallback to API only if not cached
         this.caspioService.getService(this.serviceId).subscribe({
           next: (service) => {
             this.serviceData = service || {};
             this.changeDetectorRef.detectChanges();
           },
           error: (error) => {
-            console.error('[StructuralHub] Error loading service (continuing offline):', error);
+            console.error('[StructuralHub] Error loading service:', error);
           }
         });
       }
 
-      // Load categories (will be instant if templates are cached)
-      await this.loadCategories();
-      console.log('[StructuralHub] loadData() completed successfully');
+      // Load categories - pass templates to avoid re-reading
+      await this.loadCategoriesFromTemplates(cachedTemplates || []);
+      console.log('[StructuralHub] ✅ loadData() completed');
     } catch (error) {
       console.error('[StructuralHub] Error in loadData:', error);
     } finally {
       this.loading = false;
-      this.initialLoadComplete = true;  // Allow cache invalidation events now
+      this.initialLoadComplete = true;
       this.changeDetectorRef.detectChanges();
     }
   }
 
-  private async loadCategories() {
-    // Prevent concurrent loads
+  /**
+   * Load categories directly from provided templates (no extra IndexedDB reads)
+   */
+  private async loadCategoriesFromTemplates(templates: any[]) {
     if (this.isLoadingCategories) {
-      console.log('[StructuralHub] Already loading categories, skipping');
+      console.log('[StructuralHub] Already loading, skipping');
       return;
     }
     
     this.isLoadingCategories = true;
     
     try {
-      // OFFLINE-FIRST: Ensure visual templates are ready (waits for download if in progress)
-      console.log('[StructuralHub] Loading visual templates from IndexedDB...');
-      const allTemplates = await this.offlineTemplate.ensureVisualTemplatesReady();
-      console.log('[StructuralHub] Total templates from IndexedDB:', allTemplates?.length || 0);
-      
-      const visualTemplates = (allTemplates || []).filter((template: any) => template.TypeID === 1);
-      console.log('[StructuralHub] ✅ Filtered TypeID=1 templates:', visualTemplates.length);
+      // Filter for visual templates (TypeID=1)
+      const visualTemplates = templates.filter((t: any) => t.TypeID === 1);
+      console.log('[StructuralHub] ✅ Visual templates:', visualTemplates.length);
 
-      // Extract unique categories in order
+      // Extract unique categories - pure CPU operation, instant
       const categoriesSet = new Set<string>();
       const categoriesOrder: string[] = [];
 
@@ -185,17 +185,16 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
         }
       });
 
-      console.log('[StructuralHub] ✅ Found', categoriesOrder.length, 'unique categories:', categoriesOrder.join(', '));
+      console.log('[StructuralHub] ✅ Categories:', categoriesOrder.length);
 
-      // Get deficiency counts for each category from saved visuals
-      const deficiencyCounts = await this.getDeficiencyCountsByCategory();
+      // Get deficiency counts - ONE IndexedDB read, no pending requests needed
+      const deficiencyCounts = await this.getDeficiencyCountsFast();
 
       this.categories = categoriesOrder.map(cat => ({
         name: cat,
         deficiencyCount: deficiencyCounts[cat] || 0
       }));
 
-      console.log('[StructuralHub] Categories loaded:', this.categories.length);
       this.changeDetectorRef.detectChanges();
 
     } catch (error) {
@@ -205,22 +204,31 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
     }
   }
 
-  private async getDeficiencyCountsByCategory(): Promise<{ [category: string]: number }> {
+  /**
+   * Fallback for cache invalidation events - reads templates fresh
+   */
+  private async loadCategories() {
+    const templates = await this.indexedDb.getCachedTemplates('visual') || [];
+    await this.loadCategoriesFromTemplates(templates);
+  }
+
+  /**
+   * Fast deficiency count - reads ONLY cached visuals, skips pending requests
+   * For category display, we don't need pending items (they're still syncing)
+   */
+  private async getDeficiencyCountsFast(): Promise<{ [category: string]: number }> {
     try {
-      // OFFLINE-FIRST: Load all existing visuals for this service from IndexedDB
-      const visuals = await this.offlineTemplate.getVisualsByService(this.serviceId);
+      // ONE IndexedDB read - directly get cached visuals, no pending request check
+      const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
 
-      console.log('[StructuralHub] Counting deficiencies from', visuals.length, 'visuals');
-
-      // Count deficiencies by category
       const counts: { [category: string]: number } = {};
 
       visuals.forEach((visual: any) => {
         const kind = visual.Kind || '';
         const category = visual.Category || '';
 
-        // Only count items marked as "Deficiency"
-        if (kind === 'Deficiency' && category) {
+        // Only count Deficiency items that are NOT hidden
+        if (kind === 'Deficiency' && category && !String(visual.Notes || '').startsWith('HIDDEN')) {
           counts[category] = (counts[category] || 0) + 1;
         }
       });
@@ -230,6 +238,11 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
       console.error('[StructuralHub] Error counting deficiencies:', error);
       return {};
     }
+  }
+
+  // Keep old method for compatibility but mark as unused
+  private async getDeficiencyCountsByCategory(): Promise<{ [category: string]: number }> {
+    return this.getDeficiencyCountsFast();
   }
 
   navigateToCategory(categoryName: string) {
