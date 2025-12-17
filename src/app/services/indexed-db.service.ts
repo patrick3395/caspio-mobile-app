@@ -27,7 +27,7 @@ export interface TempIdMapping {
 
 export interface CachedTemplate {
   cacheKey: string;
-  type: 'visual' | 'efe';
+  type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown';
   templates: any[];
   lastUpdated: number;
 }
@@ -35,7 +35,7 @@ export interface CachedTemplate {
 export interface CachedServiceData {
   cacheKey: string;
   serviceId: string;
-  dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments';
+  dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments' | 'lbw_dropdown';
   data: any[];
   lastUpdated: number;
 }
