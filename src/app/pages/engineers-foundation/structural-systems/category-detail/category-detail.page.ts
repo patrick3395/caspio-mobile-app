@@ -731,71 +731,53 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     console.log('[LOAD DATA] ========== loadData START ==========');
     
     // CRITICAL: Start cooldown to prevent cache invalidation events from causing UI flash
-    // during initial load. This is extended as visuals/photos are loaded.
     this.startLocalOperationCooldown();
     
-    this.loading = true;
-    this.changeDetectorRef.detectChanges();
+    // Clear all state
+    this.visualPhotos = {};
+    this.visualRecordIds = {};
+    this.uploadingPhotosByKey = {};
+    this.loadingPhotosByKey = {};
+    this.photoCountsByKey = {};
+    this.selectedItems = {};
+    this.organizedData = { comments: [], limitations: [], deficiencies: [] };
 
     try {
-      // CRITICAL: Clear all state to ensure fresh load from database
-      console.log('[LOAD DATA] Clearing all photo state for fresh load');
-      this.visualPhotos = {};
-      this.visualRecordIds = {};
-      this.uploadingPhotosByKey = {};
-      this.loadingPhotosByKey = {};
-      this.photoCountsByKey = {};
-      this.selectedItems = {};
-      this.organizedData = {
-        comments: [],
-        limitations: [],
-        deficiencies: []
-      };
+      // STEP 1: Read templates ONCE from IndexedDB (fast)
+      const allTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
+      console.log('[LOAD DATA] Templates from cache:', allTemplates.length);
+      
+      // Only show loading if no templates cached
+      if (allTemplates.length === 0) {
+        this.loading = true;
+        this.changeDetectorRef.detectChanges();
+      }
 
-      // Load templates for this category (fast - just structure)
-      console.log('[LOAD DATA] Step 1: Loading category templates...');
-      await this.loadCategoryTemplates();
-      console.log('[LOAD DATA] Step 1 complete. Templates loaded:', {
+      // Filter templates for this category - pure CPU, instant
+      this.loadCategoryTemplatesFromCache(allTemplates);
+      console.log('[LOAD DATA] ✅ Templates organized:', {
         comments: this.organizedData.comments.length,
         limitations: this.organizedData.limitations.length,
         deficiencies: this.organizedData.deficiencies.length
       });
-
-      // Force change detection after templates load
       this.changeDetectorRef.detectChanges();
 
-      // Clear cache before loading to ensure we get fresh data
-      // This is important after offline sync to avoid showing stale data
-      this.foundationData.clearServiceCaches(this.serviceId);
+      // STEP 2: Read visuals DIRECTLY from IndexedDB (no pending request check)
+      console.log('[LOAD DATA] Loading visuals from cache...');
+      await this.loadExistingVisualsFromCache();
+      console.log('[LOAD DATA] ✅ Visuals loaded');
 
-      // CRITICAL: Load existing visuals and WAIT for photo counts to be fetched
-      // This ensures all skeletons are ready before the page shows
-      console.log('[LOAD DATA] Step 2: Loading existing visuals...');
-      await this.loadExistingVisuals();
-      console.log('[LOAD DATA] Step 2 complete');
-
-      // Restore any pending photos from IndexedDB (offline uploads)
-      console.log('[LOAD DATA] Step 3: Restoring pending photos...');
+      // STEP 3: Restore pending photos (local uploads not yet synced)
       await this.restorePendingPhotosFromIndexedDB();
-      console.log('[LOAD DATA] Step 3 complete');
+      console.log('[LOAD DATA] ✅ Pending photos restored');
 
-      // Show page with all skeleton loaders visible
+      // Show page
       this.loading = false;
-      
-      // Expand all accordions by default so user can see content
       this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
-      
-      console.log('[LOAD DATA] ✅ Data load complete. Final organizedData:', {
-        comments: this.organizedData.comments.length,
-        limitations: this.organizedData.limitations.length,
-        deficiencies: this.organizedData.deficiencies.length
-      });
-
-      // Force change detection to render the content
       this.changeDetectorRef.detectChanges();
 
     } catch (error) {
-      console.error('[LOAD DATA] ❌ Error loading category data:', error);
+      console.error('[LOAD DATA] ❌ Error:', error);
       this.loading = false;
       this.changeDetectorRef.detectChanges();
     }
@@ -869,118 +851,197 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     return itemsWithCountsReady === itemsWithVisuals;
   }
 
-  private async loadCategoryTemplates() {
-    try {
-      // OFFLINE-FIRST: Ensure visual templates are ready (waits for download if in progress)
-      console.log('[CategoryDetail] ========== loadCategoryTemplates START ==========');
-      console.log('[CategoryDetail] Loading templates for category:', this.categoryName);
-      
-      const allTemplates = await this.offlineTemplate.ensureVisualTemplatesReady();
-      console.log('[CategoryDetail] Total templates from IndexedDB:', allTemplates?.length || 0);
-      
-      if (!allTemplates || allTemplates.length === 0) {
-        console.error('[CategoryDetail] ❌ NO TEMPLATES FOUND IN INDEXEDDB!');
-        console.error('[CategoryDetail] This means the templates were not cached properly or IndexedDB is not accessible');
-        return;
-      }
-      
-      // Log first few templates to understand structure
-      console.log('[CategoryDetail] Sample template structure:', JSON.stringify(allTemplates[0]).substring(0, 300));
-      
-      // Get unique categories in the data
-      const uniqueCategories = [...new Set(allTemplates.map((t: any) => t.Category))];
-      console.log('[CategoryDetail] Categories in data:', uniqueCategories.join(', '));
-      
-      const visualTemplates = (allTemplates || []).filter((template: any) =>
-        template.TypeID === 1 && template.Category === this.categoryName
-      );
-      
-      console.log('[CategoryDetail] ✅ Filtered', visualTemplates.length, 'templates for category:', this.categoryName);
-      
-      if (visualTemplates.length === 0) {
-        console.warn('[CategoryDetail] ⚠️ No templates found for category "' + this.categoryName + '"');
-        console.warn('[CategoryDetail] Available categories:', uniqueCategories.join(', '));
-        // Check if category name case mismatch
-        const caseInsensitiveMatch = allTemplates.filter((t: any) => 
-          t.TypeID === 1 && t.Category?.toLowerCase() === this.categoryName?.toLowerCase()
-        );
-        if (caseInsensitiveMatch.length > 0) {
-          console.warn('[CategoryDetail] ⚠️ CASE MISMATCH DETECTED! Found', caseInsensitiveMatch.length, 'templates with case-insensitive match');
+  /**
+   * Load category templates from pre-read cache (no IndexedDB read)
+   */
+  private loadCategoryTemplatesFromCache(allTemplates: any[]) {
+    if (!allTemplates || allTemplates.length === 0) {
+      console.warn('[CategoryDetail] No templates in cache');
+      return;
+    }
+    
+    // Filter for this category - pure CPU operation
+    const visualTemplates = allTemplates.filter((template: any) =>
+      template.TypeID === 1 && template.Category === this.categoryName
+    );
+    
+    console.log('[CategoryDetail] Templates for', this.categoryName + ':', visualTemplates.length);
+
+    // Organize into UI structure - pure CPU
+    this.organizeTemplatesIntoData(visualTemplates);
+  }
+
+  /**
+   * Organize templates into organizedData structure - pure CPU, instant
+   */
+  private organizeTemplatesIntoData(visualTemplates: any[]) {
+    visualTemplates.forEach((template: any) => {
+      const templateData: VisualItem = {
+        id: template.PK_ID,
+        templateId: template.PK_ID,
+        name: template.Name || 'Unnamed Item',
+        text: template.Text || '',
+        originalText: template.Text || '',
+        type: template.Kind || 'Comment',
+        category: template.Category,
+        answerType: template.AnswerType || 0,
+        required: template.Required === 'Yes',
+        answer: '',
+        isSelected: false,
+        photos: []
+      };
+
+      // Parse dropdown options if AnswerType is 2 (multi-select)
+      if (template.AnswerType === 2 && template.DropdownOptions) {
+        try {
+          const optionsArray = JSON.parse(template.DropdownOptions);
+          this.visualDropdownOptions[template.PK_ID] = optionsArray;
+        } catch (e) {
+          this.visualDropdownOptions[template.PK_ID] = [];
         }
       }
-      
-      // Show breakdown by type
-      const limitations = visualTemplates.filter((t: any) => t.Kind === 'Limitation').length;
-      const comments = visualTemplates.filter((t: any) => t.Kind === 'Comment').length;
-      const deficiencies = visualTemplates.filter((t: any) => t.Kind === 'Deficiency').length;
-      console.log(`[CategoryDetail]    📝 Limitations: ${limitations}, Comments: ${comments}, Deficiencies: ${deficiencies}`);
 
-      // Organize templates by Kind
-      visualTemplates.forEach((template: any) => {
-        const templateData: VisualItem = {
-          id: template.PK_ID,
-          templateId: template.PK_ID,
-          name: template.Name || 'Unnamed Item',
-          text: template.Text || '',
-          originalText: template.Text || '',
-          type: template.Kind || 'Comment',  // CRITICAL FIX: Use Kind not Type
-          category: template.Category,
-          answerType: template.AnswerType || 0,
-          required: template.Required === 'Yes',
-          answer: '',
-          isSelected: false,
+      // Add to appropriate section
+      const kind = template.Kind || template.Type || 'Comment';
+      if (kind === 'Comment') {
+        this.organizedData.comments.push(templateData);
+      } else if (kind === 'Limitation') {
+        this.organizedData.limitations.push(templateData);
+      } else if (kind === 'Deficiency') {
+        this.organizedData.deficiencies.push(templateData);
+      } else {
+        this.organizedData.comments.push(templateData);
+      }
+
+      // Initialize selected state
+      this.selectedItems[`${this.categoryName}_${template.PK_ID}`] = false;
+    });
+  }
+
+  /**
+   * Keep old method for compatibility - now calls new fast method
+   */
+  private async loadCategoryTemplates() {
+    const allTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
+    this.loadCategoryTemplatesFromCache(allTemplates);
+  }
+
+  /**
+   * FAST: Load visuals directly from IndexedDB cache - no pending request check
+   * Optimized for instant display with deferred photo loading
+   */
+  private async loadExistingVisualsFromCache() {
+    // ONE IndexedDB read - no pending request overhead
+    const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
+    console.log('[LOAD VISUALS FAST] Cached visuals:', visuals.length);
+    
+    // Process each visual for this category - sync operation, fast
+    for (const visual of visuals) {
+      const category = visual.Category;
+      const name = visual.Name;
+      const kind = visual.Kind;
+      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+
+      // Only process visuals for current category
+      if (category !== this.categoryName) continue;
+      
+      // Skip hidden visuals
+      if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) {
+        const templateItem = this.findItemByNameAndCategory(name, category, kind);
+        if (templateItem) {
+          this.visualRecordIds[`${category}_${templateItem.id}`] = visualId;
+        }
+        continue;
+      }
+
+      // Find or create item
+      let item = this.findItemByNameAndCategory(name, category, kind);
+      if (!item) {
+        // Custom visual - create dynamic item
+        const customItem: VisualItem = {
+          id: `custom_${visualId}`,
+          templateId: 0,
+          name: visual.Name || 'Custom Item',
+          text: visual.Text || '',
+          originalText: visual.Text || '',
+          type: visual.Kind || 'Comment',
+          category: visual.Category,
+          answerType: 0,
+          required: false,
+          answer: visual.Answers || '',
+          isSelected: true,
           photos: []
         };
+        
+        if (kind === 'Comment') this.organizedData.comments.push(customItem);
+        else if (kind === 'Limitation') this.organizedData.limitations.push(customItem);
+        else if (kind === 'Deficiency') this.organizedData.deficiencies.push(customItem);
+        else this.organizedData.comments.push(customItem);
+        
+        item = customItem;
+      }
 
-        // Parse dropdown options if AnswerType is 2 (multi-select)
-        if (template.AnswerType === 2 && template.DropdownOptions) {
-          try {
-            const optionsArray = JSON.parse(template.DropdownOptions);
-            this.visualDropdownOptions[template.PK_ID] = optionsArray;
-          } catch (e) {
-            console.error('Error parsing dropdown options for template', template.PK_ID, e);
-            this.visualDropdownOptions[template.PK_ID] = [];
-          }
-        }
-
-        // Add to appropriate section based on Kind field (not Type field)
-        const kind = template.Kind || template.Type || 'Comment';
-        console.log('[LOAD TEMPLATES] Item:', template.Name, 'Kind:', kind, 'Type:', template.Type, 'item.type:', templateData.type);
-
-        if (kind === 'Comment') {
-          this.organizedData.comments.push(templateData);
-        } else if (kind === 'Limitation') {
-          this.organizedData.limitations.push(templateData);
-        } else if (kind === 'Deficiency') {
-          this.organizedData.deficiencies.push(templateData);
-        } else {
-          // Default to comments if type is unknown
-          console.warn('[LOAD TEMPLATES] Unknown kind:', kind, 'for item:', template.Name);
-          this.organizedData.comments.push(templateData);
-        }
-
-        // Initialize selected state
-        this.selectedItems[`${this.categoryName}_${template.PK_ID}`] = false;
-      });
-
-      console.log('[LOAD TEMPLATES] Organized data:', {
-        comments: this.organizedData.comments.length,
-        limitations: this.organizedData.limitations.length,
-        deficiencies: this.organizedData.deficiencies.length
-      });
+      const key = `${category}_${item.id}`;
+      this.visualRecordIds[key] = visualId;
       
-      console.log('[CategoryDetail] ========== loadCategoryTemplates END ==========');
-
-    } catch (error) {
-      console.error('[CategoryDetail] ❌ Error loading category templates:', error);
+      // Restore edited values
+      if (visual.Name) item.name = visual.Name;
+      if (visual.Text) item.text = visual.Text;
+      
+      // Set selected state
+      if (!item.answerType || item.answerType === 0) {
+        this.selectedItems[key] = true;
+      }
+      if (item.answerType === 1 && visual.Answers) item.answer = visual.Answers;
+      if (item.answerType === 2 && visual.Answers) {
+        item.answer = visual.Answers;
+        if (visual.Notes) item.otherValue = visual.Notes;
+      }
+      
+      // FAST PATH: Set initial photo count to 0, load in background
+      this.photoCountsByKey[key] = 0;
+      this.loadingPhotosByKey[key] = true;
     }
+    
+    // Render immediately
+    this.changeDetectorRef.detectChanges();
+    
+    // Load photos in background (non-blocking)
+    this.loadAllPhotosInBackground(visuals);
+  }
+
+  /**
+   * Load photos for all visuals in background - non-blocking
+   */
+  private loadAllPhotosInBackground(visuals: any[]) {
+    setTimeout(async () => {
+      for (const visual of visuals) {
+        if (visual.Category !== this.categoryName) continue;
+        if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
+        
+        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+        const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
+          this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+          this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+          this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+        
+        if (!item) continue;
+        
+        const key = `${visual.Category}_${item.id}`;
+        
+        // Load photos - this updates the UI progressively
+        this.loadPhotosForVisual(visualId, key).catch(err => {
+          console.error('[PHOTOS BG] Error:', visualId, err);
+        });
+      }
+    }, 50);
   }
 
   private async loadExistingVisuals() {
     try {
       console.log('[LOAD VISUALS] Loading existing visuals for serviceId:', this.serviceId);
 
-      // Get all visuals for this service
+      // Get all visuals for this service (slower path - includes pending)
       const visuals = await this.foundationData.getVisualsByService(this.serviceId);
 
       console.log('[LOAD VISUALS] Found', visuals.length, 'existing visuals');
