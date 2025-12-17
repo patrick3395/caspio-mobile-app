@@ -2015,7 +2015,6 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       }
 
       const existingCaption = photo.caption || '';
-      const attachId = photo.attachId;
 
       // Open FabricPhotoAnnotatorComponent - EXACT pattern from structural-systems
       const modal = await this.modalController.create({
