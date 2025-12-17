@@ -920,77 +920,116 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
 
   // "Other" value change handlers for dropdowns
   // Keep dropdown as "Other" and save custom value to database
-  // The custom value is stored in the database field, dropdown stays on "Other"
+  // CRITICAL: Don't use autoSaveProjectField as it updates the dropdown value
   async onTypeOfBuildingOtherChange() {
     if (this.typeOfBuildingOtherValue && this.typeOfBuildingOtherValue.trim()) {
       const customValue = this.typeOfBuildingOtherValue.trim();
-      // Save custom value to database (dropdown stays on "Other")
-      this.autoSaveProjectField('TypeOfBuilding', customValue);
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('project', 'TypeOfBuilding', customValue);
     }
   }
 
   async onStyleOtherChange() {
     if (this.styleOtherValue && this.styleOtherValue.trim()) {
       const customValue = this.styleOtherValue.trim();
-      // Save custom value to database (dropdown stays on "Other")
-      this.autoSaveProjectField('Style', customValue);
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('project', 'Style', customValue);
     }
   }
 
   async onOccupancyFurnishingsOtherChange() {
     if (this.occupancyFurnishingsOtherValue && this.occupancyFurnishingsOtherValue.trim()) {
       const customValue = this.occupancyFurnishingsOtherValue.trim();
-      // Save custom value to database (dropdown stays on "Other")
-      this.autoSaveServiceField('OccupancyFurnishings', customValue);
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'OccupancyFurnishings', customValue);
     }
   }
 
   async onWeatherConditionsOtherChange() {
     if (this.weatherConditionsOtherValue && this.weatherConditionsOtherValue.trim()) {
       const customValue = this.weatherConditionsOtherValue.trim();
-      // Save custom value to database (dropdown stays on "Other")
-      this.autoSaveServiceField('WeatherConditions', customValue);
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'WeatherConditions', customValue);
     }
   }
 
   async onOutdoorTemperatureOtherChange() {
     if (this.outdoorTemperatureOtherValue && this.outdoorTemperatureOtherValue.trim()) {
       const customValue = this.outdoorTemperatureOtherValue.trim();
-      // Save custom value to database (dropdown stays on "Other")
-      this.autoSaveServiceField('OutdoorTemperature', customValue);
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'OutdoorTemperature', customValue);
     }
   }
 
   async onFirstFoundationTypeOtherChange() {
     if (this.firstFoundationTypeOtherValue && this.firstFoundationTypeOtherValue.trim()) {
       const customValue = this.firstFoundationTypeOtherValue.trim();
-      // Save custom value to database (dropdown stays on "Other")
-      this.autoSaveServiceField('FirstFoundationType', customValue);
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'FirstFoundationType', customValue);
     }
   }
 
   async onSecondFoundationTypeOtherChange() {
     if (this.secondFoundationTypeOtherValue && this.secondFoundationTypeOtherValue.trim()) {
       const customValue = this.secondFoundationTypeOtherValue.trim();
-      // Save custom value to database (dropdown stays on "Other")
-      this.autoSaveServiceField('SecondFoundationType', customValue);
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'SecondFoundationType', customValue);
     }
   }
 
   async onThirdFoundationTypeOtherChange() {
     if (this.thirdFoundationTypeOtherValue && this.thirdFoundationTypeOtherValue.trim()) {
       const customValue = this.thirdFoundationTypeOtherValue.trim();
-      // Save custom value to database (dropdown stays on "Other")
-      this.autoSaveServiceField('ThirdFoundationType', customValue);
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'ThirdFoundationType', customValue);
     }
   }
 
   async onOwnerOccupantInterviewOtherChange() {
     if (this.ownerOccupantInterviewOtherValue && this.ownerOccupantInterviewOtherValue.trim()) {
       const customValue = this.ownerOccupantInterviewOtherValue.trim();
-      // Save custom value to database (dropdown stays on "Other")
-      this.autoSaveServiceField('OwnerOccupantInterview', customValue);
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'OwnerOccupantInterview', customValue);
     }
+  }
+
+  /**
+   * Save "Other" custom value to database WITHOUT updating the dropdown display
+   * This keeps the dropdown showing "Other" while saving the actual custom value
+   */
+  private async saveOtherValueToDatabase(tableType: 'project' | 'service', fieldName: string, value: string) {
+    console.log(`[ProjectDetails] Saving Other value for ${fieldName}: "${value}"`);
+
+    if (tableType === 'project') {
+      if (!this.projectId || this.projectId === 'new') return;
+      
+      // Save to IndexedDB (actual value, not "Other")
+      try {
+        await this.offlineTemplate.updateProject(this.projectId, { [fieldName]: value });
+        console.log(`[ProjectDetails] Project Other value ${fieldName} saved to IndexedDB`);
+      } catch (error) {
+        console.error(`[ProjectDetails] Error saving Other value to IndexedDB:`, error);
+      }
+    } else {
+      if (!this.serviceId || this.serviceId === 'new') return;
+      
+      // Save to IndexedDB (actual value, not "Other")
+      try {
+        await this.offlineTemplate.updateService(this.serviceId, { [fieldName]: value });
+        console.log(`[ProjectDetails] Service Other value ${fieldName} saved to IndexedDB`);
+      } catch (error) {
+        console.error(`[ProjectDetails] Error saving Other value to IndexedDB:`, error);
+      }
+    }
+
+    // Show status and trigger sync
+    const isOnline = this.offlineService.isOnline();
+    if (isOnline) {
+      this.showSaveStatus(`${fieldName} saved`, 'success');
+    } else {
+      this.showSaveStatus(`${fieldName} saved offline`, 'success');
+    }
+    this.backgroundSync.triggerSync();
   }
 
   // Auto-save to Projects table (OFFLINE-FIRST)
