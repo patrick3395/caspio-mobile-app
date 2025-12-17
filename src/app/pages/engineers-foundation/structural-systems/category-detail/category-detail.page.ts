@@ -1865,8 +1865,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
-          Answers: item.answer || '',
-          VisualTemplateID: item.templateId || 0  // CRITICAL: Store template ID for reliable matching
+          Answers: item.answer || ''
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -1942,8 +1941,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Answers: item.answer,
-          VisualTemplateID: item.templateId || 0  // CRITICAL: Store template ID for reliable matching
+          Answers: item.answer
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -2006,8 +2004,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Answers: item.answer || '',
-          VisualTemplateID: item.templateId || 0  // CRITICAL: Store template ID for reliable matching
+          Answers: item.answer || ''
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -2810,15 +2807,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
 
       // Create the Services_Visuals record using EXACT same structure as original
-      // CRITICAL: Include VisualTemplateID for reliable matching on reload
       const visualData: any = {
         ServiceID: serviceIdNum,
         Category: category,
         Kind: item.type,      // CRITICAL: Use item.type which is now set from template.Kind
         Name: item.name,
         Text: item.text || item.originalText || '',
-        Notes: '',
-        VisualTemplateID: item.templateId || Number(itemId)  // CRITICAL: Store template ID for reliable matching
+        Notes: ''
       };
 
       console.log('[SAVE VISUAL] Visual data being saved:', visualData);
