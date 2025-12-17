@@ -32,10 +32,14 @@ export class ApiGatewayService {
   post<T>(endpoint: string, body: any, options?: { headers?: HttpHeaders, idempotencyKey?: string }): Observable<T> {
     const url = `${this.baseUrl}${endpoint}`;
     
+    // Ensure Content-Type is set for JSON requests
+    let headers = options?.headers || new HttpHeaders();
+    if (!headers.has('Content-Type')) {
+      headers = headers.set('Content-Type', 'application/json');
+    }
+    
     // Add idempotency key if provided
-    let headers = options?.headers;
     if (options?.idempotencyKey) {
-      headers = headers || new HttpHeaders();
       headers = headers.set('Idempotency-Key', options.idempotencyKey);
     }
     

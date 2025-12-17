@@ -440,7 +440,20 @@ export class BackgroundSyncService {
           error.message || 'Sync failed'
         );
 
-        console.warn(`[BackgroundSync] ❌ Failed (will retry): ${request.requestId}`, error);
+        // Enhanced error logging for debugging
+        console.warn(`[BackgroundSync] ❌ Failed (will retry): ${request.requestId}`);
+        console.warn(`[BackgroundSync] Request details:`, {
+          endpoint: request.endpoint,
+          method: request.method,
+          data: request.data
+        });
+        console.warn(`[BackgroundSync] Error details:`, {
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          errorBody: error?.error,
+          fullError: error
+        });
       }
     }
   }
