@@ -719,17 +719,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
     }
 
-    // Revoke old blob URL if it exists
+    // Get existing photo to preserve annotations
     const oldPhoto = this.visualPhotos[key][photoIndex];
-    if (oldPhoto && oldPhoto.url && oldPhoto.url.startsWith('blob:')) {
+    
+    // CRITICAL: Preserve existing annotations if user added them while photo was uploading
+    const hasExistingAnnotations = oldPhoto && (
+      oldPhoto.hasAnnotations || 
+      oldPhoto.Drawings || 
+      (oldPhoto.displayUrl && oldPhoto.displayUrl.startsWith('blob:') && oldPhoto.displayUrl !== oldPhoto.url)
+    );
+    
+    // Revoke old blob URL ONLY if it's the base image URL, not an annotation display URL
+    if (oldPhoto && oldPhoto.url && oldPhoto.url.startsWith('blob:') && !hasExistingAnnotations) {
       URL.revokeObjectURL(oldPhoto.url);
     }
 
-    // Update photo object
+    // CRITICAL: Store original temp ID so we can find the photo later if user is editing annotations
+    const originalTempId = oldPhoto?.AttachID && String(oldPhoto.AttachID).startsWith('temp_') 
+      ? oldPhoto.AttachID 
+      : oldPhoto?._originalTempId;
+
+    // Update photo object - PRESERVE annotations if they exist
     this.visualPhotos[key][photoIndex] = {
       ...this.visualPhotos[key][photoIndex],
       AttachID: result.AttachID,
       id: result.AttachID,
+      _originalTempId: originalTempId,  // Store for finding photo during annotation save
       uploading: false,
       progress: 100,
       Attachment: s3Key,
@@ -738,15 +753,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       url: displayableUrl,
       originalUrl: displayableUrl,
       thumbnailUrl: displayableUrl,
-      displayUrl: displayableUrl,
-      caption: caption || '',
-      annotation: caption || '',
-      Annotation: caption || '',
+      // CRITICAL: Preserve displayUrl if user added annotations while uploading
+      displayUrl: hasExistingAnnotations ? oldPhoto.displayUrl : displayableUrl,
+      // CRITICAL: Preserve caption/annotation if user set them while uploading
+      caption: oldPhoto?.caption || caption || '',
+      annotation: oldPhoto?.annotation || caption || '',
+      Annotation: oldPhoto?.Annotation || caption || '',
+      // Preserve annotation data
+      hasAnnotations: oldPhoto?.hasAnnotations || false,
+      Drawings: oldPhoto?.Drawings || '',
       isSkeleton: false,  // CRITICAL: Ensure caption button is clickable
       queued: false       // Clear queued state after successful upload
     };
 
-    console.log('[UPLOAD UPDATE] Photo updated successfully');
+    // If user added annotations while uploading, save them to the database with the real AttachID
+    if (hasExistingAnnotations && oldPhoto?.Drawings) {
+      console.log('[UPLOAD UPDATE] Preserving annotations added during upload, will sync with real AttachID:', result.AttachID);
+      // The annotations will be synced when the user's annotation save completes
+      // or we can trigger a sync here if needed
+    }
+
+    console.log('[UPLOAD UPDATE] Photo updated successfully, annotations preserved:', hasExistingAnnotations);
   }
 
   private async loadData() {
@@ -2904,6 +2931,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       const key = `${category}_${itemId}`;
 
       const attachId = photo.AttachID || photo.id;
+      
+      // CRITICAL: Store the photo index BEFORE opening modal
+      // This ensures we can find the photo even if its AttachID changes during editing
+      const photos = this.visualPhotos[key] || [];
+      const originalPhotoIndex = photos.findIndex(p => 
+        (p.AttachID || p.id) === attachId || p === photo
+      );
+      console.log('[VIEW PHOTO] Captured photo index:', originalPhotoIndex, 'for AttachID:', attachId);
       const isTempPhoto = String(attachId).startsWith('temp_');
 
       // If temp photo, get from IndexedDB and use it instead of fetching
@@ -3100,20 +3135,42 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         // CRITICAL: Create blob URL for the annotated image (for display only)
         const newUrl = URL.createObjectURL(annotatedBlob);
 
-        // Find photo in array and update it
+        // Find photo in array - use multiple strategies since AttachID might have changed
         const photos = this.visualPhotos[key] || [];
-        const photoIndex = photos.findIndex(p =>
+        let photoIndex = photos.findIndex(p =>
           (p.AttachID || p.id) === attachId
         );
+        
+        // CRITICAL FIX: If not found by attachId, use the stored index (AttachID may have changed during modal)
+        if (photoIndex === -1 && originalPhotoIndex !== -1 && originalPhotoIndex < photos.length) {
+          console.log('[VIEW PHOTO] Photo not found by attachId, using stored index:', originalPhotoIndex);
+          photoIndex = originalPhotoIndex;
+        }
+        
+        // Also try to find by temp ID pattern if we had a temp ID
+        if (photoIndex === -1 && String(attachId).startsWith('temp_')) {
+          // The photo might have a real ID now, but we can find it by looking for our temp reference
+          photoIndex = photos.findIndex(p => p._originalTempId === attachId);
+          if (photoIndex !== -1) {
+            console.log('[VIEW PHOTO] Found photo by _originalTempId:', attachId);
+          }
+        }
 
         if (photoIndex !== -1) {
           const currentPhoto = photos[photoIndex];
+          
+          // CRITICAL: Use the CURRENT photo's AttachID, not the original one
+          // The AttachID may have changed from temp to real while the modal was open
+          const currentAttachId = currentPhoto.AttachID || currentPhoto.id || attachId;
+          const isCurrentlyTemp = String(currentAttachId).startsWith('temp_');
+          
+          console.log('[VIEW PHOTO] Saving annotations - Original AttachID:', attachId, 'Current AttachID:', currentAttachId, 'Is temp:', isCurrentlyTemp);
 
           // Save annotations to database FIRST
-          if (attachId && !String(attachId).startsWith('temp_')) {
+          if (currentAttachId && !isCurrentlyTemp) {
             try {
               // CRITICAL: Save and get back the compressed drawings that were saved
-              const compressedDrawings = await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, data.caption);
+              const compressedDrawings = await this.saveAnnotationToDatabase(currentAttachId, annotatedBlob, annotationsData, data.caption);
 
               // CRITICAL: Create NEW photo object (immutable update pattern from original line 12518-12542)
               // This ensures proper change detection and maintains separation between original and annotated
@@ -3166,7 +3223,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               // Toast removed per user request
               // await this.showToast('Failed to save annotations', 'danger');
             }
-          } else if (String(attachId).startsWith('temp_')) {
+          } else if (isCurrentlyTemp) {
             // OFFLINE PHOTO: Update IndexedDB with the new annotations
             // This ensures background sync will upload the photo WITH annotations
             try {
