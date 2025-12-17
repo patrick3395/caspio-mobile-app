@@ -408,7 +408,7 @@ export class EngineersFoundationDataService {
       if (!isTempId) {
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
-          endpoint: `LPS_Services_Visuals/${visualId}`,
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals/records?q.where=VisualID=${visualId}`,
           method: 'PUT',
           data: visualData,
           dependencies: [],
@@ -441,9 +441,10 @@ export class EngineersFoundationDataService {
       console.log('[Visual Data] Removed pending visual:', visualId);
     } else {
       // Queue delete for background sync
+      // CRITICAL: Use the correct API endpoint format with q.where clause
       await this.indexedDb.addPendingRequest({
         type: 'DELETE',
-        endpoint: `LPS_Services_Visuals/${visualId}`,
+        endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals/records?q.where=VisualID=${visualId}`,
         method: 'DELETE',
         data: { visualId },
         dependencies: [],

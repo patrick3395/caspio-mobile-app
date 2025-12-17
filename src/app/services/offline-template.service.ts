@@ -1330,10 +1330,11 @@ export class OfflineTemplateService {
     };
 
     // Add to IndexedDB pending queue
+    // CRITICAL: Use the correct API endpoint format for creating visuals
     await this.indexedDb.addPendingRequest({
       type: 'CREATE',
       tempId: tempId,
-      endpoint: 'LPS_Services_Visuals',
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_Visuals/records?response=rows',
       method: 'POST',
       data: visualData,
       dependencies: [],
@@ -1360,9 +1361,10 @@ export class OfflineTemplateService {
       await this.indexedDb.updatePendingRequestData(visualId, updates);
     } else {
       // Queue an update for a synced visual
+      // CRITICAL: Use the correct API endpoint format with q.where clause
       await this.indexedDb.addPendingRequest({
         type: 'UPDATE',
-        endpoint: `LPS_Services_Visuals/${visualId}`,
+        endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals/records?q.where=VisualID=${visualId}`,
         method: 'PUT',
         data: updates,
         dependencies: [],
@@ -1412,7 +1414,7 @@ export class OfflineTemplateService {
     // IMPORTANT: Also add to pendingRequests for BackgroundSyncService to process
     await this.indexedDb.addPendingRequest({
       type: 'CREATE',
-      endpoint: 'LPS_Services_EFE/',
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_EFE/records?response=rows',
       method: 'POST',
       tempId: tempId,
       data: {
@@ -1476,7 +1478,7 @@ export class OfflineTemplateService {
     // IMPORTANT: Also add to pendingRequests for BackgroundSyncService to process
     await this.indexedDb.addPendingRequest({
       type: 'CREATE',
-      endpoint: 'LPS_Services_EFE_Points/',
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?response=rows',
       method: 'POST',
       tempId: tempId,
       data: {

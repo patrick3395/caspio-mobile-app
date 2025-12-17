@@ -379,7 +379,7 @@ export class BackgroundSyncService {
         }
 
         // Emit visual sync complete for CREATE operations on visuals
-        if (request.type === 'CREATE' && request.endpoint === 'LPS_Services_Visuals') {
+        if (request.type === 'CREATE' && (request.endpoint === 'LPS_Services_Visuals' || request.endpoint.includes('LPS_Services_Visuals/records'))) {
           const serviceId = request.data?.ServiceID;
           // Extract visual ID from result
           let visualId = result?.VisualID || result?.Result?.[0]?.VisualID || result?.PK_ID || result?.Result?.[0]?.PK_ID;
