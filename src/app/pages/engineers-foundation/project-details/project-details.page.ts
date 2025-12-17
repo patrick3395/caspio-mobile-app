@@ -910,66 +910,247 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
   }
 
   // "Other" value change handlers for dropdowns
+  // CRITICAL: Must add custom value to options AND update the data field
   async onTypeOfBuildingOtherChange() {
     if (this.typeOfBuildingOtherValue && this.typeOfBuildingOtherValue.trim()) {
       const customValue = this.typeOfBuildingOtherValue.trim();
+      
+      // Add custom value to options (before "Other")
+      if (!this.typeOfBuildingOptions.includes(customValue)) {
+        const otherIndex = this.typeOfBuildingOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.typeOfBuildingOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.typeOfBuildingOptions.push(customValue);
+        }
+      }
+      
+      // Update dropdown to show the custom value
+      this.projectData.TypeOfBuilding = customValue;
+      
+      // Save to database
       this.autoSaveProjectField('TypeOfBuilding', customValue);
+      
+      // Clear the other input
+      this.typeOfBuildingOtherValue = '';
+      
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onStyleOtherChange() {
     if (this.styleOtherValue && this.styleOtherValue.trim()) {
       const customValue = this.styleOtherValue.trim();
+      
+      // Add custom value to options (before "Other")
+      if (!this.styleOptions.includes(customValue)) {
+        const otherIndex = this.styleOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.styleOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.styleOptions.push(customValue);
+        }
+      }
+      
+      // Update dropdown to show the custom value
+      this.projectData.Style = customValue;
+      
+      // Save to database
       this.autoSaveProjectField('Style', customValue);
+      
+      // Clear the other input
+      this.styleOtherValue = '';
+      
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onOccupancyFurnishingsOtherChange() {
     if (this.occupancyFurnishingsOtherValue && this.occupancyFurnishingsOtherValue.trim()) {
       const customValue = this.occupancyFurnishingsOtherValue.trim();
+      
+      // Add custom value to options (before "Other")
+      if (!this.occupancyFurnishingsOptions.includes(customValue)) {
+        const otherIndex = this.occupancyFurnishingsOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.occupancyFurnishingsOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.occupancyFurnishingsOptions.push(customValue);
+        }
+      }
+      
+      // Update dropdown to show the custom value
+      this.serviceData.OccupancyFurnishings = customValue;
+      
+      // Save to database
       this.autoSaveServiceField('OccupancyFurnishings', customValue);
+      
+      // Clear the other input
+      this.occupancyFurnishingsOtherValue = '';
+      
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onWeatherConditionsOtherChange() {
     if (this.weatherConditionsOtherValue && this.weatherConditionsOtherValue.trim()) {
       const customValue = this.weatherConditionsOtherValue.trim();
+      
+      // Add custom value to options (before "Other")
+      if (!this.weatherConditionsOptions.includes(customValue)) {
+        const otherIndex = this.weatherConditionsOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.weatherConditionsOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.weatherConditionsOptions.push(customValue);
+        }
+      }
+      
+      // Update dropdown to show the custom value
+      this.serviceData.WeatherConditions = customValue;
+      
+      // Save to database
       this.autoSaveServiceField('WeatherConditions', customValue);
+      
+      // Clear the other input
+      this.weatherConditionsOtherValue = '';
+      
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onOutdoorTemperatureOtherChange() {
     if (this.outdoorTemperatureOtherValue && this.outdoorTemperatureOtherValue.trim()) {
       const customValue = this.outdoorTemperatureOtherValue.trim();
+      
+      // Add custom value to options (before "Other")
+      if (!this.outdoorTemperatureOptions.includes(customValue)) {
+        const otherIndex = this.outdoorTemperatureOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.outdoorTemperatureOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.outdoorTemperatureOptions.push(customValue);
+        }
+      }
+      
+      // Update dropdown to show the custom value
+      this.serviceData.OutdoorTemperature = customValue;
+      
+      // Save to database
       this.autoSaveServiceField('OutdoorTemperature', customValue);
+      
+      // Clear the other input
+      this.outdoorTemperatureOtherValue = '';
+      
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onFirstFoundationTypeOtherChange() {
     if (this.firstFoundationTypeOtherValue && this.firstFoundationTypeOtherValue.trim()) {
       const customValue = this.firstFoundationTypeOtherValue.trim();
+      
+      // Add custom value to options (before "Other")
+      if (!this.firstFoundationTypeOptions.includes(customValue)) {
+        const otherIndex = this.firstFoundationTypeOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.firstFoundationTypeOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.firstFoundationTypeOptions.push(customValue);
+        }
+      }
+      
+      // Update dropdown to show the custom value
+      this.serviceData.FirstFoundationType = customValue;
+      
+      // Save to database
       this.autoSaveServiceField('FirstFoundationType', customValue);
+      
+      // Clear the other input
+      this.firstFoundationTypeOtherValue = '';
+      
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onSecondFoundationTypeOtherChange() {
     if (this.secondFoundationTypeOtherValue && this.secondFoundationTypeOtherValue.trim()) {
       const customValue = this.secondFoundationTypeOtherValue.trim();
+      
+      // Add custom value to options (before "Other")
+      if (!this.secondFoundationTypeOptions.includes(customValue)) {
+        const otherIndex = this.secondFoundationTypeOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.secondFoundationTypeOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.secondFoundationTypeOptions.push(customValue);
+        }
+      }
+      
+      // Update dropdown to show the custom value
+      this.serviceData.SecondFoundationType = customValue;
+      
+      // Save to database
       this.autoSaveServiceField('SecondFoundationType', customValue);
+      
+      // Clear the other input
+      this.secondFoundationTypeOtherValue = '';
+      
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onThirdFoundationTypeOtherChange() {
     if (this.thirdFoundationTypeOtherValue && this.thirdFoundationTypeOtherValue.trim()) {
       const customValue = this.thirdFoundationTypeOtherValue.trim();
+      
+      // Add custom value to options (before "Other")
+      if (!this.thirdFoundationTypeOptions.includes(customValue)) {
+        const otherIndex = this.thirdFoundationTypeOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.thirdFoundationTypeOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.thirdFoundationTypeOptions.push(customValue);
+        }
+      }
+      
+      // Update dropdown to show the custom value
+      this.serviceData.ThirdFoundationType = customValue;
+      
+      // Save to database
       this.autoSaveServiceField('ThirdFoundationType', customValue);
+      
+      // Clear the other input
+      this.thirdFoundationTypeOtherValue = '';
+      
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   async onOwnerOccupantInterviewOtherChange() {
     if (this.ownerOccupantInterviewOtherValue && this.ownerOccupantInterviewOtherValue.trim()) {
       const customValue = this.ownerOccupantInterviewOtherValue.trim();
+      
+      // Add custom value to options (before "Other")
+      if (!this.ownerOccupantInterviewOptions.includes(customValue)) {
+        const otherIndex = this.ownerOccupantInterviewOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.ownerOccupantInterviewOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.ownerOccupantInterviewOptions.push(customValue);
+        }
+      }
+      
+      // Update dropdown to show the custom value
+      this.serviceData.OwnerOccupantInterview = customValue;
+      
+      // Save to database
       this.autoSaveServiceField('OwnerOccupantInterview', customValue);
+      
+      // Clear the other input
+      this.ownerOccupantInterviewOtherValue = '';
+      
+      this.changeDetectorRef.detectChanges();
     }
   }
 
