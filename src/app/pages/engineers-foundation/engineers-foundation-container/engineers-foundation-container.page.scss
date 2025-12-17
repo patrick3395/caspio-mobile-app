@@ -60,7 +60,6 @@ ion-toolbar {
     --padding-bottom: 0 !important;
     --padding-start: 0 !important;
     --padding-end: 0 !important;
-    line-height: 56px; // Match toolbar height for vertical centering
   }
 
   .short-title {
@@ -70,23 +69,25 @@ ion-toolbar {
     --padding-bottom: 0 !important;
     --padding-start: 0 !important;
     --padding-end: 0 !important;
-    line-height: 56px; // Match toolbar height for vertical centering
   }
 
   ion-title {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
+    // iOS uses absolute positioning - override to vertically center
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
     padding: 0;
     margin: 0;
+    text-align: center;
+    height: auto;
     
-    // Ensure inner text is centered
+    // Ensure inner text wrapper is also centered
     .toolbar-title {
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 100%;
     }
   }
 
