@@ -1195,7 +1195,7 @@ export class OfflineTemplateService {
             if (vId) localUpdates.set(vId, visual);
             if (tempId) localUpdates.set(tempId, visual);
             const reason = visual._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-            console.log(`[OfflineTemplate] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Notes: ${visual.Notes})`);
+            console.log(`[OfflineTemplate] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Hidden: ${visual.Hidden})`);
           }
         }
         
@@ -1207,7 +1207,7 @@ export class OfflineTemplateService {
           const localVersion = localUpdates.get(pkId) || localUpdates.get(vId);
           if (localVersion) {
             // Keep local version since it has pending changes not yet on server
-            console.log(`[OfflineTemplate] Keeping local version of visual PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
+            console.log(`[OfflineTemplate] Keeping local version of visual PK_ID=${pkId} with Hidden: ${localVersion.Hidden}`);
             return localVersion;
           }
           return serverVisual;

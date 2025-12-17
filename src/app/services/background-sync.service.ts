@@ -376,7 +376,7 @@ export class BackgroundSyncService {
               await this.clearLocalUpdateFlag('efe_point_attachments', attachId);
             }
           } else if (request.endpoint.includes('LPS_Services_Visuals/records') && !request.endpoint.includes('Attach')) {
-            // Clear _localUpdate flag from Visuals cache after successful update (e.g., Notes: 'HIDDEN')
+            // Clear _localUpdate flag from Visuals cache after successful update (e.g., Hidden: 'Yes')
             const visualMatch = request.endpoint.match(/VisualID=(\d+)/);
             if (visualMatch) {
               const visualId = visualMatch[1];
@@ -1092,7 +1092,7 @@ export class BackgroundSyncService {
             if (vId) localUpdates.set(vId, visual);
             if (tempId) localUpdates.set(tempId, visual);
             const reason = visual._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-            console.log(`[BackgroundSync] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Notes: ${visual.Notes})`);
+            console.log(`[BackgroundSync] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Hidden: ${visual.Hidden})`);
           }
         }
         
@@ -1103,7 +1103,7 @@ export class BackgroundSyncService {
           // Try to find local version by either key
           const localVersion = localUpdates.get(pkId) || localUpdates.get(vId);
           if (localVersion) {
-            console.log(`[BackgroundSync] Keeping local version of visual PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
+            console.log(`[BackgroundSync] Keeping local version of visual PK_ID=${pkId} with Hidden: ${localVersion.Hidden}`);
             return localVersion;
           }
           return serverVisual;
