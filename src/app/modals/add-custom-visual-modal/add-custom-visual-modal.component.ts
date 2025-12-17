@@ -2,6 +2,8 @@ import { Component, Input, ViewChild, ElementRef } from '@angular/core';
 import { ModalController, AlertController, IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 
 // Processed photo data structure matching the main page
 interface ProcessedPhoto {
@@ -37,9 +39,6 @@ export class AddCustomVisualModalComponent {
   // Select photos from gallery (camera roll) - multi-select without editor
   async addPhotosFromGallery() {
     try {
-      // Dynamically import Camera
-      const { Camera } = await import('@capacitor/camera');
-
       // Open gallery/photos to select MULTIPLE images
       const images = await Camera.pickImages({
         quality: 90,
@@ -79,9 +78,6 @@ export class AddCustomVisualModalComponent {
   // Capture photo from camera and open editor
   async addPhotoFromCamera() {
     try {
-      // Dynamically import Camera
-      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-
       // Capture photo with camera
       const image = await Camera.getPhoto({
         quality: 90,
@@ -152,9 +148,6 @@ export class AddCustomVisualModalComponent {
   // Process photo through annotation editor (for camera captures)
   async processPhotoWithEditor(file: File) {
     try {
-      // Dynamically import the photo annotator
-      const { FabricPhotoAnnotatorComponent } = await import('../../components/fabric-photo-annotator/fabric-photo-annotator.component');
-
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {
@@ -231,8 +224,6 @@ export class AddCustomVisualModalComponent {
     const fileToEdit = photo.originalFile || photo.file;
 
     try {
-      const { FabricPhotoAnnotatorComponent } = await import('../../components/fabric-photo-annotator/fabric-photo-annotator.component');
-
       const modal = await this.modalController.create({
         component: FabricPhotoAnnotatorComponent,
         componentProps: {

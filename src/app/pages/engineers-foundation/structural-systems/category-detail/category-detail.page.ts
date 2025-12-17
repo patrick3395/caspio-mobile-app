@@ -545,6 +545,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                     Attachment: att.Attachment || existingPhoto.Attachment,
                     uploading: false,
                     queued: false,
+                    isSkeleton: false,  // CRITICAL: Ensure caption button is clickable
                   };
                   anyChanges = true;
                 } else {
@@ -584,6 +585,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 loading: false,
                 uploading: false,
                 queued: false,
+                isSkeleton: false,  // CRITICAL: Ensure caption button is clickable
                 _tempId: undefined,
                 _pendingFileId: undefined,
                 _backgroundSync: undefined,
@@ -1355,7 +1357,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       rawDrawingsString: attach.Drawings || null,  // CRITICAL: Store for decompression
       uploading: false,
       queued: false,
-      isObjectUrl: false
+      isObjectUrl: false,
+      isSkeleton: false  // CRITICAL: Ensure caption button is clickable
     };
 
     // Add photo to array as soon as it's ready
