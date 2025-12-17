@@ -489,11 +489,15 @@ export class EngineersFoundationDataService {
     const objectUrl = URL.createObjectURL(file);
     
     // Check if this exact photo is already queued (prevent duplicates)
+    // CRITICAL FIX: Handle both temp IDs (strings) and real IDs (numbers)
     const pending = await this.indexedDb.getPendingRequests();
     const alreadyQueued = pending.some(r => 
       r.type === 'UPLOAD_FILE' &&
       r.endpoint === 'VISUAL_PHOTO_UPLOAD' &&
-      r.data.visualId === parseInt(visualIdStr) &&
+      (isTempId 
+        ? (r.data.tempVisualId === visualIdStr)  // Match temp IDs as strings
+        : (r.data.visualId === parseInt(visualIdStr, 10))  // Match real IDs as numbers
+      ) &&
       r.data.fileName === file.name &&
       r.status !== 'synced'
     );

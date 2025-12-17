@@ -1143,24 +1143,44 @@ export class OfflineTemplateService {
    * Refresh visuals cache in background (non-blocking)
    * Fire-and-forget pattern - doesn't block UI
    * PRESERVES local updates (_localUpdate flag) when merging with fresh server data
+   * Also checks for pending UPDATE requests to prevent race conditions
    * Emits backgroundRefreshComplete$ when done so pages can reload
    */
   private refreshVisualsInBackground(serviceId: string): void {
     setTimeout(async () => {
       try {
+        // CRITICAL FIX: Check for pending UPDATE requests BEFORE fetching from server
+        // This prevents race conditions where cache refresh overwrites local HIDDEN state
+        const pendingRequests = await this.indexedDb.getPendingRequests();
+        const pendingVisualUpdates = new Set<string>(
+          pendingRequests
+            .filter(r => r.type === 'UPDATE' && r.endpoint.includes('LPS_Services_Visuals/records') && !r.endpoint.includes('Attach'))
+            .map(r => {
+              const match = r.endpoint.match(/VisualID=(\d+)/);
+              return match ? match[1] : null;
+            })
+            .filter((id): id is string => id !== null)
+        );
+        
+        if (pendingVisualUpdates.size > 0) {
+          console.log(`[OfflineTemplate] Found ${pendingVisualUpdates.size} pending UPDATE requests for visuals:`, [...pendingVisualUpdates]);
+        }
+        
         const freshVisuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
         
         // Get existing cached visuals to find local updates that should be preserved
         const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
         
         // Build a map of locally updated visuals that should NOT be overwritten
+        // Include both _localUpdate flagged AND visuals with pending UPDATE requests
         const localUpdates = new Map<string, any>();
         for (const visual of existingCache) {
-          if (visual._localUpdate) {
-            // Use PK_ID (VisualID) as key
-            const visualId = String(visual.PK_ID || visual._tempId);
+          const visualId = String(visual.PK_ID || visual._tempId);
+          // Preserve if has _localUpdate flag OR has pending UPDATE request
+          if (visual._localUpdate || pendingVisualUpdates.has(visualId)) {
             localUpdates.set(visualId, visual);
-            console.log(`[OfflineTemplate] Preserving local update for visual ${visualId} (Notes: ${visual.Notes})`);
+            const reason = visual._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
+            console.log(`[OfflineTemplate] Preserving local version of visual ${visualId} (${reason}, Notes: ${visual.Notes})`);
           }
         }
         

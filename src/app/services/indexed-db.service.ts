@@ -801,6 +801,103 @@ export class IndexedDbService {
   }
 
   /**
+   * Cache an annotated image (with drawings overlay) for offline viewing
+   * Uses a separate key prefix to distinguish from base images
+   * @param attachId The attachment ID
+   * @param blob The annotated image blob
+   */
+  async cacheAnnotatedImage(attachId: string, blob: Blob): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      console.warn('[IndexedDB] cachedPhotos store not available - skipping annotated image cache');
+      return;
+    }
+
+    // Convert blob to base64 data URL
+    const imageDataUrl = await this.blobToBase64(blob);
+    
+    // Use a different key prefix for annotated images
+    const photoKey = `annotated_${attachId}`;
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readwrite');
+      const store = transaction.objectStore('cachedPhotos');
+
+      const photoData = {
+        photoKey: photoKey,
+        attachId: attachId,
+        serviceId: 'annotated',  // Special marker for annotated images
+        imageData: imageDataUrl,  // base64 data URL
+        s3Key: '',
+        cachedAt: Date.now(),
+        isAnnotated: true  // Flag to identify annotated versions
+      };
+
+      const putRequest = store.put(photoData);
+
+      putRequest.onsuccess = () => {
+        console.log('[IndexedDB] Annotated image cached:', attachId, 'size:', imageDataUrl.length);
+        resolve();
+      };
+
+      putRequest.onerror = () => {
+        console.error('[IndexedDB] Failed to cache annotated image:', putRequest.error);
+        reject(putRequest.error);
+      };
+    });
+  }
+
+  /**
+   * Get cached annotated image
+   * Returns the base64 data URL or null if not cached
+   * @param attachId The attachment ID
+   */
+  async getCachedAnnotatedImage(attachId: string): Promise<string | null> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      console.warn('[IndexedDB] getCachedAnnotatedImage: cachedPhotos store does not exist!');
+      return null;
+    }
+
+    const photoKey = `annotated_${attachId}`;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readonly');
+      const store = transaction.objectStore('cachedPhotos');
+      const getRequest = store.get(photoKey);
+
+      getRequest.onsuccess = () => {
+        const result = getRequest.result;
+        if (result && result.imageData) {
+          console.log('[IndexedDB] Cached annotated image found:', attachId, '(data length:', result.imageData.length, ')');
+          resolve(result.imageData);
+        } else {
+          resolve(null);  // No cached annotated image - this is normal
+        }
+      };
+
+      getRequest.onerror = () => {
+        console.error('[IndexedDB] Error getting cached annotated image:', getRequest.error);
+        resolve(null);
+      };
+    });
+  }
+
+  /**
+   * Convert blob to base64 data URL
+   */
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to convert blob to base64'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
    * Clear all cached photos for a service
    */
   async clearCachedPhotosForService(serviceId: string): Promise<void> {

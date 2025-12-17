@@ -1004,6 +1004,23 @@ export class BackgroundSyncService {
     try {
       console.log(`[BackgroundSync] Refreshing visuals cache for service ${serviceId}...`);
       
+      // CRITICAL FIX: Check for pending UPDATE requests BEFORE fetching from server
+      // This prevents race conditions where cache refresh overwrites local HIDDEN state
+      const pendingRequests = await this.indexedDb.getPendingRequests();
+      const pendingVisualUpdates = new Set<string>(
+        pendingRequests
+          .filter(r => r.type === 'UPDATE' && r.endpoint.includes('LPS_Services_Visuals/records') && !r.endpoint.includes('Attach'))
+          .map(r => {
+            const match = r.endpoint.match(/VisualID=(\d+)/);
+            return match ? match[1] : null;
+          })
+          .filter((id): id is string => id !== null)
+      );
+      
+      if (pendingVisualUpdates.size > 0) {
+        console.log(`[BackgroundSync] Found ${pendingVisualUpdates.size} pending UPDATE requests for visuals:`, [...pendingVisualUpdates]);
+      }
+      
       // Fetch fresh visuals from server
       const freshVisuals = await this.caspioService.getServicesVisualsByServiceId(serviceId).toPromise();
       
@@ -1012,12 +1029,15 @@ export class BackgroundSyncService {
         const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
         
         // Build map of locally updated visuals that should NOT be overwritten
+        // Include both _localUpdate flagged AND visuals with pending UPDATE requests
         const localUpdates = new Map<string, any>();
         for (const visual of existingCache) {
-          if (visual._localUpdate) {
-            const visualId = String(visual.PK_ID || visual._tempId);
+          const visualId = String(visual.PK_ID || visual._tempId);
+          // Preserve if has _localUpdate flag OR has pending UPDATE request
+          if (visual._localUpdate || pendingVisualUpdates.has(visualId)) {
             localUpdates.set(visualId, visual);
-            console.log(`[BackgroundSync] Preserving local update for visual ${visualId} (Notes: ${visual.Notes})`);
+            const reason = visual._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
+            console.log(`[BackgroundSync] Preserving local version of visual ${visualId} (${reason}, Notes: ${visual.Notes})`);
           }
         }
         

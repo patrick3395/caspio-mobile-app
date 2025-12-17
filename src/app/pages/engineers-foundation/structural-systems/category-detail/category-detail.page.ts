@@ -554,21 +554,39 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                                   !existingPhoto.loading;
               
               if (hasValidUrl) {
-                // Check if metadata actually changed
-                const captionChanged = existingPhoto.caption !== (att.Annotation || att.Caption || '');
-                if (captionChanged) {
-                  console.log('[RELOAD AFTER SYNC] Updating metadata for photo:', realAttachId);
-                  this.visualPhotos[key][existingPhotoIndex] = {
-                    ...existingPhoto,
-                    caption: att.Annotation || att.Caption || existingPhoto.caption || '',
-                    Attachment: att.Attachment || existingPhoto.Attachment,
-                    uploading: false,
-                    queued: false,
-                    isSkeleton: false,  // CRITICAL: Ensure caption button is clickable
-                  };
-                  anyChanges = true;
+                // CRITICAL FIX: Check if attachment has local update flag
+                // If so, DON'T overwrite local caption/annotation with server data
+                const hasLocalUpdate = att._localUpdate || existingPhoto._localUpdate;
+                
+                if (hasLocalUpdate) {
+                  console.log('[RELOAD AFTER SYNC] Preserving local update for photo:', realAttachId, 'caption:', existingPhoto.caption);
+                  // Just ensure it's marked as not uploading/queued
+                  if (existingPhoto.uploading || existingPhoto.queued) {
+                    this.visualPhotos[key][existingPhotoIndex] = {
+                      ...existingPhoto,
+                      uploading: false,
+                      queued: false,
+                      isSkeleton: false,
+                    };
+                    anyChanges = true;
+                  }
                 } else {
-                  console.log('[RELOAD AFTER SYNC] Photo already up-to-date:', realAttachId);
+                  // No local update - safe to compare with server data
+                  const captionChanged = existingPhoto.caption !== (att.Annotation || att.Caption || '');
+                  if (captionChanged) {
+                    console.log('[RELOAD AFTER SYNC] Updating metadata for photo:', realAttachId);
+                    this.visualPhotos[key][existingPhotoIndex] = {
+                      ...existingPhoto,
+                      caption: att.Annotation || att.Caption || existingPhoto.caption || '',
+                      Attachment: att.Attachment || existingPhoto.Attachment,
+                      uploading: false,
+                      queued: false,
+                      isSkeleton: false,  // CRITICAL: Ensure caption button is clickable
+                    };
+                    anyChanges = true;
+                  } else {
+                    console.log('[RELOAD AFTER SYNC] Photo already up-to-date:', realAttachId);
+                  }
                 }
               } else if (att.Attachment) {
                 // Existing photo is broken/loading AND server has S3 key - reload it
@@ -594,12 +612,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               // Preserve the displayUrl if valid
               const preservedUrl = existingTempPhoto.displayUrl || existingTempPhoto.url;
               
+              // CRITICAL FIX: Preserve local caption if it exists
+              // Use local caption if set, otherwise use server caption
+              const preservedCaption = existingTempPhoto.caption || att.Annotation || att.Caption || '';
+              
               this.visualPhotos[key][tempPhotoIndex] = {
                 ...existingTempPhoto,
                 AttachID: realAttachId,
                 attachId: realAttachId,
                 id: realAttachId,
-                caption: att.Annotation || att.Caption || existingTempPhoto.caption || '',
+                caption: preservedCaption,
                 Attachment: att.Attachment,
                 loading: false,
                 uploading: false,
@@ -1353,8 +1375,25 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
     }
 
-    const hasDrawings = !!attach.Drawings;
+    const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
     console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'VisualID:', attach.VisualID, 'Has Drawings:', hasDrawings, 'Drawings length:', attach.Drawings?.length || 0);
+
+    // CRITICAL FIX: Check for cached annotated image
+    // If the photo has annotations and we have a cached annotated version, use it for displayUrl
+    let displayUrl = imageUrl;
+    if (hasDrawings) {
+      try {
+        const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
+        if (cachedAnnotatedImage) {
+          console.log('[LOAD PHOTO] ✅ Using cached annotated image for thumbnail:', attachId);
+          displayUrl = cachedAnnotatedImage;
+        } else {
+          console.log('[LOAD PHOTO] No cached annotated image found, will show base image:', attachId);
+        }
+      } catch (annotErr) {
+        console.warn('[LOAD PHOTO] Error checking for cached annotated image:', annotErr);
+      }
+    }
 
     const photoData = {
       AttachID: attach.AttachID,
@@ -1366,7 +1405,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       url: imageUrl,
       originalUrl: imageUrl,        // CRITICAL: Set originalUrl to base image
       thumbnailUrl: imageUrl,
-      displayUrl: imageUrl,          // Will be overwritten with annotated version if user annotates
+      displayUrl: displayUrl,          // Use annotated version if cached, otherwise base image
       caption: attach.Annotation || '',
       annotation: attach.Annotation || '',
       Annotation: attach.Annotation || '',
@@ -3210,6 +3249,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         await this.indexedDb.cacheServiceData(visualIdForCache, 'visual_attachments', updatedAttachments);
         console.log('[SAVE] ✅ Annotation saved to IndexedDB cache for visual', visualIdForCache, 'with _localUpdate flag');
       }
+      
+      // CRITICAL FIX: Also cache the annotated blob for thumbnail display on reload
+      // This ensures annotations are visible in thumbnails after page reload
+      if (annotatedBlob && annotatedBlob.size > 0) {
+        try {
+          await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
+          console.log('[SAVE] ✅ Annotated image blob cached for thumbnail display');
+        } catch (annotCacheErr) {
+          console.warn('[SAVE] Failed to cache annotated image blob:', annotCacheErr);
+        }
+      }
     } catch (cacheError) {
       console.warn('[SAVE] Failed to update IndexedDB cache:', cacheError);
       // Continue anyway - still try API
@@ -3690,7 +3740,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             // Upload the ORIGINAL photo (without annotations baked in)
             // If we have an originalFile, use that; otherwise use the file as-is
             const fileToUpload = originalFile || file;
-            const result = await this.foundationData.uploadVisualPhoto(parseInt(visualId!, 10), fileToUpload, caption);
+            
+            // CRITICAL FIX: Handle temp VisualIDs correctly
+            // If visualId is a temp ID (starts with 'temp_'), pass it as string
+            // Otherwise, parse it as integer for API compatibility
+            const isTempVisualId = String(visualId).startsWith('temp_');
+            const visualIdForUpload = isTempVisualId ? visualId! : parseInt(visualId!, 10);
+            
+            console.log(`[CREATE CUSTOM] Uploading photo with VisualID:`, visualIdForUpload, 'isTemp:', isTempVisualId);
+            
+            const result = await this.foundationData.uploadVisualPhoto(visualIdForUpload, fileToUpload, caption);
             const attachId = result?.AttachID || result?.PK_ID || result?.id;
 
             if (!attachId) {
