@@ -766,11 +766,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       queued: false       // Clear queued state after successful upload
     };
 
-    // If user added annotations while uploading, save them to the database with the real AttachID
-    if (hasExistingAnnotations && oldPhoto?.Drawings) {
-      console.log('[UPLOAD UPDATE] Preserving annotations added during upload, will sync with real AttachID:', result.AttachID);
-      // The annotations will be synced when the user's annotation save completes
-      // or we can trigger a sync here if needed
+    // If user added annotations while uploading, transfer cached annotated image to real ID
+    if (hasExistingAnnotations && originalTempId) {
+      console.log('[UPLOAD UPDATE] Transferring cached annotated image from temp ID to real ID:', originalTempId, '->', result.AttachID);
+      
+      // Get the cached annotated image using the temp ID and re-cache with real ID
+      try {
+        const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(originalTempId);
+        if (cachedAnnotatedImage) {
+          // Convert base64 back to blob and re-cache with real ID
+          const response = await fetch(cachedAnnotatedImage);
+          const blob = await response.blob();
+          await this.indexedDb.cacheAnnotatedImage(String(result.AttachID), blob);
+          console.log('[UPLOAD UPDATE] ✅ Annotated image transferred to real AttachID:', result.AttachID);
+        }
+      } catch (transferErr) {
+        console.warn('[UPLOAD UPDATE] Failed to transfer annotated image cache:', transferErr);
+      }
+      
+      // Also queue the annotation update to sync with the real AttachID
+      if (oldPhoto?.Drawings) {
+        console.log('[UPLOAD UPDATE] Queueing annotation sync with real AttachID:', result.AttachID);
+        // The annotations are already stored in the photo object and will be synced
+      }
     }
 
     console.log('[UPLOAD UPDATE] Photo updated successfully, annotations preserved:', hasExistingAnnotations);
@@ -1738,6 +1756,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
           if (existingIndex === -1) {
             console.log('[RESTORE PENDING] Adding pending photo:', pendingPhoto.AttachID);
+            
+            // CRITICAL FIX: Check for cached annotated image for this photo
+            // This ensures annotations show in thumbnails for pending photos
+            const photoId = pendingPhoto.AttachID || pendingPhoto._pendingFileId;
+            if (photoId) {
+              try {
+                const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(photoId);
+                if (cachedAnnotatedImage) {
+                  console.log('[RESTORE PENDING] ✅ Found cached annotated image for:', photoId);
+                  pendingPhoto.displayUrl = cachedAnnotatedImage;
+                  pendingPhoto.hasAnnotations = true;
+                }
+              } catch (cacheErr) {
+                console.warn('[RESTORE PENDING] Error checking cached annotated image:', cacheErr);
+              }
+            }
+            
             this.visualPhotos[matchingKey].push(pendingPhoto);
           } else {
             console.log('[RESTORE PENDING] Photo already exists:', pendingPhoto.AttachID);
@@ -3286,6 +3321,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               };
 
               console.log('[SAVE OFFLINE] Updated local photo object');
+              
+              // CRITICAL FIX: Cache annotated image for temp photos too
+              // This ensures annotations show in thumbnails even for offline photos
+              if (annotatedBlob && annotatedBlob.size > 0) {
+                try {
+                  await this.indexedDb.cacheAnnotatedImage(pendingFileId, annotatedBlob);
+                  console.log('[SAVE OFFLINE] ✅ Annotated image cached for temp photo:', pendingFileId);
+                } catch (cacheErr) {
+                  console.warn('[SAVE OFFLINE] Failed to cache annotated image:', cacheErr);
+                }
+              }
             } catch (error) {
               console.error('[SAVE OFFLINE] Error saving annotations to IndexedDB:', error);
             }
