@@ -1146,7 +1146,7 @@ export class IndexedDbService {
    * Get ALL cached service data entries of a specific type
    * Used to find which serviceId/visualId contains a specific attachment
    */
-  async getAllCachedServiceData(dataType: 'visual_attachments' | 'efe_point_attachments'): Promise<{ serviceId: string; data: any[] }[]> {
+  async getAllCachedServiceData(dataType: 'visuals' | 'visual_attachments' | 'efe_point_attachments'): Promise<{ serviceId: string; data: any[] }[]> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {
