@@ -31,7 +31,6 @@ interface ServicesVisualRecord {
   Name: string;
   Text: string;  // The full text content
   Notes: string;  // Made required, will send empty string if not provided
-  Hidden?: string;  // 'Yes' or 'No' - whether the visual is hidden
   Answers?: string;  // Optional field for storing Yes/No or comma-delimited multi-select answers
 }
 

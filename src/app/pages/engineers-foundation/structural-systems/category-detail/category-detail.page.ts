@@ -381,7 +381,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         
         // CRITICAL: Check if this visual is HIDDEN (deselected offline)
         // If so, we should NOT re-select it in the UI
-        const isHidden = visual.Hidden === 'Yes';
+        const isHidden = visual.Notes && String(visual.Notes).startsWith('HIDDEN');
         
         // Find the item in organizedData by matching templateId or name+category+kind
         let targetArray: VisualItem[] | null = null;
@@ -992,7 +992,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
       
       // Skip hidden visuals - but still store the mapping for unhiding later
-      if (visual.Hidden === 'Yes') {
+      if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) {
         if (item) {
           const hiddenKey = `${category}_${item.id}`;
           // Only assign if not already assigned to prevent collision
@@ -1108,7 +1108,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     setTimeout(async () => {
       for (const visual of visuals) {
         if (visual.Category !== this.categoryName) continue;
-        if (visual.Hidden === 'Yes') continue;
+        if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
         
         const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
         const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
@@ -1156,7 +1156,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         }
 
         // CRITICAL: Skip hidden visuals (soft delete - keeps photos but doesn't show in UI)
-        if (visual.Hidden === 'Yes') {
+        // Check for HIDDEN marker (can be "HIDDEN" or "HIDDEN|{otherValue}" for multi-select)
+        if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
           console.log('[LOAD VISUALS] Skipping hidden visual:', name, visualId);
           // Store visualRecordId so we can unhide it later if user reselects
           const tempKey = `${category}_${name}_${kind}`;
@@ -1789,7 +1790,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         // Visual exists but was hidden - unhide it
         this.savingItems[key] = true;
         try {
-          await this.foundationData.updateVisual(visualId, { Hidden: 'No' }, this.serviceId);
+          await this.foundationData.updateVisual(visualId, { Notes: '' }, this.serviceId);
           console.log('[TOGGLE] Unhid visual:', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error unhiding visual:', error);
@@ -1811,7 +1812,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         this.savingItems[key] = true;
         try {
           // OFFLINE-FIRST: This now queues the update and returns immediately
-          await this.foundationData.updateVisual(visualId, { Hidden: 'Yes' }, this.serviceId);
+          await this.foundationData.updateVisual(visualId, { Notes: 'HIDDEN' }, this.serviceId);
           // Keep visualRecordIds and visualPhotos intact for when user reselects
           console.log('[TOGGLE] Hid visual (queued for sync):', visualId);
         } catch (error) {
@@ -1846,7 +1847,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         if (visualId && !String(visualId).startsWith('temp_')) {
           await this.foundationData.updateVisual(visualId, {
             Answers: '',
-            Hidden: 'Yes'
+            Notes: 'HIDDEN'
           }, this.serviceId);
           console.log('[ANSWER] Hid visual (queued for sync):', visualId);
         }
@@ -1864,7 +1865,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
-          Hidden: 'No',  // CRITICAL: New visuals are not hidden
           Answers: item.answer || '',
           VisualTemplateID: item.templateId || 0  // CRITICAL: Store template ID for reliable matching
         };
@@ -1877,7 +1877,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         // Update existing visual and unhide if it was hidden
         await this.foundationData.updateVisual(visualId, {
           Answers: item.answer || '',
-          Hidden: 'No'  // Unhide when answer is set
+          Notes: ''
         }, this.serviceId);
         console.log('[ANSWER] Updated visual:', visualId);
       }
@@ -1924,7 +1924,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         if (visualId && !String(visualId).startsWith('temp_')) {
           await this.foundationData.updateVisual(visualId, {
             Answers: '',
-            Hidden: 'Yes'
+            Notes: 'HIDDEN'
           }, this.serviceId);
           console.log('[OPTION] Hid visual (queued for sync):', visualId);
         }
@@ -1942,7 +1942,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Hidden: 'No',  // CRITICAL: New visuals are not hidden
           Answers: item.answer,
           VisualTemplateID: item.templateId || 0  // CRITICAL: Store template ID for reliable matching
         };
@@ -1956,8 +1955,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         const notesValue = item.otherValue || '';
         await this.foundationData.updateVisual(visualId, {
           Answers: item.answer,
-          Notes: notesValue,
-          Hidden: 'No'  // Unhide when value is set
+          Notes: notesValue
         }, this.serviceId);
         console.log('[OPTION] Updated visual:', visualId);
       }
@@ -1990,7 +1988,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         if (visualId && !String(visualId).startsWith('temp_')) {
           await this.foundationData.updateVisual(visualId, {
             Answers: '',
-            Hidden: 'Yes'
+            Notes: 'HIDDEN'
           }, this.serviceId);
           console.log('[OTHER] Hid visual (queued for sync):', visualId);
         }
@@ -2008,7 +2006,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Hidden: 'No',  // CRITICAL: New visuals are not hidden
           Answers: item.answer || '',
           VisualTemplateID: item.templateId || 0  // CRITICAL: Store template ID for reliable matching
         };
@@ -2021,7 +2018,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         // Update existing visual and unhide if it was hidden
         await this.foundationData.updateVisual(visualId, {
           Notes: item.otherValue || '',
-          Hidden: 'No',  // Unhide when value is set
           Answers: item.answer || ''
         }, this.serviceId);
         console.log('[OTHER] Updated visual:', visualId);
@@ -2822,7 +2818,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         Name: item.name,
         Text: item.text || item.originalText || '',
         Notes: '',
-        Hidden: 'No',  // CRITICAL: New visuals are not hidden
         VisualTemplateID: item.templateId || Number(itemId)  // CRITICAL: Store template ID for reliable matching
       };
 
@@ -3798,8 +3793,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         Kind: kind,
         Name: name,
         Text: text,
-        Notes: '',
-        Hidden: 'No'  // CRITICAL: New visuals are not hidden
+        Notes: ''
       };
 
       console.log('[CREATE CUSTOM] Creating visual:', visualData);

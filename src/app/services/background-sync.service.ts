@@ -37,19 +37,6 @@ export interface ServiceDataSyncComplete {
   projectId?: string;
 }
 
-export interface LBWSyncComplete {
-  tempId: string;
-  realId: number;
-  result: any;
-}
-
-export interface LBWPhotoUploadComplete {
-  tempFileId: string;
-  tempLbwId?: string;
-  realLbwId: number;
-  result: any;
-}
-
 export interface SyncStatus {
   isSyncing: boolean;
   pendingCount: number;
@@ -92,10 +79,6 @@ export class BackgroundSyncService {
 
   // Visual sync events - emits when visuals are synced so pages can refresh
   public visualSyncComplete$ = new Subject<{ serviceId: string; visualId: string; tempId?: string }>();
-
-  // LBW sync events - pages can subscribe to update UI when LBW data syncs
-  public lbwSyncComplete$ = new Subject<LBWSyncComplete>();
-  public lbwPhotoUploadComplete$ = new Subject<LBWPhotoUploadComplete>();
 
   constructor(
     private indexedDb: IndexedDbService,
@@ -204,157 +187,157 @@ export class BackgroundSyncService {
       try {
         const result = await this.performSync(resolvedRequest);
 
-        // If this created a new record, store ID mapping and emit events
-        if (request.tempId) {
-          let realId: number | string | null = null;
+      // If this created a new record, store ID mapping and emit events
+      if (request.tempId) {
+        let realId: number | string | null = null;
 
-          // Determine the correct ID field based on the endpoint
-          if (request.endpoint.includes('Services_Visuals') && !request.endpoint.includes('Attach')) {
-            // For Visuals, use VisualID field (not PK_ID) - attachments link to this
-            if (result && result.VisualID) {
-              realId = result.VisualID;
-            } else if (result && result.Result && result.Result[0]) {
-              realId = result.Result[0].VisualID || result.Result[0].PK_ID;
-            }
-          } else if (request.endpoint.includes('Services_EFE_Points')) {
-            // For EFE Points, use PointID
-            if (result && result.PointID) {
-              realId = result.PointID;
-            } else if (result && result.Result && result.Result[0]) {
-              realId = result.Result[0].PointID || result.Result[0].PK_ID;
-            }
+        // Determine the correct ID field based on the endpoint
+        if (request.endpoint.includes('Services_Visuals') && !request.endpoint.includes('Attach')) {
+          // For Visuals, use VisualID field (not PK_ID) - attachments link to this
+          if (result && result.VisualID) {
+            realId = result.VisualID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].VisualID || result.Result[0].PK_ID;
+          }
+        } else if (request.endpoint.includes('Services_EFE_Points')) {
+          // For EFE Points, use PointID
+          if (result && result.PointID) {
+            realId = result.PointID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].PointID || result.Result[0].PK_ID;
+          }
 
-            // Update IndexedDB cache and emit sync complete event
-            if (realId) {
-              // Get the room ID from request data (could be temp or real ID)
-              const roomId = String(request.data?.EFEID || '');
-              const pointData = result.Result?.[0] || result;
-
-              // Update the IndexedDB cache for points
-              if (roomId) {
-                const existingPoints = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
-
-                // Find and update the point with temp ID, or add new if not found
-                let pointUpdated = false;
-                const updatedPoints = existingPoints.map((p: any) => {
-                  if (p._tempId === request.tempId || p.PointID === request.tempId || p.PK_ID === request.tempId) {
-                    pointUpdated = true;
-                    return {
-                      ...p,
-                      ...pointData,
-                      PointID: realId,
-                      PK_ID: realId,
-                      EFEID: roomId, // Use the resolved room ID
-                      _tempId: undefined,
-                      _localOnly: undefined,
-                      _syncing: undefined
-                    };
-                  }
-                  return p;
-                });
-
-                // If point wasn't in cache (shouldn't happen but just in case), add it
-                if (!pointUpdated && pointData) {
-                  updatedPoints.push({
+          // Update IndexedDB cache and emit sync complete event
+          if (realId) {
+            // Get the room ID from request data (could be temp or real ID)
+            const roomId = String(request.data?.EFEID || '');
+            const pointData = result.Result?.[0] || result;
+            
+            // Update the IndexedDB cache for points
+            if (roomId) {
+              const existingPoints = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
+              
+              // Find and update the point with temp ID, or add new if not found
+              let pointUpdated = false;
+              const updatedPoints = existingPoints.map((p: any) => {
+                if (p._tempId === request.tempId || p.PointID === request.tempId || p.PK_ID === request.tempId) {
+                  pointUpdated = true;
+                  return {
+                    ...p,
                     ...pointData,
                     PointID: realId,
                     PK_ID: realId,
-                    EFEID: roomId
-                  });
+                    EFEID: roomId, // Use the resolved room ID
+                    _tempId: undefined,
+                    _localOnly: undefined,
+                    _syncing: undefined
+                  };
                 }
-
-                await this.indexedDb.cacheServiceData(roomId, 'efe_points', updatedPoints);
-                console.log(`[BackgroundSync] Updated EFE points cache for room ${roomId}`);
-              }
-
-              this.ngZone.run(() => {
-                this.efePointSyncComplete$.next({
-                  tempId: request.tempId!,
-                  realId: parseInt(String(realId)),
-                  result: result
-                });
+                return p;
               });
-
-              // Remove from pendingEFEData
-              await this.indexedDb.removePendingEFE(request.tempId);
-            }
-          } else if (request.endpoint.includes('Services_EFE/') || request.endpoint.includes('Services_EFE')) {
-            // For EFE Rooms, use EFEID
-            if (result && result.EFEID) {
-              realId = result.EFEID;
-            } else if (result && result.Result && result.Result[0]) {
-              realId = result.Result[0].EFEID || result.Result[0].PK_ID;
-            }
-
-            // Update IndexedDB cache and emit sync complete event
-            if (realId) {
-              const serviceId = String(request.data?.ServiceID || '');
-
-              // Update the IndexedDB cache to replace temp ID with real room data
-              if (serviceId) {
-                const existingRooms = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
-                const roomData = result.Result?.[0] || result;
-
-                // Find and update the room with temp ID, or add new if not found
-                let roomUpdated = false;
-                const updatedRooms = existingRooms.map((r: any) => {
-                  if (r._tempId === request.tempId || r.EFEID === request.tempId || r.PK_ID === request.tempId) {
-                    roomUpdated = true;
-                    return {
-                      ...r,
-                      ...roomData,
-                      EFEID: realId,
-                      PK_ID: realId,
-                      _tempId: undefined,
-                      _localOnly: undefined,
-                      _syncing: undefined
-                    };
-                  }
-                  return r;
+              
+              // If point wasn't in cache (shouldn't happen but just in case), add it
+              if (!pointUpdated && pointData) {
+                updatedPoints.push({
+                  ...pointData,
+                  PointID: realId,
+                  PK_ID: realId,
+                  EFEID: roomId
                 });
+              }
+              
+              await this.indexedDb.cacheServiceData(roomId, 'efe_points', updatedPoints);
+              console.log(`[BackgroundSync] Updated EFE points cache for room ${roomId}`);
+            }
 
-                // If room wasn't in cache (shouldn't happen but just in case), add it
-                if (!roomUpdated && roomData) {
-                  updatedRooms.push({
+            this.ngZone.run(() => {
+              this.efePointSyncComplete$.next({
+                tempId: request.tempId!,
+                realId: parseInt(String(realId)),
+                result: result
+              });
+            });
+
+            // Remove from pendingEFEData
+            await this.indexedDb.removePendingEFE(request.tempId);
+          }
+        } else if (request.endpoint.includes('Services_EFE/') || request.endpoint.includes('Services_EFE')) {
+          // For EFE Rooms, use EFEID
+          if (result && result.EFEID) {
+            realId = result.EFEID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].EFEID || result.Result[0].PK_ID;
+          }
+
+          // Update IndexedDB cache and emit sync complete event
+          if (realId) {
+            const serviceId = String(request.data?.ServiceID || '');
+            
+            // Update the IndexedDB cache to replace temp ID with real room data
+            if (serviceId) {
+              const existingRooms = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
+              const roomData = result.Result?.[0] || result;
+              
+              // Find and update the room with temp ID, or add new if not found
+              let roomUpdated = false;
+              const updatedRooms = existingRooms.map((r: any) => {
+                if (r._tempId === request.tempId || r.EFEID === request.tempId || r.PK_ID === request.tempId) {
+                  roomUpdated = true;
+                  return {
+                    ...r,
                     ...roomData,
                     EFEID: realId,
-                    PK_ID: realId
-                  });
+                    PK_ID: realId,
+                    _tempId: undefined,
+                    _localOnly: undefined,
+                    _syncing: undefined
+                  };
                 }
-
-                await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', updatedRooms);
-                console.log(`[BackgroundSync] Updated EFE rooms cache for service ${serviceId}`);
-              }
-
-              this.ngZone.run(() => {
-                this.efeRoomSyncComplete$.next({
-                  tempId: request.tempId!,
-                  realId: parseInt(String(realId)),
-                  result: result
-                });
+                return r;
               });
+              
+              // If room wasn't in cache (shouldn't happen but just in case), add it
+              if (!roomUpdated && roomData) {
+                updatedRooms.push({
+                  ...roomData,
+                  EFEID: realId,
+                  PK_ID: realId
+                });
+              }
+              
+              await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', updatedRooms);
+              console.log(`[BackgroundSync] Updated EFE rooms cache for service ${serviceId}`);
+            }
 
-              // Remove from pendingEFEData
-              await this.indexedDb.removePendingEFE(request.tempId);
-            }
-          } else {
-            // For other tables, use PK_ID
-            if (result && result.PK_ID) {
-              realId = result.PK_ID;
-            } else if (result && result.Result && result.Result[0] && result.Result[0].PK_ID) {
-              realId = result.Result[0].PK_ID;
-            }
+            this.ngZone.run(() => {
+              this.efeRoomSyncComplete$.next({
+                tempId: request.tempId!,
+                realId: parseInt(String(realId)),
+                result: result
+              });
+            });
+
+            // Remove from pendingEFEData
+            await this.indexedDb.removePendingEFE(request.tempId);
           }
-
-          if (realId) {
-            await this.indexedDb.mapTempId(
-              request.tempId,
-              realId.toString(),
-              this.getTempIdType(request.tempId)
-            );
-            console.log(`[BackgroundSync] Mapped ${request.tempId} → ${realId}`);
+        } else {
+          // For other tables, use PK_ID
+          if (result && result.PK_ID) {
+            realId = result.PK_ID;
+          } else if (result && result.Result && result.Result[0] && result.Result[0].PK_ID) {
+            realId = result.Result[0].PK_ID;
           }
         }
+
+        if (realId) {
+          await this.indexedDb.mapTempId(
+            request.tempId,
+            realId.toString(),
+            this.getTempIdType(request.tempId)
+          );
+          console.log(`[BackgroundSync] Mapped ${request.tempId} → ${realId}`);
+        }
+      }
 
         // Emit sync complete event for Service/Project updates so pages can reload
         if (request.type === 'UPDATE') {
@@ -393,7 +376,7 @@ export class BackgroundSyncService {
               await this.clearLocalUpdateFlag('efe_point_attachments', attachId);
             }
           } else if (request.endpoint.includes('LPS_Services_Visuals/records') && !request.endpoint.includes('Attach')) {
-            // Clear _localUpdate flag from Visuals cache after successful update (e.g., Hidden: 'Yes')
+            // Clear _localUpdate flag from Visuals cache after successful update (e.g., Notes: 'HIDDEN')
             const visualMatch = request.endpoint.match(/VisualID=(\d+)/);
             if (visualMatch) {
               const visualId = visualMatch[1];
@@ -409,7 +392,7 @@ export class BackgroundSyncService {
           const serviceId = request.data?.ServiceID;
           // Extract visual ID from result
           let visualId = result?.VisualID || result?.Result?.[0]?.VisualID || result?.PK_ID || result?.Result?.[0]?.PK_ID;
-
+          
           if (serviceId && visualId) {
             console.log(`[BackgroundSync] Visual created - emitting visualSyncComplete for serviceId=${serviceId}, visualId=${visualId}`);
             this.ngZone.run(() => {
@@ -419,7 +402,7 @@ export class BackgroundSyncService {
                 tempId: request.tempId
               });
             });
-
+            
             // Also refresh the visuals cache from server
             await this.refreshVisualsCache(String(serviceId));
           }
@@ -432,7 +415,7 @@ export class BackgroundSyncService {
       } catch (error: any) {
         // Increment retry count
         await this.indexedDb.incrementRetryCount(request.requestId);
-
+        
         // Update status back to pending (will retry later)
         await this.indexedDb.updateRequestStatus(
           request.requestId,
@@ -440,20 +423,7 @@ export class BackgroundSyncService {
           error.message || 'Sync failed'
         );
 
-        // Enhanced error logging for debugging
-        console.warn(`[BackgroundSync] ❌ Failed (will retry): ${request.requestId}`);
-        console.warn(`[BackgroundSync] Request details:`, {
-          endpoint: request.endpoint,
-          method: request.method,
-          data: request.data
-        });
-        console.warn(`[BackgroundSync] Error details:`, {
-          status: error?.status,
-          statusText: error?.statusText,
-          message: error?.message,
-          errorBody: error?.error,
-          fullError: error
-        });
+        console.warn(`[BackgroundSync] ❌ Failed (will retry): ${request.requestId}`, error);
       }
     }
   }
@@ -509,11 +479,6 @@ export class BackgroundSyncService {
     // Handle EFE point photo uploads
     if (request.endpoint === 'EFE_POINT_PHOTO_UPLOAD') {
       return this.syncEFEPointPhotoUpload(request);
-    }
-
-    // Handle LBW photo uploads
-    if (request.endpoint === 'LBW_PHOTO_UPLOAD') {
-      return this.syncLBWPhotoUpload(request);
     }
 
     // Handle file uploads specially
@@ -597,11 +562,11 @@ export class BackgroundSyncService {
       const latestPhotoData = await this.indexedDb.getStoredPhotoData(data.fileId);
       const latestDrawings = latestPhotoData?.drawings || drawings;
       const latestCaption = latestPhotoData?.caption || caption;
-
+      
       if (latestDrawings !== drawings) {
         console.log('[BackgroundSync] ⚠️ Drawings updated while waiting! Using latest:', latestDrawings.length, 'chars');
       }
-
+      
       // Call the EXISTING S3 upload method with LATEST drawings AND caption from IndexedDB
       const result = await this.caspioService.uploadVisualsAttachWithS3(
         visualId,
@@ -630,10 +595,10 @@ export class BackgroundSyncService {
       // CRITICAL: Preserve local updates (_localUpdate flag) when merging
       try {
         const freshAttachments = await this.caspioService.getServiceVisualsAttachByVisualId(String(visualId)).toPromise() || [];
-
+        
         // Get existing cached attachments to preserve local updates
         const existingCache = await this.indexedDb.getCachedServiceData(String(visualId), 'visual_attachments') || [];
-
+        
         // Build map of locally updated attachments that should NOT be overwritten
         const localUpdates = new Map<string, any>();
         for (const att of existingCache) {
@@ -642,7 +607,7 @@ export class BackgroundSyncService {
             console.log(`[BackgroundSync] Preserving local annotation for AttachID ${att.AttachID}`);
           }
         }
-
+        
         // Merge: use local version for items with pending updates
         const mergedAttachments = freshAttachments.map((att: any) => {
           const localVersion = localUpdates.get(String(att.AttachID));
@@ -652,7 +617,7 @@ export class BackgroundSyncService {
           }
           return att;
         });
-
+        
         await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', mergedAttachments);
         console.log(`[BackgroundSync] ✅ Refreshed attachments cache for visual ${visualId}: ${freshAttachments.length} photos, ${localUpdates.size} local updates preserved`);
       } catch (cacheErr) {
@@ -764,106 +729,11 @@ export class BackgroundSyncService {
   }
 
   /**
-   * Sync LBW photo upload
-   * Handles offline photo uploads for LBW records
-   */
-  private async syncLBWPhotoUpload(request: PendingRequest): Promise<any> {
-    const data = request.data;
-
-    console.log('[BackgroundSync] LBW photo upload - raw data:', data);
-
-    // Get file and annotations from IndexedDB (using same storage as visual photos)
-    const photoData = await this.indexedDb.getStoredPhotoData(data.fileId);
-    if (!photoData) {
-      console.error('[BackgroundSync] LBW photo data not found in IndexedDB:', data.fileId);
-      await this.indexedDb.updateRequestStatus(request.requestId, 'failed', 'File not found in storage');
-      throw new Error(`LBW photo file not found: ${data.fileId}`);
-    }
-
-    const { file, drawings, caption } = photoData;
-
-    console.log('[BackgroundSync] LBW file retrieved:', file.name, file.size, 'bytes');
-    console.log('[BackgroundSync] Drawings:', drawings?.length || 0, 'chars, Caption:', caption || '(empty)');
-
-    // Resolve temp LBW ID to real ID if needed
-    let lbwId = data.tempLbwId || data.lbwId;
-    console.log('[BackgroundSync] LBW ID from request data:', lbwId, 'type:', typeof lbwId);
-
-    if (typeof lbwId === 'number' && !isNaN(lbwId)) {
-      console.log('[BackgroundSync] LBW ID already resolved to number:', lbwId);
-    } else if (lbwId && String(lbwId).startsWith('temp_')) {
-      const realId = await this.indexedDb.getRealId(String(lbwId));
-      console.log('[BackgroundSync] Resolved temp LBW ID:', lbwId, '→', realId);
-
-      if (!realId) {
-        throw new Error(`LBW record not synced yet: ${lbwId}`);
-      }
-      lbwId = parseInt(realId);
-    } else {
-      lbwId = parseInt(String(lbwId));
-    }
-
-    // Validate LBW ID
-    if (isNaN(lbwId) || lbwId <= 0) {
-      console.error('[BackgroundSync] LBW ID is invalid:', data.lbwId, data.tempLbwId);
-      throw new Error(`Invalid LBW ID: ${data.lbwId || data.tempLbwId}`);
-    }
-
-    console.log('[BackgroundSync] Final LBW ID for upload:', lbwId);
-
-    try {
-      // Re-read annotations RIGHT before upload in case user updated while waiting
-      const latestPhotoData = await this.indexedDb.getStoredPhotoData(data.fileId);
-      const latestDrawings = latestPhotoData?.drawings || drawings || '';
-      const latestCaption = latestPhotoData?.caption || caption || '';
-
-      // Call the LBW attachment upload method
-      console.log('[BackgroundSync] Calling createServicesLBWAttachWithFile with LBWID:', lbwId);
-      const result = await this.caspioService.createServicesLBWAttachWithFile(
-        lbwId,
-        latestCaption,
-        file,
-        latestDrawings
-      ).toPromise();
-
-      console.log('[BackgroundSync] ✅ LBW photo uploaded to LBWID', lbwId, 'Result:', JSON.stringify(result));
-
-      // Emit event so pages can update their local state
-      this.ngZone.run(() => {
-        this.lbwPhotoUploadComplete$.next({
-          tempFileId: data.fileId,
-          tempLbwId: data.tempLbwId,
-          realLbwId: lbwId,
-          result: result
-        });
-      });
-
-      // Clean up stored photo
-      await this.indexedDb.deleteStoredFile(data.fileId);
-      console.log('[BackgroundSync] Cleaned up LBW photo file:', data.fileId);
-
-      // Refresh LBW attachments cache
-      try {
-        const freshAttachments = await this.caspioService.getServiceLBWAttachByLBWId(String(lbwId)).toPromise() || [];
-        await this.indexedDb.cacheServiceData(String(lbwId), 'lbw_attachments', freshAttachments);
-        console.log(`[BackgroundSync] ✅ Refreshed LBW attachments cache for LBWID ${lbwId}: ${freshAttachments.length} photos`);
-      } catch (cacheErr) {
-        console.warn(`[BackgroundSync] Failed to refresh LBW attachments cache:`, cacheErr);
-      }
-
-      return result;
-    } catch (error: any) {
-      console.error('[BackgroundSync] LBW photo upload failed, will retry');
-      throw error;
-    }
-  }
-
-  /**
    * Sync file upload - convert base64 back to File
    */
   private async syncFileUpload(request: PendingRequest): Promise<any> {
     const data = request.data;
-
+    
     // Get real Visual ID if using temp ID
     let visualId = data.visualId;
     if (visualId && typeof visualId === 'string' && visualId.startsWith('temp_')) {
@@ -892,16 +762,16 @@ export class BackgroundSyncService {
   private base64ToFile(base64: string, fileName: string): File {
     // Remove data URL prefix if present
     const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
-
+    
     // Convert base64 to blob
     const byteString = atob(base64Data);
     const ab = new ArrayBuffer(byteString.length);
     const ia = new Uint8Array(ab);
-
+    
     for (let i = 0; i < byteString.length; i++) {
       ia[i] = byteString.charCodeAt(i);
     }
-
+    
     const blob = new Blob([ab], { type: 'image/jpeg' });
     return new File([blob], fileName, { type: 'image/jpeg' });
   }
@@ -915,7 +785,7 @@ export class BackgroundSyncService {
     // Check common foreign key fields for temp IDs
     // Include both standard fields and custom field names used for offline queuing
     const foreignKeyFields = [
-      'VisualID', 'EFEID', 'ProjectID', 'ServiceID',
+      'VisualID', 'EFEID', 'ProjectID', 'ServiceID', 
       'PointID', 'HUDID', 'LBWID', 'ParentID',
       'tempVisualId', 'tempPointId', 'tempRoomId'  // Custom fields used for offline photo uploads
     ];
@@ -949,7 +819,7 @@ export class BackgroundSyncService {
 
     const action = typeMap[request.type] || 'Processing';
     const entity = request.endpoint.split('/').pop() || 'data';
-
+    
     return `${action} ${entity}...`;
   }
 
@@ -1080,11 +950,11 @@ export class BackgroundSyncService {
       // We need to find which visualId/pointId this attachment belongs to
       // Search through all cached service data for this attachment
       const allCaches = await this.indexedDb.getAllCachedServiceData(dataType);
-
+      
       for (const cache of allCaches) {
         const attachments = cache.data || [];
         let found = false;
-
+        
         const updatedAttachments = attachments.map((att: any) => {
           if (String(att.AttachID) === String(attachId) && att._localUpdate) {
             found = true;
@@ -1094,20 +964,20 @@ export class BackgroundSyncService {
           }
           return att;
         });
-
+        
         if (found) {
           await this.indexedDb.cacheServiceData(cache.serviceId, dataType, updatedAttachments);
           console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for AttachID ${attachId} in ${cache.serviceId}`);
           return;
         }
       }
-
+      
       console.log(`[BackgroundSync] AttachID ${attachId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for AttachID ${attachId}:`, error);
     }
   }
-
+  
   /**
    * Clear the _localUpdate flag from a visual after successful sync
    * This allows future background refreshes to use server data
@@ -1118,12 +988,12 @@ export class BackgroundSyncService {
       const matchesVisual = (v: any) => {
         return (String(v.PK_ID) === String(visualId) || String(v.VisualID) === String(visualId)) && v._localUpdate;
       };
-
+      
       // If we have the serviceId, update directly
       if (serviceId) {
         const visuals = await this.indexedDb.getCachedServiceData(String(serviceId), 'visuals') || [];
         let found = false;
-
+        
         const updatedVisuals = visuals.map((v: any) => {
           if (matchesVisual(v)) {
             found = true;
@@ -1133,21 +1003,21 @@ export class BackgroundSyncService {
           }
           return v;
         });
-
+        
         if (found) {
           await this.indexedDb.cacheServiceData(String(serviceId), 'visuals', updatedVisuals);
           console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for VisualID ${visualId} in service ${serviceId}`);
           return;
         }
       }
-
+      
       // Otherwise search all services for this visual
       const allCaches = await this.indexedDb.getAllCachedServiceData('visuals');
-
+      
       for (const cache of allCaches) {
         const visuals = cache.data || [];
         let found = false;
-
+        
         const updatedVisuals = visuals.map((v: any) => {
           if (matchesVisual(v)) {
             found = true;
@@ -1156,24 +1026,24 @@ export class BackgroundSyncService {
           }
           return v;
         });
-
+        
         if (found) {
           await this.indexedDb.cacheServiceData(cache.serviceId, 'visuals', updatedVisuals);
           console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for VisualID ${visualId} in ${cache.serviceId}`);
           return;
         }
       }
-
+      
       console.log(`[BackgroundSync] VisualID ${visualId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for VisualID ${visualId}:`, error);
     }
   }
-
+  
   private async refreshVisualsCache(serviceId: string): Promise<void> {
     try {
       console.log(`[BackgroundSync] Refreshing visuals cache for service ${serviceId}...`);
-
+      
       // CRITICAL FIX: Check for pending UPDATE requests BEFORE fetching from server
       // This prevents race conditions where cache refresh overwrites local HIDDEN state
       let pendingVisualUpdates = new Set<string>();
@@ -1188,21 +1058,21 @@ export class BackgroundSyncService {
             })
             .filter((id): id is string => id !== null)
         );
-
+        
         if (pendingVisualUpdates.size > 0) {
           console.log(`[BackgroundSync] Found ${pendingVisualUpdates.size} pending UPDATE requests for visuals:`, [...pendingVisualUpdates]);
         }
       } catch (pendingErr) {
         console.warn('[BackgroundSync] Failed to check pending requests (continuing without):', pendingErr);
       }
-
+      
       // Fetch fresh visuals from server
       const freshVisuals = await this.caspioService.getServicesVisualsByServiceId(serviceId).toPromise();
-
+      
       if (freshVisuals && freshVisuals.length >= 0) {
         // Get existing cached visuals to preserve local updates
         const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
-
+        
         // Build map of locally updated visuals that should NOT be overwritten
         // Include both _localUpdate flagged AND visuals with pending UPDATE requests
         // CRITICAL: Key by BOTH PK_ID and VisualID to ensure matches
@@ -1211,21 +1081,21 @@ export class BackgroundSyncService {
           const pkId = String(visual.PK_ID || '');
           const vId = String(visual.VisualID || '');
           const tempId = visual._tempId || '';
-
+          
           // Check if has _localUpdate flag OR has pending UPDATE request (by either ID)
           const hasPendingByPkId = pkId && pendingVisualUpdates.has(pkId);
           const hasPendingByVisualId = vId && pendingVisualUpdates.has(vId);
-
+          
           if (visual._localUpdate || hasPendingByPkId || hasPendingByVisualId) {
             // Store by both keys to ensure we find it when merging
             if (pkId) localUpdates.set(pkId, visual);
             if (vId) localUpdates.set(vId, visual);
             if (tempId) localUpdates.set(tempId, visual);
             const reason = visual._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-            console.log(`[BackgroundSync] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Hidden: ${visual.Hidden})`);
+            console.log(`[BackgroundSync] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Notes: ${visual.Notes})`);
           }
         }
-
+        
         // Merge: use local version for items with pending updates, server version for others
         const mergedVisuals = freshVisuals.map((serverVisual: any) => {
           const pkId = String(serverVisual.PK_ID);
@@ -1233,19 +1103,19 @@ export class BackgroundSyncService {
           // Try to find local version by either key
           const localVersion = localUpdates.get(pkId) || localUpdates.get(vId);
           if (localVersion) {
-            console.log(`[BackgroundSync] Keeping local version of visual PK_ID=${pkId} with Hidden: ${localVersion.Hidden}`);
+            console.log(`[BackgroundSync] Keeping local version of visual PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
             return localVersion;
           }
           return serverVisual;
         });
-
+        
         // Also add any temp visuals from existing cache
         const tempVisuals = existingCache.filter((v: any) => v._tempId && String(v._tempId).startsWith('temp_'));
         const finalVisuals = [...mergedVisuals, ...tempVisuals];
-
+        
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', finalVisuals);
         console.log(`[BackgroundSync] ✅ Visuals cache refreshed: ${freshVisuals.length} server, ${localUpdates.size} local updates preserved, ${tempVisuals.length} temp for service ${serviceId}`);
-
+        
         // Refresh attachments AND download actual images for each visual
         for (const visual of freshVisuals) {
           const visualId = visual.VisualID || visual.PK_ID;
@@ -1253,7 +1123,7 @@ export class BackgroundSyncService {
             try {
               const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(String(visualId)).toPromise();
               await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', attachments || []);
-
+              
               // CRITICAL: Also download and cache actual images for offline
               if (attachments && attachments.length > 0) {
                 await this.downloadAndCachePhotos(attachments, serviceId);
@@ -1280,11 +1150,11 @@ export class BackgroundSyncService {
    */
   private async downloadAndCachePhotos(attachments: any[], serviceId: string): Promise<void> {
     const isNative = Capacitor.isNativePlatform();
-
+    
     for (const attach of attachments) {
       const attachId = String(attach.AttachID || attach.PK_ID);
       const s3Key = attach.Attachment;
-
+      
       // Skip if no S3 key or already cached
       if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
         continue;
@@ -1299,10 +1169,10 @@ export class BackgroundSyncService {
       try {
         // Get pre-signed URL and download image
         const s3Url = await this.caspioService.getS3FileUrl(s3Key);
-
+        
         // Use XMLHttpRequest for cross-platform compatibility
         const base64 = await this.fetchImageAsBase64(s3Url);
-
+        
         // Cache in IndexedDB
         await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
         console.log(`[BackgroundSync] Cached image for attachment ${attachId}${isNative ? ' [Mobile]' : ''}`);
@@ -1322,7 +1192,7 @@ export class BackgroundSyncService {
       xhr.open('GET', url, true);
       xhr.responseType = 'blob';
       xhr.timeout = 30000; // 30 second timeout
-
+      
       xhr.onload = () => {
         if (xhr.status === 200) {
           const reader = new FileReader();
@@ -1333,7 +1203,7 @@ export class BackgroundSyncService {
           reject(new Error(`HTTP ${xhr.status}`));
         }
       };
-
+      
       xhr.onerror = () => reject(new Error('Network error'));
       xhr.ontimeout = () => reject(new Error('Request timeout'));
       xhr.send();

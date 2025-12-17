@@ -228,7 +228,7 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
         const category = visual.Category || '';
 
         // Only count Deficiency items that are NOT hidden
-        if (kind === 'Deficiency' && category && visual.Hidden !== 'Yes') {
+        if (kind === 'Deficiency' && category && !String(visual.Notes || '').startsWith('HIDDEN')) {
           counts[category] = (counts[category] || 0) + 1;
         }
       });
