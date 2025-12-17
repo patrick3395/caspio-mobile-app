@@ -26,6 +26,8 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
   
   private cacheInvalidationSubscription?: Subscription;
   private cacheInvalidationDebounceTimer: any = null;
+  private isLoadingCategories: boolean = false;  // Prevent concurrent loads
+  private initialLoadComplete: boolean = false;  // Skip cache invalidation during initial load
 
   constructor(
     private router: Router,
@@ -74,6 +76,18 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
     // Subscribe to cache invalidation events - reload data when sync completes
     // CRITICAL: Debounce to prevent multiple rapid reloads
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
+      // Skip during initial load to prevent race conditions
+      if (!this.initialLoadComplete) {
+        console.log('[StructuralHub] Skipping cache invalidation - initial load not complete');
+        return;
+      }
+      
+      // Skip if already loading categories
+      if (this.isLoadingCategories) {
+        console.log('[StructuralHub] Skipping cache invalidation - already loading categories');
+        return;
+      }
+      
       if (!event.serviceId || event.serviceId === this.serviceId) {
         // Clear any existing debounce timer
         if (this.cacheInvalidationDebounceTimer) {
@@ -99,6 +113,8 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
   }
 
   private async loadData() {
+    console.log('[StructuralHub] loadData() starting...');
+    
     // Quick check: do we have cached data? Don't show loading if so
     const hasCachedService = await this.offlineTemplate.getService(this.serviceId);
     const hasCachedTemplates = await this.indexedDb.getCachedTemplates('visual');
@@ -130,15 +146,25 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
 
       // Load categories (will be instant if templates are cached)
       await this.loadCategories();
+      console.log('[StructuralHub] loadData() completed successfully');
     } catch (error) {
       console.error('[StructuralHub] Error in loadData:', error);
     } finally {
       this.loading = false;
+      this.initialLoadComplete = true;  // Allow cache invalidation events now
       this.changeDetectorRef.detectChanges();
     }
   }
 
   private async loadCategories() {
+    // Prevent concurrent loads
+    if (this.isLoadingCategories) {
+      console.log('[StructuralHub] Already loading categories, skipping');
+      return;
+    }
+    
+    this.isLoadingCategories = true;
+    
     try {
       // OFFLINE-FIRST: Ensure visual templates are ready (waits for download if in progress)
       console.log('[StructuralHub] Loading visual templates from IndexedDB...');
@@ -170,9 +196,12 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
       }));
 
       console.log('[StructuralHub] Categories loaded:', this.categories.length);
+      this.changeDetectorRef.detectChanges();
 
     } catch (error) {
       console.error('[StructuralHub] Error loading categories:', error);
+    } finally {
+      this.isLoadingCategories = false;
     }
   }
 

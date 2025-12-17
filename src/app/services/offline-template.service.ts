@@ -1151,19 +1151,24 @@ export class OfflineTemplateService {
       try {
         // CRITICAL FIX: Check for pending UPDATE requests BEFORE fetching from server
         // This prevents race conditions where cache refresh overwrites local HIDDEN state
-        const pendingRequests = await this.indexedDb.getPendingRequests();
-        const pendingVisualUpdates = new Set<string>(
-          pendingRequests
-            .filter(r => r.type === 'UPDATE' && r.endpoint.includes('LPS_Services_Visuals/records') && !r.endpoint.includes('Attach'))
-            .map(r => {
-              const match = r.endpoint.match(/VisualID=(\d+)/);
-              return match ? match[1] : null;
-            })
-            .filter((id): id is string => id !== null)
-        );
-        
-        if (pendingVisualUpdates.size > 0) {
-          console.log(`[OfflineTemplate] Found ${pendingVisualUpdates.size} pending UPDATE requests for visuals:`, [...pendingVisualUpdates]);
+        let pendingVisualUpdates = new Set<string>();
+        try {
+          const pendingRequests = await this.indexedDb.getPendingRequests();
+          pendingVisualUpdates = new Set<string>(
+            pendingRequests
+              .filter(r => r.type === 'UPDATE' && r.endpoint.includes('LPS_Services_Visuals/records') && !r.endpoint.includes('Attach'))
+              .map(r => {
+                const match = r.endpoint.match(/VisualID=(\d+)/);
+                return match ? match[1] : null;
+              })
+              .filter((id): id is string => id !== null)
+          );
+          
+          if (pendingVisualUpdates.size > 0) {
+            console.log(`[OfflineTemplate] Found ${pendingVisualUpdates.size} pending UPDATE requests for visuals:`, [...pendingVisualUpdates]);
+          }
+        } catch (pendingErr) {
+          console.warn('[OfflineTemplate] Failed to check pending requests (continuing without):', pendingErr);
         }
         
         const freshVisuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
