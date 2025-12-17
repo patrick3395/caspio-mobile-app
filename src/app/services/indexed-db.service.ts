@@ -207,7 +207,7 @@ export class IndexedDbService {
 
       getRequest.onsuccess = () => {
         const requests = getRequest.result as PendingRequest[];
-        
+
         // Sort by priority (high first) then timestamp (oldest first)
         requests.sort((a, b) => {
           const priorityOrder = { critical: 0, high: 1, normal: 2, low: 3 };
@@ -388,7 +388,7 @@ export class IndexedDbService {
 
       getRequest.onsuccess = () => {
         const requests = getRequest.result as PendingRequest[];
-        
+
         requests.forEach(request => {
           if (request.syncedAt && request.syncedAt < cutoffTime) {
             store.delete(request.requestId);
@@ -735,7 +735,7 @@ export class IndexedDbService {
     }
 
     const photoKey = `photo_${attachId}`;
-    
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['cachedPhotos'], 'readwrite');
       const store = transaction.objectStore('cachedPhotos');
@@ -816,10 +816,10 @@ export class IndexedDbService {
 
     // Convert blob to base64 data URL
     const imageDataUrl = await this.blobToBase64(blob);
-    
+
     // Use a different key prefix for annotated images
     const photoKey = `annotated_${attachId}`;
-    
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['cachedPhotos'], 'readwrite');
       const store = transaction.objectStore('cachedPhotos');
@@ -988,10 +988,10 @@ export class IndexedDbService {
     hasCachedPhotosStore: boolean;
   }> {
     const db = await this.ensureDb();
-    
+
     const hasCachedPhotosStore = db.objectStoreNames.contains('cachedPhotos');
     let cachedPhotosCount = 0;
-    
+
     if (hasCachedPhotosStore) {
       cachedPhotosCount = await new Promise((resolve) => {
         const transaction = db.transaction(['cachedPhotos'], 'readonly');
@@ -1001,14 +1001,14 @@ export class IndexedDbService {
         countRequest.onerror = () => resolve(0);
       });
     }
-    
+
     const diagnostics = {
       version: db.version,
       objectStores: Array.from(db.objectStoreNames),
       cachedPhotosCount,
       hasCachedPhotosStore
     };
-    
+
     console.log('[IndexedDB] Database diagnostics:', diagnostics);
     return diagnostics;
   }
@@ -1020,7 +1020,7 @@ export class IndexedDbService {
   /**
    * Cache templates (visual or EFE) in IndexedDB
    */
-  async cacheTemplates(type: 'visual' | 'efe', templates: any[]): Promise<void> {
+  async cacheTemplates(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown', templates: any[]): Promise<void> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedTemplates')) {
@@ -1052,7 +1052,7 @@ export class IndexedDbService {
   /**
    * Get cached templates from IndexedDB
    */
-  async getCachedTemplates(type: 'visual' | 'efe'): Promise<any[] | null> {
+  async getCachedTemplates(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown'): Promise<any[] | null> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedTemplates')) {
@@ -1081,7 +1081,7 @@ export class IndexedDbService {
   /**
    * Check if template cache is still valid
    */
-  async isTemplateCacheValid(type: 'visual' | 'efe', maxAgeMs: number): Promise<boolean> {
+  async isTemplateCacheValid(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown', maxAgeMs: number): Promise<boolean> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedTemplates')) {
@@ -1180,7 +1180,7 @@ export class IndexedDbService {
   /**
    * Cache service-specific data (visuals, EFE rooms, visual attachments, etc.)
    */
-  async cacheServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments', data: any[]): Promise<void> {
+  async cacheServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments', data: any[]): Promise<void> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {
@@ -1213,7 +1213,7 @@ export class IndexedDbService {
   /**
    * Get cached service data from IndexedDB
    */
-  async getCachedServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments'): Promise<any[] | null> {
+  async getCachedServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments'): Promise<any[] | null> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {
@@ -1258,7 +1258,7 @@ export class IndexedDbService {
       getAllRequest.onsuccess = () => {
         const results: { serviceId: string; data: any[] }[] = [];
         const allCached = getAllRequest.result as CachedServiceData[];
-        
+
         for (const cached of allCached) {
           if (cached.dataType === dataType) {
             results.push({
@@ -1267,7 +1267,7 @@ export class IndexedDbService {
             });
           }
         }
-        
+
         resolve(results);
       };
 
