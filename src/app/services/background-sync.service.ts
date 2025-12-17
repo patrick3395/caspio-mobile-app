@@ -557,14 +557,25 @@ export class BackgroundSyncService {
     console.log('[BackgroundSync] Using idempotency key:', idempotencyKey);
 
     try {
-      // Call the EXISTING S3 upload method with drawings from IndexedDB
+      // CRITICAL FIX: Re-read annotations RIGHT before upload in case user updated while waiting
+      // This handles the race condition where user annotates during upload queue wait
+      const latestPhotoData = await this.indexedDb.getStoredPhotoData(data.fileId);
+      const latestDrawings = latestPhotoData?.drawings || drawings;
+      const latestCaption = latestPhotoData?.caption || caption;
+      
+      if (latestDrawings !== drawings) {
+        console.log('[BackgroundSync] ⚠️ Drawings updated while waiting! Using latest:', latestDrawings.length, 'chars');
+      }
+      
+      // Call the EXISTING S3 upload method with LATEST drawings AND caption from IndexedDB
       const result = await this.caspioService.uploadVisualsAttachWithS3(
         visualId,
-        drawings,  // Now properly retrieved from IndexedDB
-        file
+        latestDrawings,  // Now using the LATEST annotations
+        file,
+        latestCaption    // Now passing the caption
       );
 
-      console.log('[BackgroundSync] Photo uploaded successfully to Visual', visualId, 'with', drawings.length, 'chars of drawings');
+      console.log('[BackgroundSync] Photo uploaded successfully to Visual', visualId, 'with', latestDrawings.length, 'chars of drawings, caption:', latestCaption || '(none)');
 
       // Emit event so pages can update their local state
       this.ngZone.run(() => {
@@ -581,10 +592,34 @@ export class BackgroundSyncService {
       console.log('[BackgroundSync] Cleaned up stored photo file:', data.fileId);
 
       // Refresh visual attachments cache with new photo
+      // CRITICAL: Preserve local updates (_localUpdate flag) when merging
       try {
-        const attachments = await this.caspioService.getServiceVisualsAttachByVisualId(String(visualId)).toPromise();
-        await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', attachments || []);
-        console.log(`[BackgroundSync] ✅ Refreshed attachments cache for visual ${visualId}: ${attachments?.length || 0} photos`);
+        const freshAttachments = await this.caspioService.getServiceVisualsAttachByVisualId(String(visualId)).toPromise() || [];
+        
+        // Get existing cached attachments to preserve local updates
+        const existingCache = await this.indexedDb.getCachedServiceData(String(visualId), 'visual_attachments') || [];
+        
+        // Build map of locally updated attachments that should NOT be overwritten
+        const localUpdates = new Map<string, any>();
+        for (const att of existingCache) {
+          if (att._localUpdate) {
+            localUpdates.set(String(att.AttachID), att);
+            console.log(`[BackgroundSync] Preserving local annotation for AttachID ${att.AttachID}`);
+          }
+        }
+        
+        // Merge: use local version for items with pending updates
+        const mergedAttachments = freshAttachments.map((att: any) => {
+          const localVersion = localUpdates.get(String(att.AttachID));
+          if (localVersion) {
+            // Keep local Drawings and Annotation since they have pending changes
+            return { ...att, Drawings: localVersion.Drawings, Annotation: localVersion.Annotation, _localUpdate: true };
+          }
+          return att;
+        });
+        
+        await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', mergedAttachments);
+        console.log(`[BackgroundSync] ✅ Refreshed attachments cache for visual ${visualId}: ${freshAttachments.length} photos, ${localUpdates.size} local updates preserved`);
       } catch (cacheErr) {
         console.warn(`[BackgroundSync] Failed to refresh attachments cache:`, cacheErr);
       }

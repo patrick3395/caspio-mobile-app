@@ -2511,11 +2511,12 @@ export class CaspioService {
     }
   }
 
-  async uploadVisualsAttachWithS3(visualId: number, drawingsData: string, file: File): Promise<any> {
+  async uploadVisualsAttachWithS3(visualId: number, drawingsData: string, file: File, caption?: string): Promise<any> {
     console.log('[VISUALS ATTACH S3] ========== Starting S3 Upload ==========');
     console.log('[VISUALS ATTACH S3] VisualID:', visualId);
     console.log('[VISUALS ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
     console.log('[VISUALS ATTACH S3] Drawings length:', drawingsData?.length || 0);
+    console.log('[VISUALS ATTACH S3] Caption:', caption || '(none)');
 
     // VALIDATION: Reject empty or invalid files
     if (!file || file.size === 0) {
@@ -2527,7 +2528,8 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
     try {
-      const recordData: any = { VisualID: parseInt(visualId.toString()), Annotation: '' };
+      // CRITICAL: Include caption in Annotation field
+      const recordData: any = { VisualID: parseInt(visualId.toString()), Annotation: caption || '' };
       if (drawingsData && drawingsData.length > 0) {
         let compressedDrawings = drawingsData;
         if (drawingsData.length > 50000) compressedDrawings = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
@@ -2554,12 +2556,16 @@ export class CaspioService {
             attachId = orphanRecords[0].AttachID;
             console.log('[VISUALS ATTACH S3] ♻️ Reusing orphaned record AttachID:', attachId);
 
-            // Update drawings if needed (in case they changed)
-            if (recordData.Drawings) {
+            // Update drawings and caption if needed (in case they changed)
+            const updateData: any = {};
+            if (recordData.Drawings) updateData.Drawings = recordData.Drawings;
+            if (caption) updateData.Annotation = caption;
+            
+            if (Object.keys(updateData).length > 0) {
               await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ Drawings: recordData.Drawings })
+                body: JSON.stringify(updateData)
               });
             }
           }
@@ -3949,7 +3955,8 @@ export class CaspioService {
   // Create Services_Visuals_Attach with file using S3
   createServicesVisualsAttachWithFile(visualId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Observable<any> {
     return new Observable(observer => {
-      this.uploadVisualsAttachWithS3(visualId, drawings || '', file)
+      // Now passing annotation (caption) to uploadVisualsAttachWithS3
+      this.uploadVisualsAttachWithS3(visualId, drawings || '', file, annotation)
         .then(result => {
           observer.next(result);
           observer.complete();
