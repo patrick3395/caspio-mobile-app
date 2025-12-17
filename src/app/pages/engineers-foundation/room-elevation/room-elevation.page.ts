@@ -1552,49 +1552,43 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
     const photoKey = photoType.toLowerCase();
     const fdfPhotos = this.roomData.fdfPhotos;
+    const currentCaption = fdfPhotos[`${photoKey}Caption`] || '';
 
     try {
-      const alert = await this.alertController.create({
-        header: `${photoType} Photo Caption`,
-        inputs: [
-          {
-            name: 'caption',
-            type: 'textarea',
-            value: fdfPhotos[`${photoKey}Caption`] || '',
-            placeholder: 'Enter caption'
-          }
-        ],
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
-            text: 'Save',
-            handler: async (data) => {
-              const columnName = `FDFPhoto${photoType}Annotation`;
-              const updateData: any = {};
-              updateData[columnName] = data.caption || '';
+      // Use the full caption editor with preset buttons (matching FabricPhotoAnnotatorComponent)
+      const newCaption = await this.openCaptionEditorPopup(currentCaption);
+      
+      if (newCaption !== null) { // User didn't cancel
+        const columnName = `FDFPhoto${photoType}Annotation`;
+        const updateData: any = {};
+        updateData[columnName] = newCaption;
 
-              try {
-                await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-                fdfPhotos[`${photoKey}Caption`] = data.caption || '';
-                this.changeDetectorRef.detectChanges();
-              } catch (error) {
-                console.error('Error saving caption:', error);
-              }
-            }
-          }
-        ],
-        cssClass: 'custom-document-alert'
-      });
-
-      await alert.present();
+        try {
+          await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
+          fdfPhotos[`${photoKey}Caption`] = newCaption;
+          this.changeDetectorRef.detectChanges();
+        } catch (error) {
+          console.error('Error saving caption:', error);
+        }
+      }
     } catch (chunkError: any) {
-      // Handle ChunkLoadError when Ionic components fail to load
-      console.error('[FDF Caption] Failed to create alert:', chunkError);
-      if (chunkError.name === 'ChunkLoadError' || chunkError.message?.includes('Loading chunk')) {
-        await this.showToast('Please refresh the page and try again', 'warning');
+      // Handle ChunkLoadError - use native prompt as fallback
+      console.error('[FDF Caption] Failed to create alert, using native fallback:', chunkError);
+      
+      const newCaption = window.prompt(`Enter caption for ${photoType} photo:`, currentCaption);
+      
+      if (newCaption !== null) {
+        const columnName = `FDFPhoto${photoType}Annotation`;
+        const updateData: any = {};
+        updateData[columnName] = newCaption;
+
+        try {
+          await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
+          fdfPhotos[`${photoKey}Caption`] = newCaption;
+          this.changeDetectorRef.detectChanges();
+        } catch (error) {
+          console.error('Error saving caption:', error);
+        }
       }
     }
   }
@@ -2130,82 +2124,72 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
   async openPointCaptionPopup(point: any, photo: any, event: Event) {
     event.stopPropagation();
+    const currentCaption = photo.caption || '';
 
     try {
-      const alert = await this.alertController.create({
-        header: `${photo.photoType} Photo Caption`,
-        inputs: [
-          {
-            name: 'caption',
-            type: 'textarea',
-            value: photo.caption || '',
-            placeholder: 'Enter caption'
-          }
-        ],
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
-            text: 'Save',
-            handler: async (data) => {
-              try {
-                const updateData = { Annotation: data.caption || '' };
-                
-                // Update local state immediately
-                photo.caption = data.caption || '';
-                this.changeDetectorRef.detectChanges();
-                
-                // Update IndexedDB cache
-                if (photo.attachId && !String(photo.attachId).startsWith('temp_')) {
-                  // Find point for this photo
-                  for (const point of this.elevationPoints) {
-                    const foundPhoto = point.photos?.find((p: any) => String(p.attachId) === String(photo.attachId));
-                    if (foundPhoto && point.pointId && !String(point.pointId).startsWith('temp_')) {
-                      const cached = await this.indexedDb.getCachedServiceData(String(point.pointId), 'efe_point_attachments') || [];
-                      const updated = cached.map((att: any) => 
-                        String(att.AttachID) === String(photo.attachId) 
-                          ? { ...att, Annotation: data.caption || '', _localUpdate: true }
-                          : att
-                      );
-                      await this.indexedDb.cacheServiceData(String(point.pointId), 'efe_point_attachments', updated);
-                      break;
-                    }
-                  }
-                }
-                
-                // Try API if online, queue if offline
-                if (this.offlineService.isOnline()) {
-                  await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
-                } else {
-                  await this.indexedDb.addPendingRequest({
-                    type: 'UPDATE',
-                    endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
-                    method: 'PUT',
-                    data: updateData,
-                    dependencies: [],
-                    status: 'pending',
-                    priority: 'normal',
-                  });
-                  this.backgroundSync.triggerSync();
-                }
-              } catch (error) {
-                console.error('Error saving caption:', error);
-              }
-            }
-          }
-        ],
-        cssClass: 'custom-document-alert'
-      });
-
-      await alert.present();
-    } catch (chunkError: any) {
-      // Handle ChunkLoadError when Ionic components fail to load
-      console.error('[Point Caption] Failed to create alert:', chunkError);
-      if (chunkError.name === 'ChunkLoadError' || chunkError.message?.includes('Loading chunk')) {
-        await this.showToast('Please refresh the page and try again', 'warning');
+      // Use the full caption editor with preset buttons (matching FabricPhotoAnnotatorComponent)
+      const newCaption = await this.openCaptionEditorPopup(currentCaption);
+      
+      if (newCaption !== null) { // User didn't cancel
+        await this.savePointCaption(photo, newCaption);
       }
+    } catch (chunkError: any) {
+      // Handle ChunkLoadError - use native prompt as fallback
+      console.error('[Point Caption] Failed to create alert, using native fallback:', chunkError);
+      
+      const newCaption = window.prompt(`Enter caption for ${photo.photoType} photo:`, currentCaption);
+      
+      if (newCaption !== null) {
+        await this.savePointCaption(photo, newCaption);
+      }
+    }
+  }
+
+  /**
+   * Helper method to save point photo caption
+   */
+  private async savePointCaption(photo: any, newCaption: string): Promise<void> {
+    try {
+      const updateData = { Annotation: newCaption };
+      
+      // Update local state immediately
+      photo.caption = newCaption;
+      this.changeDetectorRef.detectChanges();
+      
+      // Update IndexedDB cache
+      if (photo.attachId && !String(photo.attachId).startsWith('temp_')) {
+        for (const p of this.elevationPoints) {
+          const foundPhoto = p.photos?.find((ph: any) => String(ph.attachId) === String(photo.attachId));
+          if (foundPhoto && p.pointId && !String(p.pointId).startsWith('temp_')) {
+            const cached = await this.indexedDb.getCachedServiceData(String(p.pointId), 'efe_point_attachments') || [];
+            const updated = cached.map((att: any) => 
+              String(att.AttachID) === String(photo.attachId) 
+                ? { ...att, Annotation: newCaption, _localUpdate: true }
+                : att
+            );
+            await this.indexedDb.cacheServiceData(String(p.pointId), 'efe_point_attachments', updated);
+            break;
+          }
+        }
+      }
+      
+      // Try API if online, queue if offline
+      if (this.offlineService.isOnline()) {
+        await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
+      } else {
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+          method: 'PUT',
+          data: updateData,
+          dependencies: [],
+          status: 'pending',
+          priority: 'normal',
+        });
+        this.backgroundSync.triggerSync();
+      }
+    } catch (error) {
+      console.error('Error saving caption:', error);
     }
   }
 
@@ -2569,6 +2553,163 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   openHelp(helpId: number, helpTitle: string) {
     // Help system - can be implemented later
     console.log(`Help requested for ${helpTitle}`);
+  }
+
+  /**
+   * Open the full caption editor popup with preset buttons
+   * Matches the FabricPhotoAnnotatorComponent.openCaptionPopup() pattern
+   * Returns the new caption or null if cancelled
+   */
+  private async openCaptionEditorPopup(currentCaption: string): Promise<string | null> {
+    return new Promise(async (resolve) => {
+      // Escape HTML to prevent injection
+      const escapeHtml = (text: string) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
+
+      const tempCaption = escapeHtml(currentCaption || '');
+
+      // Define preset location buttons - 3 columns layout (matching FabricPhotoAnnotatorComponent)
+      const presetButtons = [
+        ['Front', '1st', 'Laundry'],
+        ['Left', '2nd', 'Kitchen'],
+        ['Right', '3rd', 'Living'],
+        ['Back', '4th', 'Dining'],
+        ['Top', '5th', 'Bedroom'],
+        ['Bottom', 'Floor', 'Bathroom'],
+        ['Middle', 'Unit', 'Closet'],
+        ['Primary', 'Attic', 'Entry'],
+        ['Supply', 'Porch', 'Office'],
+        ['Return', 'Deck', 'Garage'],
+        ['Staircase', 'Roof', 'Indoor'],
+        ['Hall', 'Ceiling', 'Outdoor']
+      ];
+
+      // Build custom HTML for the alert with preset buttons
+      let buttonsHtml = '<div class="preset-buttons-container">';
+      presetButtons.forEach(row => {
+        buttonsHtml += '<div class="preset-row">';
+        row.forEach(label => {
+          buttonsHtml += `<button type="button" class="preset-btn" data-text="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+        });
+        buttonsHtml += '</div>';
+      });
+      buttonsHtml += '</div>';
+
+      const alert = await this.alertController.create({
+        header: 'Photo Caption',
+        cssClass: 'caption-popup-alert',
+        message: ' ', // Empty space to prevent Ionic from hiding the message area
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              resolve(null);
+              return true;
+            }
+          },
+          {
+            text: 'Save',
+            handler: () => {
+              try {
+                const input = document.getElementById('captionInput') as HTMLInputElement;
+                resolve(input?.value || '');
+                return true;
+              } catch (error) {
+                console.error('Error saving caption:', error);
+                resolve(null);
+                return true;
+              }
+            }
+          }
+        ]
+      });
+
+      await alert.present();
+
+      // Inject HTML content immediately after presentation
+      setTimeout(() => {
+        try {
+          const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+          if (!alertElement) {
+            resolve(null);
+            return;
+          }
+
+          // Build the full HTML content
+          const htmlContent = `
+            <div class="caption-popup-content">
+              <div class="caption-input-container">
+                <input type="text" id="captionInput" class="caption-text-input"
+                       placeholder="Enter caption..."
+                       value="${tempCaption}"
+                       maxlength="255" />
+                <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+                  <ion-icon name="backspace-outline"></ion-icon>
+                </button>
+              </div>
+              ${buttonsHtml}
+            </div>
+          `;
+          alertElement.innerHTML = htmlContent;
+
+          const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+          const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
+
+          // Use event delegation for better performance
+          const container = document.querySelector('.caption-popup-alert .preset-buttons-container');
+          if (container && captionInput) {
+            container.addEventListener('click', (e) => {
+              try {
+                const target = e.target as HTMLElement;
+                const btn = target.closest('.preset-btn') as HTMLElement;
+                if (btn) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const text = btn.getAttribute('data-text');
+                  if (text && captionInput) {
+                    // Add text + space to current caption
+                    captionInput.value = (captionInput.value || '') + text + ' ';
+                    // Remove focus from button immediately
+                    (btn as HTMLButtonElement).blur();
+                  }
+                }
+              } catch (error) {
+                console.error('Error handling preset button click:', error);
+              }
+            }, { passive: false });
+          }
+
+          // Add click handler for undo button
+          if (undoBtn && captionInput) {
+            undoBtn.addEventListener('click', (e) => {
+              try {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentValue = captionInput.value || '';
+                if (currentValue.trim() === '') {
+                  return;
+                }
+                // Trim trailing spaces and split by spaces
+                const words = currentValue.trim().split(' ');
+                // Remove the last word
+                if (words.length > 0) {
+                  words.pop();
+                  captionInput.value = words.length > 0 ? words.join(' ') + ' ' : '';
+                }
+              } catch (error) {
+                console.error('Error handling undo button click:', error);
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error setting up caption popup:', error);
+        }
+      }, 100);
+    });
   }
 
   /**
