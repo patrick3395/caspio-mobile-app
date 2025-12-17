@@ -264,6 +264,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         // Upload failed
         this.visualPhotos[key][photoIndex].uploading = false;
         this.visualPhotos[key][photoIndex].uploadFailed = true;
+        this.visualPhotos[key][photoIndex].isSkeleton = false;  // CRITICAL: Ensure caption button is clickable
         console.error('[UPLOAD UPDATE] Upload failed for task:', task.id, task.error);
       }
 
@@ -740,7 +741,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       displayUrl: displayableUrl,
       caption: caption || '',
       annotation: caption || '',
-      Annotation: caption || ''
+      Annotation: caption || '',
+      isSkeleton: false,  // CRITICAL: Ensure caption button is clickable
+      queued: false       // Clear queued state after successful upload
     };
 
     console.log('[UPLOAD UPDATE] Photo updated successfully');
