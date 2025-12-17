@@ -703,8 +703,28 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           // Process each attachment
           for (const attach of pointAttachments) {
             // CRITICAL: Database column is "Type", not "PhotoType"
-            const photoType = attach.Type || 'Measurement';
-            console.log(`[RoomElevation]     Processing attachment: Type=${photoType}, Photo=${attach.Photo}`);
+            const photoType = attach.Type || attach.photoType || 'Measurement';
+            console.log(`[RoomElevation]     Processing attachment: Type=${photoType}, Photo=${attach.Photo}, isPending=${attach.isPending}`);
+            
+            // Check if this is a pending photo (uploaded offline, not yet synced)
+            if (attach.isPending || attach.queued) {
+              console.log(`[RoomElevation]     Adding pending photo with blob URL: ${photoType}`);
+              const pendingPhotoData: any = {
+                attachId: attach.AttachID || attach._pendingFileId,
+                photoType: photoType,
+                url: attach.displayUrl || attach.url || attach.thumbnailUrl,
+                displayUrl: attach.displayUrl || attach.url || attach.thumbnailUrl,
+                caption: attach.Annotation || '',
+                drawings: attach.Drawings || attach.drawings || null,
+                hasAnnotations: !!(attach.Drawings || attach.drawings),
+                uploading: false,
+                queued: true,
+                isPending: true,
+                _tempId: attach.AttachID || attach._pendingFileId,
+              };
+              pointData.photos.push(pendingPhotoData);
+              continue;
+            }
 
             const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
             const photoData: any = {

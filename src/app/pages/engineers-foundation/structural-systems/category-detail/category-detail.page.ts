@@ -374,6 +374,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         const templateId = visual.VisualTemplateID || visual.TemplateID;
         const visualId = String(visual.VisualID || visual.PK_ID);
         
+        // CRITICAL: Check if this visual is HIDDEN (deselected offline)
+        // If so, we should NOT re-select it in the UI
+        const isHidden = visual.Notes && String(visual.Notes).startsWith('HIDDEN');
+        
         // Find the item in organizedData by matching templateId or name+category+kind
         let targetArray: VisualItem[] | null = null;
         if (kind === 'comment') {
@@ -400,6 +404,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           if (existingItem) {
             // CRITICAL: Use correct key format to match the rest of the codebase
             const key = `${visual.Category}_${existingItem.id}`;
+            
+            // Store the visual record ID for later operations (select/unselect/photo uploads)
+            this.visualRecordIds[key] = visualId;
+            
+            // CRITICAL: Handle HIDDEN visuals - they should be DESELECTED
+            if (isHidden) {
+              // Check if currently selected - if so, we need to deselect
+              if (this.selectedItems[key] === true) {
+                console.log('[RELOAD AFTER SYNC] Deselecting HIDDEN visual:', key, 'visualId:', visualId);
+                this.selectedItems[key] = false;
+                existingItem.isSelected = false;
+                existingItem.isSaving = false;
+                this.savingItems[key] = false;
+                anyVisualChanges = true;
+              }
+              continue; // Skip the rest - don't re-select this visual
+            }
             
             // OPTIMIZATION: Only update if something actually changed
             // This prevents UI "flashing" when data is already correct
@@ -428,8 +449,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             delete (existingItem as any)._localOnly;
             delete (existingItem as any)._syncing;
             
-            // Store the visual record ID (NOT template ID) for photo uploads
-            this.visualRecordIds[key] = visualId;
             this.selectedItems[key] = true;
             this.savingItems[key] = false;
             

@@ -1516,11 +1516,13 @@ export class IndexedDbService {
         AttachID: photo.imageId,
         id: photo.imageId,
         _pendingFileId: photo.imageId,
+        PointID: pointId, // CRITICAL: Include PointID for filtering in room-elevation page
         url: blobUrl,
         originalUrl: blobUrl,
         thumbnailUrl: blobUrl,
         displayUrl: blobUrl,
         Type: photo.photoType || 'Measurement',
+        photoType: photo.photoType || 'Measurement', // Include both formats
         drawings: photo.drawings || '',
         Drawings: photo.drawings || '',
         queued: true,
