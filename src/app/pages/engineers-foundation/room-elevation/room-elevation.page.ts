@@ -17,6 +17,7 @@ import { IndexedDbService } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { compressAnnotationData, decompressAnnotationData } from '../../../utils/annotation-utils';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-room-elevation',
@@ -48,8 +49,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   private uploadSubscription?: Subscription;
   private taskSubscription?: Subscription;
   private cacheInvalidationSubscription?: Subscription;
+  private photoSyncSubscription?: Subscription;
   private cacheInvalidationDebounceTimer: any = null;
   private isReloadingAfterSync = false;
+  private localOperationCooldown = false;
 
   // Convenience getters for template
   get fdfPhotos() {
@@ -197,9 +200,106 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     await this.loadRoomData();
     await this.loadFDFOptions();
 
+    // Subscribe to background sync photo upload completions
+    // This handles the case where photos are uploaded via IndexedDB queue (offline -> online)
+    this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
+      console.log('[RoomElevation PHOTO SYNC] Photo upload completed:', event.tempFileId);
+      
+      // Extract data from the result object
+      const realAttachId = event.result?.AttachID;
+      const photoUrl = event.result?.Photo || event.result?.Attachment;
+      const s3Key = event.result?.Attachment;
+
+      // Find the photo in our elevationPoints by temp file ID
+      for (const point of this.roomData?.elevationPoints || []) {
+        const photoIndex = point.photos?.findIndex((p: any) =>
+          String(p._tempId) === String(event.tempFileId) ||
+          String(p.attachId) === String(event.tempFileId)
+        );
+
+        if (photoIndex >= 0 && photoIndex !== undefined) {
+          const photo = point.photos[photoIndex];
+          console.log('[RoomElevation PHOTO SYNC] Found matching photo at point:', point.name, 'index:', photoIndex);
+
+          // Update the photo with real AttachID and URL
+          photo.attachId = realAttachId;
+          photo._tempId = undefined;
+          photo.isPending = false;
+          photo.queued = false;
+          photo.uploading = false;
+
+          // If we have a URL, update it
+          if (photoUrl) {
+            // Get S3 URL and fetch as data URL for canvas compatibility
+            try {
+              let imageUrl = photoUrl;
+              if (s3Key && this.caspioService.isS3Key(s3Key)) {
+                imageUrl = await this.caspioService.getS3FileUrl(s3Key);
+              }
+              const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
+              photo.url = dataUrl;
+              photo.displayUrl = dataUrl;
+              photo.loading = false;
+              
+              // Cache the photo
+              if (realAttachId) {
+                await this.indexedDb.cachePhoto(String(realAttachId), this.serviceId, dataUrl, s3Key || '');
+              }
+            } catch (err) {
+              console.warn('[RoomElevation PHOTO SYNC] Failed to fetch as data URL:', err);
+              photo.url = photoUrl;
+              photo.displayUrl = photoUrl;
+            }
+          }
+
+          this.changeDetectorRef.detectChanges();
+          console.log('[RoomElevation PHOTO SYNC] Updated photo with real ID:', realAttachId);
+          break;
+        }
+      }
+      
+      // Also check FDF photos
+      const fdfPhotos = this.roomData?.fdfPhotos;
+      if (fdfPhotos) {
+        for (const key of ['top', 'bottom', 'topDetails', 'bottomDetails']) {
+          const photo = fdfPhotos[key];
+          if (photo && (String(photo._tempId) === String(event.tempFileId) || String(photo.attachId) === String(event.tempFileId))) {
+            console.log('[RoomElevation PHOTO SYNC] Found matching FDF photo:', key);
+            photo.attachId = realAttachId;
+            photo._tempId = undefined;
+            photo.isPending = false;
+            
+            if (photoUrl) {
+              try {
+                let imageUrl = photoUrl;
+                if (s3Key && this.caspioService.isS3Key(s3Key)) {
+                  imageUrl = await this.caspioService.getS3FileUrl(s3Key);
+                }
+                const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
+                fdfPhotos[`${key}Url`] = dataUrl;
+                fdfPhotos[`${key}DisplayUrl`] = dataUrl;
+              } catch (err) {
+                fdfPhotos[`${key}Url`] = photoUrl;
+                fdfPhotos[`${key}DisplayUrl`] = photoUrl;
+              }
+            }
+            
+            this.changeDetectorRef.detectChanges();
+            break;
+          }
+        }
+      }
+    });
+
     // Subscribe to cache invalidation events - reload data when sync completes
     // CRITICAL: Debounce to prevent multiple rapid reloads
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
+      // Skip if in local operation cooldown (prevents flash when syncing)
+      if (this.localOperationCooldown) {
+        console.log('[RoomElevation] Skipping cache invalidation - in local operation cooldown');
+        return;
+      }
+      
       if (!event.serviceId || event.serviceId === this.serviceId) {
         // Clear any existing debounce timer
         if (this.cacheInvalidationDebounceTimer) {
@@ -223,6 +323,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
   /**
    * Reload elevation data after a sync event
+   * ENHANCED: Also reloads attachments to ensure photos persist
    */
   private async reloadElevationDataAfterSync(): Promise<void> {
     // Prevent concurrent reloads
@@ -233,11 +334,25 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     
     this.isReloadingAfterSync = true;
     try {
-      console.log('[RoomElevation] Reloading points after sync...');
+      console.log('[RoomElevation] Reloading points and attachments after sync...');
       
       // Reload points from fresh IndexedDB data
       const existingPoints = await this.foundationData.getEFEPoints(this.roomId);
       console.log('[RoomElevation] Reloaded', existingPoints?.length || 0, 'points from IndexedDB');
+      
+      // Get point IDs for attachment loading
+      const pointIds = existingPoints?.map((p: any) => p.PointID || p.PK_ID).filter((id: any) => id) || [];
+      
+      // Reload attachments
+      let attachments: any[] = [];
+      if (pointIds.length > 0) {
+        try {
+          attachments = await this.foundationData.getEFEAttachments(pointIds);
+          console.log('[RoomElevation] Reloaded', attachments?.length || 0, 'attachments from IndexedDB');
+        } catch (err) {
+          console.warn('[RoomElevation] Failed to reload attachments:', err);
+        }
+      }
       
       // Update our local points array with fresh data
       if (this.roomData?.elevationPoints && existingPoints) {
@@ -254,12 +369,84 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             delete localPoint._tempId;
             delete localPoint._localOnly;
             delete localPoint._syncing;
+            
+            // CRITICAL: Reload photos for this point
+            const pointIdStr = String(realId);
+            const pointAttachments = attachments.filter((att: any) => String(att.PointID) === pointIdStr);
+            console.log(`[RoomElevation] Found ${pointAttachments.length} attachments for point "${pointName}"`);
+            
+            // Build a set of existing photo IDs to avoid duplicates
+            const existingPhotoIds = new Set(
+              (localPoint.photos || []).map((p: any) => String(p.attachId))
+            );
+            
+            for (const attach of pointAttachments) {
+              const attachIdStr = String(attach.AttachID || attach.PK_ID);
+              
+              // Check if we already have this photo
+              if (existingPhotoIds.has(attachIdStr)) {
+                // Update existing photo with server data if needed
+                const existingPhoto = localPoint.photos.find((p: any) => String(p.attachId) === attachIdStr);
+                if (existingPhoto) {
+                  // If photo is still loading/placeholder, try to load the actual image
+                  if (existingPhoto.loading || existingPhoto.url === 'assets/img/photo-placeholder.png') {
+                    const s3Key = attach.Attachment || attach.Photo;
+                    if (s3Key && this.caspioService.isS3Key(s3Key)) {
+                      this.loadPointPhotoImage(s3Key, existingPhoto).catch(err => {
+                        console.warn('[RoomElevation] Failed to reload photo:', err);
+                      });
+                    }
+                  }
+                }
+                continue;
+              }
+              
+              // Add new photo from server
+              const photoType = attach.Type || attach.photoType || 'Measurement';
+              const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+              const photoData: any = {
+                attachId: attach.AttachID || attach.PK_ID,
+                photoType: photoType,
+                url: 'assets/img/photo-placeholder.png',
+                displayUrl: 'assets/img/photo-placeholder.png',
+                caption: attach.Annotation || '',
+                drawings: attach.Drawings || null,
+                hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null' && attach.Drawings !== '' && attach.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS),
+                path: attach.Attachment || attach.Photo || null,
+                Attachment: attach.Attachment,
+                Photo: attach.Photo,
+                uploading: false,
+                loading: true
+              };
+              
+              // Ensure photos array exists
+              if (!localPoint.photos) {
+                localPoint.photos = [];
+              }
+              
+              localPoint.photos.push(photoData);
+              existingPhotoIds.add(attachIdStr);
+              
+              // Load the actual image in background
+              const s3Key = attach.Attachment || attach.Photo;
+              if (s3Key) {
+                this.loadPointPhotoImage(s3Key, photoData).catch(err => {
+                  console.warn('[RoomElevation] Failed to load new photo:', err);
+                });
+              }
+            }
           }
         }
       }
       
       this.changeDetectorRef.detectChanges();
       console.log('[RoomElevation] Elevation data reload complete');
+      
+      // Set cooldown to prevent rapid re-invalidations
+      this.localOperationCooldown = true;
+      setTimeout(() => {
+        this.localOperationCooldown = false;
+      }, 2000);
       
     } catch (error) {
       console.error('[RoomElevation] Error reloading elevation data:', error);
@@ -286,6 +473,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
     if (this.cacheInvalidationSubscription) {
       this.cacheInvalidationSubscription.unsubscribe();
+    }
+    if (this.photoSyncSubscription) {
+      this.photoSyncSubscription.unsubscribe();
     }
     console.log('[ROOM ELEVATION] Component destroyed, but uploads continue in background');
   }
@@ -399,10 +589,13 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     // CRITICAL: Load photo metadata IMMEDIATELY (don't wait for images)
     // This allows skeletons to show while images load in background
 
-    // Load Top photo metadata
-    if (room.FDFPhotoTop) {
+    // Load Top photo metadata - PREFER S3 Attachment column over legacy Files API path
+    const topS3Key = room.FDFPhotoTopAttachment;
+    const topLegacyPath = room.FDFPhotoTop;
+    if (topS3Key || topLegacyPath) {
       fdfPhotos.top = true;
-      fdfPhotos.topPath = room.FDFPhotoTop;
+      fdfPhotos.topPath = topLegacyPath;
+      fdfPhotos.topAttachment = topS3Key;
       fdfPhotos.topCaption = room.FDFPhotoTopAnnotation || '';
       fdfPhotos.topDrawings = room.FDFPhotoTopDrawings || null;
       fdfPhotos.topLoading = true; // Skeleton state
@@ -410,16 +603,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       fdfPhotos.topDisplayUrl = 'assets/img/photo-placeholder.png';
       fdfPhotos.topHasAnnotations = !!(room.FDFPhotoTopDrawings && room.FDFPhotoTopDrawings !== 'null' && room.FDFPhotoTopDrawings !== '' && room.FDFPhotoTopDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
-      // Load actual image in background
-      this.loadFDFPhotoImage(room.FDFPhotoTop, 'top').catch(err => {
+      // Load actual image in background - PREFER S3 key
+      this.loadFDFPhotoImage(topS3Key || topLegacyPath, 'top').catch(err => {
         console.error('Error loading top photo:', err);
       });
     }
 
-    // Load Bottom photo metadata
-    if (room.FDFPhotoBottom) {
+    // Load Bottom photo metadata - PREFER S3 Attachment column over legacy Files API path
+    const bottomS3Key = room.FDFPhotoBottomAttachment;
+    const bottomLegacyPath = room.FDFPhotoBottom;
+    if (bottomS3Key || bottomLegacyPath) {
       fdfPhotos.bottom = true;
-      fdfPhotos.bottomPath = room.FDFPhotoBottom;
+      fdfPhotos.bottomPath = bottomLegacyPath;
+      fdfPhotos.bottomAttachment = bottomS3Key;
       fdfPhotos.bottomCaption = room.FDFPhotoBottomAnnotation || '';
       fdfPhotos.bottomDrawings = room.FDFPhotoBottomDrawings || null;
       fdfPhotos.bottomLoading = true; // Skeleton state
@@ -427,16 +623,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       fdfPhotos.bottomDisplayUrl = 'assets/img/photo-placeholder.png';
       fdfPhotos.bottomHasAnnotations = !!(room.FDFPhotoBottomDrawings && room.FDFPhotoBottomDrawings !== 'null' && room.FDFPhotoBottomDrawings !== '' && room.FDFPhotoBottomDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
-      // Load actual image in background
-      this.loadFDFPhotoImage(room.FDFPhotoBottom, 'bottom').catch(err => {
+      // Load actual image in background - PREFER S3 key
+      this.loadFDFPhotoImage(bottomS3Key || bottomLegacyPath, 'bottom').catch(err => {
         console.error('Error loading bottom photo:', err);
       });
     }
 
-    // Load Threshold (Location) photo metadata
-    if (room.FDFPhotoThreshold) {
+    // Load Threshold (Location) photo metadata - PREFER S3 Attachment column over legacy Files API path
+    const thresholdS3Key = room.FDFPhotoThresholdAttachment;
+    const thresholdLegacyPath = room.FDFPhotoThreshold;
+    if (thresholdS3Key || thresholdLegacyPath) {
       fdfPhotos.threshold = true;
-      fdfPhotos.thresholdPath = room.FDFPhotoThreshold;
+      fdfPhotos.thresholdPath = thresholdLegacyPath;
+      fdfPhotos.thresholdAttachment = thresholdS3Key;
       fdfPhotos.thresholdCaption = room.FDFPhotoThresholdAnnotation || '';
       fdfPhotos.thresholdDrawings = room.FDFPhotoThresholdDrawings || null;
       fdfPhotos.thresholdLoading = true; // Skeleton state
@@ -444,18 +643,80 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       fdfPhotos.thresholdDisplayUrl = 'assets/img/photo-placeholder.png';
       fdfPhotos.thresholdHasAnnotations = !!(room.FDFPhotoThresholdDrawings && room.FDFPhotoThresholdDrawings !== 'null' && room.FDFPhotoThresholdDrawings !== '' && room.FDFPhotoThresholdDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
-      // Load actual image in background
-      this.loadFDFPhotoImage(room.FDFPhotoThreshold, 'threshold').catch(err => {
+      // Load actual image in background - PREFER S3 key
+      this.loadFDFPhotoImage(thresholdS3Key || thresholdLegacyPath, 'threshold').catch(err => {
         console.error('Error loading threshold photo:', err);
       });
+    }
+    
+    // Also restore any pending FDF photo uploads from IndexedDB
+    await this.restorePendingFDFPhotos();
+  }
+  
+  // Restore pending FDF photo uploads from IndexedDB
+  private async restorePendingFDFPhotos() {
+    try {
+      const pendingRequests = await this.indexedDb.getPendingRequests();
+      // Filter for FDF photo uploads - marked with isFDFPhoto in data
+      const fdfRequests = pendingRequests.filter(r => 
+        r.type === 'UPLOAD_FILE' && 
+        r.data?.isFDFPhoto === true &&
+        r.data?.roomId === this.roomId
+      );
+      
+      for (const req of fdfRequests) {
+        const photoType = req.data?.photoType as 'Top' | 'Bottom' | 'Threshold';
+        const tempFileId = req.data?.tempFileId;
+        
+        if (!photoType || !tempFileId) continue;
+        
+        const photoKey = photoType.toLowerCase();
+        const fdfPhotos = this.roomData.fdfPhotos;
+        
+        // Check if we already have this photo loaded
+        if (fdfPhotos[photoKey] && !fdfPhotos[`${photoKey}Queued`]) {
+          continue;
+        }
+        
+        // Try to load the stored photo data
+        const storedData = await this.indexedDb.getStoredPhotoData(tempFileId);
+        if (storedData?.file) {
+          console.log(`[FDF Restore] Restoring pending ${photoType} photo from IndexedDB`);
+          
+          // Convert to base64 for display
+          const base64Image = await this.convertFileToBase64(storedData.file);
+          
+          fdfPhotos[photoKey] = true;
+          fdfPhotos[`${photoKey}Url`] = base64Image;
+          fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
+          fdfPhotos[`${photoKey}TempId`] = tempFileId;
+          fdfPhotos[`${photoKey}Queued`] = true;
+          fdfPhotos[`${photoKey}Uploading`] = true;
+          
+          this.changeDetectorRef.detectChanges();
+          
+          // If online, trigger upload
+          if (this.offlineService.isOnline()) {
+            this.uploadFDFPhotoToS3(photoType, storedData.file, tempFileId).catch(err => {
+              console.error(`[FDF Restore] Failed to upload restored ${photoType} photo:`, err);
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[FDF Restore] Error restoring pending photos:', error);
     }
   }
 
   // New helper method to load FDF photo images in background (OFFLINE-FIRST)
-  private async loadFDFPhotoImage(photoPath: string, photoKey: string) {
+  // Supports both S3 keys and legacy Caspio Files API paths
+  private async loadFDFPhotoImage(photoPathOrS3Key: string, photoKey: string) {
     const fdfPhotos = this.roomData.fdfPhotos;
     // Use room ID + photoKey as cache ID for FDF photos
     const cacheId = `fdf_${this.roomId}_${photoKey}`;
+    const isS3Key = this.caspioService.isS3Key(photoPathOrS3Key);
+    
+    console.log(`[FDF Photo] Loading ${photoKey} image, isS3Key: ${isS3Key}, path: ${photoPathOrS3Key?.substring(0, 50)}`);
     
     try {
       // OFFLINE-FIRST: Check IndexedDB cached photo first
@@ -480,17 +741,36 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       }
 
       // Online - fetch from API and cache
-      const imageData = await this.foundationData.getImage(photoPath);
+      let imageData: string | null = null;
+      
+      // Check if this is an S3 key - use XMLHttpRequest to fetch as data URL
+      if (isS3Key) {
+        console.log(`[FDF Photo] Fetching S3 image for ${photoKey}:`, photoPathOrS3Key);
+        try {
+          const s3Url = await this.caspioService.getS3FileUrl(photoPathOrS3Key);
+          imageData = await this.fetchS3ImageAsDataUrl(s3Url);
+        } catch (err) {
+          console.warn(`[FDF Photo] S3 fetch failed for ${photoKey}, trying fallback:`, err);
+        }
+      }
+      
+      // Fallback to Caspio Files API for non-S3 paths (legacy)
+      if (!imageData && !isS3Key) {
+        imageData = await this.foundationData.getImage(photoPathOrS3Key);
+      }
+      
       if (imageData) {
         fdfPhotos[`${photoKey}Url`] = imageData;
         fdfPhotos[`${photoKey}DisplayUrl`] = imageData;
         fdfPhotos[`${photoKey}Loading`] = false;
         
         // Cache for offline use
-        await this.indexedDb.cachePhoto(cacheId, this.serviceId, imageData, photoPath);
+        await this.indexedDb.cachePhoto(cacheId, this.serviceId, imageData, photoPathOrS3Key);
         console.log(`[FDF Photo] Loaded and cached ${photoKey} image`);
         
         this.changeDetectorRef.detectChanges();
+      } else {
+        throw new Error('No image data returned');
       }
     } catch (error) {
       console.error(`[FDF Photo] Error loading ${photoKey} image:`, error);
@@ -1315,12 +1595,12 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
   }
 
-  // Process FDF photo - Using background upload service for reliability
+  // Process FDF photo - OFFLINE-FIRST: Show immediately, upload in background via S3
   private async processFDFPhoto(file: File, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const photoKey = photoType.toLowerCase();
     const fdfPhotos = this.roomData.fdfPhotos;
 
-    console.log(`[FDF Upload] Processing photo: ${photoType}`);
+    console.log(`[FDF Upload S3] Processing photo: ${photoType} (offline-first)`);
 
     try {
       // Initialize fdfPhotos structure if needed
@@ -1328,78 +1608,88 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         this.roomData.fdfPhotos = {};
       }
 
-      // Set uploading flag to show loading spinner IMMEDIATELY
-      fdfPhotos[`${photoKey}Uploading`] = true;
-      fdfPhotos[photoKey] = true;
-
       // Revoke old blob URL if it exists (prevent memory leaks)
       const oldUrl = fdfPhotos[`${photoKey}Url`];
       if (oldUrl && oldUrl.startsWith('blob:')) {
         URL.revokeObjectURL(oldUrl);
-        console.log(`[FDF Upload] Revoked old blob URL for ${photoType}`);
+        console.log(`[FDF Upload S3] Revoked old blob URL for ${photoType}`);
       }
 
-      // Create new blob URL for instant preview
-      const blobUrl = URL.createObjectURL(file);
-      fdfPhotos[`${photoKey}Url`] = blobUrl;
+      // OFFLINE-FIRST: Convert file to base64 for immediate display AND caching
+      const base64Image = await this.convertFileToBase64(file);
+      
+      // Create temp ID for tracking
+      const tempId = `temp_fdf_${photoType.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Set photo data immediately - NO loading spinner, instant display
+      fdfPhotos[photoKey] = true;
+      fdfPhotos[`${photoKey}Url`] = base64Image;
+      fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
+      fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
+      fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
+      fdfPhotos[`${photoKey}Uploading`] = true; // Show subtle uploading indicator
+      fdfPhotos[`${photoKey}TempId`] = tempId;
+      fdfPhotos[`${photoKey}Queued`] = true;
 
-      // Trigger change detection to show preview with loading spinner
+      // Trigger change detection to show preview IMMEDIATELY
       this.changeDetectorRef.detectChanges();
+      console.log(`[FDF Upload S3] Photo displayed immediately with temp ID: ${tempId}`);
 
-      // CRITICAL: Use background upload service for reliability
-      // Upload will persist even if user navigates away
-      const tempId = `temp_fdf_${photoType}_${Date.now()}`;
-      const roomIdNum = parseInt(this.roomId, 10);
-
-      const uploadFn = async (visualId: number, photo: File, caption: string) => {
-        console.log(`[FDF Upload] Uploading ${photoType} via background service`);
-        const result = await this.uploadFDFPhotoToRoom(photoType, photo);
-
-        // Update UI after successful upload
-        if (result) {
-          fdfPhotos[photoKey] = true;
-          fdfPhotos[`${photoKey}Path`] = result.filePath;
-          fdfPhotos[`${photoKey}Url`] = result.base64Image;
-          fdfPhotos[`${photoKey}DisplayUrl`] = result.base64Image;
-          fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
-          fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
-          fdfPhotos[`${photoKey}Uploading`] = false;
-          this.changeDetectorRef.detectChanges();
-        }
-
-        return result;
-      };
-
-      // Add to background upload queue
-      this.backgroundUploadService.addToQueue(
-        roomIdNum,
-        file,
-        `fdf_${photoKey}`,
-        '',
+      // Store file in IndexedDB for persistence across page navigations
+      await this.indexedDb.storePhotoFile(
         tempId,
-        uploadFn
+        file,
+        this.roomId,
+        fdfPhotos[`${photoKey}Caption`] || '',
+        fdfPhotos[`${photoKey}Drawings`] || ''
       );
+      console.log(`[FDF Upload S3] Stored file in IndexedDB for background upload`);
 
-      console.log(`[FDF Upload] Photo ${photoType} queued for background upload`);
+      // Queue the upload as a pending request for background sync
+      // Use UPLOAD_FILE type with FDF metadata in data field
+      await this.indexedDb.addPendingRequest({
+        type: 'UPLOAD_FILE',
+        endpoint: `FDF_PHOTO_${photoType}_${this.roomId}`,
+        method: 'POST',
+        data: {
+          roomId: this.roomId,
+          photoType: photoType,
+          tempFileId: tempId,
+          isFDFPhoto: true  // Marker to identify FDF photo uploads
+        },
+        dependencies: [],  // No dependencies for FDF photo uploads
+        status: 'pending',
+        priority: 'high'
+      });
+      console.log(`[FDF Upload S3] Queued upload request for background sync`);
+
+      // If online, trigger immediate upload
+      if (this.offlineService.isOnline()) {
+        console.log(`[FDF Upload S3] Online - triggering immediate upload`);
+        this.uploadFDFPhotoToS3(photoType, file, tempId).catch(err => {
+          console.error(`[FDF Upload S3] Background upload failed:`, err);
+        });
+      } else {
+        console.log(`[FDF Upload S3] Offline - upload will happen when online`);
+      }
 
     } catch (error: any) {
-      console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
-      const errorMsg = error?.message || error?.toString() || 'Unknown error';
-      // Toast removed per user request
-      // await this.showToast(`Failed to upload ${photoType} photo: ${errorMsg}`, 'danger');
+      console.error(`[FDF Upload S3] Error processing FDF ${photoType} photo:`, error);
 
-      // Clear uploading flag and photo on error
+      // Clear photo on error
       fdfPhotos[`${photoKey}Uploading`] = false;
+      fdfPhotos[`${photoKey}Queued`] = false;
       delete fdfPhotos[photoKey];
       delete fdfPhotos[`${photoKey}Url`];
+      delete fdfPhotos[`${photoKey}DisplayUrl`];
 
       this.changeDetectorRef.detectChanges();
     }
   }
 
-  // Upload FDF photo to room - EXACT implementation from engineers-foundation
-  private async uploadFDFPhotoToRoom(photoType: 'Top' | 'Bottom' | 'Threshold', file: File): Promise<any> {
-    console.log(`[FDF Upload] Starting upload for ${photoType}`);
+  // Upload FDF photo to S3 - mirrors other photo uploads in the application
+  private async uploadFDFPhotoToS3(photoType: 'Top' | 'Bottom' | 'Threshold', file: File, tempId: string): Promise<any> {
+    console.log(`[FDF Upload S3] Starting S3 upload for ${photoType}`);
 
     if (!this.roomId) {
       throw new Error(`Room not ready for upload`);
@@ -1411,58 +1701,75 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     try {
       // Compress the image
       const compressedFile = await this.imageCompression.compressImage(file);
-      console.log(`[FDF Upload] Compressed ${photoType} image`);
+      console.log(`[FDF Upload S3] Compressed ${photoType} image`);
 
-      // Upload to Caspio Files API
-      const uploadFormData = new FormData();
-      const fileName = `FDF_${photoType}_${this.roomId}_${Date.now()}.jpg`;
-      uploadFormData.append('file', compressedFile, fileName);
+      // Generate unique filename for S3
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `fdf_${photoType.toLowerCase()}_${this.roomId}_${timestamp}_${randomId}.${fileExt}`;
 
-      const token = await firstValueFrom(this.caspioService.getValidToken());
-      const account = this.caspioService.getAccountID();
+      // Upload to S3 via API Gateway
+      const formData = new FormData();
+      formData.append('file', compressedFile, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_EFE');
+      formData.append('attachId', this.roomId);
 
-      const uploadResponse = await fetch(`https://${account}.caspio.com/rest/v2/files`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: uploadFormData
+      const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
+      console.log(`[FDF Upload S3] Uploading to S3: ${uploadUrl}`);
+      
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData
       });
 
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error(`[FDF Upload S3] S3 upload failed:`, errorText);
+        throw new Error('Failed to upload file to S3: ' + errorText);
+      }
+
       const uploadResult = await uploadResponse.json();
-      const uploadedFileName = uploadResult.Name || uploadResult.Result?.Name || fileName;
-      const filePath = `/${uploadedFileName}`;
+      const s3Key = uploadResult.s3Key;
+      console.log(`[FDF Upload S3] Uploaded to S3 with key: ${s3Key}`);
 
-      console.log(`[FDF Upload] Uploaded to Files API: ${filePath}`);
-
-      // Update the room record with file path
-      const columnName = `FDFPhoto${photoType}`;
+      // Update the room record with S3 key in the new Attachment column
+      const attachmentColumnName = `FDFPhoto${photoType}Attachment`;
       const updateData: any = {};
-      updateData[columnName] = filePath;
+      updateData[attachmentColumnName] = s3Key;
 
       await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
+      console.log(`[FDF Upload S3] Updated room record with S3 key in ${attachmentColumnName}`);
 
-      console.log(`[FDF Upload] Updated room record`);
-
-      // Convert to base64 for display
-      const base64Image = await this.convertFileToBase64(compressedFile);
-
-      // Update local state
-      fdfPhotos[photoKey] = true;
-      fdfPhotos[`${photoKey}Path`] = filePath;
-      fdfPhotos[`${photoKey}Url`] = base64Image;
-      fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
-      fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
-      fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
+      // Update local state - clear uploading flags
       fdfPhotos[`${photoKey}Uploading`] = false;
+      fdfPhotos[`${photoKey}Queued`] = false;
+      fdfPhotos[`${photoKey}Path`] = s3Key;
+      fdfPhotos[`${photoKey}Attachment`] = s3Key;
+      delete fdfPhotos[`${photoKey}TempId`];
+
+      // Remove from pending requests
+      const pendingRequests = await this.indexedDb.getPendingRequests();
+      for (const req of pendingRequests) {
+        if (req.type === 'UPLOAD_FILE' && req.data?.isFDFPhoto && req.data?.tempFileId === tempId) {
+          await this.indexedDb.removePendingRequest(req.requestId);
+          console.log(`[FDF Upload S3] Removed pending request for ${tempId}`);
+        }
+      }
+
+      // Note: Stored photo data in IndexedDB will be cleaned up automatically by storePhotoFile
+      // when overwritten, or can be cleaned up separately if needed
+      console.log(`[FDF Upload S3] Upload complete for ${tempId}`);
 
       this.changeDetectorRef.detectChanges();
+      console.log(`[FDF Upload S3] Completed ${photoType}`);
 
-      console.log(`[FDF Upload] Completed ${photoType}`);
-
-      return { filePath, base64Image };
+      return { s3Key, success: true };
     } catch (error) {
-      console.error(`[FDF Upload] Error uploading ${photoType}:`, error);
+      console.error(`[FDF Upload S3] Error uploading ${photoType}:`, error);
+      // Don't clear the photo - it's still displayed and queued for retry
+      fdfPhotos[`${photoKey}Uploading`] = false;
+      this.changeDetectorRef.detectChanges();
       throw error;
     }
   }
