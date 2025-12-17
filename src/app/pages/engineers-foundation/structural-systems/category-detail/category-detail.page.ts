@@ -1456,10 +1456,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       }
     }
 
+    // CRITICAL: Extract VisualID from the key if not in attachment
+    // The key format is "Category_ItemId" and we need the visualId for cache lookups
+    const keyParts = key.split('_');
+    const itemId = keyParts.length > 1 ? keyParts.slice(1).join('_') : key;
+    const visualIdFromRecord = this.visualRecordIds[key];
+    
     const photoData = {
       AttachID: attach.AttachID,
       id: attach.AttachID,
-      VisualID: attach.VisualID,     // CRITICAL: Store VisualID for annotation cache key lookup
+      VisualID: attach.VisualID || visualIdFromRecord || itemId,  // CRITICAL: Always set VisualID
       name: attach.Photo || 'photo.jpg',
       filePath: filePath,
       Photo: filePath,
@@ -3279,14 +3285,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         const photo = (photos as any[]).find(p => String(p.AttachID) === String(attachId));
         if (photo) {
           foundKey = key;
-          visualIdForCache = String(photo.VisualID || this.visualRecordIds[key]);
-          console.log('[SAVE CACHE] Found photo for AttachID:', attachId, 'Key:', key, 'photo.VisualID:', photo.VisualID, 'visualRecordIds[key]:', this.visualRecordIds[key]);
+          // CRITICAL: Use VisualID from photo, or visualRecordIds, or extract from key
+          const recordId = this.visualRecordIds[key];
+          const photoVisualId = photo.VisualID;
+          visualIdForCache = photoVisualId || recordId || null;
+          
+          // Ensure it's a valid string, not "undefined"
+          if (visualIdForCache && String(visualIdForCache) !== 'undefined') {
+            visualIdForCache = String(visualIdForCache);
+          } else {
+            visualIdForCache = null;
+          }
+          
+          console.log('[SAVE CACHE] Found photo for AttachID:', attachId, 'Key:', key, 'photo.VisualID:', photoVisualId, 'visualRecordIds[key]:', recordId, 'Final visualIdForCache:', visualIdForCache);
           break;
         }
       }
 
       if (!visualIdForCache) {
-        console.warn('[SAVE CACHE] ⚠️ Could not find visualIdForCache for AttachID:', attachId, 'Searched keys:', Object.keys(this.visualPhotos));
+        console.warn('[SAVE CACHE] ⚠️ Could not find visualIdForCache for AttachID:', attachId);
+        console.warn('[SAVE CACHE] ⚠️ Searched keys:', Object.keys(this.visualPhotos));
+        console.warn('[SAVE CACHE] ⚠️ visualRecordIds:', JSON.stringify(this.visualRecordIds));
       }
 
       if (visualIdForCache) {

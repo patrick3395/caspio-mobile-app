@@ -949,13 +949,18 @@ export class BackgroundSyncService {
    */
   private async clearVisualLocalUpdateFlag(visualId: string, serviceId?: string): Promise<void> {
     try {
+      // Helper to check if visual matches by PK_ID or VisualID
+      const matchesVisual = (v: any) => {
+        return (String(v.PK_ID) === String(visualId) || String(v.VisualID) === String(visualId)) && v._localUpdate;
+      };
+      
       // If we have the serviceId, update directly
       if (serviceId) {
         const visuals = await this.indexedDb.getCachedServiceData(String(serviceId), 'visuals') || [];
         let found = false;
         
         const updatedVisuals = visuals.map((v: any) => {
-          if (String(v.PK_ID) === String(visualId) && v._localUpdate) {
+          if (matchesVisual(v)) {
             found = true;
             // Remove the _localUpdate flag - the data is now synced
             const { _localUpdate, ...rest } = v;
@@ -979,7 +984,7 @@ export class BackgroundSyncService {
         let found = false;
         
         const updatedVisuals = visuals.map((v: any) => {
-          if (String(v.PK_ID) === String(visualId) && v._localUpdate) {
+          if (matchesVisual(v)) {
             found = true;
             const { _localUpdate, ...rest } = v;
             return rest;
@@ -1035,23 +1040,35 @@ export class BackgroundSyncService {
         
         // Build map of locally updated visuals that should NOT be overwritten
         // Include both _localUpdate flagged AND visuals with pending UPDATE requests
+        // CRITICAL: Key by BOTH PK_ID and VisualID to ensure matches
         const localUpdates = new Map<string, any>();
         for (const visual of existingCache) {
-          const visualId = String(visual.PK_ID || visual._tempId);
-          // Preserve if has _localUpdate flag OR has pending UPDATE request
-          if (visual._localUpdate || pendingVisualUpdates.has(visualId)) {
-            localUpdates.set(visualId, visual);
+          const pkId = String(visual.PK_ID || '');
+          const vId = String(visual.VisualID || '');
+          const tempId = visual._tempId || '';
+          
+          // Check if has _localUpdate flag OR has pending UPDATE request (by either ID)
+          const hasPendingByPkId = pkId && pendingVisualUpdates.has(pkId);
+          const hasPendingByVisualId = vId && pendingVisualUpdates.has(vId);
+          
+          if (visual._localUpdate || hasPendingByPkId || hasPendingByVisualId) {
+            // Store by both keys to ensure we find it when merging
+            if (pkId) localUpdates.set(pkId, visual);
+            if (vId) localUpdates.set(vId, visual);
+            if (tempId) localUpdates.set(tempId, visual);
             const reason = visual._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-            console.log(`[BackgroundSync] Preserving local version of visual ${visualId} (${reason}, Notes: ${visual.Notes})`);
+            console.log(`[BackgroundSync] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Notes: ${visual.Notes})`);
           }
         }
         
         // Merge: use local version for items with pending updates, server version for others
         const mergedVisuals = freshVisuals.map((serverVisual: any) => {
-          const visualId = String(serverVisual.PK_ID);
-          const localVersion = localUpdates.get(visualId);
+          const pkId = String(serverVisual.PK_ID);
+          const vId = String(serverVisual.VisualID || serverVisual.PK_ID);
+          // Try to find local version by either key
+          const localVersion = localUpdates.get(pkId) || localUpdates.get(vId);
           if (localVersion) {
-            console.log(`[BackgroundSync] Keeping local version of visual ${visualId} with Notes: ${localVersion.Notes}`);
+            console.log(`[BackgroundSync] Keeping local version of visual PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
             return localVersion;
           }
           return serverVisual;

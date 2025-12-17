@@ -1178,24 +1178,36 @@ export class OfflineTemplateService {
         
         // Build a map of locally updated visuals that should NOT be overwritten
         // Include both _localUpdate flagged AND visuals with pending UPDATE requests
+        // CRITICAL: Key by BOTH PK_ID and VisualID to ensure matches
         const localUpdates = new Map<string, any>();
         for (const visual of existingCache) {
-          const visualId = String(visual.PK_ID || visual._tempId);
-          // Preserve if has _localUpdate flag OR has pending UPDATE request
-          if (visual._localUpdate || pendingVisualUpdates.has(visualId)) {
-            localUpdates.set(visualId, visual);
+          const pkId = String(visual.PK_ID || '');
+          const vId = String(visual.VisualID || '');
+          const tempId = visual._tempId || '';
+          
+          // Check if has _localUpdate flag OR has pending UPDATE request (by either ID)
+          const hasPendingByPkId = pkId && pendingVisualUpdates.has(pkId);
+          const hasPendingByVisualId = vId && pendingVisualUpdates.has(vId);
+          
+          if (visual._localUpdate || hasPendingByPkId || hasPendingByVisualId) {
+            // Store by both keys to ensure we find it when merging
+            if (pkId) localUpdates.set(pkId, visual);
+            if (vId) localUpdates.set(vId, visual);
+            if (tempId) localUpdates.set(tempId, visual);
             const reason = visual._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
-            console.log(`[OfflineTemplate] Preserving local version of visual ${visualId} (${reason}, Notes: ${visual.Notes})`);
+            console.log(`[OfflineTemplate] Preserving local version PK_ID=${pkId} VisualID=${vId} (${reason}, Notes: ${visual.Notes})`);
           }
         }
         
         // Merge: use local version for items with pending updates, server version for others
         const mergedVisuals = freshVisuals.map((serverVisual: any) => {
-          const visualId = String(serverVisual.PK_ID);
-          const localVersion = localUpdates.get(visualId);
+          const pkId = String(serverVisual.PK_ID);
+          const vId = String(serverVisual.VisualID || serverVisual.PK_ID);
+          // Try to find local version by either key
+          const localVersion = localUpdates.get(pkId) || localUpdates.get(vId);
           if (localVersion) {
             // Keep local version since it has pending changes not yet on server
-            console.log(`[OfflineTemplate] Keeping local version of visual ${visualId} with Notes: ${localVersion.Notes}`);
+            console.log(`[OfflineTemplate] Keeping local version of visual PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
             return localVersion;
           }
           return serverVisual;
@@ -1434,16 +1446,30 @@ export class OfflineTemplateService {
 
     // Update local cache with _localUpdate flag to preserve during background refresh
     const existingVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
+    let matchFound = false;
     const updatedVisuals = existingVisuals.map((v: any) => {
-      if (String(v.PK_ID) === String(visualId) || v._tempId === visualId) {
+      // CRITICAL: Check BOTH PK_ID and VisualID since API returns both
+      const pkMatch = String(v.PK_ID) === String(visualId);
+      const visualIdMatch = String(v.VisualID) === String(visualId);
+      const tempMatch = v._tempId === visualId;
+      
+      if (pkMatch || visualIdMatch || tempMatch) {
+        matchFound = true;
+        console.log(`[OfflineTemplate] Updating visual in cache: PK_ID=${v.PK_ID}, VisualID=${v.VisualID}, updates=`, updates);
         // Add _localUpdate flag so background refresh won't overwrite
         return { ...v, ...updates, _localUpdate: true };
       }
       return v;
     });
+    
+    if (!matchFound) {
+      console.warn(`[OfflineTemplate] ⚠️ Visual ${visualId} not found in cache for service ${serviceId}`);
+      console.warn(`[OfflineTemplate] Cache has ${existingVisuals.length} visuals`);
+    }
+    
     await this.indexedDb.cacheServiceData(serviceId, 'visuals', updatedVisuals);
 
-    console.log(`[OfflineTemplate] Updated visual ${visualId} with _localUpdate flag (pending sync)`);
+    console.log(`[OfflineTemplate] Updated visual ${visualId} with _localUpdate flag (pending sync), matchFound=${matchFound}`);
   }
 
   /**
