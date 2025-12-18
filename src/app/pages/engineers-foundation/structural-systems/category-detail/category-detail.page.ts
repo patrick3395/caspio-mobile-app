@@ -3657,9 +3657,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                   if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
                     await this.foundationData.deleteVisualPhoto(photo.AttachID);
                     
-                    // CRITICAL: Clear cached photo from IndexedDB to prevent stale cache
+                    // CRITICAL: Clear cached photo IMAGE from IndexedDB to prevent stale cache
                     await this.indexedDb.deleteCachedPhoto(String(photo.AttachID));
-                    console.log('[Delete Photo] Cleared cached photo from IndexedDB:', photo.AttachID);
+                    
+                    // CRITICAL: Also remove from cached ATTACHMENTS LIST in IndexedDB
+                    // This prevents the deleted photo from reappearing on page reload
+                    await this.indexedDb.removeAttachmentFromCache(String(photo.AttachID), 'visual_attachments');
+                    
+                    console.log('[Delete Photo] Cleared cached photo and attachment record from IndexedDB:', photo.AttachID);
                   }
 
                   // Force UI update

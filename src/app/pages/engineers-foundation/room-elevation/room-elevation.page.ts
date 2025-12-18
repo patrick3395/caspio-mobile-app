@@ -1618,16 +1618,16 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         console.log(`[FDF Upload S3] Revoked old blob URL for ${photoType}`);
       }
 
-      // OFFLINE-FIRST: Convert file to base64 for immediate display AND caching
-      const base64Image = await this.convertFileToBase64(file);
+      // CRITICAL: Create blob URL FIRST for INSTANT display (synchronous, no delay)
+      const blobUrl = URL.createObjectURL(file);
       
       // Create temp ID for tracking
       const tempId = `temp_fdf_${photoType.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       // Set photo data immediately - NO loading spinner, instant display
       fdfPhotos[photoKey] = true;
-      fdfPhotos[`${photoKey}Url`] = base64Image;
-      fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
+      fdfPhotos[`${photoKey}Url`] = blobUrl;
+      fdfPhotos[`${photoKey}DisplayUrl`] = blobUrl;
       fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
       fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
       fdfPhotos[`${photoKey}Loading`] = false;  // CRITICAL: Clear loading to show the photo
@@ -1637,7 +1637,15 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
       // Trigger change detection to show preview IMMEDIATELY
       this.changeDetectorRef.detectChanges();
-      console.log(`[FDF Upload S3] Photo displayed immediately with temp ID: ${tempId}`);
+      console.log(`[FDF Upload S3] Photo displayed INSTANTLY with blob URL, temp ID: ${tempId}`);
+      
+      // Convert to base64 in background for IndexedDB storage (non-blocking)
+      const base64Image = await this.convertFileToBase64(file);
+      
+      // Update URLs to base64 for better persistence (blob URLs don't survive page reload)
+      fdfPhotos[`${photoKey}Url`] = base64Image;
+      fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
+      this.changeDetectorRef.detectChanges();
 
       // Store file in IndexedDB for persistence across page navigations
       await this.indexedDb.storePhotoFile(
@@ -2006,7 +2014,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const newCaption = await this.openCaptionEditorPopup(currentCaption);
       
       if (newCaption !== null) { // User didn't cancel
-        const columnName = `FDFPhoto${photoType}Annotation`;
+        // CRITICAL: Column names are FDF{Type}Annotation (not FDFPhoto{Type}Annotation)
+        const columnName = `FDF${photoType}Annotation`;
         const updateData: any = {};
         updateData[columnName] = newCaption;
 
@@ -2025,7 +2034,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const newCaption = window.prompt(`Enter caption for ${photoType} photo:`, currentCaption);
       
       if (newCaption !== null) {
-        const columnName = `FDFPhoto${photoType}Annotation`;
+        // CRITICAL: Column names are FDF{Type}Annotation (not FDFPhoto{Type}Annotation)
+        const columnName = `FDF${photoType}Annotation`;
         const updateData: any = {};
         updateData[columnName] = newCaption;
 
@@ -2538,9 +2548,14 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               if (photo.attachId) {
                 await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
                 
-                // CRITICAL: Clear cached photo from IndexedDB to prevent stale cache
+                // CRITICAL: Clear cached photo IMAGE from IndexedDB to prevent stale cache
                 await this.indexedDb.deleteCachedPhoto(String(photo.attachId));
-                console.log('[Point Photo] Cleared cached photo from IndexedDB:', photo.attachId);
+                
+                // CRITICAL: Also remove from cached ATTACHMENTS LIST in IndexedDB
+                // This prevents the deleted photo from reappearing on page reload
+                await this.indexedDb.removeAttachmentFromCache(String(photo.attachId), 'efe_point_attachments');
+                
+                console.log('[Point Photo] Cleared cached photo and attachment record from IndexedDB:', photo.attachId);
               }
 
               // Remove from local array
@@ -2549,9 +2564,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
                 point.photos.splice(index, 1);
               }
 
-              // CRITICAL: Clear the attachments cache to ensure deleted photos don't reappear
+              // CRITICAL: Clear the in-memory attachments cache
               this.foundationData.clearEFEAttachmentsCache();
-              console.log('[Point Photo] Cleared EFE attachments cache after deletion');
+              console.log('[Point Photo] Cleared EFE attachments in-memory cache after deletion');
 
               this.changeDetectorRef.detectChanges();
               // Toast removed per user request

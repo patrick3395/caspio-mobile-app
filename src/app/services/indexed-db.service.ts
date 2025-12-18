@@ -932,6 +932,96 @@ export class IndexedDbService {
   }
 
   /**
+   * Remove a specific attachment from the cached service data
+   * CRITICAL: Must be called when deleting photos to prevent stale cache from IndexedDB
+   */
+  async removeAttachmentFromCache(attachId: string, dataType: 'visual_attachments' | 'efe_point_attachments'): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return;
+    }
+
+    const attachIdStr = String(attachId);
+    console.log(`[IndexedDB] Removing attachment ${attachIdStr} from ${dataType} cache`);
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const allCached = getAllRequest.result || [];
+        let updatedCount = 0;
+
+        for (const cached of allCached) {
+          if (cached.dataType === dataType && Array.isArray(cached.data)) {
+            const originalLength = cached.data.length;
+            // Filter out the deleted attachment
+            cached.data = cached.data.filter((att: any) => 
+              String(att.AttachID) !== attachIdStr && 
+              String(att.attachId) !== attachIdStr
+            );
+            
+            if (cached.data.length < originalLength) {
+              // Update the cache entry
+              store.put(cached);
+              updatedCount++;
+              console.log(`[IndexedDB] Removed attachment from ${cached.cacheKey}, was ${originalLength} now ${cached.data.length}`);
+            }
+          }
+        }
+
+        transaction.oncomplete = () => {
+          console.log(`[IndexedDB] Updated ${updatedCount} cache entries after removing attachment ${attachIdStr}`);
+          resolve();
+        };
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  /**
+   * Clear all cached attachments data for a specific data type
+   * CRITICAL: Use when attachment list needs full refresh
+   */
+  async clearCachedAttachments(dataType: 'visual_attachments' | 'efe_point_attachments'): Promise<void> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readwrite');
+      const store = transaction.objectStore('cachedServiceData');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const allCached = getAllRequest.result || [];
+        let deletedCount = 0;
+
+        for (const cached of allCached) {
+          if (cached.dataType === dataType) {
+            store.delete(cached.cacheKey);
+            deletedCount++;
+          }
+        }
+
+        transaction.oncomplete = () => {
+          console.log(`[IndexedDB] Cleared ${deletedCount} ${dataType} cache entries`);
+          resolve();
+        };
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  /**
    * Clear all cached photos for a service
    */
   async clearCachedPhotosForService(serviceId: string): Promise<void> {
