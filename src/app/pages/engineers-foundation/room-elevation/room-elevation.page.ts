@@ -752,8 +752,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           fdfPhotos[`${photoKey}Url`] = base64Image;
           fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
           fdfPhotos[`${photoKey}TempId`] = tempFileId;
-          fdfPhotos[`${photoKey}Queued`] = true;
-          fdfPhotos[`${photoKey}Uploading`] = true;
+          fdfPhotos[`${photoKey}Queued`] = true;  // Show queued badge instead of spinner
+          fdfPhotos[`${photoKey}Uploading`] = false;  // CRITICAL: No spinner - photo appears instantly (offline-first)
+          fdfPhotos[`${photoKey}Loading`] = false;  // CRITICAL: Clear loading to show the photo immediately
           
           this.changeDetectorRef.detectChanges();
           
@@ -1723,16 +1724,16 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       // Create temp ID for tracking
       const tempId = `temp_fdf_${photoType.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Set photo data immediately - NO loading spinner, instant display
+      // Set photo data immediately - NO loading spinner, NO uploading spinner - instant display
       fdfPhotos[photoKey] = true;
       fdfPhotos[`${photoKey}Url`] = blobUrl;
       fdfPhotos[`${photoKey}DisplayUrl`] = blobUrl;
       fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
       fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
       fdfPhotos[`${photoKey}Loading`] = false;  // CRITICAL: Clear loading to show the photo
-      fdfPhotos[`${photoKey}Uploading`] = true; // Show subtle uploading indicator (spinner only)
+      fdfPhotos[`${photoKey}Uploading`] = false; // CRITICAL: No spinner - photo appears instantly (offline-first)
       fdfPhotos[`${photoKey}TempId`] = tempId;
-      fdfPhotos[`${photoKey}Queued`] = true;
+      fdfPhotos[`${photoKey}Queued`] = true;  // Show queued badge instead of spinner
 
       // Trigger change detection to show preview IMMEDIATELY
       this.changeDetectorRef.detectChanges();
