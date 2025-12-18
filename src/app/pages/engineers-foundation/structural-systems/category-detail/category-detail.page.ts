@@ -800,11 +800,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       this.changeDetectorRef.detectChanges();
 
       // STEP 2: Read visuals DIRECTLY from IndexedDB (no pending request check)
+      // NOTE: This also schedules background photo loading via loadAllPhotosInBackground
       console.log('[LOAD DATA] Loading visuals from cache...');
       await this.loadExistingVisualsFromCache();
       console.log('[LOAD DATA] ✅ Visuals loaded');
 
       // STEP 3: Restore pending photos (local uploads not yet synced)
+      // CRITICAL: This runs immediately after loadExistingVisualsFromCache returns,
+      // and BEFORE the background photo loading starts (which has a 50ms delay)
+      // This ensures pending photos are in the array before server photos are loaded
       await this.restorePendingPhotosFromIndexedDB();
       console.log('[LOAD DATA] ✅ Pending photos restored');
 
@@ -1118,6 +1122,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
   /**
    * Load photos for all visuals in background - non-blocking
+   * CRITICAL: 200ms delay ensures restorePendingPhotosFromIndexedDB completes first
    */
   private loadAllPhotosInBackground(visuals: any[]) {
     setTimeout(async () => {
@@ -1140,7 +1145,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           console.error('[PHOTOS BG] Error:', visualId, err);
         });
       }
-    }, 50);
+    }, 200);  // 200ms delay to ensure pending photos are restored first
   }
 
   private async loadExistingVisuals() {
@@ -1371,8 +1376,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
       console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for visual', visualId, 'key:', key);
 
-      // Set photo count immediately so skeleton loaders can be displayed
-      this.photoCountsByKey[key] = attachments.length;
+      // CRITICAL FIX: Don't reduce photo count if we already have more photos (from pending uploads)
+      // This prevents UI flash when syncing photos are temporarily not included in server count
+      const existingCount = this.visualPhotos[key]?.length || 0;
+      const serverCount = attachments.length;
+      this.photoCountsByKey[key] = Math.max(existingCount, serverCount);
 
       if (attachments.length > 0) {
         // CRITICAL FIX: Don't reset photo array if it already has photos from uploads
@@ -1843,6 +1851,25 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         try {
           await this.foundationData.updateVisual(visualId, { Notes: '' }, this.serviceId);
           console.log('[TOGGLE] Unhid visual:', visualId);
+          
+          // CRITICAL: Load photos for this visual since they weren't loaded when hidden
+          // Check if photos are already loaded
+          if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
+            console.log('[TOGGLE] Loading photos for unhidden visual:', visualId);
+            this.loadingPhotosByKey[key] = true;
+            this.photoCountsByKey[key] = 0;
+            this.changeDetectorRef.detectChanges();
+            
+            // Load photos in background
+            this.loadPhotosForVisual(visualId, key).then(() => {
+              console.log('[TOGGLE] Photos loaded for unhidden visual:', visualId);
+              this.changeDetectorRef.detectChanges();
+            }).catch(err => {
+              console.error('[TOGGLE] Error loading photos for unhidden visual:', err);
+              this.loadingPhotosByKey[key] = false;
+              this.changeDetectorRef.detectChanges();
+            });
+          }
         } catch (error) {
           console.error('[TOGGLE] Error unhiding visual:', error);
           this.selectedItems[key] = false;
@@ -1930,6 +1957,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           Notes: ''
         }, this.serviceId);
         console.log('[ANSWER] Updated visual:', visualId);
+        
+        // CRITICAL: Load photos if visual was previously hidden
+        const key = `${category}_${item.id}`;
+        if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
+          console.log('[ANSWER] Loading photos for unhidden visual:', visualId);
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.error('[ANSWER] Error loading photos:', err);
+          });
+        }
       }
     } catch (error) {
       console.error('[ANSWER] Error saving answer:', error);
