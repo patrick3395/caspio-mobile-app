@@ -288,6 +288,10 @@ export class IndexedDbService {
 
   /**
    * Check if dependencies are completed
+   * Dependencies are considered completed if:
+   * 1. The request has status 'synced', OR
+   * 2. The request no longer exists in IndexedDB (it was deleted after successful sync), OR
+   * 3. A temp ID mapping exists for the dependency (meaning it was synced and got a real ID)
    */
   async areDependenciesCompleted(dependencyIds: string[]): Promise<boolean> {
     if (!dependencyIds || dependencyIds.length === 0) {
@@ -296,33 +300,45 @@ export class IndexedDbService {
 
     const db = await this.ensureDb();
 
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['pendingRequests'], 'readonly');
-      const store = transaction.objectStore('pendingRequests');
-      let allCompleted = true;
-
-      const checkNext = (index: number) => {
-        if (index >= dependencyIds.length) {
-          resolve(allCompleted);
-          return;
+    for (const depId of dependencyIds) {
+      // First check if this is a temp ID that has been mapped to a real ID
+      // This is the most reliable way to know if a CREATE request completed
+      if (depId.startsWith('temp_')) {
+        const realId = await this.getRealId(depId);
+        if (realId) {
+          // Temp ID has been mapped to real ID - dependency is met
+          console.log(`[IndexedDB] Dependency ${depId} met: mapped to real ID ${realId}`);
+          continue;
         }
+      }
 
-        const getRequest = store.get(dependencyIds[index]);
-        getRequest.onsuccess = () => {
-          const request = getRequest.result as PendingRequest;
-          if (!request || request.status !== 'synced') {
-            allCompleted = false;
-          }
-          checkNext(index + 1);
-        };
-        getRequest.onerror = () => {
-          allCompleted = false;
-          checkNext(index + 1);
-        };
-      };
+      // Check if request still exists and its status
+      const request = await new Promise<PendingRequest | undefined>((resolve) => {
+        const transaction = db.transaction(['pendingRequests'], 'readonly');
+        const store = transaction.objectStore('pendingRequests');
+        const getRequest = store.get(depId);
+        getRequest.onsuccess = () => resolve(getRequest.result);
+        getRequest.onerror = () => resolve(undefined);
+      });
 
-      checkNext(0);
-    });
+      if (!request) {
+        // Request not found - it was already synced and deleted
+        console.log(`[IndexedDB] Dependency ${depId} met: request already deleted (synced)`);
+        continue;
+      }
+
+      if (request.status === 'synced') {
+        // Request marked as synced
+        console.log(`[IndexedDB] Dependency ${depId} met: status is synced`);
+        continue;
+      }
+
+      // Request exists but not synced yet
+      console.log(`[IndexedDB] Dependency ${depId} NOT met: status is ${request.status}`);
+      return false;
+    }
+
+    return true;
   }
 
   /**

@@ -303,12 +303,17 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     try {
       // Download complete template data for offline-first operation
       console.log('[EF Container] Calling downloadTemplateForOffline...');
+      this.downloadProgress = 'Downloading template data...';
       await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
       console.log('[EF Container] Template downloaded - ready for offline use');
       this.downloadProgress = 'Template ready!';
       
       // VERIFICATION: Confirm what was cached in IndexedDB
       await this.verifyDownloadedData();
+      
+      // CRITICAL: Also ensure all images are cached (in case some failed during download)
+      // This runs in background but template is already marked as ready
+      this.ensureImagesCached();
     } catch (error: any) {
       // Check if it's because we're offline but have cached data
       if (error.message?.includes('offline') || error.message?.includes('Cannot download')) {
@@ -477,53 +482,100 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     try {
       console.log('[EF Container] Ensuring images are cached...');
       
-      // Get all visual attachments for this service from IndexedDB
-      const visuals = await this.offlineTemplate.getVisualsByService(this.serviceId);
-      const visualIds = visuals.map((v: any) => v.VisualID || v.PK_ID).filter((id: any) => id);
-      
       let cachedCount = 0;
       let skippedCount = 0;
       let queuedCount = 0;
+      
+      // PART 1: Cache visual attachments (Structural Systems)
+      const visuals = await this.offlineTemplate.getVisualsByService(this.serviceId);
+      const visualIds = visuals.map((v: any) => v.VisualID || v.PK_ID).filter((id: any) => id);
       
       for (const visualId of visualIds) {
         try {
           const attachments = await this.offlineTemplate.getVisualAttachments(visualId);
           
           for (const att of attachments) {
-            const attachId = String(att.AttachID || att.PK_ID);
-            const s3Key = att.Attachment;
-            
-            if (!s3Key) continue;
-            
-            // Check if already cached in IndexedDB
-            const cached = await this.indexedDb.getCachedPhoto(attachId);
-            if (cached) {
-              skippedCount++;
-              continue;
-            }
-            
-            // Not cached - attempt to fetch if online
-            if (this.offlineService.isOnline()) {
-              try {
-                const dataUrl = await this.offlineTemplate.fetchImageAsBase64Exposed(s3Key);
-                await this.indexedDb.cachePhoto(attachId, this.serviceId, dataUrl, s3Key);
-                cachedCount++;
-              } catch (imgErr) {
-                console.warn(`[EF Container] Failed to cache image ${attachId}:`, imgErr);
-              }
-            } else {
-              // Offline - image will be fetched when online
-              queuedCount++;
-            }
+            const result = await this.cacheImageIfNeeded(att);
+            if (result === 'cached') cachedCount++;
+            else if (result === 'skipped') skippedCount++;
+            else if (result === 'queued') queuedCount++;
           }
         } catch (attErr) {
           console.warn(`[EF Container] Failed to get attachments for visual ${visualId}:`, attErr);
         }
       }
       
-      console.log(`[EF Container] Image caching: ${cachedCount} new, ${skippedCount} existing, ${queuedCount} queued for later`);
+      console.log(`[EF Container] Visual image caching: ${cachedCount} new, ${skippedCount} existing, ${queuedCount} queued`);
+      
+      // PART 2: Cache EFE point attachments (Elevation Plot)
+      let efeCachedCount = 0;
+      let efeSkippedCount = 0;
+      let efeQueuedCount = 0;
+      
+      const rooms = await this.offlineTemplate.getEFERooms(this.serviceId);
+      for (const room of rooms) {
+        const roomId = room.EFEID || room.PK_ID;
+        if (!roomId) continue;
+        
+        try {
+          const points = await this.offlineTemplate.getEFEPoints(String(roomId));
+          for (const point of points) {
+            const pointId = point.PointID || point.PK_ID;
+            if (!pointId) continue;
+            
+            try {
+              const attachments = await this.offlineTemplate.getEFEPointAttachments(String(pointId));
+              for (const att of attachments) {
+                const result = await this.cacheImageIfNeeded(att);
+                if (result === 'cached') efeCachedCount++;
+                else if (result === 'skipped') efeSkippedCount++;
+                else if (result === 'queued') efeQueuedCount++;
+              }
+            } catch (pointAttErr) {
+              // Ignore attachment errors for individual points
+            }
+          }
+        } catch (pointsErr) {
+          console.warn(`[EF Container] Failed to get points for room ${roomId}:`, pointsErr);
+        }
+      }
+      
+      console.log(`[EF Container] EFE image caching: ${efeCachedCount} new, ${efeSkippedCount} existing, ${efeQueuedCount} queued`);
+      console.log(`[EF Container] Total: ${cachedCount + efeCachedCount} new, ${skippedCount + efeSkippedCount} existing`);
     } catch (error) {
       console.warn('[EF Container] Image caching check failed (non-critical):', error);
+    }
+  }
+
+  /**
+   * Helper to cache a single image if not already cached
+   */
+  private async cacheImageIfNeeded(att: any): Promise<'cached' | 'skipped' | 'queued' | 'failed'> {
+    const attachId = String(att.AttachID || att.PK_ID);
+    const s3Key = att.Attachment;
+    
+    if (!s3Key) return 'skipped';
+    
+    // Check if already cached in IndexedDB
+    try {
+      const cached = await this.indexedDb.getCachedPhoto(attachId);
+      if (cached) return 'skipped';
+    } catch (cacheErr) {
+      // Ignore cache check errors
+    }
+    
+    // Not cached - attempt to fetch if online
+    if (this.offlineService.isOnline()) {
+      try {
+        const dataUrl = await this.offlineTemplate.fetchImageAsBase64Exposed(s3Key);
+        await this.indexedDb.cachePhoto(attachId, this.serviceId, dataUrl, s3Key);
+        return 'cached';
+      } catch (imgErr) {
+        console.warn(`[EF Container] Failed to cache image ${attachId}:`, imgErr);
+        return 'failed';
+      }
+    } else {
+      return 'queued';
     }
   }
 }

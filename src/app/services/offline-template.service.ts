@@ -430,9 +430,11 @@ export class OfflineTemplateService {
    * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)
    */
   private async downloadAndCacheImages(attachments: any[], serviceId: string): Promise<void> {
-    const batchSize = 5; // Process in batches to avoid overwhelming the network
+    // INCREASED batch size for faster downloads - network can handle more parallel requests
+    const batchSize = 10;
     let successCount = 0;
     let failCount = 0;
+    let skippedCount = 0;
     const isNative = Capacitor.isNativePlatform();
     
     // Log database diagnostics for debugging mobile issues
@@ -449,8 +451,19 @@ export class OfflineTemplateService {
         
         // Skip if no S3 key
         if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
-          console.log(`    ⏭️ Skipping attachment ${attachId} - no S3 key`);
+          skippedCount++;
           return;
+        }
+
+        // OPTIMIZATION: Check if already cached to avoid re-downloading
+        try {
+          const existingCache = await this.indexedDb.getCachedPhoto(attachId);
+          if (existingCache) {
+            skippedCount++;
+            return;
+          }
+        } catch (cacheCheckErr) {
+          // Ignore cache check errors, proceed with download
         }
 
         try {
@@ -478,11 +491,11 @@ export class OfflineTemplateService {
       
       // Progress update for large batches
       if (attachments.length > 10) {
-        console.log(`    📊 Progress: ${Math.min(i + batchSize, attachments.length)}/${attachments.length} images processed`);
+        console.log(`    📊 Progress: ${Math.min(i + batchSize, attachments.length)}/${attachments.length} images (${successCount} new, ${skippedCount} cached, ${failCount} failed)`);
       }
     }
 
-    console.log(`    📸 Image caching complete: ${successCount} succeeded, ${failCount} failed (platform: ${isNative ? 'mobile' : 'web'})`);
+    console.log(`    📸 Image caching complete: ${successCount} new, ${skippedCount} already cached, ${failCount} failed (platform: ${isNative ? 'mobile' : 'web'})`);
   }
 
   /**
@@ -626,16 +639,15 @@ export class OfflineTemplateService {
   }
 
   /**
-   * Download and cache EFE point images for offline viewing
-   */
-  /**
    * Download and cache EFE (Elevation Plot) images for offline viewing
    * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)
    */
   private async downloadAndCacheEFEImages(attachments: any[], serviceId: string): Promise<void> {
-    const batchSize = 5;
+    // INCREASED batch size for faster downloads
+    const batchSize = 10;
     let successCount = 0;
     let failCount = 0;
+    let skippedCount = 0;
     const isNative = Capacitor.isNativePlatform();
     
     console.log(`    🖼️ Starting EFE image download (platform: ${isNative ? 'mobile' : 'web'}, count: ${attachments.length})`);
@@ -649,7 +661,19 @@ export class OfflineTemplateService {
         
         // Skip if no S3 key
         if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
+          skippedCount++;
           return;
+        }
+
+        // OPTIMIZATION: Check if already cached to avoid re-downloading
+        try {
+          const existingCache = await this.indexedDb.getCachedPhoto(attachId);
+          if (existingCache) {
+            skippedCount++;
+            return;
+          }
+        } catch (cacheCheckErr) {
+          // Ignore cache check errors, proceed with download
         }
 
         try {
@@ -673,9 +697,14 @@ export class OfflineTemplateService {
       });
 
       await Promise.all(batchPromises);
+      
+      // Progress update for large batches
+      if (attachments.length > 10) {
+        console.log(`    📊 EFE Progress: ${Math.min(i + batchSize, attachments.length)}/${attachments.length} (${successCount} new, ${skippedCount} cached, ${failCount} failed)`);
+      }
     }
 
-    console.log(`    📸 EFE image caching: ${successCount} succeeded, ${failCount} failed (platform: ${isNative ? 'mobile' : 'web'})`);
+    console.log(`    📸 EFE image caching: ${successCount} new, ${skippedCount} already cached, ${failCount} failed (platform: ${isNative ? 'mobile' : 'web'})`);
   }
 
   /**
