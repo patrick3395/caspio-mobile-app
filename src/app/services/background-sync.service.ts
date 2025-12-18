@@ -696,13 +696,17 @@ export class BackgroundSyncService {
     }
 
     try {
-      // CRITICAL FIX: Re-read annotations RIGHT before upload in case user updated while waiting
-      // This handles the race condition where user annotates during upload queue wait
+      // CRITICAL FIX: Re-read annotations and caption RIGHT before upload in case user updated while waiting
+      // This handles the race condition where user annotates/adds caption during upload queue wait
       const latestPhotoData = await this.indexedDb.getStoredEFEPhotoData(data.fileId);
       const latestDrawings = latestPhotoData?.drawings || drawings;
+      const latestCaption = latestPhotoData?.caption || data.caption || '';
       
       if (latestDrawings !== drawings) {
         console.log('[BackgroundSync] ⚠️ EFE Drawings updated while waiting! Using latest:', latestDrawings.length, 'chars');
+      }
+      if (latestCaption) {
+        console.log('[BackgroundSync] EFE Caption from storage:', latestCaption);
       }
 
       // Call the S3 upload method for EFE point attachments
@@ -711,7 +715,8 @@ export class BackgroundSyncService {
         pointId,
         latestDrawings || data.drawings || '',  // Use LATEST drawings
         file,
-        photoType || data.photoType || 'Measurement'
+        photoType || data.photoType || 'Measurement',
+        latestCaption  // CRITICAL: Pass caption to upload
       );
 
       console.log('[BackgroundSync] ✅ EFE photo uploaded to Point', pointId, 'Result:', JSON.stringify(result));

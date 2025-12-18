@@ -1649,7 +1649,7 @@ export class IndexedDbService {
   /**
    * Store EFE photo file for offline upload
    */
-  async storeEFEPhotoFile(tempId: string, file: File, pointId: string, photoType: string, drawings?: string): Promise<void> {
+  async storeEFEPhotoFile(tempId: string, file: File, pointId: string, photoType: string, drawings?: string, caption?: string): Promise<void> {
     const db = await this.ensureDb();
 
     const arrayBuffer = await file.arrayBuffer();
@@ -1667,6 +1667,7 @@ export class IndexedDbService {
         pointId: pointId,  // EFE point ID (temp or real)
         photoType: photoType || 'Measurement',
         drawings: drawings || '',
+        caption: caption || '',  // CRITICAL: Store caption for syncing
         isEFE: true,  // Flag to distinguish from visual photos
         status: 'pending',
         createdAt: Date.now(),
@@ -1686,7 +1687,7 @@ export class IndexedDbService {
   /**
    * Get stored EFE photo data for sync
    */
-  async getStoredEFEPhotoData(fileId: string): Promise<{ file: File; drawings: string; photoType: string; pointId: string } | null> {
+  async getStoredEFEPhotoData(fileId: string): Promise<{ file: File; drawings: string; photoType: string; pointId: string; caption: string } | null> {
     const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
@@ -1712,7 +1713,8 @@ export class IndexedDbService {
           file,
           drawings: imageData.drawings || '',
           photoType: imageData.photoType || 'Measurement',
-          pointId: imageData.pointId || ''
+          pointId: imageData.pointId || '',
+          caption: imageData.caption || ''
         });
       };
 

@@ -2288,9 +2288,10 @@ export class CaspioService {
    * Public for BackgroundSyncService to call during offline sync
    * Uses AWS API Gateway proxy for all Caspio API calls
    */
-  async uploadEFEPointsAttachWithS3(pointId: number, drawingsData: string, file: File, photoType?: string): Promise<any> {
+  async uploadEFEPointsAttachWithS3(pointId: number, drawingsData: string, file: File, photoType?: string, caption?: string): Promise<any> {
     console.log('[EFE ATTACH S3] ========== Starting S3 EFE Attach Upload ==========');
     console.log('[EFE ATTACH S3] Input PointID:', pointId, 'type:', typeof pointId);
+    console.log('[EFE ATTACH S3] Caption:', caption || '(empty)');
     
     // CRITICAL: Validate PointID before proceeding
     const parsedPointId = parseInt(String(pointId), 10);
@@ -2305,7 +2306,7 @@ export class CaspioService {
     try {
       const recordData: any = {
         PointID: parsedPointId,
-        Annotation: ''
+        Annotation: caption || ''  // CRITICAL: Use caption if provided
       };
       
       // Add Type field only if specified (field name is "Type", not "PhotoType")

@@ -219,11 +219,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
         if (photoIndex >= 0 && photoIndex !== undefined) {
           const photo = point.photos[photoIndex];
+          const originalTempId = photo._tempId || photo.attachId;
           console.log('[RoomElevation PHOTO SYNC] Found matching photo at point:', point.name, 'index:', photoIndex);
+
+          // CRITICAL: Check if user added annotations while photo was uploading
+          const hasExistingAnnotations = photo.hasAnnotations || 
+            photo.Drawings || 
+            photo.drawings ||
+            (photo.displayUrl && photo.displayUrl.startsWith('blob:') && photo.displayUrl !== photo.url);
 
           // Update the photo with real AttachID and URL
           photo.attachId = realAttachId;
           photo._tempId = undefined;
+          photo._pendingFileId = undefined;
           photo.isPending = false;
           photo.queued = false;
           photo.uploading = false;
@@ -238,7 +246,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               }
               const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
               photo.url = dataUrl;
-              photo.displayUrl = dataUrl;
+              // CRITICAL: Preserve displayUrl if user added annotations while uploading
+              if (!hasExistingAnnotations) {
+                photo.displayUrl = dataUrl;
+              }
               photo.loading = false;
               
               // Cache the photo
@@ -248,12 +259,32 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             } catch (err) {
               console.warn('[RoomElevation PHOTO SYNC] Failed to fetch as data URL:', err);
               photo.url = photoUrl;
-              photo.displayUrl = photoUrl;
+              if (!hasExistingAnnotations) {
+                photo.displayUrl = photoUrl;
+              }
+            }
+          }
+          
+          // CRITICAL: Transfer cached annotated image from temp ID to real ID
+          // This ensures annotations are preserved through the sync process
+          if (hasExistingAnnotations && originalTempId && realAttachId) {
+            console.log('[RoomElevation PHOTO SYNC] Transferring cached annotated image from temp ID to real ID:', originalTempId, '->', realAttachId);
+            try {
+              const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(String(originalTempId));
+              if (cachedAnnotatedImage) {
+                // Re-cache with real ID
+                const response = await fetch(cachedAnnotatedImage);
+                const blob = await response.blob();
+                await this.indexedDb.cacheAnnotatedImage(String(realAttachId), blob);
+                console.log('[RoomElevation PHOTO SYNC] ✅ Annotated image transferred to real AttachID:', realAttachId);
+              }
+            } catch (transferErr) {
+              console.warn('[RoomElevation PHOTO SYNC] Failed to transfer annotated image cache:', transferErr);
             }
           }
 
           this.changeDetectorRef.detectChanges();
-          console.log('[RoomElevation PHOTO SYNC] Updated photo with real ID:', realAttachId);
+          console.log('[RoomElevation PHOTO SYNC] Updated photo with real ID:', realAttachId, 'annotations preserved:', hasExistingAnnotations);
           break;
         }
       }
@@ -264,7 +295,14 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         for (const key of ['top', 'bottom', 'topDetails', 'bottomDetails']) {
           const photo = fdfPhotos[key];
           if (photo && (String(photo._tempId) === String(event.tempFileId) || String(photo.attachId) === String(event.tempFileId))) {
+            const originalTempId = photo._tempId || photo.attachId;
             console.log('[RoomElevation PHOTO SYNC] Found matching FDF photo:', key);
+            
+            // Check if user added annotations while photo was uploading
+            const cacheId = `fdf_${this.roomId}_${key}`;
+            const hasExistingAnnotations = fdfPhotos[`${key}HasAnnotations`] ||
+              (fdfPhotos[`${key}DisplayUrl`] && fdfPhotos[`${key}DisplayUrl`].startsWith('blob:'));
+            
             photo.attachId = realAttachId;
             photo._tempId = undefined;
             photo.isPending = false;
@@ -277,10 +315,31 @@ export class RoomElevationPage implements OnInit, OnDestroy {
                 }
                 const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
                 fdfPhotos[`${key}Url`] = dataUrl;
-                fdfPhotos[`${key}DisplayUrl`] = dataUrl;
+                // CRITICAL: Preserve displayUrl if user added annotations while uploading
+                if (!hasExistingAnnotations) {
+                  fdfPhotos[`${key}DisplayUrl`] = dataUrl;
+                }
+                
+                // Cache the photo
+                await this.indexedDb.cachePhoto(cacheId, this.serviceId, dataUrl, s3Key || '');
               } catch (err) {
                 fdfPhotos[`${key}Url`] = photoUrl;
-                fdfPhotos[`${key}DisplayUrl`] = photoUrl;
+                if (!hasExistingAnnotations) {
+                  fdfPhotos[`${key}DisplayUrl`] = photoUrl;
+                }
+              }
+            }
+            
+            // CRITICAL: Transfer cached annotated image if exists
+            if (hasExistingAnnotations && originalTempId) {
+              const tempCacheId = `fdf_${this.roomId}_${key}`;
+              try {
+                const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(tempCacheId);
+                if (cachedAnnotatedImage) {
+                  console.log('[RoomElevation PHOTO SYNC] ✅ FDF annotated image already cached for:', cacheId);
+                }
+              } catch (transferErr) {
+                console.warn('[RoomElevation PHOTO SYNC] Error checking FDF annotated cache:', transferErr);
               }
             }
             
@@ -2721,7 +2780,36 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       photo.caption = newCaption;
       this.changeDetectorRef.detectChanges();
       
-      // Update IndexedDB cache
+      // CRITICAL: Check if photo is still syncing (uploading, has temp ID, or has pending file ID)
+      const isSyncing = photo.uploading || photo._syncing || photo.isPending || photo.queued ||
+                       photo._pendingFileId || String(photo.attachId || '').startsWith('temp_');
+      
+      if (isSyncing) {
+        // CRITICAL FIX: For syncing photos, update IndexedDB so background sync picks up the caption
+        const pendingFileId = photo._pendingFileId || photo._tempId || photo.attachId;
+        console.log('[Point Caption] Photo is syncing, updating IndexedDB caption:', pendingFileId);
+        
+        const existingData = await this.indexedDb.getStoredEFEPhotoData(pendingFileId);
+        if (existingData && existingData.file) {
+          // Re-store with updated caption
+          await this.indexedDb.storeEFEPhotoFile(
+            pendingFileId,
+            existingData.file,
+            existingData.pointId,
+            existingData.photoType,
+            existingData.drawings || '',
+            newCaption  // CRITICAL: Store caption for background sync
+          );
+          photo._localUpdate = true;
+          console.log('[Point Caption] ✅ Updated IndexedDB with caption for syncing photo:', pendingFileId, 'caption:', newCaption);
+        } else {
+          console.warn('[Point Caption] Could not find pending photo in IndexedDB:', pendingFileId);
+          photo._localUpdate = true;
+        }
+        return; // Don't try to save to server for temp IDs
+      }
+      
+      // Update IndexedDB cache for non-temp photos
       if (photo.attachId && !String(photo.attachId).startsWith('temp_')) {
         for (const p of this.elevationPoints) {
           const foundPhoto = p.photos?.find((ph: any) => String(ph.attachId) === String(photo.attachId));
