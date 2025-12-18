@@ -696,11 +696,20 @@ export class BackgroundSyncService {
     }
 
     try {
+      // CRITICAL FIX: Re-read annotations RIGHT before upload in case user updated while waiting
+      // This handles the race condition where user annotates during upload queue wait
+      const latestPhotoData = await this.indexedDb.getStoredEFEPhotoData(data.fileId);
+      const latestDrawings = latestPhotoData?.drawings || drawings;
+      
+      if (latestDrawings !== drawings) {
+        console.log('[BackgroundSync] ⚠️ EFE Drawings updated while waiting! Using latest:', latestDrawings.length, 'chars');
+      }
+
       // Call the S3 upload method for EFE point attachments
       console.log('[BackgroundSync] Calling uploadEFEPointsAttachWithS3 with PointID:', pointId);
       const result = await this.caspioService.uploadEFEPointsAttachWithS3(
         pointId,
-        drawings || data.drawings || '',
+        latestDrawings || data.drawings || '',  // Use LATEST drawings
         file,
         photoType || data.photoType || 'Measurement'
       );

@@ -722,7 +722,18 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     console.log(`[FDF Photo] Loading ${photoKey} image, isS3Key: ${isS3Key}, path: ${photoPathOrS3Key?.substring(0, 50)}`);
     
     try {
-      // OFFLINE-FIRST: Check IndexedDB cached photo first
+      // CRITICAL FIX: Check for cached ANNOTATED image first (has drawings on it)
+      const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(cacheId);
+      if (cachedAnnotatedImage) {
+        console.log(`[FDF Photo] ✅ Using cached ANNOTATED ${photoKey} image`);
+        fdfPhotos[`${photoKey}Url`] = cachedAnnotatedImage;
+        fdfPhotos[`${photoKey}DisplayUrl`] = cachedAnnotatedImage;
+        fdfPhotos[`${photoKey}Loading`] = false;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+      
+      // OFFLINE-FIRST: Check IndexedDB cached photo (base image without annotations)
       const cachedImage = await this.indexedDb.getCachedPhoto(cacheId);
       if (cachedImage) {
         console.log(`[FDF Photo] Using cached ${photoKey} image`);
@@ -791,7 +802,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     const s3Key = photoData.Attachment || photoPath;
     
     try {
-      // OFFLINE-FIRST: Check IndexedDB cached photo first
+      // CRITICAL FIX: Check for cached ANNOTATED image first (has drawings on it)
+      const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
+      if (cachedAnnotatedImage) {
+        console.log(`[Point Photo] ✅ Using cached ANNOTATED image for ${attachId}`);
+        photoData.url = cachedAnnotatedImage;
+        photoData.displayUrl = cachedAnnotatedImage;
+        photoData.loading = false;
+        photoData.hasAnnotations = true;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+      
+      // OFFLINE-FIRST: Check IndexedDB cached photo (base image without annotations)
       const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
       if (cachedImage) {
         console.log(`[Point Photo] Using cached image for ${attachId}`);
@@ -1106,18 +1129,35 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               continue;
             }
             
+            const photoId = pendingPhoto.AttachID || pendingPhoto._pendingFileId;
+            let displayUrl = pendingPhoto.displayUrl || pendingPhoto.url || pendingPhoto.thumbnailUrl;
+            let hasAnnotations = !!(pendingPhoto.Drawings || pendingPhoto.drawings);
+            
+            // CRITICAL FIX: Check for cached annotated image
+            // This ensures annotations show in thumbnails for pending photos on reload
+            try {
+              const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(photoId);
+              if (cachedAnnotatedImage) {
+                console.log('[RoomElevation] ✅ Found cached annotated image for pending photo:', photoId);
+                displayUrl = cachedAnnotatedImage;
+                hasAnnotations = true;
+              }
+            } catch (cacheErr) {
+              console.warn('[RoomElevation] Error checking cached annotated image:', cacheErr);
+            }
+            
             const pendingPhotoData: any = {
-              attachId: pendingPhoto.AttachID || pendingPhoto._pendingFileId,
+              attachId: photoId,
               photoType: pendingPhoto.Type || pendingPhoto.photoType || 'Measurement',
-              url: pendingPhoto.displayUrl || pendingPhoto.url || pendingPhoto.thumbnailUrl,
-              displayUrl: pendingPhoto.displayUrl || pendingPhoto.url || pendingPhoto.thumbnailUrl,
+              url: pendingPhoto.url || pendingPhoto.thumbnailUrl || displayUrl,
+              displayUrl: displayUrl,
               caption: '',
               drawings: pendingPhoto.Drawings || pendingPhoto.drawings || null,
-              hasAnnotations: !!(pendingPhoto.Drawings || pendingPhoto.drawings),
+              hasAnnotations: hasAnnotations,
               uploading: false,
               queued: true,
               isPending: true,
-              _tempId: pendingPhoto.AttachID || pendingPhoto._pendingFileId,
+              _tempId: photoId,
             };
             pointData.photos.push(pendingPhotoData);
           }
@@ -2865,6 +2905,17 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
     console.log('[SAVE FDF] Successfully saved caption and drawings for room:', resolvedRoomId);
 
+    // CRITICAL FIX: Cache the annotated image blob for thumbnail display on reload
+    if (annotatedBlob && annotatedBlob.size > 0) {
+      try {
+        const cacheId = `fdf_${roomId}_${photoType.toLowerCase()}`;
+        await this.indexedDb.cacheAnnotatedImage(cacheId, annotatedBlob);
+        console.log('[SAVE FDF] ✅ Annotated image blob cached:', cacheId);
+      } catch (annotCacheErr) {
+        console.warn('[SAVE FDF] Failed to cache annotated image blob:', annotCacheErr);
+      }
+    }
+
     // Return the compressed drawings string
     return drawingsData;
   }
@@ -2984,15 +3035,42 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     try {
       // Find the pointId for this attachment
       let pointIdForCache: string | null = null;
+      let foundPhoto: any = null;
       for (const point of this.elevationPoints) {
         const photo = point.photos?.find((p: any) => String(p.attachId) === String(attachId));
         if (photo) {
           pointIdForCache = String(point.pointId);
+          foundPhoto = photo;
           break;
         }
       }
 
-      if (pointIdForCache && !pointIdForCache.startsWith('temp_')) {
+      // CRITICAL FIX: Handle TEMP photos differently - update the pending photo data in IndexedDB
+      // so background sync picks up the annotations
+      if (String(attachId).startsWith('temp_') || (foundPhoto && foundPhoto.isPending)) {
+        // This is a syncing photo - update the stored photo file data in IndexedDB
+        console.log('[SAVE] Updating annotations for temp/pending photo:', attachId);
+        
+        const storedPhotoData = await this.indexedDb.getStoredEFEPhotoData(attachId);
+        if (storedPhotoData && storedPhotoData.file) {
+          // Re-store with updated drawings
+          await this.indexedDb.storeEFEPhotoFile(
+            attachId,
+            storedPhotoData.file,
+            storedPhotoData.pointId,
+            storedPhotoData.photoType,
+            updateData.Drawings  // Updated drawings
+          );
+          console.log('[SAVE] ✅ Updated pending EFE photo with annotations in IndexedDB:', attachId);
+          
+          // Also mark the local photo as having local updates
+          if (foundPhoto) {
+            foundPhoto._localUpdate = true;
+          }
+        } else {
+          console.warn('[SAVE] Could not find stored photo data for temp photo:', attachId);
+        }
+      } else if (pointIdForCache && !pointIdForCache.startsWith('temp_')) {
         // Get existing cached attachments and update
         const cachedAttachments = await this.indexedDb.getCachedServiceData(pointIdForCache, 'efe_point_attachments') || [];
         const updatedAttachments = cachedAttachments.map((att: any) => {
@@ -3009,6 +3087,17 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         });
         await this.indexedDb.cacheServiceData(pointIdForCache, 'efe_point_attachments', updatedAttachments);
         console.log('[SAVE] ✅ EFE Annotation saved to IndexedDB cache for point', pointIdForCache);
+      }
+      
+      // CRITICAL FIX: Cache the annotated image blob for thumbnail display on reload
+      // This ensures annotations are visible in thumbnails after page reload
+      if (annotatedBlob && annotatedBlob.size > 0) {
+        try {
+          await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
+          console.log('[SAVE] ✅ EFE Annotated image blob cached for thumbnail display:', attachId);
+        } catch (annotCacheErr) {
+          console.warn('[SAVE] Failed to cache EFE annotated image blob:', annotCacheErr);
+        }
       }
     } catch (cacheError) {
       console.warn('[SAVE] Failed to update IndexedDB cache:', cacheError);
