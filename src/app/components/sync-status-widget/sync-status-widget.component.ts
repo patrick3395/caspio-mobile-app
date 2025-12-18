@@ -20,6 +20,12 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
     failedCount: 0,
   };
 
+  // Modal state
+  showDetails = false;
+  pendingRequests: any[] = [];
+  syncingRequests: any[] = [];
+  failedRequests: any[] = [];
+
   private subscription?: Subscription;
   private pollSubscription?: Subscription;
 
@@ -145,6 +151,138 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
    */
   hasPendingItems(): boolean {
     return this.syncStatus.pendingCount > 0 || this.syncStatus.isSyncing;
+  }
+
+  /**
+   * Show sync details modal
+   */
+  async showSyncDetails(): Promise<void> {
+    this.showDetails = true;
+    await this.refreshDetails();
+  }
+
+  /**
+   * Close sync details modal
+   */
+  closeDetails(): void {
+    this.showDetails = false;
+  }
+
+  /**
+   * Refresh details from IndexedDB
+   */
+  async refreshDetails(): Promise<void> {
+    try {
+      const requests = await this.indexedDb.getAllRequests();
+      
+      this.pendingRequests = requests.filter(r => r.status === 'pending');
+      this.syncingRequests = requests.filter(r => r.status === 'syncing');
+      this.failedRequests = requests.filter(r => r.status === 'failed');
+      
+      this.changeDetectorRef.detectChanges();
+    } catch (error) {
+      console.error('[SyncWidget] Error loading details:', error);
+    }
+  }
+
+  /**
+   * Get icon for request type
+   */
+  getRequestIcon(request: any): string {
+    const endpoint = request.endpoint || '';
+    
+    if (endpoint.includes('Attach') || request.type === 'PHOTO_UPLOAD') {
+      return 'image-outline';
+    }
+    if (endpoint.includes('Services_Visuals')) {
+      return 'eye-outline';
+    }
+    if (endpoint.includes('Services_EFE_Points')) {
+      return 'pin-outline';
+    }
+    if (endpoint.includes('Services_EFE')) {
+      return 'home-outline';
+    }
+    if (endpoint.includes('Services')) {
+      return 'document-outline';
+    }
+    
+    switch (request.type) {
+      case 'CREATE': return 'add-circle-outline';
+      case 'UPDATE': return 'create-outline';
+      case 'DELETE': return 'trash-outline';
+      default: return 'cloud-outline';
+    }
+  }
+
+  /**
+   * Get human-readable description of request
+   */
+  getRequestDescription(request: any): string {
+    const endpoint = request.endpoint || '';
+    const type = request.type || '';
+    const data = request.data || {};
+    
+    // Photo uploads
+    if (type === 'PHOTO_UPLOAD' || type === 'EFE_PHOTO_UPLOAD') {
+      const photoType = data.photoType || 'Photo';
+      return `Upload ${photoType} photo`;
+    }
+    
+    // Visual attachments
+    if (endpoint.includes('Services_Visuals_Attach')) {
+      return 'Upload visual photo';
+    }
+    
+    // Visuals
+    if (endpoint.includes('Services_Visuals') && !endpoint.includes('Attach')) {
+      if (type === 'CREATE') {
+        const category = data.Category || '';
+        const item = data.VisualItem || '';
+        return `Create: ${category} - ${item}`.substring(0, 50);
+      }
+      if (type === 'UPDATE') {
+        return 'Update visual';
+      }
+      if (type === 'DELETE') {
+        return 'Delete visual';
+      }
+    }
+    
+    // EFE Points
+    if (endpoint.includes('Services_EFE_Points')) {
+      if (type === 'CREATE') {
+        const pointName = data.PointName || 'Elevation point';
+        return `Create point: ${pointName}`;
+      }
+      return 'Update elevation point';
+    }
+    
+    // EFE Rooms
+    if (endpoint.includes('Services_EFE') && !endpoint.includes('Points') && !endpoint.includes('Attach')) {
+      if (type === 'CREATE') {
+        const roomName = data.RoomName || 'Room';
+        return `Create room: ${roomName}`;
+      }
+      if (type === 'UPDATE') {
+        if (data.FDF) return 'Update FDF';
+        if (data.Location) return 'Update location';
+        if (data.Notes) return 'Update notes';
+        return 'Update room data';
+      }
+    }
+    
+    // EFE Attachments
+    if (endpoint.includes('EFE') && endpoint.includes('Attach')) {
+      return 'Upload EFE photo';
+    }
+    
+    // Generic
+    if (type === 'CREATE') return 'Create new record';
+    if (type === 'UPDATE') return 'Update record';
+    if (type === 'DELETE') return 'Delete record';
+    
+    return 'Sync data';
   }
 
   /**
