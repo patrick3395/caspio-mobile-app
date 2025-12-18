@@ -32,7 +32,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   roomName: string = '';
   roomId: string = '';
   roomData: any = null;
-  loading: boolean = true;
+  loading: boolean = false;  // OFFLINE-FIRST: Start with no loading spinner (data from IndexedDB is instant)
 
   // FDF dropdown options
   fdfOptions: string[] = [];
@@ -574,9 +574,11 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     console.log('  - ServiceId:', this.serviceId);
     console.log('  - RoomName:', this.roomName);
 
-    this.loading = true;
+    // OFFLINE-FIRST: Don't show loading spinner if we have cached data
+    // Data is already cached by the container's template download
+    // Only show loading for first-time fetches (no cache)
     try {
-      // Load room record from Services_EFE
+      // Load room record from Services_EFE (reads from IndexedDB immediately)
       console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
       const rooms = await this.foundationData.getEFEByService(this.serviceId, true);
       console.log('[RoomElevation] getEFEByService returned', rooms?.length || 0, 'rooms');
@@ -647,10 +649,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       console.error('Error loading room data:', error);
       // Toast removed per user request
       // await this.showToast('Failed to load room data', 'danger');
-    } finally {
-      this.loading = false;
-      this.changeDetectorRef.detectChanges();
     }
+    // OFFLINE-FIRST: No loading spinner management needed - data from IndexedDB is instant
   }
 
   private async loadFDFPhotos(room: any) {
@@ -2331,18 +2331,8 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const newCaption = await this.openCaptionEditorPopup(currentCaption);
       
       if (newCaption !== null) { // User didn't cancel
-        // CRITICAL: Column names are FDF{Type}Annotation (not FDFPhoto{Type}Annotation)
-        const columnName = `FDF${photoType}Annotation`;
-        const updateData: any = {};
-        updateData[columnName] = newCaption;
-
-        try {
-          await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-          fdfPhotos[`${photoKey}Caption`] = newCaption;
-          this.changeDetectorRef.detectChanges();
-        } catch (error) {
-          console.error('Error saving caption:', error);
-        }
+        // OFFLINE-FIRST: Save caption using the common method
+        await this.saveFDFCaption(photoType, newCaption);
       }
     } catch (chunkError: any) {
       // Handle ChunkLoadError - use native prompt as fallback
@@ -2351,19 +2341,68 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       const newCaption = window.prompt(`Enter caption for ${photoType} photo:`, currentCaption);
       
       if (newCaption !== null) {
-        // CRITICAL: Column names are FDF{Type}Annotation (not FDFPhoto{Type}Annotation)
-        const columnName = `FDF${photoType}Annotation`;
-        const updateData: any = {};
-        updateData[columnName] = newCaption;
+        // OFFLINE-FIRST: Save caption using the common method
+        await this.saveFDFCaption(photoType, newCaption);
+      }
+    }
+  }
 
+  /**
+   * OFFLINE-FIRST: Save FDF caption locally first, then sync to backend
+   */
+  private async saveFDFCaption(photoType: 'Top' | 'Bottom' | 'Threshold', newCaption: string): Promise<void> {
+    const photoKey = photoType.toLowerCase();
+    const fdfPhotos = this.roomData.fdfPhotos;
+    const columnName = `FDF${photoType}Annotation`;
+
+    // 1. Update UI immediately
+    fdfPhotos[`${photoKey}Caption`] = newCaption;
+    this.changeDetectorRef.detectChanges();
+
+    // 2. Update local IndexedDB cache
+    const updateData: any = {};
+    updateData[columnName] = newCaption;
+    await this.updateLocalEFECache(updateData);
+
+    // 3. Queue for backend sync
+    try {
+      const { id, isTempId } = await this.resolveRoomId();
+
+      if (isTempId || !this.offlineService.isOnline()) {
+        // Offline or temp room - queue for background sync
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: isTempId 
+            ? `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`
+            : `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+          method: 'PUT',
+          data: isTempId ? { ...updateData, _tempEfeId: this.roomId } : updateData,
+          dependencies: isTempId ? [this.roomId] : [],
+          status: 'pending',
+          priority: 'normal'
+        });
+        console.log('[FDF Caption] Queued for sync');
+      } else {
+        // Online with real ID - try direct API call
         try {
-          await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-          fdfPhotos[`${photoKey}Caption`] = newCaption;
-          this.changeDetectorRef.detectChanges();
-        } catch (error) {
-          console.error('Error saving caption:', error);
+          await this.caspioService.updateServicesEFEByEFEID(id, updateData).toPromise();
+          console.log('[FDF Caption] Saved to server');
+        } catch (apiError) {
+          // API failed - queue for background sync
+          console.warn('[FDF Caption] API call failed, queuing for sync:', apiError);
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+            method: 'PUT',
+            data: updateData,
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal'
+          });
         }
       }
+    } catch (error) {
+      console.error('[FDF Caption] Error:', error);
     }
   }
 
@@ -3511,35 +3550,45 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       });
       buttonsHtml += '</div>';
 
-      const alert = await this.alertController.create({
-        header: 'Photo Caption',
-        cssClass: 'caption-popup-alert',
-        message: ' ', // Empty space to prevent Ionic from hiding the message area
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            handler: () => {
-              resolve(null);
-              return true;
-            }
-          },
-          {
-            text: 'Save',
-            handler: () => {
-              try {
-                const input = document.getElementById('captionInput') as HTMLInputElement;
-                resolve(input?.value || '');
-                return true;
-              } catch (error) {
-                console.error('Error saving caption:', error);
+      // CRITICAL: Wrap alertController.create in try-catch to handle ChunkLoadError
+      let alert: any;
+      try {
+        alert = await this.alertController.create({
+          header: 'Photo Caption',
+          cssClass: 'caption-popup-alert',
+          message: ' ', // Empty space to prevent Ionic from hiding the message area
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel',
+              handler: () => {
                 resolve(null);
                 return true;
               }
+            },
+            {
+              text: 'Save',
+              handler: () => {
+                try {
+                  const input = document.getElementById('captionInput') as HTMLInputElement;
+                  resolve(input?.value || '');
+                  return true;
+                } catch (error) {
+                  console.error('Error saving caption:', error);
+                  resolve(null);
+                  return true;
+                }
+              }
             }
-          }
-        ]
-      });
+          ]
+        });
+      } catch (chunkError: any) {
+        // Handle ChunkLoadError - fall back to native prompt
+        console.error('[Caption Editor] ChunkLoadError, using native fallback:', chunkError);
+        const newCaption = window.prompt('Enter caption:', currentCaption);
+        resolve(newCaption);
+        return;
+      }
 
       await alert.present();
 
