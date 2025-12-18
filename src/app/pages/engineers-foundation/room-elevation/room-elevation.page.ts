@@ -236,15 +236,23 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           photo.queued = false;
           photo.uploading = false;
 
-          // If we have a URL, update it
+          // If we have a URL, update it - but PRELOAD first for seamless transition
           if (photoUrl) {
+            // CRITICAL: Keep showing local blob URL while preloading server image
+            // This prevents broken images during the transition
+            const originalDisplayUrl = photo.displayUrl;
+            
             // Get S3 URL and fetch as data URL for canvas compatibility
             try {
               let imageUrl = photoUrl;
               if (s3Key && this.caspioService.isS3Key(s3Key)) {
                 imageUrl = await this.caspioService.getS3FileUrl(s3Key);
               }
+              
+              // PRELOAD: Fetch the server image as data URL before switching
               const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
+              
+              // Only update URL after successful preload - ensures no broken images
               photo.url = dataUrl;
               // CRITICAL: Preserve displayUrl if user added annotations while uploading
               if (!hasExistingAnnotations) {
@@ -256,12 +264,16 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               if (realAttachId) {
                 await this.indexedDb.cachePhoto(String(realAttachId), this.serviceId, dataUrl, s3Key || '');
               }
+              
+              console.log('[RoomElevation PHOTO SYNC] ✅ Server image preloaded and cached successfully');
             } catch (err) {
-              console.warn('[RoomElevation PHOTO SYNC] Failed to fetch as data URL:', err);
-              photo.url = photoUrl;
-              if (!hasExistingAnnotations) {
-                photo.displayUrl = photoUrl;
+              console.warn('[RoomElevation PHOTO SYNC] Failed to fetch as data URL, keeping local blob:', err);
+              // CRITICAL: Keep showing the original local blob URL on error
+              // This ensures the image doesn't break
+              if (!hasExistingAnnotations && originalDisplayUrl) {
+                photo.displayUrl = originalDisplayUrl;
               }
+              photo.url = photoUrl;
             }
           }
           

@@ -514,6 +514,10 @@ export class BackgroundSyncService {
 
     console.log('[BackgroundSync] Photo upload - raw data:', data);
 
+    // CRITICAL: Mark photo as uploading to prevent it showing in pending list during upload
+    // This prevents broken images when user navigates away and back during sync
+    await this.indexedDb.markPhotoUploading(data.fileId);
+
     // Get file AND annotations from IndexedDB
     const photoData = await this.indexedDb.getStoredPhotoData(data.fileId);
     if (!photoData) {
@@ -632,6 +636,8 @@ export class BackgroundSyncService {
       return result;
     } catch (error: any) {
       console.error('[BackgroundSync] Photo upload failed, will retry with same idempotency key');
+      // CRITICAL: Reset photo status to pending so it shows up in the pending list again
+      await this.indexedDb.markPhotoPending(data.fileId);
       throw error;
     }
   }
@@ -644,6 +650,10 @@ export class BackgroundSyncService {
     const data = request.data;
 
     console.log('[BackgroundSync] EFE photo upload - raw data:', data);
+
+    // CRITICAL: Mark photo as uploading to prevent it showing in pending list during upload
+    // This prevents broken images when user navigates away and back during sync
+    await this.indexedDb.markPhotoUploading(data.fileId);
 
     // Get file and annotations from IndexedDB
     const photoData = await this.indexedDb.getStoredEFEPhotoData(data.fileId);
@@ -743,6 +753,8 @@ export class BackgroundSyncService {
       return result;
     } catch (error: any) {
       console.error('[BackgroundSync] EFE photo upload failed, will retry');
+      // CRITICAL: Reset photo status to pending so it shows up in the pending list again
+      await this.indexedDb.markPhotoPending(data.fileId);
       throw error;
     }
   }

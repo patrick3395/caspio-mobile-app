@@ -621,6 +621,7 @@ export class IndexedDbService {
 
   /**
    * Get all pending photo files
+   * CRITICAL: Only returns photos with status 'pending' to avoid showing already-synced photos
    */
   async getAllPendingPhotos(): Promise<any[]> {
     const db = await this.ensureDb();
@@ -631,10 +632,75 @@ export class IndexedDbService {
       const getAllRequest = store.getAll();
 
       getAllRequest.onsuccess = () => {
-        resolve(getAllRequest.result || []);
+        // CRITICAL FIX: Filter to only return truly pending photos
+        // Photos with status 'synced' or 'uploading' should not be shown as pending
+        const allPhotos = getAllRequest.result || [];
+        const pendingOnly = allPhotos.filter(p => p.status === 'pending' || !p.status);
+        console.log(`[IndexedDB] getAllPendingPhotos: ${allPhotos.length} total, ${pendingOnly.length} pending`);
+        resolve(pendingOnly);
       };
 
       getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+  
+  /**
+   * Mark a pending photo as being uploaded (prevents re-display during sync)
+   */
+  async markPhotoUploading(imageId: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readwrite');
+      const store = transaction.objectStore('pendingImages');
+      const getRequest = store.get(imageId);
+
+      getRequest.onsuccess = () => {
+        const imageData = getRequest.result;
+        if (imageData) {
+          imageData.status = 'uploading';
+          const putRequest = store.put(imageData);
+          putRequest.onsuccess = () => {
+            console.log('[IndexedDB] Marked photo as uploading:', imageId);
+            resolve();
+          };
+          putRequest.onerror = () => reject(putRequest.error);
+        } else {
+          resolve();
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+  
+  /**
+   * Reset a photo back to pending status (called when upload fails)
+   */
+  async markPhotoPending(imageId: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readwrite');
+      const store = transaction.objectStore('pendingImages');
+      const getRequest = store.get(imageId);
+
+      getRequest.onsuccess = () => {
+        const imageData = getRequest.result;
+        if (imageData) {
+          imageData.status = 'pending';
+          const putRequest = store.put(imageData);
+          putRequest.onsuccess = () => {
+            console.log('[IndexedDB] Reset photo to pending:', imageId);
+            resolve();
+          };
+          putRequest.onerror = () => reject(putRequest.error);
+        } else {
+          resolve();
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
     });
   }
 
