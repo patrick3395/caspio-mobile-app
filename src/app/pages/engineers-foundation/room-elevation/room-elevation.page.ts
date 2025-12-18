@@ -1949,12 +1949,31 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         {
           text: 'Delete',
           handler: async () => {
+            // OFFLINE-FIRST: Immediate UI update, queue delete for sync if offline
             const photoKey = photoType.toLowerCase();
+            
+            // Clear local state IMMEDIATELY (optimistic update)
+            const fdfPhotos = this.roomData.fdfPhotos;
+            fdfPhotos[`${photoKey}`] = null;
+            fdfPhotos[`${photoKey}Url`] = null;
+            fdfPhotos[`${photoKey}DisplayUrl`] = null;
+            fdfPhotos[`${photoKey}Path`] = null;
+            fdfPhotos[`${photoKey}Attachment`] = null;
+            fdfPhotos[`${photoKey}Caption`] = '';
+            fdfPhotos[`${photoKey}Drawings`] = null;
+            fdfPhotos[`${photoKey}HasAnnotations`] = false;
+            fdfPhotos[`${photoKey}Loading`] = false;
+            fdfPhotos[`${photoKey}Uploading`] = false;
+
+            // Force UI update first
+            this.changeDetectorRef.detectChanges();
+
+            // Clear cached photo from IndexedDB
+            const cacheId = `fdf_${this.roomId}_${photoKey}`;
+            await this.indexedDb.deleteCachedPhoto(cacheId);
+            console.log('[FDF Delete] Cleared cached photo from IndexedDB:', cacheId);
+
             // CRITICAL: Clear all related columns
-            // Photo path: FDFPhoto{Type}
-            // S3 attachment: FDFPhoto{Type}Attachment  
-            // Annotation/Caption: FDF{Type}Annotation
-            // Drawings: FDF{Type}Drawings
             const updateData: any = {};
             updateData[`FDFPhoto${photoType}`] = null;
             updateData[`FDFPhoto${photoType}Attachment`] = null;
@@ -1962,32 +1981,43 @@ export class RoomElevationPage implements OnInit, OnDestroy {
             updateData[`FDF${photoType}Drawings`] = null;
 
             try {
-              await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-
-              // CRITICAL: Clear cached photo from IndexedDB to prevent stale cache
-              const cacheId = `fdf_${this.roomId}_${photoKey}`;
-              await this.indexedDb.deleteCachedPhoto(cacheId);
-              console.log('[FDF Delete] Cleared cached photo from IndexedDB:', cacheId);
-
-              // Clear local state
-              const fdfPhotos = this.roomData.fdfPhotos;
-              fdfPhotos[`${photoKey}`] = null;
-              fdfPhotos[`${photoKey}Url`] = null;
-              fdfPhotos[`${photoKey}DisplayUrl`] = null;
-              fdfPhotos[`${photoKey}Path`] = null;
-              fdfPhotos[`${photoKey}Attachment`] = null;
-              fdfPhotos[`${photoKey}Caption`] = '';
-              fdfPhotos[`${photoKey}Drawings`] = null;
-              fdfPhotos[`${photoKey}HasAnnotations`] = false;
-              fdfPhotos[`${photoKey}Loading`] = false;
-              fdfPhotos[`${photoKey}Uploading`] = false;
-
-              this.changeDetectorRef.detectChanges();
-              // Toast removed per user request
+              // Delete from database (or queue for sync if offline)
+              const apiEndpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID='${this.roomId}'`;
+              
+              if (this.offlineService.isOnline()) {
+                try {
+                  await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
+                  console.log('[FDF Delete] Deleted from database');
+                } catch (apiError) {
+                  console.warn('[FDF Delete] API delete failed, queuing for sync:', apiError);
+                  await this.indexedDb.addPendingRequest({
+                    type: 'UPDATE',
+                    endpoint: apiEndpoint,
+                    method: 'PUT',
+                    data: updateData,
+                    dependencies: [],
+                    status: 'pending',
+                    priority: 'high',
+                  });
+                  this.backgroundSync.triggerSync();
+                }
+              } else {
+                console.log('[FDF Delete] Offline - queuing delete for sync');
+                await this.indexedDb.addPendingRequest({
+                  type: 'UPDATE',
+                  endpoint: apiEndpoint,
+                  method: 'PUT',
+                  data: updateData,
+                  dependencies: [],
+                  status: 'pending',
+                  priority: 'high',
+                });
+                this.backgroundSync.triggerSync();
+              }
+              
+              console.log('[FDF Delete] Photo removed successfully');
             } catch (error) {
               console.error('Error deleting photo:', error);
-              // Toast removed per user request
-              // await this.showToast('Failed to delete photo', 'danger');
             }
           }
         },
@@ -2544,36 +2574,65 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         {
           text: 'Delete',
           handler: async () => {
+            // OFFLINE-FIRST: Immediate UI update, queue delete for sync if offline
             try {
-              if (photo.attachId) {
-                await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
-                
-                // CRITICAL: Clear cached photo IMAGE from IndexedDB to prevent stale cache
-                await this.indexedDb.deleteCachedPhoto(String(photo.attachId));
-                
-                // CRITICAL: Also remove from cached ATTACHMENTS LIST in IndexedDB
-                // This prevents the deleted photo from reappearing on page reload
-                await this.indexedDb.removeAttachmentFromCache(String(photo.attachId), 'efe_point_attachments');
-                
-                console.log('[Point Photo] Cleared cached photo and attachment record from IndexedDB:', photo.attachId);
-              }
-
-              // Remove from local array
+              // Remove from local array IMMEDIATELY (optimistic update)
               const index = point.photos.findIndex((p: any) => p.attachId === photo.attachId);
               if (index >= 0) {
                 point.photos.splice(index, 1);
               }
 
-              // CRITICAL: Clear the in-memory attachments cache
-              this.foundationData.clearEFEAttachmentsCache();
-              console.log('[Point Photo] Cleared EFE attachments in-memory cache after deletion');
-
+              // Force UI update first
               this.changeDetectorRef.detectChanges();
-              // Toast removed per user request
+
+              if (photo.attachId) {
+                // Clear cached photo IMAGE from IndexedDB
+                await this.indexedDb.deleteCachedPhoto(String(photo.attachId));
+                
+                // Remove from cached ATTACHMENTS LIST in IndexedDB
+                await this.indexedDb.removeAttachmentFromCache(String(photo.attachId), 'efe_point_attachments');
+
+                // Delete from database (or queue for sync if offline)
+                if (!String(photo.attachId).startsWith('temp_')) {
+                  if (this.offlineService.isOnline()) {
+                    try {
+                      await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
+                      console.log('[Point Photo] Deleted from database:', photo.attachId);
+                    } catch (apiError) {
+                      console.warn('[Point Photo] API delete failed, queuing for sync:', apiError);
+                      await this.indexedDb.addPendingRequest({
+                        type: 'DELETE',
+                        endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+                        method: 'DELETE',
+                        data: { attachId: photo.attachId },
+                        dependencies: [],
+                        status: 'pending',
+                        priority: 'high',
+                      });
+                      this.backgroundSync.triggerSync();
+                    }
+                  } else {
+                    console.log('[Point Photo] Offline - queuing delete for sync:', photo.attachId);
+                    await this.indexedDb.addPendingRequest({
+                      type: 'DELETE',
+                      endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+                      method: 'DELETE',
+                      data: { attachId: photo.attachId },
+                      dependencies: [],
+                      status: 'pending',
+                      priority: 'high',
+                    });
+                    this.backgroundSync.triggerSync();
+                  }
+                }
+                
+                console.log('[Point Photo] Photo removed successfully');
+              }
+
+              // Clear the in-memory attachments cache
+              this.foundationData.clearEFEAttachmentsCache();
             } catch (error) {
               console.error('Error deleting photo:', error);
-              // Toast removed per user request
-              // await this.showToast('Failed to delete photo', 'danger');
             }
           }
         },

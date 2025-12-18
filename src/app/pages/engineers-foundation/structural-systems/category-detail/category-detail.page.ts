@@ -3638,43 +3638,34 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             handler: () => {
               // Return true to allow alert to dismiss, then process deletion
               setTimeout(async () => {
-                const loading = await this.loadingController.create({
-                  message: 'Deleting photo...'
-                });
-                await loading.present();
-
+                // OFFLINE-FIRST: No loading spinner - immediate UI update
                 try {
                   const key = `${category}_${itemId}`;
 
-                  // Remove from UI immediately using filter for cleaner updates
+                  // Remove from UI IMMEDIATELY (optimistic update)
                   if (this.visualPhotos[key]) {
                     this.visualPhotos[key] = this.visualPhotos[key].filter(
                       (p: any) => p.AttachID !== photo.AttachID
                     );
                   }
 
-                  // Delete from database
-                  if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
-                    await this.foundationData.deleteVisualPhoto(photo.AttachID);
-                    
-                    // CRITICAL: Clear cached photo IMAGE from IndexedDB to prevent stale cache
-                    await this.indexedDb.deleteCachedPhoto(String(photo.AttachID));
-                    
-                    // CRITICAL: Also remove from cached ATTACHMENTS LIST in IndexedDB
-                    // This prevents the deleted photo from reappearing on page reload
-                    await this.indexedDb.removeAttachmentFromCache(String(photo.AttachID), 'visual_attachments');
-                    
-                    console.log('[Delete Photo] Cleared cached photo and attachment record from IndexedDB:', photo.AttachID);
-                  }
-
-                  // Force UI update
+                  // Force UI update first
                   this.changeDetectorRef.detectChanges();
 
-                  await loading.dismiss();
-                  // Toast removed per user request
-                  // await this.showToast('Photo deleted', 'success');
+                  // Clear cached photo IMAGE from IndexedDB
+                  await this.indexedDb.deleteCachedPhoto(String(photo.AttachID));
+                  
+                  // Remove from cached ATTACHMENTS LIST in IndexedDB
+                  await this.indexedDb.removeAttachmentFromCache(String(photo.AttachID), 'visual_attachments');
+
+                  // Delete from database (or queue for sync if offline)
+                  if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+                    await this.foundationData.deleteVisualPhoto(photo.AttachID);
+                    console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
+                  }
+
+                  console.log('[Delete Photo] Photo removed successfully');
                 } catch (error) {
-                  await loading.dismiss();
                   console.error('Error deleting photo:', error);
                   // Toast removed per user request
                   // await this.showToast('Failed to delete photo', 'danger');

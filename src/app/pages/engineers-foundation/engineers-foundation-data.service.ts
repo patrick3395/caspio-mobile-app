@@ -621,12 +621,45 @@ export class EngineersFoundationDataService {
 
   async deleteVisualPhoto(attachId: string): Promise<any> {
     console.log('[Visual Photo] Deleting photo:', attachId);
-    const result = await firstValueFrom(this.caspioService.deleteServiceVisualsAttach(attachId));
-
-    // Clear all attachment caches since we don't know which visual this belongs to
+    
+    // Clear all attachment caches first (optimistic update)
     this.visualAttachmentsCache.clear();
 
-    return result;
+    // OFFLINE-FIRST: If offline, queue for background sync
+    if (!this.offlineService.isOnline()) {
+      console.log('[Visual Photo] Offline - queuing delete for sync');
+      await this.indexedDb.addPendingRequest({
+        type: 'DELETE',
+        endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
+        method: 'DELETE',
+        data: { attachId },
+        dependencies: [],
+        status: 'pending',
+        priority: 'high',
+      });
+      this.backgroundSync.triggerSync();
+      return { success: true, queued: true };
+    }
+
+    // Online - try API
+    try {
+      const result = await firstValueFrom(this.caspioService.deleteServiceVisualsAttach(attachId));
+      return result;
+    } catch (error) {
+      // Queue for retry on failure
+      console.warn('[Visual Photo] Delete failed, queuing for retry:', error);
+      await this.indexedDb.addPendingRequest({
+        type: 'DELETE',
+        endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
+        method: 'DELETE',
+        data: { attachId },
+        dependencies: [],
+        status: 'pending',
+        priority: 'high',
+      });
+      this.backgroundSync.triggerSync();
+      return { success: true, queued: true };
+    }
   }
 
   async updateVisualPhotoCaption(attachId: string, caption: string, visualId?: string): Promise<any> {
