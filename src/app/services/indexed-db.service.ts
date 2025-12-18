@@ -621,7 +621,8 @@ export class IndexedDbService {
 
   /**
    * Get all pending photo files
-   * CRITICAL: Only returns photos with status 'pending' to avoid showing already-synced photos
+   * Includes both 'pending' and 'uploading' photos - only excludes 'synced'
+   * This ensures photos don't disappear during page reload while uploading
    */
   async getAllPendingPhotos(): Promise<any[]> {
     const db = await this.ensureDb();
@@ -632,12 +633,14 @@ export class IndexedDbService {
       const getAllRequest = store.getAll();
 
       getAllRequest.onsuccess = () => {
-        // CRITICAL FIX: Filter to only return truly pending photos
-        // Photos with status 'synced' or 'uploading' should not be shown as pending
+        // Include both 'pending' and 'uploading' photos - only filter out 'synced'
+        // This ensures photos don't disappear during page reload while uploading
         const allPhotos = getAllRequest.result || [];
-        const pendingOnly = allPhotos.filter(p => p.status === 'pending' || !p.status);
-        console.log(`[IndexedDB] getAllPendingPhotos: ${allPhotos.length} total, ${pendingOnly.length} pending`);
-        resolve(pendingOnly);
+        const pendingOrUploading = allPhotos.filter(p => 
+          p.status === 'pending' || p.status === 'uploading' || !p.status
+        );
+        console.log(`[IndexedDB] getAllPendingPhotos: ${allPhotos.length} total, ${pendingOrUploading.length} pending/uploading`);
+        resolve(pendingOrUploading);
       };
 
       getAllRequest.onerror = () => reject(getAllRequest.error);
@@ -1433,7 +1436,7 @@ export class IndexedDbService {
    * Get ALL cached service data entries of a specific type
    * Used to find which serviceId/visualId contains a specific attachment
    */
-  async getAllCachedServiceData(dataType: 'visuals' | 'visual_attachments' | 'efe_point_attachments'): Promise<{ serviceId: string; data: any[] }[]> {
+  async getAllCachedServiceData(dataType: 'visuals' | 'visual_attachments' | 'efe_point_attachments' | 'efe_rooms' | 'efe_points'): Promise<{ serviceId: string; data: any[] }[]> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedServiceData')) {

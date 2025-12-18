@@ -1279,7 +1279,48 @@ export class OfflineTemplateService {
     setTimeout(async () => {
       try {
         const freshRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
-        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', freshRooms || []);
+        
+        // CRITICAL: Preserve local updates (_localUpdate flag) when merging
+        // This prevents overwriting offline changes (like FDF selection) with server data
+        const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
+        const localUpdates = new Map<string, any>();
+        
+        // Collect rooms with local updates
+        for (const room of existingCache) {
+          if (room._localUpdate) {
+            // Use both EFEID and PK_ID as keys since ID types can vary
+            const roomId = String(room.EFEID || room.PK_ID || room._tempId);
+            localUpdates.set(roomId, room);
+            console.log(`[OfflineTemplate] Preserving local updates for room ${roomId}:`, {
+              FDF: room.FDF,
+              Location: room.Location,
+              Notes: room.Notes
+            });
+          }
+        }
+        
+        // Merge fresh data with local updates
+        let mergedRooms = freshRooms || [];
+        if (localUpdates.size > 0) {
+          mergedRooms = mergedRooms.map((room: any) => {
+            const roomId = String(room.EFEID || room.PK_ID);
+            const localUpdate = localUpdates.get(roomId);
+            if (localUpdate) {
+              // Merge: use server data but override with local changes
+              return {
+                ...room,
+                FDF: localUpdate.FDF !== undefined ? localUpdate.FDF : room.FDF,
+                Location: localUpdate.Location !== undefined ? localUpdate.Location : room.Location,
+                Notes: localUpdate.Notes !== undefined ? localUpdate.Notes : room.Notes,
+                _localUpdate: true  // Keep the flag until synced
+              };
+            }
+            return room;
+          });
+          console.log(`[OfflineTemplate] Merged ${localUpdates.size} local updates with server data`);
+        }
+        
+        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', mergedRooms);
         console.log(`[OfflineTemplate] Background refresh: ${freshRooms?.length || 0} EFE rooms updated for ${serviceId}`);
         
         // Notify pages that fresh data is available
@@ -1292,13 +1333,45 @@ export class OfflineTemplateService {
 
   /**
    * Refresh EFE points cache in background (non-blocking)
+   * Preserves local updates when merging with server data
    * Emits backgroundRefreshComplete$ when done so pages can reload
    */
   private refreshEFEPointsInBackground(roomId: string): void {
     setTimeout(async () => {
       try {
         const freshPoints = await firstValueFrom(this.caspioService.getServicesEFEPoints(roomId));
-        await this.indexedDb.cacheServiceData(roomId, 'efe_points', freshPoints || []);
+        
+        // CRITICAL: Preserve local updates (_localUpdate flag) when merging
+        const existingCache = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
+        const localUpdates = new Map<string, any>();
+        
+        // Collect points with local updates
+        for (const point of existingCache) {
+          if (point._localUpdate) {
+            const pointId = String(point.PointID || point.PK_ID || point._tempId);
+            localUpdates.set(pointId, point);
+          }
+        }
+        
+        // Merge fresh data with local updates
+        let mergedPoints = freshPoints || [];
+        if (localUpdates.size > 0) {
+          mergedPoints = mergedPoints.map((point: any) => {
+            const pointId = String(point.PointID || point.PK_ID);
+            const localUpdate = localUpdates.get(pointId);
+            if (localUpdate) {
+              return {
+                ...point,
+                Elevation: localUpdate.Elevation !== undefined ? localUpdate.Elevation : point.Elevation,
+                _localUpdate: true
+              };
+            }
+            return point;
+          });
+          console.log(`[OfflineTemplate] Merged ${localUpdates.size} local point updates with server data`);
+        }
+        
+        await this.indexedDb.cacheServiceData(roomId, 'efe_points', mergedPoints);
         console.log(`[OfflineTemplate] Background refresh: ${freshPoints?.length || 0} EFE points updated for room ${roomId}`);
         
         // Notify pages that fresh data is available

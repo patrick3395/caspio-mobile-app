@@ -1558,6 +1558,10 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     try {
       const { id, isTempId } = await this.resolveRoomId();
 
+      // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
+      // This ensures the FDF value persists even if offline
+      await this.updateLocalEFECache({ FDF: this.roomData.fdf });
+
       if (isTempId) {
         // Queue for background sync - room not synced yet
         await this.indexedDb.addPendingRequest({
@@ -1573,15 +1577,72 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         return;
       }
 
-      // CRITICAL: Use updateServicesEFEByEFEID since this.roomId contains EFEID, not PK_ID
-      await this.caspioService.updateServicesEFEByEFEID(id, { FDF: this.roomData.fdf }).toPromise();
+      // Check if online - if offline, queue for background sync
+      if (!this.offlineService.isOnline()) {
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+          method: 'PUT',
+          data: { FDF: this.roomData.fdf },
+          status: 'pending',
+          priority: 'normal'
+        });
+        console.log('[RoomElevation] FDF update queued for sync (offline)');
+        return;
+      }
+
+      // Online with real ID - make direct API call
+      try {
+        await this.caspioService.updateServicesEFEByEFEID(id, { FDF: this.roomData.fdf }).toPromise();
+        console.log('[RoomElevation] FDF saved to server');
+      } catch (apiError) {
+        // API call failed (network error, etc.) - queue for background sync
+        console.warn('[RoomElevation] FDF API call failed, queuing for sync:', apiError);
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+          method: 'PUT',
+          data: { FDF: this.roomData.fdf },
+          status: 'pending',
+          priority: 'normal'
+        });
+      }
     } catch (error) {
       console.error('Error saving FDF:', error);
-      // Toast removed per user request
-      // await this.showToast('Failed to save FDF', 'danger');
     } finally {
       this.isSavingFdf = false;
       this.changeDetectorRef.detectChanges();
+    }
+  }
+  
+  /**
+   * Update local IndexedDB cache for EFE room data
+   * This ensures offline changes are persisted locally
+   */
+  private async updateLocalEFECache(updates: any): Promise<void> {
+    try {
+      // Get current cached rooms for this service
+      const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+      
+      // Find and update the current room
+      const roomIndex = cachedRooms.findIndex((r: any) => 
+        r.EFEID === this.roomId || r.PK_ID === this.roomId || r._tempId === this.roomId
+      );
+      
+      if (roomIndex >= 0) {
+        cachedRooms[roomIndex] = {
+          ...cachedRooms[roomIndex],
+          ...updates,
+          _localUpdate: true  // Mark as having local updates
+        };
+        
+        await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', cachedRooms);
+        console.log('[RoomElevation] Local EFE cache updated with:', updates);
+      } else {
+        console.warn('[RoomElevation] Room not found in local cache, cannot update');
+      }
+    } catch (error) {
+      console.error('[RoomElevation] Error updating local EFE cache:', error);
     }
   }
 
@@ -1604,6 +1665,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     try {
       const { id, isTempId } = await this.resolveRoomId();
 
+      // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
+      await this.updateLocalEFECache({ Location: this.roomData.location });
+
       if (isTempId) {
         // Queue for background sync - room not synced yet
         await this.indexedDb.addPendingRequest({
@@ -1619,12 +1683,37 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         return;
       }
 
-      // CRITICAL: Use updateServicesEFEByEFEID since this.roomId contains EFEID, not PK_ID
-      await this.caspioService.updateServicesEFEByEFEID(id, { Location: this.roomData.location }).toPromise();
+      // Check if online - if offline, queue for background sync
+      if (!this.offlineService.isOnline()) {
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+          method: 'PUT',
+          data: { Location: this.roomData.location },
+          status: 'pending',
+          priority: 'normal'
+        });
+        console.log('[RoomElevation] Location update queued for sync (offline)');
+        return;
+      }
+
+      // Online with real ID - make direct API call
+      try {
+        await this.caspioService.updateServicesEFEByEFEID(id, { Location: this.roomData.location }).toPromise();
+        console.log('[RoomElevation] Location saved to server');
+      } catch (apiError) {
+        console.warn('[RoomElevation] Location API call failed, queuing for sync:', apiError);
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+          method: 'PUT',
+          data: { Location: this.roomData.location },
+          status: 'pending',
+          priority: 'normal'
+        });
+      }
     } catch (error) {
       console.error('Error saving location:', error);
-      // Toast removed per user request
-      // await this.showToast('Failed to save location', 'danger');
     } finally {
       this.isSavingLocation = false;
       this.changeDetectorRef.detectChanges();
@@ -1670,6 +1759,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     try {
       const { id, isTempId } = await this.resolveRoomId();
 
+      // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
+      await this.updateLocalEFECache({ Notes: this.roomData.notes });
+
       if (isTempId) {
         // Queue for background sync - room not synced yet
         await this.indexedDb.addPendingRequest({
@@ -1685,12 +1777,37 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         return;
       }
 
-      // CRITICAL: Use updateServicesEFEByEFEID since this.roomId contains EFEID, not PK_ID
-      await this.caspioService.updateServicesEFEByEFEID(id, { Notes: this.roomData.notes }).toPromise();
+      // Check if online - if offline, queue for background sync
+      if (!this.offlineService.isOnline()) {
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+          method: 'PUT',
+          data: { Notes: this.roomData.notes },
+          status: 'pending',
+          priority: 'normal'
+        });
+        console.log('[RoomElevation] Notes update queued for sync (offline)');
+        return;
+      }
+
+      // Online with real ID - make direct API call
+      try {
+        await this.caspioService.updateServicesEFEByEFEID(id, { Notes: this.roomData.notes }).toPromise();
+        console.log('[RoomElevation] Notes saved to server');
+      } catch (apiError) {
+        console.warn('[RoomElevation] Notes API call failed, queuing for sync:', apiError);
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+          method: 'PUT',
+          data: { Notes: this.roomData.notes },
+          status: 'pending',
+          priority: 'normal'
+        });
+      }
     } catch (error) {
       console.error('Error saving notes:', error);
-      // Toast removed per user request
-      // await this.showToast('Failed to save notes', 'danger');
     } finally {
       this.isSavingNotes = false;
       this.changeDetectorRef.detectChanges();

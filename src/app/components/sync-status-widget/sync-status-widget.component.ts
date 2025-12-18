@@ -146,5 +146,69 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
   hasPendingItems(): boolean {
     return this.syncStatus.pendingCount > 0 || this.syncStatus.isSyncing;
   }
+
+  /**
+   * Clear all stuck/orphaned pending requests
+   * Use with caution - only for debugging stuck sync issues
+   */
+  async clearAllPending(): Promise<void> {
+    const confirmed = confirm('This will clear ALL pending sync requests. Data that hasn\'t been synced will be lost. Continue?');
+    if (!confirmed) return;
+
+    try {
+      const requests = await this.indexedDb.getAllRequests();
+      console.log('[SyncWidget] Clearing', requests.length, 'pending requests:');
+      
+      for (const request of requests) {
+        console.log(`  - ${request.requestId}: ${request.type} ${request.endpoint} (${request.status})`);
+        await this.indexedDb.removePendingRequest(request.requestId);
+      }
+      
+      // Refresh count
+      await this.refreshPendingCount();
+      console.log('[SyncWidget] All pending requests cleared');
+    } catch (error) {
+      console.error('[SyncWidget] Error clearing pending requests:', error);
+    }
+  }
+
+  /**
+   * Log details about pending requests for debugging
+   */
+  async debugPendingRequests(): Promise<void> {
+    try {
+      const requests = await this.indexedDb.getAllRequests();
+      console.log('[SyncWidget] === PENDING REQUESTS DEBUG ===');
+      console.log('Total requests:', requests.length);
+      
+      const byStatus = {
+        pending: requests.filter(r => r.status === 'pending'),
+        syncing: requests.filter(r => r.status === 'syncing'),
+        synced: requests.filter(r => r.status === 'synced'),
+        failed: requests.filter(r => r.status === 'failed'),
+      };
+      
+      console.log('By status:', {
+        pending: byStatus.pending.length,
+        syncing: byStatus.syncing.length,
+        synced: byStatus.synced.length,
+        failed: byStatus.failed.length,
+      });
+      
+      for (const request of requests) {
+        console.log(`  [${request.status}] ${request.requestId}:`, {
+          type: request.type,
+          endpoint: request.endpoint?.substring(0, 60),
+          retryCount: request.retryCount,
+          createdAt: new Date(request.createdAt).toISOString(),
+          dependencies: request.dependencies,
+          error: request.error,
+        });
+      }
+      console.log('[SyncWidget] === END DEBUG ===');
+    } catch (error) {
+      console.error('[SyncWidget] Error debugging requests:', error);
+    }
+  }
 }
 

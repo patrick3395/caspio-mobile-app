@@ -97,6 +97,10 @@ export class BackgroundSyncService {
   private startBackgroundSync(): void {
     console.log('[BackgroundSync] Starting background sync service');
 
+    // Reset any stuck 'syncing' requests to 'pending' on startup
+    // This handles cases where the app was closed during a sync
+    this.resetStuckSyncingRequests();
+
     // Run outside Angular zone to prevent unnecessary change detection
     this.ngZone.runOutsideAngular(() => {
       // Sync immediately on start
@@ -107,6 +111,35 @@ export class BackgroundSyncService {
         this.triggerSync();
       });
     });
+  }
+
+  /**
+   * Reset any stuck 'syncing' requests to 'pending' on startup
+   * This handles cases where the app was closed during a sync
+   */
+  private async resetStuckSyncingRequests(): Promise<void> {
+    try {
+      const allRequests = await this.indexedDb.getAllRequests();
+      const stuckSyncing = allRequests.filter(r => r.status === 'syncing');
+      
+      if (stuckSyncing.length > 0) {
+        console.log(`[BackgroundSync] Found ${stuckSyncing.length} stuck 'syncing' requests, resetting to 'pending'`);
+        for (const request of stuckSyncing) {
+          await this.indexedDb.updateRequestStatus(request.requestId, 'pending');
+        }
+      }
+      
+      // Also clean up any old 'synced' requests that weren't deleted
+      const syncedRequests = allRequests.filter(r => r.status === 'synced');
+      if (syncedRequests.length > 0) {
+        console.log(`[BackgroundSync] Found ${syncedRequests.length} old 'synced' requests, cleaning up`);
+        for (const request of syncedRequests) {
+          await this.indexedDb.removePendingRequest(request.requestId);
+        }
+      }
+    } catch (error) {
+      console.warn('[BackgroundSync] Error resetting stuck requests:', error);
+    }
   }
 
   /**
@@ -389,6 +422,15 @@ export class BackgroundSyncService {
               console.log(`[BackgroundSync] Visual UPDATE synced for VisualID ${visualId}, clearing _localUpdate flag`);
               await this.clearVisualLocalUpdateFlag(visualId, serviceId);
             }
+          } else if (request.endpoint.includes('LPS_Services_EFE/records') && !request.endpoint.includes('Points')) {
+            // Clear _localUpdate flag from EFE rooms cache after successful update (FDF, Location, Notes)
+            const efeMatch = request.endpoint.match(/EFEID=(\d+)/);
+            if (efeMatch) {
+              const efeId = efeMatch[1];
+              const serviceId = request.data?.ServiceID;
+              console.log(`[BackgroundSync] EFE Room UPDATE synced for EFEID ${efeId}, clearing _localUpdate flag`);
+              await this.clearEFERoomLocalUpdateFlag(efeId, serviceId);
+            }
           }
         }
 
@@ -413,9 +455,10 @@ export class BackgroundSyncService {
           }
         }
 
-        // Mark as synced
-        await this.indexedDb.updateRequestStatus(request.requestId, 'synced');
-        console.log(`[BackgroundSync] ✅ Synced: ${request.requestId}`);
+        // CRITICAL: Delete the request after successful sync instead of just marking as 'synced'
+        // This prevents stale "pending" counts in the sync widget
+        await this.indexedDb.removePendingRequest(request.requestId);
+        console.log(`[BackgroundSync] ✅ Synced and removed: ${request.requestId}`);
 
       } catch (error: any) {
         // Increment retry count
@@ -1068,6 +1111,68 @@ export class BackgroundSyncService {
       console.log(`[BackgroundSync] VisualID ${visualId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for VisualID ${visualId}:`, error);
+    }
+  }
+  
+  /**
+   * Clear the _localUpdate flag from an EFE room after successful sync
+   * This allows future background refreshes to use server data for FDF, Location, Notes
+   */
+  private async clearEFERoomLocalUpdateFlag(efeId: string, serviceId?: string): Promise<void> {
+    try {
+      // Helper to check if room matches by EFEID or PK_ID
+      const matchesRoom = (r: any) => {
+        return (String(r.EFEID) === String(efeId) || String(r.PK_ID) === String(efeId)) && r._localUpdate;
+      };
+      
+      // If we have the serviceId, update directly
+      if (serviceId) {
+        const rooms = await this.indexedDb.getCachedServiceData(String(serviceId), 'efe_rooms') || [];
+        let found = false;
+        
+        const updatedRooms = rooms.map((r: any) => {
+          if (matchesRoom(r)) {
+            found = true;
+            // Remove the _localUpdate flag - the data is now synced
+            const { _localUpdate, ...rest } = r;
+            return rest;
+          }
+          return r;
+        });
+        
+        if (found) {
+          await this.indexedDb.cacheServiceData(String(serviceId), 'efe_rooms', updatedRooms);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for EFEID ${efeId} in service ${serviceId}`);
+          return;
+        }
+      }
+      
+      // Otherwise search all services for this room
+      const allCaches = await this.indexedDb.getAllCachedServiceData('efe_rooms');
+      
+      for (const cache of allCaches) {
+        const rooms = cache.data || [];
+        let found = false;
+        
+        const updatedRooms = rooms.map((r: any) => {
+          if (matchesRoom(r)) {
+            found = true;
+            const { _localUpdate, ...rest } = r;
+            return rest;
+          }
+          return r;
+        });
+        
+        if (found) {
+          await this.indexedDb.cacheServiceData(cache.serviceId, 'efe_rooms', updatedRooms);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for EFEID ${efeId} in ${cache.serviceId}`);
+          return;
+        }
+      }
+      
+      console.log(`[BackgroundSync] EFEID ${efeId} not found in any cache (may already be cleared)`);
+    } catch (error) {
+      console.warn(`[BackgroundSync] Error clearing _localUpdate flag for EFEID ${efeId}:`, error);
     }
   }
   
