@@ -511,8 +511,8 @@ export class EngineersFoundationDataService {
       };
     }
     
-    // Store file in IndexedDB
-    await this.indexedDb.storePhotoFile(tempPhotoId, file, visualIdStr, caption);
+    // Store file in IndexedDB (including drawings/annotations)
+    await this.indexedDb.storePhotoFile(tempPhotoId, file, visualIdStr, caption, drawings);
 
     if (isTempId) {
       // Visual not synced - queue with dependency

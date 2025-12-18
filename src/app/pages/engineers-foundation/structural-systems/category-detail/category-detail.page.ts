@@ -628,57 +628,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               continue; // Already handled this photo
             }
             
-            // Check for temp photos that should be replaced by this real photo
-            const tempPhotoIndex = this.visualPhotos[key].findIndex(p => {
-              const isTempPhoto = (p.AttachID && String(p.AttachID).startsWith('temp_')) ||
-                                  (p._tempId && String(p._tempId).startsWith('temp_')) ||
-                                  (p._pendingFileId && String(p._pendingFileId).startsWith('temp_'));
-              return isTempPhoto && p._backgroundSync;
-            });
-            
-            if (tempPhotoIndex !== -1) {
-              const existingTempPhoto = this.visualPhotos[key][tempPhotoIndex];
-              console.log('[RELOAD AFTER SYNC] Updating temp photo', existingTempPhoto.AttachID, 'with real ID:', realAttachId);
-              
-              // Preserve the displayUrl if valid
-              const preservedUrl = existingTempPhoto.displayUrl || existingTempPhoto.url;
-              
-              // CRITICAL FIX: Preserve local caption if it exists
-              // Use local caption if set, otherwise use server caption
-              const preservedCaption = existingTempPhoto.caption || att.Annotation || att.Caption || '';
-              
-              this.visualPhotos[key][tempPhotoIndex] = {
-                ...existingTempPhoto,
-                AttachID: realAttachId,
-                attachId: realAttachId,
-                id: realAttachId,
-                caption: preservedCaption,
-                Attachment: att.Attachment,
-                loading: false,
-                uploading: false,
-                queued: false,
-                isSkeleton: false,  // CRITICAL: Ensure caption button is clickable
-                _tempId: undefined,
-                _pendingFileId: undefined,
-                _backgroundSync: undefined,
-                url: preservedUrl,
-                displayUrl: preservedUrl,
-                thumbnailUrl: preservedUrl,
-              };
-              anyChanges = true;
-              
-              // Only try to load if we have an S3 key AND don't have a valid URL
-              if (att.Attachment && !preservedUrl) {
-                this.loadSinglePhoto(att, key);
-              }
-              continue;
-            }
-            
-            // Only add new photo if server has actual Attachment data
-            // Don't add broken skeleton entries - let loadSinglePhoto handle adding
+            // CRITICAL FIX: Don't try to match temp photos generically here
+            // The photoUploadComplete$ subscription already handles temp->real ID transition
+            // Generic matching causes caption duplication when multiple photos sync at once
+            // Instead, just add the new photo from server if it doesn't already exist
             if (att.Attachment) {
               console.log('[RELOAD AFTER SYNC] Loading new photo from server:', realAttachId);
-              // DON'T push to array here - let loadSinglePhoto add it with proper URL
               // loadSinglePhoto checks for existing entries and adds if not found
               this.loadSinglePhoto(att, key);
               anyChanges = true;
@@ -2765,7 +2720,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     try {
       console.log(`[PHOTO UPLOAD] Starting upload for VisualID ${visualId}`);
 
-      const result = await this.foundationData.uploadVisualPhoto(visualId, photo, caption);
+      // CRITICAL: Pass annotations as serialized JSON string (drawings)
+      const drawings = annotationData ? JSON.stringify(annotationData) : '';
+      const result = await this.foundationData.uploadVisualPhoto(visualId, photo, caption, drawings, originalPhoto || undefined);
 
       console.log(`[PHOTO UPLOAD] Upload complete for VisualID ${visualId}, AttachID: ${result.AttachID}`);
 
@@ -3647,6 +3604,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                     this.visualPhotos[key] = this.visualPhotos[key].filter(
                       (p: any) => p.AttachID !== photo.AttachID
                     );
+                    // Update photo count immediately
+                    this.photoCountsByKey[key] = this.visualPhotos[key].length;
                   }
 
                   // Force UI update first
@@ -3759,22 +3718,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               this.isCaptionPopupOpen = false;
 
               // Save to database in background (no await - don't block popup close)
-              if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
-                // Get the visualId for this photo
-                const visualId = photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);
-                this.foundationData.updateVisualPhotoCaption(photo.AttachID, newCaption, visualId)
-                  .then(() => {
-                    console.log('[CAPTION] Saved caption for photo:', photo.AttachID);
-                  })
-                  .catch((error) => {
-                    console.error('[CAPTION] Error saving caption:', error);
-                    // Show error toast but don't revert UI - user already sees their caption
-                    this.showToast('Caption saved to device, will sync when online', 'warning');
-                  });
-              } else if (photo._pendingFileId || String(photo.AttachID || '').startsWith('temp_')) {
-                // CRITICAL FIX: For temp photos (still uploading/queued), update IndexedDB so background sync picks up the caption
+              // CRITICAL: Check if photo is still syncing (uploading, has temp ID, or has pending file ID)
+              const isSyncing = photo.uploading || photo._syncing || photo._backgroundSync || 
+                               photo._pendingFileId || String(photo.AttachID || '').startsWith('temp_');
+              
+              if (isSyncing) {
+                // CRITICAL FIX: For syncing photos, update IndexedDB so background sync picks up the caption
                 const pendingFileId = photo._pendingFileId || photo.AttachID;
-                console.log('[CAPTION] Updating IndexedDB caption for temp photo:', pendingFileId);
+                console.log('[CAPTION] Photo is syncing, updating IndexedDB caption:', pendingFileId);
                 
                 this.indexedDb.getStoredPhotoData(pendingFileId).then(existingData => {
                   if (existingData && existingData.file) {
@@ -3785,7 +3736,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                       newCaption,
                       existingData.drawings || ''
                     ).then(() => {
-                      console.log('[CAPTION] ✅ Updated IndexedDB caption for temp photo:', pendingFileId, 'caption:', newCaption);
+                      console.log('[CAPTION] ✅ Updated IndexedDB caption for syncing photo:', pendingFileId, 'caption:', newCaption);
                       // Mark as local update to prevent server overwriting on reload
                       photo._localUpdate = true;
                     }).catch((error: any) => {
@@ -3797,6 +3748,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                     photo._localUpdate = true;
                   }
                 });
+              } else if (photo.AttachID) {
+                // Photo is fully synced - save directly to API
+                const visualId = photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);
+                this.foundationData.updateVisualPhotoCaption(photo.AttachID, newCaption, visualId)
+                  .then(() => {
+                    console.log('[CAPTION] Saved caption for photo:', photo.AttachID);
+                  })
+                  .catch((error) => {
+                    console.error('[CAPTION] Error saving caption:', error);
+                    // Show error toast but don't revert UI - user already sees their caption
+                    this.showToast('Caption saved to device, will sync when online', 'warning');
+                  });
               }
 
               return true; // Close popup immediately
@@ -4088,7 +4051,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             
             console.log(`[CREATE CUSTOM] Uploading photo with VisualID:`, visualIdForUpload, 'isTemp:', isTempVisualId);
             
-            const result = await this.foundationData.uploadVisualPhoto(visualIdForUpload, fileToUpload, caption);
+            // CRITICAL: Pass annotations as serialized JSON string (drawings) and original file
+            const drawings = annotationData ? JSON.stringify(annotationData) : '';
+            const result = await this.foundationData.uploadVisualPhoto(visualIdForUpload, fileToUpload, caption, drawings, originalFile || undefined);
             const attachId = result?.AttachID || result?.PK_ID || result?.id;
 
             if (!attachId) {
