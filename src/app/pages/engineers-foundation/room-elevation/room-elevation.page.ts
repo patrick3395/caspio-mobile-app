@@ -720,11 +720,34 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     try {
       const pendingRequests = await this.indexedDb.getPendingRequests();
       // Filter for FDF photo uploads - marked with isFDFPhoto in data
-      const fdfRequests = pendingRequests.filter(r => 
-        r.type === 'UPLOAD_FILE' && 
-        r.data?.isFDFPhoto === true &&
-        r.data?.roomId === this.roomId
-      );
+      // CRITICAL FIX: Check both direct room ID match AND temp-to-real ID mapping
+      // This handles the case where FDF photo was taken with temp room ID but room now has real ID
+      const fdfRequests: any[] = [];
+      for (const r of pendingRequests) {
+        if (r.type === 'UPLOAD_FILE' && r.data?.isFDFPhoto === true) {
+          const storedRoomId = String(r.data?.roomId || '');
+          
+          // Direct match
+          if (storedRoomId === this.roomId) {
+            fdfRequests.push(r);
+            continue;
+          }
+          
+          // Check temp-to-real room ID mapping
+          // If the stored roomId was a temp ID that maps to current real roomId
+          if (storedRoomId.startsWith('temp_') && !String(this.roomId).startsWith('temp_')) {
+            try {
+              const mappedRealId = await this.indexedDb.getRealId(storedRoomId);
+              if (mappedRealId === this.roomId) {
+                console.log(`[FDF Restore] ✅ Matched pending FDF photo via temp->real room mapping: ${storedRoomId} -> ${this.roomId}`);
+                fdfRequests.push(r);
+              }
+            } catch (err) {
+              // Ignore mapping errors
+            }
+          }
+        }
+      }
       
       for (const req of fdfRequests) {
         const photoType = req.data?.photoType as 'Top' | 'Bottom' | 'Threshold';
@@ -1172,7 +1195,36 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         // CRITICAL: Add pending photos from the pre-grouped map (ONE IndexedDB read total)
         // This matches the structural systems pattern for performance
         const pointIdStr = String(pointData.pointId);
-        const pendingPhotos = pendingPhotosMap.get(pointIdStr) || [];
+        let pendingPhotos = pendingPhotosMap.get(pointIdStr) || [];
+        
+        // CRITICAL FIX: If no pending photos found by real ID, check for temp ID mappings
+        // This handles the case where:
+        // 1. Photo was taken for a point with temp ID (temp_point_xxx)
+        // 2. Page was reloaded
+        // 3. Point now has a real ID from server (123)
+        // 4. Pending photo is still stored with temp point ID in IndexedDB
+        if (pendingPhotos.length === 0 && pointIdStr && !pointIdStr.startsWith('temp_')) {
+          // This point has a real ID - check if any pending photos were stored with a temp ID
+          // that maps to this real ID
+          const mapEntries = Array.from(pendingPhotosMap.entries());
+          for (let i = 0; i < mapEntries.length; i++) {
+            const tempPointId = mapEntries[i][0];
+            const photos = mapEntries[i][1];
+            if (tempPointId.startsWith('temp_point_') || tempPointId.startsWith('temp_')) {
+              try {
+                const mappedRealId = await this.indexedDb.getRealId(tempPointId);
+                if (mappedRealId === pointIdStr) {
+                  pendingPhotos = photos;
+                  console.log(`[RoomElevation] ✅ Found pending photos via temp->real mapping: ${tempPointId} -> ${pointIdStr}`);
+                  break;
+                }
+              } catch (mappingErr) {
+                console.warn(`[RoomElevation] Error checking temp ID mapping for ${tempPointId}:`, mappingErr);
+              }
+            }
+          }
+        }
+        
         if (pendingPhotos.length > 0) {
           console.log(`[RoomElevation]   Adding ${pendingPhotos.length} pending photos for point ${pointIdStr}`);
           for (const pendingPhoto of pendingPhotos) {

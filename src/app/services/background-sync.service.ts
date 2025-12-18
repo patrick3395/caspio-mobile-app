@@ -250,6 +250,11 @@ export class BackgroundSyncService {
               console.log(`[BackgroundSync] Updated EFE points cache for room ${roomId}`);
             }
 
+            // CRITICAL: Store temp-to-real point ID mapping for photo restoration on reload
+            // This allows loadElevationPoints to find pending photos that were stored with temp point IDs
+            await this.indexedDb.mapTempId(request.tempId!, String(realId), 'point');
+            console.log(`[BackgroundSync] ✅ Stored point ID mapping: ${request.tempId} -> ${realId}`);
+
             this.ngZone.run(() => {
               this.efePointSyncComplete$.next({
                 tempId: request.tempId!,

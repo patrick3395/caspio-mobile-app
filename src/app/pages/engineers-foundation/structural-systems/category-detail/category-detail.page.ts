@@ -3336,6 +3336,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 }
               } else {
                 console.warn('[SAVE OFFLINE] Could not find original file in IndexedDB for:', pendingFileId);
+                
+                // CRITICAL FIX: If file is not found, the photo may have been synced while user was annotating
+                // Try to save to the database using the _originalTempId or look for a real AttachID
+                const realAttachId = currentPhoto._originalTempId ? 
+                  await this.indexedDb.getRealId(String(currentPhoto._originalTempId)) : null;
+                  
+                if (realAttachId) {
+                  console.log('[SAVE OFFLINE] Photo was synced! Saving annotations to database with real ID:', realAttachId);
+                  try {
+                    await this.saveAnnotationToDatabase(realAttachId, annotatedBlob, annotationsData, data.caption || '');
+                    console.log('[SAVE OFFLINE] ✅ Annotations saved to database with real ID');
+                  } catch (dbError) {
+                    console.error('[SAVE OFFLINE] Failed to save annotations to database:', dbError);
+                  }
+                } else {
+                  console.warn('[SAVE OFFLINE] No real ID found, annotations will only be saved locally');
+                }
               }
 
               // Update local photo object
@@ -3349,10 +3366,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
                 annotations: annotationsData,
                 Drawings: compressedDrawings,
-                rawDrawingsString: compressedDrawings
+                rawDrawingsString: compressedDrawings,
+                _localUpdate: true  // CRITICAL: Prevent reload from overwriting local annotations
               };
 
-              console.log('[SAVE OFFLINE] Updated local photo object');
+              console.log('[SAVE OFFLINE] Updated local photo object with _localUpdate flag');
               
               // CRITICAL FIX: Cache annotated image for temp photos too
               // This ensures annotations show in thumbnails even for offline photos
