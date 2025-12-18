@@ -282,17 +282,17 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     const isOnline = this.offlineService.isOnline();
     console.log(`[EF Container] Online status: ${isOnline}`);
 
-    // Check if already downloaded (fast path for returning to template)
-    const isReady = await this.offlineTemplate.isTemplateDataReady(this.serviceId, 'EFE');
-    if (isReady) {
-      console.log('[EF Container] Template already cached - ready immediately');
+    // OFFLINE-FIRST: Check if we actually have cached DATA (not just the download status flag)
+    // This prevents showing content with broken images if cache was cleared
+    const hasCachedData = await this.verifyCachedDataExists();
+    
+    if (hasCachedData) {
+      console.log('[EF Container] Cached data verified - ready immediately');
       this.templateReady = true;
       
-      // If online, refresh service data in background (non-blocking) to get latest changes
-      if (isOnline) {
-        console.log('[EF Container] Refreshing service data in background...');
-        this.refreshServiceDataInBackground();
-      }
+      // Background operations (same whether online or offline - they queue if offline)
+      this.refreshDataInBackground();
+      this.ensureImagesCached();
       return;
     }
 
@@ -358,7 +358,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       // Check Visual Templates (Structural System categories)
       const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
       const visualTemplateCount = visualTemplates?.length || 0;
-      const categories = [...new Set(visualTemplates?.map((t: any) => t.Category) || [])];
+      const categories = Array.from(new Set(visualTemplates?.map((t: any) => t.Category) || []));
       console.log(`║  📋 Visual Templates:        ${String(visualTemplateCount).padStart(5)} templates in ${categories.length} categories  ║`);
       if (categories.length > 0) {
         console.log(`║     Categories: ${categories.slice(0, 3).join(', ')}${categories.length > 3 ? '...' : ''}`);
@@ -415,20 +415,115 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Refresh service data in background when online.
-   * This ensures we have the latest data from the server without blocking the UI.
+   * OFFLINE-FIRST: Verify that we actually have cached data in IndexedDB
+   * Returns true only if critical data exists (not just the download status flag)
    */
-  private async refreshServiceDataInBackground(): Promise<void> {
+  private async verifyCachedDataExists(): Promise<boolean> {
+    try {
+      // Check for visual templates (required)
+      const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
+      if (!visualTemplates || visualTemplates.length === 0) {
+        console.log('[EF Container] No visual templates cached');
+        return false;
+      }
+
+      // Check for EFE templates (required for room elevation)
+      const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
+      if (!efeTemplates || efeTemplates.length === 0) {
+        console.log('[EF Container] No EFE templates cached');
+        return false;
+      }
+
+      // Check for service record (required for project context)
+      const serviceRecord = await this.indexedDb.getCachedServiceRecord(this.serviceId);
+      if (!serviceRecord) {
+        console.log('[EF Container] No service record cached');
+        return false;
+      }
+
+      console.log('[EF Container] Verified cached data exists');
+      return true;
+    } catch (error) {
+      console.error('[EF Container] Error verifying cached data:', error);
+      return false;
+    }
+  }
+
+  /**
+   * OFFLINE-FIRST: Refresh data in background (works same online or offline)
+   * If offline, operations queue for later. If online, they execute immediately.
+   */
+  private async refreshDataInBackground(): Promise<void> {
+    // Only attempt refresh if online - but don't block or fail if offline
+    if (!this.offlineService.isOnline()) {
+      console.log('[EF Container] Offline - skipping background refresh (will sync when online)');
+      return;
+    }
+
     try {
       console.log('[EF Container] Background refresh starting...');
-      
-      // Force refresh the template data to get latest from server
       await this.offlineTemplate.forceRefreshTemplateData(this.serviceId, 'EFE', this.projectId);
-      
-      console.log('[EF Container] Background refresh complete - latest data loaded');
+      console.log('[EF Container] Background refresh complete');
     } catch (error) {
       console.warn('[EF Container] Background refresh failed (non-critical):', error);
-      // Don't throw - this is a background operation
+    }
+  }
+
+  /**
+   * OFFLINE-FIRST: Ensure images are cached in IndexedDB
+   * Runs in background - if offline, just logs and returns (images already in cache or not available)
+   */
+  private async ensureImagesCached(): Promise<void> {
+    try {
+      console.log('[EF Container] Ensuring images are cached...');
+      
+      // Get all visual attachments for this service from IndexedDB
+      const visuals = await this.offlineTemplate.getVisualsByService(this.serviceId);
+      const visualIds = visuals.map((v: any) => v.VisualID || v.PK_ID).filter((id: any) => id);
+      
+      let cachedCount = 0;
+      let skippedCount = 0;
+      let queuedCount = 0;
+      
+      for (const visualId of visualIds) {
+        try {
+          const attachments = await this.offlineTemplate.getVisualAttachments(visualId);
+          
+          for (const att of attachments) {
+            const attachId = String(att.AttachID || att.PK_ID);
+            const s3Key = att.Attachment;
+            
+            if (!s3Key) continue;
+            
+            // Check if already cached in IndexedDB
+            const cached = await this.indexedDb.getCachedPhoto(attachId);
+            if (cached) {
+              skippedCount++;
+              continue;
+            }
+            
+            // Not cached - attempt to fetch if online
+            if (this.offlineService.isOnline()) {
+              try {
+                const dataUrl = await this.offlineTemplate.fetchImageAsBase64Exposed(s3Key);
+                await this.indexedDb.cachePhoto(attachId, this.serviceId, dataUrl, s3Key);
+                cachedCount++;
+              } catch (imgErr) {
+                console.warn(`[EF Container] Failed to cache image ${attachId}:`, imgErr);
+              }
+            } else {
+              // Offline - image will be fetched when online
+              queuedCount++;
+            }
+          }
+        } catch (attErr) {
+          console.warn(`[EF Container] Failed to get attachments for visual ${visualId}:`, attErr);
+        }
+      }
+      
+      console.log(`[EF Container] Image caching: ${cachedCount} new, ${skippedCount} existing, ${queuedCount} queued for later`);
+    } catch (error) {
+      console.warn('[EF Container] Image caching check failed (non-critical):', error);
     }
   }
 }

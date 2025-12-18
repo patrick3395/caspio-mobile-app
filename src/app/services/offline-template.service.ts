@@ -498,6 +498,19 @@ export class OfflineTemplateService {
   }
 
   /**
+   * Public method to fetch an S3 image and convert to base64 data URL
+   * Handles getting the signed S3 URL first, then fetching the image
+   */
+  async fetchImageAsBase64Exposed(s3KeyOrUrl: string): Promise<string> {
+    // If it's an S3 key, get the signed URL first
+    let url = s3KeyOrUrl;
+    if (this.caspioService.isS3Key(s3KeyOrUrl)) {
+      url = await this.caspioService.getS3FileUrl(s3KeyOrUrl);
+    }
+    return this.fetchImageAsBase64(url);
+  }
+
+  /**
    * Fetch image and convert to base64 data URL
    * Uses XMLHttpRequest which works reliably on both web and mobile (Capacitor)
    * The standard fetch() API can have CORS issues on native mobile platforms
