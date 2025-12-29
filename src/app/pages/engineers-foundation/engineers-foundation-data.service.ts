@@ -476,27 +476,37 @@ export class EngineersFoundationDataService {
   // VISUAL PHOTO METHODS
   // ============================================
 
-  async uploadVisualPhoto(visualId: number | string, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
-    console.log('[Visual Photo] Uploading photo for VisualID:', visualId);
+  /**
+   * Upload a photo for a visual - OFFLINE-FIRST approach
+   * 1. Store file in IndexedDB FIRST (instant, survives app restart)
+   * 2. Generate blob URL for immediate display
+   * 3. Queue for background sync
+   * 4. Return immediately - never block for network
+   * 
+   * @param visualId - Visual ID (temp or real)
+   * @param file - Photo file
+   * @param caption - Photo caption
+   * @param drawings - Annotation JSON data
+   * @param originalFile - Original uncompressed file (optional)
+   * @param serviceId - Service ID for grouping (optional but recommended)
+   */
+  async uploadVisualPhoto(visualId: number | string, file: File, caption: string = '', drawings?: string, originalFile?: File, serviceId?: string): Promise<any> {
+    console.log('[Visual Photo] OFFLINE-FIRST upload for VisualID:', visualId, 'ServiceID:', serviceId);
     
     const visualIdStr = String(visualId);
     const isTempId = visualIdStr.startsWith('temp_');
 
-    // SIMPLE APPROACH: Always store file in IndexedDB first, queue upload
+    // Generate unique temp photo ID
     const tempPhotoId = `temp_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // Create object URL for immediate thumbnail
-    const objectUrl = URL.createObjectURL(file);
-    
     // Check if this exact photo is already queued (prevent duplicates)
-    // CRITICAL FIX: Handle both temp IDs (strings) and real IDs (numbers)
     const pending = await this.indexedDb.getPendingRequests();
     const alreadyQueued = pending.some(r => 
       r.type === 'UPLOAD_FILE' &&
       r.endpoint === 'VISUAL_PHOTO_UPLOAD' &&
       (isTempId 
-        ? (r.data.tempVisualId === visualIdStr)  // Match temp IDs as strings
-        : (r.data.visualId === parseInt(visualIdStr, 10))  // Match real IDs as numbers
+        ? (r.data.tempVisualId === visualIdStr)
+        : (r.data.visualId === parseInt(visualIdStr, 10))
       ) &&
       r.data.fileName === file.name &&
       r.status !== 'synced'
@@ -504,22 +514,32 @@ export class EngineersFoundationDataService {
 
     if (alreadyQueued) {
       console.log('[Visual Photo] Photo already queued, skipping duplicate');
+      const blobUrl = URL.createObjectURL(file);
       return {
         AttachID: tempPhotoId,
-        _thumbnailUrl: objectUrl,
+        thumbnailUrl: blobUrl,
+        _thumbnailUrl: blobUrl,
         _duplicate: true,
       };
     }
     
-    // Store file in IndexedDB (including drawings/annotations)
-    await this.indexedDb.storePhotoFile(tempPhotoId, file, visualIdStr, caption, drawings);
+    // STEP 1: Store file in IndexedDB FIRST (survives app restart)
+    await this.indexedDb.storePhotoBlob(tempPhotoId, file, {
+      visualId: visualIdStr,
+      serviceId: serviceId || '',
+      caption: caption || '',
+      drawings: drawings || '',
+      status: 'pending'
+    });
 
+    // STEP 2: Generate fresh blob URL for immediate display
+    const blobUrl = await this.indexedDb.getPhotoBlobUrl(tempPhotoId) || URL.createObjectURL(file);
+
+    // STEP 3: Queue for background sync
     if (isTempId) {
       // Visual not synced - queue with dependency
-      // Search in both pending and all requests to find the visual's requestId
-      const pending = await this.indexedDb.getPendingRequests();
       const allRequests = await this.indexedDb.getAllRequests();
-      const visualRequest = [...pending, ...allRequests].find(r => r.tempId === visualIdStr);
+      const visualRequest = allRequests.find(r => r.tempId === visualIdStr);
       const dependencies = visualRequest ? [visualRequest.requestId] : [];
 
       if (dependencies.length === 0) {
@@ -538,49 +558,19 @@ export class EngineersFoundationDataService {
           fileId: tempPhotoId,
           caption: caption || '',
           drawings: drawings || '',
+          fileName: file.name,
+          fileSize: file.size,
+          serviceId: serviceId || '',
         },
         dependencies: dependencies,
         status: 'pending',
         priority: 'normal',
       });
 
-      console.log('[Visual Photo] Photo queued (waiting for Visual)');
-
-      // Return placeholder with thumbnail
-      return {
-        AttachID: tempPhotoId,
-        VisualID: visualIdStr,
-        Annotation: caption,
-        Photo: objectUrl,  // Show from object URL
-        url: objectUrl,
-        thumbnailUrl: objectUrl,
-        _tempId: tempPhotoId,
-        _thumbnailUrl: objectUrl,
-        _syncing: true,
-        uploading: false,  // Not actively uploading
-        queued: true,      // Queued for background sync
-        isObjectUrl: true,
-      };
-    }
-
-    // Visual has real ID - upload now
-    const visualIdNum = parseInt(visualIdStr, 10);
-    
-    try {
-      const result = await firstValueFrom(
-        this.caspioService.createServicesVisualsAttachWithFile(visualIdNum, caption, file, drawings, originalFile)
-      );
-
-      // Success - DON'T delete file yet (background sync might need it)
-      // File will be deleted by background sync after confirming upload
-      console.log('[Visual Photo] Upload succeeded, file kept in IndexedDB for background sync');
-
-      // Clear cache
-      this.visualAttachmentsCache.delete(visualIdStr);
-
-      return result;
-    } catch (error) {
-      // Failed - keep in IndexedDB, queue for retry
+      console.log('[Visual Photo] ✅ Photo stored in IndexedDB and queued (waiting for Visual)');
+    } else {
+      // Visual has real ID - queue for immediate sync
+      const visualIdNum = parseInt(visualIdStr, 10);
       const idempotencyKey = `photo_upload_${visualIdNum}_${file.name}_${file.size}`;
       
       await this.indexedDb.addPendingRequest({
@@ -596,27 +586,36 @@ export class EngineersFoundationDataService {
           fileName: file.name,
           fileSize: file.size,
           idempotencyKey: idempotencyKey,
+          serviceId: serviceId || '',
         },
         dependencies: [],
         status: 'pending',
         priority: 'high',
       });
 
-      console.log('[Visual Photo] Upload failed, queued for retry');
-      
-      // Return placeholder
-      return {
-        AttachID: tempPhotoId,
-        Photo: objectUrl,
-        url: objectUrl,
-        thumbnailUrl: objectUrl,
-        _thumbnailUrl: objectUrl,
-        _syncing: true,
-        uploading: false,  // Saved to IndexedDB, not actively uploading
-        queued: true,      // Will upload in background
-        isObjectUrl: true,
-      };
+      console.log('[Visual Photo] ✅ Photo stored in IndexedDB and queued for upload');
     }
+
+    // STEP 4: Trigger background sync (will succeed if online, retry if offline)
+    this.backgroundSync.triggerSync();
+
+    // STEP 5: Return immediately with blob URL - NEVER WAIT FOR NETWORK
+    return {
+      AttachID: tempPhotoId,
+      VisualID: visualIdStr,
+      Annotation: caption,
+      Photo: blobUrl,
+      url: blobUrl,
+      thumbnailUrl: blobUrl,
+      _tempId: tempPhotoId,
+      _thumbnailUrl: blobUrl,
+      _syncing: true,
+      uploading: false,
+      queued: true,
+      isPending: true,
+      isObjectUrl: true,
+      serviceId: serviceId || '',
+    };
   }
 
   async deleteVisualPhoto(attachId: string): Promise<any> {
@@ -968,35 +967,39 @@ export class EngineersFoundationDataService {
   /**
    * Upload EFE point photo (offline-first pattern with point dependency)
    */
-  async uploadEFEPointPhoto(pointId: number | string, file: File, photoType: string = 'Measurement', drawings?: string): Promise<any> {
-    console.log('[EFE Photo] ========== uploadEFEPointPhoto START ==========');
-    console.log('[EFE Photo] Input PointID:', pointId, 'type:', typeof pointId);
-    console.log('[EFE Photo] PhotoType:', photoType, 'Drawings length:', drawings?.length || 0);
+  /**
+   * Upload a photo for an EFE point - OFFLINE-FIRST approach
+   * 1. Store file in IndexedDB FIRST (instant, survives app restart)
+   * 2. Generate blob URL for immediate display
+   * 3. Queue for background sync
+   * 4. Return immediately - never block for network
+   * 
+   * @param pointId - EFE Point ID (temp or real)
+   * @param file - Photo file
+   * @param photoType - Photo type (Measurement, etc.)
+   * @param drawings - Annotation JSON data
+   * @param serviceId - Service ID for grouping (optional but recommended)
+   */
+  async uploadEFEPointPhoto(pointId: number | string, file: File, photoType: string = 'Measurement', drawings?: string, serviceId?: string): Promise<any> {
+    console.log('[EFE Photo] OFFLINE-FIRST upload for PointID:', pointId, 'ServiceID:', serviceId);
 
     const pointIdStr = String(pointId);
     const isTempId = pointIdStr.startsWith('temp_');
-    const isActuallyOffline = !this.offlineService.isOnline();
-    
-    console.log('[EFE Photo] pointIdStr:', pointIdStr);
-    console.log('[EFE Photo] isTempId:', isTempId);
-    console.log('[EFE Photo] isActuallyOffline:', isActuallyOffline);
 
     // Generate temp photo ID
     const tempPhotoId = `temp_efe_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Create object URL for immediate thumbnail
-    const objectUrl = URL.createObjectURL(file);
+    // STEP 1: Store file in IndexedDB FIRST (survives app restart)
+    await this.indexedDb.storeEFEPhotoFile(tempPhotoId, file, pointIdStr, photoType, drawings, '', serviceId);
 
-    // Store file in IndexedDB with correct pointId
-    console.log('[EFE Photo] Storing in IndexedDB with pointId:', pointIdStr);
-    await this.indexedDb.storeEFEPhotoFile(tempPhotoId, file, pointIdStr, photoType, drawings);
+    // STEP 2: Generate fresh blob URL for immediate display
+    const blobUrl = await this.indexedDb.getPhotoBlobUrl(tempPhotoId) || URL.createObjectURL(file);
 
+    // STEP 3: Queue for background sync
     if (isTempId) {
       // Point not synced - queue with dependency
-      // Search in both pending and all requests (in case point was created earlier)
-      const pending = await this.indexedDb.getPendingRequests();
       const allRequests = await this.indexedDb.getAllRequests();
-      const pointRequest = [...pending, ...allRequests].find(r => r.tempId === pointIdStr);
+      const pointRequest = allRequests.find(r => r.tempId === pointIdStr);
       const dependencies = pointRequest ? [pointRequest.requestId] : [];
       
       if (dependencies.length === 0) {
@@ -1015,39 +1018,19 @@ export class EngineersFoundationDataService {
           fileId: tempPhotoId,
           photoType: photoType || 'Measurement',
           drawings: drawings || '',
+          fileName: file.name,
+          fileSize: file.size,
+          serviceId: serviceId || '',
         },
         dependencies: dependencies,
         status: 'pending',
         priority: 'normal',
       });
 
-      console.log('[EFE Photo] Photo queued (waiting for Point):', tempPhotoId);
-
-      // Return placeholder with thumbnail
-      return {
-        AttachID: tempPhotoId,
-        PointID: pointIdStr,
-        Type: photoType,
-        Photo: objectUrl,
-        url: objectUrl,
-        thumbnailUrl: objectUrl,
-        _tempId: tempPhotoId,
-        _thumbnailUrl: objectUrl,
-        _syncing: true,
-        uploading: false,
-        queued: true,
-        isObjectUrl: true,
-        isEFE: true,
-      };
-    }
-
-    // Point has real ID - check if we should try to upload now or queue
-    const pointIdNum = parseInt(pointIdStr, 10);
-    console.log('[EFE Photo] Real PointID:', pointIdNum, 'isActuallyOffline:', isActuallyOffline);
-
-    // If we're offline, skip the API call and queue directly
-    if (isActuallyOffline) {
-      console.log('[EFE Photo] Offline - queueing directly without API attempt');
+      console.log('[EFE Photo] ✅ Photo stored in IndexedDB and queued (waiting for Point)');
+    } else {
+      // Point has real ID - queue for immediate sync
+      const pointIdNum = parseInt(pointIdStr, 10);
       
       await this.indexedDb.addPendingRequest({
         type: 'UPLOAD_FILE',
@@ -1055,94 +1038,43 @@ export class EngineersFoundationDataService {
         endpoint: 'EFE_POINT_PHOTO_UPLOAD',
         method: 'POST',
         data: {
-          pointId: pointIdNum,  // Real point ID
+          pointId: pointIdNum,
           fileId: tempPhotoId,
           photoType: photoType || 'Measurement',
           drawings: drawings || '',
           fileName: file.name,
           fileSize: file.size,
+          serviceId: serviceId || '',
         },
         dependencies: [],
         status: 'pending',
         priority: 'high',
       });
 
-      console.log('[EFE Photo] ✅ Queued for offline sync with real PointID:', pointIdNum);
-
-      // Return placeholder with queued state
-      return {
-        AttachID: tempPhotoId,
-        PointID: pointIdNum,
-        Type: photoType,
-        Photo: objectUrl,
-        url: objectUrl,
-        thumbnailUrl: objectUrl,
-        _tempId: tempPhotoId,
-        _thumbnailUrl: objectUrl,
-        _syncing: true,
-        uploading: false,
-        queued: true,
-        isObjectUrl: true,
-        isEFE: true,
-      };
+      console.log('[EFE Photo] ✅ Photo stored in IndexedDB and queued for upload');
     }
 
-    // Online - try to upload now
-    try {
-      console.log('[EFE Photo] Online - attempting direct upload for PointID:', pointIdNum);
-      const result = await firstValueFrom(
-        this.caspioService.createServicesEFEPointsAttachWithFile(pointIdNum, drawings || '', file, photoType)
-      );
+    // STEP 4: Trigger background sync (will succeed if online, retry if offline)
+    this.backgroundSync.triggerSync();
 
-      // Success - delete stored file
-      await this.indexedDb.deleteStoredFile(tempPhotoId);
-
-      // Clear caches
-      this.efeAttachmentsCache.clear();
-
-      console.log('[EFE Photo] Upload succeeded');
-      return result;
-    } catch (error) {
-      // Failed - keep in IndexedDB, queue for retry
-      console.log('[EFE Photo] Upload failed, queueing for retry with PointID:', pointIdNum);
-      
-      await this.indexedDb.addPendingRequest({
-        type: 'UPLOAD_FILE',
-        tempId: tempPhotoId,
-        endpoint: 'EFE_POINT_PHOTO_UPLOAD',
-        method: 'POST',
-        data: {
-          pointId: pointIdNum,  // Real point ID (not temp)
-          fileId: tempPhotoId,
-          photoType: photoType || 'Measurement',
-          drawings: drawings || '',
-          fileName: file.name,
-          fileSize: file.size,
-        },
-        dependencies: [],
-        status: 'pending',
-        priority: 'high',
-      });
-
-      console.log('[EFE Photo] ✅ Queued for retry with pointId:', pointIdNum);
-
-      // Return placeholder
-      return {
-        AttachID: tempPhotoId,
-        PointID: pointIdStr,
-        Type: photoType,
-        Photo: objectUrl,
-        url: objectUrl,
-        thumbnailUrl: objectUrl,
-        _tempId: tempPhotoId,
-        _thumbnailUrl: objectUrl,
-        _syncing: true,
-        uploading: false,
-        queued: true,
-        isObjectUrl: true,
-        isEFE: true,
-      };
-    }
+    // STEP 5: Return immediately with blob URL - NEVER WAIT FOR NETWORK
+    return {
+      AttachID: tempPhotoId,
+      PointID: pointIdStr,
+      Type: photoType,
+      Photo: blobUrl,
+      url: blobUrl,
+      thumbnailUrl: blobUrl,
+      _tempId: tempPhotoId,
+      _thumbnailUrl: blobUrl,
+      _syncing: true,
+      uploading: false,
+      queued: true,
+      isPending: true,
+      isObjectUrl: true,
+      isEFE: true,
+      serviceId: serviceId || '',
+    };
   }
 
   /**

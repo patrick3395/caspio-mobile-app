@@ -629,7 +629,27 @@ export class BackgroundSyncService {
 
       console.log('[BackgroundSync] Photo uploaded successfully to Visual', visualId, 'with', latestDrawings.length, 'chars of drawings, caption:', latestCaption || '(none)');
 
-      // Emit event so pages can update their local state
+      // STEP 1: Update photo status to 'synced' (before cleanup)
+      await this.indexedDb.updatePhotoStatus(data.fileId, 'synced');
+      console.log('[BackgroundSync] Photo status updated to synced:', data.fileId);
+
+      // STEP 2: Cache the uploaded image as base64 for offline viewing
+      // This enables seamless URL transition from blob URL to cached base64
+      try {
+        if (result.s3Key || result.Photo) {
+          await this.cacheUploadedPhoto(
+            result.AttachID || result.attachId,
+            data.serviceId || '',
+            result.s3Key || result.Photo
+          );
+          console.log('[BackgroundSync] ✅ Cached uploaded photo for offline viewing');
+        }
+      } catch (cacheErr) {
+        console.warn('[BackgroundSync] Failed to cache uploaded photo:', cacheErr);
+        // Continue anyway - photo was uploaded successfully
+      }
+
+      // STEP 3: Emit event so pages can update their local state with cached URL
       this.ngZone.run(() => {
         this.photoUploadComplete$.next({
           tempFileId: data.fileId,
@@ -639,7 +659,7 @@ export class BackgroundSyncService {
         });
       });
 
-      // Clean up stored photo after successful upload
+      // STEP 4: Clean up stored photo after successful upload and caching
       await this.indexedDb.deleteStoredFile(data.fileId);
       console.log('[BackgroundSync] Cleaned up stored photo file:', data.fileId);
 
@@ -779,7 +799,26 @@ export class BackgroundSyncService {
 
       console.log('[BackgroundSync] ✅ EFE photo uploaded to Point', pointId, 'Result:', JSON.stringify(result));
 
-      // Emit event so pages can update their local state
+      // STEP 1: Update photo status to 'synced' (before cleanup)
+      await this.indexedDb.updatePhotoStatus(data.fileId, 'synced');
+      console.log('[BackgroundSync] EFE photo status updated to synced:', data.fileId);
+
+      // STEP 2: Cache the uploaded image as base64 for offline viewing
+      try {
+        if (result.s3Key || result.Photo) {
+          await this.cacheUploadedPhoto(
+            result.AttachID || result.attachId,
+            data.serviceId || '',
+            result.s3Key || result.Photo
+          );
+          console.log('[BackgroundSync] ✅ Cached EFE photo for offline viewing');
+        }
+      } catch (cacheErr) {
+        console.warn('[BackgroundSync] Failed to cache EFE photo:', cacheErr);
+        // Continue anyway - photo was uploaded successfully
+      }
+
+      // STEP 3: Emit event so pages can update their local state with cached URL
       this.ngZone.run(() => {
         this.efePhotoUploadComplete$.next({
           tempFileId: data.fileId,
@@ -789,7 +828,7 @@ export class BackgroundSyncService {
         });
       });
 
-      // Clean up stored photo
+      // STEP 4: Clean up stored photo
       await this.indexedDb.deleteStoredFile(data.fileId);
       console.log('[BackgroundSync] Cleaned up EFE photo file:', data.fileId);
 
@@ -1280,6 +1319,44 @@ export class BackgroundSyncService {
   /**
    * Download and cache actual photo images as base64 for offline viewing
    */
+
+  /**
+   * Cache a single uploaded photo for offline viewing
+   * Called after successful photo upload to enable seamless URL transition
+   * @param attachId - The real attachment ID from the server
+   * @param serviceId - Service ID for grouping
+   * @param s3Key - S3 key or Photo URL from upload result
+   */
+  private async cacheUploadedPhoto(attachId: string, serviceId: string, s3Key: string): Promise<void> {
+    if (!attachId || !s3Key) {
+      console.warn('[BackgroundSync] Cannot cache photo - missing attachId or s3Key');
+      return;
+    }
+
+    try {
+      // Check if it's an S3 key or already a URL
+      let s3Url: string;
+      if (this.caspioService.isS3Key(s3Key)) {
+        s3Url = await this.caspioService.getS3FileUrl(s3Key);
+      } else if (s3Key.startsWith('http')) {
+        s3Url = s3Key;
+      } else {
+        console.warn('[BackgroundSync] Unknown photo format, skipping cache:', s3Key?.substring(0, 50));
+        return;
+      }
+
+      // Download and convert to base64 using cross-platform XMLHttpRequest
+      const base64 = await this.fetchImageAsBase64(s3Url);
+
+      // Cache in IndexedDB
+      await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
+      console.log('[BackgroundSync] Cached uploaded photo:', attachId);
+    } catch (err: any) {
+      console.warn('[BackgroundSync] Failed to cache uploaded photo:', attachId, err?.message || err);
+      // Don't throw - the upload was successful, just caching failed
+    }
+  }
+
   /**
    * Download and cache photos for offline viewing
    * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)

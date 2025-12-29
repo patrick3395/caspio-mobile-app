@@ -54,7 +54,7 @@ export interface PendingEFEData {
 })
 export class IndexedDbService {
   private dbName = 'CaspioOfflineDB';
-  private version = 3;  // Bumped for cachedPhotos store
+  private version = 4;  // Bumped for enhanced photo blob storage with serviceId
   private db: IDBDatabase | null = null;
 
   constructor() {
@@ -107,6 +107,23 @@ export class IndexedDbService {
           const imageStore = db.createObjectStore('pendingImages', { keyPath: 'imageId' });
           imageStore.createIndex('requestId', 'requestId', { unique: false });
           imageStore.createIndex('status', 'status', { unique: false });
+          imageStore.createIndex('serviceId', 'serviceId', { unique: false });
+          imageStore.createIndex('visualId', 'visualId', { unique: false });
+        } else if (oldVersion < 4) {
+          // Migration for v4: Add serviceId and visualId indexes to existing pendingImages store
+          try {
+            const imageStore = (event.target as IDBOpenDBRequest).transaction!.objectStore('pendingImages');
+            if (!imageStore.indexNames.contains('serviceId')) {
+              imageStore.createIndex('serviceId', 'serviceId', { unique: false });
+              console.log('[IndexedDB] Added serviceId index to pendingImages');
+            }
+            if (!imageStore.indexNames.contains('visualId')) {
+              imageStore.createIndex('visualId', 'visualId', { unique: false });
+              console.log('[IndexedDB] Added visualId index to pendingImages');
+            }
+          } catch (e) {
+            console.warn('[IndexedDB] Could not add indexes to pendingImages:', e);
+          }
         }
 
         // Cached templates store (for visual/EFE templates - rarely change)
@@ -505,8 +522,9 @@ export class IndexedDbService {
    * Store photo file for offline upload
    * Stores as Blob (File objects don't persist reliably in IndexedDB)
    * Now also stores drawings/annotations for offline support
+   * ENHANCED: Now includes serviceId for filtering by service
    */
-  async storePhotoFile(tempId: string, file: File, visualId: string, caption?: string, drawings?: string): Promise<void> {
+  async storePhotoFile(tempId: string, file: File, visualId: string, caption?: string, drawings?: string, serviceId?: string): Promise<void> {
     const db = await this.ensureDb();
 
     // Read file as ArrayBuffer (more reliable than storing File object)
@@ -523,6 +541,7 @@ export class IndexedDbService {
         fileSize: file.size,
         fileType: file.type,
         visualId: visualId,
+        serviceId: serviceId || '',  // ENHANCED: Store serviceId for filtering
         caption: caption || '',
         drawings: drawings || '',  // Store drawings/annotations data
         status: 'pending',
@@ -539,6 +558,178 @@ export class IndexedDbService {
       addRequest.onerror = () => {
         console.error('[IndexedDB] Failed to store photo:', addRequest.error);
         reject(addRequest.error);
+      };
+    });
+  }
+
+  /**
+   * Store photo blob with full metadata for offline-first workflow
+   * This is the primary method for storing photos that need to persist across app restarts
+   * @param photoId - Unique ID for the photo (temp_photo_xxx)
+   * @param file - The photo file/blob
+   * @param metadata - Photo metadata including visualId, serviceId, caption, drawings, status
+   */
+  async storePhotoBlob(photoId: string, file: File | Blob, metadata: {
+    visualId: string;
+    serviceId: string;
+    caption?: string;
+    drawings?: string;
+    status?: 'pending' | 'uploading' | 'synced';
+  }): Promise<void> {
+    const db = await this.ensureDb();
+
+    // Read file as ArrayBuffer (more reliable than storing File object)
+    const arrayBuffer = await (file instanceof File ? file : new Response(file).blob().then(b => b.arrayBuffer())).catch(() => file.arrayBuffer());
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readwrite');
+      const store = transaction.objectStore('pendingImages');
+
+      const imageData = {
+        imageId: photoId,
+        fileData: arrayBuffer,
+        fileName: file instanceof File ? file.name : `photo_${Date.now()}.jpg`,
+        fileSize: file.size,
+        fileType: file.type || 'image/jpeg',
+        visualId: metadata.visualId,
+        serviceId: metadata.serviceId,
+        caption: metadata.caption || '',
+        drawings: metadata.drawings || '',
+        status: metadata.status || 'pending',
+        createdAt: Date.now(),
+      };
+
+      const putRequest = store.put(imageData);
+
+      putRequest.onsuccess = () => {
+        console.log('[IndexedDB] Photo blob stored:', photoId, imageData.fileSize, 'bytes, service:', metadata.serviceId);
+        resolve();
+      };
+
+      putRequest.onerror = () => {
+        console.error('[IndexedDB] Failed to store photo blob:', putRequest.error);
+        reject(putRequest.error);
+      };
+    });
+  }
+
+  /**
+   * Get a fresh blob URL for a stored photo
+   * Creates a new blob URL from the stored ArrayBuffer
+   * CRITICAL: Blob URLs are regenerated each time to work across app restarts
+   * @param photoId - The photo ID to get URL for
+   * @returns Fresh blob URL or null if photo not found
+   */
+  async getPhotoBlobUrl(photoId: string): Promise<string | null> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readonly');
+      const store = transaction.objectStore('pendingImages');
+      const getRequest = store.get(photoId);
+
+      getRequest.onsuccess = () => {
+        const imageData = getRequest.result;
+
+        if (!imageData || !imageData.fileData) {
+          console.warn('[IndexedDB] No photo data found for blob URL:', photoId);
+          resolve(null);
+          return;
+        }
+
+        // Create a fresh blob and URL from the stored ArrayBuffer
+        const blob = new Blob([imageData.fileData], { type: imageData.fileType || 'image/jpeg' });
+        const blobUrl = URL.createObjectURL(blob);
+
+        console.log('[IndexedDB] Generated blob URL for:', photoId);
+        resolve(blobUrl);
+      };
+
+      getRequest.onerror = () => {
+        console.error('[IndexedDB] Failed to get photo blob URL:', getRequest.error);
+        reject(getRequest.error);
+      };
+    });
+  }
+
+  /**
+   * Update the status of a stored photo
+   * Used to track photo lifecycle: pending -> uploading -> synced
+   * @param photoId - The photo ID to update
+   * @param status - New status
+   */
+  async updatePhotoStatus(photoId: string, status: 'pending' | 'uploading' | 'synced'): Promise<void> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readwrite');
+      const store = transaction.objectStore('pendingImages');
+      const getRequest = store.get(photoId);
+
+      getRequest.onsuccess = () => {
+        const imageData = getRequest.result;
+        if (imageData) {
+          imageData.status = status;
+          imageData.updatedAt = Date.now();
+          
+          const putRequest = store.put(imageData);
+          putRequest.onsuccess = () => {
+            console.log('[IndexedDB] Updated photo status:', photoId, '->', status);
+            resolve();
+          };
+          putRequest.onerror = () => reject(putRequest.error);
+        } else {
+          console.warn('[IndexedDB] Photo not found for status update:', photoId);
+          resolve();
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Get all pending photos for a specific service
+   * Returns photos with regenerated blob URLs for display
+   * @param serviceId - The service ID to filter by
+   * @returns Array of photos with blob URLs
+   */
+  async getAllPendingPhotosForService(serviceId: string): Promise<any[]> {
+    const allPhotos = await this.getAllPendingPhotos();
+
+    // Filter by service ID
+    const servicePhotos = allPhotos.filter(p => 
+      String(p.serviceId) === String(serviceId) && 
+      (p.status === 'pending' || p.status === 'uploading' || !p.status)
+    );
+
+    // Convert to displayable format with fresh blob URLs
+    return servicePhotos.map(photo => {
+      const blob = new Blob([photo.fileData], { type: photo.fileType || 'image/jpeg' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      return {
+        AttachID: photo.imageId,
+        id: photo.imageId,
+        photoId: photo.imageId,
+        _pendingFileId: photo.imageId,
+        visualId: photo.visualId,
+        VisualID: photo.visualId,
+        serviceId: photo.serviceId,
+        url: blobUrl,
+        originalUrl: blobUrl,
+        thumbnailUrl: blobUrl,
+        displayUrl: blobUrl,
+        caption: photo.caption || '',
+        annotation: photo.caption || '',
+        Annotation: photo.caption || '',
+        drawings: photo.drawings || '',
+        Drawings: photo.drawings || '',
+        status: photo.status || 'pending',
+        queued: photo.status === 'pending',
+        uploading: photo.status === 'uploading',
+        isPending: true,
+        createdAt: photo.createdAt
       };
     });
   }
@@ -1733,8 +1924,9 @@ export class IndexedDbService {
 
   /**
    * Store EFE photo file for offline upload
+   * ENHANCED: Now includes serviceId for filtering by service
    */
-  async storeEFEPhotoFile(tempId: string, file: File, pointId: string, photoType: string, drawings?: string, caption?: string): Promise<void> {
+  async storeEFEPhotoFile(tempId: string, file: File, pointId: string, photoType: string, drawings?: string, caption?: string, serviceId?: string): Promise<void> {
     const db = await this.ensureDb();
 
     const arrayBuffer = await file.arrayBuffer();
@@ -1750,6 +1942,7 @@ export class IndexedDbService {
         fileSize: file.size,
         fileType: file.type,
         pointId: pointId,  // EFE point ID (temp or real)
+        serviceId: serviceId || '',  // ENHANCED: Store serviceId for filtering
         photoType: photoType || 'Measurement',
         drawings: drawings || '',
         caption: caption || '',  // CRITICAL: Store caption for syncing
@@ -1761,7 +1954,7 @@ export class IndexedDbService {
       const addRequest = store.put(imageData);
 
       addRequest.onsuccess = () => {
-        console.log('[IndexedDB] EFE photo file stored:', tempId, file.size, 'bytes');
+        console.log('[IndexedDB] EFE photo file stored:', tempId, file.size, 'bytes, service:', serviceId);
         resolve();
       };
 

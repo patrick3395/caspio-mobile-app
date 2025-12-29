@@ -50,6 +50,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   private taskSubscription?: Subscription;
   private cacheInvalidationSubscription?: Subscription;
   private photoSyncSubscription?: Subscription;
+  private efePhotoSyncSubscription?: Subscription;  // For EFE point photos
   private cacheInvalidationDebounceTimer: any = null;
   private isReloadingAfterSync = false;
   private localOperationCooldown = false;
@@ -362,6 +363,57 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       }
     });
 
+    // Subscribe to EFE photo upload completions (for elevation point photos)
+    // This handles seamless URL transition from blob URL to cached base64
+    this.efePhotoSyncSubscription = this.backgroundSync.efePhotoUploadComplete$.subscribe(async (event) => {
+      console.log('[RoomElevation EFE PHOTO SYNC] EFE photo upload completed:', event.tempFileId);
+      
+      const realAttachId = event.result?.AttachID || event.result?.PK_ID;
+      const s3Key = event.result?.Attachment;
+      
+      // Find the photo in our elevationPoints by temp file ID
+      for (const point of this.roomData?.elevationPoints || []) {
+        const photoIndex = point.photos?.findIndex((p: any) =>
+          String(p._tempId) === String(event.tempFileId) ||
+          String(p.attachId) === String(event.tempFileId)
+        );
+        
+        if (photoIndex >= 0 && photoIndex !== undefined) {
+          console.log('[RoomElevation EFE PHOTO SYNC] Found EFE photo at point:', point.name, 'index:', photoIndex);
+          
+          // SEAMLESS SWAP: Get the cached base64 (already downloaded by BackgroundSyncService)
+          let newImageUrl = point.photos[photoIndex].displayUrl || point.photos[photoIndex].url;
+          try {
+            const cachedBase64 = await this.indexedDb.getCachedPhoto(String(realAttachId));
+            if (cachedBase64) {
+              newImageUrl = cachedBase64;
+              console.log('[RoomElevation EFE PHOTO SYNC] ✅ Seamless swap to cached base64');
+            }
+          } catch (err) {
+            console.warn('[RoomElevation EFE PHOTO SYNC] Failed to get cached image:', err);
+          }
+          
+          // Update photo metadata without flicker
+          point.photos[photoIndex] = {
+            ...point.photos[photoIndex],
+            attachId: realAttachId,
+            url: newImageUrl,
+            displayUrl: newImageUrl,
+            _tempId: undefined,
+            _pendingFileId: undefined,
+            isPending: false,
+            queued: false,
+            uploading: false,
+            loading: false
+          };
+          
+          this.changeDetectorRef.detectChanges();
+          console.log('[RoomElevation EFE PHOTO SYNC] Updated EFE photo with real ID:', realAttachId);
+          break;
+        }
+      }
+    });
+
     // Subscribe to cache invalidation events - reload data when sync completes
     // CRITICAL: Debounce to prevent multiple rapid reloads
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
@@ -547,6 +599,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
     if (this.photoSyncSubscription) {
       this.photoSyncSubscription.unsubscribe();
+    }
+    if (this.efePhotoSyncSubscription) {
+      this.efePhotoSyncSubscription.unsubscribe();
     }
     console.log('[ROOM ELEVATION] Component destroyed, but uploads continue in background');
   }

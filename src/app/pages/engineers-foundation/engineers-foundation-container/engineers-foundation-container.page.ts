@@ -267,88 +267,104 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Download complete template for offline use.
-   * This downloads EVERYTHING needed to work offline from scratch.
-   * BLOCKS until complete - user must wait for offline capability.
+   * OFFLINE-FIRST Template Loading
+   * 
+   * This follows a cache-first pattern where users NEVER wait for network:
+   * 1. INSTANT: Load from IndexedDB cache (never blocks)
+   * 2. BACKGROUND: Sync fresh data if online (non-blocking, fire-and-forget)
+   * 3. FALLBACK: Only block if zero cache AND online (first-time setup)
+   * 
+   * Users never notice the transition from local to synced data.
    */
   private async downloadTemplateData(): Promise<void> {
     if (!this.serviceId) {
-      console.log('[EF Container] downloadTemplateData: no serviceId, skipping');
+      console.log('[EF Container] loadTemplate: no serviceId, skipping');
       this.templateReady = true;
       return;
     }
 
-    console.log(`[EF Container] downloadTemplateData() called for serviceId=${this.serviceId}, projectId=${this.projectId}`);
-    const isOnline = this.offlineService.isOnline();
-    console.log(`[EF Container] Online status: ${isOnline}`);
+    console.log(`[EF Container] ========== CACHE-FIRST TEMPLATE LOAD ==========`);
+    console.log(`[EF Container] ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`);
+    console.log(`[EF Container] Online: ${this.offlineService.isOnline()}`);
 
-    // OFFLINE-FIRST: Check if we actually have cached DATA (not just the download status flag)
-    // This prevents showing content with broken images if cache was cleared
+    // STEP 1: INSTANT - Check for cached data (never blocks)
     const hasCachedData = await this.verifyCachedDataExists();
     
     if (hasCachedData) {
-      console.log('[EF Container] Cached data verified - ready immediately');
+      // Cache hit - ready IMMEDIATELY
+      console.log('[EF Container] ✅ Cache hit - template ready INSTANTLY');
       this.templateReady = true;
+      this.downloadProgress = 'Template ready';
       
-      // Background operations (same whether online or offline - they queue if offline)
-      this.refreshDataInBackground();
-      this.ensureImagesCached();
+      // STEP 2: BACKGROUND - Sync fresh data if online (fire-and-forget)
+      // These run in parallel and don't block the UI
+      if (this.offlineService.isOnline()) {
+        this.syncFreshDataInBackground(); // Fire-and-forget
+      }
+      this.ensureImagesCached(); // Fire-and-forget
       return;
     }
 
-    // Show loading while downloading
+    // STEP 3: FALLBACK - No cache, must download (first-time setup)
+    console.log('[EF Container] No cache - first-time setup required');
+    
+    // Only block if we can actually download
+    if (!this.offlineService.isOnline()) {
+      console.log('[EF Container] Offline with no cache - limited functionality');
+      this.templateReady = true;
+      this.downloadProgress = 'Offline - connect to internet for first-time setup';
+      return;
+    }
+
+    // Show loading spinner while downloading for the first time
     this.templateReady = false;
-    this.downloadProgress = 'Downloading template data for offline use...';
+    this.downloadProgress = 'Setting up template for offline use...';
 
     try {
-      // Download complete template data for offline-first operation
-      console.log('[EF Container] Calling downloadTemplateForOffline...');
-      this.downloadProgress = 'Downloading template data...';
+      // Download complete template data
+      console.log('[EF Container] Downloading template for first-time setup...');
       await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
-      console.log('[EF Container] Template downloaded - ready for offline use');
+      console.log('[EF Container] ✅ Template downloaded - ready for offline use');
       this.downloadProgress = 'Template ready!';
       
-      // VERIFICATION: Confirm what was cached in IndexedDB
+      // Verify what was cached
       await this.verifyDownloadedData();
       
-      // CRITICAL: Also ensure all images are cached (in case some failed during download)
-      // This runs in background but template is already marked as ready
+      // Ensure images are cached (fire-and-forget)
       this.ensureImagesCached();
     } catch (error: any) {
-      // Check if it's because we're offline but have cached data
-      if (error.message?.includes('offline') || error.message?.includes('Cannot download')) {
-        console.log('[EF Container] Offline - checking for cached data...');
-        this.downloadProgress = 'Offline - loading cached data...';
-        
-        // Try to verify we have some cached data
-        const hasTemplates = await this.offlineTemplate.getVisualTemplates();
-        if (hasTemplates && hasTemplates.length > 0) {
-          console.log('[EF Container] Have cached templates - continuing offline');
-          this.downloadProgress = 'Working offline with cached data';
-        } else {
-          console.warn('[EF Container] No cached data available offline');
-          this.downloadProgress = 'Limited offline - some data may be unavailable';
-        }
-      } else {
-        console.warn('[EF Container] Template download failed:', error);
-        this.downloadProgress = 'Download failed - some features may be unavailable';
-        
-        // Try fallback
-        try {
-          console.log('[EF Container] Trying fallback pre-cache...');
-          await Promise.all([
-            this.offlineCache.refreshAllTemplates(),
-            this.offlineCache.preCacheServiceData(this.serviceId)
-          ]);
-          console.log('[EF Container] Fallback pre-cache completed');
-        } catch (fallbackError) {
-          console.warn('[EF Container] Fallback also failed:', fallbackError);
-        }
+      console.warn('[EF Container] Template download failed:', error);
+      this.downloadProgress = 'Setup incomplete - some features may be limited';
+      
+      // Try fallback download
+      try {
+        console.log('[EF Container] Trying fallback pre-cache...');
+        await Promise.all([
+          this.offlineCache.refreshAllTemplates(),
+          this.offlineCache.preCacheServiceData(this.serviceId)
+        ]);
+        console.log('[EF Container] Fallback completed');
+      } catch (fallbackError) {
+        console.warn('[EF Container] Fallback also failed:', fallbackError);
       }
     } finally {
-      // Always mark as ready (even if offline/failed - let user proceed)
+      // Always mark as ready - let user proceed even with limited data
       this.templateReady = true;
     }
+  }
+  
+  /**
+   * Sync fresh data in background (fire-and-forget)
+   * This runs without blocking the UI and updates the cache silently.
+   * Users never notice the data refresh happening.
+   */
+  private syncFreshDataInBackground(): void {
+    console.log('[EF Container] Starting background data sync (non-blocking)...');
+    
+    // Fire-and-forget - don't await, let it run in background
+    this.refreshDataInBackground().catch(err => {
+      console.warn('[EF Container] Background sync failed (non-critical):', err);
+    });
   }
 
   /**

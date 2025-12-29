@@ -272,7 +272,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     });
 
     // Subscribe to background sync photo upload completions
-    // This handles the case where photos are uploaded via IndexedDB queue (offline -> online)
+    // This handles seamless URL transition from blob URL to cached base64
+    // CRITICAL: No flicker - image stays the same, only metadata changes
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
       console.log('[PHOTO SYNC] Photo upload completed:', event.tempFileId);
 
@@ -287,22 +288,39 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         if (photoIndex !== -1) {
           console.log('[PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
 
-          // Update the photo with the result from sync
           const result = event.result;
           const actualResult = result?.Result?.[0] || result;
-          const caption = this.visualPhotos[key][photoIndex].caption || '';
-
-          await this.updatePhotoAfterUpload(key, photoIndex, {
-            AttachID: actualResult.PK_ID || actualResult.AttachID,
-            Result: [actualResult],
-            ...actualResult
-          }, caption);
-
-          // Also remove queued flag
-          if (this.visualPhotos[key][photoIndex]) {
-            this.visualPhotos[key][photoIndex].queued = false;
-            this.visualPhotos[key][photoIndex]._pendingFileId = undefined;
+          const realAttachId = actualResult.PK_ID || actualResult.AttachID;
+          
+          // SEAMLESS SWAP: Get the cached base64 (already downloaded by BackgroundSyncService)
+          let newThumbnailUrl = this.visualPhotos[key][photoIndex].thumbnailUrl;
+          try {
+            const cachedBase64 = await this.indexedDb.getCachedPhoto(String(realAttachId));
+            if (cachedBase64) {
+              newThumbnailUrl = cachedBase64;
+              console.log('[PHOTO SYNC] ✅ Seamless swap to cached base64 for:', realAttachId);
+            } else {
+              console.log('[PHOTO SYNC] No cached image yet, keeping blob URL temporarily');
+            }
+          } catch (err) {
+            console.warn('[PHOTO SYNC] Failed to get cached image:', err);
           }
+
+          // Update photo metadata without flicker
+          this.visualPhotos[key][photoIndex] = {
+            ...this.visualPhotos[key][photoIndex],
+            AttachID: realAttachId,
+            thumbnailUrl: newThumbnailUrl,
+            url: newThumbnailUrl,
+            Photo: newThumbnailUrl,
+            originalUrl: newThumbnailUrl,
+            displayUrl: newThumbnailUrl,
+            queued: false,
+            uploading: false,
+            isPending: false,
+            _pendingFileId: undefined,
+            isSkeleton: false
+          };
 
           this.changeDetectorRef.detectChanges();
           break;
@@ -1367,65 +1385,83 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
     return item;
   }
 
+  /**
+   * Load photos for a visual - OFFLINE-FIRST approach
+   * 1. Get synced photos from cache
+   * 2. Get pending photos from IndexedDB file store (survives app restart)
+   * 3. Merge - pending photos appear first with regenerated blob URLs
+   */
   private async loadPhotosForVisual(visualId: string, key: string) {
     try {
       this.loadingPhotosByKey[key] = true;
 
-      // Get attachment count first (this is fast - just metadata)
+      // STEP 1: Get synced photos from cache (via EngineersFoundationDataService -> IndexedDB)
       const attachments = await this.foundationData.getVisualAttachments(visualId);
 
-      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for visual', visualId, 'key:', key);
+      // STEP 2: Get pending photos from IndexedDB file store
+      // These are photos taken offline that haven't synced yet - regenerate their blob URLs
+      const pendingPhotos = await this.indexedDb.getPendingPhotosForVisual(visualId);
+      
+      console.log('[LOAD PHOTOS] Visual', visualId, ':', attachments.length, 'synced,', pendingPhotos.length, 'pending');
 
-      // CRITICAL FIX: Don't reduce photo count if we already have more photos (from pending uploads)
-      // This prevents UI flash when syncing photos are temporarily not included in server count
+      // STEP 3: Calculate total photo count
       const existingCount = this.visualPhotos[key]?.length || 0;
-      const serverCount = attachments.length;
-      this.photoCountsByKey[key] = Math.max(existingCount, serverCount);
+      const totalCount = attachments.length + pendingPhotos.length;
+      this.photoCountsByKey[key] = Math.max(existingCount, totalCount);
+
+      // Initialize photo array if not exists
+      if (!this.visualPhotos[key]) {
+        this.visualPhotos[key] = [];
+        console.log('[LOAD PHOTOS] Initialized empty photo array for', key);
+      }
+
+      // Build a set of already loaded photo IDs (use String for consistent comparison)
+      const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => String(p.AttachID)));
+
+      // STEP 4: Add pending photos with regenerated blob URLs (they appear first)
+      // These are photos taken offline that survive app restart
+      for (const pendingPhoto of pendingPhotos) {
+        const pendingId = String(pendingPhoto.AttachID);
+        if (!loadedPhotoIds.has(pendingId)) {
+          // Add to the BEGINNING of the array so pending photos show first
+          this.visualPhotos[key].unshift({
+            ...pendingPhoto,
+            isSkeleton: false,
+            uploading: pendingPhoto.status === 'uploading',
+            queued: pendingPhoto.status === 'pending',
+            isPending: true
+          });
+          loadedPhotoIds.add(pendingId);
+          console.log('[LOAD PHOTOS] Added pending photo:', pendingId);
+        }
+      }
+
+      // Trigger change detection so pending photos appear immediately
+      this.changeDetectorRef.detectChanges();
 
       if (attachments.length > 0) {
-        // CRITICAL FIX: Don't reset photo array if it already has photos from uploads
-        // Only initialize if it doesn't exist or is empty
-        if (!this.visualPhotos[key]) {
-          this.visualPhotos[key] = [];
-          console.log('[LOAD PHOTOS] Initialized empty photo array for', key);
-        } else {
-          console.log('[LOAD PHOTOS] Photo array already exists with', this.visualPhotos[key].length, 'photos');
-
-          // CRITICAL FIX: Use String() conversion for consistent comparison to avoid type mismatch duplicates
-          const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => String(p.AttachID)));
-
-          // If we already have all photos, don't reload them
-          const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(String(a.AttachID)));
-          if (allPhotosLoaded) {
-            console.log('[LOAD PHOTOS] All photos already loaded for', key, '- skipping reload');
-            this.loadingPhotosByKey[key] = false;
-            this.changeDetectorRef.detectChanges();
-            return;
-          }
-
-          // Otherwise, only load photos that aren't already loaded
-          console.log('[LOAD PHOTOS] Will load missing photos only');
+        // Check if all synced photos are already loaded
+        const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(String(a.AttachID)));
+        if (allPhotosLoaded && pendingPhotos.length === 0) {
+          console.log('[LOAD PHOTOS] All photos already loaded for', key, '- skipping reload');
+          this.loadingPhotosByKey[key] = false;
+          this.changeDetectorRef.detectChanges();
+          return;
         }
 
-        // Trigger change detection so skeletons appear
-        this.changeDetectorRef.detectChanges();
-
-        // CRITICAL FIX: Load ALL photos sequentially and wait for them to complete
-        // This ensures all photos are loaded before marking as complete
+        // STEP 5: Load synced photos that aren't already loaded
         const loadPromises: Promise<void>[] = [];
 
         for (let i = 0; i < attachments.length; i++) {
           const attach = attachments[i];
           const attachIdStr = String(attach.AttachID);
 
-          // CRITICAL FIX: Use String() conversion for consistent comparison to avoid type mismatch duplicates
-          const existingPhoto = this.visualPhotos[key]?.find(p => String(p.AttachID) === attachIdStr);
-          if (existingPhoto) {
-            console.log('[LOAD PHOTOS] Photo', attach.AttachID, 'already loaded, skipping');
+          // Skip if already loaded (either pending or synced)
+          if (loadedPhotoIds.has(attachIdStr)) {
             continue;
           }
 
-          // Load this photo
+          // Load this photo from cache or network
           const loadPromise = this.loadSinglePhoto(attach, key).catch(err => {
             console.error('[LOAD PHOTOS] Failed to load photo:', attach.AttachID, err);
           });
@@ -1433,9 +1469,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           loadPromises.push(loadPromise);
         }
 
-        // CRITICAL: Wait for ALL photos to finish loading
-        console.log('[LOAD PHOTOS] Waiting for', loadPromises.length, 'photos to load...');
-        await Promise.all(loadPromises);
+        // Wait for ALL photos to finish loading
+        if (loadPromises.length > 0) {
+          console.log('[LOAD PHOTOS] Waiting for', loadPromises.length, 'photos to load...');
+          await Promise.all(loadPromises);
+        }
         console.log('[LOAD PHOTOS] All photos loaded for', key);
 
         this.loadingPhotosByKey[key] = false;
