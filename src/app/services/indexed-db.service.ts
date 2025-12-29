@@ -579,7 +579,7 @@ export class IndexedDbService {
     const db = await this.ensureDb();
 
     // Read file as ArrayBuffer (more reliable than storing File object)
-    const arrayBuffer = await (file instanceof File ? file : new Response(file).blob().then(b => b.arrayBuffer())).catch(() => file.arrayBuffer());
+    const arrayBuffer = await file.arrayBuffer();
 
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['pendingImages'], 'readwrite');
