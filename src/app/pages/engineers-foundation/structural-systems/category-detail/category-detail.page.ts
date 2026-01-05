@@ -2356,12 +2356,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           console.log('[CAMERA UPLOAD] Storing in IndexedDB for reliability');
 
           // Store photo file in IndexedDB
+          // Parameter order: (tempId, file, visualId, caption, drawings, serviceId)
           await this.indexedDb.storePhotoFile(
             tempPhotoId,
             originalFile,
             String(visualId),
             caption,
-            compressedDrawings
+            compressedDrawings,
+            this.serviceId  // CRITICAL: Include serviceId for filtering
           );
 
           // Queue upload request for background sync
@@ -2544,10 +2546,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 // NEVER show spinner for new photos - upload happens silently in background
                 const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
                 if (skeletonIndex !== -1 && this.visualPhotos[key]) {
+                  // CRITICAL: Include ALL required fields for consistent offline-first behavior
                   this.visualPhotos[key][skeletonIndex] = {
                     ...this.visualPhotos[key][skeletonIndex],
                     AttachID: tempPhotoId,
+                    attachId: tempPhotoId,  // CRITICAL: lowercase for lookups
                     id: tempPhotoId,
+                    _pendingFileId: tempPhotoId,  // CRITICAL: for IndexedDB file lookups
+                    _tempId: tempPhotoId,  // CRITICAL: for tracking original temp ID
                     url: objectUrl,
                     displayUrl: objectUrl,  // CRITICAL: Set displayUrl for template
                     thumbnailUrl: objectUrl,
@@ -2555,38 +2561,48 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                     isObjectUrl: true,
                     uploading: false,  // NEVER show spinner - photo appears immediately
                     queued: isOfflineMode,  // Show queued badge if offline
+                    isPending: true,  // CRITICAL: Mark as pending for annotation save logic
                     _backgroundSync: true,  // Flag for silent background sync
                     isSkeleton: false,
-                    progress: 0,
-                    _pendingFileId: tempPhotoId
+                    hasAnnotations: false,
+                    caption: '',
+                    annotation: '',
+                    Annotation: '',  // CRITICAL: Caspio field name
+                    Drawings: '',  // CRITICAL: Caspio field name
+                    progress: 0
                   };
                   this.changeDetectorRef.detectChanges();
                   console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview (immediate display, ${isOfflineMode ? 'queued' : 'background sync'})`);
                 }
 
                 // ALWAYS store in IndexedDB first for reliability (handles poor connectivity)
-                await this.indexedDb.storePhotoFile(tempPhotoId, file, String(finalVisualId), '', '');
-                console.log(`[GALLERY UPLOAD] Stored photo ${i + 1} in IndexedDB`);
+                // Parameter order: (tempId, file, visualId, caption, drawings, serviceId)
+                await this.indexedDb.storePhotoFile(tempPhotoId, file, String(finalVisualId), '', '', this.serviceId);
+                console.log(`[GALLERY UPLOAD] Stored photo ${i + 1} in IndexedDB for serviceId:`, this.serviceId);
 
                 // Queue the upload request in IndexedDB
+                // CRITICAL: Include serviceId for proper grouping and temp visual ID handling
+                const visualIsTempIdNow = String(finalVisualId).startsWith('temp_');
                 await this.indexedDb.addPendingRequest({
                   type: 'UPLOAD_FILE',
                   tempId: tempPhotoId,
                   endpoint: 'VISUAL_PHOTO_UPLOAD',
                   method: 'POST',
                   data: {
-                    visualId: finalVisualId,
+                    visualId: visualIsTempIdNow ? undefined : parseInt(String(finalVisualId), 10),
+                    tempVisualId: visualIsTempIdNow ? finalVisualId : undefined,
                     fileId: tempPhotoId,
                     caption: '',
                     drawings: '',
                     fileName: file.name,
                     fileSize: file.size,
+                    serviceId: this.serviceId,  // CRITICAL: Include serviceId
                   },
                   dependencies: [],
                   status: 'pending',
                   priority: 'high',
                 });
-                console.log(`[GALLERY UPLOAD] Photo ${i + 1} queued in IndexedDB (visualId: ${finalVisualId})`);
+                console.log(`[GALLERY UPLOAD] Photo ${i + 1} queued in IndexedDB (visualId: ${finalVisualId}, serviceId: ${this.serviceId})`);
 
                 // If online, trigger background sync to process the queue immediately
                 // DON'T use BackgroundPhotoUploadService - use only IndexedDB + BackgroundSyncService
