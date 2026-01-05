@@ -146,7 +146,7 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
     
     // Read templates ONCE and reuse
     const cachedTemplates = await this.indexedDb.getCachedTemplates('visual');
-    const hasCachedTemplates = cachedTemplates && cachedTemplates.length > 0;
+    const hasCachedTemplates = !!(cachedTemplates && cachedTemplates.length > 0);
     
     // Read service ONCE and reuse
     const cachedService = await this.offlineTemplate.getService(this.serviceId);

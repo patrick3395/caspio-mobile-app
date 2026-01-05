@@ -191,11 +191,11 @@ export class EngineersFoundationDataService {
     try {
       // Check visual templates
       const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
-      status.visualTemplates = visualTemplates && visualTemplates.length > 0;
+      status.visualTemplates = !!(visualTemplates && visualTemplates.length > 0);
 
       // Check EFE templates
       const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
-      status.efeTemplates = efeTemplates && efeTemplates.length > 0;
+      status.efeTemplates = !!(efeTemplates && efeTemplates.length > 0);
 
       // Check service record
       const serviceRecord = await this.indexedDb.getCachedServiceRecord(serviceId);
