@@ -1524,3 +1524,39 @@ textarea.styled-input {
     line-height: 1.6 !important;
   }
 }
+
+// Sync Details Modal - Full screen for mobile compatibility
+.sync-details-modal-fullscreen {
+  --width: 100%;
+  --height: 100%;
+  --max-width: 100%;
+  --max-height: 100%;
+  --border-radius: 0;
+  
+  // Ensure modal is visible on all devices
+  ion-header {
+    ion-toolbar {
+      --background: var(--ion-color-light);
+      --color: var(--ion-color-dark);
+    }
+  }
+  
+  ion-content {
+    --background: var(--ion-background-color);
+  }
+  
+  ion-footer {
+    ion-toolbar {
+      --background: var(--ion-color-light);
+    }
+  }
+  
+  // On larger screens, use a smaller modal
+  @media (min-width: 768px) {
+    --width: 500px;
+    --height: 70%;
+    --max-width: 500px;
+    --max-height: 700px;
+    --border-radius: 16px;
+  }
+}

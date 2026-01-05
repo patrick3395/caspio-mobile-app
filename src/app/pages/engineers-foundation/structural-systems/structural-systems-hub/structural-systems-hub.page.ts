@@ -9,6 +9,7 @@ import { EngineersFoundationDataService } from '../../engineers-foundation-data.
 import { OfflineDataCacheService } from '../../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../../services/offline-template.service';
 import { IndexedDbService } from '../../../../services/indexed-db.service';
+import { OfflineService } from '../../../../services/offline.service';
 
 @Component({
   selector: 'app-structural-systems-hub',
@@ -24,7 +25,13 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
   loading: boolean = true;
   serviceData: any = {};
   
+  // Standardized UI state flags
+  isOnline: boolean = true;
+  isEmpty: boolean = false;
+  hasPendingSync: boolean = false;
+  
   private cacheInvalidationSubscription?: Subscription;
+  private backgroundRefreshSubscription?: Subscription;
   private cacheInvalidationDebounceTimer: any = null;
   private isLoadingCategories: boolean = false;  // Prevent concurrent loads
   private initialLoadComplete: boolean = false;  // Skip cache invalidation during initial load
@@ -37,7 +44,8 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
     private foundationData: EngineersFoundationDataService,
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,
-    private indexedDb: IndexedDbService
+    private indexedDb: IndexedDbService,
+    private offlineService: OfflineService
   ) {}
 
   async ngOnInit() {
@@ -101,11 +109,29 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
         }, 500);
       }
     });
+
+    // STANDARDIZED: Subscribe to background refresh completion
+    // This ensures UI updates when data is refreshed in the background
+    this.backgroundRefreshSubscription = this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
+      if (event.serviceId === this.serviceId && event.dataType === 'visuals') {
+        console.log('[StructuralHub] Background refresh complete for visuals, reloading...');
+        // Debounce with same timer to prevent duplicate reloads
+        if (this.cacheInvalidationDebounceTimer) {
+          clearTimeout(this.cacheInvalidationDebounceTimer);
+        }
+        this.cacheInvalidationDebounceTimer = setTimeout(() => {
+          this.loadCategories();
+        }, 500);
+      }
+    });
   }
 
   ngOnDestroy() {
     if (this.cacheInvalidationSubscription) {
       this.cacheInvalidationSubscription.unsubscribe();
+    }
+    if (this.backgroundRefreshSubscription) {
+      this.backgroundRefreshSubscription.unsubscribe();
     }
     if (this.cacheInvalidationDebounceTimer) {
       clearTimeout(this.cacheInvalidationDebounceTimer);
@@ -114,6 +140,9 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
 
   private async loadData() {
     console.log('[StructuralHub] loadData() starting...');
+    
+    // Update online status
+    this.isOnline = this.offlineService.isOnline();
     
     // Read templates ONCE and reuse
     const cachedTemplates = await this.indexedDb.getCachedTemplates('visual');
@@ -148,6 +177,16 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
 
       // Load categories - pass templates to avoid re-reading
       await this.loadCategoriesFromTemplates(cachedTemplates || []);
+      
+      // Check for pending sync items
+      const pendingRequests = await this.indexedDb.getPendingRequests();
+      this.hasPendingSync = pendingRequests.some(r => 
+        r.endpoint.includes('Services_Visuals') && r.status === 'pending'
+      );
+      
+      // Update isEmpty status
+      this.isEmpty = this.categories.length === 0 && hasCachedTemplates;
+      
       console.log('[StructuralHub] ✅ loadData() completed');
     } catch (error) {
       console.error('[StructuralHub] Error in loadData:', error);

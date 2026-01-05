@@ -1,9 +1,17 @@
 <div class="page-container">
   <div class="content-section">
+    <!-- STANDARDIZED LOADING STATES -->
+    
     <!-- Loading State -->
     <div *ngIf="loading" class="loading-container">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Loading categories...</p>
+    </div>
+
+    <!-- Data Syncing Indicator -->
+    <div class="sync-indicator" *ngIf="hasPendingSync && !loading">
+      <ion-icon name="sync-outline" class="rotating"></ion-icon>
+      <span>Syncing structural data...</span>
     </div>
 
     <!-- Visual Assessment Location Question -->
@@ -52,8 +60,15 @@
       </ion-card>
     </div>
 
+    <!-- Empty Offline State -->
+    <div *ngIf="!loading && serviceData.StructStat === 'Completed Here' && categories.length === 0 && !isOnline" class="empty-offline">
+      <ion-icon name="cloud-offline-outline"></ion-icon>
+      <p>You're offline</p>
+      <p class="empty-subtitle">Connect to internet to sync category data</p>
+    </div>
+
     <!-- Empty State -->
-    <div *ngIf="!loading && serviceData.StructStat === 'Completed Here' && categories.length === 0" class="empty-message">
+    <div *ngIf="!loading && serviceData.StructStat === 'Completed Here' && categories.length === 0 && isOnline" class="empty-message">
       <ion-icon name="folder-open-outline"></ion-icon>
       <p>No categories available</p>
     </div>

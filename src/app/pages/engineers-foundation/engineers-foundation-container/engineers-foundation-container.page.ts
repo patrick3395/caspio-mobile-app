@@ -463,31 +463,48 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   /**
    * OFFLINE-FIRST: Verify that we actually have cached data in IndexedDB
    * Returns true only if critical data exists (not just the download status flag)
+   * 
+   * STANDARDIZED: This method verifies ALL required data types exist:
+   * 1. Visual templates (Structural Systems categories)
+   * 2. EFE templates (Room definitions for Elevation Plot)
+   * 3. Service record (Project context)
+   * 
+   * If any are missing, returns false to trigger re-download.
    */
   private async verifyCachedDataExists(): Promise<boolean> {
+    console.log('[EF Container] Verifying cached data exists...');
     try {
-      // Check for visual templates (required)
+      // Check for visual templates (required for Structural Systems)
       const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
       if (!visualTemplates || visualTemplates.length === 0) {
-        console.log('[EF Container] No visual templates cached');
+        console.log('[EF Container] ❌ No visual templates cached');
         return false;
       }
+      console.log(`[EF Container] ✅ Visual templates: ${visualTemplates.length}`);
 
-      // Check for EFE templates (required for room elevation)
+      // Check for EFE templates (required for Elevation Plot room definitions)
       const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
       if (!efeTemplates || efeTemplates.length === 0) {
-        console.log('[EF Container] No EFE templates cached');
+        console.log('[EF Container] ❌ No EFE templates cached');
         return false;
       }
+      console.log(`[EF Container] ✅ EFE templates: ${efeTemplates.length}`);
 
       // Check for service record (required for project context)
       const serviceRecord = await this.indexedDb.getCachedServiceRecord(this.serviceId);
       if (!serviceRecord) {
-        console.log('[EF Container] No service record cached');
+        console.log('[EF Container] ❌ No service record cached');
         return false;
       }
+      console.log(`[EF Container] ✅ Service record cached`);
 
-      console.log('[EF Container] Verified cached data exists');
+      // STANDARDIZED: Check if EFE room data is available
+      // If online and no rooms cached, let getEFERooms() fetch them
+      // If offline and no rooms, that's acceptable (may be a new service)
+      const efeRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms');
+      console.log(`[EF Container] EFE rooms in cache: ${efeRooms?.length || 0}`);
+
+      console.log('[EF Container] ✅ All required cached data verified');
       return true;
     } catch (error) {
       console.error('[EF Container] Error verifying cached data:', error);

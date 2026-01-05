@@ -9,6 +9,9 @@ import { EngineersFoundationDataService } from '../engineers-foundation-data.ser
 import { CaspioService } from '../../../services/caspio.service';
 import { OperationsQueueService } from '../../../services/operations-queue.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { OfflineService } from '../../../services/offline.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
 
 interface RoomTemplate {
   RoomName: string;
@@ -49,7 +52,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
   // Subscriptions for offline sync events
   private roomSyncSubscription?: Subscription;
   private cacheInvalidationSubscription?: Subscription;
+  private backgroundRefreshSubscription?: Subscription;
   private cacheInvalidationDebounceTimer: any = null;
+  
+  // Standardized UI state flags
+  isOnline: boolean = true;
+  isEmpty: boolean = false;
+  hasPendingSync: boolean = false;
 
   constructor(
     private router: Router,
@@ -62,7 +71,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
     private actionSheetController: ActionSheetController,
     private changeDetectorRef: ChangeDetectorRef,
     public operationsQueue: OperationsQueueService,
-    private backgroundSync: BackgroundSyncService
+    private backgroundSync: BackgroundSyncService,
+    private offlineTemplate: OfflineTemplateService,
+    private offlineService: OfflineService,
+    private indexedDb: IndexedDbService
   ) {}
 
   async ngOnInit() {
@@ -123,10 +135,59 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
       return;
     }
 
+    // Update online status
+    this.isOnline = this.offlineService.isOnline();
+
     // Subscribe to EFE room sync completions (for offline-first support)
     this.subscribeToSyncEvents();
 
+    // CRITICAL: Ensure EFE data is cached before loading room templates
+    // This follows the standardized cache-first pattern
+    await this.ensureEFEDataCached();
+
     await this.loadRoomTemplates();
+  }
+
+  /**
+   * STANDARDIZED PATTERN: Ensure EFE data is cached before rendering
+   * This prevents the "rooms not showing" issue on first load
+   * 
+   * 1. Verify EFE templates exist (room definitions)
+   * 2. Verify EFE rooms for this service are cached
+   * 3. If cache empty + online: fetch synchronously (blocking)
+   */
+  private async ensureEFEDataCached(): Promise<void> {
+    if (!this.serviceId) return;
+
+    console.log('[ElevationPlotHub] ensureEFEDataCached() - Verifying cache...');
+
+    // Step 1: Ensure EFE templates (room definitions) are cached
+    const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
+    if (!efeTemplates || efeTemplates.length === 0) {
+      console.log('[ElevationPlotHub] EFE templates not cached, fetching...');
+      await this.offlineTemplate.ensureEFETemplatesReady();
+    } else {
+      console.log(`[ElevationPlotHub] ✅ EFE templates already cached: ${efeTemplates.length}`);
+    }
+
+    // Step 2: Ensure EFE rooms for this service are cached
+    // getEFERooms already implements the cache-first pattern with blocking fetch
+    const efeRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms');
+    if (!efeRooms || efeRooms.length === 0) {
+      console.log('[ElevationPlotHub] EFE rooms not cached, will be fetched by loadRoomTemplates...');
+      // Don't fetch here - let loadRoomTemplates handle it through getEFEByService
+      // This avoids duplicate API calls
+    } else {
+      console.log(`[ElevationPlotHub] ✅ EFE rooms already cached: ${efeRooms.length}`);
+    }
+
+    // Step 3: Check for pending sync items
+    const pendingRequests = await this.indexedDb.getPendingRequests();
+    this.hasPendingSync = pendingRequests.some(r => 
+      r.endpoint.includes('Services_EFE') && r.status === 'pending'
+    );
+    
+    console.log('[ElevationPlotHub] ensureEFEDataCached() complete');
   }
 
   /**
@@ -171,6 +232,21 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
         // Debounce: wait 500ms before reloading to batch multiple rapid events
         this.cacheInvalidationDebounceTimer = setTimeout(() => {
           console.log('[ElevationPlotHub] Cache invalidated (debounced), reloading room list...');
+          this.reloadRoomsAfterSync();
+        }, 500);
+      }
+    });
+
+    // STANDARDIZED: Subscribe to background refresh completion
+    // This ensures UI updates when data is refreshed in the background
+    this.backgroundRefreshSubscription = this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
+      if (event.serviceId === this.serviceId && event.dataType === 'efe_rooms') {
+        console.log('[ElevationPlotHub] Background refresh complete for EFE rooms, reloading...');
+        // Debounce with same timer to prevent duplicate reloads
+        if (this.cacheInvalidationDebounceTimer) {
+          clearTimeout(this.cacheInvalidationDebounceTimer);
+        }
+        this.cacheInvalidationDebounceTimer = setTimeout(() => {
           this.reloadRoomsAfterSync();
         }, 500);
       }
@@ -223,6 +299,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
     }
     if (this.cacheInvalidationSubscription) {
       this.cacheInvalidationSubscription.unsubscribe();
+    }
+    if (this.backgroundRefreshSubscription) {
+      this.backgroundRefreshSubscription.unsubscribe();
     }
     if (this.cacheInvalidationDebounceTimer) {
       clearTimeout(this.cacheInvalidationDebounceTimer);
@@ -1040,6 +1119,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
         }
       }
 
+      // Update UI state flags
+      this.isEmpty = this.roomTemplates.length === 0;
+      this.isOnline = this.offlineService.isOnline();
+      
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('Error loading room templates:', error);

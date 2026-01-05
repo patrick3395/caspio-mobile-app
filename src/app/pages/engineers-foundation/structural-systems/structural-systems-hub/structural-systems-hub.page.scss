@@ -212,6 +212,11 @@ select.styled-input {
   }
 }
 
+// =============================================
+// STANDARDIZED UI LOADING STATES
+// These should be consistent across all pages
+// =============================================
+
 .empty-message {
   display: flex;
   flex-direction: column;
@@ -229,6 +234,69 @@ select.styled-input {
   p {
     margin: 0;
     font-size: 15px;
+  }
+}
+
+.empty-offline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #999;
+  background: #f9f9f9;
+  border-radius: 12px;
+  margin: 20px 0;
+
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    color: #F15A27;
+    opacity: 0.7;
+  }
+
+  p {
+    font-size: 16px;
+    margin: 0 0 4px 0;
+    font-weight: 600;
+  }
+
+  .empty-subtitle {
+    font-size: 14px;
+    font-weight: 400;
+    color: #999;
+  }
+}
+
+.sync-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(241, 90, 39, 0.1);
+  border-radius: 8px;
+  margin: 12px 0;
+  color: #F15A27;
+  font-size: 14px;
+  font-weight: 500;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  // Rotating animation for sync icon
+  .rotating {
+    animation: rotate 1s linear infinite;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 

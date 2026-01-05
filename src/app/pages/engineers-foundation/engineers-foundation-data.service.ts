@@ -164,6 +164,99 @@ export class EngineersFoundationDataService {
     this.cacheInvalidated$.next({ serviceId, reason });
   }
 
+  /**
+   * STANDARDIZED: Verify that all required data is cached in IndexedDB
+   * Use this to check cache health before rendering UI
+   * 
+   * @param serviceId - The service ID to verify
+   * @returns Object with cache status for each data type
+   */
+  async verifyCacheHealth(serviceId: string): Promise<{
+    visualTemplates: boolean;
+    efeTemplates: boolean;
+    serviceRecord: boolean;
+    visuals: boolean;
+    efeRooms: boolean;
+    isComplete: boolean;
+  }> {
+    const status = {
+      visualTemplates: false,
+      efeTemplates: false,
+      serviceRecord: false,
+      visuals: false,
+      efeRooms: false,
+      isComplete: false
+    };
+
+    try {
+      // Check visual templates
+      const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
+      status.visualTemplates = visualTemplates && visualTemplates.length > 0;
+
+      // Check EFE templates
+      const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
+      status.efeTemplates = efeTemplates && efeTemplates.length > 0;
+
+      // Check service record
+      const serviceRecord = await this.indexedDb.getCachedServiceRecord(serviceId);
+      status.serviceRecord = !!serviceRecord;
+
+      // Check visuals (can be empty for new services)
+      const visuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals');
+      status.visuals = visuals !== null && visuals !== undefined;
+
+      // Check EFE rooms (can be empty for new services)
+      const efeRooms = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms');
+      status.efeRooms = efeRooms !== null && efeRooms !== undefined;
+
+      // Complete if all critical data is present
+      status.isComplete = status.visualTemplates && status.efeTemplates && status.serviceRecord;
+
+      console.log('[DataService] Cache health check:', status);
+      return status;
+    } catch (error) {
+      console.error('[DataService] Error checking cache health:', error);
+      return status;
+    }
+  }
+
+  /**
+   * STANDARDIZED: Ensure specific data type is cached
+   * If not in cache and online, fetches from API and caches
+   * 
+   * @param serviceId - The service ID
+   * @param dataType - The type of data to ensure
+   * @param fetcher - Optional function to fetch data if not cached
+   */
+  async ensureDataCached(
+    serviceId: string,
+    dataType: 'visuals' | 'efe_rooms' | 'efe_points',
+    fetcher?: () => Promise<any[]>
+  ): Promise<boolean> {
+    const cached = await this.indexedDb.getCachedServiceData(serviceId, dataType);
+    
+    if (cached && cached.length > 0) {
+      console.log(`[DataService] ✅ ${dataType} already cached: ${cached.length} items`);
+      return true;
+    }
+
+    // Not cached - try to fetch if online and fetcher provided
+    if (this.offlineService.isOnline() && fetcher) {
+      try {
+        console.log(`[DataService] Fetching ${dataType} from API...`);
+        const freshData = await fetcher();
+        await this.indexedDb.cacheServiceData(serviceId, dataType, freshData || []);
+        console.log(`[DataService] ✅ ${dataType} fetched and cached: ${freshData?.length || 0} items`);
+        return freshData && freshData.length > 0;
+      } catch (error) {
+        console.error(`[DataService] Failed to fetch ${dataType}:`, error);
+        return false;
+      }
+    }
+
+    return false;
+  }
+
   async getProject(projectId: string | null | undefined): Promise<any> {
     if (!projectId) {
       return null;

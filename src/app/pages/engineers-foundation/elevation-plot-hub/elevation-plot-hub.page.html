@@ -119,16 +119,31 @@
       </div>
     </div>
 
+    <!-- STANDARDIZED LOADING STATES -->
+    
     <!-- Loading State -->
-    <div class="empty-state" *ngIf="loading && roomTemplates.length === 0">
+    <div class="loading-container" *ngIf="loading">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Loading rooms...</p>
     </div>
 
-    <!-- Empty State (only show if not loading) -->
-    <div class="empty-state" *ngIf="!loading && roomTemplates.length === 0">
+    <!-- Empty Offline State -->
+    <div class="empty-offline" *ngIf="!loading && roomTemplates.length === 0 && !isOnline">
+      <ion-icon name="cloud-offline-outline"></ion-icon>
+      <p>You're offline</p>
+      <p class="empty-subtitle">Connect to internet to sync room data</p>
+    </div>
+
+    <!-- Empty Online State (truly no data) -->
+    <div class="empty-state" *ngIf="!loading && roomTemplates.length === 0 && isOnline && !hasPendingSync">
       <ion-icon name="analytics-outline"></ion-icon>
       <p>No room templates available</p>
+    </div>
+
+    <!-- Data Syncing Indicator -->
+    <div class="sync-indicator" *ngIf="hasPendingSync && !loading">
+      <ion-icon name="sync-outline" class="rotating"></ion-icon>
+      <span>Syncing room data...</span>
     </div>
 
     <!-- Add Room Button -->

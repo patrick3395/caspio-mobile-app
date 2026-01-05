@@ -1,16 +1,17 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ModalController } from '@ionic/angular';
 import { BackgroundSyncService, SyncStatus } from '../../services/background-sync.service';
 import { IndexedDbService } from '../../services/indexed-db.service';
 import { Subscription, interval } from 'rxjs';
+import { SyncDetailsModalComponent } from './sync-details-modal.component';
 
 @Component({
   selector: 'app-sync-status-widget',
   templateUrl: './sync-status-widget.component.html',
   styleUrls: ['./sync-status-widget.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, SyncDetailsModalComponent]
 })
 export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
   syncStatus: SyncStatus = {
@@ -20,12 +21,6 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
     failedCount: 0,
   };
 
-  // Modal state
-  showDetails = false;
-  pendingRequests: any[] = [];
-  syncingRequests: any[] = [];
-  failedRequests: any[] = [];
-
   private subscription?: Subscription;
   private pollSubscription?: Subscription;
 
@@ -33,7 +28,8 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
     private backgroundSync: BackgroundSyncService,
     private indexedDb: IndexedDbService,
     private changeDetectorRef: ChangeDetectorRef,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private modalController: ModalController
   ) {}
 
   ngOnInit() {
@@ -153,136 +149,50 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
     return this.syncStatus.pendingCount > 0 || this.syncStatus.isSyncing;
   }
 
+  // Track if modal is currently open to prevent double-tap issues
+  private isModalOpen = false;
+  
   /**
-   * Show sync details modal
+   * Show sync details modal using Ionic modal controller
+   * This ensures proper z-index handling and mobile compatibility
    */
   async showSyncDetails(): Promise<void> {
-    this.showDetails = true;
-    await this.refreshDetails();
-  }
-
-  /**
-   * Close sync details modal
-   */
-  closeDetails(): void {
-    this.showDetails = false;
-  }
-
-  /**
-   * Refresh details from IndexedDB
-   */
-  async refreshDetails(): Promise<void> {
+    console.log('[SyncWidget] showSyncDetails called');
+    
+    // Prevent double-tap from opening multiple modals
+    if (this.isModalOpen) {
+      console.log('[SyncWidget] Modal already open, ignoring');
+      return;
+    }
+    
+    this.isModalOpen = true;
+    
     try {
-      const requests = await this.indexedDb.getAllRequests();
+      console.log('[SyncWidget] Creating modal...');
+      const modal = await this.modalController.create({
+        component: SyncDetailsModalComponent,
+        // Use full-screen modal for mobile compatibility
+        cssClass: 'sync-details-modal-fullscreen',
+        canDismiss: true,
+        showBackdrop: true,
+        backdropDismiss: true,
+      });
       
-      this.pendingRequests = requests.filter(r => r.status === 'pending');
-      this.syncingRequests = requests.filter(r => r.status === 'syncing');
-      this.failedRequests = requests.filter(r => r.status === 'failed');
+      // Handle modal dismiss
+      modal.onDidDismiss().then(() => {
+        console.log('[SyncWidget] Modal dismissed');
+        this.isModalOpen = false;
+      });
       
-      this.changeDetectorRef.detectChanges();
+      console.log('[SyncWidget] Modal created, presenting...');
+      await modal.present();
+      console.log('[SyncWidget] Modal presented successfully');
     } catch (error) {
-      console.error('[SyncWidget] Error loading details:', error);
+      console.error('[SyncWidget] Error opening modal:', error);
+      this.isModalOpen = false;
+      // Show an alert as fallback to confirm the click works
+      alert('Error opening sync modal: ' + (error as Error).message);
     }
-  }
-
-  /**
-   * Get icon for request type
-   */
-  getRequestIcon(request: any): string {
-    const endpoint = request.endpoint || '';
-    
-    if (endpoint.includes('Attach') || request.type === 'PHOTO_UPLOAD') {
-      return 'image-outline';
-    }
-    if (endpoint.includes('Services_Visuals')) {
-      return 'eye-outline';
-    }
-    if (endpoint.includes('Services_EFE_Points')) {
-      return 'pin-outline';
-    }
-    if (endpoint.includes('Services_EFE')) {
-      return 'home-outline';
-    }
-    if (endpoint.includes('Services')) {
-      return 'document-outline';
-    }
-    
-    switch (request.type) {
-      case 'CREATE': return 'add-circle-outline';
-      case 'UPDATE': return 'create-outline';
-      case 'DELETE': return 'trash-outline';
-      default: return 'cloud-outline';
-    }
-  }
-
-  /**
-   * Get human-readable description of request
-   */
-  getRequestDescription(request: any): string {
-    const endpoint = request.endpoint || '';
-    const type = request.type || '';
-    const data = request.data || {};
-    
-    // Photo uploads
-    if (type === 'PHOTO_UPLOAD' || type === 'EFE_PHOTO_UPLOAD') {
-      const photoType = data.photoType || 'Photo';
-      return `Upload ${photoType} photo`;
-    }
-    
-    // Visual attachments
-    if (endpoint.includes('Services_Visuals_Attach')) {
-      return 'Upload visual photo';
-    }
-    
-    // Visuals
-    if (endpoint.includes('Services_Visuals') && !endpoint.includes('Attach')) {
-      if (type === 'CREATE') {
-        const category = data.Category || '';
-        const item = data.VisualItem || '';
-        return `Create: ${category} - ${item}`.substring(0, 50);
-      }
-      if (type === 'UPDATE') {
-        return 'Update visual';
-      }
-      if (type === 'DELETE') {
-        return 'Delete visual';
-      }
-    }
-    
-    // EFE Points
-    if (endpoint.includes('Services_EFE_Points')) {
-      if (type === 'CREATE') {
-        const pointName = data.PointName || 'Elevation point';
-        return `Create point: ${pointName}`;
-      }
-      return 'Update elevation point';
-    }
-    
-    // EFE Rooms
-    if (endpoint.includes('Services_EFE') && !endpoint.includes('Points') && !endpoint.includes('Attach')) {
-      if (type === 'CREATE') {
-        const roomName = data.RoomName || 'Room';
-        return `Create room: ${roomName}`;
-      }
-      if (type === 'UPDATE') {
-        if (data.FDF) return 'Update FDF';
-        if (data.Location) return 'Update location';
-        if (data.Notes) return 'Update notes';
-        return 'Update room data';
-      }
-    }
-    
-    // EFE Attachments
-    if (endpoint.includes('EFE') && endpoint.includes('Attach')) {
-      return 'Upload EFE photo';
-    }
-    
-    // Generic
-    if (type === 'CREATE') return 'Create new record';
-    if (type === 'UPDATE') return 'Update record';
-    if (type === 'DELETE') return 'Delete record';
-    
-    return 'Sync data';
   }
 
   /**

@@ -112,6 +112,76 @@ export class OfflineTemplateService {
   }
 
   /**
+   * Ensure EFE templates are ready for use (room definitions for Elevation Plot).
+   * - If cached: returns immediately
+   * - If download in progress: waits for it
+   * - If not started: fetches from API and caches
+   * 
+   * Call this from pages that need EFE templates to ensure they're available.
+   */
+  async ensureEFETemplatesReady(): Promise<any[]> {
+    console.log('[OfflineTemplate] ensureEFETemplatesReady() called');
+    
+    // Check if we have cached templates FIRST (instant return for offline)
+    try {
+      const cached = await this.indexedDb.getCachedTemplates('efe');
+      console.log('[OfflineTemplate] IndexedDB getCachedTemplates(efe) result:', cached ? `${cached.length} templates` : 'null/undefined');
+      
+      if (cached && cached.length > 0) {
+        console.log(`[OfflineTemplate] ✅ ensureEFETemplatesReady: ${cached.length} templates already cached`);
+        return cached;
+      }
+    } catch (dbError) {
+      console.error('[OfflineTemplate] ❌ IndexedDB error when getting cached EFE templates:', dbError);
+    }
+
+    // CRITICAL: If offline and no cache, return empty immediately - don't wait for downloads
+    if (!this.offlineService.isOnline()) {
+      console.log('[OfflineTemplate] ⚠️ Offline with no cached EFE templates - returning empty');
+      return [];
+    }
+
+    // Only wait for downloads if ONLINE (they might complete soon)
+    for (const [key, promise] of this.downloadPromises.entries()) {
+      if (key.startsWith('EFE_')) {
+        console.log(`[OfflineTemplate] ensureEFETemplatesReady: waiting for download ${key}...`);
+        try {
+          // Add timeout to prevent hanging
+          const timeoutPromise = new Promise<void>((_, reject) => 
+            setTimeout(() => reject(new Error('Download timeout')), 5000)
+          );
+          await Promise.race([promise, timeoutPromise]);
+        } catch (err) {
+          console.warn('[OfflineTemplate] Download wait timed out or failed:', err);
+        }
+        // Check again after download completes
+        const afterDownload = await this.indexedDb.getCachedTemplates('efe');
+        if (afterDownload && afterDownload.length > 0) {
+          console.log(`[OfflineTemplate] ensureEFETemplatesReady: ${afterDownload.length} templates available after download`);
+          return afterDownload;
+        }
+      }
+    }
+
+    // No cache, no download in progress - fetch directly if online
+    if (this.offlineService.isOnline()) {
+      console.log('[OfflineTemplate] ensureEFETemplatesReady: fetching from API...');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesEFETemplates());
+        await this.indexedDb.cacheTemplates('efe', templates);
+        console.log(`[OfflineTemplate] ensureEFETemplatesReady: fetched and cached ${templates.length} templates`);
+        return templates;
+      } catch (error) {
+        console.error('[OfflineTemplate] ensureEFETemplatesReady: API fetch failed:', error);
+        return [];
+      }
+    }
+
+    console.warn('[OfflineTemplate] ensureEFETemplatesReady: offline and no cache available');
+    return [];
+  }
+
+  /**
    * Download complete template data for offline use.
    * Call this when user creates or opens a service.
    * Returns immediately if already downloaded.
@@ -819,9 +889,46 @@ export class OfflineTemplateService {
 
   /**
    * Check if template data is already downloaded
+   * CRITICAL: Also verifies that actual data exists in cache (not just the download flag)
+   * This prevents the case where download flag is set but cache was cleared
    */
   async isTemplateReady(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE'): Promise<boolean> {
-    return this.indexedDb.isTemplateDownloaded(serviceId, templateType);
+    // First check the download flag
+    const hasDownloadFlag = await this.indexedDb.isTemplateDownloaded(serviceId, templateType);
+    if (!hasDownloadFlag) {
+      console.log(`[OfflineTemplate] isTemplateReady(${serviceId}, ${templateType}): No download flag`);
+      return false;
+    }
+
+    // CRITICAL: Verify actual data exists in cache
+    // If marked ready but data missing, force re-download
+    const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
+    if (!visualTemplates || visualTemplates.length === 0) {
+      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but visual templates missing - forcing re-download`);
+      await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+      return false;
+    }
+
+    // For EFE template type, also verify EFE templates exist
+    if (templateType === 'EFE') {
+      const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
+      if (!efeTemplates || efeTemplates.length === 0) {
+        console.log(`[OfflineTemplate] isTemplateReady: Download flag set but EFE templates missing - forcing re-download`);
+        await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+        return false;
+      }
+    }
+
+    // Verify service record exists
+    const serviceRecord = await this.indexedDb.getCachedServiceRecord(serviceId);
+    if (!serviceRecord) {
+      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but service record missing - forcing re-download`);
+      await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+      return false;
+    }
+
+    console.log(`[OfflineTemplate] isTemplateReady(${serviceId}, ${templateType}): ✅ All data verified`);
+    return true;
   }
 
   /**
@@ -1029,10 +1136,20 @@ export class OfflineTemplateService {
   /**
    * Get EFE rooms for a service - CACHE-FIRST for instant loading
    * Returns cached data immediately, refreshes in background when online
+   * 
+   * STANDARDIZED PATTERN:
+   * 1. Read from cache IMMEDIATELY (instant UI)
+   * 2. Merge with pending offline rooms
+   * 3. If merged has data: return immediately, refresh in background
+   * 4. If both empty + online: fetch SYNCHRONOUSLY (blocking)
+   * 5. If offline and empty: return empty with offline indicator
    */
   async getEFERooms(serviceId: string): Promise<any[]> {
+    console.log(`[OfflineTemplate] getEFERooms(${serviceId}) called`);
+    
     // 1. Read from cache IMMEDIATELY
     const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
+    console.log(`[OfflineTemplate] getEFERooms: ${cached.length} rooms in cache`);
     
     // 2. Merge with pending offline rooms
     const pending = await this.indexedDb.getPendingEFEByService(serviceId);
@@ -1046,31 +1163,41 @@ export class OfflineTemplateService {
         _localOnly: true,
         _syncing: true,
       }));
+    console.log(`[OfflineTemplate] getEFERooms: ${pendingRooms.length} pending rooms`);
+    
     const merged = [...cached, ...pendingRooms];
     
     // 3. Return immediately if we have data
     if (merged.length > 0) {
-      console.log(`[OfflineTemplate] EFE Rooms: ${cached.length} cached + ${pendingRooms.length} pending (instant)`);
+      console.log(`[OfflineTemplate] ✅ EFE Rooms: ${cached.length} cached + ${pendingRooms.length} pending (instant)`);
       
-      // 4. Background refresh (non-blocking) when online
+      // Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
         this.refreshEFERoomsInBackground(serviceId);
       }
       return merged;
     }
     
-    // 5. Cache empty - fetch from API if online (blocking only when no cache)
+    // 4. CRITICAL: Cache AND pending both empty - fetch synchronously if online
+    // This is the first-load scenario where we MUST block until data is available
     if (this.offlineService.isOnline()) {
       try {
-        console.log(`[OfflineTemplate] No cached EFE rooms, fetching from API...`);
+        console.log(`[OfflineTemplate] ⏳ No cached EFE rooms, fetching from API (BLOCKING)...`);
         const freshRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
+        
+        // Cache the fetched data
         await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', freshRooms || []);
+        
+        console.log(`[OfflineTemplate] ✅ Fetched and cached ${freshRooms?.length || 0} EFE rooms from API`);
         return [...(freshRooms || []), ...pendingRooms];
       } catch (error) {
-        console.warn(`[OfflineTemplate] API fetch failed:`, error);
+        console.error(`[OfflineTemplate] ❌ API fetch failed for EFE rooms:`, error);
       }
+    } else {
+      console.log(`[OfflineTemplate] ⚠️ Offline and no cached EFE rooms - returning empty`);
     }
     
+    // 5. Return pending rooms only (may be empty)
     return pendingRooms;
   }
 
