@@ -2311,6 +2311,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           const tempPhotoId = `temp_camera_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const objectUrl = URL.createObjectURL(blob);
 
+          // Compress annotations BEFORE creating photo entry (using static import for offline support)
+          let compressedDrawings = '';
+          if (annotationsData) {
+            if (typeof annotationsData === 'object') {
+              compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+            } else if (typeof annotationsData === 'string') {
+              compressedDrawings = compressAnnotationData(annotationsData);
+            }
+          }
+
           const photoEntry = {
             AttachID: tempPhotoId,
             attachId: tempPhotoId,  // CRITICAL: lowercase version for caption/annotation lookups
@@ -2332,7 +2342,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             caption: caption || '',
             annotation: caption || '',
             Annotation: caption || '',  // CRITICAL: Caspio field name
-            Drawings: compressedDrawings || '',  // CRITICAL: Caspio field name
+            Drawings: compressedDrawings,  // CRITICAL: Caspio field name
             progress: 0
           };
 
@@ -2344,16 +2354,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           // ALWAYS store in IndexedDB first for reliability (handles poor connectivity)
           // This ensures photos are never lost, even with intermittent connection
           console.log('[CAMERA UPLOAD] Storing in IndexedDB for reliability');
-
-          // Compress annotations if present (using static import for offline support)
-          let compressedDrawings = '';
-          if (annotationsData) {
-            if (typeof annotationsData === 'object') {
-              compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
-            } else if (typeof annotationsData === 'string') {
-              compressedDrawings = compressAnnotationData(annotationsData);
-            }
-          }
 
           // Store photo file in IndexedDB
           await this.indexedDb.storePhotoFile(
