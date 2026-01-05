@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
@@ -52,10 +52,20 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     private offlineTemplate: OfflineTemplateService,
     private offlineService: OfflineService,
     private backgroundSync: BackgroundSyncService,
-    private indexedDb: IndexedDbService
-  ) {}
+    private indexedDb: IndexedDbService,
+    private changeDetectorRef: ChangeDetectorRef
+  ) {
+    // CRITICAL: Ensure loading screen shows immediately
+    this.templateReady = false;
+    this.downloadProgress = 'Loading template...';
+  }
 
   ngOnInit() {
+    // CRITICAL: Ensure loading screen is visible immediately
+    this.templateReady = false;
+    this.downloadProgress = 'Initializing template...';
+    this.changeDetectorRef.detectChanges();
+
     // Get project and service IDs from route params
     this.route.params.subscribe(async params => {
       this.projectId = params['projectId'];
@@ -73,6 +83,14 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
       // Subscribe to sync events to refresh cache when data syncs
       this.subscribeToSyncEvents();
+
+      // CRITICAL: Force loading screen to render before starting download
+      this.templateReady = false;
+      this.downloadProgress = 'Loading template data...';
+      this.changeDetectorRef.detectChanges();
+
+      // Small delay to ensure UI renders loading state
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // CRITICAL: Download ALL template data for offline use
       // This MUST complete before user can work on template
@@ -279,6 +297,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     if (!this.serviceId) {
       console.log('[EF Container] loadTemplate: no serviceId, skipping');
       this.templateReady = true;
+      this.changeDetectorRef.detectChanges();
       return;
     }
 
@@ -289,6 +308,8 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     // ALWAYS show loading screen first
     this.templateReady = false;
     this.downloadProgress = 'Loading template data...';
+    this.changeDetectorRef.detectChanges();
+    console.log('[EF Container] Loading screen should now be visible');
 
     const isOnline = this.offlineService.isOnline();
 
@@ -296,12 +317,14 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       // ONLINE: Always download fresh data
       try {
         this.downloadProgress = 'Syncing template data...';
+        this.changeDetectorRef.detectChanges();
         console.log('[EF Container] Online - downloading fresh template data...');
         
         await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
         console.log('[EF Container] ✅ Template data synced successfully');
         
         this.downloadProgress = 'Loading images...';
+        this.changeDetectorRef.detectChanges();
         
         // Verify and log what was cached
         await this.verifyDownloadedData();
@@ -310,36 +333,43 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         await this.ensureImagesCached();
         
         this.downloadProgress = 'Template ready!';
+        this.changeDetectorRef.detectChanges();
         console.log('[EF Container] ✅ Template fully loaded and ready');
       } catch (error: any) {
         console.warn('[EF Container] Template download failed:', error);
         this.downloadProgress = 'Sync failed - checking cached data...';
+        this.changeDetectorRef.detectChanges();
         
         // Check if we have cached data to fall back to
         const hasCachedData = await this.verifyCachedDataExists();
         if (hasCachedData) {
           console.log('[EF Container] Using cached data after sync failure');
           this.downloadProgress = 'Using cached data (sync failed)';
+          this.changeDetectorRef.detectChanges();
         } else {
           // Try fallback download
           try {
             console.log('[EF Container] Trying fallback pre-cache...');
             this.downloadProgress = 'Attempting fallback sync...';
+            this.changeDetectorRef.detectChanges();
             await Promise.all([
               this.offlineCache.refreshAllTemplates(),
               this.offlineCache.preCacheServiceData(this.serviceId)
             ]);
             console.log('[EF Container] Fallback completed');
             this.downloadProgress = 'Template ready (partial sync)';
+            this.changeDetectorRef.detectChanges();
           } catch (fallbackError) {
             console.warn('[EF Container] Fallback also failed:', fallbackError);
             this.downloadProgress = 'Limited functionality - some data unavailable';
+            this.changeDetectorRef.detectChanges();
           }
         }
       }
     } else {
       // OFFLINE: Check for cached data
       this.downloadProgress = 'Offline - loading cached data...';
+      this.changeDetectorRef.detectChanges();
       console.log('[EF Container] Offline - checking for cached data...');
       
       const hasCachedData = await this.verifyCachedDataExists();
@@ -347,15 +377,19 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       if (hasCachedData) {
         console.log('[EF Container] ✅ Cached data found - ready for offline use');
         this.downloadProgress = 'Working offline with cached data';
+        this.changeDetectorRef.detectChanges();
         await this.verifyDownloadedData();
       } else {
         console.warn('[EF Container] No cached data available offline');
         this.downloadProgress = 'Connect to internet to download template data';
+        this.changeDetectorRef.detectChanges();
       }
     }
 
     // Always mark as ready - let user proceed
     this.templateReady = true;
+    this.changeDetectorRef.detectChanges();
+    console.log('[EF Container] Template ready, loading screen hidden');
   }
 
   /**

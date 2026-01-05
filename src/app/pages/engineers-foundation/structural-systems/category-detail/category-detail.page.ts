@@ -2313,8 +2313,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
 
           const photoEntry = {
             AttachID: tempPhotoId,
+            attachId: tempPhotoId,  // CRITICAL: lowercase version for caption/annotation lookups
             id: tempPhotoId,
-            _pendingFileId: tempPhotoId,
+            _pendingFileId: tempPhotoId,  // CRITICAL: for IndexedDB file lookups
+            _tempId: tempPhotoId,  // CRITICAL: for tracking original temp ID
             name: 'camera-photo.jpg',
             url: objectUrl,
             displayUrl: objectUrl,  // CRITICAL: Set displayUrl for template
@@ -2323,11 +2325,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             isObjectUrl: true,
             uploading: false,  // NEVER show spinner - photo appears immediately
             queued: isOfflineMode,  // Show queued badge if offline
+            isPending: true,  // CRITICAL: Mark as pending for annotation save logic
             _backgroundSync: true,  // Flag for silent background sync
             isSkeleton: false,
             hasAnnotations: !!annotationsData,
             caption: caption || '',
             annotation: caption || '',
+            Annotation: caption || '',  // CRITICAL: Caspio field name
+            Drawings: compressedDrawings || '',  // CRITICAL: Caspio field name
             progress: 0
           };
 
@@ -3332,10 +3337,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             // OFFLINE PHOTO: Update IndexedDB with the new annotations
             // This ensures background sync will upload the photo WITH annotations
             try {
-              console.log('[SAVE OFFLINE] Updating IndexedDB with annotations for temp photo:', attachId);
+              console.log('[SAVE OFFLINE] ========== SAVING ANNOTATIONS FOR TEMP PHOTO ==========');
+              console.log('[SAVE OFFLINE] attachId:', attachId);
+              console.log('[SAVE OFFLINE] currentPhoto._pendingFileId:', currentPhoto._pendingFileId);
+              console.log('[SAVE OFFLINE] currentPhoto.attachId:', currentPhoto.attachId);
+              console.log('[SAVE OFFLINE] currentPhoto.AttachID:', currentPhoto.AttachID);
+              console.log('[SAVE OFFLINE] currentPhoto._tempId:', currentPhoto._tempId);
+              console.log('[SAVE OFFLINE] currentPhoto.isPending:', currentPhoto.isPending);
 
-              // Get the pending file ID (might be different from attachId)
-              const pendingFileId = currentPhoto._pendingFileId || attachId;
+              // Get the pending file ID - use multiple fallbacks
+              const pendingFileId = currentPhoto._pendingFileId || currentPhoto.attachId || currentPhoto._tempId || attachId;
+              console.log('[SAVE OFFLINE] Using pendingFileId:', pendingFileId);
 
               // Compress the annotation data for storage (using static import for offline)
               let compressedDrawings = '';
@@ -3377,11 +3389,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 }
               }
 
-              // Update local photo object
+              // Update local photo object with annotated image
+              console.log('[SAVE OFFLINE] Updating local photo object, newUrl:', newUrl ? 'created' : 'missing');
+              
               this.visualPhotos[key][photoIndex] = {
                 ...currentPhoto,
                 originalUrl: currentPhoto.originalUrl || currentPhoto.url,
-                displayUrl: newUrl,
+                displayUrl: newUrl,  // CRITICAL: Show annotated image immediately
                 hasAnnotations: !!annotationsData,
                 caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
                 annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
@@ -3392,7 +3406,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 _localUpdate: true  // CRITICAL: Prevent reload from overwriting local annotations
               };
 
-              console.log('[SAVE OFFLINE] Updated local photo object with _localUpdate flag');
+              console.log('[SAVE OFFLINE] Updated local photo object:');
+              console.log('[SAVE OFFLINE]   - displayUrl:', this.visualPhotos[key][photoIndex].displayUrl ? 'set' : 'missing');
+              console.log('[SAVE OFFLINE]   - hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
+              console.log('[SAVE OFFLINE]   - Drawings length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
               
               // CRITICAL FIX: Cache annotated image for temp photos too
               // This ensures annotations show in thumbnails even for offline photos
@@ -3404,6 +3421,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                   console.warn('[SAVE OFFLINE] Failed to cache annotated image:', cacheErr);
                 }
               }
+              
+              // CRITICAL: Force change detection to update UI immediately
+              this.changeDetectorRef.detectChanges();
+              console.log('[SAVE OFFLINE] ✅ Change detection triggered');
             } catch (error) {
               console.error('[SAVE OFFLINE] Error saving annotations to IndexedDB:', error);
             }

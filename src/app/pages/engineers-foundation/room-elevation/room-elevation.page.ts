@@ -2706,6 +2706,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       // Find existing photo or create new one
       let existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
 
+      // Generate temp ID for tracking
+      const tempPhotoId = `temp_efe_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
       if (existingPhoto) {
         // Update existing photo - NEVER show spinner, photo appears immediately
         existingPhoto.uploading = false;
@@ -2713,8 +2716,16 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         existingPhoto._backgroundSync = true;  // Silent background sync
         existingPhoto.url = webPath;
         existingPhoto.displayUrl = webPath;
+        existingPhoto.originalUrl = webPath;
+        // CRITICAL: Set all ID fields for annotation lookups
+        existingPhoto.AttachID = tempPhotoId;
+        existingPhoto.attachId = tempPhotoId;
+        existingPhoto._pendingFileId = tempPhotoId;
+        existingPhoto._tempId = tempPhotoId;
+        existingPhoto.isPending = true;
       } else {
         // Add new photo placeholder - NEVER show spinner, photo appears immediately
+        // CRITICAL: Include ALL required fields for annotation save to work
         existingPhoto = {
           photoType: photoType,
           uploading: false,  // NEVER show spinner
@@ -2722,10 +2733,18 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           _backgroundSync: true,  // Silent background sync
           url: webPath,
           displayUrl: webPath,
+          originalUrl: webPath,
           caption: '',
+          Annotation: '',
           drawings: null,
+          Drawings: '',
           hasAnnotations: false,
-          attachId: null
+          // CRITICAL: All ID fields for annotation lookups
+          AttachID: tempPhotoId,
+          attachId: tempPhotoId,
+          _pendingFileId: tempPhotoId,
+          _tempId: tempPhotoId,
+          isPending: true
         };
         point.photos.push(existingPhoto);
       }
@@ -2752,14 +2771,18 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
       // Update local state with result
       if (result) {
-        existingPhoto.attachId = result.AttachID || result._tempId;
-        existingPhoto._tempId = result._tempId;
+        // CRITICAL: Preserve all ID fields for annotation lookups
+        existingPhoto.AttachID = result.AttachID || result._tempId || tempPhotoId;
+        existingPhoto.attachId = result.attachId || result.AttachID || result._tempId || tempPhotoId;
+        existingPhoto._tempId = result._tempId || tempPhotoId;
+        existingPhoto._pendingFileId = result._pendingFileId || result._tempId || tempPhotoId;
+        existingPhoto.isPending = !!result._syncing || !!result.isPending;
         
         // If offline (result has _syncing flag), photo is queued - don't clear uploading yet
         if (result._syncing) {
           existingPhoto.uploading = false;
           existingPhoto.queued = true;
-          console.log(`[Point Photo] Photo queued for sync (offline mode)`);
+          console.log(`[Point Photo] Photo queued for sync (offline mode), _pendingFileId:`, existingPhoto._pendingFileId);
         } else {
           // Online upload completed
           existingPhoto.uploading = false;
