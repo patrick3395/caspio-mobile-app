@@ -2610,7 +2610,19 @@ export class CaspioService {
       });
 
       console.log('[VISUALS ATTACH S3] ✅ Complete!');
-      return { Result: [{ AttachID: attachId, VisualID: visualId, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
+      // CRITICAL: Include Annotation (caption) in result so it's preserved in cache and UI
+      return { 
+        Result: [{ 
+          AttachID: attachId, 
+          VisualID: visualId, 
+          Attachment: s3Key, 
+          Drawings: recordData.Drawings || '',
+          Annotation: caption || ''  // CRITICAL: Include caption in result
+        }], 
+        AttachID: attachId, 
+        Attachment: s3Key,
+        Annotation: caption || ''  // Also include at top level
+      };
     } catch (error) {
       console.error('[VISUALS ATTACH S3] ❌ Failed:', error);
       throw error;

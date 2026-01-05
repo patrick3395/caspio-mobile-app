@@ -33,7 +33,7 @@
   to { transform: rotate(360deg); }
 }
 
-// Modal backdrop
+// Modal backdrop - also serves as centering container
 .sync-modal-backdrop {
   position: fixed;
   top: 0;
@@ -42,19 +42,24 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 9998;
+  // Use flexbox for centering - more reliable than transform
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 16px 40px 16px;
+  // Respect safe areas
+  padding-top: max(60px, calc(env(safe-area-inset-top, 0px) + 20px));
+  padding-bottom: max(40px, calc(env(safe-area-inset-bottom, 0px) + 20px));
+  box-sizing: border-box;
+  overflow: auto;
 }
 
-// Modal container - MOBILE-OPTIMIZED positioning
+// Modal container - simplified positioning
 .sync-modal {
-  position: fixed;
-  // Use safe area insets for proper mobile positioning
-  top: calc(env(safe-area-inset-top, 20px) + 20px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
+  position: relative;
+  width: 100%;
   max-width: 400px;
-  // Calculate max-height respecting safe areas on both top and bottom
-  max-height: calc(100vh - env(safe-area-inset-top, 20px) - env(safe-area-inset-bottom, 20px) - 60px);
+  max-height: 100%;
   background: white;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
@@ -62,19 +67,12 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  // Prevent modal from being too tall
+  margin: auto 0;
 
   // Mobile-specific adjustments
   @media (max-width: 480px) {
-    width: calc(100% - 24px);
-    top: calc(env(safe-area-inset-top, 10px) + 10px);
-    max-height: calc(100vh - env(safe-area-inset-top, 10px) - env(safe-area-inset-bottom, 10px) - 40px);
     border-radius: 12px;
-  }
-
-  // Very small screens (older iPhones, small Androids)
-  @media (max-height: 600px) {
-    top: calc(env(safe-area-inset-top, 5px) + 5px);
-    max-height: calc(100vh - env(safe-area-inset-top, 5px) - env(safe-area-inset-bottom, 5px) - 20px);
   }
 }
 

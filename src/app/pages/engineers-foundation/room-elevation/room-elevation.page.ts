@@ -394,13 +394,22 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           }
           
           // Update photo metadata without flicker
+          // CRITICAL: Preserve caption - it may have been set locally before sync
+          const existingPhoto = point.photos[photoIndex];
+          const serverCaption = event.result?.Annotation || event.result?.Caption || '';
+          const localCaption = existingPhoto.caption || existingPhoto.Annotation || '';
+          const finalCaption = localCaption || serverCaption;
+          
           point.photos[photoIndex] = {
-            ...point.photos[photoIndex],
+            ...existingPhoto,
             attachId: realAttachId,
             url: newImageUrl,
             displayUrl: newImageUrl,
+            caption: finalCaption,  // CRITICAL: Preserve caption
+            Annotation: finalCaption,  // Also set Caspio field
             _tempId: undefined,
             _pendingFileId: undefined,
+            _localUpdate: false,  // Clear local update flag - sync is complete
             isPending: false,
             queued: false,
             uploading: false,

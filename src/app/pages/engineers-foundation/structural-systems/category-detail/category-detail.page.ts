@@ -307,18 +307,31 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
           }
 
           // Update photo metadata without flicker
+          // CRITICAL: Preserve caption - it may have been set locally before sync
+          // The upload includes the caption, so we can safely keep the local one
+          const existingPhoto = this.visualPhotos[key][photoIndex];
+          const serverCaption = actualResult.Annotation || actualResult.Caption || '';
+          const localCaption = existingPhoto.caption || '';
+          
+          // Use local caption if it exists, otherwise use server caption
+          // (server caption should match if upload worked correctly)
+          const finalCaption = localCaption || serverCaption;
+          
           this.visualPhotos[key][photoIndex] = {
-            ...this.visualPhotos[key][photoIndex],
+            ...existingPhoto,
             AttachID: realAttachId,
             thumbnailUrl: newThumbnailUrl,
             url: newThumbnailUrl,
             Photo: newThumbnailUrl,
             originalUrl: newThumbnailUrl,
             displayUrl: newThumbnailUrl,
+            caption: finalCaption,  // CRITICAL: Preserve caption
+            Annotation: finalCaption,  // Also set Caspio field
             queued: false,
             uploading: false,
             isPending: false,
             _pendingFileId: undefined,
+            _localUpdate: false,  // Clear local update flag - sync is complete
             isSkeleton: false
           };
 

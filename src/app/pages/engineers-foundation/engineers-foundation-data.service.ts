@@ -58,13 +58,19 @@ export class EngineersFoundationDataService {
     );
 
     // When a photo syncs, clear attachment caches
+    // CRITICAL FIX: Do NOT emit cacheInvalidated$ here - it causes a race condition
+    // The page's direct photoUploadComplete$ subscription handles the UI update
+    // Emitting cacheInvalidated$ triggers reloadVisualsAfterSync() BEFORE the page
+    // has updated the photo's AttachID from temp to real, causing duplicate photos
+    // or loss of local updates like captions
     this.syncSubscriptions.push(
       this.backgroundSync.photoUploadComplete$.subscribe(event => {
-        console.log('[DataService] Photo synced, invalidating attachment caches');
+        console.log('[DataService] Photo synced, clearing in-memory caches only (no reload trigger)');
         this.visualAttachmentsCache.clear();
         this.efeAttachmentsCache.clear();
         this.imageCache.clear();
-        this.cacheInvalidated$.next({ reason: 'photo_sync' });
+        // DO NOT call: this.cacheInvalidated$.next({ reason: 'photo_sync' });
+        // The page handles photoUploadComplete$ directly for seamless UI updates
       })
     );
 
