@@ -3347,33 +3347,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
                 }
               }
 
-              // Get the original file from IndexedDB
-              const existingPhotoData = await this.indexedDb.getStoredPhotoData(pendingFileId);
-              if (existingPhotoData && existingPhotoData.file) {
-                // Re-store the photo with updated drawings and caption
-                await this.indexedDb.storePhotoFile(
-                  pendingFileId,
-                  existingPhotoData.file,
-                  existingPhotoData.visualId,
-                  data.caption || existingPhotoData.caption || '',
-                  compressedDrawings
-                );
+              // CRITICAL: Use updatePendingPhotoData for reliable caption/drawings update
+              // This is simpler and more reliable than re-reading and re-storing the entire file
+              const updated = await this.indexedDb.updatePendingPhotoData(pendingFileId, {
+                caption: data.caption || '',
+                drawings: compressedDrawings
+              });
+              
+              if (updated) {
                 console.log('[SAVE OFFLINE] ✅ Updated IndexedDB with drawings:', compressedDrawings.length, 'chars');
-
-                // Also update the pending request in IndexedDB with new drawings
-                const pendingRequests = await this.indexedDb.getPendingRequests();
-                const matchingRequest = pendingRequests.find(r =>
-                  r.tempId === pendingFileId || r.data?.fileId === pendingFileId
-                );
-                if (matchingRequest) {
-                  // Update the request data with new drawings
-                  matchingRequest.data.drawings = compressedDrawings;
-                  matchingRequest.data.caption = data.caption || '';
-                  // Note: We can't easily update a pending request, but the sync will read from storePhotoFile
-                  console.log('[SAVE OFFLINE] Found matching pending request, drawings will be read from IndexedDB on sync');
-                }
               } else {
-                console.warn('[SAVE OFFLINE] Could not find original file in IndexedDB for:', pendingFileId);
+                console.warn('[SAVE OFFLINE] Could not find pending photo in IndexedDB for:', pendingFileId);
                 
                 // CRITICAL FIX: If file is not found, the photo may have been synced while user was annotating
                 // Try to save to the database using the _originalTempId or look for a real AttachID
@@ -3816,30 +3800,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               
               if (isSyncing) {
                 // CRITICAL FIX: For syncing photos, update IndexedDB so background sync picks up the caption
-                const pendingFileId = photo._pendingFileId || photo.AttachID;
+                // Use the dedicated updatePendingPhotoData method - more reliable than re-storing the file
+                const pendingFileId = photo._pendingFileId || photo.attachId || photo.AttachID;
                 console.log('[CAPTION] Photo is syncing, updating IndexedDB caption:', pendingFileId);
                 
-                this.indexedDb.getStoredPhotoData(pendingFileId).then(existingData => {
-                  if (existingData && existingData.file) {
-                    this.indexedDb.storePhotoFile(
-                      pendingFileId,
-                      existingData.file,
-                      existingData.visualId,
-                      newCaption,
-                      existingData.drawings || ''
-                    ).then(() => {
-                      console.log('[CAPTION] ✅ Updated IndexedDB caption for syncing photo:', pendingFileId, 'caption:', newCaption);
-                      // Mark as local update to prevent server overwriting on reload
-                      photo._localUpdate = true;
-                    }).catch((error: any) => {
-                      console.error('[CAPTION] Error updating IndexedDB caption:', error);
-                    });
-                  } else {
-                    console.warn('[CAPTION] Could not find pending photo in IndexedDB:', pendingFileId);
-                    // Still mark as local update to preserve caption on sync
+                this.indexedDb.updatePendingPhotoData(pendingFileId, { caption: newCaption })
+                  .then((updated) => {
+                    if (updated) {
+                      console.log('[CAPTION] ✅ Updated IndexedDB caption for syncing photo:', pendingFileId);
+                    } else {
+                      console.warn('[CAPTION] Could not find pending photo in IndexedDB:', pendingFileId);
+                    }
+                    // Mark as local update to prevent server overwriting on reload
                     photo._localUpdate = true;
-                  }
-                });
+                  })
+                  .catch((error: any) => {
+                    console.error('[CAPTION] Error updating IndexedDB caption:', error);
+                    photo._localUpdate = true;
+                  });
               } else if (photo.AttachID) {
                 // Photo is fully synced - save directly to API
                 const visualId = photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);

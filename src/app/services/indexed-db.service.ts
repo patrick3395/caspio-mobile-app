@@ -689,6 +689,55 @@ export class IndexedDbService {
   }
 
   /**
+   * Update caption and/or drawings for a pending photo in IndexedDB
+   * This is the reliable method for updating photo metadata before sync
+   * CRITICAL: Use this instead of re-reading and re-storing the entire file
+   * @param photoId - The photo ID (temp_photo_xxx or temp_efe_photo_xxx)
+   * @param updates - Object containing caption and/or drawings to update
+   * @returns true if updated, false if photo not found
+   */
+  async updatePendingPhotoData(photoId: string, updates: {
+    caption?: string;
+    drawings?: string;
+  }): Promise<boolean> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingImages'], 'readwrite');
+      const store = transaction.objectStore('pendingImages');
+      const getRequest = store.get(photoId);
+
+      getRequest.onsuccess = () => {
+        const imageData = getRequest.result;
+        if (imageData) {
+          // Update only the specified fields
+          if (updates.caption !== undefined) {
+            imageData.caption = updates.caption;
+          }
+          if (updates.drawings !== undefined) {
+            imageData.drawings = updates.drawings;
+          }
+          imageData.updatedAt = Date.now();
+          
+          const putRequest = store.put(imageData);
+          putRequest.onsuccess = () => {
+            console.log('[IndexedDB] ✅ Updated pending photo data:', photoId, 
+              'caption:', (updates.caption || '').substring(0, 30),
+              'drawings:', (updates.drawings || '').length, 'chars');
+            resolve(true);
+          };
+          putRequest.onerror = () => reject(putRequest.error);
+        } else {
+          console.warn('[IndexedDB] Photo not found for data update:', photoId);
+          resolve(false);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
    * Get all pending photos for a specific service
    * Returns photos with regenerated blob URLs for display
    * @param serviceId - The service ID to filter by
@@ -710,6 +759,7 @@ export class IndexedDbService {
 
       return {
         AttachID: photo.imageId,
+        attachId: photo.imageId,  // CRITICAL: lowercase version for caption/annotation lookups
         id: photo.imageId,
         photoId: photo.imageId,
         _pendingFileId: photo.imageId,
@@ -932,6 +982,7 @@ export class IndexedDbService {
 
       return {
         AttachID: photo.imageId,
+        attachId: photo.imageId,  // CRITICAL: lowercase version for caption/annotation lookups
         id: photo.imageId,
         _pendingFileId: photo.imageId,
         url: blobUrl,
@@ -968,6 +1019,7 @@ export class IndexedDbService {
 
       const displayPhoto = {
         AttachID: photo.imageId,
+        attachId: photo.imageId,  // CRITICAL: lowercase version for caption/annotation lookups
         id: photo.imageId,
         _pendingFileId: photo.imageId,
         url: blobUrl,
@@ -2015,6 +2067,7 @@ export class IndexedDbService {
 
       return {
         AttachID: photo.imageId,
+        attachId: photo.imageId,  // CRITICAL: lowercase version for caption/annotation lookups
         id: photo.imageId,
         _pendingFileId: photo.imageId,
         PointID: pointId, // CRITICAL: Include PointID for filtering in room-elevation page
@@ -2056,6 +2109,7 @@ export class IndexedDbService {
 
       const displayPhoto = {
         AttachID: photo.imageId,
+        attachId: photo.imageId,  // CRITICAL: lowercase version for caption/annotation lookups
         id: photo.imageId,
         _pendingFileId: photo.imageId,
         PointID: pointId,

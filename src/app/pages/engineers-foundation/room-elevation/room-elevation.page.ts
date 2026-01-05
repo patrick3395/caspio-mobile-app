@@ -3067,27 +3067,17 @@ export class RoomElevationPage implements OnInit, OnDestroy {
                        photo._pendingFileId || String(photo.attachId || '').startsWith('temp_');
       
       if (isSyncing) {
-        // CRITICAL FIX: For syncing photos, update IndexedDB so background sync picks up the caption
+        // CRITICAL FIX: For syncing photos, use updatePendingPhotoData for reliable caption update
         const pendingFileId = photo._pendingFileId || photo._tempId || photo.attachId;
         console.log('[Point Caption] Photo is syncing, updating IndexedDB caption:', pendingFileId);
         
-        const existingData = await this.indexedDb.getStoredEFEPhotoData(pendingFileId);
-        if (existingData && existingData.file) {
-          // Re-store with updated caption
-          await this.indexedDb.storeEFEPhotoFile(
-            pendingFileId,
-            existingData.file,
-            existingData.pointId,
-            existingData.photoType,
-            existingData.drawings || '',
-            newCaption  // CRITICAL: Store caption for background sync
-          );
-          photo._localUpdate = true;
-          console.log('[Point Caption] ✅ Updated IndexedDB with caption for syncing photo:', pendingFileId, 'caption:', newCaption);
+        const updated = await this.indexedDb.updatePendingPhotoData(pendingFileId, { caption: newCaption });
+        if (updated) {
+          console.log('[Point Caption] ✅ Updated IndexedDB with caption for syncing photo:', pendingFileId);
         } else {
           console.warn('[Point Caption] Could not find pending photo in IndexedDB:', pendingFileId);
-          photo._localUpdate = true;
         }
+        photo._localUpdate = true;
         return; // Don't try to save to server for temp IDs
       }
       
@@ -3415,30 +3405,24 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         }
       }
 
-      // CRITICAL FIX: Handle TEMP photos differently - update the pending photo data in IndexedDB
-      // so background sync picks up the annotations
+      // CRITICAL FIX: Handle TEMP photos differently - use updatePendingPhotoData for reliable update
       if (String(attachId).startsWith('temp_') || (foundPhoto && foundPhoto.isPending)) {
-        // This is a syncing photo - update the stored photo file data in IndexedDB
+        // This is a syncing photo - use the dedicated method to update caption/drawings
         console.log('[SAVE] Updating annotations for temp/pending photo:', attachId);
         
-        const storedPhotoData = await this.indexedDb.getStoredEFEPhotoData(attachId);
-        if (storedPhotoData && storedPhotoData.file) {
-          // Re-store with updated drawings
-          await this.indexedDb.storeEFEPhotoFile(
-            attachId,
-            storedPhotoData.file,
-            storedPhotoData.pointId,
-            storedPhotoData.photoType,
-            updateData.Drawings  // Updated drawings
-          );
-          console.log('[SAVE] ✅ Updated pending EFE photo with annotations in IndexedDB:', attachId);
-          
-          // Also mark the local photo as having local updates
+        const pendingFileId = foundPhoto?._pendingFileId || foundPhoto?._tempId || attachId;
+        const updated = await this.indexedDb.updatePendingPhotoData(pendingFileId, {
+          caption: caption || '',
+          drawings: updateData.Drawings
+        });
+        
+        if (updated) {
+          console.log('[SAVE] ✅ Updated pending EFE photo with annotations in IndexedDB:', pendingFileId);
           if (foundPhoto) {
             foundPhoto._localUpdate = true;
           }
         } else {
-          console.warn('[SAVE] Could not find stored photo data for temp photo:', attachId);
+          console.warn('[SAVE] Could not find stored photo data for temp photo:', pendingFileId);
         }
       } else if (pointIdForCache && !pointIdForCache.startsWith('temp_')) {
         // Get existing cached attachments and update

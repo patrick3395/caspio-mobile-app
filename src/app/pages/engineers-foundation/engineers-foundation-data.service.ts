@@ -602,12 +602,14 @@ export class EngineersFoundationDataService {
     // STEP 5: Return immediately with blob URL - NEVER WAIT FOR NETWORK
     return {
       AttachID: tempPhotoId,
+      attachId: tempPhotoId,  // CRITICAL: lowercase version for caption/annotation updates
       VisualID: visualIdStr,
       Annotation: caption,
       Photo: blobUrl,
       url: blobUrl,
       thumbnailUrl: blobUrl,
       _tempId: tempPhotoId,
+      _pendingFileId: tempPhotoId,  // CRITICAL: for IndexedDB lookups when updating caption/drawings
       _thumbnailUrl: blobUrl,
       _syncing: true,
       uploading: false,
@@ -1060,12 +1062,14 @@ export class EngineersFoundationDataService {
     // STEP 5: Return immediately with blob URL - NEVER WAIT FOR NETWORK
     return {
       AttachID: tempPhotoId,
+      attachId: tempPhotoId,  // CRITICAL: lowercase version for caption/annotation updates
       PointID: pointIdStr,
       Type: photoType,
       Photo: blobUrl,
       url: blobUrl,
       thumbnailUrl: blobUrl,
       _tempId: tempPhotoId,
+      _pendingFileId: tempPhotoId,  // CRITICAL: for IndexedDB lookups when updating caption/drawings
       _thumbnailUrl: blobUrl,
       _syncing: true,
       uploading: false,
