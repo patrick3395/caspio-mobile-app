@@ -1,9 +1,9 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter } from '@ionic/angular';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { AlertController, ToastController, ActionSheetController } from '@ionic/angular';
-import { Subscription } from 'rxjs';
+import { Subscription, filter } from 'rxjs';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
 import { EngineersFoundationDataService } from '../engineers-foundation-data.service';
 import { CaspioService } from '../../../services/caspio.service';
@@ -12,6 +12,7 @@ import { BackgroundSyncService } from '../../../services/background-sync.service
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { OfflineService } from '../../../services/offline.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
+import { SmartSyncService } from '../../../services/smart-sync.service';
 
 interface RoomTemplate {
   RoomName: string;
@@ -53,7 +54,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   private roomSyncSubscription?: Subscription;
   private cacheInvalidationSubscription?: Subscription;
   private backgroundRefreshSubscription?: Subscription;
+  private routerSubscription?: Subscription;
   private cacheInvalidationDebounceTimer: any = null;
+  
+  // Track if initial load is complete (for router-based reload detection)
+  private initialLoadComplete: boolean = false;
   
   // Standardized UI state flags
   isOnline: boolean = true;
@@ -74,7 +79,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     private backgroundSync: BackgroundSyncService,
     private offlineTemplate: OfflineTemplateService,
     private offlineService: OfflineService,
-    private indexedDb: IndexedDbService
+    private indexedDb: IndexedDbService,
+    private smartSync: SmartSyncService
   ) {}
 
   async ngOnInit() {
@@ -135,22 +141,33 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
 
+    // Register with SmartSync for hourly refresh
+    this.smartSync.registerActiveService(this.serviceId);
+
     // Update online status
     this.isOnline = this.offlineService.isOnline();
 
     // Subscribe to EFE room sync completions (for offline-first support)
     this.subscribeToSyncEvents();
+    
+    // Subscribe to router events to detect navigation back to this page
+    // This is more reliable than ionViewWillEnter with standard Angular router
+    this.subscribeToRouterEvents();
 
     // CRITICAL: Ensure EFE data is cached before loading room templates
     // This follows the standardized cache-first pattern
     await this.ensureEFEDataCached();
 
     await this.loadRoomTemplates();
+    
+    // Mark initial load as complete
+    this.initialLoadComplete = true;
   }
 
   /**
    * Ionic lifecycle hook - called every time the view is about to become active
    * This handles navigation back from room detail page
+   * NOTE: This may not always fire with standard Angular router - we use router events as primary
    */
   async ionViewWillEnter() {
     console.log('[ElevationPlotHub] ionViewWillEnter - Reloading rooms from cache');
@@ -160,9 +177,33 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     
     // Reload rooms from cache (non-blocking, cache-first)
     // This ensures rooms are always displayed when navigating back
-    if (this.serviceId) {
+    if (this.serviceId && this.initialLoadComplete) {
       await this.loadRoomTemplates();
     }
+  }
+  
+  /**
+   * Subscribe to Angular router events to detect navigation
+   * This is more reliable than ionViewWillEnter with standard Angular router
+   */
+  private subscribeToRouterEvents(): void {
+    this.routerSubscription = this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+      .subscribe((event: NavigationEnd) => {
+        // Check if we navigated back to this page (elevation hub)
+        const isElevationHub = event.urlAfterRedirects.endsWith('/elevation') || 
+                               event.urlAfterRedirects.includes('/elevation?');
+        
+        if (isElevationHub && this.initialLoadComplete && this.serviceId) {
+          console.log('[ElevationPlotHub] Router navigation detected - reloading rooms');
+          
+          // Update online status
+          this.isOnline = this.offlineService.isOnline();
+          
+          // Reload rooms from cache
+          this.loadRoomTemplates();
+        }
+      });
   }
 
   /**
@@ -314,6 +355,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   ngOnDestroy(): void {
+    // Unregister from SmartSync
+    if (this.serviceId) {
+      this.smartSync.unregisterActiveService(this.serviceId);
+    }
+    
     if (this.roomSyncSubscription) {
       this.roomSyncSubscription.unsubscribe();
     }
@@ -322,6 +368,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     if (this.backgroundRefreshSubscription) {
       this.backgroundRefreshSubscription.unsubscribe();
+    }
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
     }
     if (this.cacheInvalidationDebounceTimer) {
       clearTimeout(this.cacheInvalidationDebounceTimer);
@@ -959,186 +1008,258 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private async loadRoomTemplates() {
     try {
+      // DEFENSIVE: Preserve existing roomTemplates in case load fails
+      const previousRoomTemplates = [...this.roomTemplates];
+      
       const allTemplates = await this.foundationData.getEFETemplates();
+      
+      // Load existing rooms from database FIRST
+      // This ensures we can display rooms even if templates fail
+      let existingRooms: any[] = [];
+      if (this.serviceId) {
+        existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
+        console.log(`[ElevationPlotHub] Loaded ${existingRooms?.length || 0} existing rooms from cache`);
+      }
 
-      if (allTemplates && allTemplates.length > 0) {
-        this.allRoomTemplates = allTemplates.map((template: any) => ({ ...template }));
-
-        // Filter templates where Auto = 'Yes'
-        const autoTemplates = allTemplates.filter((template: any) =>
-          template.Auto === 'Yes' || template.Auto === true || template.Auto === 1
-        );
-
-        // Initialize room elevation data for each template
-        autoTemplates.forEach((template: any) => {
-          if (template.RoomName && !this.roomElevationData[template.RoomName]) {
-            const elevationPoints: any[] = [];
-
-            // Extract elevation points from Point1Name, Point2Name, etc.
-            for (let i = 1; i <= 20; i++) {
-              const pointColumnName = `Point${i}Name`;
-              const pointName = template[pointColumnName];
-
-              if (pointName && pointName.trim() !== '') {
-                elevationPoints.push({
-                  pointNumber: i,
-                  name: pointName,
-                  value: '',
-                  photo: null,
-                  photos: [],
-                  photoCount: 0
-                });
-              }
-            }
-
-            this.roomElevationData[template.RoomName] = {
-              roomName: template.RoomName,
-              templateId: template.TemplateID || template.PK_ID,
-              elevationPoints: elevationPoints,
-              pointCount: template.PointCount || elevationPoints.length,
-              notes: '',
-              fdf: '',
-              location: '',
-              fdfPhotos: {}
+      // FALLBACK: If templates are empty but we have cached rooms, display rooms directly
+      if (!allTemplates || allTemplates.length === 0) {
+        console.warn('[ElevationPlotHub] ⚠️ Templates empty - attempting fallback to cached rooms');
+        
+        if (existingRooms && existingRooms.length > 0) {
+          console.log('[ElevationPlotHub] ✅ Using cached rooms directly (templates unavailable)');
+          
+          // Build room display directly from cached room data
+          this.roomTemplates = existingRooms.map((room: any) => {
+            const roomName = room.RoomName;
+            const effectiveRoomId = room.EFEID || room.PK_ID || room._tempId;
+            
+            // Mark as selected
+            this.selectedRooms[roomName] = true;
+            this.efeRecordIds[roomName] = String(effectiveRoomId);
+            
+            return {
+              RoomName: roomName,
+              TemplateID: room.TemplateID || 0,
+              PK_ID: room.PK_ID || effectiveRoomId,
+              PointCount: room.PointCount || 0,
+              Organization: room.Organization,
+              isSelected: true,
+              isSaving: !!this.savingRooms[roomName],
+              efeId: String(effectiveRoomId),
+              _tempId: room._tempId,
+              _localOnly: room._localOnly,
             };
-          }
-        });
-
-        // Load existing rooms from database
-        if (this.serviceId) {
-          const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
-
-          // Build room templates list
-          const roomsToDisplay: RoomTemplate[] = [...autoTemplates];
-
-          if (existingRooms && existingRooms.length > 0) {
-            for (const room of existingRooms) {
-              const roomName = room.RoomName;
-              // Use EFEID field, NOT PK_ID - EFEID is what links to Services_EFE_Points
-              const roomId = room.EFEID;
-              const templateId = room.TemplateID;
-
-              // Find matching template
-              const templateIdNum = typeof templateId === 'string' ? parseInt(templateId, 10) : templateId;
-              let template = null;
-
-              if (templateId) {
-                template = this.allRoomTemplates.find((t: any) =>
-                  t.TemplateID == templateIdNum || t.PK_ID == templateIdNum
-                );
-              }
-
-              if (!template) {
-                template = autoTemplates.find((t: any) => t.RoomName === roomName);
-              }
-
-              if (template) {
-                // Check if this is a duplicated room (has " #N" pattern) or a renamed room
-                const isDuplicate = /\s+#\d+$/.test(roomName);
-                
-                if (template.RoomName !== roomName) {
-                  if (isDuplicate) {
-                    // This is a duplicated room - ADD it to the list, don't replace the original
-                    const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
-                    if (existingRoomIndex < 0) {
-                      // Add duplicate room to the list with Organization from database
-                      roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
-                    }
-                  } else {
-                    // This is a renamed room - REPLACE the original template
-                    const originalIndex = roomsToDisplay.findIndex((t: any) =>
-                      (t.TemplateID == templateIdNum || t.PK_ID == templateIdNum) && t.RoomName === template.RoomName
-                    );
-                    if (originalIndex >= 0) {
-                      // Replace at the same index to preserve order with Organization from database
-                      roomsToDisplay[originalIndex] = { ...template, RoomName: roomName, Organization: room.Organization };
-                    } else {
-                      // Original not found, check if renamed room already exists
-                      const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
-                      if (existingRoomIndex < 0) {
-                        roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
-                      }
-                    }
-                  }
-                } else {
-                  // Room not renamed or duplicated, just ensure it's in the list
-                  const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
-                  if (existingRoomIndex < 0) {
-                    roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
-                  } else {
-                    // Update Organization if room already exists in display list
-                    roomsToDisplay[existingRoomIndex]['Organization'] = room.Organization;
-                  }
-                }
-              }
-
-              // Mark room as selected
-              // CRITICAL: Also handle pending rooms with _tempId
-              const effectiveRoomId = roomId || room.PK_ID || room._tempId;
-              if (roomName && effectiveRoomId) {
-                this.selectedRooms[roomName] = true;
-                this.efeRecordIds[roomName] = String(effectiveRoomId);
-
-                // Initialize room elevation data if not present
-                if (!this.roomElevationData[roomName] && template) {
-                  const elevationPoints: any[] = [];
-
-                  for (let i = 1; i <= 20; i++) {
-                    const pointColumnName = `Point${i}Name`;
-                    const pointName = template[pointColumnName];
-
-                    if (pointName && pointName.trim() !== '') {
-                      elevationPoints.push({
-                        pointNumber: i,
-                        name: pointName,
-                        value: '',
-                        photo: null,
-                        photos: [],
-                        photoCount: 0
-                      });
-                    }
-                  }
-
-                  this.roomElevationData[roomName] = {
-                    roomName: roomName,
-                    templateId: template.TemplateID || template.PK_ID,
-                    elevationPoints: elevationPoints,
-                    pointCount: template.PointCount || elevationPoints.length,
-                    notes: room.Notes || '',
-                    fdf: room.FDF || '',
-                    location: room.Location || '',
-                    fdfPhotos: {}
-                  };
-                }
-              }
-            }
-          }
-
-          // Convert to display format
-          this.roomTemplates = roomsToDisplay.map(template => ({
-            ...template,
-            isSelected: !!this.selectedRooms[template.RoomName],
-            isSaving: !!this.savingRooms[template.RoomName],
-            efeId: this.efeRecordIds[template.RoomName]
-          }));
-
-          // Sort by Organization field (ascending)
-          // Rooms without Organization go to the end
+          });
+          
+          // Sort by Organization
           this.roomTemplates.sort((a, b) => {
             const orgA = a['Organization'] !== undefined && a['Organization'] !== null ? a['Organization'] : 999999;
             const orgB = b['Organization'] !== undefined && b['Organization'] !== null ? b['Organization'] : 999999;
             return orgA - orgB;
           });
           
-          console.log('[Load Rooms] Sorted rooms by Organization:', this.roomTemplates.map(r => ({ name: r.RoomName, org: r['Organization'] })));
+          console.log(`[ElevationPlotHub] Fallback: displayed ${this.roomTemplates.length} rooms from cache`);
+        } else if (previousRoomTemplates.length > 0) {
+          // ULTRA FALLBACK: Keep previous room templates if they exist
+          console.warn('[ElevationPlotHub] ⚠️ No templates and no cached rooms - keeping previous state');
+          this.roomTemplates = previousRoomTemplates;
         } else {
-          // No service ID, just show auto templates as unselected
-          this.roomTemplates = autoTemplates.map(template => ({
-            ...template,
-            isSelected: false,
-            isSaving: false
-          }));
+          console.error('[ElevationPlotHub] ❌ No templates, no cached rooms, no previous state - empty display');
+          this.roomTemplates = [];
         }
+        
+        // Update UI state flags and exit
+        this.isEmpty = this.roomTemplates.length === 0;
+        this.isOnline = this.offlineService.isOnline();
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // Normal flow: Templates are available
+      this.allRoomTemplates = allTemplates.map((template: any) => ({ ...template }));
+
+      // Filter templates where Auto = 'Yes'
+      const autoTemplates = allTemplates.filter((template: any) =>
+        template.Auto === 'Yes' || template.Auto === true || template.Auto === 1
+      );
+
+      // Initialize room elevation data for each template
+      autoTemplates.forEach((template: any) => {
+        if (template.RoomName && !this.roomElevationData[template.RoomName]) {
+          const elevationPoints: any[] = [];
+
+          // Extract elevation points from Point1Name, Point2Name, etc.
+          for (let i = 1; i <= 20; i++) {
+            const pointColumnName = `Point${i}Name`;
+            const pointName = template[pointColumnName];
+
+            if (pointName && pointName.trim() !== '') {
+              elevationPoints.push({
+                pointNumber: i,
+                name: pointName,
+                value: '',
+                photo: null,
+                photos: [],
+                photoCount: 0
+              });
+            }
+          }
+
+          this.roomElevationData[template.RoomName] = {
+            roomName: template.RoomName,
+            templateId: template.TemplateID || template.PK_ID,
+            elevationPoints: elevationPoints,
+            pointCount: template.PointCount || elevationPoints.length,
+            notes: '',
+            fdf: '',
+            location: '',
+            fdfPhotos: {}
+          };
+        }
+      });
+
+      // Build room templates list
+      if (this.serviceId) {
+        // Build room templates list
+        const roomsToDisplay: RoomTemplate[] = [...autoTemplates];
+
+        if (existingRooms && existingRooms.length > 0) {
+          for (const room of existingRooms) {
+            const roomName = room.RoomName;
+            // Use EFEID field, NOT PK_ID - EFEID is what links to Services_EFE_Points
+            const roomId = room.EFEID;
+            const templateId = room.TemplateID;
+
+            // Find matching template
+            const templateIdNum = typeof templateId === 'string' ? parseInt(templateId, 10) : templateId;
+            let template = null;
+
+            if (templateId) {
+              template = this.allRoomTemplates.find((t: any) =>
+                t.TemplateID == templateIdNum || t.PK_ID == templateIdNum
+              );
+            }
+
+            if (!template) {
+              template = autoTemplates.find((t: any) => t.RoomName === roomName);
+            }
+            
+            // FALLBACK: If no template found, create a minimal template from room data
+            if (!template) {
+              console.log(`[ElevationPlotHub] Creating fallback template for room: ${roomName}`);
+              template = {
+                RoomName: roomName,
+                TemplateID: templateId || 0,
+                PK_ID: room.PK_ID || room._tempId,
+                PointCount: room.PointCount || 0,
+                Auto: 'Yes'
+              };
+            }
+
+            // Check if this is a duplicated room (has " #N" pattern) or a renamed room
+            const isDuplicate = /\s+#\d+$/.test(roomName);
+            
+            if (template.RoomName !== roomName) {
+              if (isDuplicate) {
+                // This is a duplicated room - ADD it to the list, don't replace the original
+                const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
+                if (existingRoomIndex < 0) {
+                  // Add duplicate room to the list with Organization from database
+                  roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
+                }
+              } else {
+                // This is a renamed room - REPLACE the original template
+                const originalIndex = roomsToDisplay.findIndex((t: any) =>
+                  (t.TemplateID == templateIdNum || t.PK_ID == templateIdNum) && t.RoomName === template.RoomName
+                );
+                if (originalIndex >= 0) {
+                  // Replace at the same index to preserve order with Organization from database
+                  roomsToDisplay[originalIndex] = { ...template, RoomName: roomName, Organization: room.Organization };
+                } else {
+                  // Original not found, check if renamed room already exists
+                  const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
+                  if (existingRoomIndex < 0) {
+                    roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
+                  }
+                }
+              }
+            } else {
+              // Room not renamed or duplicated, just ensure it's in the list
+              const existingRoomIndex = roomsToDisplay.findIndex((t: any) => t.RoomName === roomName);
+              if (existingRoomIndex < 0) {
+                roomsToDisplay.push({ ...template, RoomName: roomName, Organization: room.Organization });
+              } else {
+                // Update Organization if room already exists in display list
+                roomsToDisplay[existingRoomIndex]['Organization'] = room.Organization;
+              }
+            }
+
+            // Mark room as selected
+            // CRITICAL: Also handle pending rooms with _tempId
+            const effectiveRoomId = roomId || room.PK_ID || room._tempId;
+            if (roomName && effectiveRoomId) {
+              this.selectedRooms[roomName] = true;
+              this.efeRecordIds[roomName] = String(effectiveRoomId);
+
+              // Initialize room elevation data if not present
+              if (!this.roomElevationData[roomName] && template) {
+                const elevationPoints: any[] = [];
+
+                for (let i = 1; i <= 20; i++) {
+                  const pointColumnName = `Point${i}Name`;
+                  const pointName = template[pointColumnName];
+
+                  if (pointName && pointName.trim() !== '') {
+                    elevationPoints.push({
+                      pointNumber: i,
+                      name: pointName,
+                      value: '',
+                      photo: null,
+                      photos: [],
+                      photoCount: 0
+                    });
+                  }
+                }
+
+                this.roomElevationData[roomName] = {
+                  roomName: roomName,
+                  templateId: template.TemplateID || template.PK_ID,
+                  elevationPoints: elevationPoints,
+                  pointCount: template.PointCount || elevationPoints.length,
+                  notes: room.Notes || '',
+                  fdf: room.FDF || '',
+                  location: room.Location || '',
+                  fdfPhotos: {}
+                };
+              }
+            }
+          }
+        }
+
+        // Convert to display format
+        this.roomTemplates = roomsToDisplay.map(template => ({
+          ...template,
+          isSelected: !!this.selectedRooms[template.RoomName],
+          isSaving: !!this.savingRooms[template.RoomName],
+          efeId: this.efeRecordIds[template.RoomName]
+        }));
+
+        // Sort by Organization field (ascending)
+        // Rooms without Organization go to the end
+        this.roomTemplates.sort((a, b) => {
+          const orgA = a['Organization'] !== undefined && a['Organization'] !== null ? a['Organization'] : 999999;
+          const orgB = b['Organization'] !== undefined && b['Organization'] !== null ? b['Organization'] : 999999;
+          return orgA - orgB;
+        });
+        
+        console.log('[Load Rooms] Sorted rooms by Organization:', this.roomTemplates.map(r => ({ name: r.RoomName, org: r['Organization'] })));
+      } else {
+        // No service ID, just show auto templates as unselected
+        this.roomTemplates = autoTemplates.map(template => ({
+          ...template,
+          isSelected: false,
+          isSaving: false
+        }));
       }
 
       // Update UI state flags
@@ -1148,8 +1269,28 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('Error loading room templates:', error);
-      // Toast removed per user request
-      // await this.showToast('Failed to load room templates', 'danger');
+      // DEFENSIVE: Don't clear existing rooms on error
+      if (this.roomTemplates.length === 0) {
+        // Only try to load from cache if we have nothing displayed
+        try {
+          const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms');
+          if (cachedRooms && cachedRooms.length > 0) {
+            console.log('[ElevationPlotHub] Error recovery: Loading from cache');
+            this.roomTemplates = cachedRooms.map((room: any) => ({
+              RoomName: room.RoomName,
+              TemplateID: room.TemplateID || 0,
+              PK_ID: room.PK_ID || room._tempId,
+              PointCount: room.PointCount || 0,
+              Organization: room.Organization,
+              isSelected: true,
+              isSaving: false,
+              efeId: String(room.EFEID || room.PK_ID || room._tempId),
+            }));
+          }
+        } catch (cacheError) {
+          console.error('[ElevationPlotHub] Cache recovery failed:', cacheError);
+        }
+      }
     } finally {
       this.loading = false;
       this.changeDetectorRef.detectChanges();

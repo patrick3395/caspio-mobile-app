@@ -1633,6 +1633,115 @@ export class IndexedDbService {
   // ============================================
 
   /**
+   * Safe cache update with validation
+   * 
+   * DEFENSIVE CACHING: Validates new data before overwriting to prevent cache corruption.
+   * - Never overwrites valid cache with empty data
+   * - Warns if new data is significantly smaller than existing cache
+   * - Logs all cache operations for debugging
+   * - Optionally merges data instead of replacing
+   * 
+   * @param serviceId - The service/entity ID
+   * @param dataType - Type of data being cached
+   * @param newData - New data to cache
+   * @param options - Optional settings for the cache update
+   * @returns Promise<boolean> - True if cache was updated, false if rejected
+   */
+  async safeUpdateCache(
+    serviceId: string,
+    dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments',
+    newData: any[],
+    options: {
+      allowEmpty?: boolean;           // Allow overwriting with empty data (default: false)
+      mergeLocalUpdates?: boolean;    // Preserve items with _localUpdate flag (default: true)
+      preserveTempItems?: boolean;    // Preserve items with _tempId (default: true)
+      warnThreshold?: number;         // Warn if new data is less than X% of old (default: 0.5)
+    } = {}
+  ): Promise<boolean> {
+    const {
+      allowEmpty = false,
+      mergeLocalUpdates = true,
+      preserveTempItems = true,
+      warnThreshold = 0.5
+    } = options;
+    
+    const db = await this.ensureDb();
+    const cacheKey = `${dataType}_${serviceId}`;
+    
+    if (!db.objectStoreNames.contains('cachedServiceData')) {
+      console.warn('[IndexedDB] safeUpdateCache: cachedServiceData store not available');
+      return false;
+    }
+    
+    // Get existing cache first
+    const existingData = await this.getCachedServiceData(serviceId, dataType) || [];
+    
+    // VALIDATION 1: Don't overwrite valid cache with empty data
+    if ((!newData || newData.length === 0) && existingData.length > 0 && !allowEmpty) {
+      console.warn(`[IndexedDB] ⚠️ safeUpdateCache REJECTED: Attempted to overwrite ${existingData.length} ${dataType} with empty data`);
+      return false;
+    }
+    
+    // VALIDATION 2: Warn if significantly smaller
+    if (newData && existingData.length > 0 && newData.length < existingData.length * warnThreshold) {
+      console.warn(`[IndexedDB] ⚠️ safeUpdateCache WARNING: New data (${newData.length}) is much smaller than existing (${existingData.length}) for ${cacheKey}`);
+      // Still allow, but log for debugging
+    }
+    
+    let finalData = newData || [];
+    
+    // MERGE: Preserve local updates if requested
+    if (mergeLocalUpdates && existingData.length > 0) {
+      const localUpdates = existingData.filter((item: any) => item._localUpdate);
+      if (localUpdates.length > 0) {
+        console.log(`[IndexedDB] safeUpdateCache: Preserving ${localUpdates.length} items with _localUpdate flag`);
+        
+        // Build ID map for quick lookup
+        const newDataIds = new Set(finalData.map((item: any) => 
+          String(item.PK_ID || item.EFEID || item.VisualID || item.PointID || item.AttachID || item._tempId || '')
+        ));
+        
+        // Add local updates that aren't in new data
+        for (const localItem of localUpdates) {
+          const localId = String(localItem.PK_ID || localItem.EFEID || localItem.VisualID || localItem.PointID || localItem.AttachID || localItem._tempId || '');
+          if (!newDataIds.has(localId)) {
+            finalData.push(localItem);
+          }
+        }
+      }
+    }
+    
+    // MERGE: Preserve temp items if requested
+    if (preserveTempItems && existingData.length > 0) {
+      const tempItems = existingData.filter((item: any) => 
+        item._tempId && String(item._tempId).startsWith('temp_')
+      );
+      if (tempItems.length > 0) {
+        console.log(`[IndexedDB] safeUpdateCache: Preserving ${tempItems.length} temp items`);
+        
+        // Build ID map for quick lookup
+        const finalDataIds = new Set(finalData.map((item: any) => 
+          String(item._tempId || item.PK_ID || item.EFEID || item.VisualID || item.PointID || item.AttachID || '')
+        ));
+        
+        // Add temp items that aren't in final data
+        for (const tempItem of tempItems) {
+          const tempId = String(tempItem._tempId || '');
+          if (!finalDataIds.has(tempId)) {
+            finalData.push(tempItem);
+          }
+        }
+      }
+    }
+    
+    // Perform the actual cache update
+    await this.cacheServiceData(serviceId, dataType, finalData);
+    console.log(`[IndexedDB] ✅ safeUpdateCache: Updated ${cacheKey} with ${finalData.length} items (was ${existingData.length})`);
+    
+    return true;
+  }
+
+  /**
    * Cache service-specific data (visuals, EFE rooms, visual attachments, etc.)
    */
   async cacheServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments', data: any[]): Promise<void> {

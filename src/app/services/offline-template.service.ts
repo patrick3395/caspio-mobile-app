@@ -1345,6 +1345,18 @@ export class OfflineTemplateService {
         // Get existing cached visuals to find local updates that should be preserved
         const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
         
+        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        if ((!freshVisuals || freshVisuals.length === 0) && existingCache.length > 0) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned empty visuals but cache has ${existingCache.length} - keeping cache`);
+          return; // Preserve existing cache, do NOT overwrite
+        }
+        
+        // Warn if API returns significantly fewer items (potential data loss)
+        if (freshVisuals && existingCache.length > 0 && freshVisuals.length < existingCache.length * 0.5) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshVisuals.length} visuals but cache has ${existingCache.length} - potential data loss, keeping cache`);
+          return; // Preserve existing cache
+        }
+        
         // Build a map of locally updated visuals that should NOT be overwritten
         // Include both _localUpdate flagged AND visuals with pending UPDATE requests
         // CRITICAL: Key by BOTH PK_ID and VisualID to ensure matches
@@ -1410,12 +1422,28 @@ export class OfflineTemplateService {
         
         // Preserve local updates
         const existingCache = await this.indexedDb.getCachedServiceData(visualId, 'visual_attachments') || [];
+        
+        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        if ((!freshAttachments || freshAttachments.length === 0) && existingCache.length > 0) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned empty attachments but cache has ${existingCache.length} - keeping cache`);
+          return; // Preserve existing cache, do NOT overwrite
+        }
+        
+        // Warn if API returns significantly fewer items (potential data loss)
+        if (freshAttachments && existingCache.length > 0 && freshAttachments.length < existingCache.length * 0.5) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshAttachments.length} attachments but cache has ${existingCache.length} - potential data loss, keeping cache`);
+          return; // Preserve existing cache
+        }
+        
         const localUpdates = new Map<string, any>();
         for (const att of existingCache) {
           if (att._localUpdate) {
             localUpdates.set(String(att.AttachID), att);
           }
         }
+        
+        // Also preserve pending attachments (created offline, not yet synced)
+        const pendingAttachments = existingCache.filter((a: any) => a._tempId && String(a._tempId).startsWith('temp_'));
         
         // Merge with local updates
         let mergedAttachments = freshAttachments || [];
@@ -1429,8 +1457,11 @@ export class OfflineTemplateService {
           });
         }
         
-        await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', mergedAttachments);
-        console.log(`[OfflineTemplate] Background refresh: ${mergedAttachments.length} attachments updated for visual ${visualId}`);
+        // Include pending attachments that aren't in the server response yet
+        const finalAttachments = [...mergedAttachments, ...pendingAttachments];
+        
+        await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', finalAttachments);
+        console.log(`[OfflineTemplate] Background refresh: ${freshAttachments?.length || 0} attachments + ${pendingAttachments.length} pending for visual ${visualId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId: visualId, dataType: 'visual_attachments' });
@@ -1452,6 +1483,19 @@ export class OfflineTemplateService {
         // CRITICAL: Preserve local updates (_localUpdate flag) when merging
         // This prevents overwriting offline changes (like FDF selection) with server data
         const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
+        
+        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        if ((!freshRooms || freshRooms.length === 0) && existingCache.length > 0) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned empty EFE rooms but cache has ${existingCache.length} - keeping cache`);
+          return; // Preserve existing cache, do NOT overwrite
+        }
+        
+        // Warn if API returns significantly fewer items (potential data loss)
+        if (freshRooms && existingCache.length > 0 && freshRooms.length < existingCache.length * 0.5) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshRooms.length} rooms but cache has ${existingCache.length} - potential data loss, keeping cache`);
+          return; // Preserve existing cache
+        }
+        
         const localUpdates = new Map<string, any>();
         
         // Collect rooms with local updates
@@ -1467,6 +1511,9 @@ export class OfflineTemplateService {
             });
           }
         }
+        
+        // Also preserve temp rooms (created offline, not yet synced)
+        const tempRooms = existingCache.filter((r: any) => r._tempId && String(r._tempId).startsWith('temp_'));
         
         // Merge fresh data with local updates
         let mergedRooms = freshRooms || [];
@@ -1489,8 +1536,11 @@ export class OfflineTemplateService {
           console.log(`[OfflineTemplate] Merged ${localUpdates.size} local updates with server data`);
         }
         
-        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', mergedRooms);
-        console.log(`[OfflineTemplate] Background refresh: ${freshRooms?.length || 0} EFE rooms updated for ${serviceId}`);
+        // Include temp rooms that aren't in the server response yet
+        const finalRooms = [...mergedRooms, ...tempRooms];
+        
+        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', finalRooms);
+        console.log(`[OfflineTemplate] Background refresh: ${freshRooms?.length || 0} EFE rooms + ${tempRooms.length} temp rooms for ${serviceId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId, dataType: 'efe_rooms' });
@@ -1512,6 +1562,19 @@ export class OfflineTemplateService {
         
         // CRITICAL: Preserve local updates (_localUpdate flag) when merging
         const existingCache = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
+        
+        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        if ((!freshPoints || freshPoints.length === 0) && existingCache.length > 0) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned empty EFE points but cache has ${existingCache.length} - keeping cache`);
+          return; // Preserve existing cache, do NOT overwrite
+        }
+        
+        // Warn if API returns significantly fewer items (potential data loss)
+        if (freshPoints && existingCache.length > 0 && freshPoints.length < existingCache.length * 0.5) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshPoints.length} points but cache has ${existingCache.length} - potential data loss, keeping cache`);
+          return; // Preserve existing cache
+        }
+        
         const localUpdates = new Map<string, any>();
         
         // Collect points with local updates
@@ -1521,6 +1584,9 @@ export class OfflineTemplateService {
             localUpdates.set(pointId, point);
           }
         }
+        
+        // Also preserve temp points (created offline, not yet synced)
+        const tempPoints = existingCache.filter((p: any) => p._tempId && String(p._tempId).startsWith('temp_'));
         
         // Merge fresh data with local updates
         let mergedPoints = freshPoints || [];
@@ -1540,8 +1606,11 @@ export class OfflineTemplateService {
           console.log(`[OfflineTemplate] Merged ${localUpdates.size} local point updates with server data`);
         }
         
-        await this.indexedDb.cacheServiceData(roomId, 'efe_points', mergedPoints);
-        console.log(`[OfflineTemplate] Background refresh: ${freshPoints?.length || 0} EFE points updated for room ${roomId}`);
+        // Include temp points that aren't in the server response yet
+        const finalPoints = [...mergedPoints, ...tempPoints];
+        
+        await this.indexedDb.cacheServiceData(roomId, 'efe_points', finalPoints);
+        console.log(`[OfflineTemplate] Background refresh: ${freshPoints?.length || 0} EFE points + ${tempPoints.length} temp points for room ${roomId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId: roomId, dataType: 'efe_points' });
@@ -1563,12 +1632,28 @@ export class OfflineTemplateService {
         
         // Preserve local updates
         const existingCache = await this.indexedDb.getCachedServiceData(pointId, 'efe_point_attachments') || [];
+        
+        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        if ((!freshAttachments || freshAttachments.length === 0) && existingCache.length > 0) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned empty EFE attachments but cache has ${existingCache.length} - keeping cache`);
+          return; // Preserve existing cache, do NOT overwrite
+        }
+        
+        // Warn if API returns significantly fewer items (potential data loss)
+        if (freshAttachments && existingCache.length > 0 && freshAttachments.length < existingCache.length * 0.5) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshAttachments.length} EFE attachments but cache has ${existingCache.length} - potential data loss, keeping cache`);
+          return; // Preserve existing cache
+        }
+        
         const localUpdates = new Map<string, any>();
         for (const att of existingCache) {
           if (att._localUpdate) {
             localUpdates.set(String(att.AttachID), att);
           }
         }
+        
+        // Also preserve pending attachments (created offline, not yet synced)
+        const pendingAttachments = existingCache.filter((a: any) => a._tempId && String(a._tempId).startsWith('temp_'));
         
         // Merge with local updates
         let mergedAttachments = freshAttachments || [];
@@ -1582,8 +1667,11 @@ export class OfflineTemplateService {
           });
         }
         
-        await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', mergedAttachments);
-        console.log(`[OfflineTemplate] Background refresh: ${mergedAttachments.length} EFE attachments updated for point ${pointId}`);
+        // Include pending attachments that aren't in the server response yet
+        const finalAttachments = [...mergedAttachments, ...pendingAttachments];
+        
+        await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', finalAttachments);
+        console.log(`[OfflineTemplate] Background refresh: ${freshAttachments?.length || 0} EFE attachments + ${pendingAttachments.length} pending for point ${pointId}`);
         
         // Notify pages that fresh data is available
         this.backgroundRefreshComplete$.next({ serviceId: pointId, dataType: 'efe_point_attachments' });
