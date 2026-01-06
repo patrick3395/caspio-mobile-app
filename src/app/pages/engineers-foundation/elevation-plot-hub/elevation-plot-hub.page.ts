@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AlertController, ToastController, ActionSheetController } from '@ionic/angular';
 import { Subscription } from 'rxjs';
@@ -35,7 +35,7 @@ interface RoomDisplayData extends RoomTemplate {
   standalone: true,
   imports: [CommonModule, IonicModule]
 })
-export class ElevationPlotHubPage implements OnInit, OnDestroy {
+export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   projectId: string = '';
   serviceId: string = '';
   roomTemplates: RoomDisplayData[] = [];
@@ -146,6 +146,23 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
     await this.ensureEFEDataCached();
 
     await this.loadRoomTemplates();
+  }
+
+  /**
+   * Ionic lifecycle hook - called every time the view is about to become active
+   * This handles navigation back from room detail page
+   */
+  async ionViewWillEnter() {
+    console.log('[ElevationPlotHub] ionViewWillEnter - Reloading rooms from cache');
+    
+    // Update online status
+    this.isOnline = this.offlineService.isOnline();
+    
+    // Reload rooms from cache (non-blocking, cache-first)
+    // This ensures rooms are always displayed when navigating back
+    if (this.serviceId) {
+      await this.loadRoomTemplates();
+    }
   }
 
   /**
