@@ -2595,30 +2595,19 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         },
         {
           text: 'Save',
-          handler: async (data) => {
+          handler: (data) => {
             const newName = data.pointName?.trim();
 
             if (!newName) {
-              // Toast removed per user request
-              // await this.showToast('Point name cannot be empty', 'warning');
-              return false;
+              return false; // Keep alert open
             }
 
             if (newName === point.name) {
-              return true;
+              return true; // No change needed, close alert
             }
 
-            try {
-              await this.caspioService.updateServicesEFEPoint(point.pointId, { PointName: newName }).toPromise();
-              point.name = newName;
-              this.changeDetectorRef.detectChanges();
-              return true;
-            } catch (error) {
-              console.error('Error updating point name:', error);
-              // Toast removed per user request
-              // await this.showToast('Failed to update point name', 'danger');
-              return false;
-            }
+            // Return the data for processing after dismiss
+            return { values: { newName } };
           }
         }
       ],
@@ -2626,6 +2615,20 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     });
 
     await alert.present();
+    
+    const result = await alert.onDidDismiss();
+    
+    // Process save after alert is dismissed
+    if (result.role !== 'cancel' && result.data?.values?.newName) {
+      const newName = result.data.values.newName;
+      try {
+        await this.caspioService.updateServicesEFEPoint(point.pointId, { PointName: newName }).toPromise();
+        point.name = newName;
+        this.changeDetectorRef.detectChanges();
+      } catch (error) {
+        console.error('Error updating point name:', error);
+      }
+    }
   }
 
   async deleteElevationPoint(point: any) {
@@ -2635,38 +2638,7 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       buttons: [
         {
           text: 'Delete',
-          handler: async () => {
-            try {
-              // Delete all photos first
-              if (point.photos && point.photos.length > 0) {
-                for (const photo of point.photos) {
-                  if (photo.attachId) {
-                    try {
-                      await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
-                    } catch (photoError) {
-                      console.error('Failed to delete photo:', photoError);
-                    }
-                  }
-                }
-              }
-
-              // Delete point
-              await this.caspioService.deleteServicesEFEPoint(point.pointId).toPromise();
-
-              // Remove from local array
-              const index = this.roomData.elevationPoints.findIndex((p: any) => p.pointId === point.pointId);
-              if (index >= 0) {
-                this.roomData.elevationPoints.splice(index, 1);
-              }
-
-              this.changeDetectorRef.detectChanges();
-              // Toast removed per user request
-            } catch (error) {
-              console.error('Error deleting point:', error);
-              // Toast removed per user request
-              // await this.showToast('Failed to delete point', 'danger');
-            }
-          }
+          role: 'destructive'
         },
         {
           text: 'Cancel',
@@ -2677,6 +2649,39 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     });
 
     await alert.present();
+    
+    const result = await alert.onDidDismiss();
+    
+    // Only process if user clicked Delete
+    if (result.role === 'destructive') {
+      try {
+        // Delete all photos first
+        if (point.photos && point.photos.length > 0) {
+          for (const photo of point.photos) {
+            if (photo.attachId) {
+              try {
+                await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
+              } catch (photoError) {
+                console.error('Failed to delete photo:', photoError);
+              }
+            }
+          }
+        }
+
+        // Delete point
+        await this.caspioService.deleteServicesEFEPoint(point.pointId).toPromise();
+
+        // Remove from local array
+        const index = this.roomData.elevationPoints.findIndex((p: any) => p.pointId === point.pointId);
+        if (index >= 0) {
+          this.roomData.elevationPoints.splice(index, 1);
+        }
+
+        this.changeDetectorRef.detectChanges();
+      } catch (error) {
+        console.error('Error deleting point:', error);
+      }
+    }
   }
 
   // Point Photo Methods

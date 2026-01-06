@@ -490,9 +490,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     this.renamingRooms[oldRoomName] = true;
     console.log('[Rename Room] Set renamingRooms flag for:', oldRoomName);
 
-    // DETACH change detection to prevent checkbox from firing during rename
-    this.changeDetectorRef.detach();
-    console.log('[Rename Room] Detached change detection');
+    // Pre-check if room can be renamed (synchronous validation)
+    const roomId = this.efeRecordIds[oldRoomName];
+    const roomIdStr = String(roomId || '');
+    const canRename = roomId && roomId !== '__pending__' && !roomIdStr.startsWith('temp_');
 
     const alert = await this.alertController.create({
       header: 'Rename Room',
@@ -512,13 +513,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         },
         {
           text: 'SAVE',
-          handler: async (data) => {
+          handler: (data) => {
             const newRoomName = data.newRoomName?.trim();
 
             if (!newRoomName) {
-              // Toast removed per user request
-              // await this.showToast('Room name cannot be empty', 'warning');
-              return false;
+              return false; // Keep alert open
             }
 
             if (newRoomName === oldRoomName) {
@@ -528,109 +527,16 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             // Check if new name already exists
             const existingRoom = this.roomTemplates.find(r => r.RoomName === newRoomName);
             if (existingRoom) {
-              // Toast removed per user request
-              // await this.showToast('A room with this name already exists', 'warning');
-              return false;
+              return false; // Keep alert open
             }
-
-            const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === oldRoomName);
-            const roomId = this.efeRecordIds[oldRoomName];
-            const roomIdStr = String(roomId || ''); // Convert to string for .startsWith() check
 
             // CRITICAL: Verify this room belongs to the current service
-            if (!roomId || roomId === '__pending__' || roomIdStr.startsWith('temp_')) {
-              // Toast removed per user request
-              // await this.showToast('Cannot rename room: Room not yet saved to database', 'warning');
-              return false;
+            if (!canRename) {
+              return false; // Keep alert open
             }
 
-            // Double-check we have the right room by loading it from database
-            try {
-              console.log('[Rename Room] Verifying room belongs to current service...');
-              const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
-              const roomToRename = existingRooms.find(r => r.EFEID === roomId);
-
-              if (!roomToRename) {
-                console.error('[Rename Room] Room not found in current service!');
-                console.error('[Rename Room] Looking for EFEID:', roomId, 'in service:', this.serviceId);
-                // Toast removed per user request
-                // await this.showToast('Error: Room does not belong to this service', 'danger');
-                return false;
-              }
-
-              if (roomToRename.RoomName !== oldRoomName) {
-                console.warn('[Rename Room] Room name mismatch in database');
-                console.warn('[Rename Room] Expected:', oldRoomName, 'Got:', roomToRename.RoomName);
-              }
-
-              console.log('[Rename Room] Verified room:', roomToRename.RoomName, 'EFEID:', roomToRename.EFEID, 'ServiceID:', roomToRename.ServiceID);
-
-              // Update database using the verified EFEID
-              console.log('[Rename Room] Updating database for room:', oldRoomName, 'to:', newRoomName);
-              const updateData = { RoomName: newRoomName };
-              // Use updateServicesEFEByEFEID which uses EFEID in the where clause (not PK_ID)
-              await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
-              console.log('[Rename Room] Database update successful for EFEID:', roomId);
-            } catch (error) {
-              console.error('[Rename Room] Database update FAILED:', error);
-              // Toast removed per user request
-              // await this.showToast('Failed to update room name in database', 'danger');
-              return false;
-            }
-
-            // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
-            // This ensures there's never a moment where the room appears unselected
-            console.log('[Rename Room] Updating all local state dictionaries atomically...');
-
-            // CRITICAL: Set rename flag for new name too to block any checkbox events
-            this.renamingRooms[newRoomName] = true;
-
-            // Step 1: ADD new entries (don't delete old ones yet)
-            if (this.efeRecordIds[oldRoomName]) {
-              this.efeRecordIds[newRoomName] = this.efeRecordIds[oldRoomName];
-            }
-            if (this.selectedRooms[oldRoomName]) {
-              this.selectedRooms[newRoomName] = this.selectedRooms[oldRoomName];
-            }
-            if (this.savingRooms[oldRoomName]) {
-              this.savingRooms[newRoomName] = this.savingRooms[oldRoomName];
-            }
-            if (this.roomElevationData[oldRoomName]) {
-              this.roomElevationData[newRoomName] = this.roomElevationData[oldRoomName];
-            }
-
-            console.log('[Rename Room] Created new entries. selectedRooms:', Object.keys(this.selectedRooms));
-
-            // Step 2: UPDATE the roomTemplates array (this is what Angular watches)
-            if (roomIndex >= 0) {
-              // Create a NEW object reference to force Angular to recognize the change
-              this.roomTemplates[roomIndex] = {
-                ...this.roomTemplates[roomIndex],
-                RoomName: newRoomName
-              };
-              console.log('[Rename Room] Updated roomTemplates array with new object reference');
-            }
-
-            // Step 3: NOW delete old entries (while change detection is still detached)
-            setTimeout(() => {
-              delete this.efeRecordIds[oldRoomName];
-              delete this.selectedRooms[oldRoomName];
-              delete this.savingRooms[oldRoomName];
-              delete this.roomElevationData[oldRoomName];
-              console.log('[Rename Room] Deleted old entries after timeout');
-            }, 100);
-
-            // Clear rename flag for both old and new names (be extra safe)
-            delete this.renamingRooms[oldRoomName];
-            delete this.renamingRooms[newRoomName];
-
-            // Step 4: Re-attach change detection and force update
-            this.changeDetectorRef.reattach();
-            this.changeDetectorRef.detectChanges();
-            console.log('[Rename Room] Re-attached change detection and updated UI');
-
-            // Toast removed per user request
-            return true;
+            // Return the data for processing after dismiss
+            return { values: { newRoomName } };
           }
         }
       ]
@@ -639,19 +545,98 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     await alert.present();
     const result = await alert.onDidDismiss();
 
-    // CRITICAL: Clear rename flags and re-attach change detection after alert dismissed
-    // Clear flag for old name and potentially new name (in case user typed something before cancelling)
+    // Process save after alert is dismissed
+    if (result.role !== 'cancel' && result.data?.values?.newRoomName) {
+      const newRoomName = result.data.values.newRoomName;
+      
+      // DETACH change detection to prevent checkbox from firing during rename
+      this.changeDetectorRef.detach();
+      console.log('[Rename Room] Detached change detection');
+
+      try {
+        console.log('[Rename Room] Verifying room belongs to current service...');
+        const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
+        const roomToRename = existingRooms.find(r => r.EFEID === roomId);
+
+        if (!roomToRename) {
+          console.error('[Rename Room] Room not found in current service!');
+          console.error('[Rename Room] Looking for EFEID:', roomId, 'in service:', this.serviceId);
+        } else {
+          if (roomToRename.RoomName !== oldRoomName) {
+            console.warn('[Rename Room] Room name mismatch in database');
+            console.warn('[Rename Room] Expected:', oldRoomName, 'Got:', roomToRename.RoomName);
+          }
+
+          console.log('[Rename Room] Verified room:', roomToRename.RoomName, 'EFEID:', roomToRename.EFEID, 'ServiceID:', roomToRename.ServiceID);
+
+          // Update database using the verified EFEID
+          console.log('[Rename Room] Updating database for room:', oldRoomName, 'to:', newRoomName);
+          const updateData = { RoomName: newRoomName };
+          await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
+          console.log('[Rename Room] Database update successful for EFEID:', roomId);
+
+          // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
+          console.log('[Rename Room] Updating all local state dictionaries atomically...');
+
+          // CRITICAL: Set rename flag for new name too to block any checkbox events
+          this.renamingRooms[newRoomName] = true;
+
+          const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === oldRoomName);
+
+          // Step 1: ADD new entries (don't delete old ones yet)
+          if (this.efeRecordIds[oldRoomName]) {
+            this.efeRecordIds[newRoomName] = this.efeRecordIds[oldRoomName];
+          }
+          if (this.selectedRooms[oldRoomName]) {
+            this.selectedRooms[newRoomName] = this.selectedRooms[oldRoomName];
+          }
+          if (this.savingRooms[oldRoomName]) {
+            this.savingRooms[newRoomName] = this.savingRooms[oldRoomName];
+          }
+          if (this.roomElevationData[oldRoomName]) {
+            this.roomElevationData[newRoomName] = this.roomElevationData[oldRoomName];
+          }
+
+          console.log('[Rename Room] Created new entries. selectedRooms:', Object.keys(this.selectedRooms));
+
+          // Step 2: UPDATE the roomTemplates array (this is what Angular watches)
+          if (roomIndex >= 0) {
+            this.roomTemplates[roomIndex] = {
+              ...this.roomTemplates[roomIndex],
+              RoomName: newRoomName
+            };
+            console.log('[Rename Room] Updated roomTemplates array with new object reference');
+          }
+
+          // Step 3: NOW delete old entries
+          setTimeout(() => {
+            delete this.efeRecordIds[oldRoomName];
+            delete this.selectedRooms[oldRoomName];
+            delete this.savingRooms[oldRoomName];
+            delete this.roomElevationData[oldRoomName];
+            console.log('[Rename Room] Deleted old entries after timeout');
+          }, 100);
+
+          // Clear rename flag for both old and new names
+          delete this.renamingRooms[oldRoomName];
+          delete this.renamingRooms[newRoomName];
+        }
+      } catch (error) {
+        console.error('[Rename Room] Database update FAILED:', error);
+      }
+    }
+
+    // CRITICAL: Clear rename flags and re-attach change detection after processing
     const allRoomNames = Object.keys(this.renamingRooms);
     allRoomNames.forEach(name => delete this.renamingRooms[name]);
     console.log('[Rename Room] Cleared all renamingRooms flags:', allRoomNames);
 
-    // Re-attach change detection if it was detached (in case user cancelled)
+    // Re-attach change detection
     try {
       this.changeDetectorRef.reattach();
       this.changeDetectorRef.detectChanges();
-      console.log('[Rename Room] Re-attached change detection after alert dismissed');
+      console.log('[Rename Room] Re-attached change detection after processing');
     } catch (e) {
-      // Already attached, that's fine
       console.log('[Rename Room] Change detection already attached');
     }
   }
