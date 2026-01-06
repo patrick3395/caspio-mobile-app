@@ -2550,8 +2550,8 @@ export class IndexedDbService {
         const requests = getAllRequest.result as PendingRequest[];
         
         for (const request of requests) {
-          // Reset pending or error status requests that are old
-          if ((request.status === 'pending' || request.status === 'error') && 
+          // Reset pending or failed status requests that are old
+          if ((request.status === 'pending' || request.status === 'failed') && 
               request.createdAt < cutoffTime) {
             request.retryCount = 0;
             request.lastAttempt = 0;
