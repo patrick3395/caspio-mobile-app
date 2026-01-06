@@ -1250,12 +1250,15 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               url: null,
               displayUrl: null,
               caption: attach.Annotation || '',
+              Annotation: attach.Annotation || '',
               drawings: attach.Drawings || null,
+              Drawings: attach.Drawings || null,
               hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null' && attach.Drawings !== '' && attach.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS),
               path: attach.Attachment || attach.Photo || null,
               Attachment: attach.Attachment,
               Photo: attach.Photo,
-              uploading: false
+              uploading: false,
+              _localUpdate: attach._localUpdate || false,
             };
 
             // Set loading state for all photos
@@ -1353,13 +1356,16 @@ export class RoomElevationPage implements OnInit, OnDestroy {
               photoType: pendingPhoto.Type || pendingPhoto.photoType || 'Measurement',
               url: pendingPhoto.url || pendingPhoto.thumbnailUrl || displayUrl,
               displayUrl: displayUrl,
-              caption: '',
+              caption: pendingPhoto.caption || pendingPhoto.Annotation || pendingPhoto.annotation || '',
+              Annotation: pendingPhoto.caption || pendingPhoto.Annotation || pendingPhoto.annotation || '',
               drawings: pendingPhoto.Drawings || pendingPhoto.drawings || null,
+              Drawings: pendingPhoto.Drawings || pendingPhoto.drawings || null,
               hasAnnotations: hasAnnotations,
               uploading: false,
               queued: true,
               isPending: true,
               _tempId: photoId,
+              _localUpdate: !!(pendingPhoto.Drawings || pendingPhoto.drawings || pendingPhoto.caption),
             };
             pointData.photos.push(pendingPhotoData);
           }

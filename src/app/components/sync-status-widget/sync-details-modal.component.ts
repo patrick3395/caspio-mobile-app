@@ -381,7 +381,12 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
 
   getRequestIcon(request: any): string {
     const endpoint = request.endpoint || '';
+    const data = request.data || {};
     
+    // Annotation/drawing updates
+    if (endpoint.includes('Attach') && request.type === 'UPDATE' && (data.Drawings !== undefined || data.Annotation !== undefined)) {
+      return 'brush-outline';
+    }
     if (endpoint.includes('Attach') || request.type === 'PHOTO_UPLOAD') {
       return 'image-outline';
     }
@@ -439,6 +444,18 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     
     // Visual attachments
     if (endpoint.includes('Services_Visuals_Attach')) {
+      if (type === 'UPDATE') {
+        if (data.Annotation !== undefined && data.Drawings !== undefined) {
+          return `Save annotations: Visual photo`;
+        }
+        if (data.Annotation !== undefined) {
+          return `Save caption: Visual photo`;
+        }
+        if (data.Drawings !== undefined) {
+          return `Save drawings: Visual photo`;
+        }
+        return `Update: Visual photo`;
+      }
       return `Upload photo: ${data.fileName || 'Visual photo'}`;
     }
     
@@ -464,8 +481,25 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       }
     }
     
+    // EFE Point Attachments (annotations/captions)
+    if (endpoint.includes('Services_EFE_Points_Attach')) {
+      if (type === 'UPDATE') {
+        if (data.Annotation !== undefined && data.Drawings !== undefined) {
+          return `Save annotations: Elevation photo`;
+        }
+        if (data.Annotation !== undefined) {
+          return `Save caption: Elevation photo`;
+        }
+        if (data.Drawings !== undefined) {
+          return `Save drawings: Elevation photo`;
+        }
+        return `Update: Elevation photo`;
+      }
+      return `Elevation photo: ${data.fileName || 'Photo'}`;
+    }
+    
     // EFE Points
-    if (endpoint.includes('Services_EFE_Points')) {
+    if (endpoint.includes('Services_EFE_Points') && !endpoint.includes('Attach')) {
       const pointName = data.PointName || '';
       if (type === 'CREATE') {
         return `Add point: ${pointName || 'Elevation point'}`;
@@ -491,8 +525,11 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       }
     }
     
-    // EFE Attachments
+    // EFE Attachments (generic)
     if (endpoint.includes('EFE') && endpoint.includes('Attach')) {
+      if (type === 'UPDATE' && (data.Annotation !== undefined || data.Drawings !== undefined)) {
+        return `Save annotations: Photo`;
+      }
       return `Elevation photo: ${data.fileName || 'Photo'}`;
     }
     
