@@ -1,7 +1,7 @@
 ﻿import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent } from '@ionic/angular';
+import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
@@ -44,7 +44,7 @@ interface VisualItem {
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class CategoryDetailPage implements OnInit, OnDestroy {
+export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   projectId: string = '';
   serviceId: string = '';
   categoryName: string = '';
@@ -91,6 +91,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
   // Cooldown after local operations to prevent immediate reload
   private localOperationCooldown = false;
   private localOperationCooldownTimer: any = null;
+  
+  // Track if initial load is complete (for ionViewWillEnter)
+  private initialLoadComplete: boolean = false;
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -177,6 +180,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         }
       }
     });
+    
+    // Mark initial load as complete
+    this.initialLoadComplete = true;
+  }
+
+  /**
+   * Ionic lifecycle hook - called when navigating back to this page
+   * Ensures data is refreshed when returning from photo annotator or other pages
+   */
+  async ionViewWillEnter() {
+    console.log('[CategoryDetail] ionViewWillEnter - Reloading data from cache');
+    
+    // Only reload if initial load is complete and we have required IDs
+    if (this.initialLoadComplete && this.serviceId && this.categoryName) {
+      await this.loadData();
+    }
   }
 
   ngOnDestroy() {
@@ -3695,48 +3714,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         buttons: [
           {
             text: 'Delete',
-            cssClass: 'alert-button-confirm',
-            handler: () => {
-              // Return true to allow alert to dismiss, then process deletion
-              setTimeout(async () => {
-                // OFFLINE-FIRST: No loading spinner - immediate UI update
-                try {
-                  const key = `${category}_${itemId}`;
-
-                  // Remove from UI IMMEDIATELY (optimistic update)
-                  if (this.visualPhotos[key]) {
-                    this.visualPhotos[key] = this.visualPhotos[key].filter(
-                      (p: any) => p.AttachID !== photo.AttachID
-                    );
-                    // Update photo count immediately
-                    this.photoCountsByKey[key] = this.visualPhotos[key].length;
-                  }
-
-                  // Force UI update first
-                  this.changeDetectorRef.detectChanges();
-
-                  // Clear cached photo IMAGE from IndexedDB
-                  await this.indexedDb.deleteCachedPhoto(String(photo.AttachID));
-                  
-                  // Remove from cached ATTACHMENTS LIST in IndexedDB
-                  await this.indexedDb.removeAttachmentFromCache(String(photo.AttachID), 'visual_attachments');
-
-                  // Delete from database (or queue for sync if offline)
-                  if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
-                    await this.foundationData.deleteVisualPhoto(photo.AttachID);
-                    console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
-                  }
-
-                  console.log('[Delete Photo] Photo removed successfully');
-                } catch (error) {
-                  console.error('Error deleting photo:', error);
-                  // Toast removed per user request
-                  // await this.showToast('Failed to delete photo', 'danger');
-                }
-              }, 100);
-
-              return true; // Allow alert to dismiss immediately
-            }
+            role: 'destructive',
+            cssClass: 'alert-button-confirm'
           },
           {
             text: 'Cancel',
@@ -3747,6 +3726,46 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       });
 
       await alert.present();
+      
+      // Wait for dialog to dismiss and check if user confirmed deletion
+      const result = await alert.onDidDismiss();
+      
+      if (result.role === 'destructive') {
+        // OFFLINE-FIRST: No loading spinner - immediate UI update
+        try {
+          const key = `${category}_${itemId}`;
+
+          // Remove from UI IMMEDIATELY (optimistic update)
+          if (this.visualPhotos[key]) {
+            this.visualPhotos[key] = this.visualPhotos[key].filter(
+              (p: any) => p.AttachID !== photo.AttachID
+            );
+            // Update photo count immediately
+            this.photoCountsByKey[key] = this.visualPhotos[key].length;
+          }
+
+          // Force UI update first
+          this.changeDetectorRef.detectChanges();
+
+          // Clear cached photo IMAGE from IndexedDB
+          await this.indexedDb.deleteCachedPhoto(String(photo.AttachID));
+          
+          // Remove from cached ATTACHMENTS LIST in IndexedDB
+          await this.indexedDb.removeAttachmentFromCache(String(photo.AttachID), 'visual_attachments');
+
+          // Delete from database (or queue for sync if offline)
+          if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+            await this.foundationData.deleteVisualPhoto(photo.AttachID);
+            console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
+          }
+
+          console.log('[Delete Photo] Photo removed successfully');
+        } catch (error) {
+          console.error('Error deleting photo:', error);
+          // Toast removed per user request
+          // await this.showToast('Failed to delete photo', 'danger');
+        }
+      }
     } catch (error) {
       console.error('Error in deletePhoto:', error);
       // Toast removed per user request

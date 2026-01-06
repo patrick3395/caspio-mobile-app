@@ -1,7 +1,7 @@
 ﻿import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AlertController, ToastController, ModalController } from '@ionic/angular';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -26,7 +26,7 @@ import { environment } from '../../../../environments/environment';
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class RoomElevationPage implements OnInit, OnDestroy {
+export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   projectId: string = '';
   serviceId: string = '';
   roomName: string = '';
@@ -54,9 +54,11 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   private cacheInvalidationSubscription?: Subscription;
   private photoSyncSubscription?: Subscription;
   private efePhotoSyncSubscription?: Subscription;  // For EFE point photos
+  private backgroundRefreshSubscription?: Subscription;  // For background refresh events
   private cacheInvalidationDebounceTimer: any = null;
   private isReloadingAfterSync = false;
   private localOperationCooldown = false;
+  private initialLoadComplete: boolean = false;  // Track if initial load is complete
 
   // Convenience getters for template
   get fdfPhotos() {
@@ -468,6 +470,39 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         }, 500);
       }
     });
+
+    // Subscribe to background refresh completion for EFE points data
+    this.backgroundRefreshSubscription = this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
+      if (event.serviceId === this.serviceId && 
+          (event.dataType === 'efe_points' || event.dataType === 'efe_point_attachments')) {
+        console.log('[RoomElevation] Background refresh complete for:', event.dataType);
+        // Debounce with same timer to prevent duplicate reloads
+        if (this.cacheInvalidationDebounceTimer) {
+          clearTimeout(this.cacheInvalidationDebounceTimer);
+        }
+        this.cacheInvalidationDebounceTimer = setTimeout(() => {
+          if (this.initialLoadComplete && !this.localOperationCooldown) {
+            this.reloadElevationDataAfterSync();
+          }
+        }, 500);
+      }
+    });
+
+    // Mark initial load as complete
+    this.initialLoadComplete = true;
+  }
+
+  /**
+   * Ionic lifecycle hook - called when navigating back to this page
+   * Ensures room data is refreshed when returning from other pages
+   */
+  async ionViewWillEnter() {
+    console.log('[RoomElevation] ionViewWillEnter - Reloading room data from cache');
+    
+    // Only reload if initial load is complete and we have required IDs
+    if (this.initialLoadComplete && this.roomId) {
+      await this.loadRoomData();
+    }
   }
 
   /**
@@ -628,6 +663,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
     }
     if (this.efePhotoSyncSubscription) {
       this.efePhotoSyncSubscription.unsubscribe();
+    }
+    if (this.backgroundRefreshSubscription) {
+      this.backgroundRefreshSubscription.unsubscribe();
     }
     console.log('[ROOM ELEVATION] Component destroyed, but uploads continue in background');
   }

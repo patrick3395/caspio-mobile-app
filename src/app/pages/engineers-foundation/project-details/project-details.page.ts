@@ -1,8 +1,9 @@
 ﻿import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController } from '@ionic/angular';
+import { IonicModule, ToastController, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { EngineersFoundationStateService, ProjectData } from '../services/engineers-foundation-state.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { OfflineService } from '../../../services/offline.service';
@@ -17,11 +18,16 @@ import { OfflineTemplateService } from '../../../services/offline-template.servi
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class ProjectDetailsPage implements OnInit, OnDestroy {
+export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   projectId: string = '';
   serviceId: string = '';
   projectData: any = {};  // Use any to match original structure
   serviceData: any = {};  // Add serviceData for Services table fields
+  
+  // Lifecycle and sync tracking
+  private initialLoadComplete: boolean = false;
+  private backgroundRefreshSubscription?: Subscription;
+  private serviceDataSyncSubscription?: Subscription;
 
   // Dropdown options - empty by default, populated from LPS_Services_Drop API
   inAttendanceOptions: string[] = [];
@@ -139,12 +145,60 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
       }
     });
 
-    // Note: We don't reload on sync complete - IndexedDB already has the correct data
-    // The user's changes were saved to IndexedDB when they made them
+    // Subscribe to sync events for real-time updates
+    this.subscribeToSyncEvents();
+    
+    // Mark initial load as complete
+    this.initialLoadComplete = true;
+  }
+
+  /**
+   * Ionic lifecycle hook - called when navigating back to this page
+   * Ensures data is refreshed when returning from other pages
+   */
+  async ionViewWillEnter() {
+    console.log('[ProjectDetails] ionViewWillEnter - Reloading data from cache');
+    
+    // Only reload if initial load is complete and we have IDs
+    if (this.initialLoadComplete && this.projectId && this.serviceId) {
+      await this.loadData();
+    }
+  }
+
+  /**
+   * Subscribe to background sync events for real-time UI updates
+   */
+  private subscribeToSyncEvents(): void {
+    // Subscribe to background refresh completion for project/service data
+    this.backgroundRefreshSubscription = this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
+      // Reload when project or service data is refreshed
+      if (event.dataType === 'project' || event.dataType === 'service') {
+        console.log('[ProjectDetails] Background refresh complete for:', event.dataType);
+        if (this.initialLoadComplete) {
+          this.loadData();
+        }
+      }
+    });
+
+    // Subscribe to service data sync completion
+    this.serviceDataSyncSubscription = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
+      if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
+        console.log('[ProjectDetails] Service/project data synced, reloading...');
+        if (this.initialLoadComplete) {
+          this.loadData();
+        }
+      }
+    });
   }
 
   ngOnDestroy() {
-    // Cleanup if needed
+    // Cleanup subscriptions
+    if (this.backgroundRefreshSubscription) {
+      this.backgroundRefreshSubscription.unsubscribe();
+    }
+    if (this.serviceDataSyncSubscription) {
+      this.serviceDataSyncSubscription.unsubscribe();
+    }
   }
 
   private loadDataCallCount = 0;

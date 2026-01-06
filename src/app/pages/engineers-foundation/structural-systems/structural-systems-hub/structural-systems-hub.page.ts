@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
@@ -18,7 +18,7 @@ import { OfflineService } from '../../../../services/offline.service';
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class StructuralSystemsHubPage implements OnInit, OnDestroy {
+export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnter {
   projectId: string = '';
   serviceId: string = '';
   categories: { name: string; deficiencyCount: number }[] = [];
@@ -124,6 +124,19 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy {
         }, 500);
       }
     });
+  }
+
+  /**
+   * Ionic lifecycle hook - called when navigating back to this page
+   * Ensures deficiency counts are refreshed when returning from category details
+   */
+  async ionViewWillEnter() {
+    console.log('[StructuralHub] ionViewWillEnter - Reloading categories from cache');
+    
+    // Only reload if initial load is complete and we have IDs
+    if (this.initialLoadComplete && this.serviceId) {
+      await this.loadCategories();
+    }
   }
 
   ngOnDestroy() {
