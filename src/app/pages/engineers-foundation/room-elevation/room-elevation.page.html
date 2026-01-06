@@ -253,8 +253,21 @@
         </div>
       </div>
 
+      <!-- Loading skeleton for elevation points -->
+      <div class="elevation-points-loading" *ngIf="isLoadingPoints">
+        <div class="loading-skeleton-card" *ngFor="let i of [1, 2, 3, 4]">
+          <div class="skeleton-header">
+            <div class="skeleton-line skeleton-title"></div>
+          </div>
+          <div class="skeleton-body">
+            <div class="skeleton-box"></div>
+            <div class="skeleton-box"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Elevation Points with Location and Measurement photos -->
-      <div class="elevation-points-container" *ngIf="elevationPoints?.length > 0">
+      <div class="elevation-points-container" *ngIf="!isLoadingPoints && elevationPoints?.length > 0">
         <div class="elevation-points-grid">
           <div class="elevation-point-card" *ngFor="let point of elevationPoints; trackBy: trackByPointName">
             <div class="point-header">

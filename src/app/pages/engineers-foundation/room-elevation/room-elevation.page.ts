@@ -44,6 +44,9 @@ export class RoomElevationPage implements OnInit, OnDestroy {
   isSavingNotes: boolean = false;
   isSavingFdf: boolean = false;
   isSavingLocation: boolean = false;
+  
+  // Track loading state for points
+  isLoadingPoints: boolean = true;
 
   // Background upload subscriptions
   private uploadSubscription?: Subscription;
@@ -716,12 +719,17 @@ export class RoomElevationPage implements OnInit, OnDestroy {
         }
       };
 
-      // Load FDF photos if they exist
-      await this.loadFDFPhotos(room);
-
-      // Load elevation points
-      await this.loadElevationPoints();
-
+      // PERFORMANCE: Load FDF photos and elevation points IN PARALLEL
+      // This eliminates the 3-second lag by not waiting for FDF photos before loading points
+      this.isLoadingPoints = true;
+      this.changeDetectorRef.detectChanges(); // Show loading state immediately
+      
+      await Promise.all([
+        this.loadFDFPhotos(room),
+        this.loadElevationPoints()
+      ]);
+      
+      this.isLoadingPoints = false;
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('Error loading room data:', error);
