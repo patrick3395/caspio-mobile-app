@@ -92,6 +92,10 @@ import { Subscription, merge } from 'rxjs';
             <ion-icon name="sync" slot="start"></ion-icon>
             {{ syncStatus.isSyncing ? 'Syncing...' : 'Sync Now' }}
           </ion-button>
+          <ion-button expand="block" fill="outline" (click)="forceRetryStuck()" [disabled]="syncStatus.isSyncing || stuckCount === 0">
+            <ion-icon name="reload-outline" slot="start"></ion-icon>
+            Force Retry Stuck ({{ stuckCount }})
+          </ion-button>
           <ion-button expand="block" fill="outline" (click)="refreshDetails()">
             <ion-icon name="refresh" slot="start"></ion-icon>
             Refresh
@@ -301,6 +305,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   pendingRequests: any[] = [];
   syncingRequests: any[] = [];
   failedRequests: any[] = [];
+  stuckCount: number = 0;
 
   private subscription?: Subscription;
   private syncEventsSub?: Subscription;
@@ -365,6 +370,14 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     await this.backgroundSync.forceSyncNow();
   }
 
+  async forceRetryStuck() {
+    console.log('[SyncModal] Force retrying stuck requests...');
+    const resetCount = await this.backgroundSync.forceRetryAllStuck();
+    console.log(`[SyncModal] Reset ${resetCount} stuck requests`);
+    // Refresh the list immediately
+    await this.refreshDetails();
+  }
+
   async refreshDetails() {
     try {
       const requests = await this.indexedDb.getAllRequests();
@@ -372,6 +385,12 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       this.pendingRequests = requests.filter(r => r.status === 'pending');
       this.syncingRequests = requests.filter(r => r.status === 'syncing');
       this.failedRequests = requests.filter(r => r.status === 'failed');
+      
+      // Calculate stuck count (pending for over 5 minutes with high retry count)
+      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+      this.stuckCount = this.pendingRequests.filter(r => 
+        r.createdAt < fiveMinutesAgo && (r.retryCount || 0) > 2
+      ).length;
       
       this.changeDetectorRef.detectChanges();
     } catch (error) {

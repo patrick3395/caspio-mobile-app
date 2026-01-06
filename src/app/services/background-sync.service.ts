@@ -1424,6 +1424,67 @@ export class BackgroundSyncService {
   }
 
   /**
+   * Force retry all old/stuck pending requests
+   * Resets retry count and triggers immediate sync
+   * 
+   * Call this when user wants to force sync or when app detects stuck requests
+   */
+  async forceRetryAllStuck(): Promise<number> {
+    console.log('[BackgroundSync] Force retrying all stuck requests...');
+    
+    try {
+      // Reset all old pending requests
+      const resetCount = await this.indexedDb.forceRetryOldRequests(5); // 5 minutes
+      
+      if (resetCount > 0) {
+        console.log(`[BackgroundSync] Reset ${resetCount} stuck requests, triggering immediate sync`);
+        // Trigger immediate sync
+        this.triggerSync();
+      }
+      
+      return resetCount;
+    } catch (error) {
+      console.error('[BackgroundSync] Error forcing retry:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get diagnostic info about pending sync requests
+   * Useful for debugging sync issues
+   */
+  async getDiagnostics(): Promise<{
+    total: number;
+    byStatus: { [status: string]: number };
+    byType: { [type: string]: number };
+    oldestPending: number | null;
+    avgRetryCount: number;
+    stuckCount: number;
+    isSyncing: boolean;
+  }> {
+    const diagnostics = await this.indexedDb.getSyncDiagnostics();
+    return {
+      ...diagnostics,
+      isSyncing: this.isSyncing
+    };
+  }
+
+  /**
+   * Clear all old/stale requests that are unlikely to ever sync
+   * Use with caution - this will delete data
+   * 
+   * @param olderThanHours - Clear requests older than this many hours (default: 48)
+   */
+  async clearStaleRequests(olderThanHours: number = 48): Promise<number> {
+    console.log(`[BackgroundSync] Clearing stale requests older than ${olderThanHours} hours...`);
+    
+    const clearedCount = await this.indexedDb.clearStaleRequests(olderThanHours);
+    console.log(`[BackgroundSync] Cleared ${clearedCount} stale requests`);
+    
+    return clearedCount;
+  }
+
+  /**
    * Clean up on destroy
    */
   ngOnDestroy(): void {

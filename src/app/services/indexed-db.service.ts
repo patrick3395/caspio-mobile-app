@@ -2528,5 +2528,138 @@ export class IndexedDbService {
       getAllRequest.onerror = () => reject(getAllRequest.error);
     });
   }
+
+  /**
+   * Force retry all old pending requests
+   * Resets retry count and lastAttempt to make them eligible for immediate sync
+   * 
+   * @param olderThanMinutes - Reset requests older than this many minutes (default: 5)
+   * @returns Number of requests reset
+   */
+  async forceRetryOldRequests(olderThanMinutes: number = 5): Promise<number> {
+    const db = await this.ensureDb();
+    const cutoffTime = Date.now() - (olderThanMinutes * 60 * 1000);
+    let resetCount = 0;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingRequests'], 'readwrite');
+      const store = transaction.objectStore('pendingRequests');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const requests = getAllRequest.result as PendingRequest[];
+        
+        for (const request of requests) {
+          // Reset pending or error status requests that are old
+          if ((request.status === 'pending' || request.status === 'error') && 
+              request.createdAt < cutoffTime) {
+            request.retryCount = 0;
+            request.lastAttempt = 0;
+            request.status = 'pending';
+            request.error = undefined;
+            store.put(request);
+            resetCount++;
+            console.log(`[IndexedDB] Reset old request: ${request.requestId} (was ${request.retryCount} retries)`);
+          }
+        }
+
+        console.log(`[IndexedDB] Force reset ${resetCount} old pending requests`);
+        resolve(resetCount);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
+   * Clear all stale/abandoned requests
+   * Removes requests that have been pending for too long without syncing
+   * 
+   * @param olderThanHours - Clear requests older than this many hours (default: 24)
+   * @returns Number of requests cleared
+   */
+  async clearStaleRequests(olderThanHours: number = 24): Promise<number> {
+    const db = await this.ensureDb();
+    const cutoffTime = Date.now() - (olderThanHours * 60 * 60 * 1000);
+    let clearedCount = 0;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingRequests'], 'readwrite');
+      const store = transaction.objectStore('pendingRequests');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const requests = getAllRequest.result as PendingRequest[];
+        
+        for (const request of requests) {
+          // Clear requests that have been pending for too long
+          if (request.createdAt < cutoffTime) {
+            store.delete(request.requestId);
+            clearedCount++;
+            console.log(`[IndexedDB] Cleared stale request: ${request.requestId} (created ${new Date(request.createdAt).toISOString()})`);
+          }
+        }
+
+        console.log(`[IndexedDB] Cleared ${clearedCount} stale requests older than ${olderThanHours} hours`);
+        resolve(clearedCount);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
+   * Get sync diagnostic info
+   * Returns summary of pending requests grouped by status and age
+   */
+  async getSyncDiagnostics(): Promise<{
+    total: number;
+    byStatus: { [status: string]: number };
+    byType: { [type: string]: number };
+    oldestPending: number | null;
+    avgRetryCount: number;
+    stuckCount: number;
+  }> {
+    const requests = await this.getAllRequests();
+    const now = Date.now();
+    const oneHourAgo = now - (60 * 60 * 1000);
+
+    const byStatus: { [status: string]: number } = {};
+    const byType: { [type: string]: number } = {};
+    let totalRetries = 0;
+    let oldestPending: number | null = null;
+    let stuckCount = 0;
+
+    for (const request of requests) {
+      // Count by status
+      byStatus[request.status] = (byStatus[request.status] || 0) + 1;
+      
+      // Count by type
+      byType[request.type] = (byType[request.type] || 0) + 1;
+      
+      // Track oldest pending
+      if (request.status === 'pending') {
+        if (oldestPending === null || request.createdAt < oldestPending) {
+          oldestPending = request.createdAt;
+        }
+        
+        // Count stuck (pending for over an hour)
+        if (request.createdAt < oneHourAgo) {
+          stuckCount++;
+        }
+      }
+      
+      totalRetries += request.retryCount || 0;
+    }
+
+    return {
+      total: requests.length,
+      byStatus,
+      byType,
+      oldestPending,
+      avgRetryCount: requests.length > 0 ? totalRetries / requests.length : 0,
+      stuckCount
+    };
+  }
 }
 
