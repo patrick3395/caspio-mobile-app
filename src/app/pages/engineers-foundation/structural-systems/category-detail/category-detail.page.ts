@@ -2320,6 +2320,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
             this.visualPhotos[key] = [];
           }
 
+          // CRITICAL FIX: Ensure loading flag is false so photo displays immediately
+          this.loadingPhotosByKey[key] = false;
+
           // Create photo placeholder for immediate UI feedback
           const tempPhotoId = `temp_camera_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const objectUrl = URL.createObjectURL(blob);
@@ -2444,6 +2447,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
         if (!this.visualPhotos[key]) {
           this.visualPhotos[key] = [];
         }
+
+        // CRITICAL FIX: Ensure loading flag is false so photos display immediately
+        // This prevents the template from showing skeleton loaders instead of actual photos
+        this.loadingPhotosByKey[key] = false;
 
         console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
 
