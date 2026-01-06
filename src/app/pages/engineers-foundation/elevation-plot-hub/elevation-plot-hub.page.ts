@@ -268,10 +268,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
       if (existingRooms) {
         for (const serverRoom of existingRooms) {
           const roomName = serverRoom.RoomName;
-          const realId = serverRoom.EFEID || serverRoom.PK_ID;
+          // CRITICAL: Handle pending rooms with _tempId as well as synced rooms
+          const roomId = serverRoom.EFEID || serverRoom.PK_ID || serverRoom._tempId;
+          
+          if (!roomName || !roomId) continue;
           
           // Update efeRecordIds map
-          this.efeRecordIds[roomName] = String(realId);
+          this.efeRecordIds[roomName] = String(roomId);
           this.selectedRooms[roomName] = true;
           this.savingRooms[roomName] = false;
           
@@ -280,7 +283,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
           if (roomTemplate) {
             roomTemplate.isSelected = true;
             roomTemplate.isSaving = false;
-            roomTemplate.efeId = String(realId);
+            roomTemplate.efeId = String(roomId);
           }
         }
       }
@@ -1053,9 +1056,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy {
               }
 
               // Mark room as selected
-              if (roomName && roomId) {
+              // CRITICAL: Also handle pending rooms with _tempId
+              const effectiveRoomId = roomId || room.PK_ID || room._tempId;
+              if (roomName && effectiveRoomId) {
                 this.selectedRooms[roomName] = true;
-                this.efeRecordIds[roomName] = roomId;
+                this.efeRecordIds[roomName] = String(effectiveRoomId);
 
                 // Initialize room elevation data if not present
                 if (!this.roomElevationData[roomName] && template) {

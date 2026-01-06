@@ -1,9 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { BackgroundSyncService, SyncStatus } from '../../services/background-sync.service';
 import { IndexedDbService } from '../../services/indexed-db.service';
-import { Subscription } from 'rxjs';
+import { Subscription, merge } from 'rxjs';
 
 @Component({
   selector: 'app-sync-details-modal',
@@ -290,7 +290,7 @@ import { Subscription } from 'rxjs';
   standalone: true,
   imports: [CommonModule, IonicModule]
 })
-export class SyncDetailsModalComponent implements OnInit {
+export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   syncStatus: SyncStatus = {
     isSyncing: false,
     pendingCount: 0,
@@ -303,6 +303,8 @@ export class SyncDetailsModalComponent implements OnInit {
   failedRequests: any[] = [];
 
   private subscription?: Subscription;
+  private syncEventsSub?: Subscription;
+  private refreshInterval?: any;
 
   constructor(
     private modalController: ModalController,
@@ -316,9 +318,28 @@ export class SyncDetailsModalComponent implements OnInit {
     this.subscription = this.backgroundSync.syncStatus$.subscribe(
       status => {
         this.syncStatus = status;
-        this.changeDetectorRef.detectChanges();
+        // Refresh details whenever sync status changes
+        this.refreshDetails();
       }
     );
+
+    // Subscribe to all sync completion events for instant updates
+    this.syncEventsSub = merge(
+      this.backgroundSync.visualSyncComplete$,
+      this.backgroundSync.photoUploadComplete$,
+      this.backgroundSync.efeRoomSyncComplete$,
+      this.backgroundSync.efePointSyncComplete$,
+      this.backgroundSync.efePhotoUploadComplete$,
+      this.backgroundSync.serviceDataSyncComplete$
+    ).subscribe(() => {
+      console.log('[SyncModal] Sync event received, refreshing...');
+      this.refreshDetails();
+    });
+
+    // Auto-refresh every 2 seconds while modal is open
+    this.refreshInterval = setInterval(() => {
+      this.refreshDetails();
+    }, 2000);
 
     // Load initial data
     this.refreshDetails();
@@ -327,6 +348,12 @@ export class SyncDetailsModalComponent implements OnInit {
   ngOnDestroy() {
     if (this.subscription) {
       this.subscription.unsubscribe();
+    }
+    if (this.syncEventsSub) {
+      this.syncEventsSub.unsubscribe();
+    }
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
     }
   }
 
@@ -384,7 +411,27 @@ export class SyncDetailsModalComponent implements OnInit {
     const type = request.type || '';
     const data = request.data || {};
     
-    // Photo uploads
+    // Visual photo uploads
+    if (endpoint === 'VISUAL_PHOTO_UPLOAD') {
+      const category = data.category || '';
+      const itemName = data.visualItemName || data.fileName || '';
+      if (category && itemName) {
+        return `Photo: ${category} - ${itemName}`.substring(0, 50);
+      }
+      return `Upload photo: ${data.fileName || 'Photo'}`;
+    }
+    
+    // EFE point photo uploads
+    if (endpoint === 'EFE_POINT_PHOTO_UPLOAD') {
+      const pointName = data.pointName || data.photoType || '';
+      const roomName = data.roomName || '';
+      if (roomName && pointName) {
+        return `Photo: ${roomName} - ${pointName}`.substring(0, 50);
+      }
+      return `Elevation photo: ${pointName || data.fileName || 'Photo'}`;
+    }
+    
+    // Photo uploads (generic)
     if (type === 'PHOTO_UPLOAD' || type === 'EFE_PHOTO_UPLOAD') {
       const photoType = data.photoType || 'Photo';
       return `Upload ${photoType} photo`;
@@ -392,56 +439,75 @@ export class SyncDetailsModalComponent implements OnInit {
     
     // Visual attachments
     if (endpoint.includes('Services_Visuals_Attach')) {
-      return 'Upload visual photo';
+      return `Upload photo: ${data.fileName || 'Visual photo'}`;
     }
     
     // Visuals
     if (endpoint.includes('Services_Visuals') && !endpoint.includes('Attach')) {
+      const category = data.Category || '';
+      const item = data.VisualItem || data.Name || '';
+      const kind = data.Kind || '';
+      
       if (type === 'CREATE') {
-        const category = data.Category || '';
-        const item = data.VisualItem || '';
-        return `Create: ${category} - ${item}`.substring(0, 50);
+        if (category && item) {
+          return `Add ${kind || 'item'}: ${category} - ${item}`.substring(0, 50);
+        }
+        return `Add ${kind || 'visual'}: ${category || 'New item'}`;
       }
       if (type === 'UPDATE') {
-        return 'Update visual';
+        if (data.Notes !== undefined) return `Update notes: ${item || category}`.substring(0, 50);
+        if (data.OtherValue !== undefined) return `Update value: ${item || category}`.substring(0, 50);
+        return `Update: ${item || category || 'Visual'}`.substring(0, 50);
       }
       if (type === 'DELETE') {
-        return 'Delete visual';
+        return `Remove: ${item || category || 'Visual'}`.substring(0, 50);
       }
     }
     
     // EFE Points
     if (endpoint.includes('Services_EFE_Points')) {
+      const pointName = data.PointName || '';
       if (type === 'CREATE') {
-        const pointName = data.PointName || 'Elevation point';
-        return `Create point: ${pointName}`;
+        return `Add point: ${pointName || 'Elevation point'}`;
       }
-      return 'Update elevation point';
+      if (type === 'UPDATE') {
+        if (data.Elevation !== undefined) return `Elevation: ${pointName} = ${data.Elevation}`;
+        if (data.Notes !== undefined) return `Notes: ${pointName}`;
+        return `Update: ${pointName || 'Point'}`;
+      }
     }
     
     // EFE Rooms
     if (endpoint.includes('Services_EFE') && !endpoint.includes('Points') && !endpoint.includes('Attach')) {
+      const roomName = data.RoomName || '';
       if (type === 'CREATE') {
-        const roomName = data.RoomName || 'Room';
-        return `Create room: ${roomName}`;
+        return `Add room: ${roomName || 'Room'}`;
       }
       if (type === 'UPDATE') {
-        if (data.FDF) return 'Update FDF';
-        if (data.Location) return 'Update location';
-        if (data.Notes) return 'Update notes';
-        return 'Update room data';
+        if (data.FDF !== undefined) return `FDF: ${roomName}`;
+        if (data.Location !== undefined) return `Location: ${roomName}`;
+        if (data.Notes !== undefined) return `Notes: ${roomName}`;
+        return `Update: ${roomName || 'Room'}`;
       }
     }
     
     // EFE Attachments
     if (endpoint.includes('EFE') && endpoint.includes('Attach')) {
-      return 'Upload EFE photo';
+      return `Elevation photo: ${data.fileName || 'Photo'}`;
+    }
+    
+    // Service/Project updates
+    if (endpoint.includes('/Services/') && type === 'UPDATE') {
+      return 'Update service data';
+    }
+    if (endpoint.includes('/Projects/') && type === 'UPDATE') {
+      return 'Update project data';
     }
     
     // Generic
-    if (type === 'CREATE') return 'Create new record';
-    if (type === 'UPDATE') return 'Update record';
-    if (type === 'DELETE') return 'Delete record';
+    if (type === 'CREATE') return 'Add new item';
+    if (type === 'UPDATE') return 'Update item';
+    if (type === 'DELETE') return 'Remove item';
     
     return 'Sync data';
   }

@@ -383,11 +383,25 @@ export class RoomElevationPage implements OnInit, OnDestroy {
           
           // SEAMLESS SWAP: Get the cached base64 (already downloaded by BackgroundSyncService)
           let newImageUrl = point.photos[photoIndex].displayUrl || point.photos[photoIndex].url;
+          const s3Key = event.result?.Attachment || event.result?.Photo;
+          
           try {
             const cachedBase64 = await this.indexedDb.getCachedPhoto(String(realAttachId));
             if (cachedBase64) {
               newImageUrl = cachedBase64;
               console.log('[RoomElevation EFE PHOTO SYNC] ✅ Seamless swap to cached base64');
+            } else if (s3Key && this.offlineService.isOnline()) {
+              // FALLBACK: Cache wasn't ready yet, fetch from S3 directly
+              console.log('[RoomElevation EFE PHOTO SYNC] Cache miss, fetching from S3...');
+              try {
+                const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+                newImageUrl = await this.fetchS3ImageAsDataUrl(s3Url);
+                // Cache it for next time
+                await this.indexedDb.cachePhoto(String(realAttachId), this.serviceId, newImageUrl, s3Key);
+                console.log('[RoomElevation EFE PHOTO SYNC] ✅ Fetched and cached from S3');
+              } catch (s3Err) {
+                console.warn('[RoomElevation EFE PHOTO SYNC] S3 fetch failed:', s3Err);
+              }
             }
           } catch (err) {
             console.warn('[RoomElevation EFE PHOTO SYNC] Failed to get cached image:', err);
