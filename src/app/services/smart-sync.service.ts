@@ -105,7 +105,7 @@ export class SmartSyncService implements OnDestroy {
     });
     
     // Listen to online status changes
-    this.onlineSubscription = this.offlineService.onlineStatus$.subscribe(isOnline => {
+    this.onlineSubscription = this.offlineService.getOnlineStatus().subscribe((isOnline: boolean) => {
       if (isOnline) {
         console.log('[SmartSync] Came online - triggering dirty sync');
         this.processDirtyItems();
