@@ -92,9 +92,9 @@ import { Subscription, merge } from 'rxjs';
             <ion-icon name="sync" slot="start"></ion-icon>
             {{ syncStatus.isSyncing ? 'Syncing...' : 'Sync Now' }}
           </ion-button>
-          <ion-button expand="block" fill="outline" (click)="forceRetryStuck()" [disabled]="syncStatus.isSyncing || stuckCount === 0">
-            <ion-icon name="reload-outline" slot="start"></ion-icon>
-            Force Retry Stuck ({{ stuckCount }})
+          <ion-button expand="block" fill="outline" color="danger" (click)="clearStuckRequests()" [disabled]="syncStatus.isSyncing || stuckCount === 0">
+            <ion-icon name="trash-outline" slot="start"></ion-icon>
+            Clear Stuck ({{ stuckCount }})
           </ion-button>
           <ion-button expand="block" fill="outline" (click)="refreshDetails()">
             <ion-icon name="refresh" slot="start"></ion-icon>
@@ -370,10 +370,11 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     await this.backgroundSync.forceSyncNow();
   }
 
-  async forceRetryStuck() {
-    console.log('[SyncModal] Force retrying stuck requests...');
-    const resetCount = await this.backgroundSync.forceRetryAllStuck();
-    console.log(`[SyncModal] Reset ${resetCount} stuck requests`);
+  async clearStuckRequests() {
+    console.log('[SyncModal] Clearing stuck/broken requests...');
+    // Clear requests older than 5 minutes (stuck requests)
+    const clearedCount = await this.indexedDb.clearOldPendingRequests(5);
+    console.log(`[SyncModal] Cleared ${clearedCount} stuck requests`);
     // Refresh the list immediately
     await this.refreshDetails();
   }

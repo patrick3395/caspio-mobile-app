@@ -2530,6 +2530,44 @@ export class IndexedDbService {
   }
 
   /**
+   * Clear/delete old pending requests that are stuck or broken
+   * Use this to remove requests that should not be syncing
+   * 
+   * @param olderThanMinutes - Clear requests older than this many minutes (default: 5)
+   * @returns Number of requests cleared
+   */
+  async clearOldPendingRequests(olderThanMinutes: number = 5): Promise<number> {
+    const db = await this.ensureDb();
+    const cutoffTime = Date.now() - (olderThanMinutes * 60 * 1000);
+    let clearedCount = 0;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingRequests'], 'readwrite');
+      const store = transaction.objectStore('pendingRequests');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const requests = getAllRequest.result as PendingRequest[];
+        
+        for (const request of requests) {
+          // Clear pending or failed requests that are old
+          if ((request.status === 'pending' || request.status === 'failed') && 
+              request.createdAt < cutoffTime) {
+            store.delete(request.requestId);
+            clearedCount++;
+            console.log(`[IndexedDB] Cleared stuck request: ${request.requestId} (type: ${request.type}, created: ${new Date(request.createdAt).toISOString()})`);
+          }
+        }
+
+        console.log(`[IndexedDB] Cleared ${clearedCount} stuck pending requests`);
+        resolve(clearedCount);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
    * Force retry all old pending requests
    * Resets retry count and lastAttempt to make them eligible for immediate sync
    * 
