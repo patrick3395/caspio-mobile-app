@@ -845,6 +845,187 @@ export class EngineersFoundationDataService {
   }
 
   // ============================================
+  // UNIFIED CAPTION/ANNOTATION QUEUE METHODS
+  // ============================================
+  // These methods ALWAYS queue caption updates, ensuring no data loss during sync operations
+
+  /**
+   * Queue a caption update for any attachment type
+   * ALWAYS queues to pendingCaptions store, regardless of online status or photo sync state
+   * This ensures caption changes are NEVER lost due to race conditions
+   * 
+   * @param attachId - The attachment ID (can be temp_xxx or real ID)
+   * @param caption - The new caption text
+   * @param attachType - Type of attachment ('visual', 'efe_point', 'fdf')
+   * @param metadata - Additional context (serviceId, visualId, pointId)
+   */
+  async queueCaptionUpdate(
+    attachId: string,
+    caption: string,
+    attachType: 'visual' | 'efe_point' | 'fdf',
+    metadata: { serviceId?: string; visualId?: string; pointId?: string } = {}
+  ): Promise<string> {
+    console.log(`[Caption Queue] Queueing caption update for ${attachType} attach:`, attachId);
+    
+    // 1. Update local cache immediately with _localUpdate flag
+    await this.updateLocalCacheWithCaption(attachId, caption, undefined, attachType, metadata);
+    
+    // 2. Queue the caption update for background sync
+    const captionId = await this.indexedDb.queueCaptionUpdate({
+      attachId,
+      attachType,
+      caption,
+      serviceId: metadata.serviceId,
+      visualId: metadata.visualId,
+      pointId: metadata.pointId
+    });
+    
+    console.log(`[Caption Queue] ✅ Caption queued:`, captionId);
+    
+    // 3. Trigger background sync to process the queue
+    this.backgroundSync.triggerSync();
+    
+    return captionId;
+  }
+
+  /**
+   * Queue an annotation (drawings) update for any attachment type
+   * ALWAYS queues to pendingCaptions store
+   */
+  async queueAnnotationUpdate(
+    attachId: string,
+    drawings: string,
+    attachType: 'visual' | 'efe_point' | 'fdf',
+    metadata: { serviceId?: string; visualId?: string; pointId?: string; caption?: string } = {}
+  ): Promise<string> {
+    console.log(`[Annotation Queue] Queueing annotation update for ${attachType} attach:`, attachId);
+    
+    // 1. Update local cache immediately with _localUpdate flag
+    await this.updateLocalCacheWithCaption(attachId, metadata.caption, drawings, attachType, metadata);
+    
+    // 2. Queue the annotation update for background sync
+    const captionId = await this.indexedDb.queueCaptionUpdate({
+      attachId,
+      attachType,
+      drawings,
+      caption: metadata.caption,
+      serviceId: metadata.serviceId,
+      visualId: metadata.visualId,
+      pointId: metadata.pointId
+    });
+    
+    console.log(`[Annotation Queue] ✅ Annotation queued:`, captionId);
+    
+    // 3. Trigger background sync
+    this.backgroundSync.triggerSync();
+    
+    return captionId;
+  }
+
+  /**
+   * Queue both caption and annotation update together
+   */
+  async queueCaptionAndAnnotationUpdate(
+    attachId: string,
+    caption: string,
+    drawings: string,
+    attachType: 'visual' | 'efe_point' | 'fdf',
+    metadata: { serviceId?: string; visualId?: string; pointId?: string } = {}
+  ): Promise<string> {
+    console.log(`[Caption+Annotation Queue] Queueing combined update for ${attachType} attach:`, attachId);
+    
+    // 1. Update local cache
+    await this.updateLocalCacheWithCaption(attachId, caption, drawings, attachType, metadata);
+    
+    // 2. Queue combined update
+    const captionId = await this.indexedDb.queueCaptionUpdate({
+      attachId,
+      attachType,
+      caption,
+      drawings,
+      serviceId: metadata.serviceId,
+      visualId: metadata.visualId,
+      pointId: metadata.pointId
+    });
+    
+    console.log(`[Caption+Annotation Queue] ✅ Combined update queued:`, captionId);
+    
+    this.backgroundSync.triggerSync();
+    return captionId;
+  }
+
+  /**
+   * Update local IndexedDB cache with caption/annotation changes
+   * Sets _localUpdate flag to prevent background refresh from overwriting
+   */
+  private async updateLocalCacheWithCaption(
+    attachId: string,
+    caption: string | undefined,
+    drawings: string | undefined,
+    attachType: 'visual' | 'efe_point' | 'fdf',
+    metadata: { serviceId?: string; visualId?: string; pointId?: string }
+  ): Promise<void> {
+    try {
+      const attachIdStr = String(attachId);
+      const isTempId = attachIdStr.startsWith('temp_');
+      
+      // For temp IDs, update the pending photo data
+      if (isTempId) {
+        const updated = await this.indexedDb.updatePendingPhotoData(attachIdStr, {
+          caption: caption,
+          drawings: drawings
+        });
+        if (updated) {
+          console.log(`[Caption Cache] Updated pending photo data for temp ID:`, attachIdStr);
+        }
+        return;
+      }
+      
+      // For real IDs, update the appropriate cache based on type
+      if (attachType === 'visual' && metadata.visualId) {
+        const cached = await this.indexedDb.getCachedServiceData(metadata.visualId, 'visual_attachments') || [];
+        const updatedCache = cached.map((att: any) => {
+          if (String(att.AttachID) === attachIdStr) {
+            const updated: any = { ...att, _localUpdate: true, _updatedAt: Date.now() };
+            if (caption !== undefined) updated.Annotation = caption;
+            if (drawings !== undefined) updated.Drawings = drawings;
+            return updated;
+          }
+          return att;
+        });
+        await this.indexedDb.cacheServiceData(metadata.visualId, 'visual_attachments', updatedCache);
+        this.visualAttachmentsCache.clear();
+        console.log(`[Caption Cache] Updated visual attachments cache for visualId:`, metadata.visualId);
+      } else if (attachType === 'efe_point' && metadata.pointId) {
+        const cached = await this.indexedDb.getCachedServiceData(metadata.pointId, 'efe_point_attachments') || [];
+        const updatedCache = cached.map((att: any) => {
+          if (String(att.AttachID) === attachIdStr) {
+            const updated: any = { ...att, _localUpdate: true, _updatedAt: Date.now() };
+            if (caption !== undefined) updated.Annotation = caption;
+            if (drawings !== undefined) updated.Drawings = drawings;
+            return updated;
+          }
+          return att;
+        });
+        await this.indexedDb.cacheServiceData(metadata.pointId, 'efe_point_attachments', updatedCache);
+        this.efeAttachmentsCache.clear();
+        console.log(`[Caption Cache] Updated EFE point attachments cache for pointId:`, metadata.pointId);
+      }
+      // FDF type is handled differently (stored in room record, not attachments)
+    } catch (error) {
+      console.warn('[Caption Cache] Failed to update local cache:', error);
+      // Continue anyway - the queued update will still sync
+    }
+  }
+
+  /**
+   * Get count of pending caption updates for sync status display
+   */
+  async getPendingCaptionCount(): Promise<number> {
+    return this.indexedDb.getPendingCaptionCount();
+  }
+
+  // ============================================
   // EFE ROOM METHODS (OFFLINE-FIRST)
   // ============================================
 

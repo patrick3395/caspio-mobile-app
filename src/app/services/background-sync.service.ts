@@ -80,6 +80,9 @@ export class BackgroundSyncService {
   // Visual sync events - emits when visuals are synced so pages can refresh
   public visualSyncComplete$ = new Subject<{ serviceId: string; visualId: string; tempId?: string }>();
 
+  // Caption sync events - emits when caption/annotation updates complete
+  public captionSyncComplete$ = new Subject<{ attachId: string; attachType: string; captionId: string }>();
+
   constructor(
     private indexedDb: IndexedDbService,
     private apiGateway: ApiGatewayService,
@@ -175,6 +178,8 @@ export class BackgroundSyncService {
 
     try {
       await this.syncPendingRequests();
+      // CRITICAL: Process pending caption updates independently from photo uploads
+      await this.syncPendingCaptions();
     } catch (error) {
       console.error('[BackgroundSync] Sync failed:', error);
     } finally {
@@ -477,6 +482,100 @@ export class BackgroundSyncService {
   }
 
   /**
+   * Sync pending caption/annotation updates
+   * Processes the pendingCaptions queue independently from photo uploads
+   * This ensures caption changes are never lost due to race conditions
+   */
+  private async syncPendingCaptions(): Promise<void> {
+    const pendingCaptions = await this.indexedDb.getPendingCaptions();
+    
+    if (pendingCaptions.length === 0) {
+      return;
+    }
+    
+    console.log(`[BackgroundSync] Processing ${pendingCaptions.length} pending caption updates`);
+    
+    for (const caption of pendingCaptions) {
+      try {
+        // Mark as syncing
+        await this.indexedDb.updateCaptionStatus(caption.captionId, 'syncing');
+        
+        // Check if attachId is still a temp ID
+        let resolvedAttachId = caption.attachId;
+        if (caption.attachId.startsWith('temp_')) {
+          const realId = await this.indexedDb.getRealId(caption.attachId);
+          if (!realId) {
+            console.log(`[BackgroundSync] Caption ${caption.captionId} waiting for photo sync (${caption.attachId})`);
+            await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending');
+            continue; // Photo not synced yet, skip for now
+          }
+          resolvedAttachId = realId;
+          console.log(`[BackgroundSync] Resolved caption attachId: ${caption.attachId} → ${realId}`);
+        }
+        
+        // Build update data
+        const updateData: any = {};
+        if (caption.caption !== undefined) {
+          updateData.Annotation = caption.caption;
+        }
+        if (caption.drawings !== undefined) {
+          updateData.Drawings = caption.drawings;
+        }
+        
+        // Determine endpoint based on type
+        let endpoint: string;
+        switch (caption.attachType) {
+          case 'visual':
+            endpoint = `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${resolvedAttachId}`;
+            break;
+          case 'efe_point':
+            endpoint = `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${resolvedAttachId}`;
+            break;
+          case 'fdf':
+            // FDF updates go to the EFE room record, not attachments
+            // Skip for now - handled differently
+            console.log(`[BackgroundSync] FDF caption updates handled separately`);
+            await this.indexedDb.deletePendingCaption(caption.captionId);
+            continue;
+          default:
+            console.warn(`[BackgroundSync] Unknown caption type: ${caption.attachType}`);
+            await this.indexedDb.updateCaptionStatus(caption.captionId, 'failed', 'Unknown type');
+            continue;
+        }
+        
+        // Perform the API update
+        console.log(`[BackgroundSync] Syncing caption for ${caption.attachType} AttachID=${resolvedAttachId}`);
+        await this.apiGateway.put(endpoint, updateData).toPromise();
+        
+        console.log(`[BackgroundSync] ✅ Caption synced: ${caption.captionId}`);
+        
+        // Clean up - delete the pending caption
+        await this.indexedDb.deletePendingCaption(caption.captionId);
+        
+        // Clear the _localUpdate flag from cache
+        if (caption.attachType === 'visual') {
+          await this.clearLocalUpdateFlag('visual_attachments', resolvedAttachId);
+        } else if (caption.attachType === 'efe_point') {
+          await this.clearLocalUpdateFlag('efe_point_attachments', resolvedAttachId);
+        }
+        
+        // Emit event for pages to update UI
+        this.ngZone.run(() => {
+          this.captionSyncComplete$.next({
+            attachId: resolvedAttachId,
+            attachType: caption.attachType,
+            captionId: caption.captionId
+          });
+        });
+        
+      } catch (error: any) {
+        console.warn(`[BackgroundSync] ❌ Caption sync failed: ${caption.captionId}`, error);
+        await this.indexedDb.updateCaptionStatus(caption.captionId, 'failed', error.message || 'Sync failed');
+      }
+    }
+  }
+
+  /**
    * Determine if request should be retried now based on exponential backoff
    */
   private shouldRetryNow(request: PendingRequest): boolean {
@@ -649,7 +748,17 @@ export class BackgroundSyncService {
         // Continue anyway - photo was uploaded successfully
       }
 
-      // STEP 3: Emit event so pages can update their local state with cached URL
+      // STEP 3: Update any pending caption updates with the real AttachID
+      // This handles the case where user added caption while photo was still uploading
+      const realAttachId = result.AttachID || result.attachId;
+      if (realAttachId && data.fileId) {
+        const updatedCount = await this.indexedDb.updateCaptionAttachId(data.fileId, String(realAttachId));
+        if (updatedCount > 0) {
+          console.log(`[BackgroundSync] ✅ Updated ${updatedCount} pending captions with real AttachID: ${realAttachId}`);
+        }
+      }
+
+      // STEP 4: Emit event so pages can update their local state with cached URL
       this.ngZone.run(() => {
         this.photoUploadComplete$.next({
           tempFileId: data.fileId,
@@ -659,7 +768,7 @@ export class BackgroundSyncService {
         });
       });
 
-      // STEP 4: Clean up stored photo after successful upload and caching
+      // STEP 5: Clean up stored photo after successful upload and caching
       await this.indexedDb.deleteStoredFile(data.fileId);
       console.log('[BackgroundSync] Cleaned up stored photo file:', data.fileId);
 
@@ -818,7 +927,17 @@ export class BackgroundSyncService {
         // Continue anyway - photo was uploaded successfully
       }
 
-      // STEP 3: Emit event so pages can update their local state with cached URL
+      // STEP 3: Update any pending caption updates with the real AttachID
+      // This handles the case where user added caption while photo was still uploading
+      const realAttachId = result.AttachID || result.attachId;
+      if (realAttachId && data.fileId) {
+        const updatedCount = await this.indexedDb.updateCaptionAttachId(data.fileId, String(realAttachId));
+        if (updatedCount > 0) {
+          console.log(`[BackgroundSync] ✅ Updated ${updatedCount} pending EFE captions with real AttachID: ${realAttachId}`);
+        }
+      }
+
+      // STEP 4: Emit event so pages can update their local state with cached URL
       this.ngZone.run(() => {
         this.efePhotoUploadComplete$.next({
           tempFileId: data.fileId,
@@ -828,7 +947,7 @@ export class BackgroundSyncService {
         });
       });
 
-      // STEP 4: Clean up stored photo
+      // STEP 5: Clean up stored photo
       await this.indexedDb.deleteStoredFile(data.fileId);
       console.log('[BackgroundSync] Cleaned up EFE photo file:', data.fileId);
 
@@ -959,9 +1078,11 @@ export class BackgroundSyncService {
    */
   private async updateSyncStatusFromDb(): Promise<void> {
     const stats = await this.indexedDb.getSyncStats();
+    // Include pending caption count in the total
+    const pendingCaptionCount = await this.indexedDb.getPendingCaptionCount();
     this.updateSyncStatus({
       isSyncing: false,
-      pendingCount: stats.pending,
+      pendingCount: stats.pending + pendingCaptionCount,
       syncedCount: stats.synced,
       failedCount: stats.failed,
       lastSyncTime: Date.now(),

@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { BackgroundSyncService, SyncStatus } from '../../services/background-sync.service';
-import { IndexedDbService } from '../../services/indexed-db.service';
+import { IndexedDbService, PendingCaptionUpdate } from '../../services/indexed-db.service';
 import { Subscription, merge } from 'rxjs';
 
 @Component({
@@ -52,11 +52,18 @@ import { Subscription, merge } from 'rxjs';
       </div>
 
       <!-- Pending Queue -->
-      <div class="sync-section" *ngIf="pendingRequests.length > 0">
+      <div class="sync-section" *ngIf="pendingRequests.length > 0 || pendingCaptions.length > 0">
         <h4><ion-icon name="time-outline"></ion-icon> Waiting to Sync</h4>
         <div class="request-list">
-          <div class="request-item" *ngFor="let req of pendingRequests; let i = index">
+          <!-- Pending Captions/Annotations -->
+          <div class="request-item caption" *ngFor="let cap of pendingCaptions; let i = index">
             <span class="queue-number">{{ i + 1 }}</span>
+            <ion-icon name="text-outline"></ion-icon>
+            <span class="request-desc">{{ getCaptionDescription(cap) }}</span>
+          </div>
+          <!-- Pending Requests -->
+          <div class="request-item" *ngFor="let req of pendingRequests; let i = index">
+            <span class="queue-number">{{ pendingCaptions.length + i + 1 }}</span>
             <ion-icon [name]="getRequestIcon(req)"></ion-icon>
             <span class="request-desc">{{ getRequestDescription(req) }}</span>
             <span class="dependency-badge" *ngIf="req.dependencies?.length > 0" title="Waiting for dependencies">
@@ -79,7 +86,7 @@ import { Subscription, merge } from 'rxjs';
       </div>
 
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="pendingRequests.length === 0 && syncingRequests.length === 0 && failedRequests.length === 0">
+      <div class="empty-state" *ngIf="pendingRequests.length === 0 && syncingRequests.length === 0 && failedRequests.length === 0 && pendingCaptions.length === 0">
         <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
         <p>All changes synced!</p>
       </div>
@@ -256,6 +263,15 @@ import { Subscription, merge } from 'rxjs';
       color: #d9534f;
     }
 
+    .request-item.caption {
+      background: #f0f9ff;
+      border-left: 3px solid #0ea5e9;
+    }
+
+    .request-item.caption ion-icon {
+      color: #0ea5e9;
+    }
+
     .empty-state {
       text-align: center;
       padding: 30px 20px;
@@ -305,6 +321,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   pendingRequests: any[] = [];
   syncingRequests: any[] = [];
   failedRequests: any[] = [];
+  pendingCaptions: PendingCaptionUpdate[] = [];
   stuckCount: number = 0;
 
   private subscription?: Subscription;
@@ -335,7 +352,8 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       this.backgroundSync.efeRoomSyncComplete$,
       this.backgroundSync.efePointSyncComplete$,
       this.backgroundSync.efePhotoUploadComplete$,
-      this.backgroundSync.serviceDataSyncComplete$
+      this.backgroundSync.serviceDataSyncComplete$,
+      this.backgroundSync.captionSyncComplete$
     ).subscribe(() => {
       console.log('[SyncModal] Sync event received, refreshing...');
       this.refreshDetails();
@@ -386,6 +404,9 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       this.pendingRequests = requests.filter(r => r.status === 'pending');
       this.syncingRequests = requests.filter(r => r.status === 'syncing');
       this.failedRequests = requests.filter(r => r.status === 'failed');
+      
+      // Load pending captions
+      this.pendingCaptions = await this.indexedDb.getPendingCaptions();
       
       // Calculate stuck count (pending for over 5 minutes with high retry count)
       const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
@@ -567,6 +588,34 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     if (type === 'DELETE') return 'Remove item';
     
     return 'Sync data';
+  }
+
+  /**
+   * Get description for a pending caption update
+   */
+  getCaptionDescription(caption: PendingCaptionUpdate): string {
+    const hasCaption = caption.caption !== undefined;
+    const hasDrawings = caption.drawings !== undefined;
+    
+    let typeLabel = 'Photo';
+    if (caption.attachType === 'visual') {
+      typeLabel = 'Visual photo';
+    } else if (caption.attachType === 'efe_point') {
+      typeLabel = 'Elevation photo';
+    } else if (caption.attachType === 'fdf') {
+      typeLabel = 'FDF photo';
+    }
+    
+    if (hasCaption && hasDrawings) {
+      return `Save caption & drawings: ${typeLabel}`;
+    } else if (hasCaption) {
+      const captionPreview = caption.caption!.substring(0, 20);
+      return `Save caption: "${captionPreview}${caption.caption!.length > 20 ? '...' : ''}"`;
+    } else if (hasDrawings) {
+      return `Save drawings: ${typeLabel}`;
+    }
+    
+    return `Update: ${typeLabel}`;
   }
 }
 

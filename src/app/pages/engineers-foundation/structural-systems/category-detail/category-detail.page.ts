@@ -3598,39 +3598,39 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       throw new Error('Cannot update annotations for temp photo');
     }
 
+    // Find the visualId for this attachment by searching visualPhotos (needed for cache and queue)
+    let visualIdForCache: string | null = null;
+    let foundKey: string | null = null;
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      const photo = (photos as any[]).find(p => String(p.AttachID) === String(attachId));
+      if (photo) {
+        foundKey = key;
+        // CRITICAL: Use VisualID from photo, or visualRecordIds, or extract from key
+        const recordId = this.visualRecordIds[key];
+        const photoVisualId = photo.VisualID;
+        visualIdForCache = photoVisualId || recordId || null;
+        
+        // Ensure it's a valid string, not "undefined"
+        if (visualIdForCache && String(visualIdForCache) !== 'undefined') {
+          visualIdForCache = String(visualIdForCache);
+        } else {
+          visualIdForCache = null;
+        }
+        
+        console.log('[SAVE CACHE] Found photo for AttachID:', attachId, 'Key:', key, 'photo.VisualID:', photoVisualId, 'visualRecordIds[key]:', recordId, 'Final visualIdForCache:', visualIdForCache);
+        break;
+      }
+    }
+
+    if (!visualIdForCache) {
+      console.warn('[SAVE CACHE] ⚠️ Could not find visualIdForCache for AttachID:', attachId);
+      console.warn('[SAVE CACHE] ⚠️ Searched keys:', Object.keys(this.visualPhotos));
+      console.warn('[SAVE CACHE] ⚠️ visualRecordIds:', JSON.stringify(this.visualRecordIds));
+    }
+
     // CRITICAL: Update IndexedDB cache FIRST (offline-first pattern)
     // This ensures annotations persist locally even if API call fails
     try {
-      // Find the visualId for this attachment by searching visualPhotos
-      let visualIdForCache: string | null = null;
-      let foundKey: string | null = null;
-      for (const [key, photos] of Object.entries(this.visualPhotos)) {
-        const photo = (photos as any[]).find(p => String(p.AttachID) === String(attachId));
-        if (photo) {
-          foundKey = key;
-          // CRITICAL: Use VisualID from photo, or visualRecordIds, or extract from key
-          const recordId = this.visualRecordIds[key];
-          const photoVisualId = photo.VisualID;
-          visualIdForCache = photoVisualId || recordId || null;
-          
-          // Ensure it's a valid string, not "undefined"
-          if (visualIdForCache && String(visualIdForCache) !== 'undefined') {
-            visualIdForCache = String(visualIdForCache);
-          } else {
-            visualIdForCache = null;
-          }
-          
-          console.log('[SAVE CACHE] Found photo for AttachID:', attachId, 'Key:', key, 'photo.VisualID:', photoVisualId, 'visualRecordIds[key]:', recordId, 'Final visualIdForCache:', visualIdForCache);
-          break;
-        }
-      }
-
-      if (!visualIdForCache) {
-        console.warn('[SAVE CACHE] ⚠️ Could not find visualIdForCache for AttachID:', attachId);
-        console.warn('[SAVE CACHE] ⚠️ Searched keys:', Object.keys(this.visualPhotos));
-        console.warn('[SAVE CACHE] ⚠️ visualRecordIds:', JSON.stringify(this.visualRecordIds));
-      }
-
       if (visualIdForCache) {
         // Get existing cached attachments and update
         const cachedAttachments = await this.indexedDb.getCachedServiceData(visualIdForCache, 'visual_attachments') || [];
@@ -3668,48 +3668,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
       // Continue anyway - still try API
     }
 
-    // OFFLINE-FIRST: Queue the update for background sync
-    const isOffline = !this.offlineService.isOnline();
-    console.log('[SAVE] Network status check - isOnline:', this.offlineService.isOnline(), 'isOffline:', isOffline);
-    
-    if (isOffline) {
-      // Queue for later sync
-      const requestId = await this.indexedDb.addPendingRequest({
-        type: 'UPDATE',
-        endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
-        method: 'PUT',
-        data: updateData,
-        dependencies: [],
-        status: 'pending',
-        priority: 'normal',
-      });
-      console.log('[SAVE] ⏳ Annotation queued for sync (offline), requestId:', requestId, 'AttachID:', attachId);
-      console.log('[SAVE] ⏳ Sync button should now show pending update');
-      this.backgroundSync.triggerSync(); // Will sync when back online
-    } else {
-      // Online - try API call, queue on failure
-      try {
-        console.log('[SAVE] 🌐 Online - saving directly to API...');
-        const response = await firstValueFrom(
-          this.caspioService.updateServicesVisualsAttach(attachId, updateData)
-        );
-        console.log('[SAVE] ✅ Successfully saved caption and drawings via API for AttachID:', attachId);
-      } catch (apiError) {
-        console.warn('[SAVE] API call failed, queuing for retry:', apiError);
-        // Queue for retry
-        const requestId = await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
-          method: 'PUT',
-          data: updateData,
-          dependencies: [],
-          status: 'pending',
-          priority: 'high',
-        });
-        console.log('[SAVE] ⏳ API failed, queued for retry, requestId:', requestId);
-        this.backgroundSync.triggerSync();
+    // ALWAYS queue the annotation update using unified method
+    // This ensures annotations are never lost during sync operations
+    await this.foundationData.queueCaptionAndAnnotationUpdate(
+      attachId,
+      caption || '',
+      updateData.Drawings,
+      'visual',
+      {
+        serviceId: this.serviceId,
+        visualId: visualIdForCache || undefined
       }
-    }
+    );
+    console.log('[SAVE] ✅ Annotation queued for sync:', attachId);
 
     // Return the compressed drawings string so caller can update local photo object
     return updateData.Drawings;
@@ -3850,44 +3821,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy {
               // Close popup immediately (don't wait for save)
               this.isCaptionPopupOpen = false;
 
-              // Save to database in background (no await - don't block popup close)
-              // CRITICAL: Check if photo is still syncing (uploading, has temp ID, or has pending file ID)
-              const isSyncing = photo.uploading || photo._syncing || photo._backgroundSync || 
-                               photo._pendingFileId || String(photo.AttachID || '').startsWith('temp_');
+              // Save to database using unified caption queue (ALWAYS queues, never direct API)
+              // This ensures captions are never lost during sync operations
+              const attachId = String(photo._pendingFileId || photo.attachId || photo.AttachID || '');
+              const visualId = photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);
               
-              if (isSyncing) {
-                // CRITICAL FIX: For syncing photos, update IndexedDB so background sync picks up the caption
-                // Use the dedicated updatePendingPhotoData method - more reliable than re-storing the file
-                const pendingFileId = photo._pendingFileId || photo.attachId || photo.AttachID;
-                console.log('[CAPTION] Photo is syncing, updating IndexedDB caption:', pendingFileId);
-                
-                this.indexedDb.updatePendingPhotoData(pendingFileId, { caption: newCaption })
-                  .then((updated) => {
-                    if (updated) {
-                      console.log('[CAPTION] ✅ Updated IndexedDB caption for syncing photo:', pendingFileId);
-                    } else {
-                      console.warn('[CAPTION] Could not find pending photo in IndexedDB:', pendingFileId);
-                    }
-                    // Mark as local update to prevent server overwriting on reload
-                    photo._localUpdate = true;
-                  })
-                  .catch((error: any) => {
-                    console.error('[CAPTION] Error updating IndexedDB caption:', error);
-                    photo._localUpdate = true;
-                  });
-              } else if (photo.AttachID) {
-                // Photo is fully synced - save directly to API
-                const visualId = photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);
-                this.foundationData.updateVisualPhotoCaption(photo.AttachID, newCaption, visualId)
-                  .then(() => {
-                    console.log('[CAPTION] Saved caption for photo:', photo.AttachID);
-                  })
-                  .catch((error) => {
-                    console.error('[CAPTION] Error saving caption:', error);
-                    // Show error toast but don't revert UI - user already sees their caption
-                    this.showToast('Caption saved to device, will sync when online', 'warning');
-                  });
-              }
+              photo._localUpdate = true; // Mark as local update to prevent server overwriting
+              
+              this.foundationData.queueCaptionUpdate(
+                attachId,
+                newCaption,
+                'visual',
+                {
+                  serviceId: this.serviceId,
+                  visualId: String(visualId)
+                }
+              ).then(() => {
+                console.log('[CAPTION] ✅ Caption queued for sync:', attachId);
+              }).catch((error) => {
+                console.error('[CAPTION] Error queueing caption:', error);
+              });
 
               return true; // Close popup immediately
             }

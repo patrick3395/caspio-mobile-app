@@ -3118,66 +3118,46 @@ export class RoomElevationPage implements OnInit, OnDestroy {
 
   /**
    * Helper method to save point photo caption
+   * Uses unified caption queue to ensure captions are NEVER lost during sync operations
    */
   private async savePointCaption(photo: any, newCaption: string): Promise<void> {
     try {
-      const updateData = { Annotation: newCaption };
-      
-      // Update local state immediately
+      // 1. Update local UI state immediately
       photo.caption = newCaption;
+      photo._localUpdate = true;
       this.changeDetectorRef.detectChanges();
       
-      // CRITICAL: Check if photo is still syncing (uploading, has temp ID, or has pending file ID)
-      const isSyncing = photo.uploading || photo._syncing || photo.isPending || photo.queued ||
-                       photo._pendingFileId || String(photo.attachId || '').startsWith('temp_');
+      // 2. Get the attachment ID (could be temp or real)
+      const attachId = String(photo._pendingFileId || photo._tempId || photo.attachId || '');
       
-      if (isSyncing) {
-        // CRITICAL FIX: For syncing photos, use updatePendingPhotoData for reliable caption update
-        const pendingFileId = photo._pendingFileId || photo._tempId || photo.attachId;
-        console.log('[Point Caption] Photo is syncing, updating IndexedDB caption:', pendingFileId);
-        
-        const updated = await this.indexedDb.updatePendingPhotoData(pendingFileId, { caption: newCaption });
-        if (updated) {
-          console.log('[Point Caption] ✅ Updated IndexedDB with caption for syncing photo:', pendingFileId);
-        } else {
-          console.warn('[Point Caption] Could not find pending photo in IndexedDB:', pendingFileId);
-        }
-        photo._localUpdate = true;
-        return; // Don't try to save to server for temp IDs
-      }
-      
-      // Update IndexedDB cache for non-temp photos
-      if (photo.attachId && !String(photo.attachId).startsWith('temp_')) {
-        for (const p of this.elevationPoints) {
-          const foundPhoto = p.photos?.find((ph: any) => String(ph.attachId) === String(photo.attachId));
-          if (foundPhoto && p.pointId && !String(p.pointId).startsWith('temp_')) {
-            const cached = await this.indexedDb.getCachedServiceData(String(p.pointId), 'efe_point_attachments') || [];
-            const updated = cached.map((att: any) => 
-              String(att.AttachID) === String(photo.attachId) 
-                ? { ...att, Annotation: newCaption, _localUpdate: true }
-                : att
-            );
-            await this.indexedDb.cacheServiceData(String(p.pointId), 'efe_point_attachments', updated);
-            break;
-          }
+      // 3. Find the point ID for cache lookup
+      let pointId: string | undefined;
+      for (const p of this.elevationPoints) {
+        const foundPhoto = p.photos?.find((ph: any) => 
+          String(ph.attachId) === attachId || 
+          String(ph._tempId) === attachId ||
+          String(ph._pendingFileId) === attachId
+        );
+        if (foundPhoto && p.pointId) {
+          pointId = String(p.pointId);
+          break;
         }
       }
       
-      // Try API if online, queue if offline
-      if (this.offlineService.isOnline()) {
-        await this.caspioService.updateServicesEFEPointsAttach(photo.attachId, updateData).toPromise();
-      } else {
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
-          method: 'PUT',
-          data: updateData,
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal',
-        });
-        this.backgroundSync.triggerSync();
-      }
+      // 4. ALWAYS queue the caption update using the unified method
+      // This works for both temp IDs and real IDs, online and offline
+      await this.foundationData.queueCaptionUpdate(
+        attachId,
+        newCaption,
+        'efe_point',
+        {
+          serviceId: this.serviceId,
+          pointId: pointId
+        }
+      );
+      
+      console.log(`[Point Caption] ✅ Caption queued for sync: ${attachId}`);
+      
     } catch (error) {
       console.error('Error saving caption:', error);
     }
@@ -3455,21 +3435,21 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       caption: caption || '(empty)'
     });
 
+    // Find the pointId for this attachment (needed for cache update and queue)
+    let pointIdForCache: string | null = null;
+    let foundPhoto: any = null;
+    for (const point of this.elevationPoints) {
+      const photo = point.photos?.find((p: any) => String(p.attachId) === String(attachId));
+      if (photo) {
+        pointIdForCache = String(point.pointId);
+        foundPhoto = photo;
+        break;
+      }
+    }
+
     // CRITICAL: Update IndexedDB cache FIRST (offline-first pattern)
     // This ensures annotations persist locally even if API call fails
     try {
-      // Find the pointId for this attachment
-      let pointIdForCache: string | null = null;
-      let foundPhoto: any = null;
-      for (const point of this.elevationPoints) {
-        const photo = point.photos?.find((p: any) => String(p.attachId) === String(attachId));
-        if (photo) {
-          pointIdForCache = String(point.pointId);
-          foundPhoto = photo;
-          break;
-        }
-      }
-
       // CRITICAL FIX: Handle TEMP photos differently - use updatePendingPhotoData for reliable update
       if (String(attachId).startsWith('temp_') || (foundPhoto && foundPhoto.isPending)) {
         // This is a syncing photo - use the dedicated method to update caption/drawings
@@ -3520,45 +3500,22 @@ export class RoomElevationPage implements OnInit, OnDestroy {
       }
     } catch (cacheError) {
       console.warn('[SAVE] Failed to update IndexedDB cache:', cacheError);
-      // Continue anyway - still try API
+      // Continue anyway - still queue for sync
     }
 
-    // OFFLINE-FIRST: Queue the update for background sync
-    const isOffline = !this.offlineService.isOnline();
-    
-    if (isOffline) {
-      // Queue for later sync
-      await this.indexedDb.addPendingRequest({
-        type: 'UPDATE',
-        endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`,
-        method: 'PUT',
-        data: updateData,
-        dependencies: [],
-        status: 'pending',
-        priority: 'normal',
-      });
-      console.log('[SAVE] ⏳ EFE Annotation queued for sync (offline):', attachId);
-      this.backgroundSync.triggerSync(); // Will sync when back online
-    } else {
-      // Online - try API call, queue on failure
-      try {
-        await this.caspioService.updateServicesEFEPointsAttach(attachId, updateData).toPromise();
-        console.log('[SAVE] ✅ Successfully saved EFE caption and drawings via API for AttachID:', attachId);
-      } catch (apiError) {
-        console.warn('[SAVE] API call failed, queuing for retry:', apiError);
-        // Queue for retry
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`,
-          method: 'PUT',
-          data: updateData,
-          dependencies: [],
-          status: 'pending',
-          priority: 'high',
-        });
-        this.backgroundSync.triggerSync();
+    // ALWAYS queue the annotation update using unified method
+    // This ensures annotations are never lost during sync operations
+    await this.foundationData.queueCaptionAndAnnotationUpdate(
+      attachId,
+      caption || '',
+      updateData.Drawings,
+      'efe_point',
+      {
+        serviceId: this.serviceId,
+        pointId: pointIdForCache || undefined
       }
-    }
+    );
+    console.log('[SAVE] ✅ EFE annotation queued for sync:', attachId);
 
     // CRITICAL: Clear the attachments cache to ensure annotations appear after navigation
     this.foundationData.clearEFEAttachmentsCache();

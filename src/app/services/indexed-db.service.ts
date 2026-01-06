@@ -49,12 +49,28 @@ export interface PendingEFEData {
   createdAt: number;
 }
 
+export interface PendingCaptionUpdate {
+  captionId: string;           // Unique ID for this caption update
+  attachId: string;            // Attachment ID (can be temp_xxx or real ID)
+  attachType: 'visual' | 'efe_point' | 'fdf';  // Type of attachment
+  caption?: string;            // New caption text
+  drawings?: string;           // New drawings data
+  serviceId?: string;          // Service ID for cache lookup
+  pointId?: string;            // Point ID (for EFE attachments)
+  visualId?: string;           // Visual ID (for visual attachments)
+  status: 'pending' | 'syncing' | 'synced' | 'failed';
+  createdAt: number;
+  updatedAt: number;
+  retryCount: number;
+  error?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class IndexedDbService {
   private dbName = 'CaspioOfflineDB';
-  private version = 4;  // Bumped for enhanced photo blob storage with serviceId
+  private version = 5;  // Bumped for pendingCaptions store
   private db: IDBDatabase | null = null;
 
   constructor() {
@@ -159,6 +175,18 @@ export class IndexedDbService {
           console.log('[IndexedDB] cachedPhotos store created successfully');
         } else {
           console.log('[IndexedDB] cachedPhotos store already exists');
+        }
+
+        // Pending captions store (for independent caption/annotation syncing)
+        if (!db.objectStoreNames.contains('pendingCaptions')) {
+          console.log('[IndexedDB] Creating pendingCaptions store...');
+          const captionStore = db.createObjectStore('pendingCaptions', { keyPath: 'captionId' });
+          captionStore.createIndex('attachId', 'attachId', { unique: false });
+          captionStore.createIndex('attachType', 'attachType', { unique: false });
+          captionStore.createIndex('status', 'status', { unique: false });
+          captionStore.createIndex('serviceId', 'serviceId', { unique: false });
+          captionStore.createIndex('createdAt', 'createdAt', { unique: false });
+          console.log('[IndexedDB] pendingCaptions store created successfully');
         }
 
         console.log('[IndexedDB] Database schema created/updated. Final stores:', Array.from(db.objectStoreNames || []));
@@ -2698,6 +2726,249 @@ export class IndexedDbService {
       avgRetryCount: requests.length > 0 ? totalRetries / requests.length : 0,
       stuckCount
     };
+  }
+
+  // ============================================
+  // PENDING CAPTIONS - Independent Caption/Annotation Sync
+  // ============================================
+
+  /**
+   * Queue a caption update for background sync
+   * This is the primary method for caption changes - ALWAYS queues regardless of online state
+   */
+  async queueCaptionUpdate(data: {
+    attachId: string;
+    attachType: 'visual' | 'efe_point' | 'fdf';
+    caption?: string;
+    drawings?: string;
+    serviceId?: string;
+    pointId?: string;
+    visualId?: string;
+  }): Promise<string> {
+    const db = await this.ensureDb();
+    const captionId = `caption_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const now = Date.now();
+
+    const pendingCaption: PendingCaptionUpdate = {
+      captionId,
+      attachId: data.attachId,
+      attachType: data.attachType,
+      caption: data.caption,
+      drawings: data.drawings,
+      serviceId: data.serviceId,
+      pointId: data.pointId,
+      visualId: data.visualId,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now,
+      retryCount: 0
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readwrite');
+      const store = transaction.objectStore('pendingCaptions');
+      
+      // Check if we already have a pending update for this attachment
+      // If so, update it instead of creating a new one
+      const index = store.index('attachId');
+      const getRequest = index.getAll(data.attachId);
+      
+      getRequest.onsuccess = () => {
+        const existing = (getRequest.result as PendingCaptionUpdate[])
+          .filter(c => c.status === 'pending' || c.status === 'failed');
+        
+        if (existing.length > 0) {
+          // Update the most recent pending one
+          const toUpdate = existing[existing.length - 1];
+          if (data.caption !== undefined) toUpdate.caption = data.caption;
+          if (data.drawings !== undefined) toUpdate.drawings = data.drawings;
+          toUpdate.updatedAt = now;
+          
+          const putRequest = store.put(toUpdate);
+          putRequest.onsuccess = () => {
+            console.log('[IndexedDB] ✅ Updated pending caption:', toUpdate.captionId, 'for attach:', data.attachId);
+            resolve(toUpdate.captionId);
+          };
+          putRequest.onerror = () => reject(putRequest.error);
+        } else {
+          // Create new pending caption
+          const addRequest = store.add(pendingCaption);
+          addRequest.onsuccess = () => {
+            console.log('[IndexedDB] ✅ Queued new caption update:', captionId, 'for attach:', data.attachId);
+            resolve(captionId);
+          };
+          addRequest.onerror = () => reject(addRequest.error);
+        }
+      };
+      
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Get all pending caption updates ready for sync
+   */
+  async getPendingCaptions(): Promise<PendingCaptionUpdate[]> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readonly');
+      const store = transaction.objectStore('pendingCaptions');
+      const index = store.index('status');
+      const getRequest = index.getAll('pending');
+
+      getRequest.onsuccess = () => {
+        const captions = getRequest.result as PendingCaptionUpdate[];
+        // Sort by creation time (oldest first)
+        captions.sort((a, b) => a.createdAt - b.createdAt);
+        resolve(captions);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Get all pending caption updates (all statuses)
+   */
+  async getAllPendingCaptions(): Promise<PendingCaptionUpdate[]> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readonly');
+      const store = transaction.objectStore('pendingCaptions');
+      const getRequest = store.getAll();
+
+      getRequest.onsuccess = () => {
+        resolve(getRequest.result as PendingCaptionUpdate[]);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Update caption status
+   */
+  async updateCaptionStatus(captionId: string, status: 'pending' | 'syncing' | 'synced' | 'failed', error?: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readwrite');
+      const store = transaction.objectStore('pendingCaptions');
+      const getRequest = store.get(captionId);
+
+      getRequest.onsuccess = () => {
+        const caption = getRequest.result as PendingCaptionUpdate;
+        if (caption) {
+          caption.status = status;
+          caption.updatedAt = Date.now();
+          if (error) caption.error = error;
+          if (status === 'failed') caption.retryCount = (caption.retryCount || 0) + 1;
+
+          const putRequest = store.put(caption);
+          putRequest.onsuccess = () => resolve();
+          putRequest.onerror = () => reject(putRequest.error);
+        } else {
+          resolve(); // Caption not found, already processed
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Delete a caption update after successful sync
+   */
+  async deletePendingCaption(captionId: string): Promise<void> {
+    const db = await this.ensureDb();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readwrite');
+      const store = transaction.objectStore('pendingCaptions');
+      const deleteRequest = store.delete(captionId);
+
+      deleteRequest.onsuccess = () => {
+        console.log('[IndexedDB] ✅ Deleted synced caption:', captionId);
+        resolve();
+      };
+
+      deleteRequest.onerror = () => reject(deleteRequest.error);
+    });
+  }
+
+  /**
+   * Update attachId for pending captions when a temp ID is resolved to a real ID
+   * This is called after photo sync completes to update any pending caption updates
+   */
+  async updateCaptionAttachId(tempAttachId: string, realAttachId: string): Promise<number> {
+    const db = await this.ensureDb();
+    let updatedCount = 0;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readwrite');
+      const store = transaction.objectStore('pendingCaptions');
+      const index = store.index('attachId');
+      const getRequest = index.getAll(tempAttachId);
+
+      getRequest.onsuccess = () => {
+        const captions = getRequest.result as PendingCaptionUpdate[];
+        
+        for (const caption of captions) {
+          caption.attachId = realAttachId;
+          caption.updatedAt = Date.now();
+          store.put(caption);
+          updatedCount++;
+          console.log(`[IndexedDB] Updated caption ${caption.captionId} attachId: ${tempAttachId} → ${realAttachId}`);
+        }
+
+        resolve(updatedCount);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Get pending caption count for sync status display
+   */
+  async getPendingCaptionCount(): Promise<number> {
+    const pending = await this.getPendingCaptions();
+    return pending.length;
+  }
+
+  /**
+   * Clear old synced/failed captions (cleanup)
+   */
+  async clearOldCaptions(olderThanHours: number = 24): Promise<number> {
+    const db = await this.ensureDb();
+    const cutoffTime = Date.now() - (olderThanHours * 60 * 60 * 1000);
+    let clearedCount = 0;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readwrite');
+      const store = transaction.objectStore('pendingCaptions');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const captions = getAllRequest.result as PendingCaptionUpdate[];
+        
+        for (const caption of captions) {
+          // Clear synced captions or old failed ones
+          if (caption.status === 'synced' || 
+              (caption.status === 'failed' && caption.createdAt < cutoffTime)) {
+            store.delete(caption.captionId);
+            clearedCount++;
+          }
+        }
+
+        console.log(`[IndexedDB] Cleared ${clearedCount} old caption updates`);
+        resolve(clearedCount);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
   }
 }
 
