@@ -1824,9 +1824,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // Get current cached rooms for this service
       const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
       
-      // Find and update the current room
+      // CRITICAL FIX: Use String() for comparison to handle type mismatches (number vs string IDs)
+      const roomIdStr = String(this.roomId);
+      
+      // Find and update the current room - also match by RoomName as fallback
       const roomIndex = cachedRooms.findIndex((r: any) => 
-        r.EFEID === this.roomId || r.PK_ID === this.roomId || r._tempId === this.roomId
+        String(r.EFEID) === roomIdStr || 
+        String(r.PK_ID) === roomIdStr || 
+        String(r._tempId) === roomIdStr ||
+        r.RoomName === this.roomName
       );
       
       if (roomIndex >= 0) {
@@ -1837,9 +1843,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         };
         
         await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', cachedRooms);
-        console.log('[RoomElevation] Local EFE cache updated with:', updates);
+        console.log('[RoomElevation] ✅ Local EFE cache updated with:', updates, 'for room:', this.roomName);
       } else {
-        console.warn('[RoomElevation] Room not found in local cache, cannot update');
+        console.warn('[RoomElevation] ⚠️ Room not found in local cache, cannot update. Looking for:', {
+          roomId: this.roomId,
+          roomName: this.roomName,
+          cachedRoomCount: cachedRooms.length
+        });
       }
     } catch (error) {
       console.error('[RoomElevation] Error updating local EFE cache:', error);
