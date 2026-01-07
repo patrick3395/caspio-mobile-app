@@ -26,7 +26,6 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   
   // Lifecycle and sync tracking
   private initialLoadComplete: boolean = false;
-  private backgroundRefreshSubscription?: Subscription;
   private serviceDataSyncSubscription?: Subscription;
 
   // Dropdown options - empty by default, populated from LPS_Services_Drop API
@@ -169,18 +168,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
    * Subscribe to background sync events for real-time UI updates
    */
   private subscribeToSyncEvents(): void {
-    // Subscribe to background refresh completion for project/service data
-    this.backgroundRefreshSubscription = this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
-      // Reload when project or service data is refreshed
-      if (event.dataType === 'project' || event.dataType === 'service') {
-        console.log('[ProjectDetails] Background refresh complete for:', event.dataType);
-        if (this.initialLoadComplete) {
-          this.loadData();
-        }
-      }
-    });
-
     // Subscribe to service data sync completion
+    // This fires when local changes to project/service data are synced to the server
     this.serviceDataSyncSubscription = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
       if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
         console.log('[ProjectDetails] Service/project data synced, reloading...');
@@ -193,9 +182,6 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   ngOnDestroy() {
     // Cleanup subscriptions
-    if (this.backgroundRefreshSubscription) {
-      this.backgroundRefreshSubscription.unsubscribe();
-    }
     if (this.serviceDataSyncSubscription) {
       this.serviceDataSyncSubscription.unsubscribe();
     }
