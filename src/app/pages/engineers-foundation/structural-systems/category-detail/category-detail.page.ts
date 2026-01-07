@@ -1455,9 +1455,25 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       for (const pendingPhoto of pendingPhotos) {
         const pendingId = String(pendingPhoto.AttachID);
         if (!loadedPhotoIds.has(pendingId)) {
+          // CRITICAL FIX: Check for cached annotated image to preserve annotation thumbnails
+          let displayUrl = pendingPhoto.displayUrl;
+          if (pendingPhoto.hasAnnotations) {
+            try {
+              const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(pendingId);
+              if (cachedAnnotatedImage) {
+                displayUrl = cachedAnnotatedImage;
+                console.log('[LOAD PHOTOS] ✅ Using cached annotated image for pending photo:', pendingId);
+              }
+            } catch (cacheErr) {
+              console.warn('[LOAD PHOTOS] Error checking cached annotated image:', cacheErr);
+            }
+          }
+          
           // Add to the BEGINNING of the array so pending photos show first
           this.visualPhotos[key].unshift({
             ...pendingPhoto,
+            displayUrl: displayUrl,  // Use annotated version if available
+            thumbnailUrl: displayUrl,  // Thumbnail should also show annotations
             isSkeleton: false,
             uploading: pendingPhoto.status === 'uploading',
             queued: pendingPhoto.status === 'pending',
@@ -2441,6 +2457,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.visualPhotos[key].push(photoEntry);
           this.changeDetectorRef.detectChanges();
           console.log(`[CAMERA UPLOAD] Added photo placeholder (immediate display, ${isOfflineMode ? 'queued' : 'background sync'})`);
+
+          // CRITICAL FIX: Cache the annotated image for thumbnail persistence across navigation
+          // Without this, navigating away and back loses the annotated thumbnail
+          if (annotatedBlob && annotationsData) {
+            try {
+              await this.indexedDb.cacheAnnotatedImage(tempPhotoId, annotatedBlob);
+              console.log('[CAMERA UPLOAD] ✅ Annotated image cached for thumbnail persistence');
+            } catch (cacheErr) {
+              console.warn('[CAMERA UPLOAD] Failed to cache annotated image:', cacheErr);
+            }
+          }
 
           // ALWAYS store in IndexedDB first for reliability (handles poor connectivity)
           // This ensures photos are never lost, even with intermittent connection
