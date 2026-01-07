@@ -847,10 +847,10 @@ export class IndexedDbService {
   }
 
   /**
-   * Get stored photo data including file, caption, and drawings
+   * Get stored photo data including file, caption, drawings, and serviceId
    * Returns full photo data for offline sync with annotations
    */
-  async getStoredPhotoData(fileId: string): Promise<{ file: File; caption: string; drawings: string; visualId: string } | null> {
+  async getStoredPhotoData(fileId: string): Promise<{ file: File; caption: string; drawings: string; visualId: string; serviceId: string } | null> {
     const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
@@ -877,7 +877,8 @@ export class IndexedDbService {
           file,
           caption: imageData.caption || '',
           drawings: imageData.drawings || '',
-          visualId: imageData.visualId || ''
+          visualId: imageData.visualId || '',
+          serviceId: imageData.serviceId || ''
         });
       };
 

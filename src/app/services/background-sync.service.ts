@@ -83,6 +83,58 @@ export class BackgroundSyncService {
   // Caption sync events - emits when caption/annotation updates complete
   public captionSyncComplete$ = new Subject<{ attachId: string; attachType: string; captionId: string }>();
 
+  // ==========================================================================
+  // SECTION DIRTY FLAG TRACKING
+  // Tracks which sections need to reload data on next visit
+  // This enables smart skip-reload for faster navigation while ensuring
+  // new data always appears when it should
+  // ==========================================================================
+  private sectionDirtyFlags = new Map<string, boolean>();
+
+  /**
+   * Mark a section as dirty (needs reload on next visit)
+   * Called after any data change: photo upload, sync, annotation, delete, etc.
+   * @param sectionKey - Format: "serviceId_category" or "serviceId_roomName" or "serviceId_elevation"
+   */
+  markSectionDirty(sectionKey: string): void {
+    this.sectionDirtyFlags.set(sectionKey, true);
+    console.log(`[BackgroundSync] Section marked dirty: ${sectionKey}`);
+  }
+
+  /**
+   * Mark all sections for a service as dirty
+   * Used when a broad sync completes that might affect multiple sections
+   */
+  markAllSectionsDirty(serviceId: string): void {
+    // Mark all existing sections with this serviceId as dirty
+    for (const key of this.sectionDirtyFlags.keys()) {
+      if (key.startsWith(serviceId)) {
+        this.sectionDirtyFlags.set(key, true);
+      }
+    }
+    // Also set a general service-level dirty flag
+    this.sectionDirtyFlags.set(serviceId, true);
+    console.log(`[BackgroundSync] All sections marked dirty for service: ${serviceId}`);
+  }
+
+  /**
+   * Check if a section is dirty (needs reload)
+   * @returns true if section needs reload, false if can skip
+   */
+  isSectionDirty(sectionKey: string): boolean {
+    // Default to true (dirty) if not tracked yet - ensures first load always happens
+    return this.sectionDirtyFlags.get(sectionKey) ?? true;
+  }
+
+  /**
+   * Clear dirty flag after successful reload
+   * Called by pages after they finish loading data
+   */
+  clearSectionDirty(sectionKey: string): void {
+    this.sectionDirtyFlags.set(sectionKey, false);
+    console.log(`[BackgroundSync] Section cleared: ${sectionKey}`);
+  }
+
   constructor(
     private indexedDb: IndexedDbService,
     private apiGateway: ApiGatewayService,
@@ -586,6 +638,11 @@ export class BackgroundSyncService {
             captionId: caption.captionId
           });
         });
+
+        // Mark sections dirty for caption updates
+        if (caption.serviceId) {
+          this.markAllSectionsDirty(caption.serviceId);
+        }
         
       } catch (error: any) {
         console.warn(`[BackgroundSync] ❌ Caption sync failed: ${caption.captionId}`, error);
@@ -787,6 +844,14 @@ export class BackgroundSyncService {
         });
       });
 
+      // STEP 4.5: Mark sections dirty so they reload on next visit
+      // This ensures photos appear even if page was navigated away during upload
+      // Get serviceId from stored photo data if available
+      const storedPhotoData = await this.indexedDb.getStoredPhotoData(data.fileId);
+      if (storedPhotoData?.serviceId) {
+        this.markAllSectionsDirty(storedPhotoData.serviceId);
+      }
+
       // STEP 5: Clean up stored photo after successful upload and caching
       await this.indexedDb.deleteStoredFile(data.fileId);
       console.log('[BackgroundSync] Cleaned up stored photo file:', data.fileId);
@@ -965,6 +1030,13 @@ export class BackgroundSyncService {
           result: result
         });
       });
+
+      // STEP 4.5: Mark sections dirty for EFE photos
+      // Get serviceId from stored photo data if available
+      const storedEfePhotoData = await this.indexedDb.getStoredPhotoData(data.fileId);
+      if (storedEfePhotoData?.serviceId) {
+        this.markAllSectionsDirty(storedEfePhotoData.serviceId);
+      }
 
       // STEP 5: Clean up stored photo
       await this.indexedDb.deleteStoredFile(data.fileId);

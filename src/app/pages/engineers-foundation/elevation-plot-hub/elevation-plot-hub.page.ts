@@ -37,6 +37,9 @@ interface RoomDisplayData extends RoomTemplate {
   imports: [CommonModule, IonicModule]
 })
 export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
+  // Debug flag - set to true for verbose logging
+  private readonly DEBUG = false;
+  
   projectId: string = '';
   serviceId: string = '';
   roomTemplates: RoomDisplayData[] = [];
@@ -166,42 +169,67 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
   /**
    * Ionic lifecycle hook - called every time the view is about to become active
-   * This handles navigation back from room detail page
-   * NOTE: This may not always fire with standard Angular router - we use router events as primary
+   * Uses smart skip logic to avoid redundant reloads while ensuring new data always appears
    */
   async ionViewWillEnter() {
-    console.log('[ElevationPlotHub] ionViewWillEnter - Reloading rooms from cache');
-    
     // Update online status
     this.isOnline = this.offlineService.isOnline();
     
-    // Reload rooms from cache (non-blocking, cache-first)
-    // This ensures rooms are always displayed when navigating back
-    if (this.serviceId && this.initialLoadComplete) {
+    // Only process if initial load is complete and we have required IDs
+    if (!this.initialLoadComplete || !this.serviceId) {
+      return;
+    }
+
+    const sectionKey = `${this.serviceId}_elevation`;
+    
+    // Check if we have data in memory and if section is dirty
+    const hasDataInMemory = this.roomTemplates && this.roomTemplates.length > 0;
+    const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
+    
+    console.log(`[ElevationPlotHub] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}`);
+    
+    // ALWAYS reload if:
+    // 1. First load (no data in memory)
+    // 2. Section is marked dirty (data changed while away)
+    if (!hasDataInMemory || isDirty) {
+      console.log('[ElevationPlotHub] Reloading data - section dirty or no data in memory');
       await this.loadRoomTemplates();
+      this.backgroundSync.clearSectionDirty(sectionKey);
+    } else {
+      console.log('[ElevationPlotHub] Skipping reload - data unchanged, using cached view');
     }
   }
   
   /**
    * Subscribe to Angular router events to detect navigation
-   * This is more reliable than ionViewWillEnter with standard Angular router
+   * Uses smart skip logic to avoid redundant reloads
    */
   private subscribeToRouterEvents(): void {
     this.routerSubscription = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
-      .subscribe((event: NavigationEnd) => {
+      .subscribe(async (event: NavigationEnd) => {
         // Check if we navigated back to this page (elevation hub)
         const isElevationHub = event.urlAfterRedirects.endsWith('/elevation') || 
                                event.urlAfterRedirects.includes('/elevation?');
         
         if (isElevationHub && this.initialLoadComplete && this.serviceId) {
-          console.log('[ElevationPlotHub] Router navigation detected - reloading rooms');
-          
           // Update online status
           this.isOnline = this.offlineService.isOnline();
           
-          // Reload rooms from cache
-          this.loadRoomTemplates();
+          const sectionKey = `${this.serviceId}_elevation`;
+          const hasDataInMemory = this.roomTemplates && this.roomTemplates.length > 0;
+          const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
+          
+          console.log(`[ElevationPlotHub] Router nav - hasData: ${hasDataInMemory}, isDirty: ${isDirty}`);
+          
+          // Only reload if data changed or not in memory
+          if (!hasDataInMemory || isDirty) {
+            console.log('[ElevationPlotHub] Router navigation - reloading rooms');
+            await this.loadRoomTemplates();
+            this.backgroundSync.clearSectionDirty(sectionKey);
+          } else {
+            console.log('[ElevationPlotHub] Router navigation - skipping reload');
+          }
         }
       });
   }

@@ -27,6 +27,9 @@ import { environment } from '../../../../environments/environment';
   imports: [CommonModule, FormsModule, IonicModule]
 })
 export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
+  // Debug flag - set to true for verbose logging
+  private readonly DEBUG = false;
+  
   projectId: string = '';
   serviceId: string = '';
   roomName: string = '';
@@ -494,14 +497,31 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
   /**
    * Ionic lifecycle hook - called when navigating back to this page
-   * Ensures room data is refreshed when returning from other pages
+   * Uses smart skip logic to avoid redundant reloads while ensuring new data always appears
    */
   async ionViewWillEnter() {
-    console.log('[RoomElevation] ionViewWillEnter - Reloading room data from cache');
+    // Only process if initial load is complete and we have required IDs
+    if (!this.initialLoadComplete || !this.roomId) {
+      return;
+    }
+
+    const sectionKey = `${this.serviceId}_room_${this.roomName}`;
     
-    // Only reload if initial load is complete and we have required IDs
-    if (this.initialLoadComplete && this.roomId) {
+    // Check if we have data in memory and if section is dirty
+    const hasDataInMemory = this.roomData && (this.roomData.elevationPoints?.length > 0 || this.roomData.fdfPhotos);
+    const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
+    
+    console.log(`[RoomElevation] ionViewWillEnter - hasData: ${!!hasDataInMemory}, isDirty: ${isDirty}`);
+    
+    // ALWAYS reload if:
+    // 1. First load (no data in memory)
+    // 2. Section is marked dirty (data changed while away)
+    if (!hasDataInMemory || isDirty) {
+      console.log('[RoomElevation] Reloading data - section dirty or no data in memory');
       await this.loadRoomData();
+      this.backgroundSync.clearSectionDirty(sectionKey);
+    } else {
+      console.log('[RoomElevation] Skipping reload - data unchanged, using cached view');
     }
   }
 
@@ -1024,7 +1044,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // CRITICAL FIX: Check for cached ANNOTATED image first (has drawings on it)
       const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
       if (cachedAnnotatedImage) {
-        console.log(`[Point Photo] ✅ Using cached ANNOTATED image for ${attachId}`);
+        if (this.DEBUG) console.log(`[Point Photo] ✅ Using cached ANNOTATED image for ${attachId}`);
         photoData.url = cachedAnnotatedImage;
         photoData.displayUrl = cachedAnnotatedImage;
         photoData.loading = false;
@@ -1036,7 +1056,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // OFFLINE-FIRST: Check IndexedDB cached photo (base image without annotations)
       const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
       if (cachedImage) {
-        console.log(`[Point Photo] Using cached image for ${attachId}`);
+        if (this.DEBUG) console.log(`[Point Photo] Using cached image for ${attachId}`);
         photoData.url = cachedImage;
         photoData.displayUrl = cachedImage;
         photoData.loading = false;
@@ -1046,7 +1066,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // If offline and no cache, use placeholder
       if (!this.offlineService.isOnline()) {
-        console.log(`[Point Photo] Offline and no cache for ${attachId}, using placeholder`);
+        if (this.DEBUG) console.log(`[Point Photo] Offline and no cache for ${attachId}, using placeholder`);
         photoData.url = 'assets/img/photo-placeholder.png';
         photoData.displayUrl = 'assets/img/photo-placeholder.png';
         photoData.loading = false;
@@ -1059,12 +1079,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       
       // Check if this is an S3 key - use XMLHttpRequest to fetch as data URL
       if (s3Key && this.caspioService.isS3Key(s3Key)) {
-        console.log(`[Point Photo] Fetching S3 image for ${attachId}:`, s3Key);
+        if (this.DEBUG) console.log(`[Point Photo] Fetching S3 image for ${attachId}:`, s3Key);
         try {
           const s3Url = await this.caspioService.getS3FileUrl(s3Key);
           imageData = await this.fetchS3ImageAsDataUrl(s3Url);
         } catch (err) {
-          console.warn(`[Point Photo] S3 fetch failed for ${attachId}, trying fallback:`, err);
+          if (this.DEBUG) console.warn(`[Point Photo] S3 fetch failed for ${attachId}, trying fallback:`, err);
         }
       }
       
@@ -1081,7 +1101,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         // Cache for offline use
         if (attachId && !attachId.startsWith('temp_')) {
           await this.indexedDb.cachePhoto(attachId, this.serviceId, imageData, s3Key || photoPath);
-          console.log(`[Point Photo] Loaded and cached image for ${attachId}`);
+          if (this.DEBUG) console.log(`[Point Photo] Loaded and cached image for ${attachId}`);
         }
         
         this.changeDetectorRef.detectChanges();

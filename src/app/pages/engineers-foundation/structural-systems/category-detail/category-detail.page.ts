@@ -45,6 +45,9 @@ interface VisualItem {
   imports: [CommonModule, IonicModule, FormsModule]
 })
 export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
+  // Debug flag - set to true for verbose logging
+  private readonly DEBUG = false;
+  
   projectId: string = '';
   serviceId: string = '';
   categoryName: string = '';
@@ -187,14 +190,31 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   /**
    * Ionic lifecycle hook - called when navigating back to this page
-   * Ensures data is refreshed when returning from photo annotator or other pages
+   * Uses smart skip logic to avoid redundant reloads while ensuring new data always appears
    */
   async ionViewWillEnter() {
-    console.log('[CategoryDetail] ionViewWillEnter - Reloading data from cache');
+    // Only process if initial load is complete and we have required IDs
+    if (!this.initialLoadComplete || !this.serviceId || !this.categoryName) {
+      return;
+    }
+
+    const sectionKey = `${this.serviceId}_${this.categoryName}`;
     
-    // Only reload if initial load is complete and we have required IDs
-    if (this.initialLoadComplete && this.serviceId && this.categoryName) {
+    // Check if we have data in memory and if section is dirty
+    const hasDataInMemory = Object.keys(this.visualPhotos).length > 0;
+    const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
+    
+    console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}`);
+    
+    // ALWAYS reload if:
+    // 1. First load (no data in memory)
+    // 2. Section is marked dirty (data changed while away)
+    if (!hasDataInMemory || isDirty) {
+      console.log('[CategoryDetail] Reloading data - section dirty or no data in memory');
       await this.loadData();
+      this.backgroundSync.clearSectionDirty(sectionKey);
+    } else {
+      console.log('[CategoryDetail] Skipping reload - data unchanged, using cached view');
     }
   }
 
@@ -1444,7 +1464,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Initialize photo array if not exists
       if (!this.visualPhotos[key]) {
         this.visualPhotos[key] = [];
-        console.log('[LOAD PHOTOS] Initialized empty photo array for', key);
       }
 
       // Build a set of already loaded photo IDs (use String for consistent comparison)
@@ -1462,10 +1481,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(pendingId);
               if (cachedAnnotatedImage) {
                 displayUrl = cachedAnnotatedImage;
-                console.log('[LOAD PHOTOS] ✅ Using cached annotated image for pending photo:', pendingId);
               }
             } catch (cacheErr) {
-              console.warn('[LOAD PHOTOS] Error checking cached annotated image:', cacheErr);
+              // Silent failure - will use original displayUrl
             }
           }
           
@@ -1480,7 +1498,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             isPending: true
           });
           loadedPhotoIds.add(pendingId);
-          console.log('[LOAD PHOTOS] Added pending photo:', pendingId);
         }
       }
 
@@ -1491,17 +1508,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Check if all synced photos are already loaded
         const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(String(a.AttachID)));
         if (allPhotosLoaded && pendingPhotos.length === 0) {
-          console.log('[LOAD PHOTOS] All photos already loaded for', key, '- skipping reload');
           this.loadingPhotosByKey[key] = false;
           this.changeDetectorRef.detectChanges();
           return;
         }
 
-        // STEP 5: Load synced photos that aren't already loaded
-        const loadPromises: Promise<void>[] = [];
+        // ============================================================
+        // OPTIMIZED LOADING: Show cached photos INSTANTLY, then download uncached
+        // ============================================================
+        const cachedAttachments: any[] = [];
+        const uncachedAttachments: any[] = [];
 
-        for (let i = 0; i < attachments.length; i++) {
-          const attach = attachments[i];
+        // PHASE 1: Categorize attachments as cached or uncached
+        for (const attach of attachments) {
           const attachIdStr = String(attach.AttachID);
 
           // Skip if already loaded (either pending or synced)
@@ -1509,20 +1528,30 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             continue;
           }
 
-          // Load this photo from cache or network
-          const loadPromise = this.loadSinglePhoto(attach, key).catch(err => {
-            console.error('[LOAD PHOTOS] Failed to load photo:', attach.AttachID, err);
-          });
-
-          loadPromises.push(loadPromise);
+          // Check if cached in IndexedDB (fast local check)
+          const cachedImage = await this.indexedDb.getCachedPhoto(attachIdStr);
+          if (cachedImage) {
+            cachedAttachments.push({ attach, cachedImage });
+          } else {
+            uncachedAttachments.push(attach);
+          }
         }
 
-        // Wait for ALL photos to finish loading
-        if (loadPromises.length > 0) {
-          console.log('[LOAD PHOTOS] Waiting for', loadPromises.length, 'photos to load...');
-          await Promise.all(loadPromises);
+        // PHASE 2: Add cached photos to UI IMMEDIATELY (no network needed)
+        for (const { attach, cachedImage } of cachedAttachments) {
+          this.addCachedPhotoToArray(attach, cachedImage, key);
+          loadedPhotoIds.add(String(attach.AttachID));
         }
-        console.log('[LOAD PHOTOS] All photos loaded for', key);
+        
+        // Update UI with cached photos right away
+        if (cachedAttachments.length > 0) {
+          this.changeDetectorRef.detectChanges();
+        }
+
+        // PHASE 3: Download uncached photos in parallel batches (non-blocking)
+        if (uncachedAttachments.length > 0) {
+          await this.downloadPhotosInParallel(uncachedAttachments, key);
+        }
       }
 
       // STEP 6 (NEW): Merge pending caption updates into loaded photos
@@ -1536,6 +1565,83 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.error('[LOAD PHOTOS] Error loading photos for visual', visualId, error);
       this.loadingPhotosByKey[key] = false;
       this.photoCountsByKey[key] = 0; // Set to 0 on error so we don't wait forever
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  /**
+   * Add a cached photo to the photos array immediately (no network call needed)
+   * This enables instant display of cached photos while uncached ones download
+   */
+  private async addCachedPhotoToArray(attach: any, cachedImage: string, key: string): Promise<void> {
+    const attachId = String(attach.AttachID);
+    const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
+    
+    // Check for cached annotated image for thumbnail
+    let displayUrl = cachedImage;
+    if (hasDrawings) {
+      try {
+        const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
+        if (cachedAnnotatedImage) {
+          displayUrl = cachedAnnotatedImage;
+        }
+      } catch (err) {
+        // Silent failure - use base image
+      }
+    }
+    
+    const keyParts = key.split('_');
+    const itemId = keyParts.length > 1 ? keyParts.slice(1).join('_') : key;
+    const visualIdFromRecord = this.visualRecordIds[key];
+    
+    const photoData = {
+      AttachID: attach.AttachID,
+      id: attach.AttachID,
+      VisualID: attach.VisualID || visualIdFromRecord || itemId,
+      name: attach.Photo || 'photo.jpg',
+      filePath: attach.Attachment || attach.Photo || '',
+      Photo: attach.Attachment || attach.Photo || '',
+      url: cachedImage,
+      originalUrl: cachedImage,
+      thumbnailUrl: cachedImage,
+      displayUrl: displayUrl,
+      caption: attach.Annotation || '',
+      annotation: attach.Annotation || '',
+      Annotation: attach.Annotation || '',
+      hasAnnotations: hasDrawings,
+      annotations: null,
+      Drawings: attach.Drawings || null,
+      rawDrawingsString: attach.Drawings || null,
+      uploading: false,
+      queued: false,
+      isObjectUrl: false,
+      isSkeleton: false
+    };
+    
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+    this.visualPhotos[key].push(photoData);
+  }
+
+  /**
+   * Download uncached photos in parallel batches for faster loading
+   * Updates UI after each batch completes
+   */
+  private async downloadPhotosInParallel(attachments: any[], key: string): Promise<void> {
+    const BATCH_SIZE = 5; // Download 5 at a time
+    
+    for (let i = 0; i < attachments.length; i += BATCH_SIZE) {
+      const batch = attachments.slice(i, i + BATCH_SIZE);
+      
+      // Download batch in parallel
+      await Promise.all(batch.map(attach => 
+        this.loadSinglePhoto(attach, key).catch(err => {
+          console.error('[DOWNLOAD] Failed:', attach.AttachID, err);
+        })
+      ));
+      
+      // Update UI after each batch completes
       this.changeDetectorRef.detectChanges();
     }
   }
@@ -1608,18 +1714,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     try {
       const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
       if (cachedImage) {
-        console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
+        if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
         imageUrl = cachedImage;
         filePath = attach.Attachment || attach.Photo || '';
       }
     } catch (cacheErr) {
-      console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
+      if (this.DEBUG) console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
     }
 
     // EARLY EXIT: If no cached image AND no image source, skip entirely
     // This prevents adding broken photos to the array
     if (!imageUrl && !hasImageSource) {
-      console.log('[LOAD PHOTO] ⚠️ Skipping photo with no image source:', attachId);
+      if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Skipping photo with no image source:', attachId);
       return;
     }
 
@@ -1627,19 +1733,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (!imageUrl) {
       // OFFLINE CHECK: If offline and not cached, use placeholder immediately
       if (!this.offlineService.isOnline()) {
-        console.log('[LOAD PHOTO] ⚠️ Offline and no cached image for:', attachId);
+        if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Offline and no cached image for:', attachId);
         imageUrl = 'assets/img/photo-placeholder.png';
         filePath = attach.Attachment || attach.Photo || '';
       }
       // Check if this is an S3 image (Attachment field contains S3 key)
       else if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
-        console.log('[LOAD PHOTO] ✨ S3 image detected:', attach.Attachment);
+        if (this.DEBUG) console.log('[LOAD PHOTO] ✨ S3 image detected:', attach.Attachment);
         filePath = attach.Attachment;
         
         try {
-          console.log('[LOAD PHOTO] Fetching S3 pre-signed URL...');
+          if (this.DEBUG) console.log('[LOAD PHOTO] Fetching S3 pre-signed URL...');
           const s3Url = await this.caspioService.getS3FileUrl(attach.Attachment);
-          console.log('[LOAD PHOTO] ✅ Got S3 pre-signed URL');
+          if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Got S3 pre-signed URL');
           
           // Fetch and convert to base64 for caching
           try {
@@ -1649,9 +1755,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             
             // Cache the image for offline use
             await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl, attach.Attachment);
-            console.log('[LOAD PHOTO] ✅ Image cached for offline use');
+            if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Image cached for offline use');
           } catch (fetchErr) {
-            console.warn('[LOAD PHOTO] Could not fetch/cache image, using S3 URL directly');
+            if (this.DEBUG) console.warn('[LOAD PHOTO] Could not fetch/cache image, using S3 URL directly');
             imageUrl = s3Url;
           }
         } catch (err) {
@@ -1661,7 +1767,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
       // Fallback to old Photo field (Caspio Files API)
       else if (attach.Photo) {
-        console.log('[LOAD PHOTO] 📁 Caspio Files API image detected');
+        if (this.DEBUG) console.log('[LOAD PHOTO] 📁 Caspio Files API image detected');
         filePath = attach.Photo;
         
         try {
@@ -1670,12 +1776,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           );
           if (imageData && imageData.startsWith('data:')) {
             imageUrl = imageData;
-            console.log('[LOAD PHOTO] ✅ Successfully loaded image data for', attach.AttachID);
+            if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Successfully loaded image data for', attach.AttachID);
             
             // Cache the image for offline use
             await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl);
           } else {
-            console.warn('[LOAD PHOTO] ❌ Invalid image data received for', attach.AttachID);
+            if (this.DEBUG) console.warn('[LOAD PHOTO] ❌ Invalid image data received for', attach.AttachID);
             imageUrl = 'assets/img/photo-placeholder.png';
           }
         } catch (err) {
@@ -1683,13 +1789,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           imageUrl = 'assets/img/photo-placeholder.png';
         }
       } else {
-        console.warn('[LOAD PHOTO] ⚠️ No photo path or S3 key for attachment', attach.AttachID);
+        if (this.DEBUG) console.warn('[LOAD PHOTO] ⚠️ No photo path or S3 key for attachment', attach.AttachID);
         imageUrl = 'assets/img/photo-placeholder.png';
       }
     }
 
     const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
-    console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'VisualID:', attach.VisualID, 'Has Drawings:', hasDrawings, 'Drawings length:', attach.Drawings?.length || 0);
+    if (this.DEBUG) console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'VisualID:', attach.VisualID, 'Has Drawings:', hasDrawings, 'Drawings length:', attach.Drawings?.length || 0);
 
     // CRITICAL FIX: Check for cached annotated image
     // If the photo has annotations and we have a cached annotated version, use it for displayUrl
@@ -1698,13 +1804,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       try {
         const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
         if (cachedAnnotatedImage) {
-          console.log('[LOAD PHOTO] ✅ Using cached annotated image for thumbnail:', attachId);
+          if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using cached annotated image for thumbnail:', attachId);
           displayUrl = cachedAnnotatedImage;
         } else {
-          console.log('[LOAD PHOTO] No cached annotated image found, will show base image:', attachId);
+          if (this.DEBUG) console.log('[LOAD PHOTO] No cached annotated image found, will show base image:', attachId);
         }
       } catch (annotErr) {
-        console.warn('[LOAD PHOTO] Error checking for cached annotated image:', annotErr);
+        if (this.DEBUG) console.warn('[LOAD PHOTO] Error checking for cached annotated image:', annotErr);
       }
     }
 
