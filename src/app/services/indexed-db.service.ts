@@ -1911,6 +1911,122 @@ export class IndexedDbService {
   }
 
   /**
+   * BULK READ: Get ALL visual attachments for multiple visualIds in ONE IndexedDB operation
+   * This eliminates N+1 reads when loading photos for a section
+   * @param visualIds Array of visual IDs to fetch attachments for
+   * @returns Map of visualId -> attachments array
+   */
+  async getAllVisualAttachmentsForVisuals(visualIds: string[]): Promise<Map<string, any[]>> {
+    const db = await this.ensureDb();
+    const result = new Map<string, any[]>();
+
+    if (!db.objectStoreNames.contains('cachedServiceData') || visualIds.length === 0) {
+      return result;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedServiceData'], 'readonly');
+      const store = transaction.objectStore('cachedServiceData');
+      
+      // Build set of keys to fetch
+      const keysToFetch = new Set(visualIds.map(id => `visual_attachments_${id}`));
+      
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const allCached = getAllRequest.result as CachedServiceData[];
+
+        for (const cached of allCached) {
+          // Check if this is a visual_attachments entry we care about
+          if (cached.dataType === 'visual_attachments' && keysToFetch.has(`visual_attachments_${cached.serviceId}`)) {
+            result.set(cached.serviceId, cached.data || []);
+          }
+        }
+
+        console.log(`[IndexedDB] Bulk loaded ${result.size} visual attachments in ONE read`);
+        resolve(result);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
+   * BULK READ: Get ALL cached photos for a service in ONE IndexedDB operation
+   * Returns a Map for O(1) lookup instead of N individual reads
+   * @param serviceId The service ID to filter photos by
+   * @returns Map of attachId -> base64 data URL
+   */
+  async getAllCachedPhotosForService(serviceId: string): Promise<Map<string, string>> {
+    const db = await this.ensureDb();
+    const result = new Map<string, string>();
+
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      return result;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readonly');
+      const store = transaction.objectStore('cachedPhotos');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const allPhotos = getAllRequest.result || [];
+
+        for (const photo of allPhotos) {
+          // Filter by serviceId if stored, otherwise include all
+          if (!serviceId || photo.serviceId === serviceId || !photo.serviceId) {
+            if (photo.attachId && photo.imageData) {
+              result.set(String(photo.attachId), photo.imageData);
+            }
+          }
+        }
+
+        console.log(`[IndexedDB] Bulk loaded ${result.size} cached photos for service ${serviceId} in ONE read`);
+        resolve(result);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
+   * BULK READ: Get ALL cached annotated images for a service in ONE IndexedDB operation
+   * Returns a Map for O(1) lookup instead of N individual reads
+   * @param serviceId The service ID (optional, gets all if not provided)
+   * @returns Map of attachId -> base64 annotated image data URL
+   */
+  async getAllCachedAnnotatedImagesForService(serviceId?: string): Promise<Map<string, string>> {
+    const db = await this.ensureDb();
+    const result = new Map<string, string>();
+
+    if (!db.objectStoreNames.contains('annotatedImages')) {
+      return result;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['annotatedImages'], 'readonly');
+      const store = transaction.objectStore('annotatedImages');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const allImages = getAllRequest.result || [];
+
+        for (const img of allImages) {
+          if (img.attachId && img.imageData) {
+            result.set(String(img.attachId), img.imageData);
+          }
+        }
+
+        console.log(`[IndexedDB] Bulk loaded ${result.size} annotated images in ONE read`);
+        resolve(result);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
    * Check if service data cache is still valid
    */
   async isServiceDataCacheValid(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points', maxAgeMs: number): Promise<boolean> {

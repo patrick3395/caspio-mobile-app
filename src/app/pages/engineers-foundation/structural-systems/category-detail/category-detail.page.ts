@@ -98,6 +98,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Track if initial load is complete (for ionViewWillEnter)
   private initialLoadComplete: boolean = false;
 
+  // ===== BULK CACHED DATA (ONE IndexedDB read per type) =====
+  // These are pre-loaded once at section load to eliminate N+1 reads
+  private bulkAttachmentsMap: Map<string, any[]> = new Map();
+  private bulkCachedPhotosMap: Map<string, string> = new Map();
+  private bulkAnnotatedImagesMap: Map<string, string> = new Map();
+  private bulkPendingPhotosMap: Map<string, any[]> = new Map();
+
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -836,6 +843,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private async loadData() {
     console.log('[LOAD DATA] ========== loadData START ==========');
+    const startTime = Date.now();
     
     // CRITICAL: Start cooldown to prevent cache invalidation events from causing UI flash
     this.startLocalOperationCooldown();
@@ -848,37 +856,68 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.photoCountsByKey = {};
     this.selectedItems = {};
     this.organizedData = { comments: [], limitations: [], deficiencies: [] };
+    
+    // Clear bulk caches
+    this.bulkAttachmentsMap.clear();
+    this.bulkCachedPhotosMap.clear();
+    this.bulkAnnotatedImagesMap.clear();
+    this.bulkPendingPhotosMap.clear();
 
     try {
-      // STEP 1: Read templates ONCE from IndexedDB (fast)
-      const allTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
-      console.log('[LOAD DATA] Templates from cache:', allTemplates.length);
+      // ===== STEP 0: BULK PRE-LOAD ALL DATA IN PARALLEL (3 IndexedDB reads total) =====
+      // This eliminates the N+1 problem by loading everything upfront
+      console.log('[LOAD DATA] Starting bulk pre-load...');
+      const bulkLoadStart = Date.now();
+      
+      const [allTemplates, visuals, cachedPhotos, annotatedImages, pendingPhotos] = await Promise.all([
+        this.indexedDb.getCachedTemplates('visual') || [],
+        this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [],
+        this.indexedDb.getAllCachedPhotosForService(this.serviceId),
+        this.indexedDb.getAllCachedAnnotatedImagesForService(),
+        this.indexedDb.getAllPendingPhotosGroupedByVisual()
+      ]);
+      
+      // Store bulk data for later use
+      this.bulkCachedPhotosMap = cachedPhotos;
+      this.bulkAnnotatedImagesMap = annotatedImages;
+      this.bulkPendingPhotosMap = pendingPhotos;
+      
+      console.log(`[LOAD DATA] ✅ Bulk pre-load complete in ${Date.now() - bulkLoadStart}ms:`, {
+        templates: (allTemplates as any[]).length,
+        visuals: (visuals as any[]).length,
+        cachedPhotos: cachedPhotos.size,
+        annotatedImages: annotatedImages.size,
+        pendingPhotos: pendingPhotos.size
+      });
       
       // Only show loading if no templates cached
-      if (allTemplates.length === 0) {
+      if ((allTemplates as any[]).length === 0) {
         this.loading = true;
         this.changeDetectorRef.detectChanges();
       }
 
-      // Filter templates for this category - pure CPU, instant
-      this.loadCategoryTemplatesFromCache(allTemplates);
-      console.log('[LOAD DATA] ✅ Templates organized:', {
-        comments: this.organizedData.comments.length,
-        limitations: this.organizedData.limitations.length,
-        deficiencies: this.organizedData.deficiencies.length
-      });
+      // ===== STEP 1: Load templates (pure CPU, instant) =====
+      this.loadCategoryTemplatesFromCache(allTemplates as any[]);
       this.changeDetectorRef.detectChanges();
 
-      // STEP 2: Read visuals DIRECTLY from IndexedDB (no pending request check)
-      // NOTE: This also schedules background photo loading via loadAllPhotosInBackground
-      console.log('[LOAD DATA] Loading visuals from cache...');
+      // ===== STEP 2: Pre-load ALL visual attachments in ONE bulk read =====
+      // Get all visual IDs we need
+      const visualIds = (visuals as any[])
+        .filter((v: any) => v.Category === this.categoryName)
+        .map((v: any) => String(v.VisualID || v.PK_ID || v.id))
+        .filter((id: string) => id && !id.startsWith('temp_'));
+      
+      if (visualIds.length > 0) {
+        const attachmentsStart = Date.now();
+        this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(visualIds);
+        console.log(`[LOAD DATA] ✅ Bulk attachments loaded in ${Date.now() - attachmentsStart}ms for ${visualIds.length} visuals`);
+      }
+
+      // ===== STEP 3: Process visuals (now uses bulkAttachmentsMap) =====
       await this.loadExistingVisualsFromCache();
       console.log('[LOAD DATA] ✅ Visuals loaded');
 
-      // STEP 3: Restore pending photos (local uploads not yet synced)
-      // CRITICAL: This runs immediately after loadExistingVisualsFromCache returns,
-      // and BEFORE the background photo loading starts (which has a 50ms delay)
-      // This ensures pending photos are in the array before server photos are loaded
+      // ===== STEP 4: Restore pending photos (uses bulkPendingPhotosMap) =====
       await this.restorePendingPhotosFromIndexedDB();
       console.log('[LOAD DATA] ✅ Pending photos restored');
 
@@ -886,6 +925,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.loading = false;
       this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
       this.changeDetectorRef.detectChanges();
+      
+      console.log(`[LOAD DATA] ========== TOTAL TIME: ${Date.now() - startTime}ms ==========`);
 
     } catch (error) {
       console.error('[LOAD DATA] ❌ Error:', error);
@@ -1438,23 +1479,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /**
-   * Load photos for a visual - OFFLINE-FIRST approach
-   * 1. Get synced photos from cache
-   * 2. Get pending photos from IndexedDB file store (survives app restart)
-   * 3. Merge - pending photos appear first with regenerated blob URLs
+   * Load photos for a visual - OPTIMIZED with bulk pre-loaded data
+   * Uses bulkAttachmentsMap, bulkCachedPhotosMap, bulkPendingPhotosMap from loadData()
+   * This eliminates N+1 IndexedDB reads - all lookups are now O(1) Map access
    */
   private async loadPhotosForVisual(visualId: string, key: string) {
     try {
       this.loadingPhotosByKey[key] = true;
 
-      // STEP 1: Get synced photos from cache (via EngineersFoundationDataService -> IndexedDB)
-      const attachments = await this.foundationData.getVisualAttachments(visualId);
+      // ===== OPTIMIZED: Use bulk pre-loaded data (O(1) Map lookup, no IndexedDB read) =====
+      // STEP 1: Get synced photos from BULK cache (was: individual IndexedDB read)
+      const attachments = this.bulkAttachmentsMap.get(visualId) || [];
 
-      // STEP 2: Get pending photos from IndexedDB file store
-      // These are photos taken offline that haven't synced yet - regenerate their blob URLs
-      const pendingPhotos = await this.indexedDb.getPendingPhotosForVisual(visualId);
+      // STEP 2: Get pending photos from BULK cache (was: individual IndexedDB read)
+      const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
       
-      console.log('[LOAD PHOTOS] Visual', visualId, ':', attachments.length, 'synced,', pendingPhotos.length, 'pending');
+      if (this.DEBUG) console.log('[LOAD PHOTOS] Visual', visualId, ':', attachments.length, 'synced,', pendingPhotos.length, 'pending');
 
       // STEP 3: Calculate total photo count
       const existingCount = this.visualPhotos[key]?.length || 0;
@@ -1470,28 +1510,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => String(p.AttachID)));
 
       // STEP 4: Add pending photos with regenerated blob URLs (they appear first)
-      // These are photos taken offline that survive app restart
       for (const pendingPhoto of pendingPhotos) {
         const pendingId = String(pendingPhoto.AttachID);
         if (!loadedPhotoIds.has(pendingId)) {
-          // CRITICAL FIX: Check for cached annotated image to preserve annotation thumbnails
+          // OPTIMIZED: Use bulk annotated image cache (O(1) lookup)
           let displayUrl = pendingPhoto.displayUrl;
           if (pendingPhoto.hasAnnotations) {
-            try {
-              const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(pendingId);
-              if (cachedAnnotatedImage) {
-                displayUrl = cachedAnnotatedImage;
-              }
-            } catch (cacheErr) {
-              // Silent failure - will use original displayUrl
+            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(pendingId);
+            if (cachedAnnotatedImage) {
+              displayUrl = cachedAnnotatedImage;
             }
           }
           
           // Add to the BEGINNING of the array so pending photos show first
           this.visualPhotos[key].unshift({
             ...pendingPhoto,
-            displayUrl: displayUrl,  // Use annotated version if available
-            thumbnailUrl: displayUrl,  // Thumbnail should also show annotations
+            displayUrl: displayUrl,
+            thumbnailUrl: displayUrl,
             isSkeleton: false,
             uploading: pendingPhoto.status === 'uploading',
             queued: pendingPhoto.status === 'pending',
@@ -1506,7 +1541,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       if (attachments.length > 0) {
         // Check if all synced photos are already loaded
-        const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(String(a.AttachID)));
+        const allPhotosLoaded = attachments.every((a: any) => loadedPhotoIds.has(String(a.AttachID)));
         if (allPhotosLoaded && pendingPhotos.length === 0) {
           this.loadingPhotosByKey[key] = false;
           this.changeDetectorRef.detectChanges();
@@ -1514,12 +1549,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         // ============================================================
-        // OPTIMIZED LOADING: Show cached photos INSTANTLY, then download uncached
+        // OPTIMIZED: Use bulk cached photos map (O(1) lookups instead of N IndexedDB reads)
         // ============================================================
         const cachedAttachments: any[] = [];
         const uncachedAttachments: any[] = [];
 
-        // PHASE 1: Categorize attachments as cached or uncached
+        // PHASE 1: Categorize attachments as cached or uncached (ALL O(1) lookups now)
         for (const attach of attachments) {
           const attachIdStr = String(attach.AttachID);
 
@@ -1528,8 +1563,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             continue;
           }
 
-          // Check if cached in IndexedDB (fast local check)
-          const cachedImage = await this.indexedDb.getCachedPhoto(attachIdStr);
+          // OPTIMIZED: Check bulk cache map (O(1)) instead of IndexedDB read
+          const cachedImage = this.bulkCachedPhotosMap.get(attachIdStr);
           if (cachedImage) {
             cachedAttachments.push({ attach, cachedImage });
           } else {
@@ -1571,22 +1606,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   /**
    * Add a cached photo to the photos array immediately (no network call needed)
-   * This enables instant display of cached photos while uncached ones download
+   * OPTIMIZED: Uses bulk annotated images map for O(1) lookup
    */
-  private async addCachedPhotoToArray(attach: any, cachedImage: string, key: string): Promise<void> {
+  private addCachedPhotoToArray(attach: any, cachedImage: string, key: string): void {
     const attachId = String(attach.AttachID);
     const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
     
-    // Check for cached annotated image for thumbnail
+    // OPTIMIZED: Use bulk cache map (O(1)) instead of IndexedDB read
     let displayUrl = cachedImage;
     if (hasDrawings) {
-      try {
-        const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
-        if (cachedAnnotatedImage) {
-          displayUrl = cachedAnnotatedImage;
-        }
-      } catch (err) {
-        // Silent failure - use base image
+      const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
+      if (cachedAnnotatedImage) {
+        displayUrl = cachedAnnotatedImage;
       }
     }
     

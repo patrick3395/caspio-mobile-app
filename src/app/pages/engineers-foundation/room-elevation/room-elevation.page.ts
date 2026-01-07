@@ -63,6 +63,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private localOperationCooldown = false;
   private initialLoadComplete: boolean = false;  // Track if initial load is complete
 
+  // ===== BULK CACHED DATA (ONE IndexedDB read per type) =====
+  // Pre-loaded at room load to eliminate N+1 reads
+  private bulkCachedPhotosMap: Map<string, string> = new Map();
+  private bulkAnnotatedImagesMap: Map<string, string> = new Map();
+
   // Convenience getters for template
   get fdfPhotos() {
     return this.roomData?.fdfPhotos || {};
@@ -717,6 +722,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // Data is already cached by the container's template download
     // Only show loading for first-time fetches (no cache)
     try {
+      // ===== BULK PRE-LOAD: Load all cached photos and annotated images in ONE read each =====
+      const bulkLoadStart = Date.now();
+      const [cachedPhotos, annotatedImages] = await Promise.all([
+        this.indexedDb.getAllCachedPhotosForService(this.serviceId),
+        this.indexedDb.getAllCachedAnnotatedImagesForService()
+      ]);
+      this.bulkCachedPhotosMap = cachedPhotos;
+      this.bulkAnnotatedImagesMap = annotatedImages;
+      console.log(`[RoomElevation] Bulk pre-load: ${cachedPhotos.size} photos, ${annotatedImages.size} annotations in ${Date.now() - bulkLoadStart}ms`);
+
       // Load room record from Services_EFE (reads from IndexedDB immediately)
       console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
       const rooms = await this.foundationData.getEFEByService(this.serviceId, true);
@@ -1041,10 +1056,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const s3Key = photoData.Attachment || photoPath;
     
     try {
-      // CRITICAL FIX: Check for cached ANNOTATED image first (has drawings on it)
-      const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
+      // ===== OPTIMIZED: Use bulk cache maps (O(1) lookup) instead of IndexedDB reads =====
+      
+      // Check for cached ANNOTATED image first (has drawings on it)
+      const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
       if (cachedAnnotatedImage) {
-        if (this.DEBUG) console.log(`[Point Photo] ✅ Using cached ANNOTATED image for ${attachId}`);
+        if (this.DEBUG) console.log(`[Point Photo] ✅ Using bulk cached ANNOTATED image for ${attachId}`);
         photoData.url = cachedAnnotatedImage;
         photoData.displayUrl = cachedAnnotatedImage;
         photoData.loading = false;
@@ -1053,10 +1070,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         return;
       }
       
-      // OFFLINE-FIRST: Check IndexedDB cached photo (base image without annotations)
-      const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
+      // Check bulk cached photo (base image without annotations)
+      const cachedImage = this.bulkCachedPhotosMap.get(attachId);
       if (cachedImage) {
-        if (this.DEBUG) console.log(`[Point Photo] Using cached image for ${attachId}`);
+        if (this.DEBUG) console.log(`[Point Photo] Using bulk cached image for ${attachId}`);
         photoData.url = cachedImage;
         photoData.displayUrl = cachedImage;
         photoData.loading = false;
