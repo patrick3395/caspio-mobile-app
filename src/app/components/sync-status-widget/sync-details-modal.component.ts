@@ -391,8 +391,13 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   async clearStuckRequests() {
     console.log('[SyncModal] Clearing stuck/broken requests...');
     // Clear requests older than 30 minutes with high retry count (truly stuck requests)
-    const clearedCount = await this.indexedDb.clearOldPendingRequests(30);
-    console.log(`[SyncModal] Cleared ${clearedCount} stuck requests`);
+    const clearedRequests = await this.indexedDb.clearOldPendingRequests(30);
+    console.log(`[SyncModal] Cleared ${clearedRequests} stuck requests`);
+    
+    // Also clear stale pending captions
+    const clearedCaptions = await this.indexedDb.clearStalePendingCaptions(30);
+    console.log(`[SyncModal] Cleared ${clearedCaptions} stale captions`);
+    
     // Refresh the list immediately
     await this.refreshDetails();
   }
@@ -411,9 +416,14 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       // Calculate stuck count (pending for over 30 minutes with high retry count)
       // Lower threshold would flag items that are just waiting for exponential backoff retry
       const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
-      this.stuckCount = this.pendingRequests.filter(r => 
+      const stuckRequests = this.pendingRequests.filter(r => 
         r.createdAt < thirtyMinutesAgo && (r.retryCount || 0) > 5
       ).length;
+      
+      // Also count stale captions as stuck
+      const staleCaptions = await this.indexedDb.getStaleCaptionCount(30);
+      
+      this.stuckCount = stuckRequests + staleCaptions;
       
       this.changeDetectorRef.detectChanges();
     } catch (error) {
@@ -600,23 +610,33 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     
     let typeLabel = 'Photo';
     if (caption.attachType === 'visual') {
-      typeLabel = 'Visual photo';
+      typeLabel = 'Visual';
     } else if (caption.attachType === 'efe_point') {
-      typeLabel = 'Elevation photo';
+      typeLabel = 'Elevation';
     } else if (caption.attachType === 'fdf') {
-      typeLabel = 'FDF photo';
+      typeLabel = 'FDF';
     }
+    
+    // Calculate age for debugging
+    const ageMinutes = Math.round((Date.now() - caption.createdAt) / 60000);
+    const ageStr = ageMinutes > 60 ? `${Math.round(ageMinutes / 60)}h` : `${ageMinutes}m`;
+    const isStale = ageMinutes > 30;
+    const staleIndicator = isStale ? ' ⚠️' : '';
+    
+    // Show if waiting for temp ID resolution
+    const hasTempId = caption.attachId && caption.attachId.startsWith('temp_');
+    const waitingIndicator = hasTempId ? ' (waiting for photo)' : '';
     
     if (hasCaption && hasDrawings) {
-      return `Save caption & drawings: ${typeLabel}`;
+      return `${typeLabel}: caption & drawings${waitingIndicator}${staleIndicator}`;
     } else if (hasCaption) {
-      const captionPreview = caption.caption!.substring(0, 20);
-      return `Save caption: "${captionPreview}${caption.caption!.length > 20 ? '...' : ''}"`;
+      const captionPreview = caption.caption!.substring(0, 15);
+      return `${typeLabel}: "${captionPreview}${caption.caption!.length > 15 ? '...' : ''}"${waitingIndicator}${staleIndicator}`;
     } else if (hasDrawings) {
-      return `Save drawings: ${typeLabel}`;
+      return `${typeLabel}: drawings${waitingIndicator}${staleIndicator}`;
     }
     
-    return `Update: ${typeLabel}`;
+    return `${typeLabel}: update${waitingIndicator}${staleIndicator}`;
   }
 }
 

@@ -3040,5 +3040,76 @@ export class IndexedDbService {
       getAllRequest.onerror = () => reject(getAllRequest.error);
     });
   }
+
+  /**
+   * Clear stale pending captions (stuck for more than X minutes)
+   * Use this to clean up captions that never synced due to temp ID issues
+   */
+  async clearStalePendingCaptions(olderThanMinutes: number = 30): Promise<number> {
+    const db = await this.ensureDb();
+    const cutoffTime = Date.now() - (olderThanMinutes * 60 * 1000);
+    let clearedCount = 0;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readwrite');
+      const store = transaction.objectStore('pendingCaptions');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const captions = getAllRequest.result as PendingCaptionUpdate[];
+        
+        for (const caption of captions) {
+          // Clear stale pending captions (stuck for too long)
+          const isStale = caption.createdAt < cutoffTime;
+          const hasUnresolvedTempId = caption.attachId && caption.attachId.startsWith('temp_');
+          const hasHighRetries = (caption.retryCount || 0) >= 3;
+          
+          if ((caption.status === 'pending' || caption.status === 'syncing') && 
+              isStale && (hasUnresolvedTempId || hasHighRetries)) {
+            console.log(`[IndexedDB] Clearing stale caption: ${caption.captionId}, attachId: ${caption.attachId}, age: ${(Date.now() - caption.createdAt) / 60000}min`);
+            store.delete(caption.captionId);
+            clearedCount++;
+          }
+        }
+
+        console.log(`[IndexedDB] Cleared ${clearedCount} stale pending caption updates`);
+        resolve(clearedCount);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
+   * Get count of stale pending captions (for UI display)
+   */
+  async getStaleCaptionCount(olderThanMinutes: number = 30): Promise<number> {
+    const db = await this.ensureDb();
+    const cutoffTime = Date.now() - (olderThanMinutes * 60 * 1000);
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readonly');
+      const store = transaction.objectStore('pendingCaptions');
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const captions = getAllRequest.result as PendingCaptionUpdate[];
+        let count = 0;
+        
+        for (const caption of captions) {
+          const isStale = caption.createdAt < cutoffTime;
+          const isPendingOrSyncing = caption.status === 'pending' || caption.status === 'syncing';
+          
+          if (isPendingOrSyncing && isStale) {
+            count++;
+          }
+        }
+
+        resolve(count);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
 }
 

@@ -180,6 +180,13 @@ export class BackgroundSyncService {
       await this.syncPendingRequests();
       // CRITICAL: Process pending caption updates independently from photo uploads
       await this.syncPendingCaptions();
+      
+      // Cleanup: Remove stale pending captions that couldn't sync (temp IDs never resolved, etc.)
+      // This prevents the sync queue from showing ghost items
+      const staleCleared = await this.indexedDb.clearStalePendingCaptions(60); // 60 min threshold
+      if (staleCleared > 0) {
+        console.log(`[BackgroundSync] Cleaned up ${staleCleared} stale caption(s)`);
+      }
     } catch (error) {
       console.error('[BackgroundSync] Sync failed:', error);
     } finally {
