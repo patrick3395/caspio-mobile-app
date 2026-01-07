@@ -466,17 +466,24 @@ export class BackgroundSyncService {
         console.log(`[BackgroundSync] ✅ Synced and removed: ${request.requestId}`);
 
       } catch (error: any) {
-        // Increment retry count
-        await this.indexedDb.incrementRetryCount(request.requestId);
+        const errorMessage = error.message || 'Sync failed';
         
-        // Update status back to pending (will retry later)
-        await this.indexedDb.updateRequestStatus(
-          request.requestId,
-          'pending',
-          error.message || 'Sync failed'
-        );
-
-        console.warn(`[BackgroundSync] ❌ Failed (will retry): ${request.requestId}`, error);
+        // Check if this is a dependency-related failure (should retry immediately when dependency resolves)
+        const isDependencyError = errorMessage.includes('not synced yet') || 
+                                   errorMessage.includes('dependency') ||
+                                   errorMessage.includes('waiting for');
+        
+        if (isDependencyError) {
+          // DON'T increment retry count for dependency failures
+          // These should retry immediately when the dependency resolves
+          console.log(`[BackgroundSync] ⏳ Dependency pending for ${request.requestId}: ${errorMessage}`);
+          await this.indexedDb.updateRequestStatus(request.requestId, 'pending', errorMessage);
+        } else {
+          // Real failure - increment retry count for exponential backoff
+          await this.indexedDb.incrementRetryCount(request.requestId);
+          await this.indexedDb.updateRequestStatus(request.requestId, 'pending', errorMessage);
+          console.warn(`[BackgroundSync] ❌ Failed (will retry): ${request.requestId}`, error);
+        }
       }
     }
   }

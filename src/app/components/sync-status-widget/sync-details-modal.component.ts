@@ -390,8 +390,8 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
 
   async clearStuckRequests() {
     console.log('[SyncModal] Clearing stuck/broken requests...');
-    // Clear requests older than 5 minutes (stuck requests)
-    const clearedCount = await this.indexedDb.clearOldPendingRequests(5);
+    // Clear requests older than 30 minutes with high retry count (truly stuck requests)
+    const clearedCount = await this.indexedDb.clearOldPendingRequests(30);
     console.log(`[SyncModal] Cleared ${clearedCount} stuck requests`);
     // Refresh the list immediately
     await this.refreshDetails();
@@ -408,10 +408,11 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       // Load pending captions
       this.pendingCaptions = await this.indexedDb.getPendingCaptions();
       
-      // Calculate stuck count (pending for over 5 minutes with high retry count)
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+      // Calculate stuck count (pending for over 30 minutes with high retry count)
+      // Lower threshold would flag items that are just waiting for exponential backoff retry
+      const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
       this.stuckCount = this.pendingRequests.filter(r => 
-        r.createdAt < fiveMinutesAgo && (r.retryCount || 0) > 2
+        r.createdAt < thirtyMinutesAgo && (r.retryCount || 0) > 5
       ).length;
       
       this.changeDetectorRef.detectChanges();

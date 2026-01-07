@@ -3230,24 +3230,45 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     try {
       // 1. Update local UI state immediately
       photo.caption = newCaption;
+      photo.Annotation = newCaption;
       photo._localUpdate = true;
       this.changeDetectorRef.detectChanges();
       
       // 2. Get the attachment ID (could be temp or real)
-      const attachId = String(photo._pendingFileId || photo._tempId || photo.attachId || '');
+      // Check all possible property names that might hold the ID
+      const attachId = String(
+        photo._pendingFileId || 
+        photo._tempId || 
+        photo.attachId || 
+        photo.AttachID ||
+        ''
+      );
+      
+      if (!attachId) {
+        console.error('[Point Caption] ❌ No attachId found for photo:', photo);
+        return;
+      }
+      
+      console.log(`[Point Caption] Saving caption for attachId: ${attachId}`);
       
       // 3. Find the point ID for cache lookup
       let pointId: string | undefined;
       for (const p of this.elevationPoints) {
         const foundPhoto = p.photos?.find((ph: any) => 
           String(ph.attachId) === attachId || 
+          String(ph.AttachID) === attachId ||
           String(ph._tempId) === attachId ||
           String(ph._pendingFileId) === attachId
         );
         if (foundPhoto && p.pointId) {
           pointId = String(p.pointId);
+          console.log(`[Point Caption] Found point ID: ${pointId} for attachId: ${attachId}`);
           break;
         }
+      }
+      
+      if (!pointId) {
+        console.warn(`[Point Caption] ⚠️ Could not find point ID for attachId: ${attachId}, proceeding anyway`);
       }
       
       // 4. ALWAYS queue the caption update using the unified method
@@ -3265,7 +3286,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log(`[Point Caption] ✅ Caption queued for sync: ${attachId}`);
       
     } catch (error) {
-      console.error('Error saving caption:', error);
+      console.error('[Point Caption] ❌ Error saving caption:', error);
     }
   }
 
