@@ -1507,19 +1507,71 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           await Promise.all(loadPromises);
         }
         console.log('[LOAD PHOTOS] All photos loaded for', key);
-
-        this.loadingPhotosByKey[key] = false;
-        this.changeDetectorRef.detectChanges();
-      } else {
-        this.loadingPhotosByKey[key] = false;
-        this.changeDetectorRef.detectChanges();
       }
+
+      // STEP 6 (NEW): Merge pending caption updates into loaded photos
+      // This ensures captions added after photo creation are visible on page reload
+      await this.mergePendingCaptionsIntoPhotos(key);
+
+      this.loadingPhotosByKey[key] = false;
+      this.changeDetectorRef.detectChanges();
 
     } catch (error) {
       console.error('[LOAD PHOTOS] Error loading photos for visual', visualId, error);
       this.loadingPhotosByKey[key] = false;
       this.photoCountsByKey[key] = 0; // Set to 0 on error so we don't wait forever
       this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  /**
+   * Merge pending caption updates into loaded photos
+   * CRITICAL: This ensures captions added mid-sync or after photo creation are visible
+   * Pending captions take precedence over cached values
+   */
+  private async mergePendingCaptionsIntoPhotos(key: string): Promise<void> {
+    try {
+      const photos = this.visualPhotos[key];
+      if (!photos || photos.length === 0) {
+        return;
+      }
+
+      // Get all attachment IDs for this visual's photos
+      const attachIds = photos.map(p => String(p.AttachID));
+      
+      // Fetch pending captions for these attachments
+      const pendingCaptions = await this.indexedDb.getPendingCaptionsForAttachments(attachIds);
+      
+      if (pendingCaptions.length === 0) {
+        return;
+      }
+      
+      console.log(`[MERGE CAPTIONS] Merging ${pendingCaptions.length} pending captions into ${photos.length} photos for key: ${key}`);
+      
+      // Apply pending captions to matching photos
+      for (const photo of photos) {
+        const photoId = String(photo.AttachID);
+        const pendingCaption = pendingCaptions.find(c => c.attachId === photoId);
+        
+        if (pendingCaption) {
+          // Update caption if pending
+          if (pendingCaption.caption !== undefined) {
+            console.log(`[MERGE CAPTIONS] Applying caption to photo ${photoId}: "${pendingCaption.caption?.substring(0, 30)}..."`);
+            photo.caption = pendingCaption.caption;
+            photo.Annotation = pendingCaption.caption;
+          }
+          
+          // Update drawings if pending
+          if (pendingCaption.drawings !== undefined) {
+            console.log(`[MERGE CAPTIONS] Applying drawings to photo ${photoId}`);
+            photo.Drawings = pendingCaption.drawings;
+            photo.hasAnnotations = !!pendingCaption.drawings;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[MERGE CAPTIONS] Error merging pending captions:', error);
+      // Don't fail the load - captions will sync later
     }
   }
 

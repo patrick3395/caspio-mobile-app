@@ -2848,6 +2848,34 @@ export class IndexedDbService {
   }
 
   /**
+   * Get pending caption updates for a list of attachment IDs
+   * Used by pages to merge pending captions with loaded photos
+   * Returns captions that are pending or syncing (not yet applied to server)
+   */
+  async getPendingCaptionsForAttachments(attachIds: string[]): Promise<PendingCaptionUpdate[]> {
+    const db = await this.ensureDb();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingCaptions'], 'readonly');
+      const store = transaction.objectStore('pendingCaptions');
+      const getAllRequest = store.getAll();
+      
+      getAllRequest.onsuccess = () => {
+        const allCaptions = getAllRequest.result as PendingCaptionUpdate[] || [];
+        // Filter to matching attachIds that are still pending or syncing
+        const matching = allCaptions.filter(c => 
+          attachIds.includes(c.attachId) && 
+          (c.status === 'pending' || c.status === 'syncing')
+        );
+        console.log(`[IndexedDB] getPendingCaptionsForAttachments: Found ${matching.length} pending captions for ${attachIds.length} attachIds`);
+        resolve(matching);
+      };
+      
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  }
+
+  /**
    * Update caption status
    */
   async updateCaptionStatus(captionId: string, status: 'pending' | 'syncing' | 'synced' | 'failed', error?: string): Promise<void> {

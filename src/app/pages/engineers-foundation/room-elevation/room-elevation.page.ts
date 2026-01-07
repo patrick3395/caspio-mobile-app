@@ -1581,6 +1581,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
       console.log('[RoomElevation] âœ“ Custom points check complete');
 
+      // STEP 7 (NEW): Merge pending caption updates into all loaded photos
+      // This ensures captions added after photo creation are visible on page reload
+      await this.mergePendingCaptionsIntoPointPhotos();
+
       console.log('\n========================================');
       console.log('[RoomElevation] *** LOAD ELEVATION POINTS - COMPLETE ***');
       console.log('[RoomElevation] Total elevation points:', this.roomData.elevationPoints.length);
@@ -1591,6 +1595,70 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     } catch (error) {
       console.error('[RoomElevation] âŒâŒâŒ CRITICAL ERROR in loadElevationPoints:', error);
       console.error('[RoomElevation] Error stack:', error);
+    }
+  }
+
+  /**
+   * Merge pending caption updates into all point photos
+   * CRITICAL: This ensures captions added mid-sync or after photo creation are visible
+   * Pending captions take precedence over cached values
+   */
+  private async mergePendingCaptionsIntoPointPhotos(): Promise<void> {
+    try {
+      // Collect all photo attachIds from all points
+      const allAttachIds: string[] = [];
+      for (const point of this.roomData.elevationPoints) {
+        if (point.photos && point.photos.length > 0) {
+          for (const photo of point.photos) {
+            if (photo.attachId) {
+              allAttachIds.push(String(photo.attachId));
+            }
+          }
+        }
+      }
+
+      if (allAttachIds.length === 0) {
+        return;
+      }
+
+      // Fetch pending captions for all photo attachIds
+      const pendingCaptions = await this.indexedDb.getPendingCaptionsForAttachments(allAttachIds);
+      
+      if (pendingCaptions.length === 0) {
+        return;
+      }
+      
+      console.log(`[MERGE CAPTIONS] Merging ${pendingCaptions.length} pending captions into ${allAttachIds.length} photos`);
+      
+      // Apply pending captions to matching photos
+      for (const point of this.roomData.elevationPoints) {
+        if (!point.photos) continue;
+        
+        for (const photo of point.photos) {
+          const photoId = String(photo.attachId);
+          const pendingCaption = pendingCaptions.find(c => c.attachId === photoId);
+          
+          if (pendingCaption) {
+            // Update caption if pending
+            if (pendingCaption.caption !== undefined) {
+              console.log(`[MERGE CAPTIONS] Applying caption to photo ${photoId}: "${pendingCaption.caption?.substring(0, 30)}..."`);
+              photo.caption = pendingCaption.caption;
+              photo.Annotation = pendingCaption.caption;
+            }
+            
+            // Update drawings if pending
+            if (pendingCaption.drawings !== undefined) {
+              console.log(`[MERGE CAPTIONS] Applying drawings to photo ${photoId}`);
+              photo.drawings = pendingCaption.drawings;
+              photo.Drawings = pendingCaption.drawings;
+              photo.hasAnnotations = !!pendingCaption.drawings;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[MERGE CAPTIONS] Error merging pending captions:', error);
+      // Don't fail the load - captions will sync later
     }
   }
 

@@ -549,15 +549,20 @@ export class BackgroundSyncService {
         
         console.log(`[BackgroundSync] ✅ Caption synced: ${caption.captionId}`);
         
-        // Clean up - delete the pending caption
-        await this.indexedDb.deletePendingCaption(caption.captionId);
+        // CRITICAL: Update the synced cache with caption/drawings data
+        // This ensures the cache has correct data for future page loads
+        await this.updateSyncedCacheWithCaption({
+          attachId: resolvedAttachId,
+          attachType: caption.attachType,
+          caption: caption.caption,
+          drawings: caption.drawings,
+          visualId: caption.visualId,
+          pointId: caption.pointId,
+          serviceId: caption.serviceId
+        });
         
-        // Clear the _localUpdate flag from cache
-        if (caption.attachType === 'visual') {
-          await this.clearLocalUpdateFlag('visual_attachments', resolvedAttachId);
-        } else if (caption.attachType === 'efe_point') {
-          await this.clearLocalUpdateFlag('efe_point_attachments', resolvedAttachId);
-        }
+        // Clean up - delete the pending caption from queue
+        await this.indexedDb.deletePendingCaption(caption.captionId);
         
         // Emit event for pages to update UI
         this.ngZone.run(() => {
@@ -1171,6 +1176,97 @@ export class BackgroundSyncService {
     } catch (error) {
       console.warn('[BackgroundSync] Failed to refresh cache after sync:', error);
       // Non-critical - don't throw
+    }
+  }
+
+  /**
+   * Update synced cache with caption/drawings data after successful caption sync
+   * CRITICAL: This ensures the cache has the correct data for future page loads
+   * Called after caption sync succeeds to persist the synced data in IndexedDB cache
+   */
+  private async updateSyncedCacheWithCaption(
+    caption: { 
+      attachId: string; 
+      attachType: 'visual' | 'efe_point' | 'fdf';
+      caption?: string; 
+      drawings?: string;
+      visualId?: string;
+      pointId?: string;
+      serviceId?: string;
+    }
+  ): Promise<void> {
+    try {
+      if (caption.attachType === 'visual' && caption.visualId) {
+        const cached = await this.indexedDb.getCachedServiceData(
+          caption.visualId, 'visual_attachments'
+        ) || [];
+        
+        let foundInCache = false;
+        const updated = cached.map((att: any) => {
+          if (String(att.AttachID) === String(caption.attachId)) {
+            foundInCache = true;
+            const updatedAtt = { ...att, _syncedAt: Date.now() };
+            // Remove _localUpdate flag since data is now synced
+            delete updatedAtt._localUpdate;
+            delete updatedAtt._updatedAt;
+            // Apply the synced caption/drawings data
+            if (caption.caption !== undefined) {
+              updatedAtt.Annotation = caption.caption;
+            }
+            if (caption.drawings !== undefined) {
+              updatedAtt.Drawings = caption.drawings;
+            }
+            return updatedAtt;
+          }
+          return att;
+        });
+        
+        if (foundInCache) {
+          await this.indexedDb.cacheServiceData(
+            caption.visualId, 'visual_attachments', updated
+          );
+          console.log(`[BackgroundSync] ✅ Updated synced cache with caption for visual attachment ${caption.attachId}`);
+        } else {
+          console.log(`[BackgroundSync] ⚠️ Attachment ${caption.attachId} not in cache - will be loaded on next page visit`);
+        }
+      } else if (caption.attachType === 'efe_point' && caption.pointId) {
+        const cached = await this.indexedDb.getCachedServiceData(
+          caption.pointId, 'efe_point_attachments'
+        ) || [];
+        
+        let foundInCache = false;
+        const updated = cached.map((att: any) => {
+          if (String(att.AttachID) === String(caption.attachId)) {
+            foundInCache = true;
+            const updatedAtt = { ...att, _syncedAt: Date.now() };
+            // Remove _localUpdate flag since data is now synced
+            delete updatedAtt._localUpdate;
+            delete updatedAtt._updatedAt;
+            // Apply the synced caption/drawings data
+            if (caption.caption !== undefined) {
+              updatedAtt.Annotation = caption.caption;
+            }
+            if (caption.drawings !== undefined) {
+              updatedAtt.Drawings = caption.drawings;
+            }
+            return updatedAtt;
+          }
+          return att;
+        });
+        
+        if (foundInCache) {
+          await this.indexedDb.cacheServiceData(
+            caption.pointId, 'efe_point_attachments', updated
+          );
+          console.log(`[BackgroundSync] ✅ Updated synced cache with caption for EFE point attachment ${caption.attachId}`);
+        } else {
+          console.log(`[BackgroundSync] ⚠️ EFE Attachment ${caption.attachId} not in cache - will be loaded on next page visit`);
+        }
+      }
+      // FDF type is handled differently (stored in room record, not attachments)
+    } catch (error) {
+      console.warn(`[BackgroundSync] ⚠️ Failed to update synced cache with caption:`, error);
+      // Non-fatal - the data is synced to server, cache will refresh eventually
     }
   }
 

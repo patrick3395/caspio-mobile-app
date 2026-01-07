@@ -957,6 +957,7 @@ export class EngineersFoundationDataService {
   /**
    * Update local IndexedDB cache with caption/annotation changes
    * Sets _localUpdate flag to prevent background refresh from overwriting
+   * ROBUST: Updates multiple stores for redundancy - pendingCaptions is authoritative
    */
   private async updateLocalCacheWithCaption(
     attachId: string,
@@ -969,23 +970,31 @@ export class EngineersFoundationDataService {
       const attachIdStr = String(attachId);
       const isTempId = attachIdStr.startsWith('temp_');
       
-      // For temp IDs, update the pending photo data
+      // For temp IDs, TRY to update the pending photo data in pendingImages store
+      // This is a BEST-EFFORT update - pendingCaptions store is authoritative
       if (isTempId) {
         const updated = await this.indexedDb.updatePendingPhotoData(attachIdStr, {
           caption: caption,
           drawings: drawings
         });
         if (updated) {
-          console.log(`[Caption Cache] Updated pending photo data for temp ID:`, attachIdStr);
+          console.log(`[Caption Cache] ✅ Updated pending photo data for temp ID:`, attachIdStr);
+        } else {
+          // Photo might not be in pendingImages store yet or was already synced
+          // This is OK - pendingCaptions store will handle it as the authoritative source
+          console.warn(`[Caption Cache] ⚠️ Photo ${attachIdStr} not found in pendingImages - relying on pendingCaptions as authoritative source`);
         }
-        return;
+        // DON'T return early - also try to update synced cache if it exists
+        // This handles the edge case where photo synced but temp ID is still being used
       }
       
-      // For real IDs, update the appropriate cache based on type
+      // For real IDs (or temp IDs that might have synced), update the appropriate cache
       if (attachType === 'visual' && metadata.visualId) {
         const cached = await this.indexedDb.getCachedServiceData(metadata.visualId, 'visual_attachments') || [];
+        let foundInCache = false;
         const updatedCache = cached.map((att: any) => {
           if (String(att.AttachID) === attachIdStr) {
+            foundInCache = true;
             const updated: any = { ...att, _localUpdate: true, _updatedAt: Date.now() };
             if (caption !== undefined) updated.Annotation = caption;
             if (drawings !== undefined) updated.Drawings = drawings;
@@ -993,13 +1002,19 @@ export class EngineersFoundationDataService {
           }
           return att;
         });
-        await this.indexedDb.cacheServiceData(metadata.visualId, 'visual_attachments', updatedCache);
-        this.visualAttachmentsCache.clear();
-        console.log(`[Caption Cache] Updated visual attachments cache for visualId:`, metadata.visualId);
+        if (foundInCache) {
+          await this.indexedDb.cacheServiceData(metadata.visualId, 'visual_attachments', updatedCache);
+          this.visualAttachmentsCache.clear();
+          console.log(`[Caption Cache] ✅ Updated visual attachments cache for visualId:`, metadata.visualId);
+        } else if (!isTempId) {
+          console.warn(`[Caption Cache] ⚠️ Attachment ${attachIdStr} not found in visual cache - pendingCaptions will handle it`);
+        }
       } else if (attachType === 'efe_point' && metadata.pointId) {
         const cached = await this.indexedDb.getCachedServiceData(metadata.pointId, 'efe_point_attachments') || [];
+        let foundInCache = false;
         const updatedCache = cached.map((att: any) => {
           if (String(att.AttachID) === attachIdStr) {
+            foundInCache = true;
             const updated: any = { ...att, _localUpdate: true, _updatedAt: Date.now() };
             if (caption !== undefined) updated.Annotation = caption;
             if (drawings !== undefined) updated.Drawings = drawings;
@@ -1007,14 +1022,18 @@ export class EngineersFoundationDataService {
           }
           return att;
         });
-        await this.indexedDb.cacheServiceData(metadata.pointId, 'efe_point_attachments', updatedCache);
-        this.efeAttachmentsCache.clear();
-        console.log(`[Caption Cache] Updated EFE point attachments cache for pointId:`, metadata.pointId);
+        if (foundInCache) {
+          await this.indexedDb.cacheServiceData(metadata.pointId, 'efe_point_attachments', updatedCache);
+          this.efeAttachmentsCache.clear();
+          console.log(`[Caption Cache] ✅ Updated EFE point attachments cache for pointId:`, metadata.pointId);
+        } else if (!isTempId) {
+          console.warn(`[Caption Cache] ⚠️ Attachment ${attachIdStr} not found in EFE cache - pendingCaptions will handle it`);
+        }
       }
       // FDF type is handled differently (stored in room record, not attachments)
     } catch (error) {
-      console.warn('[Caption Cache] Failed to update local cache:', error);
-      // Continue anyway - the queued update will still sync
+      console.warn('[Caption Cache] ❌ Failed to update local cache:', error);
+      // Continue anyway - pendingCaptions store is authoritative and will sync correctly
     }
   }
 
