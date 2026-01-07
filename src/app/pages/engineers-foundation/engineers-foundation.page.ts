@@ -2474,14 +2474,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       ],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel',
-          handler: () => {
-            // Revert dropdown to previous value if they cancel
-            this.roomElevationData[roomName].fdf = previousValue || '';
-          }
-        },
-        {
           text: 'Save',
           handler: async (data) => {
             const customValue = data.customValue?.trim();
@@ -2522,21 +2514,29 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               // Update local data - this will now show the custom value in the dropdown
               this.roomElevationData[roomName].fdf = customValue;
 
-              // Force change detection to update the UI
-              this.changeDetectorRef.detectChanges();
-            } catch (error) {
-              console.error('Error updating custom FDF:', error);
-              await this.showToast('Failed to update FDF', 'danger');
-            }
+            // Force change detection to update the UI
+            this.changeDetectorRef.detectChanges();
+          } catch (error) {
+            console.error('Error updating custom FDF:', error);
+            await this.showToast('Failed to update FDF', 'danger');
           }
         }
-      ]
-    });
+      },
+      {
+        text: 'Cancel',
+        role: 'cancel',
+        handler: () => {
+          // Revert dropdown to previous value if they cancel
+          this.roomElevationData[roomName].fdf = previousValue || '';
+        }
+      }
+    ]
+  });
 
-    await alert.present();
-  }
+  await alert.present();
+}
 
-  // Handle taking FDF photos (Top, Bottom, Threshold) - using file input like room points
+// Handle taking FDF photos (Top, Bottom, Threshold) - using file input like room points
   async takeFDFPhoto(roomName: string, photoType: 'Top' | 'Bottom' | 'Threshold', source: 'camera' | 'library' | 'system' = 'system') {
     const roomId = this.efeRecordIds[roomName];
     if (!roomId) {
@@ -3221,11 +3221,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       message: `Are you sure you want to delete the ${photoType} photo?`,
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
           text: 'Delete',
           cssClass: 'alert-button-confirm',
           handler: async () => {
@@ -3255,16 +3250,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Drawings`]; // Clear drawings
               }
 
-              // No success toast - silent delete
-            } catch (error) {
-              console.error(`Error deleting FDF ${photoType} photo:`, error);
-              await this.showToast(`Failed to delete ${photoType} photo`, 'danger');
-            }
+            // No success toast - silent delete
+          } catch (error) {
+            console.error(`Error deleting FDF ${photoType} photo:`, error);
+            await this.showToast(`Failed to delete ${photoType} photo`, 'danger');
           }
         }
-      ],
-      cssClass: 'custom-document-alert'
-    });
+      },
+      {
+        text: 'Cancel',
+        role: 'cancel',
+        cssClass: 'alert-button-cancel'
+      }
+    ],
+    cssClass: 'custom-document-alert'
+  });
     
     await alert.present();
   }
@@ -3302,10 +3302,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       ],
       buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
         {
           text: 'Save',
           handler: async (data) => {
@@ -3357,6 +3353,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               return false;
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -3371,10 +3371,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       header: 'Delete Point',
       message: `Are you sure you want to delete "${point.name}"? This will also delete all associated photos.`,
       buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
         {
           text: 'Delete',
           role: 'destructive',
@@ -3423,6 +3419,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
               await this.showToast('Failed to delete point', 'danger');
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ],
       cssClass: 'custom-document-alert'

@@ -2696,10 +2696,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       ],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Save',
           handler: (data) => {
             const newName = data.pointName?.trim();
@@ -2715,6 +2711,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             // Return the data for processing after dismiss
             return { values: { newName } };
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ],
       cssClass: 'custom-document-alert'
@@ -3747,14 +3747,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           message: ' ', // Empty space to prevent Ionic from hiding the message area
           buttons: [
             {
-              text: 'Cancel',
-              role: 'cancel',
-              handler: () => {
-                resolve(null);
-                return true;
-              }
-            },
-            {
               text: 'Save',
               handler: () => {
                 try {
@@ -3766,6 +3758,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   resolve(null);
                   return true;
                 }
+              }
+            },
+            {
+              text: 'Cancel',
+              role: 'cancel',
+              handler: () => {
+                resolve(null);
+                return true;
               }
             }
           ]

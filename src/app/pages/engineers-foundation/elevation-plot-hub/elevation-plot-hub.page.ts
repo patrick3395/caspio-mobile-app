@@ -508,10 +508,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       ],
       buttons: [
         {
-          text: 'CANCEL',
-          role: 'cancel'
-        },
-        {
           text: 'SAVE',
           handler: (data) => {
             const newRoomName = data.newRoomName?.trim();
@@ -538,6 +534,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             // Return the data for processing after dismiss
             return { values: { newRoomName } };
           }
+        },
+        {
+          text: 'CANCEL',
+          role: 'cancel'
         }
       ]
     });
