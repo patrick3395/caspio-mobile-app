@@ -2396,7 +2396,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           // Create photo placeholder for immediate UI feedback
           const tempPhotoId = `temp_camera_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          const objectUrl = URL.createObjectURL(blob);
+          const originalObjectUrl = URL.createObjectURL(blob);
+          
+          // CRITICAL FIX: Use annotated blob for displayUrl if annotations exist
+          // This ensures the thumbnail shows the annotated version immediately
+          const displayObjectUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : originalObjectUrl;
 
           // Compress annotations BEFORE creating photo entry (using static import for offline support)
           let compressedDrawings = '';
@@ -2415,10 +2419,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             _pendingFileId: tempPhotoId,  // CRITICAL: for IndexedDB file lookups
             _tempId: tempPhotoId,  // CRITICAL: for tracking original temp ID
             name: 'camera-photo.jpg',
-            url: objectUrl,
-            displayUrl: objectUrl,  // CRITICAL: Set displayUrl for template
-            originalUrl: objectUrl,
-            thumbnailUrl: objectUrl,
+            url: originalObjectUrl,
+            displayUrl: displayObjectUrl,  // CRITICAL: Use annotated version for immediate display
+            originalUrl: originalObjectUrl,
+            thumbnailUrl: displayObjectUrl,  // CRITICAL: Thumbnail should also show annotations
             isObjectUrl: true,
             uploading: false,  // NEVER show spinner - photo appears immediately
             queued: isOfflineMode,  // Show queued badge if offline
