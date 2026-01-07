@@ -942,6 +942,21 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         await this.caspioService.deleteServicesEFEByEFEID(roomId).toPromise();
         console.log('[ElevationPlotHub] Room deleted from database successfully');
 
+        // CRITICAL FIX: Update IndexedDB cache to remove the deleted room
+        // This prevents the room from reappearing when cache is reloaded by background refresh
+        try {
+          const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+          const updatedRooms = cachedRooms.filter((room: any) => {
+            const cachedRoomId = String(room.EFEID || room.PK_ID || '');
+            return cachedRoomId !== String(roomId);
+          });
+          await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedRooms);
+          console.log('[ElevationPlotHub] ✅ Updated IndexedDB cache - removed room from efe_rooms');
+        } catch (cacheError) {
+          console.warn('[ElevationPlotHub] Failed to update IndexedDB cache:', cacheError);
+          // Continue anyway - the API deletion succeeded
+        }
+
         // Update local state - mark as unselected
         delete this.efeRecordIds[roomName];
         this.selectedRooms[roomName] = false;
