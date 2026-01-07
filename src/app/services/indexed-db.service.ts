@@ -1160,6 +1160,48 @@ export class IndexedDbService {
   }
 
   /**
+   * OPTIMIZATION: Get all cached photo IDs in a single read
+   * Used to batch-check which photos are already cached before downloading
+   * Returns a Set of attachment IDs that are already cached
+   */
+  async getAllCachedPhotoIds(): Promise<Set<string>> {
+    const db = await this.ensureDb();
+    const cachedIds = new Set<string>();
+
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      console.warn('[IndexedDB] getAllCachedPhotoIds: cachedPhotos store does not exist');
+      return cachedIds;
+    }
+
+    return new Promise((resolve) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readonly');
+      const store = transaction.objectStore('cachedPhotos');
+      const cursorRequest = store.openCursor();
+
+      cursorRequest.onsuccess = (event: any) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          // Extract attachId from the record (skip annotated images)
+          const record = cursor.value;
+          if (record.attachId && record.serviceId !== 'annotated') {
+            cachedIds.add(String(record.attachId));
+          }
+          cursor.continue();
+        } else {
+          // Cursor exhausted - return all collected IDs
+          console.log(`[IndexedDB] getAllCachedPhotoIds: Found ${cachedIds.size} cached photos`);
+          resolve(cachedIds);
+        }
+      };
+
+      cursorRequest.onerror = () => {
+        console.error('[IndexedDB] Error getting cached photo IDs:', cursorRequest.error);
+        resolve(cachedIds); // Return what we have
+      };
+    });
+  }
+
+  /**
    * Cache an annotated image (with drawings overlay) for offline viewing
    * Uses a separate key prefix to distinguish from base images
    * @param attachId The attachment ID

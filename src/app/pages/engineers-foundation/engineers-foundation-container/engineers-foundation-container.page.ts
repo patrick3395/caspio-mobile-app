@@ -12,6 +12,7 @@ import { BackgroundSyncService } from '../../../services/background-sync.service
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { filter } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 
 interface Breadcrumb {
   label: string;
@@ -323,18 +324,16 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
         console.log('[EF Container] ✅ Template data synced successfully');
         
-        this.downloadProgress = 'Loading images...';
-        this.changeDetectorRef.detectChanges();
+        // OPTIMIZATION: Removed blocking ensureImagesCached() call
+        // Images now download in background via OfflineTemplateService.downloadImagesInBackground()
+        // This allows the template to be ready immediately while images cache in background
         
-        // Verify and log what was cached
+        // Verify and log what was cached (debug only)
         await this.verifyDownloadedData();
-        
-        // Cache images (blocking to ensure they're ready)
-        await this.ensureImagesCached();
         
         this.downloadProgress = 'Template ready!';
         this.changeDetectorRef.detectChanges();
-        console.log('[EF Container] ✅ Template fully loaded and ready');
+        console.log('[EF Container] ✅ Template fully loaded (images caching in background)');
       } catch (error: any) {
         console.warn('[EF Container] Template download failed:', error);
         this.downloadProgress = 'Sync failed - checking cached data...';
@@ -394,8 +393,15 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
   /**
    * Verify what data was actually cached in IndexedDB after download
+   * OPTIMIZATION: Only runs in development mode to avoid IndexedDB reads in production
    */
   private async verifyDownloadedData(): Promise<void> {
+    // OPTIMIZATION: Skip verification in production - saves 8 IndexedDB reads
+    if (environment.production) {
+      console.log('[EF Container] Skipping data verification in production mode');
+      return;
+    }
+
     console.log('\n╔════════════════════════════════════════════════════════════════╗');
     console.log('║         📋 VERIFYING CACHED DATA IN INDEXEDDB                   ║');
     console.log('╠════════════════════════════════════════════════════════════════╣');

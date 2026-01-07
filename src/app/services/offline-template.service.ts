@@ -322,6 +322,9 @@ export class OfflineTemplateService {
           })
       );
 
+      // Collect attachments for background image download (non-blocking)
+      let collectedVisualAttachments: any[] = [];
+      
       // 3. Service-specific visuals AND their attachments (existing items for this service)
       console.log('[3/8] 🔍 Downloading SERVICE VISUALS (existing structural items for this service)...');
       downloads.push(
@@ -334,7 +337,6 @@ export class OfflineTemplateService {
             // CRITICAL: Also cache attachments for each visual (needed for photo counts offline)
             if (visuals && visuals.length > 0) {
               console.log(`    📸 Caching photo attachments for ${visuals.length} visuals...`);
-              const allAttachments: any[] = [];
               
               const attachmentPromises = visuals.map(async (visual: any) => {
                 const visualId = visual.VisualID || visual.PK_ID;
@@ -344,9 +346,9 @@ export class OfflineTemplateService {
                       this.caspioService.getServiceVisualsAttachByVisualId(String(visualId))
                     );
                     await this.indexedDb.cacheServiceData(String(visualId), 'visual_attachments', attachments || []);
-                    // Collect all attachments for image download
+                    // Collect all attachments for BACKGROUND image download (non-blocking)
                     if (attachments && attachments.length > 0) {
-                      allAttachments.push(...attachments);
+                      collectedVisualAttachments.push(...attachments);
                     }
                     return attachments?.length || 0;
                   } catch (err) {
@@ -359,13 +361,7 @@ export class OfflineTemplateService {
               const counts = await Promise.all(attachmentPromises);
               downloadSummary.visualAttachments = counts.reduce((a, b) => a + b, 0);
               console.log(`    ✅ Visual Attachments: ${downloadSummary.visualAttachments} attachment records cached`);
-              
-              // CRITICAL: Download and cache actual image files for offline viewing
-              if (allAttachments.length > 0) {
-                console.log(`    🖼️ Downloading ${allAttachments.length} actual images for offline...`);
-                await this.downloadAndCacheImages(allAttachments, serviceId);
-                console.log(`    ✅ Images downloaded and cached for offline viewing`);
-              }
+              // NOTE: Image download moved to background (non-blocking) - see below
             } else {
               console.log('    ℹ️ No existing visuals - new template (this is normal)');
             }
@@ -373,11 +369,17 @@ export class OfflineTemplateService {
           })
       );
 
+      // Collect EFE attachments for background image download (non-blocking)
+      let collectedEfeAttachments: any[] = [];
+      
       // 4. For EFE: Also download rooms, points, and point attachments
       if (templateType === 'EFE') {
         console.log('[4/8] 📐 Downloading EFE DATA (rooms, points, and point attachments)...');
         downloads.push(
-          this.downloadEFEDataWithSummary(serviceId, downloadSummary)
+          this.downloadEFEDataWithSummary(serviceId, downloadSummary).then(efeAttachments => {
+            // Collect EFE attachments for BACKGROUND image download (non-blocking)
+            collectedEfeAttachments = efeAttachments || [];
+          })
         );
       }
 
@@ -461,8 +463,16 @@ export class OfflineTemplateService {
 
       await Promise.all(downloads);
 
-      // Mark as fully downloaded
+      // Mark as fully downloaded - template is now READY for use
       await this.indexedDb.markTemplateDownloaded(serviceId, templateType);
+
+      // OPTIMIZATION: Start image downloads in BACKGROUND (non-blocking)
+      // Template is ready for use immediately, images will cache in background
+      const totalImages = collectedVisualAttachments.length + collectedEfeAttachments.length;
+      if (totalImages > 0) {
+        console.log(`    🖼️ Starting BACKGROUND image download for ${totalImages} images...`);
+        this.downloadImagesInBackground(collectedVisualAttachments, collectedEfeAttachments, serviceId);
+      }
 
       // Print final summary
       console.log('\n╔════════════════════════════════════════════════════════════════╗');
@@ -498,10 +508,12 @@ export class OfflineTemplateService {
    * Download and cache actual image files for offline viewing
    * Converts S3 images to base64 and stores in IndexedDB
    * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)
+   * 
+   * OPTIMIZATION: Uses batch cache check at start to avoid individual checks
    */
   private async downloadAndCacheImages(attachments: any[], serviceId: string): Promise<void> {
-    // INCREASED batch size for faster downloads - network can handle more parallel requests
-    const batchSize = 10;
+    // OPTIMIZATION: Increased batch size for faster downloads
+    const batchSize = 20;
     let successCount = 0;
     let failCount = 0;
     let skippedCount = 0;
@@ -512,29 +524,38 @@ export class OfflineTemplateService {
     console.log(`    🖼️ Starting image download (platform: ${isNative ? 'mobile' : 'web'}, count: ${attachments.length})`);
     console.log(`    📊 DB Status: version=${diagnostics.version}, cachedPhotosStore=${diagnostics.hasCachedPhotosStore}, existingPhotos=${diagnostics.cachedPhotosCount}`);
 
-    for (let i = 0; i < attachments.length; i += batchSize) {
-      const batch = attachments.slice(i, i + batchSize);
+    // OPTIMIZATION: Batch check all cached photo IDs upfront (single IndexedDB read)
+    const cachedPhotoIds = await this.indexedDb.getAllCachedPhotoIds();
+    
+    // Filter to only download images that aren't already cached
+    const toDownload = attachments.filter(attach => {
+      const attachId = String(attach.AttachID);
+      const s3Key = attach.Attachment;
+      
+      // Skip if no S3 key
+      if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
+        skippedCount++;
+        return false;
+      }
+      
+      // Skip if already cached
+      if (cachedPhotoIds.has(attachId)) {
+        skippedCount++;
+        return false;
+      }
+      
+      return true;
+    });
+    
+    console.log(`    📊 Batch cache check: ${skippedCount} already cached, ${toDownload.length} to download`);
+    
+    // Download only missing images in batches
+    for (let i = 0; i < toDownload.length; i += batchSize) {
+      const batch = toDownload.slice(i, i + batchSize);
       
       const batchPromises = batch.map(async (attach) => {
         const attachId = String(attach.AttachID);
         const s3Key = attach.Attachment;
-        
-        // Skip if no S3 key
-        if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
-          skippedCount++;
-          return;
-        }
-
-        // OPTIMIZATION: Check if already cached to avoid re-downloading
-        try {
-          const existingCache = await this.indexedDb.getCachedPhoto(attachId);
-          if (existingCache) {
-            skippedCount++;
-            return;
-          }
-        } catch (cacheCheckErr) {
-          // Ignore cache check errors, proceed with download
-        }
 
         try {
           // Get pre-signed URL
@@ -560,12 +581,50 @@ export class OfflineTemplateService {
       await Promise.all(batchPromises);
       
       // Progress update for large batches
-      if (attachments.length > 10) {
-        console.log(`    📊 Progress: ${Math.min(i + batchSize, attachments.length)}/${attachments.length} images (${successCount} new, ${skippedCount} cached, ${failCount} failed)`);
+      if (toDownload.length > 10) {
+        console.log(`    📊 Progress: ${Math.min(i + batchSize, toDownload.length)}/${toDownload.length} images (${successCount} new, ${failCount} failed)`);
       }
     }
 
     console.log(`    📸 Image caching complete: ${successCount} new, ${skippedCount} already cached, ${failCount} failed (platform: ${isNative ? 'mobile' : 'web'})`);
+  }
+
+  /**
+   * OPTIMIZATION: Download images in background (non-blocking)
+   * This allows the template to be "ready" immediately while images cache in background
+   * The user can start working on the template while images download
+   */
+  private downloadImagesInBackground(
+    visualAttachments: any[], 
+    efeAttachments: any[], 
+    serviceId: string
+  ): void {
+    // Don't await - run in background
+    const backgroundDownload = async () => {
+      try {
+        // Download visual images
+        if (visualAttachments.length > 0) {
+          console.log(`    🖼️ [BG] Downloading ${visualAttachments.length} visual images...`);
+          await this.downloadAndCacheImages(visualAttachments, serviceId);
+          console.log(`    ✅ [BG] Visual images cached`);
+        }
+        
+        // Download EFE images
+        if (efeAttachments.length > 0) {
+          console.log(`    🖼️ [BG] Downloading ${efeAttachments.length} EFE images...`);
+          await this.downloadAndCacheEFEImages(efeAttachments, serviceId);
+          console.log(`    ✅ [BG] EFE images cached`);
+        }
+        
+        console.log(`    ✅ [BG] All background image downloads complete`);
+      } catch (error) {
+        console.warn('    ⚠️ [BG] Background image download error:', error);
+        // Don't throw - this is background, don't affect user experience
+      }
+    };
+    
+    // Start in background (fire and forget)
+    backgroundDownload();
   }
 
   /**
@@ -624,8 +683,9 @@ export class OfflineTemplateService {
 
   /**
    * Download EFE data with summary tracking
+   * Returns collected attachments for background image download (non-blocking)
    */
-  private async downloadEFEDataWithSummary(serviceId: string, summary: any): Promise<void> {
+  private async downloadEFEDataWithSummary(serviceId: string, summary: any): Promise<any[]> {
     // Get all rooms for this service
     const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
     summary.efeRooms = rooms?.length || 0;
@@ -663,14 +723,16 @@ export class OfflineTemplateService {
       console.log('    ℹ️ No EFE rooms yet - new template (this is normal)');
     }
 
-    // Download attachments for all points
+    // Collect all EFE attachments for BACKGROUND image download (non-blocking)
+    const allEfeAttachments: any[] = [];
+
+    // Download attachment RECORDS for all points (but not images yet)
     if (allPointIds.length > 0) {
       console.log(`    📸 Caching attachments for ${allPointIds.length} points...`);
       
       // Fetch attachments in batches
-      const batchSize = 10;
+      const batchSize = 20; // OPTIMIZATION: Increased from 10
       let totalAttachments = 0;
-      const allEfeAttachments: any[] = [];
       
       for (let i = 0; i < allPointIds.length; i += batchSize) {
         const batch = allPointIds.slice(i, i + batchSize);
@@ -681,7 +743,7 @@ export class OfflineTemplateService {
               this.caspioService.getServicesEFEAttachments(pointId)
             );
             await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', attachments || []);
-            // Collect all attachments for image download
+            // Collect all attachments for BACKGROUND image download
             if (attachments && attachments.length > 0) {
               allEfeAttachments.push(...attachments);
             }
@@ -698,23 +760,22 @@ export class OfflineTemplateService {
       
       summary.efePointAttachments = totalAttachments;
       console.log(`    ✅ EFE Point Attachments: ${summary.efePointAttachments} attachment records cached`);
-      
-      // CRITICAL: Download and cache actual EFE images for offline viewing
-      if (allEfeAttachments.length > 0) {
-        console.log(`    🖼️ Downloading ${allEfeAttachments.length} EFE images for offline...`);
-        await this.downloadAndCacheEFEImages(allEfeAttachments, String(summary.efeRooms));
-        console.log(`    ✅ EFE images downloaded and cached`);
-      }
+      // NOTE: Image download moved to background (non-blocking) - handled by caller
     }
+    
+    // Return collected attachments for background image download
+    return allEfeAttachments;
   }
 
   /**
    * Download and cache EFE (Elevation Plot) images for offline viewing
    * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)
+   * 
+   * OPTIMIZATION: Uses batch cache check at start to avoid individual checks
    */
   private async downloadAndCacheEFEImages(attachments: any[], serviceId: string): Promise<void> {
-    // INCREASED batch size for faster downloads
-    const batchSize = 10;
+    // OPTIMIZATION: Increased batch size for faster downloads
+    const batchSize = 20;
     let successCount = 0;
     let failCount = 0;
     let skippedCount = 0;
@@ -722,29 +783,38 @@ export class OfflineTemplateService {
     
     console.log(`    🖼️ Starting EFE image download (platform: ${isNative ? 'mobile' : 'web'}, count: ${attachments.length})`);
 
-    for (let i = 0; i < attachments.length; i += batchSize) {
-      const batch = attachments.slice(i, i + batchSize);
+    // OPTIMIZATION: Batch check all cached photo IDs upfront (single IndexedDB read)
+    const cachedPhotoIds = await this.indexedDb.getAllCachedPhotoIds();
+    
+    // Filter to only download images that aren't already cached
+    const toDownload = attachments.filter(attach => {
+      const attachId = String(attach.AttachID || attach.PK_ID);
+      const s3Key = attach.Attachment;
+      
+      // Skip if no S3 key
+      if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
+        skippedCount++;
+        return false;
+      }
+      
+      // Skip if already cached
+      if (cachedPhotoIds.has(attachId)) {
+        skippedCount++;
+        return false;
+      }
+      
+      return true;
+    });
+    
+    console.log(`    📊 EFE batch cache check: ${skippedCount} already cached, ${toDownload.length} to download`);
+
+    // Download only missing images in batches
+    for (let i = 0; i < toDownload.length; i += batchSize) {
+      const batch = toDownload.slice(i, i + batchSize);
       
       const batchPromises = batch.map(async (attach) => {
         const attachId = String(attach.AttachID || attach.PK_ID);
         const s3Key = attach.Attachment;
-        
-        // Skip if no S3 key
-        if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
-          skippedCount++;
-          return;
-        }
-
-        // OPTIMIZATION: Check if already cached to avoid re-downloading
-        try {
-          const existingCache = await this.indexedDb.getCachedPhoto(attachId);
-          if (existingCache) {
-            skippedCount++;
-            return;
-          }
-        } catch (cacheCheckErr) {
-          // Ignore cache check errors, proceed with download
-        }
 
         try {
           // Get pre-signed URL
@@ -769,8 +839,8 @@ export class OfflineTemplateService {
       await Promise.all(batchPromises);
       
       // Progress update for large batches
-      if (attachments.length > 10) {
-        console.log(`    📊 EFE Progress: ${Math.min(i + batchSize, attachments.length)}/${attachments.length} (${successCount} new, ${skippedCount} cached, ${failCount} failed)`);
+      if (toDownload.length > 10) {
+        console.log(`    📊 EFE Progress: ${Math.min(i + batchSize, toDownload.length)}/${toDownload.length} (${successCount} new, ${failCount} failed)`);
       }
     }
 
@@ -891,36 +961,39 @@ export class OfflineTemplateService {
    * Check if template data is already downloaded
    * CRITICAL: Also verifies that actual data exists in cache (not just the download flag)
    * This prevents the case where download flag is set but cache was cleared
+   * 
+   * OPTIMIZATION: Uses parallel IndexedDB reads instead of sequential
    */
   async isTemplateReady(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE'): Promise<boolean> {
-    // First check the download flag
+    // First check the download flag (must be first - early exit)
     const hasDownloadFlag = await this.indexedDb.isTemplateDownloaded(serviceId, templateType);
     if (!hasDownloadFlag) {
       console.log(`[OfflineTemplate] isTemplateReady(${serviceId}, ${templateType}): No download flag`);
       return false;
     }
 
-    // CRITICAL: Verify actual data exists in cache
-    // If marked ready but data missing, force re-download
-    const visualTemplates = await this.indexedDb.getCachedTemplates('visual');
+    // OPTIMIZATION: Verify all data exists in PARALLEL (faster than sequential)
+    const [visualTemplates, efeTemplates, serviceRecord] = await Promise.all([
+      this.indexedDb.getCachedTemplates('visual'),
+      templateType === 'EFE' ? this.indexedDb.getCachedTemplates('efe') : Promise.resolve([1]), // Dummy array for non-EFE
+      this.indexedDb.getCachedServiceRecord(serviceId)
+    ]);
+
+    // Check visual templates
     if (!visualTemplates || visualTemplates.length === 0) {
       console.log(`[OfflineTemplate] isTemplateReady: Download flag set but visual templates missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
       return false;
     }
 
-    // For EFE template type, also verify EFE templates exist
-    if (templateType === 'EFE') {
-      const efeTemplates = await this.indexedDb.getCachedTemplates('efe');
-      if (!efeTemplates || efeTemplates.length === 0) {
-        console.log(`[OfflineTemplate] isTemplateReady: Download flag set but EFE templates missing - forcing re-download`);
-        await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
-        return false;
-      }
+    // Check EFE templates (only for EFE template type)
+    if (templateType === 'EFE' && (!efeTemplates || efeTemplates.length === 0)) {
+      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but EFE templates missing - forcing re-download`);
+      await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+      return false;
     }
 
-    // Verify service record exists
-    const serviceRecord = await this.indexedDb.getCachedServiceRecord(serviceId);
+    // Check service record
     if (!serviceRecord) {
       console.log(`[OfflineTemplate] isTemplateReady: Download flag set but service record missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
