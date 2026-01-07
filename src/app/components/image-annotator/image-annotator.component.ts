@@ -213,10 +213,6 @@ export class ImageAnnotatorComponent implements OnInit {
       }],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Add',
           handler: (data) => {
             if (data.text) {
@@ -234,6 +230,10 @@ export class ImageAnnotatorComponent implements OnInit {
               this.renderAnnotations();
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ]
     });

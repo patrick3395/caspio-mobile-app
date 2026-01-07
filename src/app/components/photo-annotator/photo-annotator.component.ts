@@ -1279,10 +1279,6 @@ export class PhotoAnnotatorComponent implements OnInit {
       ],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Save',
           handler: (data) => {
             if (data.caption !== undefined) {
@@ -1290,6 +1286,10 @@ export class PhotoAnnotatorComponent implements OnInit {
               // The caption will be included when saving the image
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ]
     });

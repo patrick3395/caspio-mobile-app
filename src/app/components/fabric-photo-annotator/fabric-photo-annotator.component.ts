@@ -1069,14 +1069,6 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         message: ' ', // Empty space to prevent Ionic from hiding the message area
         buttons: [
           {
-            text: 'Cancel',
-            role: 'cancel',
-            handler: () => {
-              this.isCaptionPopupOpen = false;
-              return true;
-            }
-          },
-          {
             text: 'Save',
             handler: () => {
               try {
@@ -1092,6 +1084,14 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
                 this.isCaptionPopupOpen = false;
                 return true; // Don't show error to user, just close
               }
+            }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              this.isCaptionPopupOpen = false;
+              return true;
             }
           }
         ]

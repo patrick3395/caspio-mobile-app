@@ -228,10 +228,6 @@ export class PhotoViewerComponent implements OnInit {
       ],
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Save',
           handler: (data) => {
             if (data.caption !== undefined) {
@@ -243,6 +239,10 @@ export class PhotoViewerComponent implements OnInit {
               });
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ]
     });
