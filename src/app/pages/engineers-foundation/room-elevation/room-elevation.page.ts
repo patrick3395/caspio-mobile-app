@@ -2415,14 +2415,20 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         // CRITICAL: Create blob URL for the annotated image (for display only)
         const newUrl = URL.createObjectURL(annotatedBlob);
 
-        // Update local state with IMMUTABLE pattern - EXACT from structural-systems
-        fdfPhotos[`${photoKey}Drawings`] = compressedDrawings;
-        fdfPhotos[`${photoKey}Caption`] = data.caption !== undefined ? data.caption : existingCaption;
-        fdfPhotos[`${photoKey}DisplayUrl`] = newUrl;
-        fdfPhotos[`${photoKey}HasAnnotations`] = !!annotationsData;
+        // CRITICAL FIX: Use TRUE IMMUTABLE pattern - replace entire fdfPhotos object
+        // This ensures Angular change detection properly sees the update
+        this.roomData.fdfPhotos = {
+          ...this.roomData.fdfPhotos,
+          [`${photoKey}Drawings`]: compressedDrawings,
+          [`${photoKey}Caption`]: data.caption !== undefined ? data.caption : existingCaption,
+          [`${photoKey}DisplayUrl`]: newUrl,
+          [`${photoKey}HasAnnotations`]: !!annotationsData
+        };
 
+        console.log('[FDF SAVE] ✅ Replaced fdfPhotos object with updated', photoKey, 'displayUrl');
         console.log('[FDF SAVE] Updated photo with compressed drawings, length:', compressedDrawings?.length || 0);
 
+        // Force UI update
         this.changeDetectorRef.detectChanges();
         // Toast removed per user request
         // await this.showToast('Annotation saved', 'success');
@@ -3107,14 +3113,38 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         // CRITICAL: Create blob URL for the annotated image (for display only)
         const newUrl = URL.createObjectURL(annotatedBlob);
 
-        // Update local state with IMMUTABLE pattern - EXACT from structural-systems
-        photo.drawings = savedCompressedDrawings;
-        photo.caption = data.caption !== undefined ? data.caption : existingCaption;
-        photo.displayUrl = newUrl;
-        photo.hasAnnotations = !!annotationsData;
+        // CRITICAL FIX: Use TRUE IMMUTABLE pattern - replace entire photo object in array
+        // This ensures Angular change detection properly sees the update
+        const photoIndex = point.photos.findIndex((p: any) => 
+          p.attachId === photo.attachId || 
+          p._tempId === photo._tempId ||
+          p._pendingFileId === photo._pendingFileId
+        );
+        
+        if (photoIndex >= 0) {
+          // Replace the entire photo object in the array (immutable update)
+          point.photos[photoIndex] = {
+            ...photo,
+            drawings: savedCompressedDrawings,
+            caption: data.caption !== undefined ? data.caption : existingCaption,
+            displayUrl: newUrl,
+            hasAnnotations: !!annotationsData,
+            Drawings: savedCompressedDrawings,
+            _localUpdate: true
+          };
+          console.log('[Point SAVE] ✅ Replaced photo object in array at index:', photoIndex);
+        } else {
+          // Fallback: mutate existing object
+          photo.drawings = savedCompressedDrawings;
+          photo.caption = data.caption !== undefined ? data.caption : existingCaption;
+          photo.displayUrl = newUrl;
+          photo.hasAnnotations = !!annotationsData;
+          console.log('[Point SAVE] ⚠️ Photo not found in array, mutated existing object');
+        }
 
         console.log('[Point SAVE] Updated photo with compressed drawings, length:', savedCompressedDrawings?.length || 0);
 
+        // Force UI update
         this.changeDetectorRef.detectChanges();
         // Toast removed per user request
         // await this.showToast('Annotation saved', 'success');
