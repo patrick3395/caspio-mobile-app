@@ -250,6 +250,37 @@ select.styled-input {
               background: #ffebee;
             }
           }
+
+          // Photo count badge - clickable button to expand/collapse photos
+          .photo-count-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: var(--noble-orange, #F15A27);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+
+            ion-icon {
+              font-size: 12px;
+              color: white;
+            }
+
+            &:hover {
+              background: #d94e1f;
+              transform: scale(1.02);
+            }
+
+            &:active {
+              transform: scale(0.98);
+            }
+          }
         }
       }
     }

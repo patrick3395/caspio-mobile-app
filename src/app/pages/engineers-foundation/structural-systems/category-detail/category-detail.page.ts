@@ -76,6 +76,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   loadingPhotosByKey: { [key: string]: boolean } = {};
   photoCountsByKey: { [key: string]: number } = {};
   pendingPhotoUploads: { [key: string]: any[] } = {};
+  
+  // Lazy image loading - photos only load when user clicks to expand
+  expandedPhotos: { [key: string]: boolean } = {};
   currentUploadContext: { category: string; itemId: string; action: string } | null = null;
   contextClearTimer: any = null;
   lockedScrollY: number = 0;
@@ -1232,8 +1235,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /**
-   * Load photos for all visuals in background - non-blocking
-   * CRITICAL: 200ms delay ensures restorePendingPhotosFromIndexedDB completes first
+   * LAZY LOADING: Only populate photo counts, don't load actual images
+   * Photos are loaded on-demand when user clicks to expand
    */
   private loadAllPhotosInBackground(visuals: any[]) {
     setTimeout(async () => {
@@ -1251,11 +1254,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         const key = `${visual.Category}_${item.id}`;
         
-        // Load photos - this updates the UI progressively
-        this.loadPhotosForVisual(visualId, key).catch(err => {
-          console.error('[PHOTOS BG] Error:', visualId, err);
-        });
+        // LAZY LOADING: Only calculate count from bulk-loaded data (no image loading)
+        const attachments = this.bulkAttachmentsMap.get(visualId) || [];
+        const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
+        this.photoCountsByKey[key] = attachments.length + pendingPhotos.length;
+        
+        // Photos will load when user clicks expand - NOT automatically
+        this.loadingPhotosByKey[key] = false;
       }
+      
+      this.changeDetectorRef.detectChanges();
     }, 200);  // 200ms delay to ensure pending photos are restored first
   }
 
@@ -2431,6 +2439,68 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const actualCount = (this.visualPhotos[key] || []).length;
     // Return the maximum to handle both initial load (shows expected) and new uploads (shows actual)
     return Math.max(expectedCount, actualCount);
+  }
+
+  // ===== LAZY IMAGE LOADING METHODS =====
+  
+  /**
+   * Check if photos are expanded for a visual
+   */
+  isPhotosExpanded(category: string, itemId: string | number): boolean {
+    const key = `${category}_${itemId}`;
+    return this.expandedPhotos[key] === true;
+  }
+
+  /**
+   * Toggle photos expansion - expands and loads photos on first click
+   */
+  togglePhotoExpansion(category: string, itemId: string | number): void {
+    const key = `${category}_${itemId}`;
+    
+    if (this.expandedPhotos[key]) {
+      // Collapse
+      this.expandedPhotos[key] = false;
+    } else {
+      // Expand and load photos if not already loaded
+      this.expandedPhotos[key] = true;
+      
+      // Only load photos if we haven't loaded them yet
+      const visualId = this.visualRecordIds[key];
+      if (visualId && (!this.visualPhotos[key] || this.visualPhotos[key].length === 0)) {
+        this.loadPhotosForVisual(visualId, key).catch(err => {
+          console.error('[EXPAND] Error loading photos:', err);
+        });
+      }
+    }
+    
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Expand photos for a visual
+   */
+  expandPhotos(category: string, itemId: string | number): void {
+    const key = `${category}_${itemId}`;
+    this.expandedPhotos[key] = true;
+    
+    // Load photos if not already loaded
+    const visualId = this.visualRecordIds[key];
+    if (visualId && (!this.visualPhotos[key] || this.visualPhotos[key].length === 0)) {
+      this.loadPhotosForVisual(visualId, key).catch(err => {
+        console.error('[EXPAND] Error loading photos:', err);
+      });
+    }
+    
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Collapse photos for a visual
+   */
+  collapsePhotos(category: string, itemId: string | number): void {
+    const key = `${category}_${itemId}`;
+    this.expandedPhotos[key] = false;
+    this.changeDetectorRef.detectChanges();
   }
 
   getSkeletonArray(category: string, itemId: string | number): any[] {

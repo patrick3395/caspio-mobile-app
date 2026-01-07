@@ -145,7 +145,7 @@
                   </h3>
                   <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                 </ion-label>
-                <!-- Camera and Gallery buttons below text -->
+                <!-- Camera, Gallery buttons, and Photo count badge -->
                 <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
                   <button class="camera-button-structural"
                           (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
@@ -159,13 +159,21 @@
                           style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
                     <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
                   </button>
+                  <!-- Photo count badge - click to expand/collapse -->
+                  <button *ngIf="getTotalPhotoCount(categoryName, item.id) > 0"
+                          class="photo-count-badge"
+                          (click)="togglePhotoExpansion(categoryName, item.id); $event.stopPropagation()"
+                          title="Click to view photos">
+                    {{ getTotalPhotoCount(categoryName, item.id) }} Photos
+                    <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
+                  </button>
                 </div>
               </div>
               <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end" style="margin-top: 8px;"></ion-spinner>
             </ion-item>
 
-            <!-- Image preview section below the item (only for text questions) -->
-            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
+            <!-- Image preview section - ONLY shows when expanded -->
+            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && isPhotosExpanded(categoryName, item.id)" style="position: relative;">
               <!-- Upload status indicator -->
               <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
                 <ion-spinner name="dots" color="primary"></ion-spinner>
@@ -213,11 +221,6 @@
                     </ng-container>
                   </div>
                 </ng-container>
-              </div>
-              <!-- Photo count badge in bottom right -->
-              <div *ngIf="getTotalPhotoCount(categoryName, item.id) > 0"
-                   style="position: absolute; bottom: 8px; right: 8px; background: #F15A27; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; z-index: 10;">
-                {{ getTotalPhotoCount(categoryName, item.id) }}
               </div>
             </div>
           </div>
@@ -334,7 +337,7 @@
                   </h3>
                   <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                 </ion-label>
-                <!-- Camera and Gallery buttons -->
+                <!-- Camera, Gallery buttons, and Photo count badge -->
                 <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
                   <button class="camera-button-structural"
                           (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
@@ -348,13 +351,21 @@
                           style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
                     <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
                   </button>
+                  <!-- Photo count badge - click to expand/collapse -->
+                  <button *ngIf="getTotalPhotoCount(categoryName, item.id) > 0"
+                          class="photo-count-badge"
+                          (click)="togglePhotoExpansion(categoryName, item.id); $event.stopPropagation()"
+                          title="Click to view photos">
+                    {{ getTotalPhotoCount(categoryName, item.id) }} Photos
+                    <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
+                  </button>
                 </div>
               </div>
               <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end" style="margin-top: 8px;"></ion-spinner>
             </ion-item>
 
-            <!-- Image preview section (Limitations) -->
-            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
+            <!-- Image preview section (Limitations) - ONLY shows when expanded -->
+            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && isPhotosExpanded(categoryName, item.id)" style="position: relative;">
               <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
                 <ion-spinner name="dots" color="primary"></ion-spinner>
                 <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
@@ -399,10 +410,6 @@
                     </ng-container>
                   </div>
                 </ng-container>
-              </div>
-              <div *ngIf="getTotalPhotoCount(categoryName, item.id) > 0"
-                   style="position: absolute; bottom: 8px; right: 8px; background: #F15A27; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; z-index: 10;">
-                {{ getTotalPhotoCount(categoryName, item.id) }}
               </div>
             </div>
           </div>
@@ -519,7 +526,7 @@
                   </h3>
                   <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                 </ion-label>
-                <!-- Camera and Gallery buttons -->
+                <!-- Camera, Gallery buttons, and Photo count badge -->
                 <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
                   <button class="camera-button-structural"
                           (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
@@ -533,13 +540,21 @@
                           style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
                     <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
                   </button>
+                  <!-- Photo count badge - click to expand/collapse -->
+                  <button *ngIf="getTotalPhotoCount(categoryName, item.id) > 0"
+                          class="photo-count-badge"
+                          (click)="togglePhotoExpansion(categoryName, item.id); $event.stopPropagation()"
+                          title="Click to view photos">
+                    {{ getTotalPhotoCount(categoryName, item.id) }} Photos
+                    <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
+                  </button>
                 </div>
               </div>
               <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end" style="margin-top: 8px;"></ion-spinner>
             </ion-item>
 
-            <!-- Image preview section (Deficiencies) -->
-            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
+            <!-- Image preview section (Deficiencies) - ONLY shows when expanded -->
+            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && isPhotosExpanded(categoryName, item.id)" style="position: relative;">
               <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
                 <ion-spinner name="dots" color="primary"></ion-spinner>
                 <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
@@ -584,10 +599,6 @@
                     </ng-container>
                   </div>
                 </ng-container>
-              </div>
-              <div *ngIf="getTotalPhotoCount(categoryName, item.id) > 0"
-                   style="position: absolute; bottom: 8px; right: 8px; background: #F15A27; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; z-index: 10;">
-                {{ getTotalPhotoCount(categoryName, item.id) }}
               </div>
             </div>
           </div>

@@ -67,6 +67,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   // Pre-loaded at room load to eliminate N+1 reads
   private bulkCachedPhotosMap: Map<string, string> = new Map();
   private bulkAnnotatedImagesMap: Map<string, string> = new Map();
+  
+  // Lazy image loading - photos only load when user clicks to expand a point
+  expandedPoints: { [pointId: string]: boolean } = {};
 
   // Convenience getters for template
   get fdfPhotos() {
@@ -3397,6 +3400,60 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
   trackByOption(index: number, option: string): any {
     return option;
+  }
+
+  // ===== LAZY IMAGE LOADING METHODS =====
+
+  /**
+   * Check if photos are expanded for a point
+   */
+  isPointPhotosExpanded(pointId: string): boolean {
+    return this.expandedPoints[pointId] === true;
+  }
+
+  /**
+   * Toggle photo expansion for a point - expands and loads photos on first click
+   */
+  togglePointPhotoExpansion(point: any): void {
+    const pointId = String(point.pointId || point.id);
+    
+    if (this.expandedPoints[pointId]) {
+      // Collapse
+      this.expandedPoints[pointId] = false;
+    } else {
+      // Expand - photos are already loaded inline, just show them
+      this.expandedPoints[pointId] = true;
+    }
+    
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Get photo count for a point (Measurement + Location)
+   */
+  getPointPhotoCount(point: any): number {
+    let count = 0;
+    if (this.getPointPhotoByType(point, 'Measurement')) count++;
+    if (this.getPointPhotoByType(point, 'Location')) count++;
+    return count;
+  }
+
+  /**
+   * Expand photos for a point
+   */
+  expandPointPhotos(point: any): void {
+    const pointId = String(point.pointId || point.id);
+    this.expandedPoints[pointId] = true;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Collapse photos for a point
+   */
+  collapsePointPhotos(point: any): void {
+    const pointId = String(point.pointId || point.id);
+    this.expandedPoints[pointId] = false;
+    this.changeDetectorRef.detectChanges();
   }
 
   /**
