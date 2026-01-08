@@ -3272,38 +3272,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 // Remove from cached ATTACHMENTS LIST in IndexedDB
                 await this.indexedDb.removeAttachmentFromCache(String(photo.attachId), 'efe_point_attachments');
 
-                // Delete from database (or queue for sync if offline)
+                // Delete from database - always queue to ensure reliable sync
                 if (!String(photo.attachId).startsWith('temp_')) {
-                  if (this.offlineService.isOnline()) {
-                    try {
-                      await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
-                      console.log('[Point Photo] Deleted from database:', photo.attachId);
-                    } catch (apiError) {
-                      console.warn('[Point Photo] API delete failed, queuing for sync:', apiError);
-                      await this.indexedDb.addPendingRequest({
-                        type: 'DELETE',
-                        endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
-                        method: 'DELETE',
-                        data: { attachId: photo.attachId },
-                        dependencies: [],
-                        status: 'pending',
-                        priority: 'high',
-                      });
-                      this.backgroundSync.triggerSync();
-                    }
-                  } else {
-                    console.log('[Point Photo] Offline - queuing delete for sync:', photo.attachId);
-                    await this.indexedDb.addPendingRequest({
-                      type: 'DELETE',
-                      endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
-                      method: 'DELETE',
-                      data: { attachId: photo.attachId },
-                      dependencies: [],
-                      status: 'pending',
-                      priority: 'high',
-                    });
-                    this.backgroundSync.triggerSync();
-                  }
+                  console.log('[Point Photo] Queuing delete for sync:', photo.attachId);
+                  await this.indexedDb.addPendingRequest({
+                    type: 'DELETE',
+                    endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+                    method: 'DELETE',
+                    data: { attachId: photo.attachId },
+                    dependencies: [],
+                    status: 'pending',
+                    priority: 'high',
+                  });
+                  this.backgroundSync.triggerSync();
                 }
                 
                 console.log('[Point Photo] Photo removed successfully');
