@@ -725,15 +725,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // Data is already cached by the container's template download
     // Only show loading for first-time fetches (no cache)
     try {
-      // ===== BULK PRE-LOAD: Load all cached photos and annotated images in ONE read each =====
-      const bulkLoadStart = Date.now();
-      const [cachedPhotos, annotatedImages] = await Promise.all([
-        this.indexedDb.getAllCachedPhotosForService(this.serviceId),
-        this.indexedDb.getAllCachedAnnotatedImagesForService()
-      ]);
-      this.bulkCachedPhotosMap = cachedPhotos;
-      this.bulkAnnotatedImagesMap = annotatedImages;
-      console.log(`[RoomElevation] Bulk pre-load: ${cachedPhotos.size} photos, ${annotatedImages.size} annotations in ${Date.now() - bulkLoadStart}ms`);
+      // FAST LOAD: Skip bulk photo cache loading - photos load on-demand when expanded
+      // This makes initial room load instant
+      this.bulkCachedPhotosMap.clear();
+      this.bulkAnnotatedImagesMap.clear();
 
       // Load room record from Services_EFE (reads from IndexedDB immediately)
       console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
@@ -1059,7 +1054,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const s3Key = photoData.Attachment || photoPath;
     
     try {
-      // ===== OPTIMIZED: Use bulk cache maps (O(1) lookup) instead of IndexedDB reads =====
+      // ===== ON-DEMAND: Load bulk caches if not already loaded =====
+      if (this.bulkCachedPhotosMap.size === 0 || this.bulkAnnotatedImagesMap.size === 0) {
+        const [cachedPhotos, annotatedImages] = await Promise.all([
+          this.indexedDb.getAllCachedPhotosForService(this.serviceId),
+          this.indexedDb.getAllCachedAnnotatedImagesForService()
+        ]);
+        this.bulkCachedPhotosMap = cachedPhotos;
+        this.bulkAnnotatedImagesMap = annotatedImages;
+        if (this.DEBUG) console.log(`[Point Photo] On-demand bulk load: ${cachedPhotos.size} photos, ${annotatedImages.size} annotations`);
+      }
       
       // Check for cached ANNOTATED image first (has drawings on it)
       const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
@@ -1363,10 +1367,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             // Load the actual image in background (non-blocking)
             // CRITICAL FIX: Always use loadPointPhotoImage which fetches as data URL and caches
             // This ensures fabric.js can use the image without CORS issues
+            // LAZY LOADING: Photo loaded on-demand when user expands point
             if (hasS3Key || hasPhotoPath) {
-              this.loadPointPhotoImage(attach.Photo || attach.Attachment, photoData).catch(err => {
-                console.error(`[RoomElevation]       âŒ Error loading photo:`, err);
-              });
+              photoData.needsLoad = true;
+              photoData.path = attach.Photo || attach.Attachment;
             }
           }
         }
@@ -1599,13 +1603,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
               customPointData.photos.push(photoData);
 
-              // Load the actual image in background (non-blocking)
-              // CRITICAL FIX: Always use loadPointPhotoImage which fetches as data URL and caches
-              // This ensures fabric.js can use the image without CORS issues
+              // LAZY LOADING: Photo loaded on-demand when user expands point
               if (hasS3Key || hasPhotoPath) {
-                this.loadPointPhotoImage(attach.Photo || attach.Attachment, photoData).catch(err => {
-                  console.error(`[RoomElevation]         âŒ Error loading photo:`, err);
-                });
+                photoData.needsLoad = true;
+                photoData.path = attach.Photo || attach.Attachment;
               }
             }
 
@@ -3421,8 +3422,26 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // Collapse
       this.expandedPoints[pointId] = false;
     } else {
-      // Expand - photos are already loaded inline, just show them
+      // Expand and load photos that haven't been loaded yet
       this.expandedPoints[pointId] = true;
+      
+      // LAZY LOADING: Load photos on-demand when expanded
+      if (point.photos && point.photos.length > 0) {
+        for (const photo of point.photos) {
+          if (photo.needsLoad && photo.path) {
+            photo.loading = true;
+            this.loadPointPhotoImage(photo.path, photo).then(() => {
+              photo.needsLoad = false;
+              photo.loading = false;
+              this.changeDetectorRef.detectChanges();
+            }).catch(err => {
+              console.warn('[RoomElevation] Failed to load photo on expand:', err);
+              photo.loading = false;
+              this.changeDetectorRef.detectChanges();
+            });
+          }
+        }
+      }
     }
     
     this.changeDetectorRef.detectChanges();

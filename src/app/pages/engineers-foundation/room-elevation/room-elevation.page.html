@@ -278,7 +278,7 @@
                         class="photo-count-badge"
                         (click)="togglePointPhotoExpansion(point); $event.stopPropagation()"
                         title="Click to view photos">
-                  {{ getPointPhotoCount(point) }} Photos
+                  {{ getPointPhotoCount(point) }}
                   <ion-icon [name]="isPointPhotosExpanded(point.pointId || point.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
                 </button>
                 <button class="edit-point-btn"
