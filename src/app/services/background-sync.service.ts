@@ -589,9 +589,10 @@ export class BackgroundSyncService {
         await this.indexedDb.updateCaptionStatus(caption.captionId, 'syncing');
         
         // Check if attachId is still a temp ID
-        let resolvedAttachId = caption.attachId;
-        if (caption.attachId.startsWith('temp_')) {
-          const realId = await this.indexedDb.getRealId(caption.attachId);
+        const attachIdStr = String(caption.attachId || '');
+        let resolvedAttachId = attachIdStr;
+        if (attachIdStr.startsWith('temp_')) {
+          const realId = await this.indexedDb.getRealId(attachIdStr);
           if (!realId) {
             console.log(`[BackgroundSync] Caption ${caption.captionId} waiting for photo sync (${caption.attachId})`);
             await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending');

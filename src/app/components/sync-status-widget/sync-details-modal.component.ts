@@ -641,7 +641,8 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     const staleIndicator = isStale ? ' ⚠️' : '';
     
     // Show if waiting for temp ID resolution
-    const hasTempId = caption.attachId && caption.attachId.startsWith('temp_');
+    const attachIdStr = String(caption.attachId || '');
+    const hasTempId = attachIdStr.startsWith('temp_');
     const waitingIndicator = hasTempId ? ' (waiting for photo)' : '';
     
     if (hasCaption && hasDrawings) {
