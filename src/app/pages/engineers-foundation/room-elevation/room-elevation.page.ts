@@ -1099,16 +1099,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const s3Key = photoData.Attachment || photoPath;
     
     try {
-      // ===== ON-DEMAND: Load bulk caches if not already loaded =====
-      if (this.bulkCachedPhotosMap.size === 0 || this.bulkAnnotatedImagesMap.size === 0) {
-        const [cachedPhotos, annotatedImages] = await Promise.all([
-          this.indexedDb.getAllCachedPhotosForService(this.serviceId),
-          this.indexedDb.getAllCachedAnnotatedImagesForService()
-        ]);
-        this.bulkCachedPhotosMap = cachedPhotos;
-        this.bulkAnnotatedImagesMap = annotatedImages;
-        if (this.DEBUG) console.log(`[Point Photo] On-demand bulk load: ${cachedPhotos.size} photos, ${annotatedImages.size} annotations`);
-      }
+      // Wait for bulk cache to be ready before checking maps
+      await this.cacheLoadPromise;
       
       // Check for cached ANNOTATED image first (has drawings on it)
       const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
