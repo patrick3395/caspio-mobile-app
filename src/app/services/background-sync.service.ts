@@ -634,9 +634,19 @@ export class BackgroundSyncService {
         
         // Perform the API update
         console.log(`[BackgroundSync] Syncing caption for ${caption.attachType} AttachID=${resolvedAttachId}`);
-        await this.apiGateway.put(endpoint, updateData).toPromise();
+        const response: any = await this.apiGateway.put(endpoint, updateData).toPromise();
         
-        console.log(`[BackgroundSync] ✅ Caption synced: ${caption.captionId}`);
+        // CRITICAL: Verify that records were actually updated
+        // Caspio returns 200 OK with RecordsAffected:0 if no matching record exists
+        const recordsAffected = response?.RecordsAffected ?? response?.recordsAffected ?? 1;
+        if (recordsAffected === 0) {
+          console.warn(`[BackgroundSync] ⚠️ Caption sync returned 0 records affected - attachment may not exist yet: ${resolvedAttachId}`);
+          // Set back to pending for retry - the attachment record might not be created yet
+          await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending');
+          continue;
+        }
+        
+        console.log(`[BackgroundSync] ✅ Caption synced: ${caption.captionId} (${recordsAffected} record(s) updated)`);
         
         // CRITICAL: Update the synced cache with caption/drawings data
         // This ensures the cache has correct data for future page loads
