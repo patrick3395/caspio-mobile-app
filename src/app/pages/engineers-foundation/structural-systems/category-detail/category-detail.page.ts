@@ -101,6 +101,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Track if initial load is complete (for ionViewWillEnter)
   private initialLoadComplete: boolean = false;
   
+  // Track last loaded IDs to detect when navigation requires fresh data
+  private lastLoadedServiceId: string = '';
+  private lastLoadedCategoryName: string = '';
+  
   // Track if background photo loading is in progress (to stabilize accordion state)
   private isLoadingPhotosInBackground = false;
   // Store accordion state during background operations to prevent state reset
@@ -221,13 +225,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const hasDataInMemory = Object.keys(this.visualPhotos).length > 0;
     const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
     
-    console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}`);
+    // CRITICAL: Check if service/category has changed (navigating from project details to different template)
+    const serviceOrCategoryChanged = this.lastLoadedServiceId !== this.serviceId || 
+                                      this.lastLoadedCategoryName !== this.categoryName;
+    
+    console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}, changed: ${serviceOrCategoryChanged}`);
     
     // ALWAYS reload if:
     // 1. First load (no data in memory)
     // 2. Section is marked dirty (data changed while away)
-    if (!hasDataInMemory || isDirty) {
-      console.log('[CategoryDetail] Reloading data - section dirty or no data in memory');
+    // 3. Service or category has changed (navigating from project details)
+    if (!hasDataInMemory || isDirty || serviceOrCategoryChanged) {
+      console.log('[CategoryDetail] Reloading data - section dirty, no data, or context changed');
       await this.loadData();
       this.backgroundSync.clearSectionDirty(sectionKey);
     } else {
@@ -946,6 +955,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.loading = false;
       this.changeDetectorRef.detectChanges();
     }
+    
+    // Track last loaded IDs to detect context changes on re-entry
+    this.lastLoadedServiceId = this.serviceId;
+    this.lastLoadedCategoryName = this.categoryName;
     
     console.log('[LOAD DATA] ========== loadData END ==========');
   }

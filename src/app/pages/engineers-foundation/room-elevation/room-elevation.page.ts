@@ -62,6 +62,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private isReloadingAfterSync = false;
   private localOperationCooldown = false;
   private initialLoadComplete: boolean = false;  // Track if initial load is complete
+  
+  // Track last loaded IDs to detect when navigation requires fresh data
+  private lastLoadedRoomId: string = '';
 
   // ===== BULK CACHED DATA (ONE IndexedDB read per type) =====
   // Pre-loaded at room load to eliminate N+1 reads
@@ -519,13 +522,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const hasDataInMemory = this.roomData && (this.roomData.elevationPoints?.length > 0 || this.roomData.fdfPhotos);
     const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
     
-    console.log(`[RoomElevation] ionViewWillEnter - hasData: ${!!hasDataInMemory}, isDirty: ${isDirty}`);
+    // CRITICAL: Check if room has changed (navigating from project details to different room)
+    const roomChanged = this.lastLoadedRoomId !== this.roomId;
+    
+    console.log(`[RoomElevation] ionViewWillEnter - hasData: ${!!hasDataInMemory}, isDirty: ${isDirty}, roomChanged: ${roomChanged}`);
     
     // ALWAYS reload if:
     // 1. First load (no data in memory)
     // 2. Section is marked dirty (data changed while away)
-    if (!hasDataInMemory || isDirty) {
-      console.log('[RoomElevation] Reloading data - section dirty or no data in memory');
+    // 3. Room has changed (navigating from project details)
+    if (!hasDataInMemory || isDirty || roomChanged) {
+      console.log('[RoomElevation] Reloading data - section dirty, no data, or room changed');
       await this.loadRoomData();
       this.backgroundSync.clearSectionDirty(sectionKey);
     } else {
@@ -807,6 +814,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // Toast removed per user request
       // await this.showToast('Failed to load room data', 'danger');
     }
+    
+    // Track last loaded room ID to detect context changes on re-entry
+    this.lastLoadedRoomId = this.roomId;
+    
     // OFFLINE-FIRST: No loading spinner management needed - data from IndexedDB is instant
   }
 
