@@ -100,6 +100,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   
   // Track if initial load is complete (for ionViewWillEnter)
   private initialLoadComplete: boolean = false;
+  
+  // Track if background photo loading is in progress (to stabilize accordion state)
+  private isLoadingPhotosInBackground = false;
+  // Store accordion state during background operations to prevent state reset
+  private preservedAccordionState: string[] | null = null;
 
   // ===== BULK CACHED DATA (ONE IndexedDB read per type) =====
   // These are pre-loaded once at section load to eliminate N+1 reads
@@ -1244,6 +1249,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * Photos are loaded on-demand when user clicks to expand
    */
   private loadAllPhotosInBackground(visuals: any[]) {
+    // Preserve accordion state before background loading starts
+    this.isLoadingPhotosInBackground = true;
+    this.preservedAccordionState = [...this.expandedAccordions];
+    
     setTimeout(async () => {
       for (const visual of visuals) {
         if (visual.Category !== this.categoryName) continue;
@@ -1268,6 +1277,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.loadingPhotosByKey[key] = false;
       }
       
+      // Restore preserved accordion state before triggering change detection
+      if (this.preservedAccordionState) {
+        this.expandedAccordions = [...this.preservedAccordionState];
+      }
+      
+      this.isLoadingPhotosInBackground = false;
+      this.preservedAccordionState = null;
       this.changeDetectorRef.detectChanges();
     }, 200);  // 200ms delay to ensure pending photos are restored first
   }
@@ -2429,13 +2445,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return this.photoCountsByKey[key] || 0;
   }
 
-  // Get total photo count to display (shows expected count immediately, updates if more photos added)
+  // Get total photo count to display (shows expected count while loading, actual count after)
   getTotalPhotoCount(category: string, itemId: string | number): number {
     const key = `${category}_${itemId}`;
-    const expectedCount = this.photoCountsByKey[key] || 0;
     const actualCount = (this.visualPhotos[key] || []).length;
-    // Return the maximum to handle both initial load (shows expected) and new uploads (shows actual)
-    return Math.max(expectedCount, actualCount);
+    
+    // While loading, show expected count; after loading, show actual
+    if (this.loadingPhotosByKey[key]) {
+      const expectedCount = this.photoCountsByKey[key] || 0;
+      return Math.max(expectedCount, actualCount);
+    }
+    
+    // After loading completes, only show actual loaded photos
+    // This ensures the badge matches what's displayed
+    return actualCount;
   }
 
   // ===== LAZY IMAGE LOADING METHODS =====
@@ -4790,6 +4813,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     } else {
       this.expandedAccordions = [...this.expandedAccordions, section];
     }
+    
+    // If background loading is in progress, also update the preserved state
+    // This ensures user's toggle actions are respected when background loading completes
+    if (this.isLoadingPhotosInBackground && this.preservedAccordionState) {
+      this.preservedAccordionState = [...this.expandedAccordions];
+    }
+    
     this.changeDetectorRef.detectChanges();
   }
 
