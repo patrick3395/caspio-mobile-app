@@ -251,6 +251,10 @@ export class BackgroundSyncService {
     this.updateSyncStatus({ isSyncing: true });
 
     try {
+      // Reset any stuck 'syncing' requests before processing
+      // This handles cases where sync was interrupted (navigation, network issues, etc.)
+      await this.resetStuckSyncingRequests();
+      
       await this.syncPendingRequests();
       // CRITICAL: Process pending caption updates independently from photo uploads
       await this.syncPendingCaptions();
