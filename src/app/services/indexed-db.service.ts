@@ -3258,6 +3258,92 @@ export class IndexedDbService {
   }
 
   /**
+   * Clean up orphaned captions - captions with temp IDs whose photos no longer exist
+   * An orphaned caption has a temp attachId but:
+   * 1. No corresponding pending image exists
+   * 2. No real ID mapping exists (photo never synced)
+   * This typically happens when a photo is deleted before syncing
+   */
+  async cleanupOrphanedCaptions(): Promise<number> {
+    const db = await this.ensureDb();
+    let deletedCount = 0;
+
+    try {
+      // Get all captions with temp IDs
+      const allCaptions = await this.getAllPendingCaptions();
+      const tempIdCaptions = allCaptions.filter(c => 
+        String(c.attachId || '').startsWith('temp_')
+      );
+
+      if (tempIdCaptions.length === 0) {
+        return 0;
+      }
+
+      console.log(`[IndexedDB] Checking ${tempIdCaptions.length} captions with temp IDs for orphans...`);
+
+      // Get all pending images to check which temp IDs still have photos
+      const pendingImagesMap = new Set<string>();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(['pendingImages'], 'readonly');
+        const store = tx.objectStore('pendingImages');
+        const getAllRequest = store.getAll();
+        
+        getAllRequest.onsuccess = () => {
+          const images = getAllRequest.result || [];
+          images.forEach((img: any) => {
+            if (img.imageId) {
+              pendingImagesMap.add(String(img.imageId));
+            }
+          });
+          resolve();
+        };
+        getAllRequest.onerror = () => reject(getAllRequest.error);
+      });
+
+      // Check each temp ID caption
+      for (const caption of tempIdCaptions) {
+        const tempId = String(caption.attachId);
+        
+        // Check if pending image exists
+        if (pendingImagesMap.has(tempId)) {
+          continue; // Photo still pending, not orphaned
+        }
+
+        // Check if real ID mapping exists
+        const realId = await this.getRealId(tempId);
+        if (realId) {
+          // Update the caption's attachId to the real ID instead of deleting
+          caption.attachId = realId;
+          caption.updatedAt = Date.now();
+          await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(['pendingCaptions'], 'readwrite');
+            const store = tx.objectStore('pendingCaptions');
+            const putRequest = store.put(caption);
+            putRequest.onsuccess = () => resolve();
+            putRequest.onerror = () => reject(putRequest.error);
+          });
+          console.log(`[IndexedDB] Updated orphaned caption ${caption.captionId} with real ID: ${tempId} → ${realId}`);
+          continue;
+        }
+
+        // No pending image AND no real ID mapping - this caption is orphaned
+        console.log(`[IndexedDB] Deleting orphaned caption ${caption.captionId} (temp ID: ${tempId} has no photo)`);
+        await this.deletePendingCaption(caption.captionId);
+        deletedCount++;
+      }
+
+      if (deletedCount > 0) {
+        console.log(`[IndexedDB] ✅ Cleaned up ${deletedCount} orphaned captions`);
+      }
+
+      return deletedCount;
+    } catch (error) {
+      console.error('[IndexedDB] Error cleaning up orphaned captions:', error);
+      return deletedCount;
+    }
+  }
+
+  /**
    * Update attachId for pending captions when a temp ID is resolved to a real ID
    * This is called after photo sync completes to update any pending caption updates
    */

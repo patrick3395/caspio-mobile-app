@@ -579,6 +579,9 @@ export class BackgroundSyncService {
    * This ensures caption changes are never lost due to race conditions
    */
   private async syncPendingCaptions(): Promise<void> {
+    // Clean up orphaned captions first (temp IDs with no pending image)
+    await this.indexedDb.cleanupOrphanedCaptions();
+    
     const pendingCaptions = await this.indexedDb.getPendingCaptions();
     
     if (pendingCaptions.length === 0) {
