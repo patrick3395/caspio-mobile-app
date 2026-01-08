@@ -70,6 +70,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   // Pre-loaded at room load to eliminate N+1 reads
   private bulkCachedPhotosMap: Map<string, string> = new Map();
   private bulkAnnotatedImagesMap: Map<string, string> = new Map();
+  private cacheLoadPromise: Promise<void> = Promise.resolve();
   
   // Lazy image loading - photos only load when user clicks to expand a point
   expandedPoints: { [pointId: string]: boolean } = {};
@@ -739,8 +740,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // Data is already cached by the container's template download
     // Only show loading for first-time fetches (no cache)
     try {
-      // Pre-load photo caches BEFORE loading photos for fast cache hits
-      await this.preloadPhotoCaches();
+      // Pre-load photo caches in parallel (non-blocking for room data)
+      // Photo loading will await this promise before checking caches
+      this.cacheLoadPromise = this.preloadPhotoCaches();
 
       // Load room record from Services_EFE (reads from IndexedDB immediately)
       console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
@@ -1013,6 +1015,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     console.log(`[FDF Photo] Loading ${photoKey} image, isS3Key: ${isS3Key}, path: ${photoPathOrS3Key?.substring(0, 50)}`);
     
     try {
+      // Wait for bulk cache to be ready before checking maps
+      await this.cacheLoadPromise;
+      
       // OPTIMIZED: Use bulk cache maps for O(1) lookup (preloaded before this runs)
       // Check for cached ANNOTATED image first (has drawings on it)
       const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(cacheId);
