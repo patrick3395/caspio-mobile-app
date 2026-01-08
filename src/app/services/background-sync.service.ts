@@ -1315,71 +1315,150 @@ export class BackgroundSyncService {
     }
   ): Promise<void> {
     try {
-      if (caption.attachType === 'visual' && caption.visualId) {
-        const cached = await this.indexedDb.getCachedServiceData(
-          caption.visualId, 'visual_attachments'
-        ) || [];
-        
+      if (caption.attachType === 'visual') {
         let foundInCache = false;
-        const updated = cached.map((att: any) => {
-          if (String(att.AttachID) === String(caption.attachId)) {
-            foundInCache = true;
-            const updatedAtt = { ...att, _syncedAt: Date.now() };
-            // Remove _localUpdate flag since data is now synced
-            delete updatedAtt._localUpdate;
-            delete updatedAtt._updatedAt;
-            // Apply the synced caption/drawings data
-            if (caption.caption !== undefined) {
-              updatedAtt.Annotation = caption.caption;
-            }
-            if (caption.drawings !== undefined) {
-              updatedAtt.Drawings = caption.drawings;
-            }
-            return updatedAtt;
-          }
-          return att;
-        });
         
-        if (foundInCache) {
-          await this.indexedDb.cacheServiceData(
-            caption.visualId, 'visual_attachments', updated
-          );
-          console.log(`[BackgroundSync] ✅ Updated synced cache with caption for visual attachment ${caption.attachId}`);
-        } else {
-          console.log(`[BackgroundSync] ⚠️ Attachment ${caption.attachId} not in cache - will be loaded on next page visit`);
+        // PRIMARY PATH: Use visualId if available (fast, O(1) lookup)
+        if (caption.visualId) {
+          const cached = await this.indexedDb.getCachedServiceData(
+            caption.visualId, 'visual_attachments'
+          ) || [];
+          
+          const updated = cached.map((att: any) => {
+            if (String(att.AttachID) === String(caption.attachId)) {
+              foundInCache = true;
+              const updatedAtt = { ...att, _syncedAt: Date.now() };
+              delete updatedAtt._localUpdate;
+              delete updatedAtt._updatedAt;
+              if (caption.caption !== undefined) {
+                updatedAtt.Annotation = caption.caption;
+              }
+              if (caption.drawings !== undefined) {
+                updatedAtt.Drawings = caption.drawings;
+              }
+              return updatedAtt;
+            }
+            return att;
+          });
+          
+          if (foundInCache) {
+            await this.indexedDb.cacheServiceData(
+              caption.visualId, 'visual_attachments', updated
+            );
+            console.log(`[BackgroundSync] ✅ Updated synced cache with caption for visual attachment ${caption.attachId}`);
+          }
         }
-      } else if (caption.attachType === 'efe_point' && caption.pointId) {
-        const cached = await this.indexedDb.getCachedServiceData(
-          caption.pointId, 'efe_point_attachments'
-        ) || [];
         
-        let foundInCache = false;
-        const updated = cached.map((att: any) => {
-          if (String(att.AttachID) === String(caption.attachId)) {
-            foundInCache = true;
-            const updatedAtt = { ...att, _syncedAt: Date.now() };
-            // Remove _localUpdate flag since data is now synced
-            delete updatedAtt._localUpdate;
-            delete updatedAtt._updatedAt;
-            // Apply the synced caption/drawings data
-            if (caption.caption !== undefined) {
-              updatedAtt.Annotation = caption.caption;
+        // FALLBACK PATH: Search all visual_attachments caches when visualId is missing
+        // This handles the case where visualId wasn't available when caption was queued
+        if (!foundInCache && caption.serviceId) {
+          console.log(`[BackgroundSync] 🔍 Searching all caches for attachment ${caption.attachId} (visualId was missing)`);
+          const allCaches = await this.indexedDb.getAllCachedServiceData('visual_attachments');
+          
+          for (const cache of allCaches) {
+            const attachments = cache.data || [];
+            let foundInThisCache = false;
+            
+            const updatedAttachments = attachments.map((att: any) => {
+              if (String(att.AttachID) === String(caption.attachId)) {
+                foundInThisCache = true;
+                foundInCache = true;
+                const updatedAtt = { ...att, _syncedAt: Date.now() };
+                delete updatedAtt._localUpdate;
+                delete updatedAtt._updatedAt;
+                if (caption.caption !== undefined) {
+                  updatedAtt.Annotation = caption.caption;
+                }
+                if (caption.drawings !== undefined) {
+                  updatedAtt.Drawings = caption.drawings;
+                }
+                return updatedAtt;
+              }
+              return att;
+            });
+            
+            if (foundInThisCache) {
+              await this.indexedDb.cacheServiceData(cache.serviceId, 'visual_attachments', updatedAttachments);
+              console.log(`[BackgroundSync] ✅ Found and updated attachment ${caption.attachId} in cache ${cache.serviceId} (fallback search)`);
+              break; // Found it, no need to continue searching
             }
-            if (caption.drawings !== undefined) {
-              updatedAtt.Drawings = caption.drawings;
-            }
-            return updatedAtt;
           }
-          return att;
-        });
+        }
         
-        if (foundInCache) {
-          await this.indexedDb.cacheServiceData(
-            caption.pointId, 'efe_point_attachments', updated
-          );
-          console.log(`[BackgroundSync] ✅ Updated synced cache with caption for EFE point attachment ${caption.attachId}`);
-        } else {
-          console.log(`[BackgroundSync] ⚠️ EFE Attachment ${caption.attachId} not in cache - will be loaded on next page visit`);
+        if (!foundInCache) {
+          console.log(`[BackgroundSync] ⚠️ Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
+        }
+      } else if (caption.attachType === 'efe_point') {
+        let foundInCache = false;
+        
+        // PRIMARY PATH: Use pointId if available (fast, O(1) lookup)
+        if (caption.pointId) {
+          const cached = await this.indexedDb.getCachedServiceData(
+            caption.pointId, 'efe_point_attachments'
+          ) || [];
+          
+          const updated = cached.map((att: any) => {
+            if (String(att.AttachID) === String(caption.attachId)) {
+              foundInCache = true;
+              const updatedAtt = { ...att, _syncedAt: Date.now() };
+              delete updatedAtt._localUpdate;
+              delete updatedAtt._updatedAt;
+              if (caption.caption !== undefined) {
+                updatedAtt.Annotation = caption.caption;
+              }
+              if (caption.drawings !== undefined) {
+                updatedAtt.Drawings = caption.drawings;
+              }
+              return updatedAtt;
+            }
+            return att;
+          });
+          
+          if (foundInCache) {
+            await this.indexedDb.cacheServiceData(
+              caption.pointId, 'efe_point_attachments', updated
+            );
+            console.log(`[BackgroundSync] ✅ Updated synced cache with caption for EFE point attachment ${caption.attachId}`);
+          }
+        }
+        
+        // FALLBACK PATH: Search all efe_point_attachments caches when pointId is missing
+        if (!foundInCache && caption.serviceId) {
+          console.log(`[BackgroundSync] 🔍 Searching all EFE caches for attachment ${caption.attachId} (pointId was missing)`);
+          const allCaches = await this.indexedDb.getAllCachedServiceData('efe_point_attachments');
+          
+          for (const cache of allCaches) {
+            const attachments = cache.data || [];
+            let foundInThisCache = false;
+            
+            const updatedAttachments = attachments.map((att: any) => {
+              if (String(att.AttachID) === String(caption.attachId)) {
+                foundInThisCache = true;
+                foundInCache = true;
+                const updatedAtt = { ...att, _syncedAt: Date.now() };
+                delete updatedAtt._localUpdate;
+                delete updatedAtt._updatedAt;
+                if (caption.caption !== undefined) {
+                  updatedAtt.Annotation = caption.caption;
+                }
+                if (caption.drawings !== undefined) {
+                  updatedAtt.Drawings = caption.drawings;
+                }
+                return updatedAtt;
+              }
+              return att;
+            });
+            
+            if (foundInThisCache) {
+              await this.indexedDb.cacheServiceData(cache.serviceId, 'efe_point_attachments', updatedAttachments);
+              console.log(`[BackgroundSync] ✅ Found and updated EFE attachment ${caption.attachId} in cache ${cache.serviceId} (fallback search)`);
+              break;
+            }
+          }
+        }
+        
+        if (!foundInCache) {
+          console.log(`[BackgroundSync] ⚠️ EFE Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
         }
       }
       // FDF type is handled differently (stored in room record, not attachments)
