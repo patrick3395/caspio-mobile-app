@@ -2445,20 +2445,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return this.photoCountsByKey[key] || 0;
   }
 
-  // Get total photo count to display (shows expected count while loading, actual count after)
+  // Get total photo count to display (shows expected count immediately, updates if more photos added)
   getTotalPhotoCount(category: string, itemId: string | number): number {
     const key = `${category}_${itemId}`;
+    const expectedCount = this.photoCountsByKey[key] || 0;
     const actualCount = (this.visualPhotos[key] || []).length;
-    
-    // While loading, show expected count; after loading, show actual
-    if (this.loadingPhotosByKey[key]) {
-      const expectedCount = this.photoCountsByKey[key] || 0;
-      return Math.max(expectedCount, actualCount);
-    }
-    
-    // After loading completes, only show actual loaded photos
-    // This ensures the badge matches what's displayed
-    return actualCount;
+    // Return the maximum to handle both initial load (shows expected) and new uploads (shows actual)
+    return Math.max(expectedCount, actualCount);
   }
 
   // ===== LAZY IMAGE LOADING METHODS =====

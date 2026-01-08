@@ -3449,15 +3449,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
   /**
    * Get photo count for a point (Measurement + Location)
-   * Only counts photos that have valid URLs to ensure badge matches displayed images
    */
   getPointPhotoCount(point: any): number {
-    if (!point.photos) return 0;
-    
-    // Count photos that have valid URLs (can actually be displayed)
-    return point.photos.filter((p: any) => 
-      p && (p.url || p.displayUrl || p.thumbnailUrl)
-    ).length;
+    let count = 0;
+    if (this.getPointPhotoByType(point, 'Measurement')) count++;
+    if (this.getPointPhotoByType(point, 'Location')) count++;
+    return count;
   }
 
   /**
