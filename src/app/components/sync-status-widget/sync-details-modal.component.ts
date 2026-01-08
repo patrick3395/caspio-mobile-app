@@ -103,6 +103,10 @@ import { Subscription, merge } from 'rxjs';
             <ion-icon name="trash-outline" slot="start"></ion-icon>
             Clear Stuck ({{ stuckCount }})
           </ion-button>
+          <ion-button expand="block" fill="outline" color="warning" (click)="clearAllPending()" [disabled]="syncStatus.isSyncing || totalPendingCount === 0">
+            <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+            Clear All Pending ({{ totalPendingCount }})
+          </ion-button>
           <ion-button expand="block" fill="outline" (click)="refreshDetails()">
             <ion-icon name="refresh" slot="start"></ion-icon>
             Refresh
@@ -323,6 +327,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   failedRequests: any[] = [];
   pendingCaptions: PendingCaptionUpdate[] = [];
   stuckCount: number = 0;
+  totalPendingCount: number = 0;
 
   private subscription?: Subscription;
   private syncEventsSub?: Subscription;
@@ -413,6 +418,9 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       // Load pending captions
       this.pendingCaptions = await this.indexedDb.getPendingCaptions();
       
+      // Calculate total pending count (for Clear All button)
+      this.totalPendingCount = this.pendingRequests.length + this.pendingCaptions.length + this.failedRequests.length;
+      
       // Calculate stuck count (pending for over 30 minutes with high retry count)
       // Lower threshold would flag items that are just waiting for exponential backoff retry
       const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
@@ -429,6 +437,15 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('[SyncModal] Error loading details:', error);
     }
+  }
+
+  async clearAllPending() {
+    console.log('[SyncModal] Clearing ALL pending sync items...');
+    const result = await this.indexedDb.clearAllPendingSync();
+    console.log(`[SyncModal] Cleared: ${result.requests} requests, ${result.captions} captions, ${result.images} images`);
+    
+    // Refresh the list immediately
+    await this.refreshDetails();
   }
 
   getRequestIcon(request: any): string {

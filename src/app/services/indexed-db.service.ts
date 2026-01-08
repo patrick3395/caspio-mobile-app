@@ -1485,7 +1485,17 @@ export class IndexedDbService {
     const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
-      const storeNames = ['pendingRequests', 'tempIdMappings', 'pendingImages', 'cachedTemplates', 'cachedServiceData', 'pendingEFEData', 'cachedPhotos'];
+      // CRITICAL: Include ALL object stores to ensure complete data clear
+      const storeNames = [
+        'pendingRequests', 
+        'tempIdMappings', 
+        'pendingImages', 
+        'cachedTemplates', 
+        'cachedServiceData', 
+        'pendingEFEData', 
+        'cachedPhotos',
+        'pendingCaptions'  // Added - was missing, causing stale sync items
+      ];
       const existingStores = storeNames.filter(name => db.objectStoreNames.contains(name));
 
       const transaction = db.transaction(existingStores, 'readwrite');
@@ -1495,7 +1505,7 @@ export class IndexedDbService {
       });
 
       transaction.oncomplete = () => {
-        console.log('[IndexedDB] All data cleared');
+        console.log('[IndexedDB] All data cleared:', existingStores);
         resolve();
       };
 
@@ -2752,6 +2762,64 @@ export class IndexedDbService {
 
       getAllRequest.onerror = () => reject(getAllRequest.error);
     });
+  }
+
+  /**
+   * Clear ALL pending requests and related data (for complete reset)
+   * Use when data has been deleted and sync queue needs to be emptied
+   * @returns Number of items cleared
+   */
+  async clearAllPendingSync(): Promise<{ requests: number; captions: number; images: number }> {
+    const db = await this.ensureDb();
+    const result = { requests: 0, captions: 0, images: 0 };
+
+    // Clear pending requests
+    if (db.objectStoreNames.contains('pendingRequests')) {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction(['pendingRequests'], 'readwrite');
+        const store = transaction.objectStore('pendingRequests');
+        const countRequest = store.count();
+        countRequest.onsuccess = () => {
+          result.requests = countRequest.result;
+          store.clear();
+        };
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+    }
+
+    // Clear pending captions
+    if (db.objectStoreNames.contains('pendingCaptions')) {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction(['pendingCaptions'], 'readwrite');
+        const store = transaction.objectStore('pendingCaptions');
+        const countRequest = store.count();
+        countRequest.onsuccess = () => {
+          result.captions = countRequest.result;
+          store.clear();
+        };
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+    }
+
+    // Clear pending images
+    if (db.objectStoreNames.contains('pendingImages')) {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction(['pendingImages'], 'readwrite');
+        const store = transaction.objectStore('pendingImages');
+        const countRequest = store.count();
+        countRequest.onsuccess = () => {
+          result.images = countRequest.result;
+          store.clear();
+        };
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+    }
+
+    console.log(`[IndexedDB] Cleared all pending sync: ${result.requests} requests, ${result.captions} captions, ${result.images} images`);
+    return result;
   }
 
   /**
