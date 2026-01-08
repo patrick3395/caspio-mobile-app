@@ -732,10 +732,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // Data is already cached by the container's template download
     // Only show loading for first-time fetches (no cache)
     try {
-      // FAST LOAD: Skip bulk photo cache loading - photos load on-demand when expanded
-      // This makes initial room load instant
-      this.bulkCachedPhotosMap.clear();
-      this.bulkAnnotatedImagesMap.clear();
+      // Pre-load photo caches in background for fast display of synced images
+      // This runs in parallel with page rendering - doesn't block UI
+      this.preloadPhotoCachesInBackground();
 
       // Load room record from Services_EFE (reads from IndexedDB immediately)
       console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
@@ -819,6 +818,32 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     this.lastLoadedRoomId = this.roomId;
     
     // OFFLINE-FIRST: No loading spinner management needed - data from IndexedDB is instant
+  }
+
+  /**
+   * Pre-load cached photos and annotated images in background
+   * This ensures synced images display instantly without S3 fetches
+   * Runs in parallel with page rendering - doesn't block UI
+   */
+  private preloadPhotoCachesInBackground(): void {
+    // Use setTimeout to ensure this doesn't block initial render
+    setTimeout(async () => {
+      try {
+        const cacheLoadStart = Date.now();
+        const [cachedPhotos, annotatedImages] = await Promise.all([
+          this.indexedDb.getAllCachedPhotosForService(this.serviceId),
+          this.indexedDb.getAllCachedAnnotatedImagesForService()
+        ]);
+        
+        this.bulkCachedPhotosMap = cachedPhotos;
+        this.bulkAnnotatedImagesMap = annotatedImages;
+        
+        console.log(`[RoomElevation] Pre-loaded ${cachedPhotos.size} photos, ${annotatedImages.size} annotations in ${Date.now() - cacheLoadStart}ms`);
+      } catch (error) {
+        console.warn('[RoomElevation] Failed to pre-load caches:', error);
+        // Not critical - photos will load on-demand as fallback
+      }
+    }, 50); // Small delay to prioritize UI rendering
   }
 
   private async loadFDFPhotos(room: any) {

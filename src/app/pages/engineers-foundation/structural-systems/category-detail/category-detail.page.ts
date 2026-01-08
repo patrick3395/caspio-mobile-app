@@ -899,9 +899,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.bulkPendingPhotosMap = pendingPhotos;
       this.bulkVisualsCache = visuals as any[] || [];
       this.bulkPendingRequestsCache = pendingRequests || [];
-      // Clear photo caches - they'll be loaded on-demand when user expands
-      this.bulkCachedPhotosMap.clear();
-      this.bulkAnnotatedImagesMap.clear();
+      
+      // Pre-load photo caches in background for fast display of synced images
+      // This runs in parallel with page rendering - doesn't block UI
+      this.preloadPhotoCachesInBackground();
       
       // CRITICAL: Trigger background refresh when online to sync with server
       // This follows the standard offline-first pattern used by room-elevation.page.ts
@@ -969,6 +970,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.lastLoadedCategoryName = this.categoryName;
     
     console.log('[LOAD DATA] ========== loadData END ==========');
+  }
+
+  /**
+   * Pre-load cached photos and annotated images in background
+   * This ensures synced images display instantly without S3 fetches
+   * Runs in parallel with page rendering - doesn't block UI
+   */
+  private preloadPhotoCachesInBackground(): void {
+    // Use setTimeout to ensure this doesn't block initial render
+    setTimeout(async () => {
+      try {
+        const cacheLoadStart = Date.now();
+        const [cachedPhotos, annotatedImages] = await Promise.all([
+          this.indexedDb.getAllCachedPhotosForService(this.serviceId),
+          this.indexedDb.getAllCachedAnnotatedImagesForService()
+        ]);
+        
+        this.bulkCachedPhotosMap = cachedPhotos;
+        this.bulkAnnotatedImagesMap = annotatedImages;
+        
+        console.log(`[PHOTO CACHE] Pre-loaded ${cachedPhotos.size} photos, ${annotatedImages.size} annotations in ${Date.now() - cacheLoadStart}ms`);
+      } catch (error) {
+        console.warn('[PHOTO CACHE] Failed to pre-load caches:', error);
+        // Not critical - photos will load on-demand as fallback
+      }
+    }, 50); // Small delay to prioritize UI rendering
   }
 
   private async waitForSkeletonsReady(): Promise<void> {
