@@ -845,8 +845,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Convert base64 back to blob and re-cache with real ID
           const response = await fetch(cachedAnnotatedImage);
           const blob = await response.blob();
-          await this.indexedDb.cacheAnnotatedImage(String(result.AttachID), blob);
+          const base64 = await this.indexedDb.cacheAnnotatedImage(String(result.AttachID), blob);
           console.log('[UPLOAD UPDATE] ✅ Annotated image transferred to real AttachID:', result.AttachID);
+          
+          // Update in-memory map with the real AttachID so same-session navigation works
+          if (base64) {
+            this.bulkAnnotatedImagesMap.set(String(result.AttachID), base64);
+            // Remove the temp ID entry
+            this.bulkAnnotatedImagesMap.delete(originalTempId);
+          }
         }
       } catch (transferErr) {
         console.warn('[UPLOAD UPDATE] Failed to transfer annotated image cache:', transferErr);
@@ -2732,8 +2739,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Without this, navigating away and back loses the annotated thumbnail
           if (annotatedBlob && annotationsData) {
             try {
-              await this.indexedDb.cacheAnnotatedImage(tempPhotoId, annotatedBlob);
+              const base64 = await this.indexedDb.cacheAnnotatedImage(tempPhotoId, annotatedBlob);
               console.log('[CAMERA UPLOAD] ✅ Annotated image cached for thumbnail persistence');
+              // Update in-memory map so same-session navigation shows the annotation
+              if (base64) {
+                this.bulkAnnotatedImagesMap.set(tempPhotoId, base64);
+              }
             } catch (cacheErr) {
               console.warn('[CAMERA UPLOAD] Failed to cache annotated image:', cacheErr);
             }
@@ -3823,8 +3834,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               // This ensures annotations show in thumbnails even for offline photos
               if (annotatedBlob && annotatedBlob.size > 0) {
                 try {
-                  await this.indexedDb.cacheAnnotatedImage(pendingFileId, annotatedBlob);
+                  const base64 = await this.indexedDb.cacheAnnotatedImage(pendingFileId, annotatedBlob);
                   console.log('[SAVE OFFLINE] ✅ Annotated image cached for temp photo:', pendingFileId);
+                  // Update in-memory map so same-session navigation shows the annotation
+                  if (base64) {
+                    this.bulkAnnotatedImagesMap.set(pendingFileId, base64);
+                  }
                 } catch (cacheErr) {
                   console.warn('[SAVE OFFLINE] Failed to cache annotated image:', cacheErr);
                 }
@@ -4029,8 +4044,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // This ensures annotations are visible in thumbnails after page reload
       if (annotatedBlob && annotatedBlob.size > 0) {
         try {
-          await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
+          const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
           console.log('[SAVE] ✅ Annotated image blob cached for thumbnail display');
+          // Update in-memory map so same-session navigation shows the annotation
+          if (base64) {
+            this.bulkAnnotatedImagesMap.set(String(attachId), base64);
+          }
         } catch (annotCacheErr) {
           console.warn('[SAVE] Failed to cache annotated image blob:', annotCacheErr);
         }

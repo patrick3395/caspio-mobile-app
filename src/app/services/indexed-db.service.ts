@@ -1207,13 +1207,14 @@ export class IndexedDbService {
    * Uses a separate key prefix to distinguish from base images
    * @param attachId The attachment ID
    * @param blob The annotated image blob
+   * @returns The base64 data URL of the cached image (for in-memory cache updates)
    */
-  async cacheAnnotatedImage(attachId: string, blob: Blob): Promise<void> {
+  async cacheAnnotatedImage(attachId: string, blob: Blob): Promise<string | null> {
     const db = await this.ensureDb();
 
     if (!db.objectStoreNames.contains('cachedPhotos')) {
       console.warn('[IndexedDB] cachedPhotos store not available - skipping annotated image cache');
-      return;
+      return null;
     }
 
     // Convert blob to base64 data URL
@@ -1240,7 +1241,7 @@ export class IndexedDbService {
 
       putRequest.onsuccess = () => {
         console.log('[IndexedDB] Annotated image cached:', attachId, 'size:', imageDataUrl.length);
-        resolve();
+        resolve(imageDataUrl);  // Return base64 for in-memory cache update
       };
 
       putRequest.onerror = () => {
@@ -2010,25 +2011,28 @@ export class IndexedDbService {
     const db = await this.ensureDb();
     const result = new Map<string, string>();
 
-    if (!db.objectStoreNames.contains('annotatedImages')) {
+    // FIX: Read from cachedPhotos store (where cacheAnnotatedImage writes)
+    // not the non-existent 'annotatedImages' store
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
       return result;
     }
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['annotatedImages'], 'readonly');
-      const store = transaction.objectStore('annotatedImages');
+      const transaction = db.transaction(['cachedPhotos'], 'readonly');
+      const store = transaction.objectStore('cachedPhotos');
       const getAllRequest = store.getAll();
 
       getAllRequest.onsuccess = () => {
-        const allImages = getAllRequest.result || [];
+        const allPhotos = getAllRequest.result || [];
 
-        for (const img of allImages) {
-          if (img.attachId && img.imageData) {
-            result.set(String(img.attachId), img.imageData);
+        // Filter for annotated images only (isAnnotated: true flag set by cacheAnnotatedImage)
+        for (const photo of allPhotos) {
+          if (photo.isAnnotated && photo.attachId && photo.imageData) {
+            result.set(String(photo.attachId), photo.imageData);
           }
         }
 
-        console.log(`[IndexedDB] Bulk loaded ${result.size} annotated images in ONE read`);
+        console.log(`[IndexedDB] Bulk loaded ${result.size} annotated images from cachedPhotos in ONE read`);
         resolve(result);
       };
 

@@ -307,8 +307,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 // Re-cache with real ID
                 const response = await fetch(cachedAnnotatedImage);
                 const blob = await response.blob();
-                await this.indexedDb.cacheAnnotatedImage(String(realAttachId), blob);
+                const base64 = await this.indexedDb.cacheAnnotatedImage(String(realAttachId), blob);
                 console.log('[RoomElevation PHOTO SYNC] ✅ Annotated image transferred to real AttachID:', realAttachId);
+                
+                // Update in-memory map with the real AttachID so same-session navigation works
+                if (base64) {
+                  this.bulkAnnotatedImagesMap.set(String(realAttachId), base64);
+                  // Remove the temp ID entry
+                  this.bulkAnnotatedImagesMap.delete(String(originalTempId));
+                }
               }
             } catch (transferErr) {
               console.warn('[RoomElevation PHOTO SYNC] Failed to transfer annotated image cache:', transferErr);
@@ -3630,8 +3637,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     if (annotatedBlob && annotatedBlob.size > 0) {
       try {
         const cacheId = `fdf_${roomId}_${photoType.toLowerCase()}`;
-        await this.indexedDb.cacheAnnotatedImage(cacheId, annotatedBlob);
+        const base64 = await this.indexedDb.cacheAnnotatedImage(cacheId, annotatedBlob);
         console.log('[SAVE FDF] ✅ Annotated image blob cached:', cacheId);
+        // Update in-memory map so same-session navigation shows the annotation
+        if (base64) {
+          this.bulkAnnotatedImagesMap.set(cacheId, base64);
+        }
       } catch (annotCacheErr) {
         console.warn('[SAVE FDF] Failed to cache annotated image blob:', annotCacheErr);
       }
@@ -3808,8 +3819,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // This ensures annotations are visible in thumbnails after page reload
       if (annotatedBlob && annotatedBlob.size > 0) {
         try {
-          await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
+          const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
           console.log('[SAVE] ✅ EFE Annotated image blob cached for thumbnail display:', attachId);
+          // Update in-memory map so same-session navigation shows the annotation
+          if (base64) {
+            this.bulkAnnotatedImagesMap.set(String(attachId), base64);
+          }
         } catch (annotCacheErr) {
           console.warn('[SAVE] Failed to cache EFE annotated image blob:', annotCacheErr);
         }
