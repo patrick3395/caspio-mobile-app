@@ -61,6 +61,7 @@ export interface PendingCaptionUpdate {
   status: 'pending' | 'syncing' | 'synced' | 'failed';
   createdAt: number;
   updatedAt: number;
+  lastAttempt?: number;        // Timestamp of last sync attempt (for backoff)
   retryCount: number;
   error?: string;
 }
@@ -3054,9 +3055,20 @@ export class IndexedDbService {
         const stuckThreshold = 2 * 60 * 1000; // 2 minutes - consider syncing stuck after this
         
         const readyForSync = allCaptions.filter(caption => {
-          // Always include pending
+          // Include pending with backoff check (prevents rapid retry loops on mobile)
           if (caption.status === 'pending') {
-            return true;
+            // If never attempted, include immediately
+            if (!caption.lastAttempt || caption.retryCount === 0) {
+              return true;
+            }
+            // Apply exponential backoff for retried items
+            const retryCount = caption.retryCount || 0;
+            const retryDelay = Math.min(30000 * Math.pow(2, retryCount - 1), 300000); // 30s, 60s, 120s, max 5min
+            const timeSinceAttempt = now - caption.lastAttempt;
+            if (timeSinceAttempt >= retryDelay) {
+              return true;
+            }
+            return false; // Not ready for retry yet
           }
           
           // Include stuck 'syncing' captions (stuck for more than 2 minutes)
@@ -3072,11 +3084,11 @@ export class IndexedDbService {
           // Include failed captions ready for retry (with exponential backoff)
           if (caption.status === 'failed') {
             const retryCount = caption.retryCount || 0;
-            if (retryCount >= 5) {
-              return false; // Max retries reached
+            if (retryCount >= 10) {
+              return false; // Max retries reached (increased from 5)
             }
             const retryDelay = Math.min(30000 * Math.pow(2, retryCount), 300000); // 30s, 60s, 120s, 240s, max 5min
-            const timeSinceUpdate = now - (caption.updatedAt || caption.createdAt);
+            const timeSinceUpdate = now - (caption.lastAttempt || caption.updatedAt || caption.createdAt);
             if (timeSinceUpdate >= retryDelay) {
               console.log(`[IndexedDB] Failed caption ${caption.captionId} ready for retry (attempt ${retryCount + 1})`);
               return true;
@@ -3145,8 +3157,14 @@ export class IndexedDbService {
 
   /**
    * Update caption status
+   * @param incrementRetry If true, increments retry count for exponential backoff
    */
-  async updateCaptionStatus(captionId: string, status: 'pending' | 'syncing' | 'synced' | 'failed', error?: string): Promise<void> {
+  async updateCaptionStatus(
+    captionId: string, 
+    status: 'pending' | 'syncing' | 'synced' | 'failed', 
+    error?: string,
+    incrementRetry: boolean = false
+  ): Promise<void> {
     const db = await this.ensureDb();
 
     return new Promise((resolve, reject) => {
@@ -3159,8 +3177,12 @@ export class IndexedDbService {
         if (caption) {
           caption.status = status;
           caption.updatedAt = Date.now();
+          caption.lastAttempt = Date.now();  // Track last attempt for backoff
           if (error) caption.error = error;
-          if (status === 'failed') caption.retryCount = (caption.retryCount || 0) + 1;
+          // Increment retry for 'failed' status OR when explicitly requested
+          if (status === 'failed' || incrementRetry) {
+            caption.retryCount = (caption.retryCount || 0) + 1;
+          }
 
           const putRequest = store.put(caption);
           putRequest.onsuccess = () => resolve();

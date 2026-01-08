@@ -585,22 +585,23 @@ export class BackgroundSyncService {
     
     for (const caption of pendingCaptions) {
       try {
-        // Mark as syncing
-        await this.indexedDb.updateCaptionStatus(caption.captionId, 'syncing');
-        
-        // Check if attachId is still a temp ID
+        // Check if attachId is still a temp ID BEFORE marking as syncing
+        // This prevents status flicker (pending->syncing->pending) on mobile
         const attachIdStr = String(caption.attachId || '');
         let resolvedAttachId = attachIdStr;
         if (attachIdStr.startsWith('temp_')) {
           const realId = await this.indexedDb.getRealId(attachIdStr);
           if (!realId) {
-            console.log(`[BackgroundSync] Caption ${caption.captionId} waiting for photo sync (${caption.attachId})`);
-            await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending');
-            continue; // Photo not synced yet, skip for now
+            // Don't change status - just skip this caption until photo syncs
+            // The caption will be picked up on the next sync cycle after photo syncs
+            continue;
           }
           resolvedAttachId = realId;
           console.log(`[BackgroundSync] Resolved caption attachId: ${caption.attachId} → ${realId}`);
         }
+        
+        // Mark as syncing ONLY after we know we can proceed
+        await this.indexedDb.updateCaptionStatus(caption.captionId, 'syncing');
         
         // Build update data
         const updateData: any = {};
@@ -641,8 +642,9 @@ export class BackgroundSyncService {
         const recordsAffected = response?.RecordsAffected ?? response?.recordsAffected ?? 1;
         if (recordsAffected === 0) {
           console.warn(`[BackgroundSync] ⚠️ Caption sync returned 0 records affected - attachment may not exist yet: ${resolvedAttachId}`);
-          // Set back to pending for retry - the attachment record might not be created yet
-          await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending');
+          // Set back to pending for retry WITH backoff to prevent rapid retry loops
+          // The incrementRetry flag ensures proper exponential backoff
+          await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending', 'Attachment not found', true);
           continue;
         }
         

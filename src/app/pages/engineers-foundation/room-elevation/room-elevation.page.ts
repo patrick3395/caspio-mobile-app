@@ -739,9 +739,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // Data is already cached by the container's template download
     // Only show loading for first-time fetches (no cache)
     try {
-      // Pre-load photo caches in background for fast display of synced images
-      // This runs in parallel with page rendering - doesn't block UI
-      this.preloadPhotoCachesInBackground();
+      // Pre-load photo caches BEFORE loading photos for fast cache hits
+      await this.preloadPhotoCaches();
 
       // Load room record from Services_EFE (reads from IndexedDB immediately)
       console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
@@ -828,29 +827,26 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /**
-   * Pre-load cached photos and annotated images in background
+   * Pre-load cached photos and annotated images
    * This ensures synced images display instantly without S3 fetches
-   * Runs in parallel with page rendering - doesn't block UI
+   * MUST be awaited before loading photos for fast cache hits
    */
-  private preloadPhotoCachesInBackground(): void {
-    // Use setTimeout to ensure this doesn't block initial render
-    setTimeout(async () => {
-      try {
-        const cacheLoadStart = Date.now();
-        const [cachedPhotos, annotatedImages] = await Promise.all([
-          this.indexedDb.getAllCachedPhotosForService(this.serviceId),
-          this.indexedDb.getAllCachedAnnotatedImagesForService()
-        ]);
-        
-        this.bulkCachedPhotosMap = cachedPhotos;
-        this.bulkAnnotatedImagesMap = annotatedImages;
-        
-        console.log(`[RoomElevation] Pre-loaded ${cachedPhotos.size} photos, ${annotatedImages.size} annotations in ${Date.now() - cacheLoadStart}ms`);
-      } catch (error) {
-        console.warn('[RoomElevation] Failed to pre-load caches:', error);
-        // Not critical - photos will load on-demand as fallback
-      }
-    }, 50); // Small delay to prioritize UI rendering
+  private async preloadPhotoCaches(): Promise<void> {
+    try {
+      const cacheLoadStart = Date.now();
+      const [cachedPhotos, annotatedImages] = await Promise.all([
+        this.indexedDb.getAllCachedPhotosForService(this.serviceId),
+        this.indexedDb.getAllCachedAnnotatedImagesForService()
+      ]);
+      
+      this.bulkCachedPhotosMap = cachedPhotos;
+      this.bulkAnnotatedImagesMap = annotatedImages;
+      
+      console.log(`[RoomElevation] Pre-loaded ${cachedPhotos.size} photos, ${annotatedImages.size} annotations in ${Date.now() - cacheLoadStart}ms`);
+    } catch (error) {
+      console.warn('[RoomElevation] Failed to pre-load caches:', error);
+      // Not critical - photos will load on-demand as fallback
+    }
   }
 
   private async loadFDFPhotos(room: any) {
@@ -1017,10 +1013,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     console.log(`[FDF Photo] Loading ${photoKey} image, isS3Key: ${isS3Key}, path: ${photoPathOrS3Key?.substring(0, 50)}`);
     
     try {
-      // CRITICAL FIX: Check for cached ANNOTATED image first (has drawings on it)
-      const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(cacheId);
+      // OPTIMIZED: Use bulk cache maps for O(1) lookup (preloaded before this runs)
+      // Check for cached ANNOTATED image first (has drawings on it)
+      const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(cacheId);
       if (cachedAnnotatedImage) {
-        console.log(`[FDF Photo] ✅ Using cached ANNOTATED ${photoKey} image`);
+        console.log(`[FDF Photo] ✅ Using bulk cached ANNOTATED ${photoKey} image`);
         fdfPhotos[`${photoKey}Url`] = cachedAnnotatedImage;
         fdfPhotos[`${photoKey}DisplayUrl`] = cachedAnnotatedImage;
         fdfPhotos[`${photoKey}Loading`] = false;
@@ -1028,10 +1025,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         return;
       }
       
-      // OFFLINE-FIRST: Check IndexedDB cached photo (base image without annotations)
-      const cachedImage = await this.indexedDb.getCachedPhoto(cacheId);
+      // Check bulk cached photo (base image without annotations)
+      const cachedImage = this.bulkCachedPhotosMap.get(cacheId);
       if (cachedImage) {
-        console.log(`[FDF Photo] Using cached ${photoKey} image`);
+        console.log(`[FDF Photo] ✅ Using bulk cached ${photoKey} image`);
         fdfPhotos[`${photoKey}Url`] = cachedImage;
         fdfPhotos[`${photoKey}DisplayUrl`] = cachedImage;
         fdfPhotos[`${photoKey}Loading`] = false;
