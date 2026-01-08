@@ -174,6 +174,7 @@ export class BackgroundSyncService {
    */
   private async resetStuckSyncingRequests(): Promise<void> {
     try {
+      // Reset stuck pending requests
       const allRequests = await this.indexedDb.getAllRequests();
       const stuckSyncing = allRequests.filter(r => r.status === 'syncing');
       
@@ -190,6 +191,27 @@ export class BackgroundSyncService {
         console.log(`[BackgroundSync] Found ${syncedRequests.length} old 'synced' requests, cleaning up`);
         for (const request of syncedRequests) {
           await this.indexedDb.removePendingRequest(request.requestId);
+        }
+      }
+      
+      // CRITICAL: Also reset stuck pending captions
+      // Captions can get stuck in 'syncing' status if app closes during sync
+      const allCaptions = await this.indexedDb.getAllPendingCaptions();
+      const stuckCaptions = allCaptions.filter(c => c.status === 'syncing');
+      
+      if (stuckCaptions.length > 0) {
+        console.log(`[BackgroundSync] Found ${stuckCaptions.length} stuck 'syncing' captions, resetting to 'pending'`);
+        for (const caption of stuckCaptions) {
+          await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending');
+        }
+      }
+      
+      // Clean up any old 'synced' captions that weren't deleted
+      const syncedCaptions = allCaptions.filter(c => c.status === 'synced');
+      if (syncedCaptions.length > 0) {
+        console.log(`[BackgroundSync] Found ${syncedCaptions.length} old 'synced' captions, cleaning up`);
+        for (const caption of syncedCaptions) {
+          await this.indexedDb.deletePendingCaption(caption.captionId);
         }
       }
     } catch (error) {

@@ -3034,6 +3034,7 @@ export class IndexedDbService {
 
   /**
    * Get all pending caption updates ready for sync
+   * Includes: pending captions, stuck syncing captions, and failed captions ready for retry
    */
   async getPendingCaptions(): Promise<PendingCaptionUpdate[]> {
     const db = await this.ensureDb();
@@ -3041,14 +3042,50 @@ export class IndexedDbService {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['pendingCaptions'], 'readonly');
       const store = transaction.objectStore('pendingCaptions');
-      const index = store.index('status');
-      const getRequest = index.getAll('pending');
+      const getRequest = store.getAll();
 
       getRequest.onsuccess = () => {
-        const captions = getRequest.result as PendingCaptionUpdate[];
+        const allCaptions = getRequest.result as PendingCaptionUpdate[];
+        const now = Date.now();
+        const stuckThreshold = 2 * 60 * 1000; // 2 minutes - consider syncing stuck after this
+        
+        const readyForSync = allCaptions.filter(caption => {
+          // Always include pending
+          if (caption.status === 'pending') {
+            return true;
+          }
+          
+          // Include stuck 'syncing' captions (stuck for more than 2 minutes)
+          if (caption.status === 'syncing') {
+            const timeSinceUpdate = now - (caption.updatedAt || caption.createdAt);
+            if (timeSinceUpdate > stuckThreshold) {
+              console.log(`[IndexedDB] Caption ${caption.captionId} stuck in syncing for ${Math.round(timeSinceUpdate/1000)}s, including for retry`);
+              return true;
+            }
+            return false; // Still actively syncing
+          }
+          
+          // Include failed captions ready for retry (with exponential backoff)
+          if (caption.status === 'failed') {
+            const retryCount = caption.retryCount || 0;
+            if (retryCount >= 5) {
+              return false; // Max retries reached
+            }
+            const retryDelay = Math.min(30000 * Math.pow(2, retryCount), 300000); // 30s, 60s, 120s, 240s, max 5min
+            const timeSinceUpdate = now - (caption.updatedAt || caption.createdAt);
+            if (timeSinceUpdate >= retryDelay) {
+              console.log(`[IndexedDB] Failed caption ${caption.captionId} ready for retry (attempt ${retryCount + 1})`);
+              return true;
+            }
+            return false; // Not ready for retry yet
+          }
+          
+          return false; // synced or other status
+        });
+        
         // Sort by creation time (oldest first)
-        captions.sort((a, b) => a.createdAt - b.createdAt);
-        resolve(captions);
+        readyForSync.sort((a, b) => a.createdAt - b.createdAt);
+        resolve(readyForSync);
       };
 
       getRequest.onerror = () => reject(getRequest.error);

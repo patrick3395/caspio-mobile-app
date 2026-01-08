@@ -8,12 +8,6 @@
       <p>Loading categories...</p>
     </div>
 
-    <!-- Data Syncing Indicator -->
-    <div class="sync-indicator" *ngIf="hasPendingSync && !loading">
-      <ion-icon name="sync-outline" class="rotating"></ion-icon>
-      <span>Syncing structural data...</span>
-    </div>
-
     <!-- Visual Assessment Location Question -->
     <div *ngIf="!loading" class="visual-location-section">
       <div class="form-group" [class.filled]="serviceData.StructStat">
