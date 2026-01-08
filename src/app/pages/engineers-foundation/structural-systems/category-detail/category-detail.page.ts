@@ -367,6 +367,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             } else {
               console.log('[PHOTO SYNC] No cached image yet, keeping blob URL temporarily');
             }
+            
+            // Check for annotated image - use it for display if exists
+            const annotatedImage = this.bulkAnnotatedImagesMap.get(String(realAttachId)) 
+              || this.bulkAnnotatedImagesMap.get(event.tempFileId);
+            if (annotatedImage) {
+              newThumbnailUrl = annotatedImage;
+              console.log('[PHOTO SYNC] ✅ Using annotated image for thumbnail:', realAttachId);
+            }
           } catch (err) {
             console.warn('[PHOTO SYNC] Failed to get cached image:', err);
           }

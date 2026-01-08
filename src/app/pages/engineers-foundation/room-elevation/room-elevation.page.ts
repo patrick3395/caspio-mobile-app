@@ -430,6 +430,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 console.warn('[RoomElevation EFE PHOTO SYNC] S3 fetch failed:', s3Err);
               }
             }
+            
+            // Check for annotated image - use it for display if exists
+            const annotatedImage = this.bulkAnnotatedImagesMap.get(String(realAttachId)) 
+              || this.bulkAnnotatedImagesMap.get(event.tempFileId);
+            if (annotatedImage) {
+              newImageUrl = annotatedImage;
+              console.log('[RoomElevation EFE PHOTO SYNC] ✅ Using annotated image for thumbnail');
+            }
           } catch (err) {
             console.warn('[RoomElevation EFE PHOTO SYNC] Failed to get cached image:', err);
           }
