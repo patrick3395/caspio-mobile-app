@@ -2237,6 +2237,47 @@ export class IndexedDbService {
   }
 
   /**
+   * Update pending EFE data (for offline rooms that need field updates like FDF)
+   */
+  async updatePendingEFE(tempId: string, updates: any): Promise<boolean> {
+    const db = await this.ensureDb();
+
+    if (!db.objectStoreNames.contains('pendingEFEData')) {
+      return false;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['pendingEFEData'], 'readwrite');
+      const store = transaction.objectStore('pendingEFEData');
+      const getRequest = store.get(tempId);
+
+      getRequest.onsuccess = () => {
+        const existing = getRequest.result as PendingEFEData;
+        if (existing) {
+          // Merge updates into the data field
+          existing.data = {
+            ...existing.data,
+            ...updates,
+            _localUpdate: true
+          };
+          
+          const putRequest = store.put(existing);
+          putRequest.onsuccess = () => {
+            console.log(`[IndexedDB] ✅ Updated pending EFE ${tempId} with:`, updates);
+            resolve(true);
+          };
+          putRequest.onerror = () => reject(putRequest.error);
+        } else {
+          console.log(`[IndexedDB] Pending EFE ${tempId} not found`);
+          resolve(false);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
    * Remove pending EFE data after sync
    */
   async removePendingEFE(tempId: string): Promise<void> {

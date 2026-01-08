@@ -1926,7 +1926,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', cachedRooms);
         console.log('[RoomElevation] ✅ Local EFE cache updated with:', updates, 'for room:', this.roomName);
       } else {
-        console.warn('[RoomElevation] ⚠️ Room not found in local cache, cannot update. Looking for:', {
+        // CRITICAL FIX: Room not in main cache - check if it's a pending (offline-created) room
+        // Pending rooms are stored separately in pendingEFEData
+        if (roomIdStr.startsWith('temp_')) {
+          const updated = await this.indexedDb.updatePendingEFE(roomIdStr, updates);
+          if (updated) {
+            console.log('[RoomElevation] ✅ Pending EFE room updated with:', updates, 'for temp room:', roomIdStr);
+            return;
+          }
+        }
+        
+        console.warn('[RoomElevation] ⚠️ Room not found in local cache or pending data. Looking for:', {
           roomId: this.roomId,
           roomName: this.roomName,
           cachedRoomCount: cachedRooms.length
