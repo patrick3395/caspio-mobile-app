@@ -1418,16 +1418,32 @@ export class OfflineTemplateService {
         // Get existing cached visuals to find local updates that should be preserved
         const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
         
-        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        // Check if cache has any LOCAL changes that need protection
+        const hasLocalChanges = existingCache.some((item: any) => 
+          item._localUpdate || 
+          (item._tempId && String(item._tempId).startsWith('temp_'))
+        ) || pendingVisualUpdates.size > 0;
+        
+        // SMART DEFENSIVE GUARD: Only protect if there are actual local changes
         if ((!freshVisuals || freshVisuals.length === 0) && existingCache.length > 0) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned empty visuals but cache has ${existingCache.length} - keeping cache`);
-          return; // Preserve existing cache, do NOT overwrite
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned empty but cache has ${existingCache.length} items with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          // No local changes - clear cache (data was deleted on server)
+          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing visuals cache for ${serviceId}`);
+          await this.indexedDb.cacheServiceData(serviceId, 'visuals', []);
+          this.backgroundRefreshComplete$.next({ serviceId, dataType: 'visuals' });
+          return;
         }
         
-        // Warn if API returns significantly fewer items (potential data loss)
+        // Warn if API returns significantly fewer items but still allow if no local changes
         if (freshVisuals && existingCache.length > 0 && freshVisuals.length < existingCache.length * 0.5) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshVisuals.length} visuals but cache has ${existingCache.length} - potential data loss, keeping cache`);
-          return; // Preserve existing cache
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned ${freshVisuals.length} visuals but cache has ${existingCache.length} with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          console.log(`[OfflineTemplate] API returned ${freshVisuals.length} visuals (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         // Build a map of locally updated visuals that should NOT be overwritten
@@ -1496,16 +1512,32 @@ export class OfflineTemplateService {
         // Preserve local updates
         const existingCache = await this.indexedDb.getCachedServiceData(visualId, 'visual_attachments') || [];
         
-        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        // Check if cache has any LOCAL changes that need protection
+        const hasLocalChanges = existingCache.some((item: any) => 
+          item._localUpdate || 
+          (item._tempId && String(item._tempId).startsWith('temp_'))
+        );
+        
+        // SMART DEFENSIVE GUARD: Only protect if there are actual local changes
         if ((!freshAttachments || freshAttachments.length === 0) && existingCache.length > 0) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned empty attachments but cache has ${existingCache.length} - keeping cache`);
-          return; // Preserve existing cache, do NOT overwrite
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned empty but cache has ${existingCache.length} attachments with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          // No local changes - clear cache (data was deleted on server)
+          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing attachments cache for visual ${visualId}`);
+          await this.indexedDb.cacheServiceData(visualId, 'visual_attachments', []);
+          this.backgroundRefreshComplete$.next({ serviceId: visualId, dataType: 'visual_attachments' });
+          return;
         }
         
-        // Warn if API returns significantly fewer items (potential data loss)
+        // Warn if API returns significantly fewer items but still allow if no local changes
         if (freshAttachments && existingCache.length > 0 && freshAttachments.length < existingCache.length * 0.5) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshAttachments.length} attachments but cache has ${existingCache.length} - potential data loss, keeping cache`);
-          return; // Preserve existing cache
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned ${freshAttachments.length} attachments but cache has ${existingCache.length} with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          console.log(`[OfflineTemplate] API returned ${freshAttachments.length} attachments (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         const localUpdates = new Map<string, any>();
@@ -1557,16 +1589,32 @@ export class OfflineTemplateService {
         // This prevents overwriting offline changes (like FDF selection) with server data
         const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
         
-        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        // Check if cache has any LOCAL changes that need protection
+        const hasLocalChanges = existingCache.some((item: any) => 
+          item._localUpdate || 
+          (item._tempId && String(item._tempId).startsWith('temp_'))
+        );
+        
+        // SMART DEFENSIVE GUARD: Only protect if there are actual local changes
         if ((!freshRooms || freshRooms.length === 0) && existingCache.length > 0) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned empty EFE rooms but cache has ${existingCache.length} - keeping cache`);
-          return; // Preserve existing cache, do NOT overwrite
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned empty but cache has ${existingCache.length} EFE rooms with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          // No local changes - clear cache (data was deleted on server)
+          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing EFE rooms cache for ${serviceId}`);
+          await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', []);
+          this.backgroundRefreshComplete$.next({ serviceId, dataType: 'efe_rooms' });
+          return;
         }
         
-        // Warn if API returns significantly fewer items (potential data loss)
+        // Warn if API returns significantly fewer items but still allow if no local changes
         if (freshRooms && existingCache.length > 0 && freshRooms.length < existingCache.length * 0.5) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshRooms.length} rooms but cache has ${existingCache.length} - potential data loss, keeping cache`);
-          return; // Preserve existing cache
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned ${freshRooms.length} rooms but cache has ${existingCache.length} with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          console.log(`[OfflineTemplate] API returned ${freshRooms.length} rooms (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         const localUpdates = new Map<string, any>();
@@ -1636,16 +1684,32 @@ export class OfflineTemplateService {
         // CRITICAL: Preserve local updates (_localUpdate flag) when merging
         const existingCache = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
         
-        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        // Check if cache has any LOCAL changes that need protection
+        const hasLocalChanges = existingCache.some((item: any) => 
+          item._localUpdate || 
+          (item._tempId && String(item._tempId).startsWith('temp_'))
+        );
+        
+        // SMART DEFENSIVE GUARD: Only protect if there are actual local changes
         if ((!freshPoints || freshPoints.length === 0) && existingCache.length > 0) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned empty EFE points but cache has ${existingCache.length} - keeping cache`);
-          return; // Preserve existing cache, do NOT overwrite
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned empty but cache has ${existingCache.length} EFE points with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          // No local changes - clear cache (data was deleted on server)
+          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing EFE points cache for room ${roomId}`);
+          await this.indexedDb.cacheServiceData(roomId, 'efe_points', []);
+          this.backgroundRefreshComplete$.next({ serviceId: roomId, dataType: 'efe_points' });
+          return;
         }
         
-        // Warn if API returns significantly fewer items (potential data loss)
+        // Warn if API returns significantly fewer items but still allow if no local changes
         if (freshPoints && existingCache.length > 0 && freshPoints.length < existingCache.length * 0.5) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshPoints.length} points but cache has ${existingCache.length} - potential data loss, keeping cache`);
-          return; // Preserve existing cache
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned ${freshPoints.length} points but cache has ${existingCache.length} with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          console.log(`[OfflineTemplate] API returned ${freshPoints.length} points (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         const localUpdates = new Map<string, any>();
@@ -1706,16 +1770,32 @@ export class OfflineTemplateService {
         // Preserve local updates
         const existingCache = await this.indexedDb.getCachedServiceData(pointId, 'efe_point_attachments') || [];
         
-        // DEFENSIVE GUARD: Never overwrite valid cache with empty API response
+        // Check if cache has any LOCAL changes that need protection
+        const hasLocalChanges = existingCache.some((item: any) => 
+          item._localUpdate || 
+          (item._tempId && String(item._tempId).startsWith('temp_'))
+        );
+        
+        // SMART DEFENSIVE GUARD: Only protect if there are actual local changes
         if ((!freshAttachments || freshAttachments.length === 0) && existingCache.length > 0) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned empty EFE attachments but cache has ${existingCache.length} - keeping cache`);
-          return; // Preserve existing cache, do NOT overwrite
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned empty but cache has ${existingCache.length} EFE attachments with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          // No local changes - clear cache (data was deleted on server)
+          console.log(`[OfflineTemplate] API returned empty, no local changes - clearing EFE attachments cache for point ${pointId}`);
+          await this.indexedDb.cacheServiceData(pointId, 'efe_point_attachments', []);
+          this.backgroundRefreshComplete$.next({ serviceId: pointId, dataType: 'efe_point_attachments' });
+          return;
         }
         
-        // Warn if API returns significantly fewer items (potential data loss)
+        // Warn if API returns significantly fewer items but still allow if no local changes
         if (freshAttachments && existingCache.length > 0 && freshAttachments.length < existingCache.length * 0.5) {
-          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshAttachments.length} EFE attachments but cache has ${existingCache.length} - potential data loss, keeping cache`);
-          return; // Preserve existing cache
+          if (hasLocalChanges) {
+            console.warn(`[OfflineTemplate] ⚠️ API returned ${freshAttachments.length} EFE attachments but cache has ${existingCache.length} with local changes - protecting cache`);
+            return; // Preserve cache with local changes
+          }
+          console.log(`[OfflineTemplate] API returned ${freshAttachments.length} EFE attachments (was ${existingCache.length}), no local changes - updating cache`);
         }
         
         const localUpdates = new Map<string, any>();

@@ -903,6 +903,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.bulkCachedPhotosMap.clear();
       this.bulkAnnotatedImagesMap.clear();
       
+      // CRITICAL: Trigger background refresh when online to sync with server
+      // This follows the standard offline-first pattern used by room-elevation.page.ts
+      // The cached data is displayed immediately, then updated when fresh data arrives
+      if (this.offlineService.isOnline()) {
+        console.log('[LOAD DATA] Online - triggering background refresh for visuals');
+        this.offlineTemplate.getVisualsByService(this.serviceId); // Triggers refreshVisualsInBackground
+      }
+      
       console.log(`[LOAD DATA] ✅ Fast load complete in ${Date.now() - bulkLoadStart}ms:`, {
         templates: (allTemplates as any[]).length,
         visuals: this.bulkVisualsCache.length,
