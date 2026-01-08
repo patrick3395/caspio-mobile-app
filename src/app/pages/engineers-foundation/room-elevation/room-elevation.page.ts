@@ -739,9 +739,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // Data is already cached by the container's template download
     // Only show loading for first-time fetches (no cache)
     try {
-      // Pre-load photo caches in parallel (non-blocking) for fast cache hits
-      // CRITICAL: Do NOT await - awaiting causes room persistence issues in offline mode
-      this.preloadPhotoCaches();
+      // Pre-load photo caches BEFORE loading photos for fast cache hits
+      await this.preloadPhotoCaches();
 
       // Load room record from Services_EFE (reads from IndexedDB immediately)
       console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
