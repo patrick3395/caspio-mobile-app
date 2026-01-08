@@ -385,6 +385,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.visualPhotos[key][photoIndex] = {
             ...existingPhoto,
             AttachID: realAttachId,
+            attachId: String(realAttachId),  // CRITICAL: Update lowercase for caption lookups
+            id: realAttachId,                 // CRITICAL: Update id for consistency
             thumbnailUrl: newThumbnailUrl,
             url: newThumbnailUrl,
             Photo: newThumbnailUrl,
