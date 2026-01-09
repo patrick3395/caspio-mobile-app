@@ -217,6 +217,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async ngOnInit() {
     console.log('[CategoryDetail] ========== ngOnInit START ==========');
     
+    // Check if new image system is available
+    const hasNewSystem = this.indexedDb.hasNewImageSystem();
+    this.logDebug('INIT', `New image system available: ${hasNewSystem}`);
+    console.log('[CategoryDetail] New image system available:', hasNewSystem);
+    
     // Subscribe to background upload task updates
     this.subscribeToUploadUpdates();
 
@@ -3018,17 +3023,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Uses stable UUID that NEVER changes
           // ============================================
           
-          // Create LocalImage with stable UUID (this stores blob + creates outbox item)
-          const localImage = await this.localImageService.captureImage(
-            originalFile,
-            'visual',
-            String(visualId),
-            this.serviceId,
-            caption,
-            compressedDrawings
-          );
+          this.logDebug('CAPTURE', `Starting captureImage for visualId: ${visualId}`);
           
-          console.log('[CAMERA UPLOAD] ✅ Created LocalImage with stable ID:', localImage.imageId);
+          // Create LocalImage with stable UUID (this stores blob + creates outbox item)
+          let localImage: LocalImage;
+          try {
+            localImage = await this.localImageService.captureImage(
+              originalFile,
+              'visual',
+              String(visualId),
+              this.serviceId,
+              caption,
+              compressedDrawings
+            );
+            
+            this.logDebug('CAPTURE', `✅ LocalImage created: ${localImage.imageId} status: ${localImage.status} blobId: ${localImage.localBlobId}`);
+            console.log('[CAMERA UPLOAD] ✅ Created LocalImage with stable ID:', localImage.imageId);
+          } catch (captureError: any) {
+            this.logDebug('ERROR', `captureImage FAILED: ${captureError?.message || captureError}`);
+            console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
+            throw captureError;
+          }
 
           // Get display URL from LocalImageService (always uses local blob first)
           const displayUrl = await this.localImageService.getDisplayUrl(localImage);

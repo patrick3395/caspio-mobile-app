@@ -3864,13 +3864,13 @@ export class IndexedDbService {
       remoteLoadedInUI: false
     };
 
-    // Create outbox item
+    // Create outbox item - delay processing by 5 seconds to batch multiple captures
     const outboxItem: UploadOutboxItem = {
       opId: `op_${this.generateUUID()}`,
       type: 'UPLOAD_IMAGE',
       imageId,
       attempts: 0,
-      nextRetryAt: now, // Ready to process immediately
+      nextRetryAt: now + 5000, // Delay by 5 seconds to allow batching
       createdAt: now,
       lastError: null
     };
