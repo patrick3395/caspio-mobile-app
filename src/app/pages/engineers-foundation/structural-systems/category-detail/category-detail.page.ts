@@ -149,8 +149,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
     private offlineTemplate: OfflineTemplateService,
-    private localImageService: LocalImageService,
-    private alertController: AlertController
+    private localImageService: LocalImageService
   ) {
     // Set up global error handler for this page
     this.setupErrorTracking();
@@ -2045,18 +2044,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     try {
       let imageUrl: string | null = null;
       
-      if (isS3 && this.caspioService.isS3Key(imageKey)) {
-        imageUrl = await this.caspioService.getS3FileUrl(imageKey);
-      } else if (imageKey) {
-        imageUrl = await this.caspioService.getCaspioFileUrl(imageKey);
+      // All photos should be S3 now, but handle both cases
+      if (imageKey) {
+        if (isS3 || this.caspioService.isS3Key(imageKey)) {
+          imageUrl = await this.caspioService.getS3FileUrl(imageKey);
+        } else {
+          // Legacy: treat as S3 key anyway
+          imageUrl = await this.caspioService.getS3FileUrl(imageKey);
+        }
       }
       
       if (imageUrl) {
-        // Cache it
+        // Cache it (with serviceId and s3Key)
         try {
-          await this.indexedDb.cachePhoto(attachId, imageUrl);
+          await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl, imageKey);
         } catch (e) {
           // Cache failed - still continue with display
+          this.logDebug('WARN', `Cache failed for ${attachId}: ${e}`);
         }
         
         // Update UI
