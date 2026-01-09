@@ -2035,7 +2035,12 @@ export class BackgroundSyncService {
     if (entityId.startsWith('temp_')) {
       const realId = await this.indexedDb.getRealId(entityId);
       if (!realId) {
-        throw new Error(`Entity not synced yet: ${entityId}`);
+        // Parent entity not synced yet - delay and retry later (don't throw)
+        console.log(`[BackgroundSync] Entity not synced yet, delaying photo: ${item.imageId} (entity: ${entityId})`);
+        await this.indexedDb.updateOutboxItem(item.opId, {
+          nextRetryAt: Date.now() + 30000  // Retry in 30 seconds
+        });
+        return;  // Skip for now, will retry on next sync cycle
       }
       entityId = realId;
       // Update image with resolved entityId

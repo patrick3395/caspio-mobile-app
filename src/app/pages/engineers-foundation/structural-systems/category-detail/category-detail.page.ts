@@ -695,6 +695,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   /**
    * Refresh photo counts for all visuals after sync
    * Returns true if any photos were added or updated
+   * BULLETPROOF: Never removes or replaces photos with valid displayUrls
    */
   private async refreshPhotoCountsAfterSync(visuals: any[]): Promise<boolean> {
     let anyChanges = false;
@@ -741,10 +742,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       
       try {
         const attachments = await this.foundationData.getVisualAttachments(visualId);
-        this.photoCountsByKey[key] = attachments?.length || 0;
         
-        // CRITICAL: If we already have photos with valid URLs, DON'T disrupt them
-        // Only update metadata, don't replace working photos with broken ones
+        // BULLETPROOF: Get count of EXISTING photos with valid URLs + new from server
+        // Never reduce the count if we have valid photos
+        const existingValidPhotos = (this.visualPhotos[key] || []).filter(p => 
+          p.displayUrl && 
+          p.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          !p.displayUrl.startsWith('assets/')
+        );
+        this.photoCountsByKey[key] = Math.max(existingValidPhotos.length, attachments?.length || 0);
+        
+        // BULLETPROOF: If we already have photos with valid URLs, DON'T touch them
         if (attachments && attachments.length > 0) {
           if (!this.visualPhotos[key]) {
             this.visualPhotos[key] = [];
@@ -753,9 +761,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           for (const att of attachments) {
             const realAttachId = String(att.PK_ID || att.AttachID);
             
-            // First check if we already have this photo with a valid URL
+            // BULLETPROOF: Check by multiple identifiers
+            // Photos may have been added with imageId (UUID) but server returns real AttachID
             const existingPhotoIndex = this.visualPhotos[key].findIndex(p => 
-              String(p.AttachID) === realAttachId || String(p.attachId) === realAttachId
+              String(p.AttachID) === realAttachId || 
+              String(p.attachId) === realAttachId ||
+              String(p.id) === realAttachId
             );
             
             if (existingPhotoIndex !== -1) {
@@ -1911,8 +1922,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /**
-   * Load a single photo - SIMPLIFIED for stability
-   * Uses existing photo if already in UI, otherwise loads from cache/remote
+   * Load a single photo - BULLETPROOF version
+   * NEVER removes or replaces a photo that has a valid displayUrl
    */
   private async loadSinglePhoto(attach: any, key: string): Promise<void> {
     try {
@@ -1923,48 +1934,66 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         return;
       }
       
-      // CRITICAL: Check if photo already exists in UI with a valid displayUrl
-      // If so, DO NOT replace it - this prevents the disappearing photo issue
-      if (this.visualPhotos[key]) {
-        const existing = this.visualPhotos[key].find(p => 
-          String(p.AttachID) === attachId || 
-          String(p.id) === attachId ||
-          p.imageId === attachId
-        );
-        
-        if (existing && existing.displayUrl && 
-            existing.displayUrl !== 'assets/img/photo-placeholder.png' &&
-            !existing.displayUrl.startsWith('assets/')) {
-          // Photo already loaded with valid image - don't touch it
-          this.logDebug('SKIP', `Photo ${attachId} already loaded`);
+      // Initialize array if needed
+      if (!this.visualPhotos[key]) {
+        this.visualPhotos[key] = [];
+      }
+      
+      // BULLETPROOF: Check if ANY photo in this key's array has a valid displayUrl
+      // Also check if this specific photo already exists with a valid URL
+      const existingPhoto = this.visualPhotos[key].find(p => 
+        String(p.AttachID) === attachId || 
+        String(p.id) === attachId ||
+        String(p.attachId) === attachId ||
+        p.imageId === attachId
+      );
+      
+      // If photo exists with valid URL, DON'T touch it - just return
+      if (existingPhoto && existingPhoto.displayUrl && 
+          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          !existingPhoto.displayUrl.startsWith('assets/')) {
+        this.logDebug('SKIP', `Photo ${attachId} already has valid URL`);
+        return;
+      }
+      
+      // Also check if we have a LocalImage that this server photo corresponds to
+      // (The LocalImage may have been created with a different imageId)
+      let localImage: LocalImage | null = null;
+      try {
+        localImage = await this.localImageService.getImageByAttachId(attachId);
+        if (!localImage) {
+          localImage = await this.localImageService.getImage(attachId);
+        }
+      } catch (e) {
+        // Ignore - LocalImage system not available or failed
+      }
+      
+      // If we found a LocalImage, check if it's already in the array by imageId
+      if (localImage) {
+        const localImageInArray = this.visualPhotos[key].find(p => p.imageId === localImage!.imageId);
+        if (localImageInArray && localImageInArray.displayUrl &&
+            localImageInArray.displayUrl !== 'assets/img/photo-placeholder.png') {
+          // Just update the AttachID mapping, but DON'T change the displayUrl
+          this.logDebug('SKIP', `Photo ${attachId} matches LocalImage ${localImage.imageId} with valid URL`);
           return;
         }
       }
-      
-      const s3Key = attach.Attachment;
-      const hasImageSource = attach.Attachment || attach.Photo;
       
       // Determine display URL
       let displayUrl = 'assets/img/photo-placeholder.png';
       let isLoading = false;
       
-      // Step 1: Try LocalImage system (new photos)
-      try {
-        let localImage = await this.localImageService.getImage(attachId);
-        if (!localImage) {
-          localImage = await this.localImageService.getImageByAttachId(attachId);
-        }
-        
-        if (localImage && localImage.localBlobId) {
+      // Step 1: Try LocalImage blob (local first)
+      if (localImage && localImage.localBlobId) {
+        try {
           displayUrl = await this.localImageService.getDisplayUrl(localImage);
-          this.logDebug('LOCAL', `Photo ${attachId} from LocalImage`);
+          this.logDebug('LOCAL', `Photo ${attachId} from LocalImage blob`);
+        } catch (e) {
+          this.logDebug('WARN', `LocalImage getDisplayUrl failed: ${e}`);
         }
-      } catch (e) {
-        // LocalImage system failed - continue with fallback
-        this.logDebug('WARN', `LocalImage check failed: ${e}`);
       }
       
-      // Step 2: Try cached photo (if no local image found)
+      // Step 2: Try cached photo
       if (displayUrl === 'assets/img/photo-placeholder.png') {
         try {
           const cached = await this.indexedDb.getCachedPhoto(attachId);
@@ -1977,19 +2006,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
       
-      // Step 3: If still placeholder and online, load from remote
+      // Step 3: Load from remote (non-blocking)
+      const s3Key = attach.Attachment;
+      const hasImageSource = attach.Attachment || attach.Photo;
       if (displayUrl === 'assets/img/photo-placeholder.png' && hasImageSource && this.offlineService.isOnline()) {
         isLoading = true;
-        // Don't await - load in background
         this.loadPhotoFromRemote(attachId, s3Key || attach.Photo, key, !!s3Key);
       }
       
       // Create photo data
       const photoData: any = {
-        AttachID: attach.AttachID,
+        AttachID: attach.AttachID || attachId,
         attachId: attachId,
-        id: attach.AttachID,
-        imageId: attachId, // Use attachId as stable key for legacy photos
+        id: attach.AttachID || attachId,
+        imageId: localImage?.imageId || attachId,
         displayUrl: displayUrl,
         url: displayUrl,
         thumbnailUrl: displayUrl,
@@ -2006,35 +2036,40 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         isSkeleton: false
       };
       
-      // Add or update in array
-      if (!this.visualPhotos[key]) {
-        this.visualPhotos[key] = [];
-      }
-      
+      // Find by any matching ID
       const existingIndex = this.visualPhotos[key].findIndex(p => 
-        String(p.AttachID) === attachId || String(p.id) === attachId
+        String(p.AttachID) === attachId || 
+        String(p.id) === attachId ||
+        String(p.attachId) === attachId ||
+        (localImage && p.imageId === localImage.imageId)
       );
       
       if (existingIndex !== -1) {
-        // Preserve existing displayUrl if new one is placeholder
+        // BULLETPROOF: Never replace a valid URL with a placeholder
         const existing = this.visualPhotos[key][existingIndex];
-        if (photoData.displayUrl === 'assets/img/photo-placeholder.png' &&
-            existing.displayUrl && 
-            existing.displayUrl !== 'assets/img/photo-placeholder.png') {
+        const existingHasValidUrl = existing.displayUrl && 
+          existing.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          !existing.displayUrl.startsWith('assets/');
+        
+        if (existingHasValidUrl) {
+          // Keep the existing valid URL
           photoData.displayUrl = existing.displayUrl;
           photoData.url = existing.displayUrl;
           photoData.thumbnailUrl = existing.displayUrl;
+          photoData.loading = false;
         }
+        
+        // Merge but preserve displayUrl
         this.visualPhotos[key][existingIndex] = { ...existing, ...photoData };
       } else {
+        // New photo - add it
         this.visualPhotos[key].push(photoData);
       }
       
-      // Only trigger change detection if not in a batch
       try {
         this.changeDetectorRef.detectChanges();
       } catch (e) {
-        // View might be destroyed - ignore
+        // View destroyed - ignore
       }
       
     } catch (err: any) {
@@ -2060,6 +2095,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
       
       if (imageUrl) {
+        // BULLETPROOF: Preload the image BEFORE updating the UI
+        // This prevents "broken link" issues
+        const loaded = await this.preloadImage(imageUrl);
+        
+        if (!loaded) {
+          this.logDebug('WARN', `Image ${attachId} failed to preload, keeping placeholder`);
+          return; // Keep placeholder, don't update UI with broken link
+        }
+        
         // Cache it (with serviceId and s3Key)
         try {
           await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl, imageKey);
@@ -2068,12 +2112,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.logDebug('WARN', `Cache failed for ${attachId}: ${e}`);
         }
         
-        // Update UI
+        // ONLY update UI after image is confirmed loadable
         if (this.visualPhotos[key]) {
           const photoIndex = this.visualPhotos[key].findIndex(p => 
             String(p.AttachID) === attachId || String(p.id) === attachId
           );
           if (photoIndex !== -1) {
+            // Check one more time that we're not replacing a valid URL
+            const currentUrl = this.visualPhotos[key][photoIndex].displayUrl;
+            if (currentUrl && 
+                currentUrl !== 'assets/img/photo-placeholder.png' &&
+                !currentUrl.startsWith('assets/')) {
+              // Already have a valid URL - don't replace
+              this.logDebug('SKIP', `Photo ${attachId} already has valid URL, not replacing`);
+              return;
+            }
+            
             this.visualPhotos[key][photoIndex].displayUrl = imageUrl;
             this.visualPhotos[key][photoIndex].url = imageUrl;
             this.visualPhotos[key][photoIndex].thumbnailUrl = imageUrl;
@@ -2087,7 +2141,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
         
-        this.logDebug('REMOTE', `Photo ${attachId} loaded from remote`);
+        this.logDebug('REMOTE', `Photo ${attachId} loaded from remote (verified)`);
       }
     } catch (err: any) {
       this.logDebug('ERROR', `Remote load failed for ${attachId}: ${err?.message || err}`);

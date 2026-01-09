@@ -109,16 +109,17 @@ export class LocalImageService {
   // ============================================================================
 
   /**
-   * Get display URL for an image
+   * Get display URL for an image - BULLETPROOF
    * Follows deterministic decision tree:
-   * 1. If local blob exists -> use local (always)
-   * 2. If remote verified -> use signed S3 URL
+   * 1. If local blob exists -> use local (ALWAYS)
+   * 2. If remote verified AND loaded in UI -> use signed S3 URL
    * 3. Otherwise -> placeholder
    * 
-   * NEVER causes broken images
+   * NEVER causes broken images or disappearing photos
    */
   async getDisplayUrl(image: LocalImage): Promise<string> {
-    // Rule 1: Always prefer local if it exists
+    // Rule 1: ALWAYS prefer local blob if it exists
+    // This is the key to preventing disappearing photos
     if (image.localBlobId) {
       const blobUrl = await this.getBlobUrl(image.localBlobId);
       if (blobUrl) {
@@ -126,8 +127,9 @@ export class LocalImageService {
       }
     }
     
-    // Rule 2: Fall back to remote if verified and has key
-    if (image.remoteS3Key && image.status === 'verified') {
+    // Rule 2: Only use remote if BOTH verified AND already loaded in UI
+    // This prevents switching to a broken remote URL
+    if (image.remoteS3Key && image.status === 'verified' && image.remoteLoadedInUI) {
       try {
         const signedUrl = await this.getSignedUrl(image.remoteS3Key);
         return signedUrl;
@@ -137,7 +139,15 @@ export class LocalImageService {
       }
     }
     
-    // Rule 3: Placeholder (should be rare)
+    // Rule 3: If we have a remote key but haven't verified it yet, try to load
+    // But DON'T use it for display - just return placeholder
+    // The UI will switch once remote is verified and loaded
+    if (image.remoteS3Key && image.status === 'uploaded') {
+      // Trigger verification in background (non-blocking)
+      this.verifyRemoteImage(image.imageId).catch(() => {});
+    }
+    
+    // Rule 4: Placeholder (should be rare if local-first is working)
     return 'assets/img/photo-placeholder.png';
   }
 
@@ -307,6 +317,59 @@ export class LocalImageService {
         attachId: image.attachId || undefined,
         remoteS3Key: image.remoteS3Key || undefined
       });
+    }
+  }
+
+  /**
+   * Mark image as loaded in UI (remote image successfully rendered)
+   * ONLY after this can we safely prune the local blob
+   */
+  async markRemoteLoadedInUI(imageId: string): Promise<void> {
+    await this.indexedDb.updateLocalImage(imageId, {
+      remoteLoadedInUI: true
+    });
+    console.log('[LocalImage] ✅ Remote image loaded in UI:', imageId);
+  }
+
+  /**
+   * Verify that a remote image is actually loadable
+   * Uses HEAD request or Image element to confirm S3 image works
+   */
+  async verifyRemoteImage(imageId: string): Promise<boolean> {
+    const image = await this.getImage(imageId);
+    if (!image || !image.remoteS3Key) {
+      return false;
+    }
+
+    // Skip if already verified
+    if (image.status === 'verified') {
+      return true;
+    }
+
+    try {
+      // Get signed URL
+      const signedUrl = await this.getSignedUrl(image.remoteS3Key);
+      
+      // Verify by loading as image
+      const isLoadable = await new Promise<boolean>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = signedUrl;
+        // Timeout after 10 seconds
+        setTimeout(() => resolve(false), 10000);
+      });
+
+      if (isLoadable) {
+        await this.markVerified(imageId);
+        return true;
+      } else {
+        console.warn('[LocalImage] Remote image not loadable:', imageId);
+        return false;
+      }
+    } catch (err) {
+      console.error('[LocalImage] Verification failed:', imageId, err);
+      return false;
     }
   }
 

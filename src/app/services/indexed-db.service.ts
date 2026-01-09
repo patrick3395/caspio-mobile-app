@@ -614,7 +614,7 @@ export class IndexedDbService {
   }
 
   /**
-   * Get sync statistics
+   * Get sync statistics (includes both old pendingRequests and new uploadOutbox)
    */
   async getSyncStats(): Promise<{
     pending: number;
@@ -624,24 +624,44 @@ export class IndexedDbService {
   }> {
     const db = await this.ensureDb();
 
-    return new Promise((resolve, reject) => {
+    // Get counts from pendingRequests (old system)
+    const pendingRequestsStats = await new Promise<{pending: number; syncing: number; synced: number; failed: number}>((resolve, reject) => {
       const transaction = db.transaction(['pendingRequests'], 'readonly');
       const store = transaction.objectStore('pendingRequests');
       const getAllRequest = store.getAll();
 
       getAllRequest.onsuccess = () => {
         const all = getAllRequest.result as PendingRequest[];
-        const stats = {
+        resolve({
           pending: all.filter(r => r.status === 'pending').length,
           syncing: all.filter(r => r.status === 'syncing').length,
           synced: all.filter(r => r.status === 'synced').length,
           failed: all.filter(r => r.status === 'failed').length,
-        };
-        resolve(stats);
+        });
       };
 
       getAllRequest.onerror = () => reject(getAllRequest.error);
     });
+
+    // Get count from uploadOutbox (new LocalImage system)
+    let uploadOutboxCount = 0;
+    if (db.objectStoreNames.contains('uploadOutbox')) {
+      uploadOutboxCount = await new Promise<number>((resolve, reject) => {
+        const transaction = db.transaction(['uploadOutbox'], 'readonly');
+        const store = transaction.objectStore('uploadOutbox');
+        const countRequest = store.count();
+        countRequest.onsuccess = () => resolve(countRequest.result);
+        countRequest.onerror = () => reject(countRequest.error);
+      });
+    }
+
+    // Combine counts - uploadOutbox items are pending uploads
+    return {
+      pending: pendingRequestsStats.pending + uploadOutboxCount,
+      syncing: pendingRequestsStats.syncing,
+      synced: pendingRequestsStats.synced,
+      failed: pendingRequestsStats.failed,
+    };
   }
 
   /**
