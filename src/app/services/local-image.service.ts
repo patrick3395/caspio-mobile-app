@@ -382,16 +382,6 @@ export class LocalImageService {
     });
   }
 
-  /**
-   * Mark that UI successfully loaded remote image
-   * Used to track when it's safe to prune local blob
-   */
-  async markRemoteLoadedInUI(imageId: string): Promise<void> {
-    await this.indexedDb.updateLocalImage(imageId, {
-      remoteLoadedInUI: true
-    });
-  }
-
   // ============================================================================
   // CAPTION/DRAWINGS UPDATE
   // ============================================================================
@@ -556,41 +546,6 @@ export class LocalImageService {
   private async updatePendingCount(): Promise<void> {
     const count = await this.indexedDb.getUploadOutboxCount();
     this.pendingUploadCount$.next(count);
-  }
-
-  // ============================================================================
-  // VERIFICATION
-  // ============================================================================
-
-  /**
-   * Verify remote image is loadable
-   * Returns true if verified, false if not
-   */
-  async verifyRemoteImage(imageId: string): Promise<boolean> {
-    const image = await this.getImage(imageId);
-    if (!image || !image.remoteS3Key) {
-      console.warn('[LocalImage] Cannot verify - no remote key:', imageId);
-      return false;
-    }
-    
-    try {
-      // Get signed URL
-      const signedUrl = await this.getSignedUrl(image.remoteS3Key);
-      
-      // Try to load the image
-      const loadable = await this.testImageLoad(signedUrl);
-      
-      if (loadable) {
-        await this.markVerified(imageId);
-        return true;
-      } else {
-        console.warn('[LocalImage] Remote image not loadable:', imageId);
-        return false;
-      }
-    } catch (err) {
-      console.error('[LocalImage] Verification failed:', imageId, err);
-      return false;
-    }
   }
 
   /**
