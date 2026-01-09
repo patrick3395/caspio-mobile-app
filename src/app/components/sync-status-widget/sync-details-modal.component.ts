@@ -446,7 +446,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       
       // Load pending photos from uploadOutbox (new LocalImage system)
       try {
-        const outboxItems = await this.indexedDb.getPendingUploadOutboxItems();
+        const outboxItems = await this.indexedDb.getAllUploadOutboxItems();
         // Get LocalImage details for each outbox item
         this.pendingPhotos = [];
         for (const item of outboxItems) {

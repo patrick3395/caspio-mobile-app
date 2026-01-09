@@ -4191,6 +4191,26 @@ export class IndexedDbService {
   }
 
   /**
+   * Get ALL upload outbox items (for display in sync modal)
+   */
+  async getAllUploadOutboxItems(): Promise<UploadOutboxItem[]> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('uploadOutbox')) {
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['uploadOutbox'], 'readonly');
+      const store = transaction.objectStore('uploadOutbox');
+      const request = store.getAll();
+
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
    * Update outbox item (for retry tracking)
    */
   async updateOutboxItem(opId: string, updates: Partial<UploadOutboxItem>): Promise<void> {
