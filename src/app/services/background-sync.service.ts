@@ -1,10 +1,11 @@
 import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, Subject, interval, Subscription } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
-import { IndexedDbService, PendingRequest } from './indexed-db.service';
+import { IndexedDbService, PendingRequest, LocalImage, UploadOutboxItem } from './indexed-db.service';
 import { ApiGatewayService } from './api-gateway.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
 import { CaspioService } from './caspio.service';
+import { LocalImageService } from './local-image.service';
 
 export interface PhotoUploadComplete {
   tempFileId: string;
@@ -140,7 +141,8 @@ export class BackgroundSyncService {
     private apiGateway: ApiGatewayService,
     private connectionMonitor: ConnectionMonitorService,
     private ngZone: NgZone,
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private localImageService: LocalImageService
   ) {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
@@ -254,6 +256,9 @@ export class BackgroundSyncService {
       // Reset any stuck 'syncing' requests before processing
       // This handles cases where sync was interrupted (navigation, network issues, etc.)
       await this.resetStuckSyncingRequests();
+      
+      // NEW: Process upload outbox (new local-first image system)
+      await this.processUploadOutbox();
       
       await this.syncPendingRequests();
       // CRITICAL: Process pending caption updates independently from photo uploads
@@ -1955,12 +1960,268 @@ export class BackgroundSyncService {
   // STORAGE CLEANUP
   // ============================================================================
 
+  // ============================================================================
+  // NEW LOCAL-FIRST IMAGE UPLOAD PROCESSING
+  // ============================================================================
+
+  /**
+   * Process upload outbox - new local-first image system
+   * 
+   * Key features:
+   * - Stable imageId never changes
+   * - Local blob preserved until remote is VERIFIED
+   * - Status state machine: local_only -> queued -> uploading -> uploaded -> verified
+   */
+  private async processUploadOutbox(): Promise<void> {
+    // Check if new system is available
+    if (!this.indexedDb.hasNewImageSystem()) {
+      return;
+    }
+
+    const readyItems = await this.localImageService.getReadyUploads();
+    
+    if (readyItems.length === 0) {
+      return;
+    }
+
+    console.log(`[BackgroundSync] Processing ${readyItems.length} upload outbox items`);
+
+    for (const item of readyItems) {
+      try {
+        await this.processUploadOutboxItem(item);
+      } catch (err: any) {
+        console.error('[BackgroundSync] Upload outbox item failed:', item.opId, err);
+        await this.localImageService.handleUploadFailure(
+          item.opId, 
+          item.imageId, 
+          err?.message || 'Unknown error'
+        );
+      }
+    }
+  }
+
+  /**
+   * Process a single upload outbox item
+   */
+  private async processUploadOutboxItem(item: UploadOutboxItem): Promise<void> {
+    const image = await this.indexedDb.getLocalImage(item.imageId);
+    if (!image) {
+      console.warn('[BackgroundSync] Image not found for outbox item:', item.imageId);
+      await this.indexedDb.removeOutboxItem(item.opId);
+      return;
+    }
+
+    // Get the blob data
+    if (!image.localBlobId) {
+      console.warn('[BackgroundSync] No local blob for image:', item.imageId);
+      await this.indexedDb.removeOutboxItem(item.opId);
+      return;
+    }
+
+    const blob = await this.indexedDb.getLocalBlob(image.localBlobId);
+    if (!blob) {
+      console.warn('[BackgroundSync] Blob not found:', image.localBlobId);
+      await this.indexedDb.removeOutboxItem(item.opId);
+      return;
+    }
+
+    // Mark as uploading
+    await this.localImageService.markUploadStarted(item.opId, item.imageId);
+
+    console.log('[BackgroundSync] Uploading image:', item.imageId, 'type:', image.entityType);
+
+    // Resolve temp entityId if needed
+    let entityId = image.entityId;
+    if (entityId.startsWith('temp_')) {
+      const realId = await this.indexedDb.getRealId(entityId);
+      if (!realId) {
+        throw new Error(`Entity not synced yet: ${entityId}`);
+      }
+      entityId = realId;
+      // Update image with resolved entityId
+      await this.indexedDb.updateLocalImage(item.imageId, { entityId: realId });
+    }
+
+    // Convert ArrayBuffer back to File
+    const file = new File(
+      [blob.data], 
+      image.fileName, 
+      { type: blob.contentType || 'image/jpeg' }
+    );
+
+    // Upload based on entity type
+    let result: any;
+    switch (image.entityType) {
+      case 'visual':
+        result = await this.caspioService.uploadVisualsAttachWithS3(
+          parseInt(entityId),
+          image.drawings || '',
+          file,
+          image.caption || ''
+        );
+        break;
+      case 'efe_point':
+        result = await this.caspioService.uploadEFEPointsAttachWithS3(
+          parseInt(entityId),
+          image.drawings || '',
+          file,
+          'Measurement', // Default photo type
+          image.caption || ''
+        );
+        break;
+      // Add more entity types as needed
+      default:
+        throw new Error(`Unsupported entity type: ${image.entityType}`);
+    }
+
+    // Extract results
+    const attachId = String(result.AttachID || result.attachId || result.Result?.[0]?.AttachID);
+    const s3Key = result.Attachment || result.s3Key || result.Result?.[0]?.Attachment;
+
+    if (!attachId || !s3Key) {
+      throw new Error('Upload response missing AttachID or s3Key');
+    }
+
+    console.log('[BackgroundSync] ✅ Upload success:', item.imageId, 'attachId:', attachId, 's3Key:', s3Key?.substring(0, 50));
+
+    // Mark as uploaded (NOT verified yet)
+    await this.localImageService.handleUploadSuccess(item.opId, item.imageId, s3Key, attachId);
+
+    // Verify remote is loadable (async, non-blocking)
+    this.verifyAndMarkImage(item.imageId).catch(err => {
+      console.warn('[BackgroundSync] Verification failed (will retry):', item.imageId, err);
+    });
+
+    // Emit legacy event for backward compatibility
+    if (image.entityType === 'visual') {
+      this.ngZone.run(() => {
+        this.photoUploadComplete$.next({
+          tempFileId: item.imageId,
+          tempVisualId: image.entityId,
+          realVisualId: parseInt(entityId),
+          result
+        });
+      });
+    } else if (image.entityType === 'efe_point') {
+      this.ngZone.run(() => {
+        this.efePhotoUploadComplete$.next({
+          tempFileId: item.imageId,
+          tempPointId: image.entityId,
+          realPointId: parseInt(entityId),
+          result
+        });
+      });
+    }
+
+    // Mark sections dirty
+    if (image.serviceId) {
+      this.markAllSectionsDirty(image.serviceId);
+    }
+  }
+
+  /**
+   * Verify remote image is loadable and mark as verified
+   */
+  private async verifyAndMarkImage(imageId: string): Promise<void> {
+    const verified = await this.localImageService.verifyRemoteImage(imageId);
+    
+    if (verified) {
+      console.log('[BackgroundSync] ✅ Remote verified:', imageId);
+    } else {
+      console.warn('[BackgroundSync] ⚠️ Remote not verified yet:', imageId);
+      // Will be retried on next sync or when UI loads
+    }
+  }
+
+  // ============================================================================
+  // LOCAL BLOB PRUNING
+  // ============================================================================
+
+  /**
+   * Prune local blobs for verified images
+   * Only prunes when:
+   * - Image status is 'verified'
+   * - Remote has been successfully loaded in UI at least once
+   * - OR image is older than 24 hours (grace period for UI to load)
+   */
+  private async pruneVerifiedBlobs(): Promise<void> {
+    if (!this.indexedDb.hasNewImageSystem()) {
+      return;
+    }
+
+    try {
+      // Get all local images
+      const allImages = await this.getAllLocalImages();
+      const now = Date.now();
+      const GRACE_PERIOD_MS = 24 * 60 * 60 * 1000; // 24 hours
+      
+      let prunedCount = 0;
+      
+      for (const image of allImages) {
+        // Skip if not verified
+        if (image.status !== 'verified') {
+          continue;
+        }
+        
+        // Skip if no local blob
+        if (!image.localBlobId) {
+          continue;
+        }
+        
+        // Check if safe to prune
+        const isPastGracePeriod = (now - image.createdAt) > GRACE_PERIOD_MS;
+        const hasLoadedInUI = image.remoteLoadedInUI;
+        
+        if (hasLoadedInUI || isPastGracePeriod) {
+          try {
+            await this.localImageService.pruneLocalBlob(image.imageId);
+            prunedCount++;
+          } catch (err) {
+            console.warn('[BackgroundSync] Failed to prune blob:', image.imageId, err);
+          }
+        }
+      }
+      
+      if (prunedCount > 0) {
+        console.log(`[BackgroundSync] ✅ Pruned ${prunedCount} verified local blobs`);
+      }
+    } catch (err) {
+      console.warn('[BackgroundSync] Blob pruning error:', err);
+    }
+  }
+
+  /**
+   * Get all local images (helper for pruning)
+   */
+  private async getAllLocalImages(): Promise<LocalImage[]> {
+    if (!this.indexedDb.hasNewImageSystem()) {
+      return [];
+    }
+    
+    // Get all services and aggregate images
+    const activeServiceIds = await this.getActiveServiceIds();
+    const allImages: LocalImage[] = [];
+    
+    for (const serviceId of activeServiceIds) {
+      const images = await this.indexedDb.getLocalImagesForService(serviceId);
+      allImages.push(...images);
+    }
+    
+    return allImages;
+  }
+
+  // ============================================================================
+  // STORAGE CLEANUP
+  // ============================================================================
+
   /**
    * Perform storage cleanup after sync cycle
    * Only runs if storage usage exceeds threshold
    * Deletes old cached photos that aren't in active services
    */
   private async performStorageCleanup(): Promise<void> {
+    // First, prune verified local blobs
+    await this.pruneVerifiedBlobs();
     try {
       const stats = await this.indexedDb.getStorageStats();
       

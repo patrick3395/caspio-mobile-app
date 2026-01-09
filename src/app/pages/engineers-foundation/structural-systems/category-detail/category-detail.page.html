@@ -205,6 +205,7 @@
                            [alt]="photo.name"
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
+                           (load)="handleImageLoad($event, photo)"
                            (error)="handleImageError($event, photo)"
                            [class.has-annotations]="photo.hasAnnotations"
                            [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
@@ -395,6 +396,7 @@
                            [alt]="photo.name"
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
+                           (load)="handleImageLoad($event, photo)"
                            (error)="handleImageError($event, photo)"
                            [class.has-annotations]="photo.hasAnnotations"
                            [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
@@ -585,6 +587,7 @@
                            [alt]="photo.name"
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
+                           (load)="handleImageLoad($event, photo)"
                            (error)="handleImageError($event, photo)"
                            [class.has-annotations]="photo.hasAnnotations"
                            [class.loading]="photo.displayState === 'remote_loading' || photo.loading">

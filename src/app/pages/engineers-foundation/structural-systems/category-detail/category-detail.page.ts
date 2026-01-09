@@ -13,9 +13,10 @@ import { EngineersFoundationDataService } from '../../engineers-foundation-data.
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
-import { IndexedDbService } from '../../../../services/indexed-db.service';
+import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
 import { OfflineTemplateService } from '../../../../services/offline-template.service';
+import { LocalImageService } from '../../../../services/local-image.service';
 import { compressAnnotationData, decompressAnnotationData } from '../../../../utils/annotation-utils';
 import { AddCustomVisualModalComponent } from '../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 
@@ -143,7 +144,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private cache: CacheService,
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
-    private offlineTemplate: OfflineTemplateService
+    private offlineTemplate: OfflineTemplateService,
+    private localImageService: LocalImageService
   ) {}
 
   async ngOnInit() {
@@ -265,6 +267,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.localOperationCooldownTimer) {
       clearTimeout(this.localOperationCooldownTimer);
     }
+    
+    // Clean up blob URLs from LocalImageService to prevent memory leaks
+    this.localImageService.revokeAllBlobUrls();
+    
     console.log('[CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
@@ -2719,18 +2725,158 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return photos.filter(p => p.uploading).length;
   }
 
+  /**
+   * TrackBy function for photos - uses stable imageId if available
+   * CRITICAL: Using a stable key prevents Angular from remounting components
+   * which causes the "disappear then reappear" issue
+   */
   trackByPhotoId(index: number, photo: any): any {
-    return photo.AttachID || photo.id || index;
+    // Prefer stable imageId from new local-first system
+    // Falls back to AttachID/id for legacy photos
+    return photo.imageId || photo.AttachID || photo.id || index;
   }
 
+  /**
+   * Handle image load error - shows placeholder and marks for retry
+   */
   handleImageError(event: any, photo: any) {
     console.error('Image failed to load:', photo);
     event.target.src = 'assets/img/photo-placeholder.png';
+    
+    // If this is a verified remote image that failed, mark for retry
+    if (photo.imageId && photo.status === 'verified') {
+      console.log('[IMAGE ERROR] Verified image failed to load, may need re-verification:', photo.imageId);
+    }
+  }
+
+  /**
+   * Handle successful image load - marks remote as loaded in UI
+   * This enables safe blob pruning
+   */
+  handleImageLoad(event: any, photo: any) {
+    // If this is a remote image (not local blob), mark as loaded in UI
+    if (photo.imageId && !photo.isLocal && photo.status === 'verified') {
+      this.localImageService.markRemoteLoadedInUI(photo.imageId).catch(err => {
+        console.warn('[IMAGE LOAD] Failed to mark remote loaded:', err);
+      });
+    }
   }
 
   saveScrollBeforePhotoClick(event: Event): void {
     // This method is still called from HTML but now handled in viewPhoto() instead
     // Keeping the method to avoid template errors
+  }
+
+  // ============================================================================
+  // NEW LOCAL-FIRST IMAGE SYSTEM HELPERS
+  // ============================================================================
+
+  /**
+   * Create a photo using the new local-first system
+   * Returns a stable imageId that can be used as UI key
+   */
+  async createLocalImage(
+    file: File,
+    visualId: string,
+    key: string,
+    caption: string = '',
+    drawings: string = ''
+  ): Promise<LocalImage> {
+    const localImage = await this.localImageService.captureImage(
+      file,
+      'visual',
+      visualId,
+      this.serviceId,
+      caption,
+      drawings
+    );
+
+    // Get display URL
+    const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+    // Add to visualPhotos for immediate UI display
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+
+    const photoData: any = {
+      // Stable ID from new system
+      imageId: localImage.imageId,
+      
+      // Legacy fields for compatibility
+      AttachID: localImage.imageId, // Use imageId as AttachID for now
+      id: localImage.imageId,
+      
+      // Display info
+      displayUrl: displayUrl,
+      url: displayUrl,
+      thumbnailUrl: displayUrl,
+      
+      // Status from new system
+      status: localImage.status,
+      isLocal: !!localImage.localBlobId,
+      
+      // Metadata
+      caption: caption,
+      annotation: caption,
+      Annotation: caption,
+      Drawings: drawings,
+      hasAnnotations: !!drawings && drawings.length > 10,
+      
+      // UI state
+      uploading: localImage.status === 'uploading' || localImage.status === 'queued',
+      loading: false,
+      isObjectUrl: true
+    };
+
+    this.visualPhotos[key].push(photoData);
+    this.changeDetectorRef.detectChanges();
+
+    console.log('[LOCAL IMAGE] Created:', localImage.imageId, 'for key:', key);
+    return localImage;
+  }
+
+  /**
+   * Get display URL for a photo (works with both old and new system)
+   */
+  async getPhotoDisplayUrl(photo: any): Promise<string> {
+    // If this is a new-system photo with imageId
+    if (photo.imageId) {
+      const localImage = await this.localImageService.getImage(photo.imageId);
+      if (localImage) {
+        return this.localImageService.getDisplayUrl(localImage);
+      }
+    }
+    
+    // Fall back to existing displayUrl
+    return photo.displayUrl || photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+  }
+
+  /**
+   * Refresh photo display URL after sync
+   * Called when status changes to update from local blob to remote
+   */
+  async refreshPhotoDisplayUrl(imageId: string, key: string): Promise<void> {
+    const localImage = await this.localImageService.getImage(imageId);
+    if (!localImage) return;
+
+    const photoIndex = this.visualPhotos[key]?.findIndex(p => p.imageId === imageId);
+    if (photoIndex === -1) return;
+
+    const newDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+    
+    this.visualPhotos[key][photoIndex] = {
+      ...this.visualPhotos[key][photoIndex],
+      displayUrl: newDisplayUrl,
+      url: newDisplayUrl,
+      thumbnailUrl: newDisplayUrl,
+      status: localImage.status,
+      isLocal: !!localImage.localBlobId,
+      uploading: localImage.status === 'uploading' || localImage.status === 'queued',
+      AttachID: localImage.attachId || localImage.imageId // Update with real AttachID if available
+    };
+
+    this.changeDetectorRef.detectChanges();
   }
 
   // ============================================

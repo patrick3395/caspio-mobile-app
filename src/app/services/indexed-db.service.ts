@@ -66,12 +66,82 @@ export interface PendingCaptionUpdate {
   error?: string;
 }
 
+// ============================================================================
+// NEW LOCAL-FIRST IMAGE SYSTEM
+// Stable UUIDs, proper status state machine, guaranteed UI stability
+// ============================================================================
+
+export type ImageStatus = 'local_only' | 'queued' | 'uploading' | 'uploaded' | 'verified' | 'failed';
+export type ImageEntityType = 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' | 'dte';
+
+/**
+ * LocalImage - Single source of truth for all images
+ * Uses stable UUID that NEVER changes (safe for UI keys)
+ */
+export interface LocalImage {
+  imageId: string;              // UUID generated locally, NEVER changes (UI list key)
+  entityType: ImageEntityType;  // Type of parent entity
+  entityId: string;             // VisualID, PointID, etc. (can be temp_xxx initially)
+  serviceId: string;
+  
+  // Local blob reference
+  localBlobId: string | null;   // FK to localBlobs table (null after pruning)
+  
+  // Remote reference (S3)
+  remoteS3Key: string | null;   // S3 key (NOT signed URL - generate at runtime)
+  
+  // Status state machine
+  status: ImageStatus;
+  
+  // Caspio sync
+  attachId: string | null;      // Real AttachID from Caspio (null until synced)
+  
+  // Metadata
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  caption: string;
+  drawings: string;
+  createdAt: number;
+  updatedAt: number;
+  lastError: string | null;
+  
+  // Verification tracking
+  remoteVerifiedAt: number | null;  // When remote was confirmed loadable
+  remoteLoadedInUI: boolean;        // Whether UI has successfully loaded remote
+}
+
+/**
+ * LocalBlob - Binary storage separated from metadata
+ * Allows pruning blobs while keeping image records
+ */
+export interface LocalBlob {
+  blobId: string;               // UUID
+  data: ArrayBuffer;            // Actual blob data
+  sizeBytes: number;
+  contentType: string;
+  createdAt: number;
+}
+
+/**
+ * UploadOutboxItem - Upload queue with retry logic
+ */
+export interface UploadOutboxItem {
+  opId: string;                 // UUID
+  type: 'UPLOAD_IMAGE';
+  imageId: string;              // FK to localImages
+  attempts: number;
+  nextRetryAt: number;
+  createdAt: number;
+  lastError: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class IndexedDbService {
   private dbName = 'CaspioOfflineDB';
-  private version = 5;  // Bumped for pendingCaptions store
+  private version = 6;  // Bumped for localImages/localBlobs/uploadOutbox stores
   private db: IDBDatabase | null = null;
 
   constructor() {
@@ -188,6 +258,44 @@ export class IndexedDbService {
           captionStore.createIndex('serviceId', 'serviceId', { unique: false });
           captionStore.createIndex('createdAt', 'createdAt', { unique: false });
           console.log('[IndexedDB] pendingCaptions store created successfully');
+        }
+
+        // ====================================================================
+        // NEW LOCAL-FIRST IMAGE SYSTEM STORES (v6)
+        // ====================================================================
+
+        // localImages store - Single source of truth for all images
+        if (!db.objectStoreNames.contains('localImages')) {
+          console.log('[IndexedDB] Creating localImages store...');
+          const localImagesStore = db.createObjectStore('localImages', { keyPath: 'imageId' });
+          localImagesStore.createIndex('entityType', 'entityType', { unique: false });
+          localImagesStore.createIndex('entityId', 'entityId', { unique: false });
+          localImagesStore.createIndex('serviceId', 'serviceId', { unique: false });
+          localImagesStore.createIndex('status', 'status', { unique: false });
+          localImagesStore.createIndex('attachId', 'attachId', { unique: false });
+          localImagesStore.createIndex('createdAt', 'createdAt', { unique: false });
+          // Compound index for entity lookups
+          localImagesStore.createIndex('entityType_entityId', ['entityType', 'entityId'], { unique: false });
+          localImagesStore.createIndex('serviceId_entityType', ['serviceId', 'entityType'], { unique: false });
+          console.log('[IndexedDB] localImages store created successfully');
+        }
+
+        // localBlobs store - Binary blob storage (separated for efficient pruning)
+        if (!db.objectStoreNames.contains('localBlobs')) {
+          console.log('[IndexedDB] Creating localBlobs store...');
+          const localBlobsStore = db.createObjectStore('localBlobs', { keyPath: 'blobId' });
+          localBlobsStore.createIndex('createdAt', 'createdAt', { unique: false });
+          console.log('[IndexedDB] localBlobs store created successfully');
+        }
+
+        // uploadOutbox store - Upload queue with retry logic
+        if (!db.objectStoreNames.contains('uploadOutbox')) {
+          console.log('[IndexedDB] Creating uploadOutbox store...');
+          const outboxStore = db.createObjectStore('uploadOutbox', { keyPath: 'opId' });
+          outboxStore.createIndex('imageId', 'imageId', { unique: false });
+          outboxStore.createIndex('nextRetryAt', 'nextRetryAt', { unique: false });
+          outboxStore.createIndex('createdAt', 'createdAt', { unique: false });
+          console.log('[IndexedDB] uploadOutbox store created successfully');
         }
 
         console.log('[IndexedDB] Database schema created/updated. Final stores:', Array.from(db.objectStoreNames || []));
@@ -3691,6 +3799,482 @@ export class IndexedDbService {
       
       countRequest.onerror = () => reject(countRequest.error);
     });
+  }
+
+  // ============================================================================
+  // LOCAL-FIRST IMAGE SYSTEM METHODS
+  // ============================================================================
+
+  /**
+   * Generate a stable UUID for images
+   */
+  generateImageId(): string {
+    return `img_${this.generateUUID()}`;
+  }
+
+  /**
+   * Create a new local image with its blob
+   * This is the entry point for capturing photos - fully local-first
+   */
+  async createLocalImage(
+    file: File,
+    entityType: ImageEntityType,
+    entityId: string,
+    serviceId: string,
+    caption: string = '',
+    drawings: string = ''
+  ): Promise<LocalImage> {
+    const db = await this.ensureDb();
+    
+    const imageId = this.generateImageId();
+    const blobId = `blob_${this.generateUUID()}`;
+    const now = Date.now();
+
+    // Read file as ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+
+    // Create blob record
+    const localBlob: LocalBlob = {
+      blobId,
+      data: arrayBuffer,
+      sizeBytes: file.size,
+      contentType: file.type || 'image/jpeg',
+      createdAt: now
+    };
+
+    // Create image record
+    const localImage: LocalImage = {
+      imageId,
+      entityType,
+      entityId,
+      serviceId,
+      localBlobId: blobId,
+      remoteS3Key: null,
+      status: 'local_only',
+      attachId: null,
+      fileName: file.name || `photo_${now}.jpg`,
+      fileSize: file.size,
+      contentType: file.type || 'image/jpeg',
+      caption,
+      drawings,
+      createdAt: now,
+      updatedAt: now,
+      lastError: null,
+      remoteVerifiedAt: null,
+      remoteLoadedInUI: false
+    };
+
+    // Create outbox item
+    const outboxItem: UploadOutboxItem = {
+      opId: `op_${this.generateUUID()}`,
+      type: 'UPLOAD_IMAGE',
+      imageId,
+      attempts: 0,
+      nextRetryAt: now, // Ready to process immediately
+      createdAt: now,
+      lastError: null
+    };
+
+    return new Promise((resolve, reject) => {
+      // Single transaction for atomicity
+      const transaction = db.transaction(['localBlobs', 'localImages', 'uploadOutbox'], 'readwrite');
+      
+      transaction.onerror = () => {
+        console.error('[IndexedDB] Failed to create local image:', transaction.error);
+        reject(transaction.error);
+      };
+
+      transaction.oncomplete = () => {
+        console.log('[IndexedDB] ✅ Local image created:', imageId, 'blob:', blobId);
+        resolve(localImage);
+      };
+
+      // Store blob
+      const blobStore = transaction.objectStore('localBlobs');
+      blobStore.add(localBlob);
+
+      // Store image
+      const imageStore = transaction.objectStore('localImages');
+      imageStore.add(localImage);
+
+      // Store outbox item (queues for upload)
+      const outboxStore = transaction.objectStore('uploadOutbox');
+      outboxItem.attempts = 0; // Ensure it's queued
+      outboxStore.add(outboxItem);
+    });
+  }
+
+  /**
+   * Get a local image by ID
+   */
+  async getLocalImage(imageId: string): Promise<LocalImage | null> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('localImages')) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['localImages'], 'readonly');
+      const store = transaction.objectStore('localImages');
+      const request = store.get(imageId);
+
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Get all local images for an entity (visual, point, etc.)
+   */
+  async getLocalImagesForEntity(entityType: ImageEntityType, entityId: string): Promise<LocalImage[]> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('localImages')) {
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['localImages'], 'readonly');
+      const store = transaction.objectStore('localImages');
+      const index = store.index('entityType_entityId');
+      const request = index.getAll([entityType, entityId]);
+
+      request.onsuccess = () => {
+        const images = request.result || [];
+        // Sort by createdAt descending (newest first)
+        images.sort((a, b) => b.createdAt - a.createdAt);
+        resolve(images);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Get all local images for a service
+   */
+  async getLocalImagesForService(serviceId: string, entityType?: ImageEntityType): Promise<LocalImage[]> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('localImages')) {
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['localImages'], 'readonly');
+      const store = transaction.objectStore('localImages');
+      
+      let request: IDBRequest;
+      if (entityType) {
+        const index = store.index('serviceId_entityType');
+        request = index.getAll([serviceId, entityType]);
+      } else {
+        const index = store.index('serviceId');
+        request = index.getAll(serviceId);
+      }
+
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Get local image by attachId (for looking up after sync)
+   */
+  async getLocalImageByAttachId(attachId: string): Promise<LocalImage | null> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('localImages')) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['localImages'], 'readonly');
+      const store = transaction.objectStore('localImages');
+      const index = store.index('attachId');
+      const request = index.get(attachId);
+
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Update local image status and fields
+   */
+  async updateLocalImage(imageId: string, updates: Partial<LocalImage>): Promise<void> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('localImages')) {
+      throw new Error('localImages store not available');
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['localImages'], 'readwrite');
+      const store = transaction.objectStore('localImages');
+      const getRequest = store.get(imageId);
+
+      getRequest.onsuccess = () => {
+        const existing = getRequest.result;
+        if (!existing) {
+          console.warn('[IndexedDB] Local image not found for update:', imageId);
+          resolve();
+          return;
+        }
+
+        const updated: LocalImage = {
+          ...existing,
+          ...updates,
+          updatedAt: Date.now()
+        };
+
+        const putRequest = store.put(updated);
+        putRequest.onsuccess = () => {
+          console.log('[IndexedDB] Local image updated:', imageId, 'status:', updated.status);
+          resolve();
+        };
+        putRequest.onerror = () => reject(putRequest.error);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Update local image status (convenience method)
+   */
+  async updateLocalImageStatus(imageId: string, status: ImageStatus, error?: string): Promise<void> {
+    return this.updateLocalImage(imageId, {
+      status,
+      lastError: error || null
+    });
+  }
+
+  /**
+   * Get a local blob by ID
+   */
+  async getLocalBlob(blobId: string): Promise<LocalBlob | null> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('localBlobs')) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['localBlobs'], 'readonly');
+      const store = transaction.objectStore('localBlobs');
+      const request = store.get(blobId);
+
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Get blob URL for a local image
+   * Returns null if blob doesn't exist (pruned or not found)
+   */
+  async getLocalBlobUrl(blobId: string): Promise<string | null> {
+    if (!blobId) return null;
+    
+    const blob = await this.getLocalBlob(blobId);
+    if (!blob || !blob.data) return null;
+
+    // Create object URL from ArrayBuffer
+    const blobObject = new Blob([blob.data], { type: blob.contentType || 'image/jpeg' });
+    return URL.createObjectURL(blobObject);
+  }
+
+  /**
+   * Delete a local blob (prune after verification)
+   */
+  async deleteLocalBlob(blobId: string): Promise<void> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('localBlobs')) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['localBlobs'], 'readwrite');
+      const store = transaction.objectStore('localBlobs');
+      const request = store.delete(blobId);
+
+      request.onsuccess = () => {
+        console.log('[IndexedDB] Local blob deleted:', blobId);
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Prune local blob from image (after verification)
+   * Keeps image record but removes blob reference and actual blob data
+   */
+  async pruneLocalBlob(imageId: string): Promise<void> {
+    const image = await this.getLocalImage(imageId);
+    if (!image) {
+      console.warn('[IndexedDB] Image not found for pruning:', imageId);
+      return;
+    }
+
+    if (!image.localBlobId) {
+      console.log('[IndexedDB] Image already pruned:', imageId);
+      return;
+    }
+
+    if (image.status !== 'verified') {
+      console.warn('[IndexedDB] Cannot prune unverified image:', imageId, 'status:', image.status);
+      return;
+    }
+
+    // Delete the blob
+    await this.deleteLocalBlob(image.localBlobId);
+
+    // Update image to remove blob reference
+    await this.updateLocalImage(imageId, {
+      localBlobId: null
+    });
+
+    console.log('[IndexedDB] ✅ Pruned local blob for image:', imageId);
+  }
+
+  // ============================================================================
+  // UPLOAD OUTBOX METHODS
+  // ============================================================================
+
+  /**
+   * Get pending upload items that are ready to process
+   */
+  async getReadyUploadOutboxItems(): Promise<UploadOutboxItem[]> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('uploadOutbox')) {
+      return [];
+    }
+
+    const now = Date.now();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['uploadOutbox'], 'readonly');
+      const store = transaction.objectStore('uploadOutbox');
+      const index = store.index('nextRetryAt');
+      
+      // Get all items where nextRetryAt <= now
+      const range = IDBKeyRange.upperBound(now);
+      const request = index.getAll(range);
+
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Update outbox item (for retry tracking)
+   */
+  async updateOutboxItem(opId: string, updates: Partial<UploadOutboxItem>): Promise<void> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('uploadOutbox')) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['uploadOutbox'], 'readwrite');
+      const store = transaction.objectStore('uploadOutbox');
+      const getRequest = store.get(opId);
+
+      getRequest.onsuccess = () => {
+        const existing = getRequest.result;
+        if (!existing) {
+          resolve();
+          return;
+        }
+
+        const updated = { ...existing, ...updates };
+        const putRequest = store.put(updated);
+        putRequest.onsuccess = () => resolve();
+        putRequest.onerror = () => reject(putRequest.error);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  }
+
+  /**
+   * Remove item from outbox (after successful upload)
+   */
+  async removeOutboxItem(opId: string): Promise<void> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('uploadOutbox')) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['uploadOutbox'], 'readwrite');
+      const store = transaction.objectStore('uploadOutbox');
+      const request = store.delete(opId);
+
+      request.onsuccess = () => {
+        console.log('[IndexedDB] Outbox item removed:', opId);
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Get outbox item by imageId
+   */
+  async getOutboxItemForImage(imageId: string): Promise<UploadOutboxItem | null> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('uploadOutbox')) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['uploadOutbox'], 'readonly');
+      const store = transaction.objectStore('uploadOutbox');
+      const index = store.index('imageId');
+      const request = index.get(imageId);
+
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Get count of pending uploads
+   */
+  async getUploadOutboxCount(): Promise<number> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('uploadOutbox')) {
+      return 0;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['uploadOutbox'], 'readonly');
+      const store = transaction.objectStore('uploadOutbox');
+      const request = store.count();
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // ============================================================================
+  // MIGRATION HELPERS
+  // ============================================================================
+
+  /**
+   * Check if new image system is available
+   */
+  hasNewImageSystem(): boolean {
+    return this.db?.objectStoreNames.contains('localImages') || false;
   }
 }
 

@@ -13,8 +13,9 @@ import { ImageCompressionService } from '../../../services/image-compression.ser
 import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { OfflineService } from '../../../services/offline.service';
-import { IndexedDbService } from '../../../services/indexed-db.service';
+import { IndexedDbService, LocalImage } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { LocalImageService } from '../../../services/local-image.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { compressAnnotationData, decompressAnnotationData } from '../../../utils/annotation-utils';
 import { environment } from '../../../../environments/environment';
@@ -99,7 +100,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     private offlineTemplate: OfflineTemplateService,
     private offlineService: OfflineService,
     private indexedDb: IndexedDbService,
-    private backgroundSync: BackgroundSyncService
+    private backgroundSync: BackgroundSyncService,
+    private localImageService: LocalImageService
   ) {}
 
   async ngOnInit() {
@@ -718,6 +720,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.backgroundRefreshSubscription) {
       this.backgroundRefreshSubscription.unsubscribe();
     }
+    
+    // Clean up blob URLs from LocalImageService to prevent memory leaks
+    this.localImageService.revokeAllBlobUrls();
+    
     console.log('[ROOM ELEVATION] Component destroyed, but uploads continue in background');
   }
 
