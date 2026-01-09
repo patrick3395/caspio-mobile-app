@@ -328,7 +328,7 @@
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), point)"
                          alt="Measurement"
                          [class.loading]="getPointPhotoByType(point, 'Measurement').loading">
-                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading || getPointPhotoByType(point, 'Measurement').displayState === 'remote_loading'"
+                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading || getPointPhotoByType(point, 'Measurement').displayState === 'remote_loading'">
                       <ion-spinner name="crescent" color="light"></ion-spinner>
                     </div>
                     <button class="delete-btn"
@@ -387,7 +387,7 @@
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), point)"
                          alt="Location"
                          [class.loading]="getPointPhotoByType(point, 'Location').loading">
-                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading || getPointPhotoByType(point, 'Location').displayState === 'remote_loading'"
+                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading || getPointPhotoByType(point, 'Location').displayState === 'remote_loading'">
                       <ion-spinner name="crescent" color="light"></ion-spinner>
                     </div>
                     <button class="delete-btn"
