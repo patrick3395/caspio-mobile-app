@@ -31,6 +31,10 @@ export class EngineersFoundationDataService {
   public cacheInvalidated$ = new Subject<{ serviceId?: string; reason: string }>();
   
   private syncSubscriptions: Subscription[] = [];
+  
+  // Debounce timer for cache invalidation to batch multiple sync events into one UI refresh
+  private cacheInvalidationTimer: any = null;
+  private pendingInvalidationServiceId: string | undefined = undefined;
 
   constructor(
     private readonly caspioService: CaspioService,
@@ -84,7 +88,7 @@ export class EngineersFoundationDataService {
         if (event.projectId) {
           this.projectCache.delete(event.projectId);
         }
-        this.cacheInvalidated$.next({ serviceId: event.serviceId, reason: 'service_data_sync' });
+        this.debouncedCacheInvalidation(event.serviceId, 'service_data_sync');
       })
     );
 
@@ -94,7 +98,7 @@ export class EngineersFoundationDataService {
         console.log('[DataService] EFE room synced, invalidating EFE caches');
         this.efePointsCache.clear();
         this.efeAttachmentsCache.clear();
-        this.cacheInvalidated$.next({ reason: 'efe_room_sync' });
+        this.debouncedCacheInvalidation(undefined, 'efe_room_sync');
       })
     );
 
@@ -104,7 +108,7 @@ export class EngineersFoundationDataService {
         console.log('[DataService] EFE point synced, invalidating point caches');
         this.efePointsCache.clear();
         this.efeAttachmentsCache.clear();
-        this.cacheInvalidated$.next({ reason: 'efe_point_sync' });
+        this.debouncedCacheInvalidation(undefined, 'efe_point_sync');
       })
     );
 
@@ -137,10 +141,37 @@ export class EngineersFoundationDataService {
             break;
         }
         
-        // Emit cache invalidated event so pages reload with fresh data
-        this.cacheInvalidated$.next({ serviceId: event.serviceId, reason: `background_refresh_${event.dataType}` });
+        // Emit cache invalidated event so pages reload with fresh data (debounced)
+        this.debouncedCacheInvalidation(event.serviceId, `background_refresh_${event.dataType}`);
       })
     );
+  }
+
+  /**
+   * Debounced cache invalidation to batch multiple sync events into one UI refresh
+   * This prevents rapid UI flickering when multiple items sync in quick succession
+   */
+  private debouncedCacheInvalidation(serviceId?: string, reason: string = 'batch_sync'): void {
+    // Track the service ID (use most recent if multiple)
+    if (serviceId) {
+      this.pendingInvalidationServiceId = serviceId;
+    }
+
+    // Clear any existing timer
+    if (this.cacheInvalidationTimer) {
+      clearTimeout(this.cacheInvalidationTimer);
+    }
+
+    // Set a new timer - emit after 1 second of no new sync events
+    this.cacheInvalidationTimer = setTimeout(() => {
+      console.log(`[DataService] Debounced cache invalidation fired (reason: ${reason})`);
+      this.cacheInvalidated$.next({ 
+        serviceId: this.pendingInvalidationServiceId, 
+        reason: reason 
+      });
+      this.cacheInvalidationTimer = null;
+      this.pendingInvalidationServiceId = undefined;
+    }, 1000); // 1 second debounce
   }
 
   /**
@@ -160,8 +191,8 @@ export class EngineersFoundationDataService {
     this.efeAttachmentsCache.clear();
     this.imageCache.clear();
     
-    // Emit event so pages can reload
-    this.cacheInvalidated$.next({ serviceId, reason });
+    // Use debounced invalidation to batch rapid sync events
+    this.debouncedCacheInvalidation(serviceId, reason);
   }
 
   /**
@@ -485,8 +516,7 @@ export class EngineersFoundationDataService {
       this.visualsCache.delete(String(visualData.ServiceID));
     }
 
-    // Trigger background sync
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
 
     console.log('[Visual Data] Visual saved with temp ID:', tempId);
 
@@ -521,8 +551,7 @@ export class EngineersFoundationDataService {
     // Clear in-memory cache
     this.visualsCache.clear();
 
-    // Trigger background sync
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
 
     // Return immediately with the updated data
     return { success: true, visualId, ...visualData };
@@ -565,8 +594,7 @@ export class EngineersFoundationDataService {
     // Clear in-memory cache
     this.visualsCache.clear();
 
-    // Trigger background sync
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
 
     return { success: true, visualId };
   }
@@ -695,10 +723,9 @@ export class EngineersFoundationDataService {
       console.log('[Visual Photo] ✅ Photo stored in IndexedDB and queued for upload');
     }
 
-    // STEP 4: Trigger background sync (will succeed if online, retry if offline)
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
 
-    // STEP 5: Return immediately with blob URL - NEVER WAIT FOR NETWORK
+    // Return immediately with blob URL - NEVER WAIT FOR NETWORK
     return {
       AttachID: tempPhotoId,
       attachId: tempPhotoId,  // CRITICAL: lowercase version for caption/annotation updates
@@ -737,7 +764,7 @@ export class EngineersFoundationDataService {
         status: 'pending',
         priority: 'high',
       });
-      this.backgroundSync.triggerSync();
+      // Sync will happen on next 60-second interval (batched sync)
       return { success: true, queued: true };
     }
 
@@ -757,7 +784,7 @@ export class EngineersFoundationDataService {
         status: 'pending',
         priority: 'high',
       });
-      this.backgroundSync.triggerSync();
+      // Sync will happen on next 60-second interval (batched sync)
       return { success: true, queued: true };
     }
   }
@@ -795,7 +822,7 @@ export class EngineersFoundationDataService {
         priority: 'normal',
       });
       console.log('[Visual Photo] ⏳ Caption queued for sync (offline)');
-      this.backgroundSync.triggerSync();
+      // Sync will happen on next 60-second interval (batched sync)
       this.visualAttachmentsCache.clear();
       return { success: true, queued: true };
     }
@@ -820,7 +847,7 @@ export class EngineersFoundationDataService {
         status: 'pending',
         priority: 'high',
       });
-      this.backgroundSync.triggerSync();
+      // Sync will happen on next 60-second interval (batched sync)
       this.visualAttachmentsCache.clear();
       return { success: true, queued: true };
     }
@@ -882,8 +909,7 @@ export class EngineersFoundationDataService {
     
     console.log(`[Caption Queue] ✅ Caption queued:`, captionId);
     
-    // 3. Trigger background sync to process the queue
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
     
     return captionId;
   }
@@ -916,8 +942,7 @@ export class EngineersFoundationDataService {
     
     console.log(`[Annotation Queue] ✅ Annotation queued:`, captionId);
     
-    // 3. Trigger background sync
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
     
     return captionId;
   }
@@ -950,7 +975,7 @@ export class EngineersFoundationDataService {
     
     console.log(`[Caption+Annotation Queue] ✅ Combined update queued:`, captionId);
     
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
     return captionId;
   }
 
@@ -1089,8 +1114,7 @@ export class EngineersFoundationDataService {
       priority: 'high',
     });
 
-    // Trigger background sync
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
 
     console.log('[EFE Data] EFE room queued with temp ID:', tempId);
 
@@ -1210,8 +1234,7 @@ export class EngineersFoundationDataService {
       priority: 'normal',
     });
 
-    // Trigger background sync
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
 
     console.log('[EFE Data] EFE point queued with temp ID:', tempId, 'EFEID:', parentId, 'dependencies:', dependencies);
 
@@ -1355,10 +1378,9 @@ export class EngineersFoundationDataService {
       console.log('[EFE Photo] ✅ Photo stored in IndexedDB and queued for upload');
     }
 
-    // STEP 4: Trigger background sync (will succeed if online, retry if offline)
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
 
-    // STEP 5: Return immediately with blob URL - NEVER WAIT FOR NETWORK
+    // Return immediately with blob URL - NEVER WAIT FOR NETWORK
     return {
       AttachID: tempPhotoId,
       attachId: tempPhotoId,  // CRITICAL: lowercase version for caption/annotation updates

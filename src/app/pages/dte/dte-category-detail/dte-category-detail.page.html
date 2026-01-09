@@ -181,8 +181,9 @@
                              (mousedown)="saveScrollBeforePhotoClick($event)"
                              (click)="viewPhoto(photo, categoryName, item.id, $event)"
                              (error)="handleImageError($event, photo)"
-                             [class.has-annotations]="photo.hasAnnotations">
-                        <div class="upload-indicator" *ngIf="photo.uploading">
+                             [class.has-annotations]="photo.hasAnnotations"
+                             [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
+                        <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'"
                           <ion-spinner name="crescent" color="light"></ion-spinner>
                         </div>
                         <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
@@ -279,8 +280,9 @@
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
                            (error)="handleImageError($event, photo)"
-                           [class.has-annotations]="photo.hasAnnotations">
-                      <div class="upload-indicator" *ngIf="photo.uploading">
+                           [class.has-annotations]="photo.hasAnnotations"
+                           [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
+                      <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'"
                         <ion-spinner name="crescent" color="light"></ion-spinner>
                       </div>
                       <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
@@ -453,8 +455,9 @@
                              (mousedown)="saveScrollBeforePhotoClick($event)"
                              (click)="viewPhoto(photo, categoryName, item.id, $event)"
                              (error)="handleImageError($event, photo)"
-                             [class.has-annotations]="photo.hasAnnotations">
-                        <div class="upload-indicator" *ngIf="photo.uploading">
+                             [class.has-annotations]="photo.hasAnnotations"
+                             [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
+                        <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'"
                           <ion-spinner name="crescent" color="light"></ion-spinner>
                         </div>
                         <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
@@ -551,8 +554,9 @@
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
                            (error)="handleImageError($event, photo)"
-                           [class.has-annotations]="photo.hasAnnotations">
-                      <div class="upload-indicator" *ngIf="photo.uploading">
+                           [class.has-annotations]="photo.hasAnnotations"
+                           [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
+                      <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'"
                         <ion-spinner name="crescent" color="light"></ion-spinner>
                       </div>
                       <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
@@ -725,8 +729,9 @@
                              (mousedown)="saveScrollBeforePhotoClick($event)"
                              (click)="viewPhoto(photo, categoryName, item.id, $event)"
                              (error)="handleImageError($event, photo)"
-                             [class.has-annotations]="photo.hasAnnotations">
-                        <div class="upload-indicator" *ngIf="photo.uploading">
+                             [class.has-annotations]="photo.hasAnnotations"
+                             [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
+                        <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'"
                           <ion-spinner name="crescent" color="light"></ion-spinner>
                         </div>
                         <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
@@ -823,8 +828,9 @@
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
                            (error)="handleImageError($event, photo)"
-                           [class.has-annotations]="photo.hasAnnotations">
-                      <div class="upload-indicator" *ngIf="photo.uploading">
+                           [class.has-annotations]="photo.hasAnnotations"
+                           [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
+                      <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'"
                         <ion-spinner name="crescent" color="light"></ion-spinner>
                       </div>
                       <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">

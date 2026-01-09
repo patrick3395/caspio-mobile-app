@@ -1076,7 +1076,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     } else {
       this.showSaveStatus(`${fieldName} saved offline`, 'success');
     }
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
   }
 
   // Auto-save to Projects table (OFFLINE-FIRST)
@@ -1104,8 +1104,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       this.showSaveStatus(`${fieldName} saved offline`, 'success');
     }
 
-    // 4. Trigger background sync (will push to server when online)
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
   }
 
   // Auto-save to Services table (OFFLINE-FIRST)
@@ -1141,9 +1140,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       this.showSaveStatus(`${fieldName} saved offline`, 'success');
     }
 
-    // 4. Trigger background sync (will push to server when online)
-    console.log(`[ProjectDetails] Triggering background sync...`);
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
   }
 
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {

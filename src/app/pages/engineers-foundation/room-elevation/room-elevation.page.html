@@ -321,12 +321,14 @@
                 <!-- Measurement Photo Thumbnail -->
                 <div *ngIf="getPointPhotoByType(point, 'Measurement') && !getPointPhotoByType(point, 'Measurement').loading" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
                   <div class="image-preview fdf-photo-preview"
-                       [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading">
+                       [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading"
+                       [class.loading]="getPointPhotoByType(point, 'Measurement').displayState === 'remote_loading'">
                     <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url"
                          width="90" height="90"
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), point)"
-                         alt="Measurement">
-                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
+                         alt="Measurement"
+                         [class.loading]="getPointPhotoByType(point, 'Measurement').loading">
+                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading || getPointPhotoByType(point, 'Measurement').displayState === 'remote_loading'"
                       <ion-spinner name="crescent" color="light"></ion-spinner>
                     </div>
                     <button class="delete-btn"
@@ -378,12 +380,14 @@
                 <!-- Location Photo Thumbnail -->
                 <div *ngIf="getPointPhotoByType(point, 'Location') && !getPointPhotoByType(point, 'Location').loading" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
                   <div class="image-preview fdf-photo-preview"
-                       [class.uploading]="getPointPhotoByType(point, 'Location').uploading">
+                       [class.uploading]="getPointPhotoByType(point, 'Location').uploading"
+                       [class.loading]="getPointPhotoByType(point, 'Location').displayState === 'remote_loading'">
                     <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url"
                          width="90" height="90"
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), point)"
-                         alt="Location">
-                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
+                         alt="Location"
+                         [class.loading]="getPointPhotoByType(point, 'Location').loading">
+                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading || getPointPhotoByType(point, 'Location').displayState === 'remote_loading'"
                       <ion-spinner name="crescent" color="light"></ion-spinner>
                     </div>
                     <button class="delete-btn"

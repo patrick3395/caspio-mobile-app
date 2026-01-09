@@ -56,7 +56,7 @@ export interface SyncStatus {
 export class BackgroundSyncService {
   private syncInterval: Subscription | null = null;
   private isSyncing = false;
-  private syncIntervalMs = 30000; // Check every 30 seconds
+  private syncIntervalMs = 60000; // Check every 60 seconds (batched sync - was 30s)
 
   // Observable sync status for UI
   public syncStatus$ = new BehaviorSubject<SyncStatus>({
@@ -161,7 +161,7 @@ export class BackgroundSyncService {
       // Sync immediately on start
       this.triggerSync();
 
-      // Then sync every 30 seconds
+      // Then sync every 60 seconds (batched sync)
       this.syncInterval = interval(this.syncIntervalMs).subscribe(() => {
         this.triggerSync();
       });
@@ -265,6 +265,10 @@ export class BackgroundSyncService {
       if (staleCleared > 0) {
         console.log(`[BackgroundSync] Cleaned up ${staleCleared} stale caption(s)`);
       }
+      // Perform storage cleanup after successful sync (runs in background, non-blocking)
+      this.performStorageCleanup().catch(err => {
+        console.warn('[BackgroundSync] Storage cleanup failed:', err);
+      });
     } catch (error) {
       console.error('[BackgroundSync] Sync failed:', error);
     } finally {
@@ -1906,6 +1910,104 @@ export class BackgroundSyncService {
     console.log(`[BackgroundSync] Cleared ${clearedCount} stale requests`);
     
     return clearedCount;
+  }
+
+  // ============================================================================
+  // STORAGE CLEANUP
+  // ============================================================================
+
+  /**
+   * Perform storage cleanup after sync cycle
+   * Only runs if storage usage exceeds threshold
+   * Deletes old cached photos that aren't in active services
+   */
+  private async performStorageCleanup(): Promise<void> {
+    try {
+      const stats = await this.indexedDb.getStorageStats();
+      
+      // Only cleanup if using >70% of quota
+      if (stats.percent < 70) {
+        return;
+      }
+      
+      console.log(`[BackgroundSync] Storage at ${stats.percent.toFixed(1)}%, starting cleanup...`);
+      
+      // Get active service IDs from recent cached data
+      const activeServiceIds = await this.getActiveServiceIds();
+      
+      // Delete cached photos older than 30 days not in active services
+      const deleted = await this.indexedDb.cleanupOldCachedPhotos(activeServiceIds, 30);
+      
+      if (deleted > 0) {
+        console.log(`[BackgroundSync] Cleanup complete: deleted ${deleted} old cached photos`);
+        
+        // Log new storage stats
+        const newStats = await this.indexedDb.getStorageStats();
+        console.log(`[BackgroundSync] Storage now at ${newStats.percent.toFixed(1)}%`);
+      }
+    } catch (err) {
+      console.warn('[BackgroundSync] Storage cleanup error:', err);
+    }
+  }
+
+  /**
+   * Get list of active service IDs to preserve during cleanup
+   * Returns service IDs from recently accessed cached data
+   */
+  private async getActiveServiceIds(): Promise<string[]> {
+    const serviceIds = new Set<string>();
+    
+    try {
+      // Get service IDs from cached visuals data (last accessed services)
+      const cachedVisuals = await this.indexedDb.getAllCachedServiceData('visuals');
+      for (const data of cachedVisuals) {
+        if (data.serviceId) {
+          serviceIds.add(String(data.serviceId));
+        }
+      }
+      
+      // Also check visual attachments
+      const cachedAttachments = await this.indexedDb.getAllCachedServiceData('visual_attachments');
+      for (const data of cachedAttachments) {
+        if (data.serviceId) {
+          serviceIds.add(String(data.serviceId));
+        }
+      }
+      
+      // Also check pending requests for service IDs
+      const pendingRequests = await this.indexedDb.getPendingRequests();
+      for (const req of pendingRequests) {
+        if (req.data?.serviceId) {
+          serviceIds.add(String(req.data.serviceId));
+        }
+      }
+      
+      console.log(`[BackgroundSync] Found ${serviceIds.size} active service IDs`);
+    } catch (err) {
+      console.warn('[BackgroundSync] Error getting active service IDs:', err);
+    }
+    
+    return Array.from(serviceIds);
+  }
+
+  /**
+   * Force storage cleanup regardless of quota threshold
+   * Use for manual cleanup or when user reports storage issues
+   */
+  async forceStorageCleanup(): Promise<{deleted: number, newPercent: number}> {
+    console.log('[BackgroundSync] Forcing storage cleanup...');
+    
+    const activeServiceIds = await this.getActiveServiceIds();
+    const deleted = await this.indexedDb.cleanupOldCachedPhotos(activeServiceIds, 7); // More aggressive: 7 days
+    
+    const newStats = await this.indexedDb.getStorageStats();
+    
+    console.log(`[BackgroundSync] Force cleanup complete: deleted ${deleted} photos, storage at ${newStats.percent.toFixed(1)}%`);
+    
+    return {
+      deleted,
+      newPercent: newStats.percent
+    };
   }
 
   /**

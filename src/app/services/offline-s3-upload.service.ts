@@ -105,8 +105,7 @@ export class OfflineS3UploadService {
       priority: 'normal',
     });
 
-    // Trigger background sync
-    this.backgroundSync.triggerSync();
+    // Sync will happen on next 60-second interval (batched sync)
 
     console.log('[OfflineS3] Photo queued with 3-step process');
 

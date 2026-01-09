@@ -96,6 +96,17 @@ ion-content {
           opacity: 0.6;
         }
 
+        // Loading state for remote image fetch
+        img.loading {
+          opacity: 0.6;
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 0.4; }
+        }
+
         .upload-indicator {
           position: absolute;
           top: 45px;

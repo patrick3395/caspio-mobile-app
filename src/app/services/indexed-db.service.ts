@@ -3486,5 +3486,235 @@ export class IndexedDbService {
       getAllRequest.onerror = () => reject(getAllRequest.error);
     });
   }
+
+  // ============================================================================
+  // STORAGE QUOTA MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Get storage usage statistics
+   * Uses navigator.storage.estimate() when available
+   * Returns usage, quota, and percentage used
+   */
+  async getStorageStats(): Promise<{usage: number, quota: number, percent: number}> {
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        const estimate = await navigator.storage.estimate();
+        const usage = estimate.usage || 0;
+        const quota = estimate.quota || 1;
+        const percent = (usage / quota) * 100;
+        
+        console.log(`[IndexedDB] Storage stats: ${(usage / 1024 / 1024).toFixed(2)}MB / ${(quota / 1024 / 1024).toFixed(2)}MB (${percent.toFixed(1)}%)`);
+        
+        return { usage, quota, percent };
+      }
+    } catch (err) {
+      console.warn('[IndexedDB] Failed to get storage estimate:', err);
+    }
+    
+    // Fallback: return zeros if API not available
+    return { usage: 0, quota: 0, percent: 0 };
+  }
+
+  /**
+   * Request persistent storage to prevent browser eviction
+   * Important for iOS/Safari where storage may be evicted under pressure
+   * Returns true if persistent storage was granted
+   */
+  async requestPersistentStorage(): Promise<boolean> {
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        const isPersisted = await navigator.storage.persisted();
+        
+        if (isPersisted) {
+          console.log('[IndexedDB] Storage is already persistent');
+          return true;
+        }
+        
+        const granted = await navigator.storage.persist();
+        console.log(`[IndexedDB] Persistent storage ${granted ? 'granted' : 'denied'}`);
+        return granted;
+      }
+    } catch (err) {
+      console.warn('[IndexedDB] Failed to request persistent storage:', err);
+    }
+    
+    return false;
+  }
+
+  /**
+   * Clean up old cached photos to free storage space
+   * Deletes photos older than maxAgeDays that aren't in keepServiceIds
+   * @param keepServiceIds - Service IDs to preserve (active/recent projects)
+   * @param maxAgeDays - Maximum age in days for photos not in keepServiceIds
+   * @returns Number of deleted photos
+   */
+  async cleanupOldCachedPhotos(keepServiceIds: string[], maxAgeDays: number = 30): Promise<number> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      console.warn('[IndexedDB] cleanupOldCachedPhotos: cachedPhotos store does not exist');
+      return 0;
+    }
+
+    const cutoffTime = Date.now() - (maxAgeDays * 24 * 60 * 60 * 1000);
+    let deletedCount = 0;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readwrite');
+      const store = transaction.objectStore('cachedPhotos');
+      const cursorRequest = store.openCursor();
+
+      cursorRequest.onsuccess = (event: any) => {
+        const cursor = event.target.result;
+        
+        if (cursor) {
+          const record = cursor.value;
+          const cachedAt = record.cachedAt || 0;
+          const serviceId = record.serviceId;
+          
+          // Skip annotated images (special marker)
+          if (serviceId === 'annotated') {
+            cursor.continue();
+            return;
+          }
+          
+          // Check if this photo should be deleted
+          const isOld = cachedAt < cutoffTime;
+          const isInActiveService = keepServiceIds.includes(String(serviceId));
+          
+          if (isOld && !isInActiveService) {
+            console.log(`[IndexedDB] Deleting old cached photo: ${record.attachId}, age: ${((Date.now() - cachedAt) / 86400000).toFixed(1)} days`);
+            cursor.delete();
+            deletedCount++;
+          }
+          
+          cursor.continue();
+        } else {
+          // Cursor exhausted
+          console.log(`[IndexedDB] Cleanup complete: deleted ${deletedCount} old cached photos`);
+          resolve(deletedCount);
+        }
+      };
+
+      cursorRequest.onerror = () => {
+        console.error('[IndexedDB] Error during cached photo cleanup:', cursorRequest.error);
+        reject(cursorRequest.error);
+      };
+    });
+  }
+
+  /**
+   * Get total size of cached photos in bytes
+   * Useful for debugging and monitoring storage usage
+   */
+  async getCachedPhotosSize(): Promise<number> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      return 0;
+    }
+
+    return new Promise((resolve) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readonly');
+      const store = transaction.objectStore('cachedPhotos');
+      const cursorRequest = store.openCursor();
+      let totalSize = 0;
+
+      cursorRequest.onsuccess = (event: any) => {
+        const cursor = event.target.result;
+        
+        if (cursor) {
+          const record = cursor.value;
+          // Estimate size from base64 string length
+          if (record.imageData) {
+            totalSize += record.imageData.length;
+          }
+          cursor.continue();
+        } else {
+          console.log(`[IndexedDB] Cached photos size: ${(totalSize / 1024 / 1024).toFixed(2)}MB`);
+          resolve(totalSize);
+        }
+      };
+
+      cursorRequest.onerror = () => {
+        resolve(0);
+      };
+    });
+  }
+
+  /**
+   * Get total size of pending images in bytes
+   * These are photos waiting to be uploaded
+   */
+  async getPendingImagesSize(): Promise<number> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('pendingImages')) {
+      return 0;
+    }
+
+    return new Promise((resolve) => {
+      const transaction = db.transaction(['pendingImages'], 'readonly');
+      const store = transaction.objectStore('pendingImages');
+      const cursorRequest = store.openCursor();
+      let totalSize = 0;
+
+      cursorRequest.onsuccess = (event: any) => {
+        const cursor = event.target.result;
+        
+        if (cursor) {
+          const record = cursor.value;
+          // Size from ArrayBuffer
+          if (record.fileData) {
+            totalSize += record.fileData.byteLength || 0;
+          }
+          cursor.continue();
+        } else {
+          console.log(`[IndexedDB] Pending images size: ${(totalSize / 1024 / 1024).toFixed(2)}MB`);
+          resolve(totalSize);
+        }
+      };
+
+      cursorRequest.onerror = () => {
+        resolve(0);
+      };
+    });
+  }
+
+  /**
+   * Clear all cached photos (emergency cleanup)
+   * Use with caution - will require re-downloading all photos
+   */
+  async clearAllCachedPhotos(): Promise<number> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('cachedPhotos')) {
+      return 0;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['cachedPhotos'], 'readwrite');
+      const store = transaction.objectStore('cachedPhotos');
+      
+      // Count before clearing
+      const countRequest = store.count();
+      
+      countRequest.onsuccess = () => {
+        const count = countRequest.result;
+        
+        const clearRequest = store.clear();
+        
+        clearRequest.onsuccess = () => {
+          console.log(`[IndexedDB] Cleared all ${count} cached photos`);
+          resolve(count);
+        };
+        
+        clearRequest.onerror = () => reject(clearRequest.error);
+      };
+      
+      countRequest.onerror = () => reject(countRequest.error);
+    });
+  }
 }
 

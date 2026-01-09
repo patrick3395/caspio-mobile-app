@@ -1833,188 +1833,294 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
+  /**
+   * Load a single photo with two-field approach for robust UI transitions
+   * Priority: localBlobKey > cachedPhoto > remote (with preload)
+   * Never changes displayUrl until new source is verified loadable
+   */
   private async loadSinglePhoto(attach: any, key: string): Promise<void> {
     console.log('[LOAD PHOTO] Loading AttachID:', attach.AttachID, 'for key:', key);
-    console.log('[LOAD PHOTO] Photo path:', attach.Photo);
-    console.log('[LOAD PHOTO] Attachment S3 key:', attach.Attachment);
-
-    let imageUrl = '';
-    let filePath = '';
-    const attachId = String(attach.AttachID);
-
-    // EARLY EXIT: If no image source at all, skip this photo entirely
-    // (unless we have a cached version)
+    
+    const attachId = String(attach.AttachID || attach.PK_ID);
+    const s3Key = attach.Attachment;
+    const filePath = attach.Attachment || attach.Photo || '';
     const hasImageSource = attach.Attachment || attach.Photo;
     
-    // OFFLINE-FIRST: Check IndexedDB cache first
+    // TWO-FIELD APPROACH: Determine display state and URL
+    let displayUrl = 'assets/img/photo-placeholder.png';
+    let displayState: 'local' | 'uploading' | 'cached' | 'remote_loading' | 'remote' = 'remote';
+    let localBlobKey: string | undefined;
+    let imageUrl = '';
+    
+    // STEP 1: Check for local pending blob first (highest priority)
     try {
-      const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
-      if (cachedImage) {
-        if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
-        imageUrl = cachedImage;
-        filePath = attach.Attachment || attach.Photo || '';
+      const localBlobUrl = await this.indexedDb.getPhotoBlobUrl(attachId);
+      if (localBlobUrl) {
+        if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using local blob for:', attachId);
+        displayUrl = localBlobUrl;
+        imageUrl = localBlobUrl;
+        displayState = 'local';
+        localBlobKey = attachId;
       }
-    } catch (cacheErr) {
-      if (this.DEBUG) console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
+    } catch (err) {
+      if (this.DEBUG) console.warn('[LOAD PHOTO] Local blob check failed:', err);
     }
-
-    // EARLY EXIT: If no cached image AND no image source, skip entirely
-    // This prevents adding broken photos to the array
-    if (!imageUrl && !hasImageSource) {
-      if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Skipping photo with no image source:', attachId);
-      return;
+    
+    // STEP 2: Check cached photo (if no local blob)
+    if (!localBlobKey) {
+      try {
+        const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
+        if (cachedImage) {
+          if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
+          displayUrl = cachedImage;
+          imageUrl = cachedImage;
+          displayState = 'cached';
+        }
+      } catch (cacheErr) {
+        if (this.DEBUG) console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
+      }
     }
-
-    // If not cached, try to fetch from source (but only if online)
-    if (!imageUrl) {
-      // OFFLINE CHECK: If offline and not cached, use placeholder immediately
+    
+    // STEP 3: If no local/cached image, determine if we need remote fetch
+    if (displayState !== 'local' && displayState !== 'cached') {
+      if (!hasImageSource) {
+        // No image source at all - skip this photo
+        if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Skipping photo with no image source:', attachId);
+        return;
+      }
+      
+      // Check if offline
       if (!this.offlineService.isOnline()) {
         if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Offline and no cached image for:', attachId);
-        imageUrl = 'assets/img/photo-placeholder.png';
-        filePath = attach.Attachment || attach.Photo || '';
-      }
-      // Check if this is an S3 image (Attachment field contains S3 key)
-      else if (attach.Attachment && this.caspioService.isS3Key(attach.Attachment)) {
-        if (this.DEBUG) console.log('[LOAD PHOTO] ✨ S3 image detected:', attach.Attachment);
-        filePath = attach.Attachment;
-        
-        try {
-          if (this.DEBUG) console.log('[LOAD PHOTO] Fetching S3 pre-signed URL...');
-          const s3Url = await this.caspioService.getS3FileUrl(attach.Attachment);
-          if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Got S3 pre-signed URL');
-          
-          // Fetch and convert to base64 for caching
-          try {
-            const response = await fetch(s3Url);
-            const blob = await response.blob();
-            imageUrl = await this.blobToDataUrl(blob);
-            
-            // Cache the image for offline use
-            await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl, attach.Attachment);
-            if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Image cached for offline use');
-          } catch (fetchErr) {
-            if (this.DEBUG) console.warn('[LOAD PHOTO] Could not fetch/cache image, using S3 URL directly');
-            imageUrl = s3Url;
-          }
-        } catch (err) {
-          console.error('[LOAD PHOTO] ❌ Failed to load S3 image:', attach.Attachment, err);
-          imageUrl = 'assets/img/photo-placeholder.png';
-        }
-      }
-      // Fallback to old Photo field (Caspio Files API)
-      else if (attach.Photo) {
-        if (this.DEBUG) console.log('[LOAD PHOTO] 📁 Caspio Files API image detected');
-        filePath = attach.Photo;
-        
-        try {
-          const imageData = await firstValueFrom(
-            this.caspioService.getImageFromFilesAPI(filePath)
-          );
-          if (imageData && imageData.startsWith('data:')) {
-            imageUrl = imageData;
-            if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Successfully loaded image data for', attach.AttachID);
-            
-            // Cache the image for offline use
-            await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl);
-          } else {
-            if (this.DEBUG) console.warn('[LOAD PHOTO] ❌ Invalid image data received for', attach.AttachID);
-            imageUrl = 'assets/img/photo-placeholder.png';
-          }
-        } catch (err) {
-          console.error('[LOAD PHOTO] ❌ Failed to load image:', filePath, err);
-          imageUrl = 'assets/img/photo-placeholder.png';
-        }
+        displayState = 'remote';
+        // Keep placeholder - will load when back online
+      } else if (s3Key && this.caspioService.isS3Key(s3Key)) {
+        // S3 image - need to fetch in background
+        displayState = 'remote_loading';
+        // Don't block - preload in background
+      } else if (attach.Photo) {
+        // Old Caspio Files API - also fetch in background
+        displayState = 'remote_loading';
       } else {
-        if (this.DEBUG) console.warn('[LOAD PHOTO] ⚠️ No photo path or S3 key for attachment', attach.AttachID);
-        imageUrl = 'assets/img/photo-placeholder.png';
+        displayState = 'remote';
       }
     }
-
+    
+    // Check for drawings/annotations
     const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
-    if (this.DEBUG) console.log('[LOAD PHOTO] AttachID:', attach.AttachID, 'VisualID:', attach.VisualID, 'Has Drawings:', hasDrawings, 'Drawings length:', attach.Drawings?.length || 0);
-
-    // CRITICAL FIX: Check for cached annotated image
-    // If the photo has annotations and we have a cached annotated version, use it for displayUrl
-    let displayUrl = imageUrl;
-    if (hasDrawings) {
+    
+    // STEP 4: Check for cached annotated image (for display thumbnail)
+    let annotatedDisplayUrl = displayUrl;
+    if (hasDrawings && displayState !== 'remote_loading' && displayState !== 'remote') {
       try {
         const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
         if (cachedAnnotatedImage) {
           if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using cached annotated image for thumbnail:', attachId);
-          displayUrl = cachedAnnotatedImage;
-        } else {
-          if (this.DEBUG) console.log('[LOAD PHOTO] No cached annotated image found, will show base image:', attachId);
+          annotatedDisplayUrl = cachedAnnotatedImage;
         }
       } catch (annotErr) {
         if (this.DEBUG) console.warn('[LOAD PHOTO] Error checking for cached annotated image:', annotErr);
       }
     }
-
+    
     // CRITICAL: Extract VisualID from the key if not in attachment
-    // The key format is "Category_ItemId" and we need the visualId for cache lookups
     const keyParts = key.split('_');
     const itemId = keyParts.length > 1 ? keyParts.slice(1).join('_') : key;
     const visualIdFromRecord = this.visualRecordIds[key];
     
-    const photoData = {
+    // Create photo record with two-field approach
+    const photoData: any = {
       AttachID: attach.AttachID,
+      attachId: attachId,
       id: attach.AttachID,
-      VisualID: attach.VisualID || visualIdFromRecord || itemId,  // CRITICAL: Always set VisualID
+      VisualID: attach.VisualID || visualIdFromRecord || itemId,
       name: attach.Photo || 'photo.jpg',
       filePath: filePath,
       Photo: filePath,
-      url: imageUrl,
-      originalUrl: imageUrl,        // CRITICAL: Set originalUrl to base image
-      thumbnailUrl: imageUrl,
-      displayUrl: displayUrl,          // Use annotated version if cached, otherwise base image
+      // Two-field approach
+      localBlobKey: localBlobKey,
+      remoteS3Key: s3Key,
+      displayState: displayState,
+      // Display URLs
+      url: imageUrl || displayUrl,
+      originalUrl: imageUrl || displayUrl,
+      thumbnailUrl: imageUrl || displayUrl,
+      displayUrl: annotatedDisplayUrl,
+      // Metadata
       caption: attach.Annotation || '',
       annotation: attach.Annotation || '',
       Annotation: attach.Annotation || '',
       hasAnnotations: hasDrawings,
-      annotations: null,              // Don't set this to compressed string - will be decompressed on view
-      Drawings: attach.Drawings || null,  // CRITICAL: Store original Drawings field
-      rawDrawingsString: attach.Drawings || null,  // CRITICAL: Store for decompression
+      annotations: null,
+      Drawings: attach.Drawings || null,
+      rawDrawingsString: attach.Drawings || null,
+      // Status flags
       uploading: false,
       queued: false,
-      isObjectUrl: false,
-      isSkeleton: false  // CRITICAL: Ensure caption button is clickable
+      isObjectUrl: !!localBlobKey,
+      isSkeleton: false,
+      loading: displayState === 'remote_loading'
     };
 
-    // Add photo to array as soon as it's ready
+    // Add photo to array
     if (!this.visualPhotos[key]) {
       this.visualPhotos[key] = [];
     }
 
-    // CRITICAL FIX: Use String() conversion for comparison to handle number/string type mismatches
-    // Also check multiple ID fields to be thorough
     const attachIdStr = String(attach.AttachID);
     const existingIndex = this.visualPhotos[key].findIndex(p => 
       String(p.AttachID) === attachIdStr || 
       String(p.id) === attachIdStr ||
       String(p.attachId) === attachIdStr
     );
+    
     if (existingIndex !== -1) {
-      console.log('[LOAD PHOTO] Photo', attach.AttachID, 'already exists at index', existingIndex, '- updating instead of adding');
-      // Update existing photo instead of adding duplicate
+      // CRITICAL: Preserve existing displayUrl if it's valid and we're in loading state
+      const existingPhoto = this.visualPhotos[key][existingIndex];
+      if (displayState === 'remote_loading' && 
+          existingPhoto.displayUrl && 
+          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png') {
+        photoData.displayUrl = existingPhoto.displayUrl;
+        photoData.displayState = existingPhoto.displayState || 'cached';
+        console.log('[LOAD PHOTO] Preserving existing valid displayUrl for:', attachId);
+      }
       this.visualPhotos[key][existingIndex] = photoData;
     } else {
-      // CRITICAL FIX: Double-check for duplicates right before adding
-      // This prevents race conditions with concurrent reloads
+      // Double-check for race conditions
       const doubleCheckIndex = this.visualPhotos[key].findIndex(p => 
         String(p.AttachID) === attachIdStr
       );
       if (doubleCheckIndex !== -1) {
-        console.log('[LOAD PHOTO] ⚠️ Race condition detected! Photo', attach.AttachID, 'was added by concurrent operation - skipping');
+        console.log('[LOAD PHOTO] ⚠️ Race condition detected! Skipping:', attachId);
         return;
       }
-      console.log('[LOAD PHOTO] Adding photo', attach.AttachID, 'to array (current count:', this.visualPhotos[key].length, ')');
       this.visualPhotos[key].push(photoData);
     }
 
-    console.log('[LOAD PHOTO] Completed loading photo', attach.AttachID, '- array now has', this.visualPhotos[key].length, 'photos');
-
-    // Trigger change detection to show this photo
+    // Trigger change detection immediately to show photo (even with placeholder)
     this.changeDetectorRef.detectChanges();
+    
+    // STEP 5: If remote_loading, preload and transition in background
+    if (displayState === 'remote_loading') {
+      this.preloadAndTransition(attachId, s3Key || attach.Photo, key, !!s3Key).catch(err => {
+        console.warn('[LOAD PHOTO] Preload failed for:', attachId, err);
+      });
+    }
+    
+    console.log('[LOAD PHOTO] Completed:', attachId, 'state:', displayState);
+  }
+
+  /**
+   * Preload image from remote and transition UI only after success
+   * Never updates displayUrl until image is verified loadable
+   */
+  private async preloadAndTransition(
+    attachId: string, 
+    imageKey: string, 
+    key: string, 
+    isS3: boolean
+  ): Promise<void> {
+    try {
+      let imageDataUrl: string;
+      
+      if (isS3 && this.caspioService.isS3Key(imageKey)) {
+        // S3 image
+        const s3Url = await this.caspioService.getS3FileUrl(imageKey);
+        
+        // Preload image first
+        const preloaded = await this.preloadImage(s3Url);
+        if (!preloaded) throw new Error('Preload failed');
+        
+        // Fetch as data URL for caching
+        imageDataUrl = await this.fetchAsDataUrl(s3Url);
+      } else {
+        // Caspio Files API
+        const imageData = await firstValueFrom(
+          this.caspioService.getImageFromFilesAPI(imageKey)
+        );
+        if (!imageData || !imageData.startsWith('data:')) {
+          throw new Error('Invalid image data from Files API');
+        }
+        imageDataUrl = imageData;
+      }
+      
+      // Cache the image
+      await this.indexedDb.cachePhoto(attachId, this.serviceId, imageDataUrl, isS3 ? imageKey : undefined);
+      
+      // NOW update UI (only after success)
+      const photoIndex = this.visualPhotos[key]?.findIndex(p => 
+        String(p.attachId) === attachId || String(p.AttachID) === attachId
+      );
+      
+      if (photoIndex !== -1) {
+        const existingPhoto = this.visualPhotos[key][photoIndex];
+        
+        // Check for cached annotated image
+        let finalDisplayUrl = imageDataUrl;
+        if (existingPhoto.hasAnnotations) {
+          try {
+            const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
+            if (cachedAnnotated) {
+              finalDisplayUrl = cachedAnnotated;
+            }
+          } catch (e) { /* ignore */ }
+        }
+        
+        this.visualPhotos[key][photoIndex] = {
+          ...existingPhoto,
+          url: imageDataUrl,
+          originalUrl: imageDataUrl,
+          thumbnailUrl: imageDataUrl,
+          displayUrl: finalDisplayUrl,
+          displayState: 'cached',
+          loading: false
+        };
+        
+        this.changeDetectorRef.detectChanges();
+        console.log('[PRELOAD] ✅ Transitioned to cached image:', attachId);
+      }
+    } catch (err) {
+      console.warn('[PRELOAD] Failed, keeping current display:', attachId, err);
+      
+      // Mark as remote (failed to load) but don't change displayUrl
+      const photoIndex = this.visualPhotos[key]?.findIndex(p => 
+        String(p.attachId) === attachId || String(p.AttachID) === attachId
+      );
+      
+      if (photoIndex !== -1) {
+        this.visualPhotos[key][photoIndex] = {
+          ...this.visualPhotos[key][photoIndex],
+          displayState: 'remote',
+          loading: false
+        };
+        this.changeDetectorRef.detectChanges();
+      }
+    }
+  }
+
+  /**
+   * Preload an image to verify it's loadable before switching
+   */
+  private preloadImage(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url;
+      
+      // Timeout after 30 seconds
+      setTimeout(() => resolve(false), 30000);
+    });
+  }
+
+  /**
+   * Fetch image URL and convert to base64 data URL
+   */
+  private async fetchAsDataUrl(url: string): Promise<string> {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+    const blob = await response.blob();
+    return this.blobToDataUrl(blob);
   }
 
   /**
@@ -2795,10 +2901,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           console.log('[CAMERA UPLOAD] Photo stored in IndexedDB:', tempPhotoId);
 
-          // Trigger background sync to process the queue
-          // This works whether online or offline - BackgroundSyncService handles retries
-          this.backgroundSync.triggerSync();
-          console.log('[CAMERA UPLOAD] Triggered background sync');
+          // Sync will happen on next 60-second interval (batched sync)
         }
 
         // Clean up blob URL
@@ -3015,13 +3118,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 });
                 console.log(`[GALLERY UPLOAD] Photo ${i + 1} queued in IndexedDB (visualId: ${finalVisualId}, serviceId: ${this.serviceId})`);
 
-                // If online, trigger background sync to process the queue immediately
-                // DON'T use BackgroundPhotoUploadService - use only IndexedDB + BackgroundSyncService
-                // to prevent duplicate uploads
-                if (!isOfflineMode) {
-                  this.backgroundSync.triggerSync();
-                  console.log(`[GALLERY UPLOAD] Triggered background sync for immediate upload`);
-                }
+                // Sync will happen on next 60-second interval (batched sync)
 
                 console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} processed successfully`);
 
@@ -3041,13 +3138,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos processed successfully`);
 
-          // Only trigger background sync for offline mode
-          // When online, the in-memory BackgroundPhotoUploadService handles uploads
-          // triggerSync would cause duplicate uploads when both services try to upload the same photo
-          if (isOfflineMode) {
-            this.backgroundSync.triggerSync();
-            console.log('[GALLERY UPLOAD] Triggered background sync for offline mode');
-          }
+          // Sync will happen on next 60-second interval (batched sync)
 
         }, 150); // Small delay to ensure skeletons render
       }

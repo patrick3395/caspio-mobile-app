@@ -1012,38 +1012,43 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
-  // New helper method to load FDF photo images in background (OFFLINE-FIRST)
-  // Supports both S3 keys and legacy Caspio Files API paths
+  /**
+   * Load FDF photo image with two-field approach for robust UI transitions
+   * Priority: cached annotated > cached base > remote (with preload)
+   * Never changes displayUrl until new source is verified loadable
+   */
   private async loadFDFPhotoImage(photoPathOrS3Key: string, photoKey: string) {
     const fdfPhotos = this.roomData.fdfPhotos;
-    // Use room ID + photoKey as cache ID for FDF photos
     const cacheId = `fdf_${this.roomId}_${photoKey}`;
     const isS3Key = this.caspioService.isS3Key(photoPathOrS3Key);
     
-    console.log(`[FDF Photo] Loading ${photoKey} image, isS3Key: ${isS3Key}, path: ${photoPathOrS3Key?.substring(0, 50)}`);
+    console.log(`[FDF Photo] Loading ${photoKey} image, isS3Key: ${isS3Key}`);
+    
+    // TWO-FIELD APPROACH: Set display state
+    let displayState: 'local' | 'cached' | 'remote_loading' | 'remote' = 'remote';
     
     try {
-      // Wait for bulk cache to be ready before checking maps
       await this.cacheLoadPromise;
       
-      // OPTIMIZED: Use bulk cache maps for O(1) lookup (preloaded before this runs)
-      // Check for cached ANNOTATED image first (has drawings on it)
+      // Check for cached ANNOTATED image first
       const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(cacheId);
       if (cachedAnnotatedImage) {
         console.log(`[FDF Photo] ✅ Using bulk cached ANNOTATED ${photoKey} image`);
         fdfPhotos[`${photoKey}Url`] = cachedAnnotatedImage;
         fdfPhotos[`${photoKey}DisplayUrl`] = cachedAnnotatedImage;
+        fdfPhotos[`${photoKey}DisplayState`] = 'cached';
         fdfPhotos[`${photoKey}Loading`] = false;
         this.changeDetectorRef.detectChanges();
         return;
       }
       
-      // Check bulk cached photo (base image without annotations)
+      // Check bulk cached photo
       const cachedImage = this.bulkCachedPhotosMap.get(cacheId);
       if (cachedImage) {
         console.log(`[FDF Photo] ✅ Using bulk cached ${photoKey} image`);
         fdfPhotos[`${photoKey}Url`] = cachedImage;
         fdfPhotos[`${photoKey}DisplayUrl`] = cachedImage;
+        fdfPhotos[`${photoKey}DisplayState`] = 'cached';
         fdfPhotos[`${photoKey}Loading`] = false;
         this.changeDetectorRef.detectChanges();
         return;
@@ -1054,38 +1059,48 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log(`[FDF Photo] Offline and no cache for ${photoKey}, using placeholder`);
         fdfPhotos[`${photoKey}Url`] = 'assets/img/photo-placeholder.png';
         fdfPhotos[`${photoKey}DisplayUrl`] = 'assets/img/photo-placeholder.png';
+        fdfPhotos[`${photoKey}DisplayState`] = 'remote';
         fdfPhotos[`${photoKey}Loading`] = false;
         this.changeDetectorRef.detectChanges();
         return;
       }
 
-      // Online - fetch from API and cache
+      // Mark as loading - keep current displayUrl if valid
+      fdfPhotos[`${photoKey}DisplayState`] = 'remote_loading';
+      fdfPhotos[`${photoKey}Loading`] = true;
+      this.changeDetectorRef.detectChanges();
+
+      // Fetch from remote with preload
       let imageData: string | null = null;
       
-      // Check if this is an S3 key - use XMLHttpRequest to fetch as data URL
       if (isS3Key) {
         console.log(`[FDF Photo] Fetching S3 image for ${photoKey}:`, photoPathOrS3Key);
         try {
           const s3Url = await this.caspioService.getS3FileUrl(photoPathOrS3Key);
-          imageData = await this.fetchS3ImageAsDataUrl(s3Url);
+          
+          // Preload before transitioning
+          const preloaded = await this.preloadImage(s3Url);
+          if (preloaded) {
+            imageData = await this.fetchS3ImageAsDataUrl(s3Url);
+          }
         } catch (err) {
-          console.warn(`[FDF Photo] S3 fetch failed for ${photoKey}, trying fallback:`, err);
+          console.warn(`[FDF Photo] S3 fetch failed for ${photoKey}:`, err);
         }
       }
       
-      // Fallback to Caspio Files API for non-S3 paths (legacy)
       if (!imageData && !isS3Key) {
         imageData = await this.foundationData.getImage(photoPathOrS3Key);
       }
       
       if (imageData) {
+        // Only update UI after successful fetch
         fdfPhotos[`${photoKey}Url`] = imageData;
         fdfPhotos[`${photoKey}DisplayUrl`] = imageData;
+        fdfPhotos[`${photoKey}DisplayState`] = 'cached';
         fdfPhotos[`${photoKey}Loading`] = false;
         
-        // Cache for offline use
         await this.indexedDb.cachePhoto(cacheId, this.serviceId, imageData, photoPathOrS3Key);
-        console.log(`[FDF Photo] Loaded and cached ${photoKey} image`);
+        console.log(`[FDF Photo] ✅ Loaded and cached ${photoKey} image`);
         
         this.changeDetectorRef.detectChanges();
       } else {
@@ -1093,41 +1108,65 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     } catch (error) {
       console.error(`[FDF Photo] Error loading ${photoKey} image:`, error);
+      // Keep placeholder but mark as remote (failed)
       fdfPhotos[`${photoKey}Url`] = 'assets/img/photo-placeholder.png';
       fdfPhotos[`${photoKey}DisplayUrl`] = 'assets/img/photo-placeholder.png';
+      fdfPhotos[`${photoKey}DisplayState`] = 'remote';
       fdfPhotos[`${photoKey}Loading`] = false;
       this.changeDetectorRef.detectChanges();
     }
   }
 
-  // New helper method to load elevation point photo images in background (OFFLINE-FIRST)
+  /**
+   * Load elevation point photo image with two-field approach
+   * Priority: local blob > cached annotated > cached base > remote (with preload)
+   * Never changes displayUrl until new source is verified loadable
+   */
   private async loadPointPhotoImage(photoPath: string, photoData: any) {
     const attachId = String(photoData.attachId);
-    // Also check if we have an S3 key in the Attachment field
     const s3Key = photoData.Attachment || photoPath;
     
+    // TWO-FIELD APPROACH: Set initial display state
+    photoData.displayState = 'remote';
+    
     try {
-      // Wait for bulk cache to be ready before checking maps
       await this.cacheLoadPromise;
       
-      // Check for cached ANNOTATED image first (has drawings on it)
+      // Check for local pending blob first (highest priority)
+      try {
+        const localBlobUrl = await this.indexedDb.getPhotoBlobUrl(attachId);
+        if (localBlobUrl) {
+          if (this.DEBUG) console.log(`[Point Photo] ✅ Using local blob for ${attachId}`);
+          photoData.url = localBlobUrl;
+          photoData.displayUrl = localBlobUrl;
+          photoData.displayState = 'local';
+          photoData.localBlobKey = attachId;
+          photoData.loading = false;
+          this.changeDetectorRef.detectChanges();
+          return;
+        }
+      } catch (e) { /* ignore */ }
+      
+      // Check for cached ANNOTATED image
       const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
       if (cachedAnnotatedImage) {
         if (this.DEBUG) console.log(`[Point Photo] ✅ Using bulk cached ANNOTATED image for ${attachId}`);
         photoData.url = cachedAnnotatedImage;
         photoData.displayUrl = cachedAnnotatedImage;
+        photoData.displayState = 'cached';
         photoData.loading = false;
         photoData.hasAnnotations = true;
         this.changeDetectorRef.detectChanges();
         return;
       }
       
-      // Check bulk cached photo (base image without annotations)
+      // Check bulk cached photo
       const cachedImage = this.bulkCachedPhotosMap.get(attachId);
       if (cachedImage) {
         if (this.DEBUG) console.log(`[Point Photo] Using bulk cached image for ${attachId}`);
         photoData.url = cachedImage;
         photoData.displayUrl = cachedImage;
+        photoData.displayState = 'cached';
         photoData.loading = false;
         this.changeDetectorRef.detectChanges();
         return;
@@ -1138,50 +1177,81 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         if (this.DEBUG) console.log(`[Point Photo] Offline and no cache for ${attachId}, using placeholder`);
         photoData.url = 'assets/img/photo-placeholder.png';
         photoData.displayUrl = 'assets/img/photo-placeholder.png';
+        photoData.displayState = 'remote';
         photoData.loading = false;
         this.changeDetectorRef.detectChanges();
         return;
       }
 
-      // Online - fetch from API and cache
+      // Mark as loading, keep current displayUrl if valid
+      photoData.displayState = 'remote_loading';
+      photoData.loading = true;
+      this.changeDetectorRef.detectChanges();
+
+      // Fetch from remote with preload
       let imageData: string | null = null;
       
-      // Check if this is an S3 key - use XMLHttpRequest to fetch as data URL
       if (s3Key && this.caspioService.isS3Key(s3Key)) {
         if (this.DEBUG) console.log(`[Point Photo] Fetching S3 image for ${attachId}:`, s3Key);
         try {
           const s3Url = await this.caspioService.getS3FileUrl(s3Key);
-          imageData = await this.fetchS3ImageAsDataUrl(s3Url);
+          
+          // Preload before transitioning
+          const preloaded = await this.preloadImage(s3Url);
+          if (preloaded) {
+            imageData = await this.fetchS3ImageAsDataUrl(s3Url);
+          }
         } catch (err) {
-          if (this.DEBUG) console.warn(`[Point Photo] S3 fetch failed for ${attachId}, trying fallback:`, err);
+          if (this.DEBUG) console.warn(`[Point Photo] S3 fetch failed for ${attachId}:`, err);
         }
       }
       
-      // Fallback to Caspio Files API for non-S3 paths
       if (!imageData && photoPath && !this.caspioService.isS3Key(photoPath)) {
         imageData = await this.foundationData.getImage(photoPath);
       }
       
       if (imageData) {
+        // Only update UI after successful fetch
         photoData.url = imageData;
         photoData.displayUrl = imageData;
+        photoData.displayState = 'cached';
         photoData.loading = false;
         
-        // Cache for offline use
         if (attachId && !attachId.startsWith('temp_')) {
           await this.indexedDb.cachePhoto(attachId, this.serviceId, imageData, s3Key || photoPath);
-          if (this.DEBUG) console.log(`[Point Photo] Loaded and cached image for ${attachId}`);
+          if (this.DEBUG) console.log(`[Point Photo] ✅ Loaded and cached image for ${attachId}`);
         }
         
+        this.changeDetectorRef.detectChanges();
+      } else {
+        // Keep placeholder
+        photoData.url = 'assets/img/photo-placeholder.png';
+        photoData.displayUrl = 'assets/img/photo-placeholder.png';
+        photoData.displayState = 'remote';
+        photoData.loading = false;
         this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
       console.error(`[Point Photo] Error loading image:`, error);
       photoData.url = 'assets/img/photo-placeholder.png';
       photoData.displayUrl = 'assets/img/photo-placeholder.png';
+      photoData.displayState = 'remote';
       photoData.loading = false;
       this.changeDetectorRef.detectChanges();
     }
+  }
+
+  /**
+   * Preload an image to verify it's loadable before switching
+   */
+  private preloadImage(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url;
+      setTimeout(() => resolve(false), 30000);
+    });
   }
 
   private async loadElevationPoints() {
@@ -2596,7 +2666,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                     status: 'pending',
                     priority: 'high',
                   });
-                  this.backgroundSync.triggerSync();
+                  // Sync will happen on next 60-second interval (batched sync)
                 }
               } else {
                 console.log('[FDF Delete] Offline - queuing delete for sync');
@@ -2609,7 +2679,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   status: 'pending',
                   priority: 'high',
                 });
-                this.backgroundSync.triggerSync();
+                // Sync will happen on next 60-second interval (batched sync)
               }
               
               console.log('[FDF Delete] Photo removed successfully');
@@ -3292,7 +3362,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                     status: 'pending',
                     priority: 'high',
                   });
-                  this.backgroundSync.triggerSync();
+                  // Sync will happen on next 60-second interval (batched sync)
                 }
                 
                 console.log('[Point Photo] Photo removed successfully');
