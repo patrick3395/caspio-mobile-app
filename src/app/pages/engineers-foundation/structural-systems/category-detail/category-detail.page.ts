@@ -1673,10 +1673,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // STEP 1: Get attachments from bulk cache (already loaded during initial load)
       const attachments = this.bulkAttachmentsMap.get(visualId) || [];
 
-      // STEP 2: Get pending photos from bulk cache
+      // STEP 2: Get pending photos from bulk cache (old system)
       const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
       
-      if (this.DEBUG) console.log('[LOAD PHOTOS] Visual', visualId, ':', attachments.length, 'synced,', pendingPhotos.length, 'pending');
+      // STEP 2.5 (NEW): Get LocalImages for this visual (new system)
+      // This ensures photos captured with the new system are loaded on page reload
+      let localImages: LocalImage[] = [];
+      try {
+        localImages = await this.localImageService.getImagesForEntity('visual', visualId);
+        console.log('[LOAD PHOTOS] Found', localImages.length, 'LocalImages for visual', visualId);
+      } catch (e) {
+        console.warn('[LOAD PHOTOS] Failed to get LocalImages:', e);
+      }
+      
+      if (this.DEBUG) console.log('[LOAD PHOTOS] Visual', visualId, ':', attachments.length, 'synced,', pendingPhotos.length, 'pending,', localImages.length, 'local');
 
       // STEP 3: Load cached photo data NOW (on-demand, not upfront)
       // This is the key optimization - photo data only loads when needed
@@ -1689,9 +1699,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.bulkAnnotatedImagesMap = annotatedImages;
       }
 
-      // Calculate total photo count
+      // Calculate total photo count (include LocalImages)
       const existingCount = this.visualPhotos[key]?.length || 0;
-      const totalCount = attachments.length + pendingPhotos.length;
+      const totalCount = attachments.length + pendingPhotos.length + localImages.length;
       this.photoCountsByKey[key] = Math.max(existingCount, totalCount);
 
       // Initialize photo array if not exists
@@ -1728,8 +1738,54 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           loadedPhotoIds.add(pendingId);
         }
       }
+      
+      // STEP 4.5 (NEW): Add LocalImages to the array
+      // These are photos captured with the new local-first system
+      for (const localImage of localImages) {
+        const imageId = localImage.imageId;
+        
+        // Skip if already loaded (by imageId or attachId)
+        if (loadedPhotoIds.has(imageId) || (localImage.attachId && loadedPhotoIds.has(localImage.attachId))) {
+          continue;
+        }
+        
+        // Get display URL from LocalImageService
+        let displayUrl = 'assets/img/photo-placeholder.png';
+        try {
+          displayUrl = await this.localImageService.getDisplayUrl(localImage);
+        } catch (e) {
+          console.warn('[LOAD PHOTOS] Failed to get LocalImage displayUrl:', e);
+        }
+        
+        // Add to the BEGINNING of the array so local photos show first
+        this.visualPhotos[key].unshift({
+          AttachID: localImage.attachId || localImage.imageId,
+          attachId: localImage.attachId || localImage.imageId,
+          id: localImage.attachId || localImage.imageId,
+          imageId: localImage.imageId,
+          displayUrl: displayUrl,
+          url: displayUrl,
+          thumbnailUrl: displayUrl,
+          originalUrl: displayUrl,
+          name: localImage.fileName,
+          caption: localImage.caption || '',
+          annotation: localImage.caption || '',
+          Annotation: localImage.caption || '',
+          Drawings: localImage.drawings || null,
+          hasAnnotations: !!localImage.drawings && localImage.drawings.length > 10,
+          loading: false,
+          uploading: localImage.status === 'uploading',
+          queued: localImage.status === 'queued' || localImage.status === 'local_only',
+          isSkeleton: false,
+          isPending: localImage.status !== 'verified',
+          isLocalImage: true  // Flag to identify new system photos
+        });
+        loadedPhotoIds.add(imageId);
+        
+        console.log('[LOAD PHOTOS] Added LocalImage:', imageId, 'status:', localImage.status);
+      }
 
-      // Trigger change detection so pending photos appear immediately
+      // Trigger change detection so pending/local photos appear immediately
       this.changeDetectorRef.detectChanges();
 
       if (attachments.length > 0) {

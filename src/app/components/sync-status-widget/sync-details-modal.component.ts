@@ -52,18 +52,25 @@ import { Subscription, merge } from 'rxjs';
       </div>
 
       <!-- Pending Queue -->
-      <div class="sync-section" *ngIf="pendingRequests.length > 0 || pendingCaptions.length > 0">
+      <div class="sync-section" *ngIf="pendingRequests.length > 0 || pendingCaptions.length > 0 || pendingPhotos.length > 0">
         <h4><ion-icon name="time-outline"></ion-icon> Waiting to Sync</h4>
         <div class="request-list">
+          <!-- Pending Photos (new LocalImage system) -->
+          <div class="request-item photo" *ngFor="let photo of pendingPhotos; let i = index">
+            <span class="queue-number">{{ i + 1 }}</span>
+            <ion-icon name="image-outline"></ion-icon>
+            <span class="request-desc">Photo: {{ photo.fileName || 'Uploading...' }}</span>
+            <span class="status-badge" *ngIf="photo.status">{{ photo.status }}</span>
+          </div>
           <!-- Pending Captions/Annotations -->
           <div class="request-item caption" *ngFor="let cap of pendingCaptions; let i = index">
-            <span class="queue-number">{{ i + 1 }}</span>
+            <span class="queue-number">{{ pendingPhotos.length + i + 1 }}</span>
             <ion-icon name="text-outline"></ion-icon>
             <span class="request-desc">{{ getCaptionDescription(cap) }}</span>
           </div>
           <!-- Pending Requests -->
           <div class="request-item" *ngFor="let req of pendingRequests; let i = index">
-            <span class="queue-number">{{ pendingCaptions.length + i + 1 }}</span>
+            <span class="queue-number">{{ pendingPhotos.length + pendingCaptions.length + i + 1 }}</span>
             <ion-icon [name]="getRequestIcon(req)"></ion-icon>
             <span class="request-desc">{{ getRequestDescription(req) }}</span>
             <span class="dependency-badge" *ngIf="req.dependencies?.length > 0" title="Waiting for dependencies">
@@ -86,7 +93,7 @@ import { Subscription, merge } from 'rxjs';
       </div>
 
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="pendingRequests.length === 0 && syncingRequests.length === 0 && failedRequests.length === 0 && pendingCaptions.length === 0">
+      <div class="empty-state" *ngIf="pendingRequests.length === 0 && syncingRequests.length === 0 && failedRequests.length === 0 && pendingCaptions.length === 0 && pendingPhotos.length === 0">
         <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
         <p>All changes synced!</p>
       </div>
@@ -276,6 +283,24 @@ import { Subscription, merge } from 'rxjs';
       color: #0ea5e9;
     }
 
+    .request-item.photo {
+      background: #f0fdf4;
+      border-left: 3px solid #22c55e;
+    }
+
+    .request-item.photo ion-icon {
+      color: #22c55e;
+    }
+
+    .request-item .status-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--ion-color-light-shade);
+      color: var(--ion-color-medium-shade);
+      text-transform: uppercase;
+    }
+
     .empty-state {
       text-align: center;
       padding: 30px 20px;
@@ -326,6 +351,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   syncingRequests: any[] = [];
   failedRequests: any[] = [];
   pendingCaptions: PendingCaptionUpdate[] = [];
+  pendingPhotos: any[] = [];  // New LocalImage system photos waiting to upload
   stuckCount: number = 0;
   totalPendingCount: number = 0;
 
@@ -418,8 +444,28 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       // Load pending captions
       this.pendingCaptions = await this.indexedDb.getPendingCaptions();
       
+      // Load pending photos from uploadOutbox (new LocalImage system)
+      try {
+        const outboxItems = await this.indexedDb.getPendingUploadOutboxItems();
+        // Get LocalImage details for each outbox item
+        this.pendingPhotos = [];
+        for (const item of outboxItems) {
+          const localImage = await this.indexedDb.getLocalImage(item.imageId);
+          if (localImage) {
+            this.pendingPhotos.push({
+              ...item,
+              fileName: localImage.fileName,
+              status: localImage.status
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('[SyncModal] Error loading uploadOutbox:', e);
+        this.pendingPhotos = [];
+      }
+      
       // Calculate total pending count (for Clear All button)
-      this.totalPendingCount = this.pendingRequests.length + this.pendingCaptions.length + this.failedRequests.length;
+      this.totalPendingCount = this.pendingRequests.length + this.pendingCaptions.length + this.pendingPhotos.length + this.failedRequests.length;
       
       // Calculate stuck count (pending for over 30 minutes with high retry count)
       // Lower threshold would flag items that are just waiting for exponential backoff retry
