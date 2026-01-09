@@ -1839,175 +1839,191 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * Never changes displayUrl until new source is verified loadable
    */
   private async loadSinglePhoto(attach: any, key: string): Promise<void> {
-    console.log('[LOAD PHOTO] Loading AttachID:', attach.AttachID, 'for key:', key);
-    
-    const attachId = String(attach.AttachID || attach.PK_ID);
-    const s3Key = attach.Attachment;
-    const filePath = attach.Attachment || attach.Photo || '';
-    const hasImageSource = attach.Attachment || attach.Photo;
-    
-    // TWO-FIELD APPROACH: Determine display state and URL
-    let displayUrl = 'assets/img/photo-placeholder.png';
-    let displayState: 'local' | 'uploading' | 'cached' | 'remote_loading' | 'remote' = 'remote';
-    let localBlobKey: string | undefined;
-    let imageUrl = '';
-    
-    // STEP 1: Check for local pending blob first (highest priority)
+    // CRITICAL: Wrap entire function in try-catch to prevent crashes
+    // If anything fails, the photo just won't load - but app won't crash
     try {
-      const localBlobUrl = await this.indexedDb.getPhotoBlobUrl(attachId);
-      if (localBlobUrl) {
-        if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using local blob for:', attachId);
-        displayUrl = localBlobUrl;
-        imageUrl = localBlobUrl;
-        displayState = 'local';
-        localBlobKey = attachId;
-      }
-    } catch (err) {
-      if (this.DEBUG) console.warn('[LOAD PHOTO] Local blob check failed:', err);
-    }
-    
-    // STEP 2: Check cached photo (if no local blob)
-    if (!localBlobKey) {
-      try {
-        const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
-        if (cachedImage) {
-          if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
-          displayUrl = cachedImage;
-          imageUrl = cachedImage;
-          displayState = 'cached';
-        }
-      } catch (cacheErr) {
-        if (this.DEBUG) console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
-      }
-    }
-    
-    // STEP 3: If no local/cached image, determine if we need remote fetch
-    if (displayState !== 'local' && displayState !== 'cached') {
-      if (!hasImageSource) {
-        // No image source at all - skip this photo
-        if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Skipping photo with no image source:', attachId);
+      console.log('[LOAD PHOTO] Loading AttachID:', attach.AttachID, 'for key:', key);
+      
+      const attachId = String(attach.AttachID || attach.PK_ID);
+      
+      // Validate attachId before proceeding
+      if (!attachId || attachId === 'undefined' || attachId === 'null') {
+        console.warn('[LOAD PHOTO] Invalid attachId, skipping:', attach);
         return;
       }
       
-      // Check if offline
-      if (!this.offlineService.isOnline()) {
-        if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Offline and no cached image for:', attachId);
-        displayState = 'remote';
-        // Keep placeholder - will load when back online
-      } else if (s3Key && this.caspioService.isS3Key(s3Key)) {
-        // S3 image - need to fetch in background
-        displayState = 'remote_loading';
-        // Don't block - preload in background
-      } else if (attach.Photo) {
-        // Old Caspio Files API - also fetch in background
-        displayState = 'remote_loading';
-      } else {
-        displayState = 'remote';
-      }
-    }
-    
-    // Check for drawings/annotations
-    const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
-    
-    // STEP 4: Check for cached annotated image (for display thumbnail)
-    let annotatedDisplayUrl = displayUrl;
-    if (hasDrawings && displayState !== 'remote_loading' && displayState !== 'remote') {
+      const s3Key = attach.Attachment;
+      const filePath = attach.Attachment || attach.Photo || '';
+      const hasImageSource = attach.Attachment || attach.Photo;
+      
+      // TWO-FIELD APPROACH: Determine display state and URL
+      let displayUrl = 'assets/img/photo-placeholder.png';
+      let displayState: 'local' | 'uploading' | 'cached' | 'remote_loading' | 'remote' = 'remote';
+      let localBlobKey: string | undefined;
+      let imageUrl = '';
+      
+      // STEP 1: Check for local pending blob first (highest priority)
       try {
-        const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
-        if (cachedAnnotatedImage) {
-          if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using cached annotated image for thumbnail:', attachId);
-          annotatedDisplayUrl = cachedAnnotatedImage;
+        const localBlobUrl = await this.indexedDb.getPhotoBlobUrl(attachId);
+        if (localBlobUrl) {
+          if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using local blob for:', attachId);
+          displayUrl = localBlobUrl;
+          imageUrl = localBlobUrl;
+          displayState = 'local';
+          localBlobKey = attachId;
         }
-      } catch (annotErr) {
-        if (this.DEBUG) console.warn('[LOAD PHOTO] Error checking for cached annotated image:', annotErr);
+      } catch (err) {
+        // Critical: Don't crash if IndexedDB fails - just continue with remote fetch
+        console.warn('[LOAD PHOTO] IndexedDB error checking local blob:', err);
       }
-    }
-    
-    // CRITICAL: Extract VisualID from the key if not in attachment
-    const keyParts = key.split('_');
-    const itemId = keyParts.length > 1 ? keyParts.slice(1).join('_') : key;
-    const visualIdFromRecord = this.visualRecordIds[key];
-    
-    // Create photo record with two-field approach
-    const photoData: any = {
-      AttachID: attach.AttachID,
-      attachId: attachId,
-      id: attach.AttachID,
-      VisualID: attach.VisualID || visualIdFromRecord || itemId,
-      name: attach.Photo || 'photo.jpg',
-      filePath: filePath,
-      Photo: filePath,
-      // Two-field approach
-      localBlobKey: localBlobKey,
-      remoteS3Key: s3Key,
-      displayState: displayState,
-      // Display URLs
-      url: imageUrl || displayUrl,
-      originalUrl: imageUrl || displayUrl,
-      thumbnailUrl: imageUrl || displayUrl,
-      displayUrl: annotatedDisplayUrl,
-      // Metadata
-      caption: attach.Annotation || '',
-      annotation: attach.Annotation || '',
-      Annotation: attach.Annotation || '',
-      hasAnnotations: hasDrawings,
-      annotations: null,
-      Drawings: attach.Drawings || null,
-      rawDrawingsString: attach.Drawings || null,
-      // Status flags
-      uploading: false,
-      queued: false,
-      isObjectUrl: !!localBlobKey,
-      isSkeleton: false,
-      loading: displayState === 'remote_loading'
-    };
-
-    // Add photo to array
-    if (!this.visualPhotos[key]) {
-      this.visualPhotos[key] = [];
-    }
-
-    const attachIdStr = String(attach.AttachID);
-    const existingIndex = this.visualPhotos[key].findIndex(p => 
-      String(p.AttachID) === attachIdStr || 
-      String(p.id) === attachIdStr ||
-      String(p.attachId) === attachIdStr
-    );
-    
-    if (existingIndex !== -1) {
-      // CRITICAL: Preserve existing displayUrl if it's valid and we're in loading state
-      const existingPhoto = this.visualPhotos[key][existingIndex];
-      if (displayState === 'remote_loading' && 
-          existingPhoto.displayUrl && 
-          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png') {
-        photoData.displayUrl = existingPhoto.displayUrl;
-        photoData.displayState = existingPhoto.displayState || 'cached';
-        console.log('[LOAD PHOTO] Preserving existing valid displayUrl for:', attachId);
+      
+      // STEP 2: Check cached photo (if no local blob)
+      if (!localBlobKey) {
+        try {
+          const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
+          if (cachedImage) {
+            if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
+            displayUrl = cachedImage;
+            imageUrl = cachedImage;
+            displayState = 'cached';
+          }
+        } catch (cacheErr) {
+          console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
+        }
       }
-      this.visualPhotos[key][existingIndex] = photoData;
-    } else {
-      // Double-check for race conditions
-      const doubleCheckIndex = this.visualPhotos[key].findIndex(p => 
-        String(p.AttachID) === attachIdStr
+      
+      // STEP 3: If no local/cached image, determine if we need remote fetch
+      if (displayState !== 'local' && displayState !== 'cached') {
+        if (!hasImageSource) {
+          // No image source at all - skip this photo
+          if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Skipping photo with no image source:', attachId);
+          return;
+        }
+        
+        // Check if offline
+        if (!this.offlineService.isOnline()) {
+          if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Offline and no cached image for:', attachId);
+          displayState = 'remote';
+          // Keep placeholder - will load when back online
+        } else if (s3Key && this.caspioService.isS3Key(s3Key)) {
+          // S3 image - need to fetch in background
+          displayState = 'remote_loading';
+          // Don't block - preload in background
+        } else if (attach.Photo) {
+          // Old Caspio Files API - also fetch in background
+          displayState = 'remote_loading';
+        } else {
+          displayState = 'remote';
+        }
+      }
+      
+      // Check for drawings/annotations
+      const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
+      
+      // STEP 4: Check for cached annotated image (for display thumbnail)
+      let annotatedDisplayUrl = displayUrl;
+      if (hasDrawings && displayState !== 'remote_loading' && displayState !== 'remote') {
+        try {
+          const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
+          if (cachedAnnotatedImage) {
+            if (this.DEBUG) console.log('[LOAD PHOTO] ✅ Using cached annotated image for thumbnail:', attachId);
+            annotatedDisplayUrl = cachedAnnotatedImage;
+          }
+        } catch (annotErr) {
+          if (this.DEBUG) console.warn('[LOAD PHOTO] Error checking for cached annotated image:', annotErr);
+        }
+      }
+      
+      // CRITICAL: Extract VisualID from the key if not in attachment
+      const keyParts = key.split('_');
+      const itemId = keyParts.length > 1 ? keyParts.slice(1).join('_') : key;
+      const visualIdFromRecord = this.visualRecordIds[key];
+      
+      // Create photo record with two-field approach
+      const photoData: any = {
+        AttachID: attach.AttachID,
+        attachId: attachId,
+        id: attach.AttachID,
+        VisualID: attach.VisualID || visualIdFromRecord || itemId,
+        name: attach.Photo || 'photo.jpg',
+        filePath: filePath,
+        Photo: filePath,
+        // Two-field approach
+        localBlobKey: localBlobKey,
+        remoteS3Key: s3Key,
+        displayState: displayState,
+        // Display URLs
+        url: imageUrl || displayUrl,
+        originalUrl: imageUrl || displayUrl,
+        thumbnailUrl: imageUrl || displayUrl,
+        displayUrl: annotatedDisplayUrl,
+        // Metadata
+        caption: attach.Annotation || '',
+        annotation: attach.Annotation || '',
+        Annotation: attach.Annotation || '',
+        hasAnnotations: hasDrawings,
+        annotations: null,
+        Drawings: attach.Drawings || null,
+        rawDrawingsString: attach.Drawings || null,
+        // Status flags
+        uploading: false,
+        queued: false,
+        isObjectUrl: !!localBlobKey,
+        isSkeleton: false,
+        loading: displayState === 'remote_loading'
+      };
+
+      // Add photo to array
+      if (!this.visualPhotos[key]) {
+        this.visualPhotos[key] = [];
+      }
+
+      const attachIdStr = String(attach.AttachID);
+      const existingIndex = this.visualPhotos[key].findIndex(p => 
+        String(p.AttachID) === attachIdStr || 
+        String(p.id) === attachIdStr ||
+        String(p.attachId) === attachIdStr
       );
-      if (doubleCheckIndex !== -1) {
-        console.log('[LOAD PHOTO] ⚠️ Race condition detected! Skipping:', attachId);
-        return;
+      
+      if (existingIndex !== -1) {
+        // CRITICAL: Preserve existing displayUrl if it's valid and we're in loading state
+        const existingPhoto = this.visualPhotos[key][existingIndex];
+        if (displayState === 'remote_loading' && 
+            existingPhoto.displayUrl && 
+            existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png') {
+          photoData.displayUrl = existingPhoto.displayUrl;
+          photoData.displayState = existingPhoto.displayState || 'cached';
+          console.log('[LOAD PHOTO] Preserving existing valid displayUrl for:', attachId);
+        }
+        this.visualPhotos[key][existingIndex] = photoData;
+      } else {
+        // Double-check for race conditions
+        const doubleCheckIndex = this.visualPhotos[key].findIndex(p => 
+          String(p.AttachID) === attachIdStr
+        );
+        if (doubleCheckIndex !== -1) {
+          console.log('[LOAD PHOTO] ⚠️ Race condition detected! Skipping:', attachId);
+          return;
+        }
+        this.visualPhotos[key].push(photoData);
       }
-      this.visualPhotos[key].push(photoData);
-    }
 
-    // Trigger change detection immediately to show photo (even with placeholder)
-    this.changeDetectorRef.detectChanges();
-    
-    // STEP 5: If remote_loading, preload and transition in background
-    if (displayState === 'remote_loading') {
-      this.preloadAndTransition(attachId, s3Key || attach.Photo, key, !!s3Key).catch(err => {
-        console.warn('[LOAD PHOTO] Preload failed for:', attachId, err);
-      });
+      // Trigger change detection immediately to show photo (even with placeholder)
+      this.changeDetectorRef.detectChanges();
+      
+      // STEP 5: If remote_loading, preload and transition in background
+      if (displayState === 'remote_loading') {
+        this.preloadAndTransition(attachId, s3Key || attach.Photo, key, !!s3Key).catch(err => {
+          console.warn('[LOAD PHOTO] Preload failed for:', attachId, err);
+        });
+      }
+      
+      console.log('[LOAD PHOTO] Completed:', attachId, 'state:', displayState);
+    } catch (err) {
+      // CRITICAL: Catch any unexpected errors to prevent app crash
+      console.error('[LOAD PHOTO] Critical error loading photo:', attach?.AttachID, err);
+      // Don't rethrow - let the app continue without this photo
     }
-    
-    console.log('[LOAD PHOTO] Completed:', attachId, 'state:', displayState);
   }
 
   /**

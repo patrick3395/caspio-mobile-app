@@ -855,24 +855,31 @@ export class BackgroundSyncService {
       console.log('[BackgroundSync] Photo status updated to synced:', data.fileId);
 
       // STEP 2: Cache the uploaded image as base64 for offline viewing
+      // CRITICAL: This MUST succeed before we delete the local blob
       // This enables seamless URL transition from blob URL to cached base64
+      let cachingSucceeded = false;
+      const realAttachId = result.AttachID || result.attachId;
       try {
         if (result.s3Key || result.Photo) {
           await this.cacheUploadedPhoto(
-            result.AttachID || result.attachId,
+            realAttachId,
             data.serviceId || '',
             result.s3Key || result.Photo
           );
           console.log('[BackgroundSync] ✅ Cached uploaded photo for offline viewing');
+          cachingSucceeded = true;
+        } else {
+          // No S3 key, but upload succeeded - mark as cached anyway
+          cachingSucceeded = true;
         }
       } catch (cacheErr) {
         console.warn('[BackgroundSync] Failed to cache uploaded photo:', cacheErr);
-        // Continue anyway - photo was uploaded successfully
+        // DON'T delete local blob if caching failed - user still needs to see the photo
+        console.warn('[BackgroundSync] ⚠️ Keeping local blob because caching failed');
       }
 
       // STEP 3: Update any pending caption updates with the real AttachID
       // This handles the case where user added caption while photo was still uploading
-      const realAttachId = result.AttachID || result.attachId;
       if (realAttachId && data.fileId) {
         const updatedCount = await this.indexedDb.updateCaptionAttachId(data.fileId, String(realAttachId));
         if (updatedCount > 0) {
@@ -898,9 +905,22 @@ export class BackgroundSyncService {
         this.markAllSectionsDirty(storedPhotoData.serviceId);
       }
 
-      // STEP 5: Clean up stored photo after successful upload and caching
-      await this.indexedDb.deleteStoredFile(data.fileId);
-      console.log('[BackgroundSync] Cleaned up stored photo file:', data.fileId);
+      // STEP 5: Clean up stored photo ONLY if caching succeeded
+      // Use a short delay to allow any in-progress navigation to complete
+      // This prevents race conditions where user navigates while sync is finishing
+      if (cachingSucceeded) {
+        const fileIdToDelete = data.fileId;
+        setTimeout(async () => {
+          try {
+            await this.indexedDb.deleteStoredFile(fileIdToDelete);
+            console.log('[BackgroundSync] Cleaned up stored photo file:', fileIdToDelete);
+          } catch (delErr) {
+            console.warn('[BackgroundSync] Failed to delete stored file:', fileIdToDelete, delErr);
+          }
+        }, 2000); // 2 second delay to allow navigation to complete
+      } else {
+        console.log('[BackgroundSync] ⚠️ Skipping local blob deletion - caching failed');
+      }
 
       // Refresh visual attachments cache with new photo
       // CRITICAL: Preserve local updates (_localUpdate flag) when merging
@@ -1043,23 +1063,30 @@ export class BackgroundSyncService {
       console.log('[BackgroundSync] EFE photo status updated to synced:', data.fileId);
 
       // STEP 2: Cache the uploaded image as base64 for offline viewing
+      // CRITICAL: This MUST succeed before we delete the local blob
+      let cachingSucceeded = false;
+      const realAttachId = result.AttachID || result.attachId;
       try {
         if (result.s3Key || result.Photo) {
           await this.cacheUploadedPhoto(
-            result.AttachID || result.attachId,
+            realAttachId,
             data.serviceId || '',
             result.s3Key || result.Photo
           );
           console.log('[BackgroundSync] ✅ Cached EFE photo for offline viewing');
+          cachingSucceeded = true;
+        } else {
+          // No S3 key, but upload succeeded - mark as cached anyway
+          cachingSucceeded = true;
         }
       } catch (cacheErr) {
         console.warn('[BackgroundSync] Failed to cache EFE photo:', cacheErr);
-        // Continue anyway - photo was uploaded successfully
+        // DON'T delete local blob if caching failed
+        console.warn('[BackgroundSync] ⚠️ Keeping local blob because caching failed');
       }
 
       // STEP 3: Update any pending caption updates with the real AttachID
       // This handles the case where user added caption while photo was still uploading
-      const realAttachId = result.AttachID || result.attachId;
       if (realAttachId && data.fileId) {
         const updatedCount = await this.indexedDb.updateCaptionAttachId(data.fileId, String(realAttachId));
         if (updatedCount > 0) {
@@ -1084,9 +1111,21 @@ export class BackgroundSyncService {
         this.markAllSectionsDirty(storedEfePhotoData.serviceId);
       }
 
-      // STEP 5: Clean up stored photo
-      await this.indexedDb.deleteStoredFile(data.fileId);
-      console.log('[BackgroundSync] Cleaned up EFE photo file:', data.fileId);
+      // STEP 5: Clean up stored photo ONLY if caching succeeded
+      // Use a short delay to allow any in-progress navigation to complete
+      if (cachingSucceeded) {
+        const fileIdToDelete = data.fileId;
+        setTimeout(async () => {
+          try {
+            await this.indexedDb.deleteStoredFile(fileIdToDelete);
+            console.log('[BackgroundSync] Cleaned up EFE photo file:', fileIdToDelete);
+          } catch (delErr) {
+            console.warn('[BackgroundSync] Failed to delete EFE stored file:', fileIdToDelete, delErr);
+          }
+        }, 2000); // 2 second delay to allow navigation to complete
+      } else {
+        console.log('[BackgroundSync] ⚠️ Skipping EFE local blob deletion - caching failed');
+      }
 
       return result;
     } catch (error: any) {
