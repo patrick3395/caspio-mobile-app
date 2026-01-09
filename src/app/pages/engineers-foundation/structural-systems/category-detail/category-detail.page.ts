@@ -121,6 +121,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private bulkCachedPhotosMap: Map<string, string> = new Map();
   private bulkAnnotatedImagesMap: Map<string, string> = new Map();
   private bulkPendingPhotosMap: Map<string, any[]> = new Map();
+  private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();  // NEW: LocalImages by entityId
   private bulkVisualsCache: any[] = [];
   private bulkPendingRequestsCache: any[] = [];
 
@@ -986,6 +987,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.bulkCachedPhotosMap.clear();
     this.bulkAnnotatedImagesMap.clear();
     this.bulkPendingPhotosMap.clear();
+    this.bulkLocalImagesMap.clear();
 
     try {
       // ===== STEP 0: FAST LOAD - All data in ONE parallel batch =====
@@ -993,17 +995,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[LOAD DATA] Starting fast load (no photo data)...');
       const bulkLoadStart = Date.now();
       
-      const [allTemplates, visuals, pendingPhotos, pendingRequests] = await Promise.all([
+      const [allTemplates, visuals, pendingPhotos, pendingRequests, allLocalImages] = await Promise.all([
         this.indexedDb.getCachedTemplates('visual') || [],
         this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [],
         this.indexedDb.getAllPendingPhotosGroupedByVisual(),
-        this.indexedDb.getPendingRequests()
+        this.indexedDb.getPendingRequests(),
+        this.localImageService.getImagesForService(this.serviceId)  // NEW: Load LocalImages
       ]);
       
       // Store ALL bulk data in memory - NO more IndexedDB reads after this
       this.bulkPendingPhotosMap = pendingPhotos;
       this.bulkVisualsCache = visuals as any[] || [];
       this.bulkPendingRequestsCache = pendingRequests || [];
+      
+      // NEW: Group LocalImages by entityId for fast lookup
+      this.bulkLocalImagesMap.clear();
+      for (const img of allLocalImages) {
+        const entityId = img.entityId;
+        if (!this.bulkLocalImagesMap.has(entityId)) {
+          this.bulkLocalImagesMap.set(entityId, []);
+        }
+        this.bulkLocalImagesMap.get(entityId)!.push(img);
+      }
+      console.log(`[LOAD DATA] Loaded ${allLocalImages.length} LocalImages for ${this.bulkLocalImagesMap.size} entities`);
       
       // Pre-load photo caches in background for fast display of synced images
       // This runs in parallel with page rendering - doesn't block UI
@@ -1424,10 +1438,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // LAZY LOADING: Only calculate count from bulk-loaded data (no image loading)
         const attachments = this.bulkAttachmentsMap.get(visualId) || [];
         const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
-        this.photoCountsByKey[key] = attachments.length + pendingPhotos.length;
+        const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+        this.photoCountsByKey[key] = attachments.length + pendingPhotos.length + localImages.length;
         
-        // Photos will load when user clicks expand - NOT automatically
-        this.loadingPhotosByKey[key] = false;
+        // AUTO-LOAD: If there are LocalImages (unsynced photos), load them immediately
+        // This ensures photos captured before navigation persist and show on return
+        if (localImages.length > 0) {
+          console.log(`[LOAD PHOTOS] Auto-loading ${localImages.length} LocalImages for ${key} (visualId: ${visualId})`);
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.error('[LOAD PHOTOS] Auto-load failed for', key, err);
+          });
+        } else {
+          // Photos will load when user clicks expand - NOT automatically
+          this.loadingPhotosByKey[key] = false;
+        }
       }
       
       // Restore preserved accordion state before triggering change detection
@@ -1738,7 +1762,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           loadedPhotoIds.add(pendingId);
         }
       }
-      
+
       // STEP 4.5 (NEW): Add LocalImages to the array
       // These are photos captured with the new local-first system
       for (const localImage of localImages) {
@@ -2031,8 +2055,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             localImageInArray.displayUrl !== 'assets/img/photo-placeholder.png') {
           // Just update the AttachID mapping, but DON'T change the displayUrl
           this.logDebug('SKIP', `Photo ${attachId} matches LocalImage ${localImage.imageId} with valid URL`);
-          return;
-        }
+      return;
+    }
       }
       
       // Determine display URL
@@ -2117,7 +2141,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // Merge but preserve displayUrl
         this.visualPhotos[key][existingIndex] = { ...existing, ...photoData };
-      } else {
+          } else {
         // New photo - add it
         this.visualPhotos[key].push(photoData);
       }
@@ -2227,7 +2251,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // Fetch as data URL for caching
         imageDataUrl = await this.fetchAsDataUrl(s3Url);
-      } else {
+    } else {
         // Caspio Files API
         const imageData = await firstValueFrom(
           this.caspioService.getImageFromFilesAPI(imageKey)
@@ -2270,7 +2294,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           loading: false
         };
         
-        this.changeDetectorRef.detectChanges();
+    this.changeDetectorRef.detectChanges();
         console.log('[PRELOAD] ✅ Transitioned to cached image:', attachId);
       }
     } catch (err) {
@@ -3075,10 +3099,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const imageUrl = URL.createObjectURL(blob);
 
         // Open photo editor directly
-        const modal = await this.modalController.create({
-          component: FabricPhotoAnnotatorComponent,
-          componentProps: {
-            imageUrl: imageUrl,
+      const modal = await this.modalController.create({
+        component: FabricPhotoAnnotatorComponent,
+        componentProps: {
+          imageUrl: imageUrl,
             existingAnnotations: null,
             existingCaption: '',
             photoData: {
@@ -3287,17 +3311,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // ============================================
 
         // Process each photo with LocalImageService
-        for (let i = 0; i < images.photos.length; i++) {
-          const image = images.photos[i];
+          for (let i = 0; i < images.photos.length; i++) {
+            const image = images.photos[i];
 
-          if (image.webPath) {
-            try {
+            if (image.webPath) {
+              try {
               console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
 
-              // Fetch the blob
-              const response = await fetch(image.webPath);
-              const blob = await response.blob();
-              const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+                // Fetch the blob
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
 
               // Create LocalImage with stable UUID
               const localImage = await this.localImageService.captureImage(
@@ -3332,8 +3356,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 
                 // Metadata
                 name: `photo_${i}.jpg`,
-                caption: '',
-                annotation: '',
+                    caption: '',
+                    annotation: '',
                 Annotation: '',
                 Drawings: '',
                 hasAnnotations: false,
@@ -3346,16 +3370,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 queued: true,
                 isPending: true,
                 isSkeleton: false,
-                progress: 0
-              };
+                    progress: 0
+                  };
 
               // Add photo to UI immediately
               this.visualPhotos[key].push(photoEntry);
-              this.changeDetectorRef.detectChanges();
+                  this.changeDetectorRef.detectChanges();
               console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} visible in UI with stable imageId`);
 
-            } catch (error) {
-              console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
+              } catch (error) {
+                console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
             }
           }
         }
