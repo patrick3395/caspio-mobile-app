@@ -1457,30 +1457,6 @@ export class IndexedDbService {
   }
 
   /**
-   * Clear all cached photos (for fresh refresh)
-   */
-  async clearAllCachedPhotos(): Promise<void> {
-    const db = await this.ensureDb();
-
-    if (!db.objectStoreNames.contains('cachedPhotos')) {
-      return;
-    }
-
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['cachedPhotos'], 'readwrite');
-      const store = transaction.objectStore('cachedPhotos');
-      const clearRequest = store.clear();
-
-      clearRequest.onsuccess = () => {
-        console.log('[IndexedDB] All cached photos cleared');
-        resolve();
-      };
-
-      clearRequest.onerror = () => reject(clearRequest.error);
-    });
-  }
-
-  /**
    * Clear all data (for testing/debugging)
    */
   async clearAll(): Promise<void> {
