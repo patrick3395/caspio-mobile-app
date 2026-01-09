@@ -617,4 +617,31 @@
 
     </div>
   </div>
+
+  <!-- Debug FAB Button -->
+  <div class="debug-fab" (click)="showDebugPanel()">
+    <ion-icon name="bug-outline"></ion-icon>
+    <span class="debug-count" *ngIf="debugLogs.length > 0">{{ debugLogs.length }}</span>
+  </div>
+
+  <!-- Debug Popup Panel -->
+  <div class="debug-panel" *ngIf="showDebugPopup">
+    <div class="debug-panel-header">
+      <h3>Debug Log ({{ debugLogs.length }} entries)</h3>
+      <button (click)="toggleDebugPopup()">Close</button>
+    </div>
+    <div class="debug-panel-content">
+      <div *ngFor="let log of debugLogs" class="debug-entry" [ngClass]="log.type.toLowerCase()">
+        <span class="debug-time">{{ log.time }}</span>
+        <span class="debug-type">{{ log.type }}</span>
+        <span class="debug-message">{{ log.message }}</span>
+      </div>
+      <div *ngIf="debugLogs.length === 0" class="debug-empty">
+        No debug entries yet
+      </div>
+    </div>
+    <div class="debug-panel-footer">
+      <button (click)="debugLogs = []">Clear Log</button>
+    </div>
+  </div>
 </div>

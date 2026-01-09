@@ -49,6 +49,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Debug flag - set to true for verbose logging
   private readonly DEBUG = false;
   
+  // Error tracking for debug popup
+  debugLogs: { time: string; type: string; message: string }[] = [];
+  showDebugPopup: boolean = false;
+  
   projectId: string = '';
   serviceId: string = '';
   categoryName: string = '';
@@ -145,8 +149,71 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
     private offlineTemplate: OfflineTemplateService,
-    private localImageService: LocalImageService
-  ) {}
+    private localImageService: LocalImageService,
+    private alertController: AlertController
+  ) {
+    // Set up global error handler for this page
+    this.setupErrorTracking();
+  }
+
+  /**
+   * Set up error tracking to capture unhandled errors
+   */
+  private setupErrorTracking(): void {
+    // Override console.error to capture errors
+    const originalError = console.error;
+    console.error = (...args: any[]) => {
+      this.logDebug('ERROR', args.map(a => String(a)).join(' '));
+      originalError.apply(console, args);
+    };
+  }
+
+  /**
+   * Add entry to debug log
+   */
+  logDebug(type: string, message: string): void {
+    const time = new Date().toLocaleTimeString();
+    this.debugLogs.unshift({ time, type, message: message.substring(0, 200) });
+    // Keep only last 50 entries
+    if (this.debugLogs.length > 50) {
+      this.debugLogs.pop();
+    }
+  }
+
+  /**
+   * Show debug popup with recent errors
+   */
+  async showDebugPanel(): Promise<void> {
+    const logs = this.debugLogs.slice(0, 20).map(l => 
+      `[${l.time}] ${l.type}: ${l.message}`
+    ).join('\n\n');
+    
+    const alert = await this.alertController.create({
+      header: 'Debug Log',
+      message: logs || 'No debug entries yet',
+      buttons: [
+        {
+          text: 'Clear',
+          handler: () => {
+            this.debugLogs = [];
+          }
+        },
+        {
+          text: 'Close',
+          role: 'cancel'
+        }
+      ],
+      cssClass: 'debug-alert'
+    });
+    await alert.present();
+  }
+
+  /**
+   * Toggle debug popup visibility
+   */
+  toggleDebugPopup(): void {
+    this.showDebugPopup = !this.showDebugPopup;
+  }
 
   async ngOnInit() {
     console.log('[CategoryDetail] ========== ngOnInit START ==========');
@@ -1840,248 +1907,181 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /**
-   * Load a single photo using the LocalImage system for stable display
-   * Priority: LocalImage local blob > LocalImage verified remote > cached photo > remote fetch
-   * Never changes displayUrl until new source is verified loadable
+   * Load a single photo - SIMPLIFIED for stability
+   * Uses existing photo if already in UI, otherwise loads from cache/remote
    */
   private async loadSinglePhoto(attach: any, key: string): Promise<void> {
-    // CRITICAL: Wrap entire function in try-catch to prevent crashes
     try {
-      const attachId = String(attach.AttachID || attach.PK_ID);
+      const attachId = String(attach.AttachID || attach.PK_ID || '');
       
-      // Validate attachId before proceeding
+      // Skip invalid attachIds
       if (!attachId || attachId === 'undefined' || attachId === 'null') {
-        console.warn('[LOAD PHOTO] Invalid attachId, skipping:', attach);
         return;
       }
-
-      console.log('[LOAD PHOTO] Loading attachId:', attachId, 'for key:', key);
       
-      // ============================================
-      // STEP 1: Check LocalImage system first
-      // This handles both new local photos AND synced photos
-      // ============================================
-      
-      // Check if the attachId is actually an imageId (UUID format from new system)
-      let localImage: LocalImage | null = null;
-      
-      // First try as imageId (for photos created with new system)
-      try {
-        localImage = await this.localImageService.getImage(attachId);
-      } catch (e) {
-        // Ignore - not a LocalImage
-      }
-      
-      // If not found, try by Caspio AttachID (for synced photos)
-      if (!localImage) {
-        try {
-          localImage = await this.localImageService.getImageByAttachId(attachId);
-        } catch (e) {
-          // Ignore - not a LocalImage
-        }
-      }
-      
-      // If we found a LocalImage, use it as the source of truth
-      if (localImage) {
-        const displayUrl = await this.localImageService.getDisplayUrl(localImage);
-        
-        // Check for annotated image cache
-        let annotatedDisplayUrl = displayUrl;
-        const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
-        if (hasDrawings) {
-          try {
-            const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(localImage.imageId);
-            if (cachedAnnotated) {
-              annotatedDisplayUrl = cachedAnnotated;
-            }
-          } catch (e) {
-            // Ignore
-          }
-        }
-        
-        const photoData: any = {
-          // STABLE ID - use imageId, never changes
-          imageId: localImage.imageId,
-          
-          // Legacy compatibility - use imageId as the key
-          AttachID: localImage.attachId || localImage.imageId,
-          attachId: localImage.attachId || localImage.imageId,
-          id: localImage.imageId,
-          VisualID: localImage.entityId,
-          
-          // Display URLs
-          url: displayUrl,
-          originalUrl: displayUrl,
-          thumbnailUrl: displayUrl,
-          displayUrl: annotatedDisplayUrl,
-          
-          // Metadata from Caspio data
-          name: attach.Photo || 'photo.jpg',
-          filePath: attach.Attachment || attach.Photo || '',
-          Photo: attach.Attachment || attach.Photo || '',
-          remoteS3Key: localImage.remoteS3Key || attach.Attachment,
-          
-          // Caption/Annotations
-          caption: attach.Annotation || localImage.caption || '',
-          annotation: attach.Annotation || localImage.caption || '',
-          Annotation: attach.Annotation || localImage.caption || '',
-          hasAnnotations: hasDrawings,
-          Drawings: attach.Drawings || localImage.drawings || null,
-          
-          // Status from LocalImage system
-          status: localImage.status,
-          isLocal: !!localImage.localBlobId,
-          isObjectUrl: !!localImage.localBlobId,
-          uploading: localImage.status === 'uploading',
-          queued: localImage.status === 'queued' || localImage.status === 'local_only',
-          isSkeleton: false,
-          loading: false
-        };
-        
-        // Add to UI
-        if (!this.visualPhotos[key]) {
-          this.visualPhotos[key] = [];
-        }
-        
-        // Check for existing entry by imageId
-        const existingIndex = this.visualPhotos[key].findIndex(p => 
-          p.imageId === localImage!.imageId ||
-          String(p.AttachID) === attachId
+      // CRITICAL: Check if photo already exists in UI with a valid displayUrl
+      // If so, DO NOT replace it - this prevents the disappearing photo issue
+      if (this.visualPhotos[key]) {
+        const existing = this.visualPhotos[key].find(p => 
+          String(p.AttachID) === attachId || 
+          String(p.id) === attachId ||
+          p.imageId === attachId
         );
         
-        if (existingIndex !== -1) {
-          this.visualPhotos[key][existingIndex] = photoData;
-        } else {
-          this.visualPhotos[key].push(photoData);
-        }
-        
-        this.changeDetectorRef.detectChanges();
-        console.log('[LOAD PHOTO] ✅ Loaded from LocalImage:', localImage.imageId, 'status:', localImage.status);
-        return;
-      }
-      
-      // ============================================
-      // STEP 2: Not a LocalImage - load from remote/cache (existing Caspio photos)
-      // This handles photos that existed before the new system
-      // ============================================
-      
-      const s3Key = attach.Attachment;
-      const filePath = attach.Attachment || attach.Photo || '';
-      const hasImageSource = attach.Attachment || attach.Photo;
-      
-      let displayUrl = 'assets/img/photo-placeholder.png';
-      let displayState: 'local' | 'uploading' | 'cached' | 'remote_loading' | 'remote' = 'remote';
-      let imageUrl = '';
-      
-      // Check cached photo
-      try {
-        const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
-        if (cachedImage) {
-          displayUrl = cachedImage;
-          imageUrl = cachedImage;
-          displayState = 'cached';
-        }
-      } catch (cacheErr) {
-        console.warn('[LOAD PHOTO] Cache check failed:', cacheErr);
-      }
-      
-      // If no cached image, determine if we need remote fetch
-      if (displayState !== 'cached') {
-        if (!hasImageSource) {
-          if (this.DEBUG) console.log('[LOAD PHOTO] ⚠️ Skipping photo with no image source:', attachId);
+        if (existing && existing.displayUrl && 
+            existing.displayUrl !== 'assets/img/photo-placeholder.png' &&
+            !existing.displayUrl.startsWith('assets/')) {
+          // Photo already loaded with valid image - don't touch it
+          this.logDebug('SKIP', `Photo ${attachId} already loaded`);
           return;
         }
+      }
+      
+      const s3Key = attach.Attachment;
+      const hasImageSource = attach.Attachment || attach.Photo;
+      
+      // Determine display URL
+      let displayUrl = 'assets/img/photo-placeholder.png';
+      let isLoading = false;
+      
+      // Step 1: Try LocalImage system (new photos)
+      try {
+        let localImage = await this.localImageService.getImage(attachId);
+        if (!localImage) {
+          localImage = await this.localImageService.getImageByAttachId(attachId);
+        }
         
-        if (!this.offlineService.isOnline()) {
-          displayState = 'remote';
-        } else if (s3Key && this.caspioService.isS3Key(s3Key)) {
-          displayState = 'remote_loading';
-        } else if (attach.Photo) {
-          displayState = 'remote_loading';
-        } else {
-          displayState = 'remote';
+        if (localImage && localImage.localBlobId) {
+          displayUrl = await this.localImageService.getDisplayUrl(localImage);
+          this.logDebug('LOCAL', `Photo ${attachId} from LocalImage`);
         }
+      } catch (e) {
+        // LocalImage system failed - continue with fallback
+        this.logDebug('WARN', `LocalImage check failed: ${e}`);
       }
       
-      // Check for drawings/annotations
-      const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
-      
-      let annotatedDisplayUrl = displayUrl;
-      if (hasDrawings && displayState !== 'remote_loading' && displayState !== 'remote') {
+      // Step 2: Try cached photo (if no local image found)
+      if (displayUrl === 'assets/img/photo-placeholder.png') {
         try {
-          const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
-          if (cachedAnnotatedImage) {
-            annotatedDisplayUrl = cachedAnnotatedImage;
+          const cached = await this.indexedDb.getCachedPhoto(attachId);
+          if (cached) {
+            displayUrl = cached;
+            this.logDebug('CACHE', `Photo ${attachId} from cache`);
           }
-        } catch (annotErr) {
-          // Ignore
+        } catch (e) {
+          this.logDebug('WARN', `Cache check failed: ${e}`);
         }
       }
       
-      const keyParts = key.split('_');
-      const itemId = keyParts.length > 1 ? keyParts.slice(1).join('_') : key;
-      const visualIdFromRecord = this.visualRecordIds[key];
+      // Step 3: If still placeholder and online, load from remote
+      if (displayUrl === 'assets/img/photo-placeholder.png' && hasImageSource && this.offlineService.isOnline()) {
+        isLoading = true;
+        // Don't await - load in background
+        this.loadPhotoFromRemote(attachId, s3Key || attach.Photo, key, !!s3Key);
+      }
       
+      // Create photo data
       const photoData: any = {
         AttachID: attach.AttachID,
         attachId: attachId,
         id: attach.AttachID,
-        VisualID: attach.VisualID || visualIdFromRecord || itemId,
+        imageId: attachId, // Use attachId as stable key for legacy photos
+        displayUrl: displayUrl,
+        url: displayUrl,
+        thumbnailUrl: displayUrl,
+        originalUrl: displayUrl,
         name: attach.Photo || 'photo.jpg',
-        filePath: filePath,
-        Photo: filePath,
-        remoteS3Key: s3Key,
-        displayState: displayState,
-        url: imageUrl || displayUrl,
-        originalUrl: imageUrl || displayUrl,
-        thumbnailUrl: imageUrl || displayUrl,
-        displayUrl: annotatedDisplayUrl,
         caption: attach.Annotation || '',
         annotation: attach.Annotation || '',
         Annotation: attach.Annotation || '',
-        hasAnnotations: hasDrawings,
         Drawings: attach.Drawings || null,
+        hasAnnotations: !!attach.Drawings && attach.Drawings.length > 10,
+        loading: isLoading,
         uploading: false,
         queued: false,
-        isObjectUrl: false,
-        isSkeleton: false,
-        loading: displayState === 'remote_loading'
+        isSkeleton: false
       };
-
+      
+      // Add or update in array
       if (!this.visualPhotos[key]) {
         this.visualPhotos[key] = [];
       }
-
-      const attachIdStr = String(attach.AttachID);
+      
       const existingIndex = this.visualPhotos[key].findIndex(p => 
-        String(p.AttachID) === attachIdStr || 
-        String(p.id) === attachIdStr
+        String(p.AttachID) === attachId || String(p.id) === attachId
       );
       
       if (existingIndex !== -1) {
-        const existingPhoto = this.visualPhotos[key][existingIndex];
-        if (displayState === 'remote_loading' && 
-            existingPhoto.displayUrl && 
-            existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png') {
-          photoData.displayUrl = existingPhoto.displayUrl;
-          photoData.displayState = existingPhoto.displayState || 'cached';
+        // Preserve existing displayUrl if new one is placeholder
+        const existing = this.visualPhotos[key][existingIndex];
+        if (photoData.displayUrl === 'assets/img/photo-placeholder.png' &&
+            existing.displayUrl && 
+            existing.displayUrl !== 'assets/img/photo-placeholder.png') {
+          photoData.displayUrl = existing.displayUrl;
+          photoData.url = existing.displayUrl;
+          photoData.thumbnailUrl = existing.displayUrl;
         }
-        this.visualPhotos[key][existingIndex] = photoData;
+        this.visualPhotos[key][existingIndex] = { ...existing, ...photoData };
       } else {
         this.visualPhotos[key].push(photoData);
       }
-
-      this.changeDetectorRef.detectChanges();
       
-      if (displayState === 'remote_loading') {
-        this.preloadAndTransition(attachId, s3Key || attach.Photo, key, !!s3Key).catch(err => {
-          console.warn('[LOAD PHOTO] Preload failed for:', attachId, err);
-        });
+      // Only trigger change detection if not in a batch
+      try {
+        this.changeDetectorRef.detectChanges();
+      } catch (e) {
+        // View might be destroyed - ignore
       }
       
-      console.log('[LOAD PHOTO] Completed (legacy):', attachId, 'state:', displayState);
-    } catch (err) {
-      console.error('[LOAD PHOTO] Critical error loading photo:', attach?.AttachID, err);
+    } catch (err: any) {
+      this.logDebug('ERROR', `loadSinglePhoto failed: ${err?.message || err}`);
+    }
+  }
+  
+  /**
+   * Load photo from remote in background (non-blocking)
+   */
+  private async loadPhotoFromRemote(attachId: string, imageKey: string, key: string, isS3: boolean): Promise<void> {
+    try {
+      let imageUrl: string | null = null;
+      
+      if (isS3 && this.caspioService.isS3Key(imageKey)) {
+        imageUrl = await this.caspioService.getS3FileUrl(imageKey);
+      } else if (imageKey) {
+        imageUrl = await this.caspioService.getCaspioFileUrl(imageKey);
+      }
+      
+      if (imageUrl) {
+        // Cache it
+        try {
+          await this.indexedDb.cachePhoto(attachId, imageUrl);
+        } catch (e) {
+          // Cache failed - still continue with display
+        }
+        
+        // Update UI
+        if (this.visualPhotos[key]) {
+          const photoIndex = this.visualPhotos[key].findIndex(p => 
+            String(p.AttachID) === attachId || String(p.id) === attachId
+          );
+          if (photoIndex !== -1) {
+            this.visualPhotos[key][photoIndex].displayUrl = imageUrl;
+            this.visualPhotos[key][photoIndex].url = imageUrl;
+            this.visualPhotos[key][photoIndex].thumbnailUrl = imageUrl;
+            this.visualPhotos[key][photoIndex].loading = false;
+            
+            try {
+              this.changeDetectorRef.detectChanges();
+            } catch (e) {
+              // View destroyed - ignore
+            }
+          }
+        }
+        
+        this.logDebug('REMOTE', `Photo ${attachId} loaded from remote`);
+      }
+    } catch (err: any) {
+      this.logDebug('ERROR', `Remote load failed for ${attachId}: ${err?.message || err}`);
     }
   }
 
