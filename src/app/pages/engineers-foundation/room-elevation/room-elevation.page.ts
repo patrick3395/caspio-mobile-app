@@ -1546,7 +1546,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             }
             
             const photoId = pendingPhoto.AttachID || pendingPhoto._pendingFileId;
-            let displayUrl = pendingPhoto.displayUrl || pendingPhoto.url || pendingPhoto.thumbnailUrl;
+            // CRITICAL: Prioritize url (fresh blob URL from IndexedDB) over stored displayUrl
+            // getAllPendingPhotosGroupedByPoint() generates fresh blob URLs and sets them to url
+            let displayUrl = pendingPhoto.url || pendingPhoto.displayUrl || pendingPhoto.thumbnailUrl;
             let hasAnnotations = !!(pendingPhoto.Drawings || pendingPhoto.drawings);
             
             // CRITICAL FIX: Check for cached annotated image
@@ -3113,7 +3115,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         existingPhoto._tempId = result._tempId || tempPhotoId;
         existingPhoto._pendingFileId = result._pendingFileId || result._tempId || tempPhotoId;
         existingPhoto.isPending = !!result._syncing || !!result.isPending;
-        
+
+        // CRITICAL: Update displayUrl to use persisted blob URL from IndexedDB
+        // This URL survives page reload unlike the temporary webPath from camera
+        const persistedUrl = result.url || result.Photo;
+        if (persistedUrl) {
+          existingPhoto.url = persistedUrl;
+          existingPhoto.displayUrl = persistedUrl;
+        }
+
         // If offline (result has _syncing flag), photo is queued - don't clear uploading yet
         if (result._syncing) {
           existingPhoto.uploading = false;
