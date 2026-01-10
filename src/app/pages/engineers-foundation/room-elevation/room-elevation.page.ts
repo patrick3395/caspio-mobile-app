@@ -590,7 +590,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           console.warn('[RoomElevation] Failed to reload attachments:', err);
         }
       }
-      
+
+      // CRITICAL: Also load pending photos from IndexedDB (photos not yet synced)
+      // This ensures photos added offline don't disappear during reload
+      const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByPoint();
+      console.log('[RoomElevation] Reloaded pending photos map with', pendingPhotosMap.size, 'points');
+
       // Update our local points array with fresh data
       if (this.roomData?.elevationPoints && existingPoints) {
         for (const serverPoint of existingPoints) {
@@ -675,7 +680,67 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
       }
-      
+
+      // CRITICAL: Merge pending photos into local points
+      // This ensures photos added offline persist during reload
+      if (this.roomData?.elevationPoints && pendingPhotosMap.size > 0) {
+        for (const point of this.roomData.elevationPoints) {
+          const pointIdStr = String(point.pointId);
+          const pendingPhotos = pendingPhotosMap.get(pointIdStr);
+
+          if (pendingPhotos && pendingPhotos.length > 0) {
+            console.log(`[RoomElevation] Merging ${pendingPhotos.length} pending photos for point "${point.name}"`);
+
+            // Build set of existing photo IDs
+            const existingPhotoIds = new Set(
+              (point.photos || []).map((p: any) => String(p.attachId || p._tempId))
+            );
+
+            for (const pendingPhoto of pendingPhotos) {
+              const pendingAttachId = String(pendingPhoto.AttachID || pendingPhoto._pendingFileId);
+
+              // Skip if already exists
+              if (existingPhotoIds.has(pendingAttachId)) {
+                continue;
+              }
+
+              // CRITICAL: Prioritize url (fresh blob URL from IndexedDB) over stored displayUrl
+              let displayUrl = pendingPhoto.url || pendingPhoto.displayUrl || pendingPhoto.thumbnailUrl;
+
+              // Check for cached annotated image
+              try {
+                const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(pendingAttachId);
+                if (cachedAnnotatedImage) {
+                  displayUrl = cachedAnnotatedImage;
+                }
+              } catch (err) {
+                // Ignore cache errors
+              }
+
+              const pendingPhotoData: any = {
+                attachId: pendingAttachId,
+                photoType: pendingPhoto.Type || pendingPhoto.photoType || 'Measurement',
+                url: pendingPhoto.url || displayUrl,
+                displayUrl: displayUrl,
+                caption: pendingPhoto.caption || pendingPhoto.Annotation || '',
+                drawings: pendingPhoto.Drawings || pendingPhoto.drawings || null,
+                hasAnnotations: !!(pendingPhoto.Drawings || pendingPhoto.drawings),
+                uploading: false,
+                queued: true,
+                isPending: true,
+                _tempId: pendingAttachId,
+              };
+
+              if (!point.photos) {
+                point.photos = [];
+              }
+              point.photos.push(pendingPhotoData);
+              console.log(`[RoomElevation] Added pending photo ${pendingAttachId} to point "${point.name}"`);
+            }
+          }
+        }
+      }
+
       this.changeDetectorRef.detectChanges();
       console.log('[RoomElevation] Elevation data reload complete');
       
