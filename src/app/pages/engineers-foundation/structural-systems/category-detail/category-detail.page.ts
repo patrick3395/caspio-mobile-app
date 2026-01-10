@@ -2100,14 +2100,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
       
       // STEP 2.5 (NEW): Get LocalImages for this visual (new system)
-      // This ensures photos captured with the new system are loaded on page reload
-      let localImages: LocalImage[] = [];
-      try {
-        localImages = await this.localImageService.getImagesForEntity('visual', visualId);
-        console.log('[LOAD PHOTOS] Found', localImages.length, 'LocalImages for visual', visualId);
-      } catch (e) {
-        console.warn('[LOAD PHOTOS] Failed to get LocalImages:', e);
-      }
+      // CRITICAL FIX: Use bulk-loaded data with ID resolution (temp ID -> real ID already resolved)
+      // DO NOT make fresh query - it won't find photos captured with temp IDs after visual syncs
+      const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+      console.log('[LOAD PHOTOS] Found', localImages.length, 'LocalImages for visual', visualId, '(from bulkLocalImagesMap)');
       
       if (this.DEBUG) console.log('[LOAD PHOTOS] Visual', visualId, ':', attachments.length, 'synced,', pendingPhotos.length, 'pending,', localImages.length, 'local');
 
