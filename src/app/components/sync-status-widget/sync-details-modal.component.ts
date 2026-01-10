@@ -1,9 +1,10 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { BackgroundSyncService, SyncStatus } from '../../services/background-sync.service';
 import { IndexedDbService, PendingCaptionUpdate } from '../../services/indexed-db.service';
-import { Subscription, merge } from 'rxjs';
+import { Subscription, merge, combineLatest } from 'rxjs';
+import { db } from '../../services/caspio-db';
 
 @Component({
   selector: 'app-sync-details-modal',
@@ -363,13 +364,15 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
 
   private subscription?: Subscription;
   private syncEventsSub?: Subscription;
+  private liveQuerySub?: Subscription;
   private refreshInterval?: any;
 
   constructor(
     private modalController: ModalController,
     private backgroundSync: BackgroundSyncService,
     private indexedDb: IndexedDbService,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private ngZone: NgZone
   ) {}
 
   ngOnInit() {
@@ -377,8 +380,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     this.subscription = this.backgroundSync.syncStatus$.subscribe(
       status => {
         this.syncStatus = status;
-        // Refresh details whenever sync status changes
-        this.refreshDetails();
       }
     );
 
@@ -392,14 +393,71 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       this.backgroundSync.serviceDataSyncComplete$,
       this.backgroundSync.captionSyncComplete$
     ).subscribe(() => {
-      console.log('[SyncModal] Sync event received, refreshing...');
-      this.refreshDetails();
+      console.log('[SyncModal] Sync event received');
     });
 
-    // Auto-refresh every 2 seconds while modal is open
+    // CRITICAL: Use Dexie liveQuery for real-time updates
+    // This provides instant visibility when captions/annotations are queued
+    this.liveQuerySub = combineLatest([
+      db.liveAllPendingRequests$(),
+      db.liveAllPendingCaptions$(),
+      db.liveUploadOutbox$()
+    ]).subscribe(async ([requests, captions, outboxItems]) => {
+      // Run inside NgZone to ensure change detection
+      this.ngZone.run(async () => {
+        console.log('[SyncModal] Dexie liveQuery update:', {
+          requests: requests.length,
+          captions: captions.length,
+          outbox: outboxItems.length
+        });
+
+        // Update requests by status
+        this.pendingRequests = requests.filter(r => r.status === 'pending');
+        this.syncingRequests = requests.filter(r => r.status === 'syncing');
+        this.failedRequests = requests.filter(r => r.status === 'failed');
+
+        // Update pending captions (all statuses except 'synced')
+        this.pendingCaptions = captions.filter(c => c.status !== 'synced');
+
+        // Load pending photos with LocalImage details
+        try {
+          this.pendingPhotos = [];
+          for (const item of outboxItems) {
+            const localImage = await this.indexedDb.getLocalImage(item.imageId);
+            if (localImage) {
+              this.pendingPhotos.push({
+                ...item,
+                fileName: localImage.fileName,
+                status: localImage.status
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('[SyncModal] Error loading photo details:', e);
+        }
+
+        // Update counts
+        this.totalPendingCount = this.pendingRequests.length + this.pendingCaptions.length + 
+                                  this.pendingPhotos.length + this.failedRequests.length;
+
+        // Calculate stuck count
+        const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+        const stuckRequests = this.pendingRequests.filter(r => 
+          r.createdAt < thirtyMinutesAgo && (r.retryCount || 0) > 5
+        ).length;
+        const staleCaptions = this.pendingCaptions.filter(c =>
+          c.createdAt < thirtyMinutesAgo && (c.retryCount || 0) > 5
+        ).length;
+        this.stuckCount = stuckRequests + staleCaptions;
+
+        this.changeDetectorRef.detectChanges();
+      });
+    });
+
+    // Fallback refresh every 5 seconds (reduced from 2 since we have liveQuery)
     this.refreshInterval = setInterval(() => {
       this.refreshDetails();
-    }, 2000);
+    }, 5000);
 
     // Load initial data
     this.refreshDetails();
@@ -411,6 +469,9 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     }
     if (this.syncEventsSub) {
       this.syncEventsSub.unsubscribe();
+    }
+    if (this.liveQuerySub) {
+      this.liveQuerySub.unsubscribe();
     }
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);

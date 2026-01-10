@@ -2474,6 +2474,33 @@ export class IndexedDbService {
     return await db.uploadOutbox.count();
   }
 
+  /**
+   * Remove an item from upload outbox by imageId
+   */
+  async removeFromUploadOutbox(imageId: string): Promise<void> {
+    const item = await this.getOutboxItemForImage(imageId);
+    if (item) {
+      await db.uploadOutbox.delete(item.opId);
+      console.log('[IndexedDB] Removed from upload outbox by imageId:', imageId);
+    }
+  }
+
+  /**
+   * Delete a LocalImage record
+   */
+  async deleteLocalImage(imageId: string): Promise<void> {
+    await db.localImages.delete(imageId);
+    console.log('[IndexedDB] LocalImage deleted:', imageId);
+    
+    // Emit change event for reactive subscriptions
+    this.imageChange$.next({
+      type: 'delete',
+      imageId,
+      entityType: null as any,
+      entityId: ''
+    });
+  }
+
   // ============================================================================
   // MIGRATION HELPERS
   // ============================================================================

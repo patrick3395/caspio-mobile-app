@@ -668,10 +668,49 @@ export class BackgroundSyncService {
             break;
           case 'fdf':
             // FDF updates go to the EFE room record, not attachments
-            // Skip for now - handled differently
-            console.log(`[BackgroundSync] FDF caption updates handled separately`);
-            await this.indexedDb.deletePendingCaption(caption.captionId);
-            continue;
+            // The attachId is the EFEID (room ID), and pointId stores the photo type (Top/Bottom/Threshold)
+            const photoType = caption.pointId || 'Top'; // Default to Top if not specified
+            
+            // Build FDF-specific update data with dynamic column names
+            // Column names are FDF{Type}Drawings and FDF{Type}Annotation (not FDFPhoto{Type}...)
+            const fdfUpdateData: any = {};
+            if (caption.caption !== undefined) {
+              fdfUpdateData[`FDF${photoType}Annotation`] = caption.caption;
+            }
+            if (caption.drawings !== undefined) {
+              fdfUpdateData[`FDF${photoType}Drawings`] = caption.drawings;
+            }
+            
+            console.log(`[BackgroundSync] Syncing FDF caption for room ${resolvedAttachId}, type: ${photoType}`);
+            endpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${resolvedAttachId}`;
+            
+            try {
+              const fdfResponse: any = await this.apiGateway.put(endpoint, fdfUpdateData).toPromise();
+              const fdfRecordsAffected = fdfResponse?.RecordsAffected ?? fdfResponse?.recordsAffected ?? 1;
+              
+              if (fdfRecordsAffected === 0) {
+                console.warn(`[BackgroundSync] ⚠️ FDF caption sync returned 0 records - room may not exist yet: ${resolvedAttachId}`);
+                await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending', 'Room not found', true);
+                continue;
+              }
+              
+              console.log(`[BackgroundSync] ✅ FDF caption synced: ${caption.captionId} (${fdfRecordsAffected} record(s) updated)`);
+              await this.indexedDb.updateCaptionStatus(caption.captionId, 'synced');
+              
+              // Schedule deletion after 30 seconds
+              const fdfCaptionId = caption.captionId;
+              setTimeout(() => {
+                this.indexedDb.deletePendingCaption(fdfCaptionId).catch(err => {
+                  console.warn(`[BackgroundSync] Failed to delete FDF caption: ${fdfCaptionId}`, err);
+                });
+              }, 30000);
+              
+              continue;
+            } catch (fdfError) {
+              console.error(`[BackgroundSync] FDF caption sync failed:`, fdfError);
+              await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending', String(fdfError), true);
+              continue;
+            }
           default:
             console.warn(`[BackgroundSync] Unknown caption type: ${caption.attachType}`);
             await this.indexedDb.updateCaptionStatus(caption.captionId, 'failed', 'Unknown type');

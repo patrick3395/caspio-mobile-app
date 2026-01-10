@@ -5053,8 +5053,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Remove from cached ATTACHMENTS LIST in IndexedDB
           await this.indexedDb.removeAttachmentFromCache(String(photo.AttachID), 'visual_attachments');
 
-          // Delete from database (or queue for sync if offline)
-          if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+          // Handle LocalImage (new local-first system) deletion
+          const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId ||
+            (photo.imageId && String(photo.imageId).startsWith('img_'));
+          
+          if (isLocalFirstPhoto) {
+            const localImageId = photo.localImageId || photo.imageId;
+            console.log('[Delete Photo] Deleting LocalImage:', localImageId);
+            
+            // Delete from LocalImage system
+            await this.localImageService.deleteLocalImage(localImageId);
+            
+            // If the photo was already synced (has real attachId), also queue delete for server
+            const localImage = await this.indexedDb.getLocalImage(localImageId);
+            if (localImage?.attachId && !String(localImage.attachId).startsWith('img_')) {
+              console.log('[Delete Photo] LocalImage was synced, queueing server delete:', localImage.attachId);
+              await this.foundationData.deleteVisualPhoto(localImage.attachId);
+            }
+          }
+          // Legacy photo deletion
+          else if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
             await this.foundationData.deleteVisualPhoto(photo.AttachID);
             console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
           }

@@ -646,5 +646,51 @@ export class LocalImageService {
   clearSignedUrlCache(): void {
     this.signedUrlCache.clear();
   }
+
+  /**
+   * Delete a local image and its associated data
+   * Used when user deletes a photo from UI
+   */
+  async deleteLocalImage(imageId: string): Promise<void> {
+    console.log('[LocalImageService] Deleting local image:', imageId);
+    
+    try {
+      // Get the image to find associated blob
+      const localImage = await this.indexedDb.getLocalImage(imageId);
+      
+      if (localImage) {
+        // Delete the blob if it exists
+        if (localImage.localBlobId) {
+          await this.indexedDb.deleteLocalBlob(localImage.localBlobId);
+          console.log('[LocalImageService] Deleted blob:', localImage.localBlobId);
+        }
+        
+        // Remove from upload outbox if pending
+        await this.indexedDb.removeFromUploadOutbox(imageId);
+        console.log('[LocalImageService] Removed from upload outbox:', imageId);
+        
+        // Delete the LocalImage record
+        await this.indexedDb.deleteLocalImage(imageId);
+        console.log('[LocalImageService] Deleted LocalImage record:', imageId);
+      }
+      
+      // Revoke any cached blob URL
+      const cachedUrl = this.blobUrlCache.get(imageId);
+      if (cachedUrl) {
+        URL.revokeObjectURL(cachedUrl);
+        this.blobUrlCache.delete(imageId);
+      }
+      
+      // Clear from signed URL cache
+      this.signedUrlCache.delete(imageId);
+      
+      // Update pending count
+      await this.updatePendingCount();
+      
+    } catch (error) {
+      console.error('[LocalImageService] Error deleting local image:', error);
+      throw error;
+    }
+  }
 }
 
