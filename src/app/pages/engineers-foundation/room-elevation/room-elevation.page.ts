@@ -626,7 +626,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const captionMap = new Map<string, { caption: string; drawings: string }>();
     for (const pc of pendingCaptions) {
       if (pc.status === 'pending' || pc.status === 'syncing') {
-        captionMap.set(pc.attachId, { caption: pc.caption, drawings: pc.drawings });
+        captionMap.set(pc.attachId, { caption: pc.caption || '', drawings: pc.drawings || '' });
       }
     }
 
