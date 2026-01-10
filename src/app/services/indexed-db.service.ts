@@ -3287,12 +3287,14 @@ export class IndexedDbService {
       
       getAllRequest.onsuccess = () => {
         const allCaptions = getAllRequest.result as PendingCaptionUpdate[] || [];
-        // Filter to matching attachIds that are still pending or syncing
-        const matching = allCaptions.filter(c => 
-          attachIds.includes(c.attachId) && 
-          (c.status === 'pending' || c.status === 'syncing')
+        // CRITICAL FIX: Include ALL non-failed captions (pending, syncing, AND synced)
+        // Synced captions might not be in cache yet if page reloaded quickly after sync
+        // This was causing captions to disappear on reload
+        const matching = allCaptions.filter(c =>
+          attachIds.includes(c.attachId) &&
+          c.status !== 'failed'
         );
-        console.log(`[IndexedDB] getPendingCaptionsForAttachments: Found ${matching.length} pending captions for ${attachIds.length} attachIds`);
+        console.log(`[IndexedDB] getPendingCaptionsForAttachments: Found ${matching.length} captions for ${attachIds.length} attachIds (including synced)`);
         resolve(matching);
       };
       

@@ -678,9 +678,22 @@ export class BackgroundSyncService {
           serviceId: caption.serviceId
         });
         
-        // Clean up - delete the pending caption from queue
-        await this.indexedDb.deletePendingCaption(caption.captionId);
-        
+        // CRITICAL FIX: Mark as synced but DON'T delete immediately
+        // Keep synced captions for 30 seconds in case user reloads page quickly
+        // This fixes captions disappearing on reload
+        await this.indexedDb.updateCaptionStatus(caption.captionId, 'synced');
+        console.log(`[BackgroundSync] Caption marked as synced: ${caption.captionId} - will delete in 30s`);
+
+        // Schedule deletion after 30 seconds (gives time for page reload to merge)
+        const captionIdToDelete = caption.captionId;
+        setTimeout(() => {
+          this.indexedDb.deletePendingCaption(captionIdToDelete).then(() => {
+            console.log(`[BackgroundSync] Caption deleted after delay: ${captionIdToDelete}`);
+          }).catch(err => {
+            console.warn(`[BackgroundSync] Failed to delete caption: ${captionIdToDelete}`, err);
+          });
+        }, 30000);
+
         // Emit event for pages to update UI
         this.ngZone.run(() => {
           this.captionSyncComplete$.next({

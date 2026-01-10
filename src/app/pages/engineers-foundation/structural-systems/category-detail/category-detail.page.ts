@@ -1187,11 +1187,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log(`[LOAD DATA]   [${i}] imageId: ${p.imageId}, displayUrl: ${p.displayUrl?.substring(0, 30)}..., uploading: ${p.uploading}, queued: ${p.queued}`);
       });
 
-      // CHANGED: Also preserve queued photos, not just uploaded ones
+      // CRITICAL FIX: Preserve ALL photos with valid blob/data URLs
+      // REMOVED !p.uploading - photos should persist even during upload
+      // This was the ROOT CAUSE of photos disappearing during sync
       const validPhotos = (photos as any[]).filter(p =>
         p.displayUrl &&
-        (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:')) &&
-        !p.uploading
+        (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:'))
       );
       if (validPhotos.length > 0) {
         preservedPhotos[key] = validPhotos;
@@ -1200,6 +1201,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log(`[LOAD DATA] ⚠️ NO photos preserved for key: ${key} (filtered out)`);
       }
     }
+
+    // CRITICAL FIX: Also preserve visualRecordIds so recovery can find keys
+    // This was missing before - causing recovery mechanism to fail
+    const preservedVisualRecordIds = { ...this.visualRecordIds };
+    console.log(`[LOAD DATA] Preserved ${Object.keys(preservedVisualRecordIds).length} visualRecordIds`);
 
     // Clear all state
     this.visualPhotos = {};
@@ -1222,6 +1228,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.visualPhotos[key] = photos;
       this.photoCountsByKey[key] = photos.length;
       console.log(`[LOAD DATA] Restored ${photos.length} preserved photos for key: ${key}`);
+    }
+
+    // CRITICAL FIX: Restore visualRecordIds for preserved photos
+    // This enables recovery mechanism to find the correct key
+    for (const key of Object.keys(preservedPhotos)) {
+      if (preservedVisualRecordIds[key]) {
+        this.visualRecordIds[key] = preservedVisualRecordIds[key];
+        console.log(`[LOAD DATA] Restored visualRecordId for key: ${key} = ${preservedVisualRecordIds[key]}`);
+      }
     }
 
     try {

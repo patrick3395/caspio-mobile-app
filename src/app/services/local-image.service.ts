@@ -125,9 +125,24 @@ export class LocalImageService {
       if (blobUrl) {
         return blobUrl;
       }
+      console.warn('[LocalImage] Blob missing for:', image.imageId, 'blobId:', image.localBlobId);
     }
-    
-    // Rule 2: Only use remote if BOTH verified AND already loaded in UI
+
+    // Rule 2: Try cached base64 from IndexedDB (synced photos)
+    // CRITICAL FIX: Added this fallback for photos that synced but blob was pruned
+    if (image.attachId) {
+      try {
+        const cached = await this.indexedDb.getCachedPhoto(String(image.attachId));
+        if (cached) {
+          console.log('[LocalImage] Using cached base64 for:', image.imageId, 'attachId:', image.attachId);
+          return cached;
+        }
+      } catch (err) {
+        console.warn('[LocalImage] Failed to get cached photo:', err);
+      }
+    }
+
+    // Rule 3: Only use remote if BOTH verified AND already loaded in UI
     // This prevents switching to a broken remote URL
     if (image.remoteS3Key && image.status === 'verified' && image.remoteLoadedInUI) {
       try {
@@ -135,19 +150,33 @@ export class LocalImageService {
         return signedUrl;
       } catch (err) {
         console.warn('[LocalImage] Failed to get signed URL:', err);
-        // Fall through to placeholder
+        // Fall through to next fallback
       }
     }
-    
-    // Rule 3: If we have a remote key but haven't verified it yet, try to load
+
+    // Rule 4: Try remote S3 even if not marked as loaded in UI
+    // CRITICAL FIX: More aggressive - try remote if verified even without remoteLoadedInUI
+    if (image.remoteS3Key && image.status === 'verified') {
+      try {
+        console.log('[LocalImage] Trying remote S3 URL for verified image:', image.imageId);
+        const signedUrl = await this.getSignedUrl(image.remoteS3Key);
+        return signedUrl;
+      } catch (err) {
+        console.warn('[LocalImage] S3 URL failed:', err);
+        // Fall through to next fallback
+      }
+    }
+
+    // Rule 5: If we have a remote key but haven't verified it yet, try to load
     // But DON'T use it for display - just return placeholder
     // The UI will switch once remote is verified and loaded
     if (image.remoteS3Key && image.status === 'uploaded') {
       // Trigger verification in background (non-blocking)
       this.verifyRemoteImage(image.imageId).catch(() => {});
     }
-    
-    // Rule 4: Placeholder (should be rare if local-first is working)
+
+    // Rule 6: Placeholder (should be rare if local-first is working)
+    console.warn('[LocalImage] ⚠️ No display URL available for:', image.imageId, 'status:', image.status, 'localBlobId:', image.localBlobId, 'attachId:', image.attachId);
     return 'assets/img/photo-placeholder.png';
   }
 
