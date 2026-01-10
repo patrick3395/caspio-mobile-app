@@ -98,6 +98,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Debounce timer for cache invalidation to prevent multiple rapid reloads
   private cacheInvalidationDebounceTimer: any = null;
   private isReloadingAfterSync = false;
+
+  // Track if we need to reload after sync completes
+  private pendingSyncReload = false;
+  private syncStatusSubscription?: Subscription;
   
   // Cooldown after local operations to prevent immediate reload
   private localOperationCooldown = false;
@@ -403,6 +407,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.cacheInvalidationSubscription) {
       this.cacheInvalidationSubscription.unsubscribe();
     }
+    if (this.syncStatusSubscription) {
+      this.syncStatusSubscription.unsubscribe();
+    }
     // Clear debounce timers
     if (this.cacheInvalidationDebounceTimer) {
       clearTimeout(this.cacheInvalidationDebounceTimer);
@@ -573,31 +580,52 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Debounce to prevent multiple rapid reloads from causing issues
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe((event) => {
       console.log('[CACHE INVALIDATED] Received event:', event);
-      
+
       // Skip if in local operation cooldown (prevents flash when selecting items)
       if (this.localOperationCooldown) {
         console.log('[CACHE INVALIDATED] Skipping - in local operation cooldown');
         return;
       }
-      
+
+      // CRITICAL: Skip reload during active sync - images would disappear
+      const syncStatus = this.backgroundSync.syncStatus$.getValue();
+      if (syncStatus.isSyncing) {
+        console.log('[CACHE INVALIDATED] Skipping - sync in progress, will reload after sync completes');
+        this.pendingSyncReload = true;
+        return;
+      }
+
       // Only reload if this is our service or a global event
       if (!event.serviceId || event.serviceId === this.serviceId) {
         // Clear any existing debounce timer
         if (this.cacheInvalidationDebounceTimer) {
           clearTimeout(this.cacheInvalidationDebounceTimer);
         }
-        
+
         // Skip if already reloading
         if (this.isReloadingAfterSync) {
           console.log('[CACHE INVALIDATED] Skipping - already reloading');
           return;
         }
-        
+
         // Debounce: wait 500ms before reloading to batch multiple rapid events
         this.cacheInvalidationDebounceTimer = setTimeout(async () => {
           console.log('[CACHE INVALIDATED] Debounced reload for service:', this.serviceId);
           await this.reloadVisualsAfterSync();
         }, 500);
+      }
+    });
+
+    // Subscribe to sync status changes - reload AFTER sync completes (not during)
+    this.syncStatusSubscription = this.backgroundSync.syncStatus$.subscribe((status) => {
+      // When sync finishes and we have a pending reload, do it now
+      if (!status.isSyncing && this.pendingSyncReload) {
+        console.log('[SYNC COMPLETE] Sync finished, now reloading visuals...');
+        this.pendingSyncReload = false;
+        // Small delay to ensure all sync operations are fully complete
+        setTimeout(() => {
+          this.reloadVisualsAfterSync();
+        }, 300);
       }
     });
   }
@@ -1111,7 +1139,33 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
       }
-      console.log(`[LOAD DATA] Loaded ${allLocalImages.length} LocalImages for ${this.bulkLocalImagesMap.size} entities (with temp ID resolution)`);
+
+      // CRITICAL FIX: Reverse mapping - for images whose entityId is already a real ID,
+      // also add them under any temp IDs in visualRecordIds that map to that real ID.
+      // This handles the case where the image's entityId was updated to real ID by sync,
+      // but the visual in organizedData is still tracked by temp ID.
+      for (const [key, tempOrRealId] of Object.entries(this.visualRecordIds)) {
+        if (tempOrRealId && tempOrRealId.startsWith('temp_')) {
+          // Check if this temp ID maps to a real ID that has images
+          const realId = await this.indexedDb.getRealId(tempOrRealId);
+          if (realId && realId !== tempOrRealId && this.bulkLocalImagesMap.has(realId)) {
+            // Copy images from real ID to temp ID
+            const imagesForRealId = this.bulkLocalImagesMap.get(realId)!;
+            if (!this.bulkLocalImagesMap.has(tempOrRealId)) {
+              this.bulkLocalImagesMap.set(tempOrRealId, []);
+            }
+            const existingForTemp = this.bulkLocalImagesMap.get(tempOrRealId)!;
+            for (const img of imagesForRealId) {
+              if (!existingForTemp.some(e => e.imageId === img.imageId)) {
+                existingForTemp.push(img);
+              }
+            }
+            console.log(`[LOAD DATA] Reverse-mapped ${imagesForRealId.length} images from realId ${realId} to tempId ${tempOrRealId}`);
+          }
+        }
+      }
+
+      console.log(`[LOAD DATA] Loaded ${allLocalImages.length} LocalImages for ${this.bulkLocalImagesMap.size} entities (with bidirectional ID resolution)`);
       
       // Pre-load photo caches in background for fast display of synced images
       // This runs in parallel with page rendering - doesn't block UI

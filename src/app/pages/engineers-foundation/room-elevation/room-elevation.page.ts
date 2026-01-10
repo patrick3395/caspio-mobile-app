@@ -63,6 +63,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private isReloadingAfterSync = false;
   private localOperationCooldown = false;
   private initialLoadComplete: boolean = false;  // Track if initial load is complete
+
+  // Track if we need to reload after sync completes
+  private pendingSyncReload = false;
+  private syncStatusSubscription?: Subscription;
   
   // Track last loaded IDs to detect when navigation requires fresh data
   private lastLoadedRoomId: string = '';
@@ -482,24 +486,45 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log('[RoomElevation] Skipping cache invalidation - in local operation cooldown');
         return;
       }
-      
+
+      // CRITICAL: Skip reload during active sync - images would disappear
+      const syncStatus = this.backgroundSync.syncStatus$.getValue();
+      if (syncStatus.isSyncing) {
+        console.log('[RoomElevation] Skipping cache invalidation - sync in progress, will reload after sync completes');
+        this.pendingSyncReload = true;
+        return;
+      }
+
       if (!event.serviceId || event.serviceId === this.serviceId) {
         // Clear any existing debounce timer
         if (this.cacheInvalidationDebounceTimer) {
           clearTimeout(this.cacheInvalidationDebounceTimer);
         }
-        
+
         // Skip if already reloading
         if (this.isReloadingAfterSync) {
           console.log('[RoomElevation] Skipping - already reloading');
           return;
         }
-        
+
         // Debounce: wait 500ms before reloading to batch multiple rapid events
         this.cacheInvalidationDebounceTimer = setTimeout(() => {
           console.log('[RoomElevation] Cache invalidated (debounced), reloading elevation data...');
           this.reloadElevationDataAfterSync();
         }, 500);
+      }
+    });
+
+    // Subscribe to sync status changes - reload AFTER sync completes (not during)
+    this.syncStatusSubscription = this.backgroundSync.syncStatus$.subscribe((status) => {
+      // When sync finishes and we have a pending reload, do it now
+      if (!status.isSyncing && this.pendingSyncReload) {
+        console.log('[RoomElevation] Sync finished, now reloading elevation data...');
+        this.pendingSyncReload = false;
+        // Small delay to ensure all sync operations are fully complete
+        setTimeout(() => {
+          this.reloadElevationDataAfterSync();
+        }, 300);
       }
     });
 
@@ -892,6 +917,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     if (this.efePhotoSyncSubscription) {
       this.efePhotoSyncSubscription.unsubscribe();
+    }
+    if (this.syncStatusSubscription) {
+      this.syncStatusSubscription.unsubscribe();
     }
     if (this.backgroundRefreshSubscription) {
       this.backgroundRefreshSubscription.unsubscribe();
