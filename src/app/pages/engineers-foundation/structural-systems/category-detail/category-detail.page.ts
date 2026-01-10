@@ -2231,13 +2231,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       // Build a set of already loaded photo IDs (use String for consistent comparison)
-      // CRITICAL: Include BOTH AttachID AND imageId to prevent duplicates from both systems
+      // CRITICAL: Include ALL possible IDs to prevent duplicates from both systems
+      // After sync, a photo may have: imageId (local UUID), attachId (real server ID), AttachID (either)
       const loadedPhotoIds = new Set<string>();
       for (const p of this.visualPhotos[key]) {
         if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
+        if (p.attachId) loadedPhotoIds.add(String(p.attachId));  // Lowercase attachId (may differ from AttachID after sync)
         if (p.id) loadedPhotoIds.add(String(p.id));
         if (p.imageId) loadedPhotoIds.add(String(p.imageId));
+        if (p.localImageId) loadedPhotoIds.add(String(p.localImageId));  // LocalImage system identifier
         if (p._pendingFileId) loadedPhotoIds.add(String(p._pendingFileId));
+        
+        // CRITICAL FIX: If this is a LocalImage, also add the real attachId from IndexedDB
+        // This handles the case where sync completed but in-memory photo wasn't updated
+        // The in-memory photo has AttachID="img_abc" but IndexedDB has attachId="12345"
+        if (p.imageId || p.localImageId) {
+          const localImg = localImages.find(img => img.imageId === (p.imageId || p.localImageId));
+          if (localImg?.attachId) {
+            loadedPhotoIds.add(String(localImg.attachId));
+          }
+        }
       }
       console.log(`[LOAD PHOTOS] Key ${key} already has ${this.visualPhotos[key].length} photos, IDs tracked:`, Array.from(loadedPhotoIds).slice(0, 5).join(', '), '...');
 
@@ -4317,7 +4330,51 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[VIEW PHOTO] Captured photo index:', originalPhotoIndex, 'for AttachID:', attachId);
       const isTempPhoto = String(attachId).startsWith('temp_');
 
-      // If temp photo, get from IndexedDB and use it instead of fetching
+      // NEW: Handle LocalImages from the new local-first system (Dexie-based)
+      // These have imageId/localImageId like "img_abc" (not "temp_" which is legacy)
+      // After sync, blob URLs may be stale/revoked, so we need fresh URLs from Dexie
+      const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId || 
+        (photo.imageId && String(photo.imageId).startsWith('img_'));
+      
+      if (isLocalFirstPhoto) {
+        const localImageId = photo.localImageId || photo.imageId;
+        console.log('[VIEW PHOTO] LocalImage detected, refreshing URL from Dexie:', localImageId);
+        
+        // Get fresh URL from LocalImageService (uses Dexie under the hood)
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+        
+        if (localImage) {
+          try {
+            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
+            console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));
+            
+            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
+              photo.url = freshUrl;
+              photo.thumbnailUrl = freshUrl;
+              photo.originalUrl = freshUrl;
+              photo.displayUrl = freshUrl;
+            } else {
+              // Fallback: Try cached photo by attachId (uses Dexie cachedPhotos table)
+              if (localImage.attachId) {
+                const cached = await this.indexedDb.getCachedPhoto(String(localImage.attachId));
+                if (cached) {
+                  console.log('[VIEW PHOTO] Using cached photo for LocalImage:', localImage.attachId);
+                  photo.url = cached;
+                  photo.thumbnailUrl = cached;
+                  photo.originalUrl = cached;
+                  photo.displayUrl = cached;
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[VIEW PHOTO] Failed to get LocalImage URL:', err);
+          }
+        } else {
+          console.warn('[VIEW PHOTO] LocalImage not found in Dexie:', localImageId);
+        }
+      }
+
+      // LEGACY: If temp photo, get from IndexedDB and use it instead of fetching
       if (isTempPhoto) {
         console.log('[VIEW PHOTO] Temp photo, loading from IndexedDB:', attachId);
 
