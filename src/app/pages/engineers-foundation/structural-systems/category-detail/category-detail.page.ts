@@ -1803,10 +1803,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const key = `${visual.Category}_${item.id}`;
 
         // LAZY LOADING: Only calculate count from bulk-loaded data (no image loading)
+        // DEDUP: Avoid counting same photo from multiple sources
         const attachments = this.bulkAttachmentsMap.get(visualId) || [];
         const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
         const localImages = this.bulkLocalImagesMap.get(visualId) || [];
-        this.photoCountsByKey[key] = attachments.length + pendingPhotos.length + localImages.length;
+        
+        const uniqueIds = new Set<string>();
+        for (const att of attachments) {
+          const id = String(att.AttachID || att.attachId || '');
+          if (id) uniqueIds.add(id);
+        }
+        for (const p of pendingPhotos) {
+          const id = String(p.AttachID || p.attachId || '');
+          if (id && !uniqueIds.has(id)) uniqueIds.add(id);
+        }
+        for (const img of localImages) {
+          // Skip if local image has real attachId that's already counted
+          if (img.attachId && uniqueIds.has(img.attachId)) continue;
+          if (img.imageId && !uniqueIds.has(img.imageId)) uniqueIds.add(img.imageId);
+        }
+        this.photoCountsByKey[key] = uniqueIds.size;
 
         // AUTO-LOAD: If there are LocalImages (unsynced photos), load them immediately
         // This ensures photos captured before navigation persist and show on return
@@ -1844,8 +1860,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           continue;
         }
 
-        // Update photo count
-        this.photoCountsByKey[matchingKey] = (this.photoCountsByKey[matchingKey] || 0) + localImages.length;
+        // Update photo count - only add LocalImages that aren't already counted
+        // (existing count should be 0 for temp visuals, but be safe)
+        const existingCount = this.photoCountsByKey[matchingKey] || 0;
+        this.photoCountsByKey[matchingKey] = Math.max(existingCount, localImages.length);
 
         console.log(`[LOAD PHOTOS] Auto-loading ${localImages.length} LocalImages for PENDING visual ${matchingKey} (tempId: ${entityId})`);
         this.loadPhotosForVisual(entityId, matchingKey).catch(err => {
@@ -2118,10 +2136,34 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.bulkAnnotatedImagesMap = annotatedImages;
       }
 
-      // Calculate total photo count (include LocalImages)
+      // Calculate total photo count - DEDUP: Avoid counting same photo from multiple sources
+      // Photos may appear in both localImages (new system) and attachments (synced to server)
+      const uniquePhotoIds = new Set<string>();
+      
+      // Count attachments (synced photos from server)
+      for (const att of attachments) {
+        const attId = String(att.AttachID || att.attachId || '');
+        if (attId) uniquePhotoIds.add(attId);
+      }
+      
+      // Count pending photos (legacy system)
+      for (const p of pendingPhotos) {
+        const pendId = String(p.AttachID || p.attachId || '');
+        if (pendId && !uniquePhotoIds.has(pendId)) uniquePhotoIds.add(pendId);
+      }
+      
+      // Count local images (new system) - skip if already synced (attachId exists in uniquePhotoIds)
+      for (const img of localImages) {
+        // If local image has real attachId that's already counted, skip it
+        if (img.attachId && uniquePhotoIds.has(img.attachId)) continue;
+        // Otherwise count by imageId
+        if (img.imageId && !uniquePhotoIds.has(img.imageId)) {
+          uniquePhotoIds.add(img.imageId);
+        }
+      }
+      
       const existingCount = this.visualPhotos[key]?.length || 0;
-      const totalCount = attachments.length + pendingPhotos.length + localImages.length;
-      this.photoCountsByKey[key] = Math.max(existingCount, totalCount);
+      this.photoCountsByKey[key] = Math.max(existingCount, uniquePhotoIds.size);
 
       // Initialize photo array if not exists
       if (!this.visualPhotos[key]) {
@@ -4959,10 +5001,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
               // Save to database using unified caption queue (ALWAYS queues, never direct API)
               // This ensures captions are never lost during sync operations
-              const attachId = String(photo._pendingFileId || photo.attachId || photo.AttachID || '');
               const visualId = photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);
               
               photo._localUpdate = true; // Mark as local update to prevent server overwriting
+              
+              // CRITICAL: For local-first images, update the LocalImage record directly
+              // and use the localImageId for caption queue (will resolve to real attachId on sync)
+              const isLocalFirst = photo.isLocalFirst || photo.isLocalImage;
+              const localImageId = photo.localImageId || photo.imageId;
+              
+              // If local-first image, update LocalImage record and queue with imageId
+              // Otherwise use real AttachID for legacy photos
+              const attachId = isLocalFirst && localImageId 
+                ? localImageId  // Will be resolved to real attachId by sync worker
+                : String(photo.attachId || photo.AttachID || photo._pendingFileId || '');
+              
+              // Also update the LocalImage record directly for local-first photos
+              if (isLocalFirst && localImageId) {
+                this.localImageService.updateCaptionAndDrawings(localImageId, newCaption).catch((e: any) => {
+                  console.warn('[CAPTION] Failed to update LocalImage caption:', e);
+                });
+              }
               
               this.foundationData.queueCaptionUpdate(
                 attachId,

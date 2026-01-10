@@ -601,10 +601,12 @@ export class BackgroundSyncService {
     
     for (const caption of pendingCaptions) {
       try {
-        // Check if attachId is still a temp ID BEFORE marking as syncing
+        // Check if attachId needs resolution BEFORE marking as syncing
         // This prevents status flicker (pending->syncing->pending) on mobile
         const attachIdStr = String(caption.attachId || '');
         let resolvedAttachId = attachIdStr;
+        
+        // Check for temp_ prefix (legacy system)
         if (attachIdStr.startsWith('temp_')) {
           const realId = await this.indexedDb.getRealId(attachIdStr);
           if (!realId) {
@@ -613,7 +615,33 @@ export class BackgroundSyncService {
             continue;
           }
           resolvedAttachId = realId;
-          console.log(`[BackgroundSync] Resolved caption attachId: ${caption.attachId} → ${realId}`);
+          console.log(`[BackgroundSync] Resolved caption attachId (temp): ${caption.attachId} → ${realId}`);
+        }
+        // Check for local-first imageId (new system - UUIDs or img_ prefix)
+        else if (attachIdStr.startsWith('img_') || attachIdStr.includes('-')) {
+          // This looks like a local-first imageId - look up the LocalImage to get real attachId
+          const localImage = await this.indexedDb.getLocalImage(attachIdStr);
+          if (localImage) {
+            if (localImage.attachId && !localImage.attachId.startsWith('img_')) {
+              // Photo has synced and has a real Caspio AttachID
+              resolvedAttachId = localImage.attachId;
+              console.log(`[BackgroundSync] Resolved caption attachId (local-first): ${caption.attachId} → ${resolvedAttachId}`);
+            } else {
+              // Photo hasn't synced yet - skip and try again later
+              console.log(`[BackgroundSync] Local-first image ${attachIdStr} not synced yet, skipping caption`);
+              continue;
+            }
+          } else {
+            // LocalImage not found - might be old temp ID format, try getRealId
+            const realId = await this.indexedDb.getRealId(attachIdStr);
+            if (realId) {
+              resolvedAttachId = realId;
+              console.log(`[BackgroundSync] Resolved caption attachId (fallback): ${caption.attachId} → ${realId}`);
+            } else {
+              // Can't resolve - might be already synced with this ID, try anyway
+              console.log(`[BackgroundSync] Caption attachId ${attachIdStr} - proceeding as-is`);
+            }
+          }
         }
         
         // Mark as syncing ONLY after we know we can proceed
