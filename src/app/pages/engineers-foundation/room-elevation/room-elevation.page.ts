@@ -554,7 +554,118 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       await this.loadRoomData();
       this.backgroundSync.clearSectionDirty(sectionKey);
     } else {
-      console.log('[RoomElevation] Skipping reload - data unchanged, using cached view');
+      // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
+      // This ensures images don't disappear when navigating back to this page
+      console.log('[RoomElevation] Refreshing local images and pending captions');
+      await this.refreshLocalState();
+    }
+  }
+
+  /**
+   * Refresh local state without full reload
+   * Called when navigating back to page with cached data
+   * - Regenerates blob URLs for LocalImages (they may have been invalidated)
+   * - Merges pending captions/drawings into photo arrays
+   */
+  private async refreshLocalState(): Promise<void> {
+    // 1. Get all LocalImages for this service (EFE points)
+    const localImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_point');
+
+    // 2. Regenerate blob URLs from IndexedDB
+    const urlMap = await this.localImageService.refreshBlobUrlsForImages(localImages);
+
+    // 3. Update in-memory photo arrays with fresh URLs
+    // For FDF photos
+    if (this.roomData?.fdfPhotos) {
+      for (const photo of this.roomData.fdfPhotos as any[]) {
+        if (photo.isLocalImage && photo.localImageId) {
+          const newUrl = urlMap.get(photo.localImageId);
+          if (newUrl) {
+            photo.displayUrl = newUrl;
+            photo.url = newUrl;
+            photo.thumbnailUrl = newUrl;
+          }
+        }
+      }
+    }
+
+    // For elevation point photos
+    if (this.roomData?.elevationPoints) {
+      for (const point of this.roomData.elevationPoints) {
+        if (point.photos) {
+          for (const photo of point.photos as any[]) {
+            if (photo.isLocalImage && photo.localImageId) {
+              const newUrl = urlMap.get(photo.localImageId);
+              if (newUrl) {
+                photo.displayUrl = newUrl;
+                photo.url = newUrl;
+                photo.thumbnailUrl = newUrl;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Merge any pending captions/drawings
+    await this.mergePendingCaptions();
+
+    console.log('[RoomElevation] Local state refreshed - URLs regenerated, captions merged');
+  }
+
+  /**
+   * Merge pending captions and drawings into in-memory photo arrays
+   * This ensures caption/annotation edits persist through navigation
+   */
+  private async mergePendingCaptions(): Promise<void> {
+    const pendingCaptions = await this.indexedDb.getPendingCaptions();
+
+    if (!pendingCaptions || pendingCaptions.length === 0) return;
+
+    // Build lookup map: attachId -> pending caption data
+    const captionMap = new Map<string, { caption: string; drawings: string }>();
+    for (const pc of pendingCaptions) {
+      if (pc.status === 'pending' || pc.status === 'syncing') {
+        captionMap.set(pc.attachId, { caption: pc.caption, drawings: pc.drawings });
+      }
+    }
+
+    // Update FDF photos with pending captions
+    if (this.roomData?.fdfPhotos) {
+      for (const photo of this.roomData.fdfPhotos as any[]) {
+        const attachId = photo.AttachID || photo.localImageId;
+        const pending = captionMap.get(attachId);
+        if (pending) {
+          if (pending.caption !== undefined) {
+            photo.caption = pending.caption;
+          }
+          if (pending.drawings !== undefined) {
+            photo.Drawings = pending.drawings;
+            photo.hasAnnotations = !!(pending.drawings && pending.drawings.length > 100);
+          }
+        }
+      }
+    }
+
+    // Update elevation point photos with pending captions
+    if (this.roomData?.elevationPoints) {
+      for (const point of this.roomData.elevationPoints) {
+        if (point.photos) {
+          for (const photo of point.photos as any[]) {
+            const attachId = photo.AttachID || photo.localImageId;
+            const pending = captionMap.get(attachId);
+            if (pending) {
+              if (pending.caption !== undefined) {
+                photo.caption = pending.caption;
+              }
+              if (pending.drawings !== undefined) {
+                photo.Drawings = pending.drawings;
+                photo.hasAnnotations = !!(pending.drawings && pending.drawings.length > 100);
+              }
+            }
+          }
+        }
+      }
     }
   }
 
@@ -786,9 +897,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       this.backgroundRefreshSubscription.unsubscribe();
     }
     
-    // Clean up blob URLs from LocalImageService to prevent memory leaks
-    this.localImageService.revokeAllBlobUrls();
-    
+    // NOTE: We intentionally do NOT revoke blob URLs here anymore.
+    // Revoking causes images to disappear when navigating back to this page
+    // because ionViewWillEnter may skip reload if data appears cached.
+    // Blob URLs are now properly cleaned up when LocalImages are pruned after sync.
+    // See refreshLocalState() for how we regenerate URLs on page return.
+
     console.log('[ROOM ELEVATION] Component destroyed, but uploads continue in background');
   }
 
@@ -1430,6 +1544,40 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // This avoids N+1 reads when processing each point (matches structural systems pattern)
       const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByPoint();
       console.log('[RoomElevation] Pending photos map has', pendingPhotosMap.size, 'points with pending photos');
+
+      // NEW: Load LocalImages for EFE points (new local-first image system)
+      // This ensures photos persist through navigation before sync completes
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_point');
+
+      // Group LocalImages by entityId (pointId) for fast lookup
+      // Also resolve temp IDs to real IDs for photos captured before point synced
+      const bulkLocalImagesMap = new Map<string, LocalImage[]>();
+      for (const img of allLocalImages) {
+        const entityId = img.entityId;
+
+        // Add by original entityId
+        if (!bulkLocalImagesMap.has(entityId)) {
+          bulkLocalImagesMap.set(entityId, []);
+        }
+        bulkLocalImagesMap.get(entityId)!.push(img);
+
+        // CRITICAL: Also add by resolved real ID if entityId is a temp ID
+        // This ensures photos show after the parent point syncs but before the photo syncs
+        if (entityId.startsWith('temp_')) {
+          const realId = await this.indexedDb.getRealId(entityId);
+          if (realId && realId !== entityId) {
+            if (!bulkLocalImagesMap.has(realId)) {
+              bulkLocalImagesMap.set(realId, []);
+            }
+            // Avoid duplicates
+            const existing = bulkLocalImagesMap.get(realId)!;
+            if (!existing.some(e => e.imageId === img.imageId)) {
+              existing.push(img);
+            }
+          }
+        }
+      }
+      console.log(`[RoomElevation] Loaded ${allLocalImages.length} LocalImages for ${bulkLocalImagesMap.size} points (with temp ID resolution)`);
       
       if (existingPoints && existingPoints.length > 0) {
         const pointIds = existingPoints.map((p: any) => p.PointID || p.PK_ID).filter(id => id);

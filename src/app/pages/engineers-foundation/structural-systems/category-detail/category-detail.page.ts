@@ -314,7 +314,78 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       await this.loadData();
       this.backgroundSync.clearSectionDirty(sectionKey);
     } else {
-      console.log('[CategoryDetail] Skipping reload - data unchanged, using cached view');
+      // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
+      // This ensures images don't disappear when navigating back to this page
+      console.log('[CategoryDetail] Refreshing local images and pending captions');
+      await this.refreshLocalState();
+    }
+  }
+
+  /**
+   * Refresh local state without full reload
+   * Called when navigating back to page with cached data
+   * - Regenerates blob URLs for LocalImages (they may have been invalidated)
+   * - Merges pending captions/drawings into photo arrays
+   */
+  private async refreshLocalState(): Promise<void> {
+    // 1. Get all LocalImages for this service
+    const localImages = await this.localImageService.getImagesForService(this.serviceId);
+
+    // 2. Regenerate blob URLs from IndexedDB
+    const urlMap = await this.localImageService.refreshBlobUrlsForImages(localImages);
+
+    // 3. Update in-memory photo arrays with fresh URLs
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      for (const photo of photos as any[]) {
+        if (photo.isLocalImage && photo.localImageId) {
+          const newUrl = urlMap.get(photo.localImageId);
+          if (newUrl) {
+            photo.displayUrl = newUrl;
+            photo.url = newUrl;
+            photo.thumbnailUrl = newUrl;
+          }
+        }
+      }
+    }
+
+    // 4. Merge any pending captions/drawings
+    await this.mergePendingCaptions();
+
+    console.log('[CategoryDetail] Local state refreshed - URLs regenerated, captions merged');
+  }
+
+  /**
+   * Merge pending captions and drawings into in-memory photo arrays
+   * This ensures caption/annotation edits persist through navigation
+   */
+  private async mergePendingCaptions(): Promise<void> {
+    const pendingCaptions = await this.indexedDb.getPendingCaptions();
+
+    if (!pendingCaptions || pendingCaptions.length === 0) return;
+
+    // Build lookup map: attachId -> pending caption data
+    const captionMap = new Map<string, { caption: string; drawings: string }>();
+    for (const pc of pendingCaptions) {
+      if (pc.status === 'pending' || pc.status === 'syncing') {
+        captionMap.set(pc.attachId, { caption: pc.caption, drawings: pc.drawings });
+      }
+    }
+
+    // Update in-memory photos with pending captions
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      for (const photo of photos as any[]) {
+        const attachId = photo.AttachID || photo.localImageId;
+        const pending = captionMap.get(attachId);
+        if (pending) {
+          if (pending.caption !== undefined) {
+            photo.caption = pending.caption;
+          }
+          if (pending.drawings !== undefined) {
+            photo.Drawings = pending.drawings;
+            photo.hasAnnotations = !!(pending.drawings && pending.drawings.length > 100);
+          }
+        }
+      }
     }
   }
 
@@ -340,9 +411,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       clearTimeout(this.localOperationCooldownTimer);
     }
     
-    // Clean up blob URLs from LocalImageService to prevent memory leaks
-    this.localImageService.revokeAllBlobUrls();
-    
+    // NOTE: We intentionally do NOT revoke blob URLs here anymore.
+    // Revoking causes images to disappear when navigating back to this page
+    // because ionViewWillEnter may skip reload if data appears cached.
+    // Blob URLs are now properly cleaned up when LocalImages are pruned after sync.
+    // See refreshLocalState() for how we regenerate URLs on page return.
+
     console.log('[CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
@@ -1009,15 +1083,35 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.bulkPendingRequestsCache = pendingRequests || [];
       
       // NEW: Group LocalImages by entityId for fast lookup
+      // Also resolves temp IDs to real IDs so photos persist after parent entity syncs
       this.bulkLocalImagesMap.clear();
       for (const img of allLocalImages) {
         const entityId = img.entityId;
+
+        // Add to map by original entityId
         if (!this.bulkLocalImagesMap.has(entityId)) {
           this.bulkLocalImagesMap.set(entityId, []);
         }
         this.bulkLocalImagesMap.get(entityId)!.push(img);
+
+        // CRITICAL: Also add by resolved real ID if entityId is a temp ID
+        // This ensures photos show after the parent visual syncs (temp ID -> real ID)
+        // but before the photo itself syncs (which updates entityId)
+        if (entityId.startsWith('temp_')) {
+          const realId = await this.indexedDb.getRealId(entityId);
+          if (realId && realId !== entityId) {
+            if (!this.bulkLocalImagesMap.has(realId)) {
+              this.bulkLocalImagesMap.set(realId, []);
+            }
+            // Avoid duplicates
+            const existing = this.bulkLocalImagesMap.get(realId)!;
+            if (!existing.some(e => e.imageId === img.imageId)) {
+              existing.push(img);
+            }
+          }
+        }
       }
-      console.log(`[LOAD DATA] Loaded ${allLocalImages.length} LocalImages for ${this.bulkLocalImagesMap.size} entities`);
+      console.log(`[LOAD DATA] Loaded ${allLocalImages.length} LocalImages for ${this.bulkLocalImagesMap.size} entities (with temp ID resolution)`);
       
       // Pre-load photo caches in background for fast display of synced images
       // This runs in parallel with page rendering - doesn't block UI
@@ -1787,6 +1881,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           attachId: localImage.attachId || localImage.imageId,
           id: localImage.attachId || localImage.imageId,
           imageId: localImage.imageId,
+          localImageId: localImage.imageId,     // For refreshLocalState() lookup
+          localBlobId: localImage.localBlobId,  // For blob URL regeneration
           displayUrl: displayUrl,
           url: displayUrl,
           thumbnailUrl: displayUrl,

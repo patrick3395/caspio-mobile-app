@@ -244,6 +244,27 @@ export class LocalImageService {
     return this.indexedDb.getLocalImageByAttachId(attachId);
   }
 
+  /**
+   * Regenerate blob URLs for images (called on page return)
+   * This is critical for local-first persistence - when navigating back to a page,
+   * we need fresh blob URLs since any previous ones may have been revoked.
+   * Returns map of imageId -> fresh blob URL
+   */
+  async refreshBlobUrlsForImages(images: LocalImage[]): Promise<Map<string, string>> {
+    const urlMap = new Map<string, string>();
+    for (const image of images) {
+      if (image.localBlobId) {
+        // Force regenerate from IndexedDB (bypass stale cache)
+        const url = await this.indexedDb.getLocalBlobUrl(image.localBlobId);
+        if (url) {
+          this.blobUrlCache.set(image.localBlobId, url);
+          urlMap.set(image.imageId, url);
+        }
+      }
+    }
+    return urlMap;
+  }
+
   // ============================================================================
   // STATUS MANAGEMENT
   // ============================================================================
