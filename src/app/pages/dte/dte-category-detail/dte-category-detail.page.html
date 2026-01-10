@@ -148,12 +148,8 @@
               </div>
 
               <!-- Image preview section for multi-select items -->
-              <div class="image-preview-section" *ngIf="item.answer && item.answer.trim() && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
-                <!-- Upload status indicator -->
-                <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
-                  <ion-spinner name="dots" color="primary"></ion-spinner>
-                  <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
-                </div>
+              <div class="image-preview-section" *ngIf="item.answer && item.answer.trim() && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) )" style="position: relative;">
+                <!-- No upload indicator - local-first means images display instantly -->
                 <div class="image-preview-container">
                   <!-- Skeleton loaders when photos are loading -->
                   <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.id)">
@@ -165,7 +161,6 @@
                   <!-- Actual photos when loaded -->
                   <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                     <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
-                         [class.uploading]="photo.uploading"
                          [class.annotated]="photo.hasAnnotations"
                          [class.skeleton-loader]="photo.isSkeleton">
                       <!-- Skeleton state - show animated placeholder -->
@@ -181,12 +176,8 @@
                              (mousedown)="saveScrollBeforePhotoClick($event)"
                              (click)="viewPhoto(photo, categoryName, item.id, $event)"
                              (error)="handleImageError($event, photo)"
-                             [class.has-annotations]="photo.hasAnnotations"
-                             [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
-                        <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
-                          <ion-spinner name="crescent" color="light"></ion-spinner>
-                        </div>
-                        <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
+                             [class.has-annotations]="photo.hasAnnotations">
+                        <button class="delete-btn" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <button
@@ -247,12 +238,8 @@
             </ion-item>
 
             <!-- Image preview section - EXACT FROM STRUCTURAL SYSTEMS -->
-            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
-              <!-- Upload status indicator -->
-              <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
-                <ion-spinner name="dots" color="primary"></ion-spinner>
-                <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
-              </div>
+            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) )" style="position: relative;">
+              <!-- No upload indicator - local-first means images display instantly -->
               <div class="image-preview-container">
                 <!-- Skeleton loaders when photos are loading -->
                 <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.id)">
@@ -264,7 +251,6 @@
                 <!-- Actual photos when loaded -->
                 <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
-                       [class.uploading]="photo.uploading"
                        [class.annotated]="photo.hasAnnotations"
                        [class.skeleton-loader]="photo.isSkeleton">
                     <!-- Skeleton state - show animated placeholder -->
@@ -280,12 +266,8 @@
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
                            (error)="handleImageError($event, photo)"
-                           [class.has-annotations]="photo.hasAnnotations"
-                           [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
-                      <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
-                        <ion-spinner name="crescent" color="light"></ion-spinner>
-                      </div>
-                      <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
+                           [class.has-annotations]="photo.hasAnnotations">
+                      <button class="delete-btn" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
                         <ion-icon name="close"></ion-icon>
                       </button>
                       <button
@@ -422,12 +404,8 @@
               </div>
 
               <!-- Image preview section for multi-select items -->
-              <div class="image-preview-section" *ngIf="item.answer && item.answer.trim() && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
-                <!-- Upload status indicator -->
-                <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
-                  <ion-spinner name="dots" color="primary"></ion-spinner>
-                  <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
-                </div>
+              <div class="image-preview-section" *ngIf="item.answer && item.answer.trim() && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) )" style="position: relative;">
+                <!-- No upload indicator - local-first means images display instantly -->
                 <div class="image-preview-container">
                   <!-- Skeleton loaders when photos are loading -->
                   <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.id)">
@@ -439,7 +417,6 @@
                   <!-- Actual photos when loaded -->
                   <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                     <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
-                         [class.uploading]="photo.uploading"
                          [class.annotated]="photo.hasAnnotations"
                          [class.skeleton-loader]="photo.isSkeleton">
                       <!-- Skeleton state - show animated placeholder -->
@@ -455,12 +432,8 @@
                              (mousedown)="saveScrollBeforePhotoClick($event)"
                              (click)="viewPhoto(photo, categoryName, item.id, $event)"
                              (error)="handleImageError($event, photo)"
-                             [class.has-annotations]="photo.hasAnnotations"
-                             [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
-                        <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
-                          <ion-spinner name="crescent" color="light"></ion-spinner>
-                        </div>
-                        <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
+                             [class.has-annotations]="photo.hasAnnotations">
+                        <button class="delete-btn" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <button
@@ -521,12 +494,8 @@
             </ion-item>
 
             <!-- Image preview section - EXACT FROM STRUCTURAL SYSTEMS -->
-            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
-              <!-- Upload status indicator -->
-              <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
-                <ion-spinner name="dots" color="primary"></ion-spinner>
-                <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
-              </div>
+            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) )" style="position: relative;">
+              <!-- No upload indicator - local-first means images display instantly -->
               <div class="image-preview-container">
                 <!-- Skeleton loaders when photos are loading -->
                 <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.id)">
@@ -538,7 +507,6 @@
                 <!-- Actual photos when loaded -->
                 <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
-                       [class.uploading]="photo.uploading"
                        [class.annotated]="photo.hasAnnotations"
                        [class.skeleton-loader]="photo.isSkeleton">
                     <!-- Skeleton state - show animated placeholder -->
@@ -554,12 +522,8 @@
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
                            (error)="handleImageError($event, photo)"
-                           [class.has-annotations]="photo.hasAnnotations"
-                           [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
-                      <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
-                        <ion-spinner name="crescent" color="light"></ion-spinner>
-                      </div>
-                      <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
+                           [class.has-annotations]="photo.hasAnnotations">
+                      <button class="delete-btn" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
                         <ion-icon name="close"></ion-icon>
                       </button>
                       <button
@@ -696,12 +660,8 @@
               </div>
 
               <!-- Image preview section for multi-select items -->
-              <div class="image-preview-section" *ngIf="item.answer && item.answer.trim() && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
-                <!-- Upload status indicator -->
-                <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
-                  <ion-spinner name="dots" color="primary"></ion-spinner>
-                  <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
-                </div>
+              <div class="image-preview-section" *ngIf="item.answer && item.answer.trim() && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) )" style="position: relative;">
+                <!-- No upload indicator - local-first means images display instantly -->
                 <div class="image-preview-container">
                   <!-- Skeleton loaders when photos are loading -->
                   <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.id)">
@@ -713,7 +673,6 @@
                   <!-- Actual photos when loaded -->
                   <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                     <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
-                         [class.uploading]="photo.uploading"
                          [class.annotated]="photo.hasAnnotations"
                          [class.skeleton-loader]="photo.isSkeleton">
                       <!-- Skeleton state - show animated placeholder -->
@@ -729,12 +688,8 @@
                              (mousedown)="saveScrollBeforePhotoClick($event)"
                              (click)="viewPhoto(photo, categoryName, item.id, $event)"
                              (error)="handleImageError($event, photo)"
-                             [class.has-annotations]="photo.hasAnnotations"
-                             [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
-                        <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
-                          <ion-spinner name="crescent" color="light"></ion-spinner>
-                        </div>
-                        <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
+                             [class.has-annotations]="photo.hasAnnotations">
+                        <button class="delete-btn" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
                           <ion-icon name="close"></ion-icon>
                         </button>
                         <button
@@ -795,12 +750,8 @@
             </ion-item>
 
             <!-- Image preview section - EXACT FROM STRUCTURAL SYSTEMS -->
-            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
-              <!-- Upload status indicator -->
-              <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
-                <ion-spinner name="dots" color="primary"></ion-spinner>
-                <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
-              </div>
+            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) )" style="position: relative;">
+              <!-- No upload indicator - local-first means images display instantly -->
               <div class="image-preview-container">
                 <!-- Skeleton loaders when photos are loading -->
                 <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.id)">
@@ -812,7 +763,6 @@
                 <!-- Actual photos when loaded -->
                 <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
-                       [class.uploading]="photo.uploading"
                        [class.annotated]="photo.hasAnnotations"
                        [class.skeleton-loader]="photo.isSkeleton">
                     <!-- Skeleton state - show animated placeholder -->
@@ -828,12 +778,8 @@
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
                            (error)="handleImageError($event, photo)"
-                           [class.has-annotations]="photo.hasAnnotations"
-                           [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
-                      <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
-                        <ion-spinner name="crescent" color="light"></ion-spinner>
-                      </div>
-                      <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
+                           [class.has-annotations]="photo.hasAnnotations">
+                      <button class="delete-btn" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
                         <ion-icon name="close"></ion-icon>
                       </button>
                       <button

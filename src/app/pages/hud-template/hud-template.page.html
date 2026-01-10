@@ -472,16 +472,11 @@
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) - STRUCTURAL SYSTEMS PATTERN -->
-                      <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 || isUploadingPhotos(category, item.id))">
-                        <!-- Upload status indicator -->
-                        <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
-                          <ion-spinner name="dots" color="primary"></ion-spinner>
-                          <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
-                        </div>
+                      <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 )">
+                        <!-- No upload indicator - local-first means images display instantly -->
                         <div class="image-preview-container">
                           <!-- Structural systems pattern: skeleton + normal states -->
                           <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId"
-                               [class.uploading]="photo.uploading"
                                [class.annotated]="photo.hasAnnotations"
                                [class.skeleton-loader]="photo.isSkeleton">
                             <!-- Skeleton state - show animated placeholder -->
@@ -497,9 +492,6 @@
                                    (click)="viewPhoto(photo, category, item.id, $event)"
                                    (error)="handleImageError($event, photo)"
                                    [class.has-annotations]="photo.hasAnnotations">
-                              <div class="upload-indicator" *ngIf="photo.uploading">
-                                <ion-spinner name="crescent" color="light"></ion-spinner>
-                              </div>
                               <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                                 <ion-icon name="close"></ion-icon>
                               </button>
@@ -622,16 +614,11 @@
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) - STRUCTURAL SYSTEMS PATTERN -->
-                      <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 || isUploadingPhotos(category, item.id))">
-                        <!-- Upload status indicator -->
-                        <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
-                          <ion-spinner name="dots" color="primary"></ion-spinner>
-                          <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
-                        </div>
+                      <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 )">
+                        <!-- No upload indicator - local-first means images display instantly -->
                         <div class="image-preview-container">
                           <!-- Structural systems pattern: skeleton + normal states -->
                           <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId"
-                               [class.uploading]="photo.uploading"
                                [class.annotated]="photo.hasAnnotations"
                                [class.skeleton-loader]="photo.isSkeleton">
                             <!-- Skeleton state - show animated placeholder -->
@@ -647,9 +634,6 @@
                                    (click)="viewPhoto(photo, category, item.id, $event)"
                                    (error)="handleImageError($event, photo)"
                                    [class.has-annotations]="photo.hasAnnotations">
-                              <div class="upload-indicator" *ngIf="photo.uploading">
-                                <ion-spinner name="crescent" color="light"></ion-spinner>
-                              </div>
                               <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                                 <ion-icon name="close"></ion-icon>
                               </button>
@@ -772,16 +756,11 @@
                       </ion-item>
                       
                       <!-- Image preview section below the item (only for text questions) - STRUCTURAL SYSTEMS PATTERN -->
-                      <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 || isUploadingPhotos(category, item.id))">
-                        <!-- Upload status indicator -->
-                        <div class="upload-status" *ngIf="isUploadingPhotos(category, item.id)">
-                          <ion-spinner name="dots" color="primary"></ion-spinner>
-                          <span>Uploading {{ getUploadingCount(category, item.id) }} photo(s)...</span>
-                        </div>
+                      <div class="image-preview-section" *ngIf="(!item.answerType || item.answerType === 0) && (getPhotosForVisual(category, item.id).length > 0 )">
+                        <!-- No upload indicator - local-first means images display instantly -->
                         <div class="image-preview-container">
                           <!-- Structural systems pattern: skeleton + normal states -->
                           <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId"
-                               [class.uploading]="photo.uploading"
                                [class.annotated]="photo.hasAnnotations"
                                [class.skeleton-loader]="photo.isSkeleton">
                             <!-- Skeleton state - show animated placeholder -->
@@ -797,9 +776,6 @@
                                    (click)="viewPhoto(photo, category, item.id, $event)"
                                    (error)="handleImageError($event, photo)"
                                    [class.has-annotations]="photo.hasAnnotations">
-                              <div class="upload-indicator" *ngIf="photo.uploading">
-                                <ion-spinner name="crescent" color="light"></ion-spinner>
-                              </div>
                               <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, category, item.id); $event.stopPropagation()" title="Delete">
                                 <ion-icon name="close"></ion-icon>
                               </button>
