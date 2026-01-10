@@ -24,6 +24,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { EngineersFoundationDataService } from './engineers-foundation-data.service';
 import { OfflineTemplateService } from '../../services/offline-template.service';
+import { LocalImageService } from '../../services/local-image.service';
 // STATIC import for offline support - prevents ChunkLoadError when offline
 import { AddCustomVisualModalComponent } from '../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 
@@ -482,7 +483,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     public operationsQueue: OperationsQueueService,
     private ngZone: NgZone,
     private indexedDb: IndexedDbService,
-    private offlineTemplate: OfflineTemplateService
+    private offlineTemplate: OfflineTemplateService,
+    private localImageService: LocalImageService
   ) {
     // CRITICAL FIX: Setup scroll lock mechanism on webapp only
     if (typeof window !== 'undefined') {
@@ -4137,6 +4139,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Process the captured photo for room point
+  // OFFLINE-FIRST: Uses LocalImageService for local-first photo handling
   async processRoomPointPhoto(base64Image: string) {
     try {
       if (!this.currentRoomPointContext) {
@@ -4167,28 +4170,60 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         }
       }
       
-      // Upload photo to Services_EFE_Attach with blank annotation (user can add their own caption)
-      const annotation = '';
-      await this.uploadPhotoToRoomPoint(pointId, base64Image, point.name, annotation);
+      // OFFLINE-FIRST: Convert base64 to File and use LocalImageService
+      const response = await fetch(base64Image);
+      const blob = await response.blob();
       
-      // Update UI to show photo
+      // Compress the image
+      const compressedBlob = await this.imageCompression.compressImage(blob, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      });
+      
+      const file = new File([compressedBlob], `room_point_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
+      // Use LocalImageService for local-first handling - queues to outbox, syncs silently
+      const localImage = await this.localImageService.captureImage(
+        file,
+        'efe_point',
+        String(pointId),
+        this.serviceId,
+        '',  // No caption initially
+        ''   // No drawings initially
+      );
+      
+      // Get display URL (local blob URL)
+      const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+      
+      // Update UI immediately with local image
       if (!point.photos) {
         point.photos = [];
       }
       point.photos.push({
-        url: base64Image,
-        thumbnailUrl: base64Image,
-        displayUrl: base64Image,  // Add displayUrl for consistency
-        photoType: photoType,  // Store photoType for identification
-        annotation: annotation
+        imageId: localImage.imageId,           // STABLE UUID for trackBy
+        AttachID: localImage.imageId,          // For compatibility
+        attachId: localImage.imageId,
+        localImageId: localImage.imageId,
+        localBlobId: localImage.localBlobId,
+        url: displayUrl,
+        thumbnailUrl: displayUrl,
+        displayUrl: displayUrl,
+        photoType: photoType,
+        annotation: '',
+        caption: '',
+        isLocalImage: true,
+        isLocalFirst: true,
+        uploading: false,         // SILENT SYNC
+        queued: false,            // SILENT SYNC
+        isPending: localImage.status !== 'verified'
       });
       point.photoCount = point.photos.length;
       
       // Trigger change detection to update UI
       this.changeDetectorRef.detectChanges();
       
-      // Show success toast
-      await this.showToast(`${photoType} photo captured`, 'success');
+      console.log('[Room Point Photo] ✅ Photo captured with LocalImageService:', localImage.imageId);
       
     } catch (error) {
       console.error('Error processing room point photo:', error);

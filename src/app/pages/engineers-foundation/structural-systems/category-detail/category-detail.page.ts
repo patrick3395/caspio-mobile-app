@@ -4805,6 +4805,30 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Update IndexedDB cache FIRST (offline-first pattern)
     // This ensures annotations persist locally even if API call fails
     try {
+      // CRITICAL FIX: Check if this is a local-first photo and update LocalImage record
+      // Find the photo to check for localImageId
+      let localImageId: string | null = null;
+      for (const [key, photos] of Object.entries(this.visualPhotos)) {
+        const photo = (photos as any[]).find(p => 
+          String(p.AttachID) === String(attachId) || 
+          String(p.imageId) === String(attachId) ||
+          String(p.localImageId) === String(attachId)
+        );
+        if (photo) {
+          localImageId = photo.localImageId || photo.imageId || null;
+          if (localImageId && (photo.isLocalFirst || photo.isLocalImage)) {
+            // Update the LocalImage record with new drawings
+            await this.localImageService.updateCaptionAndDrawings(
+              localImageId,
+              updateData.Annotation || caption,
+              updateData.Drawings
+            );
+            console.log('[SAVE] ✅ LocalImage record updated with drawings:', localImageId);
+          }
+          break;
+        }
+      }
+      
       if (visualIdForCache) {
         // Get existing cached attachments and update
         const cachedAttachments = await this.indexedDb.getCachedServiceData(visualIdForCache, 'visual_attachments') || [];

@@ -2508,12 +2508,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
-  // Process FDF photo - OFFLINE-FIRST: Show immediately, upload in background via S3
+  // Process FDF photo - OFFLINE-FIRST: Uses LocalImageService for local-first handling
   private async processFDFPhoto(file: File, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const photoKey = photoType.toLowerCase();
     const fdfPhotos = this.roomData.fdfPhotos;
 
-    console.log(`[FDF Upload S3] Processing photo: ${photoType} (offline-first)`);
+    console.log(`[FDF Upload] Processing photo: ${photoType} (LOCAL-FIRST via LocalImageService)`);
 
     try {
       // Initialize fdfPhotos structure if needed
@@ -2521,82 +2521,46 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         this.roomData.fdfPhotos = {};
       }
 
-      // Revoke old blob URL if it exists (prevent memory leaks)
-      const oldUrl = fdfPhotos[`${photoKey}Url`];
-      if (oldUrl && oldUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(oldUrl);
-        console.log(`[FDF Upload S3] Revoked old blob URL for ${photoType}`);
-      }
+      // Compress the image
+      const compressedFile = await this.imageCompression.compressImage(file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
 
-      // CRITICAL: Create blob URL FIRST for INSTANT display (synchronous, no delay)
-      const blobUrl = URL.createObjectURL(file);
-      
-      // Create temp ID for tracking
-      const tempId = `temp_fdf_${photoType.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Set photo data immediately - NO loading spinner, NO uploading spinner - instant display
+      // OFFLINE-FIRST: Use LocalImageService for local-first handling
+      // Store photoType in the caption field for sync worker to use
+      const localImage = await this.localImageService.captureImage(
+        compressedFile,
+        'fdf',                    // Entity type for FDF photos
+        this.roomId,              // Room ID as entity ID
+        this.serviceId,
+        photoType,                // Store photoType in caption field (Top/Bottom/Threshold)
+        fdfPhotos[`${photoKey}Drawings`] || ''
+      );
+
+      // Get display URL (local blob URL)
+      const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+      // Update photo data immediately - SILENT SYNC (no uploading indicators)
       fdfPhotos[photoKey] = true;
-      fdfPhotos[`${photoKey}Url`] = blobUrl;
-      fdfPhotos[`${photoKey}DisplayUrl`] = blobUrl;
+      fdfPhotos[`${photoKey}Url`] = displayUrl;
+      fdfPhotos[`${photoKey}DisplayUrl`] = displayUrl;
       fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
       fdfPhotos[`${photoKey}Drawings`] = fdfPhotos[`${photoKey}Drawings`] || null;
-      fdfPhotos[`${photoKey}Loading`] = false;  // CRITICAL: Clear loading to show the photo
-      fdfPhotos[`${photoKey}Uploading`] = false; // CRITICAL: No spinner - photo appears instantly (offline-first)
-      fdfPhotos[`${photoKey}TempId`] = tempId;
-      fdfPhotos[`${photoKey}Queued`] = true;  // Show queued badge instead of spinner
+      fdfPhotos[`${photoKey}Loading`] = false;
+      fdfPhotos[`${photoKey}Uploading`] = false;  // SILENT SYNC: No spinner
+      fdfPhotos[`${photoKey}Queued`] = false;     // SILENT SYNC: No indicator
+      fdfPhotos[`${photoKey}ImageId`] = localImage.imageId;
+      fdfPhotos[`${photoKey}LocalBlobId`] = localImage.localBlobId;
+      fdfPhotos[`${photoKey}IsLocalFirst`] = true;
 
       // Trigger change detection to show preview IMMEDIATELY
       this.changeDetectorRef.detectChanges();
-      console.log(`[FDF Upload S3] Photo displayed INSTANTLY with blob URL, temp ID: ${tempId}`);
-      
-      // Convert to base64 in background for IndexedDB storage (non-blocking)
-      const base64Image = await this.convertFileToBase64(file);
-      
-      // Update URLs to base64 for better persistence (blob URLs don't survive page reload)
-      fdfPhotos[`${photoKey}Url`] = base64Image;
-      fdfPhotos[`${photoKey}DisplayUrl`] = base64Image;
-      this.changeDetectorRef.detectChanges();
-
-      // Store file in IndexedDB for persistence across page navigations
-      await this.indexedDb.storePhotoFile(
-        tempId,
-        file,
-        this.roomId,
-        fdfPhotos[`${photoKey}Caption`] || '',
-        fdfPhotos[`${photoKey}Drawings`] || ''
-      );
-      console.log(`[FDF Upload S3] Stored file in IndexedDB for background upload`);
-
-      // Queue the upload as a pending request for background sync
-      // Use UPLOAD_FILE type with FDF metadata in data field
-      await this.indexedDb.addPendingRequest({
-        type: 'UPLOAD_FILE',
-        endpoint: `FDF_PHOTO_${photoType}_${this.roomId}`,
-        method: 'POST',
-        data: {
-          roomId: this.roomId,
-          photoType: photoType,
-          tempFileId: tempId,
-          isFDFPhoto: true  // Marker to identify FDF photo uploads
-        },
-        dependencies: [],  // No dependencies for FDF photo uploads
-        status: 'pending',
-        priority: 'high'
-      });
-      console.log(`[FDF Upload S3] Queued upload request for background sync`);
-
-      // If online, trigger immediate upload
-      if (this.offlineService.isOnline()) {
-        console.log(`[FDF Upload S3] Online - triggering immediate upload`);
-        this.uploadFDFPhotoToS3(photoType, file, tempId).catch(err => {
-          console.error(`[FDF Upload S3] Background upload failed:`, err);
-        });
-      } else {
-        console.log(`[FDF Upload S3] Offline - upload will happen when online`);
-      }
+      console.log(`[FDF Upload] ✅ Photo captured with LocalImageService:`, localImage.imageId);
 
     } catch (error: any) {
-      console.error(`[FDF Upload S3] Error processing FDF ${photoType} photo:`, error);
+      console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
 
       // Clear photo on error
       fdfPhotos[`${photoKey}Uploading`] = false;
@@ -4097,8 +4061,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Update IndexedDB cache FIRST (offline-first pattern)
     // This ensures annotations persist locally even if API call fails
     try {
-      // CRITICAL FIX: Handle TEMP photos differently - use updatePendingPhotoData for reliable update
-      if (String(attachId).startsWith('temp_') || (foundPhoto && foundPhoto.isPending)) {
+      // CRITICAL FIX: Check for local-first photos first (imageId from LocalImageService)
+      const localImageId = foundPhoto?.localImageId || foundPhoto?.imageId;
+      if (localImageId && (foundPhoto?.isLocalFirst || foundPhoto?.isLocalImage)) {
+        // This is a local-first photo - update LocalImage record directly
+        console.log('[SAVE] Updating annotations for local-first photo:', localImageId);
+        await this.localImageService.updateCaptionAndDrawings(
+          localImageId,
+          updateData.Annotation || caption,
+          updateData.Drawings
+        );
+        console.log('[SAVE] ✅ LocalImage record updated with drawings:', localImageId);
+        if (foundPhoto) {
+          foundPhoto._localUpdate = true;
+        }
+      } else if (String(attachId).startsWith('temp_') || (foundPhoto && foundPhoto.isPending)) {
         // This is a syncing photo - use the dedicated method to update caption/drawings
         console.log('[SAVE] Updating annotations for temp/pending photo:', attachId);
         

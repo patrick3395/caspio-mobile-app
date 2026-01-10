@@ -1,11 +1,12 @@
 import { Injectable, NgZone } from '@angular/core';
-import { BehaviorSubject, Subject, interval, Subscription } from 'rxjs';
+import { BehaviorSubject, Subject, interval, Subscription, firstValueFrom } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { IndexedDbService, PendingRequest, LocalImage, UploadOutboxItem } from './indexed-db.service';
 import { ApiGatewayService } from './api-gateway.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
 import { CaspioService } from './caspio.service';
 import { LocalImageService } from './local-image.service';
+import { environment } from '../../environments/environment';
 
 export interface PhotoUploadComplete {
   tempFileId: string;
@@ -2115,6 +2116,11 @@ export class BackgroundSyncService {
           image.caption || ''
         );
         break;
+      case 'fdf':
+        // FDF photos are stored on the EFE room record itself, not as attachments
+        // photoType is stored in the caption field (e.g., 'Top', 'Bottom', 'Threshold')
+        result = await this.uploadFDFPhoto(entityId, file, image.caption || 'Top');
+        break;
       // Add more entity types as needed
       default:
         throw new Error(`Unsupported entity type: ${image.entityType}`);
@@ -2163,6 +2169,56 @@ export class BackgroundSyncService {
     if (image.serviceId) {
       this.markAllSectionsDirty(image.serviceId);
     }
+  }
+
+  /**
+   * Upload FDF photo to S3 and update EFE room record
+   * FDF photos are stored as fields on the room record, not as separate attachments
+   */
+  private async uploadFDFPhoto(roomId: string, file: File, photoType: string): Promise<any> {
+    console.log('[BackgroundSync] Uploading FDF photo:', photoType, 'for room:', roomId);
+    
+    // Generate unique filename for S3
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const fileExt = file.name.split('.').pop() || 'jpg';
+    const uniqueFilename = `fdf_${photoType.toLowerCase()}_${roomId}_${timestamp}_${randomId}.${fileExt}`;
+
+    // Upload to S3 via API Gateway
+    const formData = new FormData();
+    formData.append('file', file, uniqueFilename);
+    formData.append('tableName', 'LPS_Services_EFE');
+    formData.append('attachId', roomId);
+
+    const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error('Failed to upload FDF file to S3: ' + errorText);
+    }
+
+    const uploadResult = await uploadResponse.json();
+    const s3Key = uploadResult.s3Key;
+    console.log('[BackgroundSync] FDF photo uploaded to S3:', s3Key);
+
+    // Update the room record with S3 key in the appropriate column
+    // photoType is 'Top', 'Bottom', or 'Threshold'
+    const attachmentColumnName = `FDFPhoto${photoType}Attachment`;
+    const updateData: any = {};
+    updateData[attachmentColumnName] = s3Key;
+
+    await firstValueFrom(this.caspioService.updateServicesEFEByEFEID(roomId, updateData));
+    console.log('[BackgroundSync] Updated EFE room record with', attachmentColumnName);
+
+    return {
+      AttachID: `fdf_${roomId}_${photoType.toLowerCase()}`,
+      Attachment: s3Key,
+      s3Key: s3Key
+    };
   }
 
   /**
