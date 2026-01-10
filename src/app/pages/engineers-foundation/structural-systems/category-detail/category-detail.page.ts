@@ -1071,10 +1071,25 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private async loadData() {
     console.log('[LOAD DATA] ========== loadData START ==========');
     const startTime = Date.now();
-    
+
     // CRITICAL: Start cooldown to prevent cache invalidation events from causing UI flash
     this.startLocalOperationCooldown();
-    
+
+    // CRITICAL FIX: Preserve existing photos with valid blob URLs before clearing
+    // This prevents images from disappearing during reloads/sync
+    const preservedPhotos: { [key: string]: any[] } = {};
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      const validPhotos = (photos as any[]).filter(p =>
+        p.displayUrl &&
+        (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:')) &&
+        !p.uploading
+      );
+      if (validPhotos.length > 0) {
+        preservedPhotos[key] = validPhotos;
+        console.log(`[LOAD DATA] Preserving ${validPhotos.length} photos with valid blob URLs for key: ${key}`);
+      }
+    }
+
     // Clear all state
     this.visualPhotos = {};
     this.visualRecordIds = {};
@@ -1083,13 +1098,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.photoCountsByKey = {};
     this.selectedItems = {};
     this.organizedData = { comments: [], limitations: [], deficiencies: [] };
-    
+
     // Clear bulk caches
     this.bulkAttachmentsMap.clear();
     this.bulkCachedPhotosMap.clear();
     this.bulkAnnotatedImagesMap.clear();
     this.bulkPendingPhotosMap.clear();
     this.bulkLocalImagesMap.clear();
+
+    // CRITICAL: Restore preserved photos immediately so UI doesn't flicker
+    for (const [key, photos] of Object.entries(preservedPhotos)) {
+      this.visualPhotos[key] = photos;
+      this.photoCountsByKey[key] = photos.length;
+      console.log(`[LOAD DATA] Restored ${photos.length} preserved photos for key: ${key}`);
+    }
 
     try {
       // ===== STEP 0: FAST LOAD - All data in ONE parallel batch =====
