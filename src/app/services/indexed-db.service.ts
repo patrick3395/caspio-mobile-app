@@ -2494,10 +2494,9 @@ export class IndexedDbService {
     
     // Emit change event for reactive subscriptions
     this.imageChange$.next({
-      type: 'delete',
-      imageId,
-      entityType: null as any,
-      entityId: ''
+      store: 'localImages',
+      action: 'delete',
+      key: imageId
     });
   }
 
