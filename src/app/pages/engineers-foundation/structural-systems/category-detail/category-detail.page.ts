@@ -1052,8 +1052,28 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   /**
    * Update photo object after successful upload
+   * LOCAL-FIRST: For local-first images, keep using local blob URLs until remote is verified
    */
   private async updatePhotoAfterUpload(key: string, photoIndex: number, result: any, caption: string) {
+    // Get existing photo to check if it's local-first
+    const oldPhoto = this.visualPhotos[key][photoIndex];
+    
+    // LOCAL-FIRST: Skip server URL fetching for local-first images
+    // They should continue using their local blob URL until the remote is verified
+    if (oldPhoto && (oldPhoto.isLocalFirst || oldPhoto.isLocalImage || oldPhoto.localImageId)) {
+      console.log('[UPLOAD UPDATE] LOCAL-FIRST image - skipping server URL fetch, keeping local blob URL');
+      // Just update status flags, keep URLs intact
+      this.visualPhotos[key][photoIndex] = {
+        ...oldPhoto,
+        uploading: false,
+        queued: false,
+        isPending: result.status !== 'verified',
+        status: result.status || 'uploaded'
+      };
+      return;
+    }
+    
+    // LEGACY: Handle old-style photos that need server URLs
     const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
     const s3Key = actualResult.Attachment;
     const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
@@ -1084,9 +1104,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         displayableUrl = 'assets/img/photo-placeholder.png';
       }
     }
-
-    // Get existing photo to preserve annotations
-    const oldPhoto = this.visualPhotos[key][photoIndex];
     
     // CRITICAL: Preserve existing annotations if user added them while photo was uploading
     const hasExistingAnnotations = oldPhoto && (
@@ -1095,8 +1112,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       (oldPhoto.displayUrl && oldPhoto.displayUrl.startsWith('blob:') && oldPhoto.displayUrl !== oldPhoto.url)
     );
     
-    // Revoke old blob URL ONLY if it's the base image URL, not an annotation display URL
-    if (oldPhoto && oldPhoto.url && oldPhoto.url.startsWith('blob:') && !hasExistingAnnotations) {
+    // Revoke old blob URL ONLY for LEGACY photos, not local-first ones
+    // And only if it's the base image URL, not an annotation display URL
+    if (oldPhoto && oldPhoto.url && oldPhoto.url.startsWith('blob:') && !hasExistingAnnotations && !oldPhoto.imageId) {
       URL.revokeObjectURL(oldPhoto.url);
     }
 
@@ -3964,82 +3982,56 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private async performVisualPhotoUpload(visualId: number, photo: File, key: string, isBatchUpload: boolean, annotationData: any, originalPhoto: File | null, tempId: string | undefined, caption: string): Promise<string | null> {
     try {
-      console.log(`[PHOTO UPLOAD] Starting upload for VisualID ${visualId}`);
+      console.log(`[PHOTO UPLOAD] Starting LOCAL-FIRST upload for VisualID ${visualId}`);
 
       // CRITICAL: Pass annotations as serialized JSON string (drawings)
       const drawings = annotationData ? JSON.stringify(annotationData) : '';
       const result = await this.foundationData.uploadVisualPhoto(visualId, photo, caption, drawings, originalPhoto || undefined);
 
-      console.log(`[PHOTO UPLOAD] Upload complete for VisualID ${visualId}, AttachID: ${result.AttachID}`);
+      console.log(`[PHOTO UPLOAD] Upload complete for VisualID ${visualId}, imageId: ${result.imageId}, AttachID: ${result.AttachID}`);
 
+      // LOCAL-FIRST: The result contains a local blob URL that should NOT be revoked
+      // The displayUrl is from LocalImageService and points to the local blob
+      // DO NOT try to get server URLs - they don't exist yet (offline-first)
+      
       if (tempId && this.visualPhotos[key]) {
-        const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
+        const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId || p.imageId === tempId);
         if (photoIndex !== -1) {
-          const oldUrl = this.visualPhotos[key][photoIndex].url;
-          if (oldUrl && oldUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(oldUrl);
-          }
+          // LOCAL-FIRST: Do NOT revoke the blob URL - it's our only source of the image!
+          // The old code revoked blob URLs, causing images to disappear
+          // const oldUrl = this.visualPhotos[key][photoIndex].url;
+          // if (oldUrl && oldUrl.startsWith('blob:')) {
+          //   URL.revokeObjectURL(oldUrl);  // DON'T DO THIS!
+          // }
 
-          // CRITICAL: Get the uploaded photo URL from the result
-          const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
-          const s3Key = actualResult.Attachment; // S3 key
-          const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
-          let displayableUrl = uploadedPhotoUrl || '';
+          // LOCAL-FIRST: Use the displayUrl from the result (already a local blob URL)
+          // No need to fetch from server - the photo will sync in background
+          const displayableUrl = result.displayUrl || result.url || result.thumbnailUrl;
 
-          console.log('[PHOTO UPLOAD] Actual result:', actualResult);
-          console.log('[PHOTO UPLOAD] S3 key:', s3Key);
-          console.log('[PHOTO UPLOAD] Uploaded photo path (old):', uploadedPhotoUrl);
-
-          // Check if this is an S3 image
-          if (s3Key && this.caspioService.isS3Key(s3Key)) {
-            try {
-              console.log('[PHOTO UPLOAD] ✨ S3 image detected, fetching pre-signed URL...');
-              displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
-              console.log('[PHOTO UPLOAD] ✅ Got S3 pre-signed URL');
-            } catch (err) {
-              console.error('[PHOTO UPLOAD] ❌ Failed to fetch S3 URL:', err);
-              displayableUrl = 'assets/img/photo-placeholder.png';
-            }
-          }
-          // Fallback to old Caspio Files API logic
-          else if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
-            try {
-              console.log('[PHOTO UPLOAD] 📁 Caspio Files API path detected, fetching image data...');
-              const imageData = await firstValueFrom(
-                this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
-              );
-              if (imageData && imageData.startsWith('data:')) {
-                displayableUrl = imageData;
-                console.log('[PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
-              } else {
-                console.warn('[PHOTO UPLOAD] ❌ Files API returned invalid data:', imageData?.substring(0, 50));
-              }
-            } catch (err) {
-              console.error('[PHOTO UPLOAD] ❌ Failed to load uploaded image:', err);
-              displayableUrl = 'assets/img/photo-placeholder.png';
-            }
-          } else {
-            console.log('[PHOTO UPLOAD] Using URL directly (already data/blob URL):', uploadedPhotoUrl?.substring(0, 50));
-          }
-
-          console.log('[PHOTO UPLOAD] Updating photo object at index', photoIndex, 'with displayableUrl length:', displayableUrl?.length || 0);
+          console.log('[PHOTO UPLOAD] LOCAL-FIRST: Using local blob URL:', displayableUrl?.substring(0, 50));
 
           this.visualPhotos[key][photoIndex] = {
             ...this.visualPhotos[key][photoIndex],
-            AttachID: result.AttachID,
-            id: result.AttachID,
-            // CRITICAL FIX: Clear temp flags to prevent reloadVisualsAfterSync from matching this photo as "temp"
-            _tempId: undefined,
-            _pendingFileId: undefined,
-            _backgroundSync: undefined,
-            uploading: false,
-            queued: false,
-            filePath: uploadedPhotoUrl,
-            Photo: uploadedPhotoUrl,
+            // STABLE IDs: Use imageId as the primary key (never changes)
+            imageId: result.imageId,
+            AttachID: result.AttachID || result.imageId,
+            id: result.AttachID || result.imageId,
+            // Keep identifiers for lookups
+            _tempId: result.imageId,  // Keep for recovery mechanisms
+            _pendingFileId: result.imageId,
+            localImageId: result.imageId,  // For LocalImage system lookup
+            // Status flags - photo is queued for sync, NOT uploaded yet
+            uploading: result.uploading || false,
+            queued: result.queued || true,
+            isPending: result.isPending || true,
+            isLocalFirst: true,
+            // Display URLs - all point to local blob
+            Photo: displayableUrl,
             url: displayableUrl,
-            originalUrl: displayableUrl,      // CRITICAL: Set originalUrl to base image
+            originalUrl: displayableUrl,
             thumbnailUrl: displayableUrl,
-            displayUrl: displayableUrl,        // Will be overwritten if user annotates
+            displayUrl: displayableUrl,
+            // Content
             caption: caption || '',
             annotation: caption || '',
             Annotation: caption || ''
@@ -5349,13 +5341,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           setTimeout(() => {
             console.log('[CREATE CUSTOM] Reloading photos after upload delay');
 
-            // Clean up temp blob URLs before reloading
+            // LOCAL-FIRST: Do NOT revoke blob URLs for local-first images
+            // They are managed by LocalImageService and needed for display
+            // Only revoke old-style object URLs that aren't part of the local-first system
             if (this.visualPhotos[key]) {
               this.visualPhotos[key].forEach(photo => {
-                if (photo.isObjectUrl && photo.url) {
+                // Skip local-first images - their blob URLs are managed by LocalImageService
+                if (photo.isLocalFirst || photo.isLocalImage || photo.localImageId) {
+                  return;
+                }
+                // Only revoke legacy object URLs
+                if (photo.isObjectUrl && photo.url && !photo.imageId) {
                   URL.revokeObjectURL(photo.url);
                 }
-                if (photo.isObjectUrl && photo.thumbnailUrl && photo.thumbnailUrl !== photo.url) {
+                if (photo.isObjectUrl && photo.thumbnailUrl && photo.thumbnailUrl !== photo.url && !photo.imageId) {
                   URL.revokeObjectURL(photo.thumbnailUrl);
                 }
               });
