@@ -1312,18 +1312,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[LOAD DATA] Starting fast load (no photo data)...');
       const bulkLoadStart = Date.now();
       
-      const [allTemplates, visuals, pendingPhotos, pendingRequests, allLocalImages] = await Promise.all([
+      const [allTemplates, visuals, pendingPhotos, pendingRequests, allLocalImages, cachedPhotos, annotatedImages] = await Promise.all([
         this.indexedDb.getCachedTemplates('visual') || [],
         this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [],
         this.indexedDb.getAllPendingPhotosGroupedByVisual(),
         this.indexedDb.getPendingRequests(),
-        this.localImageService.getImagesForService(this.serviceId)  // NEW: Load LocalImages
+        this.localImageService.getImagesForService(this.serviceId),
+        this.indexedDb.getAllCachedPhotosForService(this.serviceId),  // Load cached photos upfront
+        this.indexedDb.getAllCachedAnnotatedImagesForService()        // Load annotated images upfront
       ]);
       
       // Store ALL bulk data in memory - NO more IndexedDB reads after this
       this.bulkPendingPhotosMap = pendingPhotos;
       this.bulkVisualsCache = visuals as any[] || [];
       this.bulkPendingRequestsCache = pendingRequests || [];
+      this.bulkCachedPhotosMap = cachedPhotos;          // Store cached photos immediately
+      this.bulkAnnotatedImagesMap = annotatedImages;    // Store annotated images immediately
       
       // NEW: Group LocalImages by entityId for fast lookup
       // Also resolves temp IDs to real IDs so photos persist after parent entity syncs
@@ -1382,9 +1386,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       console.log(`[LOAD DATA] Loaded ${allLocalImages.length} LocalImages for ${this.bulkLocalImagesMap.size} entities (with bidirectional ID resolution)`);
       
-      // Pre-load photo caches in background for fast display of synced images
-      // This runs in parallel with page rendering - doesn't block UI
-      this.preloadPhotoCachesInBackground();
+      // NOTE: Cached photos and annotated images are now loaded upfront in Step 0
+      // No need for preloadPhotoCachesInBackground() anymore
       
       // CRITICAL: Trigger background refresh when online to sync with server
       // This follows the standard offline-first pattern used by room-elevation.page.ts
@@ -1418,28 +1421,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.restorePendingPhotosFromIndexedDB();
       console.log('[LOAD DATA] ✅ Pending photos restored');
 
-      // Show page IMMEDIATELY - photo counts will update in background
+      // ===== STEP 3.5: Load attachments (BLOCKING - required for photos) =====
+      const visualIds = this.bulkVisualsCache
+        .filter((v: any) => v.Category === this.categoryName)
+        .map((v: any) => String(v.VisualID || v.PK_ID || v.id))
+        .filter((id: string) => id && !id.startsWith('temp_'));
+      
+      if (visualIds.length > 0) {
+        this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(visualIds);
+        console.log(`[LOAD DATA] ✅ Loaded attachments for ${this.bulkAttachmentsMap.size} visuals`);
+      }
+
+      // ===== STEP 3.6: Pre-load all photo URLs (BLOCKING - ensures images show on first load) =====
+      await this.preloadAllPhotoUrls();
+      console.log('[LOAD DATA] ✅ All photo URLs pre-loaded');
+
+      // Show page after ALL data is ready
       this.loading = false;
       this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
       this.changeDetectorRef.detectChanges();
       
       console.log(`[LOAD DATA] ========== UI READY: ${Date.now() - startTime}ms ==========`);
-
-      // ===== STEP 4: Load photo counts in BACKGROUND (non-blocking) =====
-      setTimeout(async () => {
-        const visualIds = this.bulkVisualsCache
-          .filter((v: any) => v.Category === this.categoryName)
-          .map((v: any) => String(v.VisualID || v.PK_ID || v.id))
-          .filter((id: string) => id && !id.startsWith('temp_'));
-        
-        if (visualIds.length > 0) {
-          this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(visualIds);
-          // Update photo counts with loaded attachments
-          this.loadAllPhotosInBackground(this.bulkVisualsCache);
-          this.changeDetectorRef.detectChanges();
-          console.log(`[LOAD DATA] ✅ Photo counts updated in background`);
-        }
-      }, 0);
 
     } catch (error) {
       console.error('[LOAD DATA] ❌ Error:', error);
@@ -1481,6 +1483,64 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Not critical - photos will load on-demand as fallback
       }
     }, 50); // Small delay to prioritize UI rendering
+  }
+
+  /**
+   * Pre-load all photo URLs for all visuals in this category
+   * BLOCKING: Ensures all photos are ready before UI renders
+   * This fixes the issue of images not showing on first template load
+   */
+  private async preloadAllPhotoUrls(): Promise<void> {
+    const loadPromises: Promise<void>[] = [];
+    
+    for (const visual of this.bulkVisualsCache) {
+      if (visual.Category !== this.categoryName) continue;
+      if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
+      
+      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
+        this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+      
+      if (!item) continue;
+      
+      const key = `${visual.Category}_${item.id}`;
+      
+      // Only load if there are photos (attachments, pending, or local)
+      const attachments = this.bulkAttachmentsMap.get(visualId) || [];
+      const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
+      const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+      
+      if (attachments.length > 0 || pendingPhotos.length > 0 || localImages.length > 0) {
+        loadPromises.push(
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.warn(`[PRELOAD] Failed to load photos for ${key}:`, err);
+          })
+        );
+      }
+    }
+    
+    // Also process pending visuals with LocalImages (temp IDs)
+    for (const [entityId, localImages] of this.bulkLocalImagesMap.entries()) {
+      if (!entityId.startsWith('temp_')) continue;
+      if (localImages.length === 0) continue;
+      
+      // Find matching key from pending visuals
+      const matchingKey = Object.entries(this.visualRecordIds)
+        .find(([_, id]) => id === entityId)?.[0];
+      
+      if (matchingKey) {
+        loadPromises.push(
+          this.loadPhotosForVisual(entityId, matchingKey).catch(err => {
+            console.warn(`[PRELOAD] Failed to load photos for pending ${matchingKey}:`, err);
+          })
+        );
+      }
+    }
+    
+    console.log(`[PRELOAD] Loading photos for ${loadPromises.length} visuals...`);
+    await Promise.all(loadPromises);
   }
 
   private async waitForSkeletonsReady(): Promise<void> {
