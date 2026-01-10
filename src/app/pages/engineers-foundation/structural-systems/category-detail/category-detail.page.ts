@@ -99,10 +99,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private cacheInvalidationDebounceTimer: any = null;
   private isReloadingAfterSync = false;
 
+  // CRITICAL: Prevent concurrent loadData() calls which can cause photo loss
+  private isLoadingData = false;
+
   // Track if we need to reload after sync completes
   private pendingSyncReload = false;
   private syncStatusSubscription?: Subscription;
-  
+
   // Cooldown after local operations to prevent immediate reload
   private localOperationCooldown = false;
   private localOperationCooldownTimer: any = null;
@@ -1169,36 +1172,82 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async loadData() {
+    // CRITICAL: Prevent concurrent loadData() calls which can cause race conditions and photo loss
+    if (this.isLoadingData) {
+      console.log('[LOAD DATA] ⚠️ SKIPPING - loadData() already in progress');
+      return;
+    }
+    this.isLoadingData = true;
+
     console.log('[LOAD DATA] ========== loadData START ==========');
+    console.log('[LOAD DATA] Stack trace:', new Error().stack?.split('\n').slice(1, 4).join(' → '));
     const startTime = Date.now();
 
     // CRITICAL: Start cooldown to prevent cache invalidation events from causing UI flash
     this.startLocalOperationCooldown();
 
-    // CRITICAL FIX: Preserve existing photos with valid blob URLs before clearing
+    // CRITICAL FIX: Preserve existing photos before clearing
     // This prevents images from disappearing during reloads/sync
     const preservedPhotos: { [key: string]: any[] } = {};
-    console.log('[LOAD DATA] Checking photos to preserve...');
+    const syncStatus = this.backgroundSync.syncStatus$.getValue();
+    const syncInProgress = syncStatus.isSyncing;
+
+    console.log('[LOAD DATA] Checking photos to preserve... (sync in progress:', syncInProgress, ')');
+
     for (const [key, photos] of Object.entries(this.visualPhotos)) {
       console.log(`[LOAD DATA] Key "${key}" has ${(photos as any[]).length} photos before filtering`);
 
       // Log each photo's status for debugging
       (photos as any[]).forEach((p: any, i: number) => {
-        console.log(`[LOAD DATA]   [${i}] imageId: ${p.imageId}, displayUrl: ${p.displayUrl?.substring(0, 30)}..., uploading: ${p.uploading}, queued: ${p.queued}`);
+        console.log(`[LOAD DATA]   [${i}] imageId: ${p.imageId}, displayUrl: ${p.displayUrl?.substring(0, 50)}..., uploading: ${p.uploading}, queued: ${p.queued}, status: ${p.status}`);
       });
 
-      // CRITICAL FIX: Preserve ALL photos with valid blob/data URLs
-      // REMOVED !p.uploading - photos should persist even during upload
-      // This was the ROOT CAUSE of photos disappearing during sync
-      const validPhotos = (photos as any[]).filter(p =>
-        p.displayUrl &&
-        (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:'))
-      );
+      // BULLETPROOF PRESERVATION: Preserve photos if ANY of these conditions are true:
+      // 1. Has valid blob/data URL (local image ready for display)
+      // 2. Has imageId (part of LocalImage system - always keep these!)
+      // 3. Has _pendingFileId (old pending system)
+      // 4. Is uploading or queued (in transit - NEVER lose these)
+      // 5. Sync is in progress (preserve EVERYTHING during sync)
+      const validPhotos = (photos as any[]).filter(p => {
+        // During sync, preserve ALL photos to prevent any loss
+        if (syncInProgress) {
+          console.log(`[LOAD DATA]     -> PRESERVING (sync in progress): ${p.imageId || p.AttachID}`);
+          return true;
+        }
+
+        // Always preserve LocalImage system photos
+        if (p.imageId) {
+          console.log(`[LOAD DATA]     -> PRESERVING (has imageId): ${p.imageId}`);
+          return true;
+        }
+
+        // Always preserve old pending system photos
+        if (p._pendingFileId) {
+          console.log(`[LOAD DATA]     -> PRESERVING (has _pendingFileId): ${p._pendingFileId}`);
+          return true;
+        }
+
+        // Always preserve uploading/queued photos
+        if (p.uploading || p.queued) {
+          console.log(`[LOAD DATA]     -> PRESERVING (uploading/queued): ${p.AttachID}`);
+          return true;
+        }
+
+        // Preserve photos with valid display URLs
+        if (p.displayUrl && (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:'))) {
+          console.log(`[LOAD DATA]     -> PRESERVING (valid displayUrl): ${p.AttachID}`);
+          return true;
+        }
+
+        console.log(`[LOAD DATA]     -> NOT preserving: ${p.AttachID} (no valid criteria)`);
+        return false;
+      });
+
       if (validPhotos.length > 0) {
         preservedPhotos[key] = validPhotos;
-        console.log(`[LOAD DATA] Preserving ${validPhotos.length} photos with valid blob URLs for key: ${key}`);
+        console.log(`[LOAD DATA] Preserving ${validPhotos.length}/${(photos as any[]).length} photos for key: ${key}`);
       } else {
-        console.log(`[LOAD DATA] ⚠️ NO photos preserved for key: ${key} (filtered out)`);
+        console.log(`[LOAD DATA] ⚠️ NO photos preserved for key: ${key} (all filtered out)`);
       }
     }
 
@@ -1378,12 +1427,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.error('[LOAD DATA] ❌ Error:', error);
       this.loading = false;
       this.changeDetectorRef.detectChanges();
+    } finally {
+      // CRITICAL: Always reset the loading flag to allow future loads
+      this.isLoadingData = false;
     }
-    
+
     // Track last loaded IDs to detect context changes on re-entry
     this.lastLoadedServiceId = this.serviceId;
     this.lastLoadedCategoryName = this.categoryName;
-    
+
     console.log('[LOAD DATA] ========== loadData END ==========');
   }
 
@@ -2063,7 +2115,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       // Build a set of already loaded photo IDs (use String for consistent comparison)
-      const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => String(p.AttachID)));
+      // CRITICAL: Include BOTH AttachID AND imageId to prevent duplicates from both systems
+      const loadedPhotoIds = new Set<string>();
+      for (const p of this.visualPhotos[key]) {
+        if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
+        if (p.id) loadedPhotoIds.add(String(p.id));
+        if (p.imageId) loadedPhotoIds.add(String(p.imageId));
+        if (p._pendingFileId) loadedPhotoIds.add(String(p._pendingFileId));
+      }
+      console.log(`[LOAD PHOTOS] Key ${key} already has ${this.visualPhotos[key].length} photos, IDs tracked:`, Array.from(loadedPhotoIds).slice(0, 5).join(', '), '...');
 
       // STEP 4: Add pending photos with regenerated blob URLs (they appear first)
       for (const pendingPhoto of pendingPhotos) {
