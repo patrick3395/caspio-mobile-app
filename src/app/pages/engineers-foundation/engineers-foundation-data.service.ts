@@ -455,14 +455,16 @@ export class EngineersFoundationDataService {
         displayUrl: displayUrl,
         _thumbnailUrl: displayUrl,
         
-        // Status flags
+        // Status flags - SILENT SYNC: No uploading/queued indicators
         status: img.status,
         localVersion: img.localVersion,
-        _syncing: img.status === 'queued' || img.status === 'uploading',
-        uploading: img.status === 'uploading',
-        queued: img.status === 'queued' || img.status === 'local_only',
+        _syncing: false,              // SILENT SYNC
+        uploading: false,             // SILENT SYNC: No spinner
+        queued: false,                // SILENT SYNC: No indicator
         isPending: img.status !== 'verified',
         isLocalFirst: true,
+        isLocalImage: true,
+        localBlobId: img.localBlobId,
       };
     }));
     
@@ -477,7 +479,7 @@ export class EngineersFoundationDataService {
     // Merge: local-first images first (most recent), then legacy
     const merged = [...localAttachments, ...filteredLegacy];
     
-    console.log('[Visual Data] Loaded attachments:', merged.length, 
+    console.log('[Visual Data] Loaded attachments (silent sync):', merged.length, 
       `(${localAttachments.length} local-first + ${filteredLegacy.length} legacy)`);
 
     return merged;
@@ -547,15 +549,17 @@ export class EngineersFoundationDataService {
         displayUrl: displayUrl,
         _thumbnailUrl: displayUrl,
         
-        // Status flags
+        // Status flags - SILENT SYNC: No uploading/queued indicators
         status: img.status,
         localVersion: img.localVersion,
-        _syncing: img.status === 'queued' || img.status === 'uploading',
-        uploading: img.status === 'uploading',
-        queued: img.status === 'queued' || img.status === 'local_only',
+        _syncing: false,              // SILENT SYNC
+        uploading: false,             // SILENT SYNC: No spinner
+        queued: false,                // SILENT SYNC: No indicator
         isPending: img.status !== 'verified',
         isLocalFirst: true,
+        isLocalImage: true,
         isEFE: true,
+        localBlobId: img.localBlobId,
       };
     }));
     
@@ -812,14 +816,16 @@ export class EngineersFoundationDataService {
       displayUrl: displayUrl,
       _thumbnailUrl: displayUrl,
       
-      // Status flags
+      // Status flags - SILENT SYNC: Don't show uploading/queued indicators
+      // Photos appear as normal, sync happens silently in background
       status: localImage.status,
-      _syncing: localImage.status === 'queued' || localImage.status === 'uploading',
-      uploading: localImage.status === 'uploading',
-      queued: localImage.status === 'queued' || localImage.status === 'local_only',
-      isPending: localImage.status !== 'verified',
+      _syncing: false,           // SILENT: Don't show syncing indicator
+      uploading: false,          // SILENT: Don't show upload spinner
+      queued: false,             // SILENT: Don't show queued indicator
+      isPending: localImage.status !== 'verified',  // Internal flag only
       isObjectUrl: true,
-      isLocalFirst: true,  // Flag indicating new local-first system
+      isLocalFirst: true,        // Flag indicating new local-first system
+      localBlobId: localImage.localBlobId,  // For blob URL regeneration
     };
   }
 
@@ -1433,15 +1439,17 @@ export class EngineersFoundationDataService {
       displayUrl: displayUrl,
       _thumbnailUrl: displayUrl,
       
-      // Status flags
+      // Status flags - SILENT SYNC: Don't show uploading/queued indicators
+      // Photos appear as normal, sync happens silently in background
       status: localImage.status,
-      _syncing: localImage.status === 'queued' || localImage.status === 'uploading',
-      uploading: localImage.status === 'uploading',
-      queued: localImage.status === 'queued' || localImage.status === 'local_only',
-      isPending: localImage.status !== 'verified',
+      _syncing: false,           // SILENT: Don't show syncing indicator
+      uploading: false,          // SILENT: Don't show upload spinner
+      queued: false,             // SILENT: Don't show queued indicator
+      isPending: localImage.status !== 'verified',  // Internal flag only
       isObjectUrl: true,
       isEFE: true,
-      isLocalFirst: true,  // Flag indicating new local-first system
+      isLocalFirst: true,        // Flag indicating new local-first system
+      localBlobId: localImage.localBlobId,  // For blob URL regeneration
     };
   }
 

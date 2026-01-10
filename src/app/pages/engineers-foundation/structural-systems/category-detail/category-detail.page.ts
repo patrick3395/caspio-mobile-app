@@ -2140,6 +2140,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log(`[LOAD PHOTOS] Key ${key} already has ${this.visualPhotos[key].length} photos, IDs tracked:`, Array.from(loadedPhotoIds).slice(0, 5).join(', '), '...');
 
       // STEP 4: Add pending photos with regenerated blob URLs (they appear first)
+      // SILENT SYNC: Don't show uploading/queued indicators for legacy pending photos
       for (const pendingPhoto of pendingPhotos) {
         const pendingId = String(pendingPhoto.AttachID);
         if (!loadedPhotoIds.has(pendingId)) {
@@ -2158,8 +2159,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             displayUrl: displayUrl,
             thumbnailUrl: displayUrl,
             isSkeleton: false,
-            uploading: pendingPhoto.status === 'uploading',
-            queued: pendingPhoto.status === 'pending',
+            uploading: false,         // SILENT SYNC: No spinner
+            queued: false,            // SILENT SYNC: No indicator
             isPending: true
           });
           loadedPhotoIds.add(pendingId);
@@ -2185,6 +2186,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
         
         // Add to the BEGINNING of the array so local photos show first
+        // SILENT SYNC: Don't show uploading/queued indicators - photos appear as normal
         this.visualPhotos[key].unshift({
           AttachID: localImage.attachId || localImage.imageId,
           attachId: localImage.attachId || localImage.imageId,
@@ -2203,15 +2205,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           Drawings: localImage.drawings || null,
           hasAnnotations: !!localImage.drawings && localImage.drawings.length > 10,
           loading: false,
-          uploading: localImage.status === 'uploading',
-          queued: localImage.status === 'queued' || localImage.status === 'local_only',
+          uploading: false,           // SILENT SYNC: Don't show spinner
+          queued: false,              // SILENT SYNC: Don't show queued indicator
           isSkeleton: false,
-          isPending: localImage.status !== 'verified',
-          isLocalImage: true  // Flag to identify new system photos
+          isPending: localImage.status !== 'verified',  // Internal flag only
+          isLocalImage: true,         // Flag to identify new system photos
+          isLocalFirst: true          // Flag for local-first system
         });
         loadedPhotoIds.add(imageId);
         
-        console.log('[LOAD PHOTOS] Added LocalImage:', imageId, 'status:', localImage.status);
+        console.log('[LOAD PHOTOS] Added LocalImage (silent sync):', imageId);
       }
 
       // Trigger change detection so pending/local photos appear immediately
@@ -3631,13 +3634,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             Drawings: compressedDrawings,
             hasAnnotations: !!annotationsData,
             
-            // Status from LocalImage system
+            // Status from LocalImage system - SILENT SYNC
             status: localImage.status,
             isLocal: true,
+            isLocalFirst: true,
+            isLocalImage: true,
             isObjectUrl: true,
-            uploading: false,
-            queued: true,
-            isPending: true,
+            uploading: false,         // SILENT SYNC: No spinner
+            queued: false,            // SILENT SYNC: No indicator
+            isPending: localImage.status !== 'verified',
             isSkeleton: false,
             progress: 0
           };
@@ -3645,7 +3650,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Add photo to UI immediately
           this.visualPhotos[key].push(photoEntry);
           this.changeDetectorRef.detectChanges();
-          console.log('[CAMERA UPLOAD] ✅ Photo added to visualPhotos:');
+          console.log('[CAMERA UPLOAD] ✅ Photo added (silent sync):', localImage.imageId);
           console.log(`  key: ${key}`);
           console.log(`  imageId: ${localImage.imageId}`);
           console.log(`  AttachID: ${photoEntry.AttachID}`);
@@ -3778,21 +3783,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 Drawings: '',
                 hasAnnotations: false,
                 
-                // Status from LocalImage system
+                // Status from LocalImage system - SILENT SYNC
                 status: localImage.status,
                 isLocal: true,
+                isLocalFirst: true,
+                isLocalImage: true,
                 isObjectUrl: true,
-                uploading: false,
-                queued: true,
-                isPending: true,
+                uploading: false,         // SILENT SYNC: No spinner
+                queued: false,            // SILENT SYNC: No indicator
+                isPending: localImage.status !== 'verified',
                 isSkeleton: false,
-                    progress: 0
-                  };
+                progress: 0
+              };
 
               // Add photo to UI immediately
               this.visualPhotos[key].push(photoEntry);
-                  this.changeDetectorRef.detectChanges();
-              console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} added to visualPhotos:`);
+              this.changeDetectorRef.detectChanges();
+              console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} added (silent sync):`, localImage.imageId);
               console.log(`  key: ${key}`);
               console.log(`  imageId: ${localImage.imageId}`);
               console.log(`  AttachID: ${photoEntry.AttachID}`);
@@ -4016,11 +4023,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             _tempId: result.imageId,  // Keep for recovery mechanisms
             _pendingFileId: result.imageId,
             localImageId: result.imageId,  // For LocalImage system lookup
-            // Status flags - photo is queued for sync, NOT uploaded yet
-            uploading: result.uploading || false,
-            queued: result.queued || true,
-            isPending: result.isPending || true,
+            localBlobId: result.localBlobId,  // For blob URL regeneration
+            // Status flags - SILENT SYNC: Don't show uploading indicators
+            uploading: false,         // SILENT SYNC: No spinner
+            queued: false,            // SILENT SYNC: No indicator
+            isPending: result.isPending || false,
             isLocalFirst: true,
+            isLocalImage: true,
             // Display URLs - all point to local blob
             Photo: displayableUrl,
             url: displayableUrl,
@@ -5200,7 +5209,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.visualPhotos[key] = [];
         }
 
-        // Add placeholder photos immediately so user sees them uploading
+        // Add placeholder photos immediately - SILENT SYNC: no uploading indicator
         const tempPhotos = Array.from(files).map((file, index) => {
           const photoData = processedPhotos[index] || {};
           const objectUrl = URL.createObjectURL(file);
@@ -5214,7 +5223,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             thumbnailUrl: objectUrl,
             displayUrl: photoData.previewUrl || objectUrl, // Use preview from modal if available
             isObjectUrl: true,
-            uploading: true,
+            uploading: false,         // SILENT SYNC: No spinner
+            queued: false,            // SILENT SYNC: No indicator
             hasAnnotations: !!photoData.annotationData,
             annotations: photoData.annotationData || null,
             caption: photoData.caption || '',
