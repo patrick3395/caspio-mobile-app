@@ -63,10 +63,16 @@ import { Subscription, merge } from 'rxjs';
             <span class="status-badge" *ngIf="photo.status">{{ photo.status }}</span>
           </div>
           <!-- Pending Captions/Annotations -->
-          <div class="request-item caption" *ngFor="let cap of pendingCaptions; let i = index">
+          <div class="request-item caption" 
+               *ngFor="let cap of pendingCaptions; let i = index"
+               [class.syncing]="cap.status === 'syncing'"
+               [class.failed]="cap.status === 'failed'">
             <span class="queue-number">{{ pendingPhotos.length + i + 1 }}</span>
             <ion-icon name="text-outline"></ion-icon>
             <span class="request-desc">{{ getCaptionDescription(cap) }}</span>
+            <span class="status-badge" [class.syncing]="cap.status === 'syncing'" [class.failed]="cap.status === 'failed'">
+              {{ getCaptionStatusLabel(cap) }}
+            </span>
           </div>
           <!-- Pending Requests -->
           <div class="request-item" *ngFor="let req of pendingRequests; let i = index">
@@ -441,8 +447,8 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       this.syncingRequests = requests.filter(r => r.status === 'syncing');
       this.failedRequests = requests.filter(r => r.status === 'failed');
       
-      // Load pending captions
-      this.pendingCaptions = await this.indexedDb.getPendingCaptions();
+      // Load ALL pending captions (not just sync-ready ones) so users can see everything in queue
+      this.pendingCaptions = await this.indexedDb.getAllPendingCaptions();
       
       // Load pending photos from uploadOutbox (new LocalImage system)
       try {
@@ -701,6 +707,29 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     }
     
     return `${typeLabel}: update${waitingIndicator}${staleIndicator}`;
+  }
+
+  /**
+   * Get status label for a pending caption
+   */
+  getCaptionStatusLabel(caption: PendingCaptionUpdate): string {
+    const attachIdStr = String(caption.attachId || '');
+    const hasTempId = attachIdStr.startsWith('temp_') || attachIdStr.startsWith('img_');
+    
+    switch (caption.status) {
+      case 'syncing':
+        return 'syncing';
+      case 'failed':
+        return 'failed';
+      case 'synced':
+        return 'synced';
+      case 'pending':
+      default:
+        if (hasTempId) {
+          return 'waiting';
+        }
+        return 'pending';
+    }
   }
 }
 
