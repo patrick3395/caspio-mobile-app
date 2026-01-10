@@ -593,34 +593,39 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
    * - Merges pending captions/drawings into photo arrays
    */
   private async refreshLocalState(): Promise<void> {
-    // 1. Get all LocalImages for this service (EFE points)
-    const localImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_point');
+    // 1. Get all LocalImages for this service (EFE points + FDF)
+    const localEFEImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_point');
+    const localFDFImages = await this.localImageService.getImagesForEntity('fdf', this.roomId);
+    const allLocalImages = [...localEFEImages, ...localFDFImages];
 
     // 2. Regenerate blob URLs from IndexedDB
-    const urlMap = await this.localImageService.refreshBlobUrlsForImages(localImages);
+    const urlMap = await this.localImageService.refreshBlobUrlsForImages(allLocalImages);
 
-    // 3. Update in-memory photo arrays with fresh URLs
-    // For FDF photos
+    // 3. Update FDF photos (object with keys like 'top', 'topUrl', etc.)
     if (this.roomData?.fdfPhotos) {
-      for (const photo of this.roomData.fdfPhotos as any[]) {
-        if (photo.isLocalImage && photo.localImageId) {
-          const newUrl = urlMap.get(photo.localImageId);
+      const fdfPhotos = this.roomData.fdfPhotos;
+      
+      for (const photoType of ['top', 'bottom', 'threshold']) {
+        const imageId = fdfPhotos[`${photoType}ImageId`];
+        if (imageId && fdfPhotos[`${photoType}IsLocalFirst`]) {
+          const newUrl = urlMap.get(imageId);
           if (newUrl) {
-            photo.displayUrl = newUrl;
-            photo.url = newUrl;
-            photo.thumbnailUrl = newUrl;
+            fdfPhotos[`${photoType}Url`] = newUrl;
+            fdfPhotos[`${photoType}DisplayUrl`] = newUrl;
+            console.log(`[RoomElevation] Refreshed FDF ${photoType} URL from LocalImage:`, imageId);
           }
         }
       }
     }
 
-    // For elevation point photos
+    // 4. Update elevation point photos
     if (this.roomData?.elevationPoints) {
       for (const point of this.roomData.elevationPoints) {
         if (point.photos) {
           for (const photo of point.photos as any[]) {
-            if (photo.isLocalImage && photo.localImageId) {
-              const newUrl = urlMap.get(photo.localImageId);
+            const imageId = photo.localImageId || photo.imageId;
+            if (imageId && (photo.isLocalImage || photo.isLocalFirst)) {
+              const newUrl = urlMap.get(imageId);
               if (newUrl) {
                 photo.displayUrl = newUrl;
                 photo.url = newUrl;
@@ -632,7 +637,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     }
 
-    // 4. Merge any pending captions/drawings
+    // 5. Merge any pending captions/drawings
     await this.mergePendingCaptions();
 
     console.log('[RoomElevation] Local state refreshed - URLs regenerated, captions merged');
@@ -1142,8 +1147,58 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       });
     }
     
-    // Also restore any pending FDF photo uploads from IndexedDB
+    // Also restore any pending FDF photo uploads from IndexedDB (legacy system)
     await this.restorePendingFDFPhotos();
+    
+    // CRITICAL: Also load FDF photos from LocalImageService (new local-first system)
+    await this.loadLocalFDFPhotos();
+  }
+  
+  // Load FDF photos from LocalImageService (new local-first system)
+  private async loadLocalFDFPhotos() {
+    try {
+      const fdfPhotos = this.roomData.fdfPhotos;
+      
+      // Get all FDF photos for this room
+      const localFDFImages = await this.localImageService.getImagesForEntity('fdf', this.roomId);
+      console.log(`[RoomElevation] Found ${localFDFImages.length} LocalImage FDF photos for room ${this.roomId}`);
+      
+      for (const localImage of localFDFImages) {
+        const photoType = localImage.photoType || 'Top';  // Default to Top if not specified
+        const photoKey = photoType.toLowerCase();
+        
+        // Only set if not already loaded from server
+        if (!fdfPhotos[photoKey] || fdfPhotos[`${photoKey}IsLocalFirst`]) {
+          // Get display URL
+          let displayUrl = 'assets/img/photo-placeholder.png';
+          try {
+            displayUrl = await this.localImageService.getDisplayUrl(localImage);
+          } catch (e) {
+            console.warn('[RoomElevation] Failed to get LocalImage FDF displayUrl:', e);
+          }
+          
+          // Set the FDF photo data
+          fdfPhotos[photoKey] = true;
+          fdfPhotos[`${photoKey}Url`] = displayUrl;
+          fdfPhotos[`${photoKey}DisplayUrl`] = displayUrl;
+          fdfPhotos[`${photoKey}Caption`] = localImage.caption || fdfPhotos[`${photoKey}Caption`] || '';
+          fdfPhotos[`${photoKey}Drawings`] = localImage.drawings || fdfPhotos[`${photoKey}Drawings`] || null;
+          fdfPhotos[`${photoKey}Loading`] = false;
+          fdfPhotos[`${photoKey}Uploading`] = false;
+          fdfPhotos[`${photoKey}Queued`] = false;
+          fdfPhotos[`${photoKey}ImageId`] = localImage.imageId;
+          fdfPhotos[`${photoKey}LocalBlobId`] = localImage.localBlobId;
+          fdfPhotos[`${photoKey}IsLocalFirst`] = true;
+          fdfPhotos[`${photoKey}HasAnnotations`] = !!(localImage.drawings && localImage.drawings.length > 10);
+          
+          console.log(`[RoomElevation] Loaded local FDF ${photoType} photo: ${localImage.imageId}`);
+        }
+      }
+      
+      this.changeDetectorRef.detectChanges();
+    } catch (error) {
+      console.error('[RoomElevation] Error loading local FDF photos:', error);
+    }
   }
   
   // Restore pending FDF photo uploads from IndexedDB
@@ -1824,6 +1879,62 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             pointData.photos.push(pendingPhotoData);
           }
         }
+        
+        // CRITICAL: Add LocalImages from the new local-first system
+        // This ensures photos captured via LocalImageService persist through page reload
+        const localImagesForPoint = bulkLocalImagesMap.get(pointIdStr) || [];
+        if (localImagesForPoint.length > 0) {
+          console.log(`[RoomElevation]   Adding ${localImagesForPoint.length} LocalImages for point ${pointIdStr}`);
+          
+          for (const localImage of localImagesForPoint) {
+            // Skip if already added (by imageId or attachId)
+            const alreadyExists = pointData.photos.some((p: any) => 
+              String(p.attachId) === localImage.imageId ||
+              String(p.imageId) === localImage.imageId ||
+              String(p.localImageId) === localImage.imageId ||
+              (localImage.attachId && String(p.attachId) === localImage.attachId)
+            );
+            
+            if (alreadyExists) {
+              console.log(`[RoomElevation]     Skipping duplicate LocalImage: ${localImage.imageId}`);
+              continue;
+            }
+            
+            // Get display URL from LocalImageService
+            let displayUrl = 'assets/img/photo-placeholder.png';
+            try {
+              displayUrl = await this.localImageService.getDisplayUrl(localImage);
+            } catch (e) {
+              console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
+            }
+            
+            const localPhotoData: any = {
+              imageId: localImage.imageId,
+              AttachID: localImage.attachId || localImage.imageId,
+              attachId: localImage.attachId || localImage.imageId,
+              localImageId: localImage.imageId,
+              localBlobId: localImage.localBlobId,
+              photoType: localImage.photoType || 'Measurement',  // Use stored photoType!
+              Type: localImage.photoType || 'Measurement',
+              url: displayUrl,
+              displayUrl: displayUrl,
+              thumbnailUrl: displayUrl,
+              caption: localImage.caption || '',
+              Annotation: localImage.caption || '',
+              drawings: localImage.drawings || null,
+              Drawings: localImage.drawings || null,
+              hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
+              uploading: false,         // SILENT SYNC
+              queued: false,            // SILENT SYNC
+              isPending: localImage.status !== 'verified',
+              isLocalImage: true,
+              isLocalFirst: true,
+              _tempId: localImage.imageId,
+            };
+            pointData.photos.push(localPhotoData);
+            console.log(`[RoomElevation]     Added LocalImage: ${localImage.imageId}, photoType: ${localImage.photoType}`);
+          }
+        }
 
         console.log(`[RoomElevation] Point "${templatePoint.name}" complete:`, {
           pointId: pointData.pointId,
@@ -1974,7 +2085,52 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               }
             }
 
-            console.log(`[RoomElevation]     âœ“ Custom point "${existingPoint.PointName}" added:`, {
+            // CRITICAL: Add LocalImages for custom points too
+            const customPointIdStr = String(pointId);
+            const localImagesForCustomPoint = bulkLocalImagesMap.get(customPointIdStr) || [];
+            if (localImagesForCustomPoint.length > 0) {
+              console.log(`[RoomElevation]     Adding ${localImagesForCustomPoint.length} LocalImages for custom point ${customPointIdStr}`);
+              
+              for (const localImage of localImagesForCustomPoint) {
+                // Skip if already added
+                const alreadyExists = customPointData.photos.some((p: any) => 
+                  String(p.imageId) === localImage.imageId ||
+                  String(p.localImageId) === localImage.imageId
+                );
+                
+                if (alreadyExists) continue;
+                
+                let displayUrl = 'assets/img/photo-placeholder.png';
+                try {
+                  displayUrl = await this.localImageService.getDisplayUrl(localImage);
+                } catch (e) {
+                  console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
+                }
+                
+                customPointData.photos.push({
+                  imageId: localImage.imageId,
+                  AttachID: localImage.attachId || localImage.imageId,
+                  attachId: localImage.attachId || localImage.imageId,
+                  localImageId: localImage.imageId,
+                  localBlobId: localImage.localBlobId,
+                  photoType: localImage.photoType || 'Measurement',
+                  Type: localImage.photoType || 'Measurement',
+                  url: displayUrl,
+                  displayUrl: displayUrl,
+                  thumbnailUrl: displayUrl,
+                  caption: localImage.caption || '',
+                  drawings: localImage.drawings || null,
+                  hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
+                  uploading: false,
+                  queued: false,
+                  isPending: localImage.status !== 'verified',
+                  isLocalImage: true,
+                  isLocalFirst: true,
+                });
+              }
+            }
+
+            console.log(`[RoomElevation]     âœ" Custom point "${existingPoint.PointName}" added:`, {
               pointId: customPointData.pointId,
               value: customPointData.value,
               photoCount: customPointData.photos.length
@@ -1984,7 +2140,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
       }
-      console.log('[RoomElevation] âœ“ Custom points check complete');
+      console.log('[RoomElevation] âœ" Custom points check complete');
 
       // STEP 7 (NEW): Merge pending caption updates into all loaded photos
       // This ensures captions added after photo creation are visible on page reload

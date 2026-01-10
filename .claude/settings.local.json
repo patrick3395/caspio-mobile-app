@@ -47,7 +47,8 @@
       "Bash(__NEW_LINE__ echo \"\")",
       "Bash(xargs:*)",
       "Bash(wc:*)",
-      "Bash(git -C /mnt/c/Users/Owner/Caspio log --oneline -20)"
+      "Bash(git -C /mnt/c/Users/Owner/Caspio log --oneline -20)",
+      "WebFetch(domain:dexie.org)"
     ],
     "deny": [],
     "ask": []

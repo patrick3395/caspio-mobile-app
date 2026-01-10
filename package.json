@@ -42,6 +42,7 @@
     "amazon-cognito-identity-js": "^6.3.16",
     "browser-image-compression": "^2.0.2",
     "chart.js": "^4.5.1",
+    "dexie": "^4.2.1",
     "fabric": "^6.9.1",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.12.1",
