@@ -1803,10 +1803,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const key = `${visual.Category}_${item.id}`;
 
         // LAZY LOADING: Only calculate count from bulk-loaded data (no image loading)
+        // CRITICAL FIX: Deduplicate LocalImages that have already synced to prevent double-counting
         const attachments = this.bulkAttachmentsMap.get(visualId) || [];
         const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
         const localImages = this.bulkLocalImagesMap.get(visualId) || [];
-        this.photoCountsByKey[key] = attachments.length + pendingPhotos.length + localImages.length;
+        const attachmentIds = new Set(attachments.map((a: any) => String(a.AttachID)));
+        const unsyncedLocalImages = localImages.filter((img: any) => {
+          if (!img.attachId || img.attachId.startsWith('img_')) return true;
+          return !attachmentIds.has(String(img.attachId));
+        });
+        this.photoCountsByKey[key] = attachments.length + pendingPhotos.length + unsyncedLocalImages.length;
 
         // AUTO-LOAD: If there are LocalImages (unsynced photos), load them immediately
         // This ensures photos captured before navigation persist and show on return
@@ -2118,9 +2124,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.bulkAnnotatedImagesMap = annotatedImages;
       }
 
-      // Calculate total photo count (include LocalImages)
+      // Calculate total photo count (include LocalImages, but deduplicate synced ones)
+      // CRITICAL FIX: LocalImages that have synced will have an attachId that matches an attachment
+      // We must exclude these to prevent double-counting
+      const attachmentIds = new Set(attachments.map((a: any) => String(a.AttachID)));
+      const unsyncedLocalImages = localImages.filter((img: any) => {
+        // If no attachId or attachId starts with img_ (local UUID), it's not synced
+        if (!img.attachId || img.attachId.startsWith('img_')) return true;
+        // If attachId is in the attachments list, it's already synced and would be double-counted
+        return !attachmentIds.has(String(img.attachId));
+      });
+      
       const existingCount = this.visualPhotos[key]?.length || 0;
-      const totalCount = attachments.length + pendingPhotos.length + localImages.length;
+      const totalCount = attachments.length + pendingPhotos.length + unsyncedLocalImages.length;
       this.photoCountsByKey[key] = Math.max(existingCount, totalCount);
 
       // Initialize photo array if not exists
@@ -4959,24 +4975,58 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
               // Save to database using unified caption queue (ALWAYS queues, never direct API)
               // This ensures captions are never lost during sync operations
-              const attachId = String(photo._pendingFileId || photo.attachId || photo.AttachID || '');
               const visualId = photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);
               
               photo._localUpdate = true; // Mark as local update to prevent server overwriting
               
-              this.foundationData.queueCaptionUpdate(
-                attachId,
-                newCaption,
-                'visual',
-                {
-                  serviceId: this.serviceId,
-                  visualId: String(visualId)
+              // CRITICAL FIX: For LocalImages (new system), use imageId and update LocalImage record directly
+              // The attachId/AttachID might be set to imageId as fallback, which is NOT a valid Caspio ID
+              if (photo.isLocalImage && photo.imageId) {
+                // Update LocalImage record directly (this is the source of truth for unsynced images)
+                this.localImageService.updateCaptionAndDrawings(
+                  photo.imageId,
+                  newCaption,
+                  undefined // Don't change drawings
+                ).then(() => {
+                  console.log('[CAPTION] ✅ LocalImage caption updated:', photo.imageId);
+                }).catch((error) => {
+                  console.error('[CAPTION] Error updating LocalImage caption:', error);
+                });
+                
+                // Also queue for sync if image has a real attachId already
+                const realAttachId = photo.attachId && !photo.attachId.startsWith('img_') ? photo.attachId : null;
+                if (realAttachId) {
+                  this.foundationData.queueCaptionUpdate(
+                    realAttachId,
+                    newCaption,
+                    'visual',
+                    {
+                      serviceId: this.serviceId,
+                      visualId: String(visualId)
+                    }
+                  ).catch((error) => {
+                    console.error('[CAPTION] Error queueing caption for synced LocalImage:', error);
+                  });
                 }
-              ).then(() => {
-                console.log('[CAPTION] ✅ Caption queued for sync:', attachId);
-              }).catch((error) => {
-                console.error('[CAPTION] Error queueing caption:', error);
-              });
+                // If no real attachId yet, caption will sync when the image syncs (from LocalImage record)
+              } else {
+                // Legacy system - use attachId directly
+                const attachId = String(photo._pendingFileId || photo.attachId || photo.AttachID || '');
+                
+                this.foundationData.queueCaptionUpdate(
+                  attachId,
+                  newCaption,
+                  'visual',
+                  {
+                    serviceId: this.serviceId,
+                    visualId: String(visualId)
+                  }
+                ).then(() => {
+                  console.log('[CAPTION] ✅ Caption queued for sync:', attachId);
+                }).catch((error) => {
+                  console.error('[CAPTION] Error queueing caption:', error);
+                });
+              }
 
               return true; // Close popup immediately
             }
