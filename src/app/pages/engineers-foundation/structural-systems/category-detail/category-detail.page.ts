@@ -3317,10 +3317,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * CRITICAL: Using a stable key prevents Angular from remounting components
    * which causes the "disappear then reappear" issue
    */
-  trackByPhotoId(index: number, photo: any): any {
-    // Prefer stable imageId from new local-first system
-    // Falls back to AttachID/id for legacy photos
-    return photo.imageId || photo.AttachID || photo.id || index;
+  trackByPhotoId(index: number, photo: any): string {
+    // MUST return stable UUID - NEVER fall back to index (causes re-renders)
+    // Priority: imageId (new local-first) > _tempId > AttachID > generated emergency ID
+    const stableId = photo.imageId || photo._tempId || photo.AttachID || photo.id;
+    if (stableId) {
+      return String(stableId);
+    }
+    // Generate emergency stable ID from available data - never use index
+    console.warn('[trackBy] Photo missing stable ID, generating emergency ID:', photo);
+    return `photo_${photo.VisualID || photo.PointID || 'unknown'}_${photo.fileName || photo.Photo || index}`;
   }
 
   /**

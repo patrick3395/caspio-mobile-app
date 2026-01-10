@@ -2238,33 +2238,109 @@ export class BackgroundSyncService {
    * Deletes old cached photos that aren't in active services
    */
   private async performStorageCleanup(): Promise<void> {
-    // First, prune verified local blobs
+    // First, prune verified local blobs using standard retention policy
     await this.pruneVerifiedBlobs();
+    
     try {
-      const stats = await this.indexedDb.getStorageStats();
+      // ============================================================================
+      // STORAGE PRESSURE PRUNING (Requirement F)
+      // If usage/quota > 75%, prune oldest verified blobs using LRU by updatedAt
+      // ============================================================================
       
-      // Only cleanup if using >70% of quota
-      if (stats.percent < 70) {
-        return;
+      let usagePercent = 0;
+      
+      // Use navigator.storage.estimate() for accurate storage measurement
+      if ('storage' in navigator && 'estimate' in (navigator as any).storage) {
+        try {
+          const estimate = await (navigator as any).storage.estimate();
+          usagePercent = ((estimate.usage || 0) / (estimate.quota || 1)) * 100;
+          console.log(`[BackgroundSync] Storage: ${(estimate.usage / (1024 * 1024)).toFixed(1)}MB / ${(estimate.quota / (1024 * 1024)).toFixed(1)}MB (${usagePercent.toFixed(1)}%)`);
+        } catch (estimateErr) {
+          console.warn('[BackgroundSync] navigator.storage.estimate() failed, using fallback');
+          const stats = await this.indexedDb.getStorageStats();
+          usagePercent = stats.percent;
+        }
+      } else {
+        // Fallback for browsers without navigator.storage
+        const stats = await this.indexedDb.getStorageStats();
+        usagePercent = stats.percent;
       }
       
-      console.log(`[BackgroundSync] Storage at ${stats.percent.toFixed(1)}%, starting cleanup...`);
-      
-      // Get active service IDs from recent cached data
-      const activeServiceIds = await this.getActiveServiceIds();
-      
-      // Delete cached photos older than 30 days not in active services
-      const deleted = await this.indexedDb.cleanupOldCachedPhotos(activeServiceIds, 30);
-      
-      if (deleted > 0) {
-        console.log(`[BackgroundSync] Cleanup complete: deleted ${deleted} old cached photos`);
+      // Check if storage pressure requires aggressive pruning
+      if (usagePercent > 75) {
+        console.log(`[BackgroundSync] ⚠️ Storage pressure: ${usagePercent.toFixed(1)}% - starting aggressive LRU pruning`);
         
-        // Log new storage stats
-        const newStats = await this.indexedDb.getStorageStats();
-        console.log(`[BackgroundSync] Storage now at ${newStats.percent.toFixed(1)}%`);
+        // Get verified images ordered by updatedAt (oldest first for LRU)
+        const verifiedImages = await this.indexedDb.getVerifiedImagesOrderedByAge();
+        console.log(`[BackgroundSync] Found ${verifiedImages.length} verified images with local blobs eligible for pruning`);
+        
+        let prunedCount = 0;
+        
+        // Prune oldest verified images until storage is under 70%
+        for (const image of verifiedImages) {
+          if (image.localBlobId && image.remoteLoadedInUI) {
+            await this.localImageService.pruneLocalBlob(image.imageId);
+            prunedCount++;
+            
+            // Re-check storage every 5 images to avoid over-pruning
+            if (prunedCount % 5 === 0) {
+              if ('storage' in navigator && 'estimate' in (navigator as any).storage) {
+                const newEstimate = await (navigator as any).storage.estimate();
+                const newPercent = ((newEstimate.usage || 0) / (newEstimate.quota || 1)) * 100;
+                
+                if (newPercent < 70) {
+                  console.log(`[BackgroundSync] Storage now at ${newPercent.toFixed(1)}%, stopping pruning`);
+                  break;
+                }
+              }
+            }
+          }
+        }
+        
+        if (prunedCount > 0) {
+          console.log(`[BackgroundSync] ✅ Pruned ${prunedCount} verified blobs due to storage pressure`);
+        }
+      }
+      
+      // Also prune verified blobs older than 72h for non-active jobs (retention policy)
+      await this.pruneOldVerifiedBlobs(72 * 60 * 60 * 1000);
+      
+      // Legacy cleanup: Get active service IDs and clean old cached photos
+      if (usagePercent > 70) {
+        const activeServiceIds = await this.getActiveServiceIds();
+        const deleted = await this.indexedDb.cleanupOldCachedPhotos(activeServiceIds, 30);
+        
+        if (deleted > 0) {
+          console.log(`[BackgroundSync] Cleanup complete: deleted ${deleted} old cached photos`);
+        }
       }
     } catch (err) {
       console.warn('[BackgroundSync] Storage cleanup error:', err);
+    }
+  }
+  
+  /**
+   * Prune verified blobs older than retention period (Requirement F)
+   */
+  private async pruneOldVerifiedBlobs(retentionMs: number): Promise<void> {
+    try {
+      const verifiedImages = await this.indexedDb.getVerifiedImagesOrderedByAge();
+      const cutoffTime = Date.now() - retentionMs;
+      let prunedCount = 0;
+      
+      for (const image of verifiedImages) {
+        // Only prune if older than retention period and remote has been loaded
+        if (image.updatedAt < cutoffTime && image.localBlobId && image.remoteLoadedInUI) {
+          await this.localImageService.pruneLocalBlob(image.imageId);
+          prunedCount++;
+        }
+      }
+      
+      if (prunedCount > 0) {
+        console.log(`[BackgroundSync] Pruned ${prunedCount} verified blobs older than ${retentionMs / (60 * 60 * 1000)}h`);
+      }
+    } catch (err) {
+      console.warn('[BackgroundSync] Error pruning old verified blobs:', err);
     }
   }
 

@@ -983,8 +983,16 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     return item.id || item.TemplateID || item.ItemID || index;
   }
 
-  trackByPhotoId(index: number, photo: any): any {
-    return photo.AttachID || photo.id || photo.PK_ID || index;
+  trackByPhotoId(index: number, photo: any): string {
+    // MUST return stable UUID - NEVER fall back to index (causes re-renders)
+    // Priority: imageId (new local-first) > _tempId > AttachID > generated emergency ID
+    const stableId = photo.imageId || photo._tempId || photo.AttachID || photo.id || photo.PK_ID;
+    if (stableId) {
+      return String(stableId);
+    }
+    // Generate emergency stable ID from available data - never use index
+    console.warn('[trackBy] Photo missing stable ID, generating emergency ID:', photo);
+    return `photo_${photo.VisualID || photo.LBWID || 'unknown'}_${photo.fileName || photo.Photo || index}`;
   }
 
       trackByOption(index: number, option: string): string {

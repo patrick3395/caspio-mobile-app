@@ -1,4 +1,18 @@
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
+
+// ============================================================================
+// REACTIVE DATABASE CHANGE EVENTS (Requirement E)
+// ============================================================================
+
+export interface DbChangeEvent {
+  store: 'localImages' | 'localBlobs' | 'uploadOutbox' | 'pendingRequests' | 'cachedServiceData';
+  action: 'create' | 'update' | 'delete';
+  key: string;
+  entityType?: string;
+  entityId?: string;
+  serviceId?: string;
+}
 
 export interface PendingRequest {
   requestId: string;
@@ -103,8 +117,11 @@ export interface LocalImage {
   caption: string;
   drawings: string;
   createdAt: number;
-  updatedAt: number;
+  updatedAt: number;            // Alias for updatedAtLocal - epoch ms of last local change
   lastError: string | null;
+  
+  // Version tracking for cache freshness (Requirement E)
+  localVersion: number;         // Incremented on every local write
   
   // Verification tracking
   remoteVerifiedAt: number | null;  // When remote was confirmed loadable
@@ -144,8 +161,29 @@ export class IndexedDbService {
   private version = 6;  // Bumped for localImages/localBlobs/uploadOutbox stores
   private db: IDBDatabase | null = null;
 
+  // ============================================================================
+  // REACTIVE DATABASE CHANGE EVENTS (Requirement E)
+  // Components subscribe to this to refresh UI when IndexedDB changes
+  // ============================================================================
+  public dbChange$ = new Subject<DbChangeEvent>();
+  
+  // Convenience subjects for specific store changes
+  public imageChange$ = new Subject<DbChangeEvent>();
+
   constructor() {
     this.initDatabase();
+  }
+  
+  /**
+   * Emit a database change event for reactive UI updates
+   */
+  private emitChange(event: DbChangeEvent): void {
+    this.dbChange$.next(event);
+    
+    // Also emit to specific subjects for convenience
+    if (event.store === 'localImages') {
+      this.imageChange$.next(event);
+    }
   }
 
   /**
@@ -3882,6 +3920,7 @@ export class IndexedDbService {
       createdAt: now,
       updatedAt: now,
       lastError: null,
+      localVersion: 1,           // Initial version for cache freshness tracking
       remoteVerifiedAt: null,
       remoteLoadedInUI: false
     };
@@ -3908,6 +3947,17 @@ export class IndexedDbService {
 
       transaction.oncomplete = () => {
         console.log('[IndexedDB] ✅ Local image created:', imageId, 'blob:', blobId);
+        
+        // Emit change event for reactive UI updates (Requirement E)
+        this.emitChange({
+          store: 'localImages',
+          action: 'create',
+          key: imageId,
+          entityType: entityType,
+          entityId: entityId,
+          serviceId: serviceId
+        });
+        
         resolve(localImage);
       };
 
@@ -4001,6 +4051,41 @@ export class IndexedDbService {
   }
 
   /**
+   * Get all verified images ordered by updatedAt (oldest first) for LRU pruning
+   * Used for storage pressure cleanup (Requirement F)
+   */
+  async getVerifiedImagesOrderedByAge(): Promise<LocalImage[]> {
+    const db = await this.ensureDb();
+    
+    if (!db.objectStoreNames.contains('localImages')) {
+      return [];
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['localImages'], 'readonly');
+      const store = transaction.objectStore('localImages');
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const allImages = request.result || [];
+        
+        // Filter to verified images with local blobs and that have been loaded in UI
+        const verifiedWithBlobs = allImages.filter((img: LocalImage) => 
+          img.status === 'verified' && 
+          img.localBlobId && 
+          img.remoteLoadedInUI
+        );
+        
+        // Sort by updatedAt ascending (oldest first for LRU)
+        verifiedWithBlobs.sort((a: LocalImage, b: LocalImage) => a.updatedAt - b.updatedAt);
+        
+        resolve(verifiedWithBlobs);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
    * Get local image by attachId (for looking up after sync)
    */
   async getLocalImageByAttachId(attachId: string): Promise<LocalImage | null> {
@@ -4044,15 +4129,28 @@ export class IndexedDbService {
           return;
         }
 
+        // Increment localVersion on every write for cache freshness (Requirement E)
         const updated: LocalImage = {
           ...existing,
           ...updates,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
+          localVersion: (existing.localVersion || 0) + 1
         };
 
         const putRequest = store.put(updated);
         putRequest.onsuccess = () => {
-          console.log('[IndexedDB] Local image updated:', imageId, 'status:', updated.status);
+          console.log('[IndexedDB] Local image updated:', imageId, 'status:', updated.status, 'version:', updated.localVersion);
+          
+          // Emit change event for reactive UI updates (Requirement E)
+          this.emitChange({
+            store: 'localImages',
+            action: 'update',
+            key: imageId,
+            entityType: updated.entityType,
+            entityId: updated.entityId,
+            serviceId: updated.serviceId
+          });
+          
           resolve();
         };
         putRequest.onerror = () => reject(putRequest.error);

@@ -7,6 +7,7 @@ import { BackgroundSyncService } from '../../services/background-sync.service';
 import { OfflineDataCacheService } from '../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../services/offline-template.service';
 import { OfflineService } from '../../services/offline.service';
+import { LocalImageService } from '../../services/local-image.service';
 
 interface CacheEntry<T> {
   value: Promise<T>;
@@ -43,7 +44,8 @@ export class EngineersFoundationDataService {
     private readonly backgroundSync: BackgroundSyncService,
     private readonly offlineCache: OfflineDataCacheService,
     private readonly offlineTemplate: OfflineTemplateService,
-    private readonly offlineService: OfflineService
+    private readonly offlineService: OfflineService,
+    private readonly localImageService: LocalImageService
   ) {
     this.subscribeToSyncEvents();
   }
@@ -143,6 +145,25 @@ export class EngineersFoundationDataService {
         
         // Emit cache invalidated event so pages reload with fresh data (debounced)
         this.debouncedCacheInvalidation(event.serviceId, `background_refresh_${event.dataType}`);
+      })
+    );
+    
+    // REACTIVE SUBSCRIPTION: Subscribe to IndexedDB image changes (Requirement E)
+    // This provides real-time UI updates when images are created/updated in IndexedDB
+    this.syncSubscriptions.push(
+      this.indexedDb.imageChange$.subscribe(event => {
+        console.log('[DataService] IndexedDB image change:', event.action, event.key, 'entity:', event.entityType, event.entityId);
+        
+        // Clear attachment caches for the affected entity type
+        if (event.entityType === 'visual') {
+          this.visualAttachmentsCache.clear();
+        } else if (event.entityType === 'efe_point') {
+          this.efeAttachmentsCache.clear();
+        }
+        
+        // Emit cache invalidated event so pages reload with fresh data
+        // Use debounced version to batch rapid changes (e.g., multiple photo captures)
+        this.debouncedCacheInvalidation(event.serviceId, `indexeddb_${event.action}_${event.entityType}`);
       })
     );
   }
@@ -392,13 +413,74 @@ export class EngineersFoundationDataService {
     if (!visualId) {
       return [];
     }
-    console.log('[Visual Data] Loading attachments for VisualID:', visualId);
+    const visualIdStr = String(visualId);
+    console.log('[Visual Data] Loading attachments for VisualID:', visualIdStr);
 
-    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
-    const attachments = await this.offlineTemplate.getVisualAttachments(visualId);
-    console.log('[Visual Data] Loaded attachments:', attachments.length, '(from IndexedDB + API fallback)');
+    // OFFLINE-FIRST: Get legacy attachments from OfflineTemplateService (cached/synced photos)
+    const legacyAttachments = await this.offlineTemplate.getVisualAttachments(visualId);
+    
+    // NEW LOCAL-FIRST: Get local images for this visual from LocalImageService
+    const localImages = await this.localImageService.getImagesForEntity('visual', visualIdStr);
+    
+    // Build a set of imageIds we already have from the new system
+    const localImageIds = new Set(localImages.map(img => img.imageId));
+    
+    // Convert local images to attachment format for UI compatibility
+    const localAttachments = await Promise.all(localImages.map(async (img) => {
+      const displayUrl = await this.localImageService.getDisplayUrl(img);
+      return {
+        // Stable identifiers
+        imageId: img.imageId,              // STABLE UUID for trackBy
+        AttachID: img.attachId || img.imageId,  // Real AttachID after sync, else imageId
+        attachId: img.attachId || img.imageId,
+        _tempId: img.imageId,
+        _pendingFileId: img.imageId,
+        
+        // Entity references
+        VisualID: img.entityId,
+        entityId: img.entityId,
+        entityType: img.entityType,
+        serviceId: img.serviceId,
+        
+        // Content
+        Annotation: img.caption,
+        caption: img.caption,
+        drawings: img.drawings,
+        fileName: img.fileName,
+        
+        // Display URLs
+        Photo: displayUrl,
+        url: displayUrl,
+        thumbnailUrl: displayUrl,
+        displayUrl: displayUrl,
+        _thumbnailUrl: displayUrl,
+        
+        // Status flags
+        status: img.status,
+        localVersion: img.localVersion,
+        _syncing: img.status === 'queued' || img.status === 'uploading',
+        uploading: img.status === 'uploading',
+        queued: img.status === 'queued' || img.status === 'local_only',
+        isPending: img.status !== 'verified',
+        isLocalFirst: true,
+      };
+    }));
+    
+    // Filter legacy attachments to exclude any that have been migrated to new system
+    // (match by AttachID to imageId or attachId)
+    const filteredLegacy = legacyAttachments.filter((att: any) => {
+      const attId = String(att.AttachID || att.attachId || '');
+      // Keep if not in local images (by attachId match)
+      return !localImages.some(img => img.attachId === attId);
+    });
+    
+    // Merge: local-first images first (most recent), then legacy
+    const merged = [...localAttachments, ...filteredLegacy];
+    
+    console.log('[Visual Data] Loaded attachments:', merged.length, 
+      `(${localAttachments.length} local-first + ${filteredLegacy.length} legacy)`);
 
-    return attachments;
+    return merged;
   }
 
   async getEFEPoints(roomId: string | number): Promise<any[]> {
@@ -420,17 +502,75 @@ export class EngineersFoundationDataService {
       return [];
     }
 
-    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
     const ids = Array.isArray(pointIds) ? pointIds : [pointIds];
-    const allAttachments: any[] = [];
-
+    
+    // OFFLINE-FIRST: Get legacy attachments from OfflineTemplateService
+    const legacyAttachments: any[] = [];
     for (const pointId of ids) {
       const attachments = await this.offlineTemplate.getEFEPointAttachments(pointId);
-      allAttachments.push(...attachments);
+      legacyAttachments.push(...attachments);
     }
+    
+    // NEW LOCAL-FIRST: Get local images for all points from LocalImageService
+    const localImages: any[] = [];
+    for (const pointId of ids) {
+      const images = await this.localImageService.getImagesForEntity('efe_point', pointId);
+      localImages.push(...images);
+    }
+    
+    // Convert local images to attachment format for UI compatibility
+    const localAttachments = await Promise.all(localImages.map(async (img) => {
+      const displayUrl = await this.localImageService.getDisplayUrl(img);
+      return {
+        // Stable identifiers
+        imageId: img.imageId,              // STABLE UUID for trackBy
+        AttachID: img.attachId || img.imageId,  // Real AttachID after sync, else imageId
+        attachId: img.attachId || img.imageId,
+        _tempId: img.imageId,
+        _pendingFileId: img.imageId,
+        
+        // Entity references
+        PointID: img.entityId,
+        entityId: img.entityId,
+        entityType: img.entityType,
+        serviceId: img.serviceId,
+        
+        // Content
+        Type: 'Measurement',  // Default type for EFE photos
+        drawings: img.drawings,
+        fileName: img.fileName,
+        
+        // Display URLs
+        Photo: displayUrl,
+        url: displayUrl,
+        thumbnailUrl: displayUrl,
+        displayUrl: displayUrl,
+        _thumbnailUrl: displayUrl,
+        
+        // Status flags
+        status: img.status,
+        localVersion: img.localVersion,
+        _syncing: img.status === 'queued' || img.status === 'uploading',
+        uploading: img.status === 'uploading',
+        queued: img.status === 'queued' || img.status === 'local_only',
+        isPending: img.status !== 'verified',
+        isLocalFirst: true,
+        isEFE: true,
+      };
+    }));
+    
+    // Filter legacy attachments to exclude any that have been migrated to new system
+    const filteredLegacy = legacyAttachments.filter((att: any) => {
+      const attId = String(att.AttachID || att.attachId || '');
+      return !localImages.some(img => img.attachId === attId);
+    });
+    
+    // Merge: local-first images first, then legacy
+    const merged = [...localAttachments, ...filteredLegacy];
 
-    console.log('[EFE Data] Loaded attachments for', ids.length, 'points:', allAttachments.length, '(from IndexedDB + API fallback)');
-    return allAttachments;
+    console.log('[EFE Data] Loaded attachments for', ids.length, 'points:', merged.length,
+      `(${localAttachments.length} local-first + ${filteredLegacy.length} legacy)`);
+    return merged;
   }
 
   private async resolveWithCache<T>(
@@ -604,145 +744,82 @@ export class EngineersFoundationDataService {
   // ============================================
 
   /**
-   * Upload a photo for a visual - OFFLINE-FIRST approach
-   * 1. Store file in IndexedDB FIRST (instant, survives app restart)
-   * 2. Generate blob URL for immediate display
-   * 3. Queue for background sync
-   * 4. Return immediately - never block for network
+   * Upload a photo for a visual - LOCAL-FIRST approach using LocalImageService
+   * Uses stable UUIDs that never change, preventing image disappearance during sync.
+   * 
+   * Flow:
+   * 1. LocalImageService.captureImage() stores blob + metadata + queues for upload atomically
+   * 2. Returns stable imageId immediately (use for Angular trackBy)
+   * 3. BackgroundSync.processUploadOutbox() handles upload
+   * 4. Local blob displayed until remote verified
    * 
    * @param visualId - Visual ID (temp or real)
    * @param file - Photo file
    * @param caption - Photo caption
    * @param drawings - Annotation JSON data
-   * @param originalFile - Original uncompressed file (optional)
-   * @param serviceId - Service ID for grouping (optional but recommended)
+   * @param originalFile - Original uncompressed file (optional, unused)
+   * @param serviceId - Service ID for grouping (required for proper sync)
    */
   async uploadVisualPhoto(visualId: number | string, file: File, caption: string = '', drawings?: string, originalFile?: File, serviceId?: string): Promise<any> {
-    console.log('[Visual Photo] OFFLINE-FIRST upload for VisualID:', visualId, 'ServiceID:', serviceId);
+    console.log('[Visual Photo] LOCAL-FIRST upload via LocalImageService for VisualID:', visualId, 'ServiceID:', serviceId);
     
     const visualIdStr = String(visualId);
-    const isTempId = visualIdStr.startsWith('temp_');
-
-    // Generate unique temp photo ID
-    const tempPhotoId = `temp_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const effectiveServiceId = serviceId || '';
     
-    // Check if this exact photo is already queued (prevent duplicates)
-    const pending = await this.indexedDb.getPendingRequests();
-    const alreadyQueued = pending.some(r => 
-      r.type === 'UPLOAD_FILE' &&
-      r.endpoint === 'VISUAL_PHOTO_UPLOAD' &&
-      (isTempId 
-        ? (r.data.tempVisualId === visualIdStr)
-        : (r.data.visualId === parseInt(visualIdStr, 10))
-      ) &&
-      r.data.fileName === file.name &&
-      r.status !== 'synced'
+    // Use LocalImageService for proper local-first handling with stable UUIDs
+    // This stores blob + metadata + outbox item in a single atomic transaction
+    const localImage = await this.localImageService.captureImage(
+      file,
+      'visual',
+      visualIdStr,
+      effectiveServiceId,
+      caption || '',
+      drawings || ''
     );
 
-    if (alreadyQueued) {
-      console.log('[Visual Photo] Photo already queued, skipping duplicate');
-      const blobUrl = URL.createObjectURL(file);
-      return {
-        AttachID: tempPhotoId,
-        thumbnailUrl: blobUrl,
-        _thumbnailUrl: blobUrl,
-        _duplicate: true,
-      };
-    }
-    
-    // STEP 1: Store file in IndexedDB FIRST (survives app restart)
-    await this.indexedDb.storePhotoBlob(tempPhotoId, file, {
-      visualId: visualIdStr,
-      serviceId: serviceId || '',
+    // Get display URL (will be local blob URL)
+    const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+    console.log('[Visual Photo] ✅ Image captured with stable ID:', localImage.imageId, 'status:', localImage.status);
+
+    // Return immediately with stable imageId - NEVER WAIT FOR NETWORK
+    // The imageId is a stable UUID that never changes (safe for Angular trackBy)
+    return {
+      // Stable identifiers (use imageId for trackBy)
+      imageId: localImage.imageId,           // STABLE UUID - use for Angular keys
+      AttachID: localImage.imageId,          // Legacy compatibility - maps to imageId initially
+      attachId: localImage.imageId,          // Lowercase version for caption/annotation updates
+      _tempId: localImage.imageId,           // For backward compatibility with existing code
+      _pendingFileId: localImage.imageId,    // For IndexedDB lookups when updating caption/drawings
+      
+      // Entity references
+      VisualID: visualIdStr,
+      entityId: visualIdStr,
+      entityType: 'visual',
+      serviceId: effectiveServiceId,
+      
+      // Content
+      Annotation: caption,
       caption: caption || '',
       drawings: drawings || '',
-      status: 'pending'
-    });
-
-    // STEP 2: Generate fresh blob URL for immediate display
-    const blobUrl = await this.indexedDb.getPhotoBlobUrl(tempPhotoId) || URL.createObjectURL(file);
-
-    // STEP 3: Queue for background sync
-    if (isTempId) {
-      // Visual not synced - queue with dependency
-      const allRequests = await this.indexedDb.getAllRequests();
-      const visualRequest = allRequests.find(r => r.tempId === visualIdStr);
-      const dependencies = visualRequest ? [visualRequest.requestId] : [];
-
-      if (dependencies.length === 0) {
-        console.warn('[Visual Photo] Visual request not found for', visualIdStr, '- photo may sync before visual!');
-      } else {
-        console.log('[Visual Photo] Photo depends on visual request:', visualRequest?.requestId);
-      }
-
-      await this.indexedDb.addPendingRequest({
-        type: 'UPLOAD_FILE',
-        tempId: tempPhotoId,
-        endpoint: 'VISUAL_PHOTO_UPLOAD',
-        method: 'POST',
-        data: {
-          tempVisualId: visualIdStr,
-          fileId: tempPhotoId,
-          caption: caption || '',
-          drawings: drawings || '',
-          fileName: file.name,
-          fileSize: file.size,
-          serviceId: serviceId || '',
-        },
-        dependencies: dependencies,
-        status: 'pending',
-        priority: 'normal',
-      });
-
-      console.log('[Visual Photo] ✅ Photo stored in IndexedDB and queued (waiting for Visual)');
-    } else {
-      // Visual has real ID - queue for immediate sync
-      const visualIdNum = parseInt(visualIdStr, 10);
-      const idempotencyKey = `photo_upload_${visualIdNum}_${file.name}_${file.size}`;
+      fileName: localImage.fileName,
+      fileSize: localImage.fileSize,
       
-      await this.indexedDb.addPendingRequest({
-        type: 'UPLOAD_FILE',
-        tempId: tempPhotoId,
-        endpoint: 'VISUAL_PHOTO_UPLOAD',
-        method: 'POST',
-        data: {
-          visualId: visualIdNum,
-          fileId: tempPhotoId,
-          caption: caption || '',
-          drawings: drawings || '',
-          fileName: file.name,
-          fileSize: file.size,
-          idempotencyKey: idempotencyKey,
-          serviceId: serviceId || '',
-        },
-        dependencies: [],
-        status: 'pending',
-        priority: 'high',
-      });
-
-      console.log('[Visual Photo] ✅ Photo stored in IndexedDB and queued for upload');
-    }
-
-    // Sync will happen on next 60-second interval (batched sync)
-
-    // Return immediately with blob URL - NEVER WAIT FOR NETWORK
-    return {
-      AttachID: tempPhotoId,
-      attachId: tempPhotoId,  // CRITICAL: lowercase version for caption/annotation updates
-      VisualID: visualIdStr,
-      Annotation: caption,
-      Photo: blobUrl,
-      url: blobUrl,
-      thumbnailUrl: blobUrl,
-      _tempId: tempPhotoId,
-      _pendingFileId: tempPhotoId,  // CRITICAL: for IndexedDB lookups when updating caption/drawings
-      _thumbnailUrl: blobUrl,
-      _syncing: true,
-      uploading: false,
-      queued: true,
-      isPending: true,
+      // Display URLs (local blob - stable during sync)
+      Photo: displayUrl,
+      url: displayUrl,
+      thumbnailUrl: displayUrl,
+      displayUrl: displayUrl,
+      _thumbnailUrl: displayUrl,
+      
+      // Status flags
+      status: localImage.status,
+      _syncing: localImage.status === 'queued' || localImage.status === 'uploading',
+      uploading: localImage.status === 'uploading',
+      queued: localImage.status === 'queued' || localImage.status === 'local_only',
+      isPending: localImage.status !== 'verified',
       isObjectUrl: true,
-      serviceId: serviceId || '',
+      isLocalFirst: true,  // Flag indicating new local-first system
     };
   }
 
@@ -1289,116 +1366,82 @@ export class EngineersFoundationDataService {
   // ============================================
 
   /**
-   * Upload EFE point photo (offline-first pattern with point dependency)
-   */
-  /**
-   * Upload a photo for an EFE point - OFFLINE-FIRST approach
-   * 1. Store file in IndexedDB FIRST (instant, survives app restart)
-   * 2. Generate blob URL for immediate display
-   * 3. Queue for background sync
-   * 4. Return immediately - never block for network
+   * Upload a photo for an EFE point - LOCAL-FIRST approach using LocalImageService
+   * Uses stable UUIDs that never change, preventing image disappearance during sync.
+   * 
+   * Flow:
+   * 1. LocalImageService.captureImage() stores blob + metadata + queues for upload atomically
+   * 2. Returns stable imageId immediately (use for Angular trackBy)
+   * 3. BackgroundSync.processUploadOutbox() handles upload
+   * 4. Local blob displayed until remote verified
    * 
    * @param pointId - EFE Point ID (temp or real)
    * @param file - Photo file
    * @param photoType - Photo type (Measurement, etc.)
    * @param drawings - Annotation JSON data
-   * @param serviceId - Service ID for grouping (optional but recommended)
+   * @param serviceId - Service ID for grouping (required for proper sync)
    */
   async uploadEFEPointPhoto(pointId: number | string, file: File, photoType: string = 'Measurement', drawings?: string, serviceId?: string): Promise<any> {
-    console.log('[EFE Photo] OFFLINE-FIRST upload for PointID:', pointId, 'ServiceID:', serviceId);
+    console.log('[EFE Photo] LOCAL-FIRST upload via LocalImageService for PointID:', pointId, 'ServiceID:', serviceId);
 
     const pointIdStr = String(pointId);
-    const isTempId = pointIdStr.startsWith('temp_');
+    const effectiveServiceId = serviceId || '';
 
-    // Generate temp photo ID
-    const tempPhotoId = `temp_efe_photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Use LocalImageService for proper local-first handling with stable UUIDs
+    // This stores blob + metadata + outbox item in a single atomic transaction
+    const localImage = await this.localImageService.captureImage(
+      file,
+      'efe_point',
+      pointIdStr,
+      effectiveServiceId,
+      '',  // EFE photos don't use caption in the same way
+      drawings || ''
+    );
 
-    // STEP 1: Store file in IndexedDB FIRST (survives app restart)
-    await this.indexedDb.storeEFEPhotoFile(tempPhotoId, file, pointIdStr, photoType, drawings, '', serviceId);
+    // Get display URL (will be local blob URL)
+    const displayUrl = await this.localImageService.getDisplayUrl(localImage);
 
-    // STEP 2: Generate fresh blob URL for immediate display
-    const blobUrl = await this.indexedDb.getPhotoBlobUrl(tempPhotoId) || URL.createObjectURL(file);
+    console.log('[EFE Photo] ✅ Image captured with stable ID:', localImage.imageId, 'status:', localImage.status);
 
-    // STEP 3: Queue for background sync
-    if (isTempId) {
-      // Point not synced - queue with dependency
-      const allRequests = await this.indexedDb.getAllRequests();
-      const pointRequest = allRequests.find(r => r.tempId === pointIdStr);
-      const dependencies = pointRequest ? [pointRequest.requestId] : [];
-      
-      if (dependencies.length === 0) {
-        console.warn('[EFE Photo] Point request not found for', pointIdStr, '- photo may sync before point!');
-      } else {
-        console.log('[EFE Photo] Photo depends on point request:', pointRequest?.requestId);
-      }
-
-      await this.indexedDb.addPendingRequest({
-        type: 'UPLOAD_FILE',
-        tempId: tempPhotoId,
-        endpoint: 'EFE_POINT_PHOTO_UPLOAD',
-        method: 'POST',
-        data: {
-          tempPointId: pointIdStr,
-          fileId: tempPhotoId,
-          photoType: photoType || 'Measurement',
-          drawings: drawings || '',
-          fileName: file.name,
-          fileSize: file.size,
-          serviceId: serviceId || '',
-        },
-        dependencies: dependencies,
-        status: 'pending',
-        priority: 'normal',
-      });
-
-      console.log('[EFE Photo] ✅ Photo stored in IndexedDB and queued (waiting for Point)');
-    } else {
-      // Point has real ID - queue for immediate sync
-      const pointIdNum = parseInt(pointIdStr, 10);
-      
-      await this.indexedDb.addPendingRequest({
-        type: 'UPLOAD_FILE',
-        tempId: tempPhotoId,
-        endpoint: 'EFE_POINT_PHOTO_UPLOAD',
-        method: 'POST',
-        data: {
-          pointId: pointIdNum,
-          fileId: tempPhotoId,
-          photoType: photoType || 'Measurement',
-          drawings: drawings || '',
-          fileName: file.name,
-          fileSize: file.size,
-          serviceId: serviceId || '',
-        },
-        dependencies: [],
-        status: 'pending',
-        priority: 'high',
-      });
-
-      console.log('[EFE Photo] ✅ Photo stored in IndexedDB and queued for upload');
-    }
-
-    // Sync will happen on next 60-second interval (batched sync)
-
-    // Return immediately with blob URL - NEVER WAIT FOR NETWORK
+    // Return immediately with stable imageId - NEVER WAIT FOR NETWORK
+    // The imageId is a stable UUID that never changes (safe for Angular trackBy)
     return {
-      AttachID: tempPhotoId,
-      attachId: tempPhotoId,  // CRITICAL: lowercase version for caption/annotation updates
+      // Stable identifiers (use imageId for trackBy)
+      imageId: localImage.imageId,           // STABLE UUID - use for Angular keys
+      AttachID: localImage.imageId,          // Legacy compatibility - maps to imageId initially
+      attachId: localImage.imageId,          // Lowercase version for caption/annotation updates
+      _tempId: localImage.imageId,           // For backward compatibility with existing code
+      _pendingFileId: localImage.imageId,    // For IndexedDB lookups when updating caption/drawings
+      
+      // Entity references
       PointID: pointIdStr,
+      entityId: pointIdStr,
+      entityType: 'efe_point',
+      serviceId: effectiveServiceId,
+      
+      // Content
       Type: photoType,
-      Photo: blobUrl,
-      url: blobUrl,
-      thumbnailUrl: blobUrl,
-      _tempId: tempPhotoId,
-      _pendingFileId: tempPhotoId,  // CRITICAL: for IndexedDB lookups when updating caption/drawings
-      _thumbnailUrl: blobUrl,
-      _syncing: true,
-      uploading: false,
-      queued: true,
-      isPending: true,
+      photoType: photoType,
+      drawings: drawings || '',
+      fileName: localImage.fileName,
+      fileSize: localImage.fileSize,
+      
+      // Display URLs (local blob - stable during sync)
+      Photo: displayUrl,
+      url: displayUrl,
+      thumbnailUrl: displayUrl,
+      displayUrl: displayUrl,
+      _thumbnailUrl: displayUrl,
+      
+      // Status flags
+      status: localImage.status,
+      _syncing: localImage.status === 'queued' || localImage.status === 'uploading',
+      uploading: localImage.status === 'uploading',
+      queued: localImage.status === 'queued' || localImage.status === 'local_only',
+      isPending: localImage.status !== 'verified',
       isObjectUrl: true,
       isEFE: true,
-      serviceId: serviceId || '',
+      isLocalFirst: true,  // Flag indicating new local-first system
     };
   }
 
