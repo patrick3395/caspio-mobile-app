@@ -1513,28 +1513,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Preserve accordion state before background loading starts
     this.isLoadingPhotosInBackground = true;
     this.preservedAccordionState = [...this.expandedAccordions];
-    
+
     setTimeout(async () => {
+      // Process synced visuals from cache
       for (const visual of visuals) {
         if (visual.Category !== this.categoryName) continue;
         if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
-        
+
         const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
         const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
           this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
           this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
           this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
-        
+
         if (!item) continue;
-        
+
         const key = `${visual.Category}_${item.id}`;
-        
+
         // LAZY LOADING: Only calculate count from bulk-loaded data (no image loading)
         const attachments = this.bulkAttachmentsMap.get(visualId) || [];
         const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
         const localImages = this.bulkLocalImagesMap.get(visualId) || [];
         this.photoCountsByKey[key] = attachments.length + pendingPhotos.length + localImages.length;
-        
+
         // AUTO-LOAD: If there are LocalImages (unsynced photos), load them immediately
         // This ensures photos captured before navigation persist and show on return
         if (localImages.length > 0) {
@@ -1547,12 +1548,45 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.loadingPhotosByKey[key] = false;
         }
       }
-      
+
+      // CRITICAL: Also process pending visuals with LocalImages (temp IDs)
+      // Pending visuals aren't in the visuals array - they're restored from IndexedDB
+      // We need to check bulkLocalImagesMap for any temp IDs that have photos
+      for (const [entityId, localImages] of this.bulkLocalImagesMap.entries()) {
+        // Skip non-temp IDs (already processed above)
+        if (!entityId.startsWith('temp_')) continue;
+        if (localImages.length === 0) continue;
+
+        // Find the pending item in organizedData that has this temp ID
+        const allItems = [
+          ...Object.values(this.organizedData).flat()
+        ].filter(item => item && typeof item === 'object');
+
+        const pendingItem = allItems.find((item: any) =>
+          item._tempId === entityId || item.tempId === entityId
+        );
+
+        if (!pendingItem) {
+          console.log(`[LOAD PHOTOS] No pending item found for temp ID: ${entityId}`);
+          continue;
+        }
+
+        const key = `${pendingItem.categoryName || pendingItem.Category || this.categoryName}_${pendingItem.id}`;
+
+        // Update photo count
+        this.photoCountsByKey[key] = (this.photoCountsByKey[key] || 0) + localImages.length;
+
+        console.log(`[LOAD PHOTOS] Auto-loading ${localImages.length} LocalImages for PENDING visual ${key} (tempId: ${entityId})`);
+        this.loadPhotosForVisual(entityId, key).catch(err => {
+          console.error('[LOAD PHOTOS] Auto-load failed for pending', key, err);
+        });
+      }
+
       // Restore preserved accordion state before triggering change detection
       if (this.preservedAccordionState) {
         this.expandedAccordions = [...this.preservedAccordionState];
       }
-      
+
       this.isLoadingPhotosInBackground = false;
       this.preservedAccordionState = null;
       this.changeDetectorRef.detectChanges();
