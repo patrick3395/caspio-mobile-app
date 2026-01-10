@@ -501,15 +501,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
       console.log('[PHOTO SYNC] Photo upload completed:', event.tempFileId);
 
+      // DEBUG: Log all photos in visualPhotos to find the mismatch
+      console.log('[PHOTO SYNC DEBUG] Searching for tempFileId:', event.tempFileId);
+      console.log('[PHOTO SYNC DEBUG] Keys in visualPhotos:', Object.keys(this.visualPhotos));
+      for (const debugKey of Object.keys(this.visualPhotos)) {
+        const photos = this.visualPhotos[debugKey];
+        console.log(`[PHOTO SYNC DEBUG] Key "${debugKey}" has ${photos.length} photos:`);
+        photos.forEach((p: any, i: number) => {
+          console.log(`  [${i}] AttachID: ${p.AttachID}, id: ${p.id}, imageId: ${p.imageId}, _pendingFileId: ${p._pendingFileId}`);
+        });
+      }
+
       // Find the photo in our visualPhotos by temp file ID
+      let foundPhoto = false;
       for (const key of Object.keys(this.visualPhotos)) {
         const photoIndex = this.visualPhotos[key].findIndex(p =>
           p.AttachID === event.tempFileId ||
           p._pendingFileId === event.tempFileId ||
-          p.id === event.tempFileId
+          p.id === event.tempFileId ||
+          p.imageId === event.tempFileId  // Also check imageId field
         );
 
         if (photoIndex !== -1) {
+          foundPhoto = true;
           console.log('[PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
 
           const result = event.result;
@@ -571,6 +585,92 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           this.changeDetectorRef.detectChanges();
           break;
+        }
+      }
+
+      // RECOVERY: If photo was NOT found, try to restore it from LocalImageService
+      if (!foundPhoto) {
+        console.error('[PHOTO SYNC] ❌ Photo NOT FOUND in visualPhotos! tempFileId:', event.tempFileId);
+        console.error('[PHOTO SYNC] Attempting recovery from LocalImageService...');
+
+        try {
+          // Get the LocalImage
+          const localImage = await this.localImageService.getImage(event.tempFileId);
+          if (localImage) {
+            console.log('[PHOTO SYNC] Found LocalImage:', localImage.imageId, 'entityId:', localImage.entityId);
+
+            // Find the key by entityId (visualId)
+            let recoveryKey: string | null = null;
+            for (const [key, visualId] of Object.entries(this.visualRecordIds)) {
+              if (String(visualId) === String(localImage.entityId) ||
+                  visualId === localImage.entityId) {
+                recoveryKey = key;
+                break;
+              }
+            }
+
+            // Also check if entityId maps to a real ID
+            if (!recoveryKey) {
+              const realId = await this.indexedDb.getRealId(localImage.entityId);
+              if (realId) {
+                for (const [key, visualId] of Object.entries(this.visualRecordIds)) {
+                  if (String(visualId) === String(realId)) {
+                    recoveryKey = key;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (recoveryKey) {
+              console.log('[PHOTO SYNC] Recovery key found:', recoveryKey);
+
+              // Get display URL
+              const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+              // Get result data
+              const result = event.result;
+              const actualResult = result?.Result?.[0] || result;
+              const realAttachId = actualResult.PK_ID || actualResult.AttachID || event.tempFileId;
+
+              // Create photo entry
+              const recoveredPhoto = {
+                imageId: localImage.imageId,
+                AttachID: realAttachId,
+                attachId: String(realAttachId),
+                id: realAttachId,
+                displayUrl: displayUrl,
+                url: displayUrl,
+                thumbnailUrl: displayUrl,
+                originalUrl: displayUrl,
+                caption: localImage.caption || '',
+                annotation: localImage.caption || '',
+                Annotation: localImage.caption || '',
+                Drawings: localImage.drawings || '',
+                hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
+                status: localImage.status,
+                isLocal: !!localImage.localBlobId,
+                uploading: false,
+                queued: false,
+                isPending: false
+              };
+
+              // Add to visualPhotos
+              if (!this.visualPhotos[recoveryKey]) {
+                this.visualPhotos[recoveryKey] = [];
+              }
+              this.visualPhotos[recoveryKey].push(recoveredPhoto);
+              this.changeDetectorRef.detectChanges();
+
+              console.log('[PHOTO SYNC] ✅ Photo RECOVERED and added to visualPhotos:', recoveryKey);
+            } else {
+              console.error('[PHOTO SYNC] ❌ Could not find recovery key for entityId:', localImage.entityId);
+            }
+          } else {
+            console.error('[PHOTO SYNC] ❌ LocalImage not found:', event.tempFileId);
+          }
+        } catch (recoveryErr) {
+          console.error('[PHOTO SYNC] Recovery failed:', recoveryErr);
         }
       }
     });
@@ -1078,7 +1178,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL FIX: Preserve existing photos with valid blob URLs before clearing
     // This prevents images from disappearing during reloads/sync
     const preservedPhotos: { [key: string]: any[] } = {};
+    console.log('[LOAD DATA] Checking photos to preserve...');
     for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      console.log(`[LOAD DATA] Key "${key}" has ${(photos as any[]).length} photos before filtering`);
+
+      // Log each photo's status for debugging
+      (photos as any[]).forEach((p: any, i: number) => {
+        console.log(`[LOAD DATA]   [${i}] imageId: ${p.imageId}, displayUrl: ${p.displayUrl?.substring(0, 30)}..., uploading: ${p.uploading}, queued: ${p.queued}`);
+      });
+
+      // CHANGED: Also preserve queued photos, not just uploaded ones
       const validPhotos = (photos as any[]).filter(p =>
         p.displayUrl &&
         (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:')) &&
@@ -1087,6 +1196,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (validPhotos.length > 0) {
         preservedPhotos[key] = validPhotos;
         console.log(`[LOAD DATA] Preserving ${validPhotos.length} photos with valid blob URLs for key: ${key}`);
+      } else {
+        console.log(`[LOAD DATA] ⚠️ NO photos preserved for key: ${key} (filtered out)`);
       }
     }
 
@@ -3439,7 +3550,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Add photo to UI immediately
           this.visualPhotos[key].push(photoEntry);
           this.changeDetectorRef.detectChanges();
-          console.log('[CAMERA UPLOAD] ✅ Photo visible in UI with stable imageId:', localImage.imageId);
+          console.log('[CAMERA UPLOAD] ✅ Photo added to visualPhotos:');
+          console.log(`  key: ${key}`);
+          console.log(`  imageId: ${localImage.imageId}`);
+          console.log(`  AttachID: ${photoEntry.AttachID}`);
+          console.log(`  id: ${photoEntry.id}`);
+          console.log(`  Total photos in key: ${this.visualPhotos[key].length}`);
 
           // Cache annotated image for thumbnail persistence across navigation
           if (annotatedBlob && annotationsData) {
@@ -3581,7 +3697,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               // Add photo to UI immediately
               this.visualPhotos[key].push(photoEntry);
                   this.changeDetectorRef.detectChanges();
-              console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} visible in UI with stable imageId`);
+              console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} added to visualPhotos:`);
+              console.log(`  key: ${key}`);
+              console.log(`  imageId: ${localImage.imageId}`);
+              console.log(`  AttachID: ${photoEntry.AttachID}`);
+              console.log(`  Total photos in key: ${this.visualPhotos[key].length}`);
 
               } catch (error) {
                 console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
