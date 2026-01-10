@@ -2112,14 +2112,14 @@ export class BackgroundSyncService {
           parseInt(entityId),
           image.drawings || '',
           file,
-          'Measurement', // Default photo type
+          image.photoType || 'Measurement', // Use stored photoType (Measurement/Location)
           image.caption || ''
         );
         break;
       case 'fdf':
         // FDF photos are stored on the EFE room record itself, not as attachments
-        // photoType is stored in the caption field (e.g., 'Top', 'Bottom', 'Threshold')
-        result = await this.uploadFDFPhoto(entityId, file, image.caption || 'Top');
+        // photoType is stored in image.photoType (e.g., 'Top', 'Bottom', 'Threshold')
+        result = await this.uploadFDFPhoto(entityId, file, image.photoType || 'Top');
         break;
       // Add more entity types as needed
       default:

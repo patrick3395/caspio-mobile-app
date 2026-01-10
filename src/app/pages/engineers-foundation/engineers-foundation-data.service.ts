@@ -538,7 +538,8 @@ export class EngineersFoundationDataService {
         serviceId: img.serviceId,
         
         // Content
-        Type: 'Measurement',  // Default type for EFE photos
+        Type: img.photoType || 'Measurement',  // Use stored photoType (Measurement/Location)
+        photoType: img.photoType || 'Measurement',  // Also include lowercase for consistency
         drawings: img.drawings,
         fileName: img.fileName,
         
@@ -1388,20 +1389,22 @@ export class EngineersFoundationDataService {
    * @param serviceId - Service ID for grouping (required for proper sync)
    */
   async uploadEFEPointPhoto(pointId: number | string, file: File, photoType: string = 'Measurement', drawings?: string, serviceId?: string): Promise<any> {
-    console.log('[EFE Photo] LOCAL-FIRST upload via LocalImageService for PointID:', pointId, 'ServiceID:', serviceId);
+    console.log('[EFE Photo] LOCAL-FIRST upload via LocalImageService for PointID:', pointId, 'photoType:', photoType, 'ServiceID:', serviceId);
 
     const pointIdStr = String(pointId);
     const effectiveServiceId = serviceId || '';
 
     // Use LocalImageService for proper local-first handling with stable UUIDs
     // This stores blob + metadata + outbox item in a single atomic transaction
+    // CRITICAL: Pass photoType so it's stored and used during sync
     const localImage = await this.localImageService.captureImage(
       file,
       'efe_point',
       pointIdStr,
       effectiveServiceId,
       '',  // EFE photos don't use caption in the same way
-      drawings || ''
+      drawings || '',
+      photoType  // CRITICAL: Store photoType (Measurement/Location) for correct sync
     );
 
     // Get display URL (will be local blob URL)

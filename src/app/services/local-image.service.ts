@@ -84,9 +84,10 @@ export class LocalImageService {
     entityId: string,
     serviceId: string,
     caption: string = '',
-    drawings: string = ''
+    drawings: string = '',
+    photoType: string | null = null  // 'Measurement' | 'Location' for EFE, 'Top' | 'Bottom' | 'Threshold' for FDF
   ): Promise<LocalImage> {
-    console.log('[LocalImage] Capturing image for', entityType, entityId);
+    console.log('[LocalImage] Capturing image for', entityType, entityId, 'photoType:', photoType);
     
     const image = await this.indexedDb.createLocalImage(
       file,
@@ -94,13 +95,14 @@ export class LocalImageService {
       entityId,
       serviceId,
       caption,
-      drawings
+      drawings,
+      photoType
     );
     
     // Update pending count
     await this.updatePendingCount();
     
-    console.log('[LocalImage] ✅ Image captured:', image.imageId, 'status:', image.status);
+    console.log('[LocalImage] ✅ Image captured:', image.imageId, 'status:', image.status, 'photoType:', photoType);
     return image;
   }
 

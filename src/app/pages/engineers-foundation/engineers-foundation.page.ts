@@ -4184,13 +4184,15 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       const file = new File([compressedBlob], `room_point_${Date.now()}.jpg`, { type: 'image/jpeg' });
       
       // Use LocalImageService for local-first handling - queues to outbox, syncs silently
+      // CRITICAL: Pass photoType so Measurement vs Location is stored correctly
       const localImage = await this.localImageService.captureImage(
         file,
         'efe_point',
         String(pointId),
         this.serviceId,
         '',  // No caption initially
-        ''   // No drawings initially
+        '',  // No drawings initially
+        photoType  // CRITICAL: Store photoType (Measurement/Location) for correct sync
       );
       
       // Get display URL (local blob URL)

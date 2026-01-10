@@ -2529,14 +2529,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }) as File;
 
       // OFFLINE-FIRST: Use LocalImageService for local-first handling
-      // Store photoType in the caption field for sync worker to use
+      // CRITICAL: Pass photoType as the last parameter, NOT in caption
       const localImage = await this.localImageService.captureImage(
         compressedFile,
         'fdf',                    // Entity type for FDF photos
         this.roomId,              // Room ID as entity ID
         this.serviceId,
-        photoType,                // Store photoType in caption field (Top/Bottom/Threshold)
-        fdfPhotos[`${photoKey}Drawings`] || ''
+        '',                       // Caption (empty for FDF photos)
+        fdfPhotos[`${photoKey}Drawings`] || '',  // Drawings
+        photoType                 // photoType (Top/Bottom/Threshold) - stored in LocalImage.photoType
       );
 
       // Get display URL (local blob URL)

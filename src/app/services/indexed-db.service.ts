@@ -116,6 +116,7 @@ export interface LocalImage {
   contentType: string;
   caption: string;
   drawings: string;
+  photoType: string | null;     // 'Measurement' | 'Location' for EFE photos, 'Top' | 'Bottom' | 'Threshold' for FDF
   createdAt: number;
   updatedAt: number;            // Alias for updatedAtLocal - epoch ms of last local change
   lastError: string | null;
@@ -3882,7 +3883,8 @@ export class IndexedDbService {
     entityId: string,
     serviceId: string,
     caption: string = '',
-    drawings: string = ''
+    drawings: string = '',
+    photoType: string | null = null  // 'Measurement' | 'Location' for EFE, 'Top' | 'Bottom' | 'Threshold' for FDF
   ): Promise<LocalImage> {
     const db = await this.ensureDb();
     
@@ -3917,6 +3919,7 @@ export class IndexedDbService {
       contentType: file.type || 'image/jpeg',
       caption,
       drawings,
+      photoType,  // Store the photo type (Measurement/Location/Top/Bottom/Threshold)
       createdAt: now,
       updatedAt: now,
       lastError: null,
