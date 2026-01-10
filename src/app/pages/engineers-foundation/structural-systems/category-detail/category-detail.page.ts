@@ -1571,7 +1571,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           continue;
         }
 
-        const key = `${pendingItem.categoryName || pendingItem.Category || this.categoryName}_${pendingItem.id}`;
+        const key = `${(pendingItem as any).category || this.categoryName}_${pendingItem.id}`;
 
         // Update photo count
         this.photoCountsByKey[key] = (this.photoCountsByKey[key] || 0) + localImages.length;
