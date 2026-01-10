@@ -1557,28 +1557,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (!entityId.startsWith('temp_')) continue;
         if (localImages.length === 0) continue;
 
-        // Find the pending item in organizedData that has this temp ID
-        const allItems = [
-          ...Object.values(this.organizedData).flat()
-        ].filter(item => item && typeof item === 'object');
+        // CORRECT: Search visualRecordIds which stores the tempId
+        // The tempId is stored in visualRecordIds[key], NOT on item._tempId
+        let matchingKey: string | null = null;
+        for (const [key, recordId] of Object.entries(this.visualRecordIds)) {
+          if (recordId === entityId) {
+            matchingKey = key;
+            break;
+          }
+        }
 
-        const pendingItem = allItems.find((item: any) =>
-          item._tempId === entityId || item.tempId === entityId
-        );
-
-        if (!pendingItem) {
-          console.log(`[LOAD PHOTOS] No pending item found for temp ID: ${entityId}`);
+        if (!matchingKey) {
+          console.log(`[LOAD PHOTOS] No key found in visualRecordIds for temp ID: ${entityId}`);
           continue;
         }
 
-        const key = `${(pendingItem as any).category || this.categoryName}_${pendingItem.id}`;
-
         // Update photo count
-        this.photoCountsByKey[key] = (this.photoCountsByKey[key] || 0) + localImages.length;
+        this.photoCountsByKey[matchingKey] = (this.photoCountsByKey[matchingKey] || 0) + localImages.length;
 
-        console.log(`[LOAD PHOTOS] Auto-loading ${localImages.length} LocalImages for PENDING visual ${key} (tempId: ${entityId})`);
-        this.loadPhotosForVisual(entityId, key).catch(err => {
-          console.error('[LOAD PHOTOS] Auto-load failed for pending', key, err);
+        console.log(`[LOAD PHOTOS] Auto-loading ${localImages.length} LocalImages for PENDING visual ${matchingKey} (tempId: ${entityId})`);
+        this.loadPhotosForVisual(entityId, matchingKey).catch(err => {
+          console.error('[LOAD PHOTOS] Auto-load failed for pending', matchingKey, err);
         });
       }
 
