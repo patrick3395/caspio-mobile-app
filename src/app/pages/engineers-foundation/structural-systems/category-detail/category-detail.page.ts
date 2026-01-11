@@ -19,6 +19,7 @@ import { OfflineTemplateService } from '../../../../services/offline-template.se
 import { LocalImageService } from '../../../../services/local-image.service';
 import { compressAnnotationData, decompressAnnotationData } from '../../../../utils/annotation-utils';
 import { AddCustomVisualModalComponent } from '../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
+import { db } from '../../../../services/caspio-db';
 
 interface VisualItem {
   id: string | number;
@@ -105,6 +106,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Track if we need to reload after sync completes
   private pendingSyncReload = false;
   private syncStatusSubscription?: Subscription;
+  
+  // Dexie liveQuery subscription for reactive LocalImages updates
+  private localImagesSubscription?: Subscription;
 
   // Cooldown after local operations to prevent immediate reload
   private localOperationCooldown = false;
@@ -131,6 +135,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();  // NEW: LocalImages by entityId
   private bulkVisualsCache: any[] = [];
   private bulkPendingRequestsCache: any[] = [];
+  
+  // Guard to prevent concurrent/duplicate loadPhotosForVisual calls for the same key
+  private loadingPhotoPromises: Map<string, Promise<void>> = new Map();
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -265,6 +272,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[CategoryDetail] All params present, calling loadData()');
       await this.loadData();
       console.log('[CategoryDetail] loadData() completed');
+      
+      // Subscribe to Dexie liveQuery for reactive LocalImages updates
+      // This automatically updates bulkLocalImagesMap when IndexedDB changes
+      this.subscribeToLocalImagesChanges();
     } else {
       console.error('[CategoryDetail] ❌ Missing required route params - cannot load data');
       console.error('[CategoryDetail] Missing: projectId=', !this.projectId, 'serviceId=', !this.serviceId, 'categoryName=', !this.categoryName);
@@ -412,6 +423,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     if (this.syncStatusSubscription) {
       this.syncStatusSubscription.unsubscribe();
+    }
+    // Clean up Dexie liveQuery subscription
+    if (this.localImagesSubscription) {
+      this.localImagesSubscription.unsubscribe();
     }
     // Clear debounce timers
     if (this.cacheInvalidationDebounceTimer) {
@@ -731,6 +746,63 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }, 300);
       }
     });
+  }
+
+  /**
+   * Subscribe to Dexie liveQuery for LocalImages changes
+   * This enables reactive updates when IndexedDB changes (photos added, synced, deleted)
+   * Automatically updates bulkLocalImagesMap without manual refresh
+   */
+  private subscribeToLocalImagesChanges(): void {
+    // Unsubscribe from previous subscription if exists
+    if (this.localImagesSubscription) {
+      this.localImagesSubscription.unsubscribe();
+    }
+    
+    if (!this.serviceId) {
+      console.log('[LIVEQUERY] No serviceId, skipping subscription');
+      return;
+    }
+    
+    console.log('[LIVEQUERY] Subscribing to LocalImages changes for service:', this.serviceId);
+    
+    // Subscribe to all LocalImages for this service (visual entity type)
+    this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'visual').subscribe(
+      (localImages) => {
+        console.log('[LIVEQUERY] LocalImages updated:', localImages.length, 'images');
+        
+        // Update bulkLocalImagesMap reactively
+        this.updateBulkLocalImagesMap(localImages);
+        
+        // Trigger change detection to update UI
+        this.changeDetectorRef.detectChanges();
+      },
+      (error) => {
+        console.error('[LIVEQUERY] Error in LocalImages subscription:', error);
+      }
+    );
+  }
+
+  /**
+   * Update bulkLocalImagesMap from liveQuery results
+   * Groups LocalImages by entityId for efficient lookup
+   */
+  private updateBulkLocalImagesMap(localImages: LocalImage[]): void {
+    // Clear existing map
+    this.bulkLocalImagesMap.clear();
+    
+    // Group LocalImages by entityId
+    for (const img of localImages) {
+      if (!img.entityId) continue;
+      
+      const entityId = String(img.entityId);
+      if (!this.bulkLocalImagesMap.has(entityId)) {
+        this.bulkLocalImagesMap.set(entityId, []);
+      }
+      this.bulkLocalImagesMap.get(entityId)!.push(img);
+    }
+    
+    console.log('[LIVEQUERY] Updated bulkLocalImagesMap with', this.bulkLocalImagesMap.size, 'entity groups');
   }
 
   /**
@@ -2164,8 +2236,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   /**
    * Load photos for a visual - ON-DEMAND when user clicks to expand
    * Only loads photo data when needed, not on initial page load
+   * Uses guard to prevent concurrent/duplicate calls for the same key
    */
-  private async loadPhotosForVisual(visualId: string, key: string) {
+  private async loadPhotosForVisual(visualId: string, key: string): Promise<void> {
+    // GUARD: Return existing promise if already loading this key
+    // This prevents duplicate photos from concurrent calls
+    if (this.loadingPhotoPromises.has(key)) {
+      console.log('[LOAD PHOTOS] Already loading key:', key, '- returning existing promise');
+      return this.loadingPhotoPromises.get(key);
+    }
+    
+    // Create and track the promise
+    const promise = this._loadPhotosForVisualImpl(visualId, key);
+    this.loadingPhotoPromises.set(key, promise);
+    
+    try {
+      await promise;
+    } finally {
+      this.loadingPhotoPromises.delete(key);
+    }
+  }
+
+  /**
+   * Internal implementation of loadPhotosForVisual
+   * Called by the guarded wrapper above
+   */
+  private async _loadPhotosForVisualImpl(visualId: string, key: string): Promise<void> {
     try {
       this.loadingPhotosByKey[key] = true;
       this.changeDetectorRef.detectChanges();
@@ -2222,37 +2318,31 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
       
-      const existingCount = this.visualPhotos[key]?.length || 0;
-      this.photoCountsByKey[key] = Math.max(existingCount, uniquePhotoIds.size);
+      // Set the photo count based on unique IDs (deduped across all sources)
+      this.photoCountsByKey[key] = uniquePhotoIds.size;
 
-      // Initialize photo array if not exists
-      if (!this.visualPhotos[key]) {
-        this.visualPhotos[key] = [];
-      }
-
-      // Build a set of already loaded photo IDs (use String for consistent comparison)
-      // CRITICAL: Include ALL possible IDs to prevent duplicates from both systems
-      // After sync, a photo may have: imageId (local UUID), attachId (real server ID), AttachID (either)
+      // CRITICAL FIX: Clear existing photos to prevent duplicates
+      // Only keep photos that are actively being captured (have blob URL and are in-progress)
+      // This prevents stale data from causing duplicates when loadPhotosForVisual is called multiple times
+      const existingPhotos = this.visualPhotos[key] || [];
+      const inProgressCaptures = existingPhotos.filter(p => 
+        p._isInProgressCapture === true && p.uploading === true
+      );
+      
+      // Start fresh with only in-progress captures
+      this.visualPhotos[key] = [...inProgressCaptures];
+      
+      // Build a set of already loaded photo IDs from the in-progress captures
       const loadedPhotoIds = new Set<string>();
       for (const p of this.visualPhotos[key]) {
         if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
-        if (p.attachId) loadedPhotoIds.add(String(p.attachId));  // Lowercase attachId (may differ from AttachID after sync)
+        if (p.attachId) loadedPhotoIds.add(String(p.attachId));
         if (p.id) loadedPhotoIds.add(String(p.id));
         if (p.imageId) loadedPhotoIds.add(String(p.imageId));
-        if (p.localImageId) loadedPhotoIds.add(String(p.localImageId));  // LocalImage system identifier
+        if (p.localImageId) loadedPhotoIds.add(String(p.localImageId));
         if (p._pendingFileId) loadedPhotoIds.add(String(p._pendingFileId));
-        
-        // CRITICAL FIX: If this is a LocalImage, also add the real attachId from IndexedDB
-        // This handles the case where sync completed but in-memory photo wasn't updated
-        // The in-memory photo has AttachID="img_abc" but IndexedDB has attachId="12345"
-        if (p.imageId || p.localImageId) {
-          const localImg = localImages.find(img => img.imageId === (p.imageId || p.localImageId));
-          if (localImg?.attachId) {
-            loadedPhotoIds.add(String(localImg.attachId));
-          }
-        }
       }
-      console.log(`[LOAD PHOTOS] Key ${key} already has ${this.visualPhotos[key].length} photos, IDs tracked:`, Array.from(loadedPhotoIds).slice(0, 5).join(', '), '...');
+      console.log(`[LOAD PHOTOS] Key ${key} starting fresh with ${inProgressCaptures.length} in-progress captures`);
 
       // STEP 4: Add pending photos with regenerated blob URLs (they appear first)
       // SILENT SYNC: Don't show uploading/queued indicators for legacy pending photos
