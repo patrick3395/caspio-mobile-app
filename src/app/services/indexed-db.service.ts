@@ -367,7 +367,7 @@ export class IndexedDbService {
   }
 
   /**
-   * Get sync statistics (includes both old pendingRequests and new uploadOutbox)
+   * Get sync statistics (includes pendingRequests, uploadOutbox, and pendingCaptions)
    */
   async getSyncStats(): Promise<{
     pending: number;
@@ -387,6 +387,14 @@ export class IndexedDbService {
     // Add uploadOutbox count to pending
     const uploadOutboxCount = await db.uploadOutbox.count();
     stats.pending += uploadOutboxCount;
+
+    // CRITICAL FIX: Include pending captions/annotations in the count
+    // This ensures the queue icon shows the correct number for captions and annotations
+    const pendingCaptions = await db.pendingCaptions.toArray();
+    const pendingCaptionCount = pendingCaptions.filter(c => c.status === 'pending' || c.status === 'syncing').length;
+    const failedCaptionCount = pendingCaptions.filter(c => c.status === 'failed').length;
+    stats.pending += pendingCaptionCount;
+    stats.failed += failedCaptionCount;
 
     return stats;
   }

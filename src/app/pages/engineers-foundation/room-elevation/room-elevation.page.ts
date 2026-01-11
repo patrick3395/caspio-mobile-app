@@ -848,14 +848,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               // CRITICAL: Prioritize url (fresh blob URL from IndexedDB) over stored displayUrl
               let displayUrl = pendingPhoto.url || pendingPhoto.displayUrl || pendingPhoto.thumbnailUrl;
 
-              // Check for cached annotated image
-              try {
-                const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(pendingAttachId);
-                if (cachedAnnotatedImage) {
-                  displayUrl = cachedAnnotatedImage;
-                }
-              } catch (err) {
-                // Ignore cache errors
+              // PERFORMANCE FIX: Use bulk map (O(1) lookup) instead of individual IndexedDB calls
+              const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(pendingAttachId);
+              if (cachedAnnotatedImage) {
+                displayUrl = cachedAnnotatedImage;
               }
 
               const pendingPhotoData: any = {
@@ -1847,17 +1843,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             let displayUrl = pendingPhoto.url || pendingPhoto.displayUrl || pendingPhoto.thumbnailUrl;
             let hasAnnotations = !!(pendingPhoto.Drawings || pendingPhoto.drawings);
             
-            // CRITICAL FIX: Check for cached annotated image
-            // This ensures annotations show in thumbnails for pending photos on reload
-            try {
-              const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(photoId);
-              if (cachedAnnotatedImage) {
-                console.log('[RoomElevation] ✅ Found cached annotated image for pending photo:', photoId);
-                displayUrl = cachedAnnotatedImage;
-                hasAnnotations = true;
-              }
-            } catch (cacheErr) {
-              console.warn('[RoomElevation] Error checking cached annotated image:', cacheErr);
+            // PERFORMANCE FIX: Use bulk map (O(1) lookup) instead of individual IndexedDB calls
+            // This matches the category-detail pattern for fast image loading
+            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(photoId);
+            if (cachedAnnotatedImage) {
+              console.log('[RoomElevation] ✅ Using bulk cached annotated image for pending photo:', photoId);
+              displayUrl = cachedAnnotatedImage;
+              hasAnnotations = true;
             }
             
             const pendingPhotoData: any = {
@@ -2854,11 +2846,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       const s3Key = fdfPhotos[`${photoKey}Path`];
       const cacheId = `fdf_${this.roomId}_${photoKey}`;
       
-      // ALWAYS try IndexedDB cache first - it stores data URLs which work with canvas
-      console.log('[FDF Annotate] Checking IndexedDB cache for:', cacheId);
-      const cachedDataUrl = await this.indexedDb.getCachedPhoto(cacheId);
+      // PERFORMANCE FIX: Try bulk map first (O(1) lookup), fall back to IndexedDB if not found
+      console.log('[FDF Annotate] Checking bulk cache for:', cacheId);
+      let cachedDataUrl = this.bulkCachedPhotosMap.get(cacheId);
+      if (!cachedDataUrl) {
+        // Fallback to IndexedDB for photos added mid-session
+        cachedDataUrl = await this.indexedDb.getCachedPhoto(cacheId) || undefined;
+      }
       if (cachedDataUrl && cachedDataUrl.startsWith('data:')) {
-        console.log('[FDF Annotate] ✅ Using cached data URL from IndexedDB');
+        console.log('[FDF Annotate] ✅ Using cached data URL');
         photoUrl = cachedDataUrl;
       }
       
@@ -3549,13 +3545,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // CRITICAL FIX: Get image as data URL to avoid CORS issues in Fabric.js canvas
       let imageUrl = photo.url || photo.displayUrl;
       
-      // ALWAYS try IndexedDB cache first - it stores data URLs which work with canvas
+      // PERFORMANCE FIX: Try bulk map first (O(1) lookup), fall back to IndexedDB if not found
       const attachId = photo.attachId;
       if (attachId) {
-        console.log('[Point Annotate] Checking IndexedDB cache for:', attachId);
-        const cachedDataUrl = await this.indexedDb.getCachedPhoto(attachId);
+        console.log('[Point Annotate] Checking bulk cache for:', attachId);
+        let cachedDataUrl = this.bulkCachedPhotosMap.get(attachId);
+        if (!cachedDataUrl) {
+          // Fallback to IndexedDB for photos added mid-session
+          cachedDataUrl = await this.indexedDb.getCachedPhoto(attachId) || undefined;
+        }
         if (cachedDataUrl && cachedDataUrl.startsWith('data:')) {
-          console.log('[Point Annotate] ✅ Using cached data URL from IndexedDB');
+          console.log('[Point Annotate] ✅ Using cached data URL');
           imageUrl = cachedDataUrl;
         }
       }
