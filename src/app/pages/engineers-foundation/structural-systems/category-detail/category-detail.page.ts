@@ -673,14 +673,30 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 isPending: false
               };
 
-              // Add to visualPhotos
+              // Add to visualPhotos with duplicate check
               if (!this.visualPhotos[recoveryKey]) {
                 this.visualPhotos[recoveryKey] = [];
               }
-              this.visualPhotos[recoveryKey].push(recoveredPhoto);
+              
+              // CRITICAL FIX: Check if photo already exists before adding to prevent duplicates
+              const existingIndex = this.visualPhotos[recoveryKey].findIndex(p => 
+                String(p.AttachID) === String(realAttachId) ||
+                String(p.attachId) === String(realAttachId) ||
+                p.imageId === localImage.imageId
+              );
+              
+              if (existingIndex === -1) {
+                this.visualPhotos[recoveryKey].push(recoveredPhoto);
+                console.log('[PHOTO SYNC] ✅ Photo RECOVERED and added to visualPhotos:', recoveryKey);
+              } else {
+                // Update existing photo instead of adding duplicate
+                this.visualPhotos[recoveryKey][existingIndex] = {
+                  ...this.visualPhotos[recoveryKey][existingIndex],
+                  ...recoveredPhoto
+                };
+                console.log('[PHOTO SYNC] ✅ Photo already exists, updated instead:', recoveryKey);
+              }
               this.changeDetectorRef.detectChanges();
-
-              console.log('[PHOTO SYNC] ✅ Photo RECOVERED and added to visualPhotos:', recoveryKey);
             } else {
               console.error('[PHOTO SYNC] ❌ Could not find recovery key for entityId:', localImage.entityId);
             }
@@ -2418,8 +2434,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           isLocalFirst: true          // Flag for local-first system
         });
         loadedPhotoIds.add(imageId);
+        // CRITICAL FIX: Also add attachId to prevent duplicates when server attachments are processed
+        // After sync, LocalImage has attachId matching server's AttachID - must track both
+        if (localImage.attachId) {
+          loadedPhotoIds.add(localImage.attachId);
+        }
         
-        console.log('[LOAD PHOTOS] Added LocalImage (silent sync):', imageId);
+        console.log('[LOAD PHOTOS] Added LocalImage (silent sync):', imageId, 'attachId:', localImage.attachId || 'none');
       }
 
       // Trigger change detection so pending/local photos appear immediately
