@@ -1362,14 +1362,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const preservedVisualRecordIds = { ...this.visualRecordIds };
     console.log(`[LOAD DATA] Preserved ${Object.keys(preservedVisualRecordIds).length} visualRecordIds`);
 
-    // Clear all state
+    // CRITICAL FIX: Preserve organizedData and selectedItems to prevent black screen
+    // Only clear photo-related state; keep template structure visible during reload
+    // organizedData will be rebuilt after new data loads (NOT cleared upfront)
+    const preservedOrganizedData = { ...this.organizedData };
+    const preservedSelectedItems = { ...this.selectedItems };
+    console.log(`[LOAD DATA] Preserved organizedData: comments=${preservedOrganizedData.comments?.length || 0}, limitations=${preservedOrganizedData.limitations?.length || 0}, deficiencies=${preservedOrganizedData.deficiencies?.length || 0}`);
+
+    // Clear photo-related state only (NOT organizedData - that stays visible)
     this.visualPhotos = {};
     this.visualRecordIds = {};
     this.uploadingPhotosByKey = {};
     this.loadingPhotosByKey = {};
     this.photoCountsByKey = {};
-    this.selectedItems = {};
-    this.organizedData = { comments: [], limitations: [], deficiencies: [] };
+    // Keep selectedItems and organizedData visible during load to prevent black screen
 
     // Clear bulk caches
     this.bulkAttachmentsMap.clear();
@@ -1492,18 +1498,33 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         pendingRequests: this.bulkPendingRequestsCache.length
       });
       
-      // Only show loading if no templates cached
-      if ((allTemplates as any[]).length === 0) {
+      // Only show loading if no templates cached AND no existing data visible
+      if ((allTemplates as any[]).length === 0 && 
+          this.organizedData.comments.length === 0 && 
+          this.organizedData.limitations.length === 0 && 
+          this.organizedData.deficiencies.length === 0) {
         this.loading = true;
         this.changeDetectorRef.detectChanges();
       }
 
       // ===== STEP 1: Load templates (pure CPU, instant) =====
+      // CRITICAL FIX: Clear organizedData and selectedItems right before rebuilding
+      // This prevents black screen by keeping old data visible during async load above
+      this.organizedData = { comments: [], limitations: [], deficiencies: [] };
+      this.selectedItems = {};
       this.loadCategoryTemplatesFromCache(allTemplates as any[]);
 
       // ===== STEP 2: Process visuals (uses pre-loaded bulkVisualsCache) =====
       this.loadExistingVisualsFromCache();
       console.log('[LOAD DATA] ✅ Visuals processed');
+      
+      // CRITICAL FIX: Show content immediately after templates and visuals are loaded
+      // Don't wait for photos - they load in background. This prevents black screen.
+      if (this.loading && (allTemplates as any[]).length > 0) {
+        this.loading = false;
+        this.changeDetectorRef.detectChanges();
+        console.log('[LOAD DATA] ✅ Content visible (photos loading in background)');
+      }
 
       // ===== STEP 3: Restore pending photos (uses bulkPendingPhotosMap) =====
       this.restorePendingPhotosFromIndexedDB();
@@ -3572,31 +3593,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     return `photo_${photo.VisualID || photo.PointID || 'unknown'}_${photo.fileName || photo.Photo || index}`;
   }
 
-  /**
-   * Handle image load error - shows placeholder and marks for retry
-   */
-  handleImageError(event: any, photo: any) {
-    console.error('Image failed to load:', photo);
-    event.target.src = 'assets/img/photo-placeholder.png';
-    
-    // If this is a verified remote image that failed, mark for retry
-    if (photo.imageId && photo.status === 'verified') {
-      console.log('[IMAGE ERROR] Verified image failed to load, may need re-verification:', photo.imageId);
-    }
-  }
-
-  /**
-   * Handle successful image load - marks remote as loaded in UI
-   * This enables safe blob pruning
-   */
-  handleImageLoad(event: any, photo: any) {
-    // If this is a remote image (not local blob), mark as loaded in UI
-    if (photo.imageId && !photo.isLocal && photo.status === 'verified') {
-      this.localImageService.markRemoteLoadedInUI(photo.imageId).catch(err => {
-        console.warn('[IMAGE LOAD] Failed to mark remote loaded:', err);
-      });
-    }
-  }
+  // NOTE: handleImageError and handleImageLoad are defined at the end of the file
+  // with comprehensive fallback logic (see IMAGE LOAD/ERROR HANDLERS section)
 
   saveScrollBeforePhotoClick(event: Event): void {
     // This method is still called from HTML but now handled in viewPhoto() instead
@@ -6085,10 +6083,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private clearPdfCache() {
     // Clear all PDF cache keys for this service
     console.log('[CACHE] Clearing PDF cache for serviceId:', this.serviceId);
-    
+
     try {
       const now = Date.now();
-      
+
       // Generate cache keys for current and previous timestamp blocks (last 10 minutes)
       for (let i = 0; i < 10; i++) {
         const timestamp = Math.floor((now - (i * 60000)) / 300000); // Check last 10 minutes of 5-min blocks
@@ -6098,10 +6096,112 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         });
         this.cache.clear(cacheKey);
       }
-      
-      console.log('[CACHE] âœ“ PDF cache cleared - next PDF will fetch fresh data');
+
+      console.log('[CACHE] âœ" PDF cache cleared - next PDF will fetch fresh data');
     } catch (error) {
       console.error('[CACHE] Error clearing PDF cache:', error);
+    }
+  }
+
+  // ============================================
+  // IMAGE LOAD/ERROR HANDLERS
+  // ============================================
+
+  /**
+   * Handle successful image load
+   * Marks the image as successfully loaded in UI for blob pruning decisions
+   */
+  handleImageLoad(event: Event, photo: any): void {
+    const img = event.target as HTMLImageElement;
+    if (!img) return;
+
+    // Mark as successfully loaded
+    photo.loading = false;
+    photo.displayState = 'loaded';
+
+    // If this is a LocalImage with remote URL, mark as loaded in UI
+    // This allows blob pruning to proceed safely
+    if (photo.isLocalImage && photo.imageId) {
+      this.localImageService.markRemoteLoadedInUI(photo.imageId).catch(err => {
+        console.warn('[IMAGE LOAD] Failed to mark remote loaded:', err);
+      });
+    }
+  }
+
+  /**
+   * Handle image load error
+   * Attempts fallback to cached photo or placeholder
+   */
+  async handleImageError(event: Event, photo: any): Promise<void> {
+    const img = event.target as HTMLImageElement;
+    if (!img) return;
+
+    console.warn('[IMAGE ERROR] Failed to load:', photo.AttachID || photo.imageId, 'url:', img.src?.substring(0, 50));
+
+    // Don't retry if already showing placeholder
+    if (img.src === 'assets/img/photo-placeholder.png' || img.src.endsWith('photo-placeholder.png')) {
+      return;
+    }
+
+    // Track retry attempts to prevent infinite loops
+    if (!photo._retryCount) {
+      photo._retryCount = 0;
+    }
+    photo._retryCount++;
+
+    if (photo._retryCount > 2) {
+      console.warn('[IMAGE ERROR] Max retries reached, showing placeholder');
+      img.src = 'assets/img/photo-placeholder.png';
+      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      photo.loading = false;
+      return;
+    }
+
+    // Try fallback chain
+    try {
+      // Fallback 1: Try LocalImage system
+      if (photo.isLocalImage || photo.localImageId || photo.imageId) {
+        const localImageId = photo.localImageId || photo.imageId;
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+
+        if (localImage) {
+          const fallbackUrl = await this.localImageService.getDisplayUrl(localImage);
+          if (fallbackUrl && fallbackUrl !== 'assets/img/photo-placeholder.png') {
+            console.log('[IMAGE ERROR] Using LocalImage fallback:', localImageId);
+            img.src = fallbackUrl;
+            photo.displayUrl = fallbackUrl;
+            photo.url = fallbackUrl;
+            photo.thumbnailUrl = fallbackUrl;
+            return;
+          }
+        }
+      }
+
+      // Fallback 2: Try cached photo by attachId
+      const attachId = String(photo.AttachID || photo.attachId || photo.id);
+      if (attachId && !attachId.startsWith('temp_') && !attachId.startsWith('img_')) {
+        const cached = await this.indexedDb.getCachedPhoto(attachId);
+        if (cached) {
+          console.log('[IMAGE ERROR] Using cached photo fallback:', attachId);
+          img.src = cached;
+          photo.displayUrl = cached;
+          photo.url = cached;
+          photo.thumbnailUrl = cached;
+          return;
+        }
+      }
+
+      // Fallback 3: Placeholder
+      console.log('[IMAGE ERROR] No fallback available, showing placeholder');
+      img.src = 'assets/img/photo-placeholder.png';
+      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      photo.loading = false;
+
+    } catch (err) {
+      console.error('[IMAGE ERROR] Fallback failed:', err);
+      img.src = 'assets/img/photo-placeholder.png';
+      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      photo.loading = false;
     }
   }
 }

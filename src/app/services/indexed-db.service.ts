@@ -1660,6 +1660,22 @@ export class IndexedDbService {
   }
 
   /**
+   * Update any fields on a pending request by requestId
+   * Used for resetting retry counts, clearing errors, etc.
+   */
+  async updatePendingRequest(requestId: string, updates: Partial<PendingRequest>): Promise<void> {
+    const request = await db.pendingRequests.get(requestId);
+
+    if (request) {
+      const updated = { ...request, ...updates };
+      await db.pendingRequests.put(updated);
+      console.log(`[IndexedDB] Updated pending request ${requestId}:`, updates);
+    } else {
+      console.warn(`[IndexedDB] No pending request found with id ${requestId}`);
+    }
+  }
+
+  /**
    * Get all pending requests (including non-pending statuses)
    */
   async getAllRequests(): Promise<PendingRequest[]> {
@@ -1928,11 +1944,12 @@ export class IndexedDbService {
 
   /**
    * Update caption status
+   * @param additionalUpdates - Optional additional fields to update (e.g., retryCount, lastAttempt for reset)
    */
   async updateCaptionStatus(
     captionId: string,
     status: 'pending' | 'syncing' | 'synced' | 'failed',
-    error?: string,
+    errorOrUpdates?: string | Partial<PendingCaptionUpdate>,
     incrementRetry: boolean = false
   ): Promise<void> {
     const caption = await db.pendingCaptions.get(captionId);
@@ -1942,7 +1959,14 @@ export class IndexedDbService {
         updatedAt: Date.now(),
         lastAttempt: Date.now()
       };
-      if (error) updates.error = error;
+      
+      // Handle error string or additional updates object
+      if (typeof errorOrUpdates === 'string') {
+        updates.error = errorOrUpdates;
+      } else if (errorOrUpdates) {
+        Object.assign(updates, errorOrUpdates);
+      }
+      
       if (status === 'failed' || incrementRetry) {
         updates.retryCount = (caption.retryCount || 0) + 1;
       }
@@ -2530,6 +2554,41 @@ export class IndexedDbService {
    */
   async getUploadOutboxCount(): Promise<number> {
     return await db.uploadOutbox.count();
+  }
+
+  /**
+   * Clean up stuck upload outbox items older than specified time with many failed attempts
+   * These items are truly hopeless and should be removed to clear the sync queue
+   * @returns Number of items deleted
+   */
+  async cleanupStuckUploadOutboxItems(olderThanMinutes: number = 60): Promise<number> {
+    const cutoffTime = Date.now() - (olderThanMinutes * 60 * 1000);
+    const allItems = await db.uploadOutbox.toArray();
+    
+    // Find truly stuck items - old with many attempts
+    const stuckItems = allItems.filter(item => 
+      item.createdAt < cutoffTime && item.attempts >= 5
+    );
+    
+    if (stuckItems.length > 0) {
+      console.log(`[IndexedDB] Cleaning up ${stuckItems.length} stuck upload outbox items`);
+      for (const item of stuckItems) {
+        console.log(`[IndexedDB]   Removing: ${item.opId} (${item.attempts} attempts, age: ${Math.round((Date.now() - item.createdAt) / 60000)}min, error: ${item.lastError || 'none'})`);
+        
+        // Also mark the corresponding LocalImage as failed so user knows
+        const image = await db.localImages.get(item.imageId);
+        if (image) {
+          await db.localImages.update(item.imageId, {
+            status: 'failed',
+            lastError: `Upload failed after ${item.attempts} attempts: ${item.lastError || 'Unknown error'}`
+          });
+        }
+        
+        await db.uploadOutbox.delete(item.opId);
+      }
+    }
+    
+    return stuckItems.length;
   }
 
   /**

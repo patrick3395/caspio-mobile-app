@@ -1,17 +1,20 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewEncapsulation, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { BackgroundSyncService, SyncStatus } from '../../services/background-sync.service';
 import { IndexedDbService } from '../../services/indexed-db.service';
-import { Subscription, interval } from 'rxjs';
+import { Subscription, interval, merge } from 'rxjs';
+import { debounceTime, map } from 'rxjs/operators';
 import { SyncDetailsModalComponent } from './sync-details-modal.component';
+import { db } from '../../services/caspio-db';
 
 @Component({
   selector: 'app-sync-status-widget',
   templateUrl: './sync-status-widget.component.html',
   styleUrls: ['./sync-status-widget.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, SyncDetailsModalComponent]
+  imports: [CommonModule, IonicModule, SyncDetailsModalComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
   syncStatus: SyncStatus = {
@@ -22,7 +25,7 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
   };
 
   private subscription?: Subscription;
-  private pollSubscription?: Subscription;
+  private liveQuerySubscription?: Subscription;
 
   constructor(
     private backgroundSync: BackgroundSyncService,
@@ -33,29 +36,19 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    // Subscribe to sync status updates
+    // Subscribe to sync status updates from BackgroundSyncService
     this.subscription = this.backgroundSync.syncStatus$.subscribe(
       status => {
         this.syncStatus = status;
-        this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.markForCheck();
       }
     );
 
-    // Poll IndexedDB for accurate pending count every 2 seconds
-    // This ensures we show real counts even when BackgroundSync hasn't updated yet
-    this.ngZone.runOutsideAngular(() => {
-      this.pollSubscription = interval(2000).subscribe(() => {
-        this.refreshPendingCount();
-      });
-    });
-
-    // Initial count
-    this.refreshPendingCount();
-  }
-
-  private async refreshPendingCount() {
-    try {
-      const stats = await this.indexedDb.getSyncStats();
+    // FIXED: Use Dexie liveQuery for reactive sync counts instead of polling
+    // This is more efficient - only updates when data actually changes
+    this.liveQuerySubscription = db.liveSyncStats$().pipe(
+      debounceTime(300) // Prevent rapid-fire updates
+    ).subscribe(stats => {
       this.ngZone.run(() => {
         // Only update if different to avoid unnecessary change detection
         if (this.syncStatus.pendingCount !== stats.pending ||
@@ -66,20 +59,18 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
             failedCount: stats.failed,
             syncedCount: stats.synced,
           };
-          this.changeDetectorRef.detectChanges();
+          this.changeDetectorRef.markForCheck();
         }
       });
-    } catch (error) {
-      console.warn('[SyncWidget] Error refreshing count:', error);
-    }
+    });
   }
 
   ngOnDestroy() {
     if (this.subscription) {
       this.subscription.unsubscribe();
     }
-    if (this.pollSubscription) {
-      this.pollSubscription.unsubscribe();
+    if (this.liveQuerySubscription) {
+      this.liveQuerySubscription.unsubscribe();
     }
   }
 

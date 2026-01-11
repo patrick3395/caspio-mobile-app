@@ -57,6 +57,7 @@ export interface SyncStatus {
 })
 export class BackgroundSyncService {
   private syncInterval: Subscription | null = null;
+  private connectionSubscription: Subscription | null = null;
   private isSyncing = false;
   private syncIntervalMs = 60000; // Check every 60 seconds (batched sync - was 30s)
 
@@ -174,59 +175,155 @@ export class BackgroundSyncService {
   /**
    * Reset any stuck 'syncing' requests to 'pending' on startup
    * This handles cases where the app was closed during a sync
+   * FIXED: Batch operations using Promise.all for faster startup
    */
   private async resetStuckSyncingRequests(): Promise<void> {
     try {
-      // Reset stuck pending requests
-      const allRequests = await this.indexedDb.getAllRequests();
+      const now = Date.now();
+      const fiveMinutesAgo = now - (5 * 60 * 1000);  // 5 minutes
+
+      // Fetch all data in parallel
+      const [allRequests, allCaptions] = await Promise.all([
+        this.indexedDb.getAllRequests(),
+        this.indexedDb.getAllPendingCaptions()
+      ]);
+
+      // Categorize requests
       const stuckSyncing = allRequests.filter(r => r.status === 'syncing');
-      
+      const stuckPending = allRequests.filter(r =>
+        r.status === 'pending' &&
+        r.createdAt < fiveMinutesAgo &&
+        (r.retryCount || 0) >= 3
+      );
+      const syncedRequests = allRequests.filter(r => r.status === 'synced');
+
+      // Categorize captions
+      const stuckCaptions = allCaptions.filter(c => c.status === 'syncing');
+      const stuckPendingCaptions = allCaptions.filter(c =>
+        c.status === 'pending' &&
+        c.createdAt < fiveMinutesAgo &&
+        (c.retryCount || 0) >= 3
+      );
+      const syncedCaptions = allCaptions.filter(c => c.status === 'synced');
+
+      // FIXED: Batch all update operations using Promise.all
+      const updatePromises: Promise<void>[] = [];
+
+      // Reset stuck 'syncing' requests
       if (stuckSyncing.length > 0) {
         console.log(`[BackgroundSync] Found ${stuckSyncing.length} stuck 'syncing' requests, resetting to 'pending'`);
-        for (const request of stuckSyncing) {
-          await this.indexedDb.updateRequestStatus(request.requestId, 'pending');
-        }
+        updatePromises.push(...stuckSyncing.map(r =>
+          this.indexedDb.updateRequestStatus(r.requestId, 'pending')
+        ));
       }
-      
-      // Also clean up any old 'synced' requests that weren't deleted
-      const syncedRequests = allRequests.filter(r => r.status === 'synced');
+
+      // Reset stuck 'pending' requests with high retry counts
+      if (stuckPending.length > 0) {
+        console.log(`[BackgroundSync] Found ${stuckPending.length} stuck 'pending' requests with high retry counts, resetting`);
+        updatePromises.push(...stuckPending.map(r =>
+          this.indexedDb.updatePendingRequest(r.requestId, {
+            retryCount: 0,
+            lastAttempt: 0,
+            error: undefined
+          })
+        ));
+      }
+
+      // Clean up old 'synced' requests
       if (syncedRequests.length > 0) {
         console.log(`[BackgroundSync] Found ${syncedRequests.length} old 'synced' requests, cleaning up`);
-        for (const request of syncedRequests) {
-          await this.indexedDb.removePendingRequest(request.requestId);
-        }
+        updatePromises.push(...syncedRequests.map(r =>
+          this.indexedDb.removePendingRequest(r.requestId)
+        ));
       }
-      
-      // CRITICAL: Also reset stuck pending captions
-      // Captions can get stuck in 'syncing' status if app closes during sync
-      const allCaptions = await this.indexedDb.getAllPendingCaptions();
-      const stuckCaptions = allCaptions.filter(c => c.status === 'syncing');
-      
+
+      // Reset stuck 'syncing' captions
       if (stuckCaptions.length > 0) {
         console.log(`[BackgroundSync] Found ${stuckCaptions.length} stuck 'syncing' captions, resetting to 'pending'`);
-        for (const caption of stuckCaptions) {
-          await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending');
-        }
+        updatePromises.push(...stuckCaptions.map(c =>
+          this.indexedDb.updateCaptionStatus(c.captionId, 'pending')
+        ));
       }
-      
-      // Clean up any old 'synced' captions that weren't deleted
-      const syncedCaptions = allCaptions.filter(c => c.status === 'synced');
+
+      // Reset stuck 'pending' captions with high retry counts
+      if (stuckPendingCaptions.length > 0) {
+        console.log(`[BackgroundSync] Found ${stuckPendingCaptions.length} stuck 'pending' captions with high retry counts, resetting`);
+        updatePromises.push(...stuckPendingCaptions.map(c =>
+          this.indexedDb.updateCaptionStatus(c.captionId, 'pending', {
+            retryCount: 0,
+            lastAttempt: 0
+          })
+        ));
+      }
+
+      // Clean up old 'synced' captions
       if (syncedCaptions.length > 0) {
         console.log(`[BackgroundSync] Found ${syncedCaptions.length} old 'synced' captions, cleaning up`);
-        for (const caption of syncedCaptions) {
-          await this.indexedDb.deletePendingCaption(caption.captionId);
-        }
+        updatePromises.push(...syncedCaptions.map(c =>
+          this.indexedDb.deletePendingCaption(c.captionId)
+        ));
       }
+
+      // Execute all updates in parallel
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+        console.log(`[BackgroundSync] Batch reset complete: ${updatePromises.length} operations`);
+      }
+
+      // CRITICAL FIX: Reset stuck upload outbox items
+      // Items can get stuck if their nextRetryAt is pushed far into the future
+      await this.resetStuckUploadOutboxItems(fiveMinutesAgo);
+
     } catch (error) {
       console.warn('[BackgroundSync] Error resetting stuck requests:', error);
+    }
+  }
+  
+  /**
+   * Reset stuck upload outbox items
+   * Items can get stuck if they've been retrying for too long
+   * FIXED: Batch operations using Promise.all
+   */
+  private async resetStuckUploadOutboxItems(olderThan: number): Promise<void> {
+    try {
+      const allOutboxItems = await this.indexedDb.getAllUploadOutboxItems();
+      const now = Date.now();
+
+      // Find items that are old and have high attempts or nextRetryAt in the far future
+      const stuckItems = allOutboxItems.filter(item =>
+        item.createdAt < olderThan &&
+        (item.attempts >= 3 || item.nextRetryAt > now + (10 * 60 * 1000)) // nextRetryAt > 10min in future
+      );
+
+      if (stuckItems.length > 0) {
+        console.log(`[BackgroundSync] Found ${stuckItems.length} stuck upload outbox items, resetting`);
+        // FIXED: Batch reset all items in parallel
+        await Promise.all(stuckItems.map(item =>
+          this.indexedDb.updateOutboxItem(item.opId, {
+            attempts: 0,
+            nextRetryAt: now,
+            lastError: null
+          })
+        ));
+        console.log(`[BackgroundSync] Batch reset ${stuckItems.length} outbox items complete`);
+      }
+    } catch (error) {
+      console.warn('[BackgroundSync] Error resetting stuck outbox items:', error);
     }
   }
 
   /**
    * Listen for connection changes and trigger sync when back online
+   * FIXED: Store subscription to prevent memory leak
    */
   private listenToConnectionChanges(): void {
-    this.connectionMonitor.getHealth().subscribe(health => {
+    // Clean up any existing subscription first
+    if (this.connectionSubscription) {
+      this.connectionSubscription.unsubscribe();
+      this.connectionSubscription = null;
+    }
+
+    this.connectionSubscription = this.connectionMonitor.getHealth().subscribe(health => {
       if (health.isHealthy && !this.isSyncing) {
         console.log('[BackgroundSync] Connection restored, triggering sync');
         this.triggerSync();
@@ -271,6 +368,14 @@ export class BackgroundSyncService {
       if (staleCleared > 0) {
         console.log(`[BackgroundSync] Cleaned up ${staleCleared} stale caption(s)`);
       }
+      
+      // CRITICAL FIX: Clean up truly stuck upload outbox items (older than 1 hour with many attempts)
+      // This prevents the sync queue from showing items that will never succeed
+      const stuckOutboxCleared = await this.indexedDb.cleanupStuckUploadOutboxItems(60); // 60 min threshold
+      if (stuckOutboxCleared > 0) {
+        console.log(`[BackgroundSync] Cleaned up ${stuckOutboxCleared} stuck upload outbox item(s)`);
+      }
+      
       // Perform storage cleanup after successful sync (runs in background, non-blocking)
       this.performStorageCleanup().catch(err => {
         console.warn('[BackgroundSync] Storage cleanup failed:', err);
@@ -1362,12 +1467,18 @@ export class BackgroundSyncService {
 
   /**
    * Pause background sync
+   * FIXED: Also cleanup connection subscription to prevent memory leak
    */
   pauseSync(): void {
     console.log('[BackgroundSync] Pausing sync');
     if (this.syncInterval) {
       this.syncInterval.unsubscribe();
       this.syncInterval = null;
+    }
+    // Also cleanup connection subscription
+    if (this.connectionSubscription) {
+      this.connectionSubscription.unsubscribe();
+      this.connectionSubscription = null;
     }
   }
 

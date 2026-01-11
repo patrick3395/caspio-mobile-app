@@ -1,9 +1,10 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { BackgroundSyncService, SyncStatus } from '../../services/background-sync.service';
 import { IndexedDbService, PendingCaptionUpdate } from '../../services/indexed-db.service';
-import { Subscription, merge, combineLatest } from 'rxjs';
+import { Subscription, combineLatest } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { db } from '../../services/caspio-db';
 
 @Component({
@@ -344,7 +345,8 @@ import { db } from '../../services/caspio-db';
     }
   `],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   syncStatus: SyncStatus = {
@@ -363,7 +365,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   totalPendingCount: number = 0;
 
   private subscription?: Subscription;
-  private syncEventsSub?: Subscription;
   private liveQuerySub?: Subscription;
   private refreshInterval?: any;
 
@@ -380,84 +381,81 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     this.subscription = this.backgroundSync.syncStatus$.subscribe(
       status => {
         this.syncStatus = status;
+        this.changeDetectorRef.markForCheck();
       }
     );
 
-    // Subscribe to all sync completion events for instant updates
-    this.syncEventsSub = merge(
-      this.backgroundSync.visualSyncComplete$,
-      this.backgroundSync.photoUploadComplete$,
-      this.backgroundSync.efeRoomSyncComplete$,
-      this.backgroundSync.efePointSyncComplete$,
-      this.backgroundSync.efePhotoUploadComplete$,
-      this.backgroundSync.serviceDataSyncComplete$,
-      this.backgroundSync.captionSyncComplete$
-    ).subscribe(() => {
-      console.log('[SyncModal] Sync event received');
-    });
-
     // CRITICAL: Use Dexie liveQuery for real-time updates
     // This provides instant visibility when captions/annotations are queued
+    // FIXED: Added debounceTime to prevent excessive updates and moved heavy work outside NgZone
     this.liveQuerySub = combineLatest([
       db.liveAllPendingRequests$(),
       db.liveAllPendingCaptions$(),
       db.liveUploadOutbox$()
-    ]).subscribe(async ([requests, captions, outboxItems]) => {
-      // Run inside NgZone to ensure change detection
-      this.ngZone.run(async () => {
-        console.log('[SyncModal] Dexie liveQuery update:', {
-          requests: requests.length,
-          captions: captions.length,
-          outbox: outboxItems.length
-        });
+    ]).pipe(
+      debounceTime(250) // Debounce rapid-fire updates
+    ).subscribe(async ([requests, captions, outboxItems]) => {
+      console.log('[SyncModal] Dexie liveQuery update:', {
+        requests: requests.length,
+        captions: captions.length,
+        outbox: outboxItems.length
+      });
 
-        // Update requests by status
-        this.pendingRequests = requests.filter(r => r.status === 'pending');
-        this.syncingRequests = requests.filter(r => r.status === 'syncing');
-        this.failedRequests = requests.filter(r => r.status === 'failed');
+      // Update requests by status (fast filter operations)
+      const pendingReqs = requests.filter(r => r.status === 'pending');
+      const syncingReqs = requests.filter(r => r.status === 'syncing');
+      const failedReqs = requests.filter(r => r.status === 'failed');
 
-        // Update pending captions (all statuses except 'synced')
-        this.pendingCaptions = captions.filter(c => c.status !== 'synced');
+      // Update pending captions (all statuses except 'synced')
+      const pendingCaps = captions.filter(c => c.status !== 'synced');
 
-        // Load pending photos with LocalImage details
-        try {
-          this.pendingPhotos = [];
-          for (const item of outboxItems) {
-            const localImage = await this.indexedDb.getLocalImage(item.imageId);
-            if (localImage) {
-              this.pendingPhotos.push({
-                ...item,
-                fileName: localImage.fileName,
-                status: localImage.status
-              });
-            }
+      // FIXED: Batch load pending photos using Promise.all instead of sequential loop
+      let photos: any[] = [];
+      try {
+        const photoPromises = outboxItems.map(async (item) => {
+          const localImage = await this.indexedDb.getLocalImage(item.imageId);
+          if (localImage) {
+            return {
+              ...item,
+              fileName: localImage.fileName,
+              status: localImage.status
+            };
           }
-        } catch (e) {
-          console.warn('[SyncModal] Error loading photo details:', e);
-        }
+          return null;
+        });
+        const results = await Promise.all(photoPromises);
+        photos = results.filter(p => p !== null);
+      } catch (e) {
+        console.warn('[SyncModal] Error loading photo details:', e);
+      }
 
-        // Update counts
-        this.totalPendingCount = this.pendingRequests.length + this.pendingCaptions.length + 
-                                  this.pendingPhotos.length + this.failedRequests.length;
+      // Calculate stuck count (before NgZone)
+      const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+      const stuckRequests = pendingReqs.filter(r =>
+        r.createdAt < thirtyMinutesAgo && (r.retryCount || 0) > 5
+      ).length;
+      const staleCaptions = pendingCaps.filter(c =>
+        c.createdAt < thirtyMinutesAgo && (c.retryCount || 0) > 5
+      ).length;
 
-        // Calculate stuck count
-        const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
-        const stuckRequests = this.pendingRequests.filter(r => 
-          r.createdAt < thirtyMinutesAgo && (r.retryCount || 0) > 5
-        ).length;
-        const staleCaptions = this.pendingCaptions.filter(c =>
-          c.createdAt < thirtyMinutesAgo && (c.retryCount || 0) > 5
-        ).length;
+      // Update UI in NgZone (single batch update)
+      this.ngZone.run(() => {
+        this.pendingRequests = pendingReqs;
+        this.syncingRequests = syncingReqs;
+        this.failedRequests = failedReqs;
+        this.pendingCaptions = pendingCaps;
+        this.pendingPhotos = photos;
+        this.totalPendingCount = pendingReqs.length + pendingCaps.length +
+                                  photos.length + failedReqs.length;
         this.stuckCount = stuckRequests + staleCaptions;
-
-        this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.markForCheck();
       });
     });
 
-    // Fallback refresh every 5 seconds (reduced from 2 since we have liveQuery)
+    // Fallback refresh every 10 seconds (increased from 5 since liveQuery handles real-time)
     this.refreshInterval = setInterval(() => {
       this.refreshDetails();
-    }, 5000);
+    }, 10000);
 
     // Load initial data
     this.refreshDetails();
@@ -466,9 +464,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     if (this.subscription) {
       this.subscription.unsubscribe();
-    }
-    if (this.syncEventsSub) {
-      this.syncEventsSub.unsubscribe();
     }
     if (this.liveQuerySub) {
       this.liveQuerySub.unsubscribe();
@@ -488,6 +483,12 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
 
   async clearStuckRequests() {
     console.log('[SyncModal] Clearing stuck/broken requests...');
+    
+    // CRITICAL FIX: First reset old pending requests with high retry counts
+    // Give them a fresh start by resetting retry count to 0
+    const resetCount = await this.indexedDb.forceRetryOldRequests(10); // 10 min old with retries
+    console.log(`[SyncModal] Reset ${resetCount} old pending requests for retry`);
+    
     // Clear requests older than 30 minutes with high retry count (truly stuck requests)
     const clearedRequests = await this.indexedDb.clearOldPendingRequests(30);
     console.log(`[SyncModal] Cleared ${clearedRequests} stuck requests`);
@@ -495,6 +496,13 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     // Also clear stale pending captions
     const clearedCaptions = await this.indexedDb.clearStalePendingCaptions(30);
     console.log(`[SyncModal] Cleared ${clearedCaptions} stale captions`);
+    
+    // CRITICAL FIX: Also clean up stuck upload outbox items
+    const clearedOutbox = await this.indexedDb.cleanupStuckUploadOutboxItems(30); // 30 min old
+    console.log(`[SyncModal] Cleared ${clearedOutbox} stuck upload outbox items`);
+    
+    // Trigger a sync to retry the reset items
+    await this.backgroundSync.forceSyncNow();
     
     // Refresh the list immediately
     await this.refreshDetails();
@@ -506,14 +514,24 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     try {
       // Stuck count calculation (requires checking timestamps)
       const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      
+      // Count requests that are stuck pending with high retry counts
       const stuckRequests = this.pendingRequests.filter(r => 
-        r.createdAt < thirtyMinutesAgo && (r.retryCount || 0) > 5
+        (r.createdAt < thirtyMinutesAgo && (r.retryCount || 0) > 5) ||
+        (r.createdAt < tenMinutesAgo && (r.retryCount || 0) >= 3) // Also count 10+ min old with 3+ retries
       ).length;
       
       // Also count stale captions as stuck
       const staleCaptions = await this.indexedDb.getStaleCaptionCount(30);
       
-      this.stuckCount = stuckRequests + staleCaptions;
+      // Also count stuck upload outbox items
+      const allOutbox = await this.indexedDb.getAllUploadOutboxItems();
+      const stuckOutbox = allOutbox.filter(item => 
+        item.createdAt < tenMinutesAgo && item.attempts >= 3
+      ).length;
+      
+      this.stuckCount = stuckRequests + staleCaptions + stuckOutbox;
       
       // Total count is updated by liveQuery, but update here as fallback
       this.totalPendingCount = this.pendingRequests.length + this.pendingCaptions.length + 

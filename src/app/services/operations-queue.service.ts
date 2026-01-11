@@ -1,26 +1,23 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { db, QueuedOperation, OperationType, OperationStatus } from './caspio-db';
 
-export type OperationType = 'CREATE_ROOM' | 'CREATE_POINT' | 'UPLOAD_PHOTO' | 'UPDATE_ROOM' | 'DELETE_ROOM' |
-                            'CREATE_VISUAL' | 'UPDATE_VISUAL' | 'DELETE_VISUAL' | 'UPLOAD_VISUAL_PHOTO' | 'UPLOAD_VISUAL_PHOTO_UPDATE' | 'UPLOAD_ROOM_POINT_PHOTO_UPDATE' | 'UPLOAD_FDF_PHOTO';
-export type OperationStatus = 'pending' | 'in-progress' | 'completed' | 'failed' | 'cancelled';
+// Re-export types from caspio-db for backward compatibility
+export { OperationType, OperationStatus } from './caspio-db';
 
-export interface Operation {
-  id: string;
-  type: OperationType;
-  status: OperationStatus;
-  retryCount: number;
-  maxRetries: number;
-  data: any;
-  dependencies: string[];
-  createdAt: number;
-  lastAttempt: number;
-  error?: string;
-  dedupeKey?: string;
+export interface Operation extends QueuedOperation {
+  // Callbacks are in-memory only - not persisted to IndexedDB
   onSuccess?: (result: any) => void;
   onError?: (error: any) => void;
   onProgress?: (percent: number) => void;
 }
+
+// Map to store callbacks by operation ID (in-memory, not persisted)
+const callbackMap = new Map<string, {
+  onSuccess?: (result: any) => void;
+  onError?: (error: any) => void;
+  onProgress?: (percent: number) => void;
+}>();
 
 @Injectable({
   providedIn: 'root'
@@ -29,6 +26,7 @@ export class OperationsQueueService {
   private queue: Operation[] = [];
   private processing = false;
   private queueSubject = new BehaviorSubject<Operation[]>([]);
+  private initialized = false;
 
   public queue$ = this.queueSubject.asObservable();
 
@@ -43,15 +41,22 @@ export class OperationsQueueService {
       window.addEventListener('offline', () => {
         console.log('[OperationsQueue] Network lost - operations will be queued');
       });
+
+      // FIXED: Auto-restore queue on service initialization
+      this.restore().catch(err => {
+        console.error('[OperationsQueue] Failed to auto-restore queue:', err);
+      });
     }
   }
 
   /**
    * Enqueue an operation with automatic retry and deduplication
+   * FIXED: Store callbacks separately and persist to IndexedDB
    */
   async enqueue(operation: Partial<Operation>): Promise<string> {
+    const opId = this.generateOperationId();
     const op: Operation = {
-      id: this.generateOperationId(),
+      id: opId,
       type: operation.type!,
       status: 'pending',
       retryCount: 0,
@@ -60,16 +65,31 @@ export class OperationsQueueService {
       dependencies: operation.dependencies || [],
       createdAt: Date.now(),
       lastAttempt: 0,
-      dedupeKey: operation.dedupeKey,
-      onSuccess: operation.onSuccess,
-      onError: operation.onError,
-      onProgress: operation.onProgress
+      dedupeKey: operation.dedupeKey
     };
+
+    // Store callbacks in memory map (not persisted)
+    if (operation.onSuccess || operation.onError || operation.onProgress) {
+      callbackMap.set(opId, {
+        onSuccess: operation.onSuccess,
+        onError: operation.onError,
+        onProgress: operation.onProgress
+      });
+    }
 
     // Check for duplicates
     if (op.dedupeKey && this.isDuplicate(op.dedupeKey)) {
       console.log(`[OperationsQueue] Skipping duplicate operation: ${op.dedupeKey}`);
-      return this.findOperationByDedupeKey(op.dedupeKey)!.id;
+      const existingOp = this.findOperationByDedupeKey(op.dedupeKey);
+      // Transfer callbacks to existing operation
+      if (existingOp && (operation.onSuccess || operation.onError || operation.onProgress)) {
+        callbackMap.set(existingOp.id, {
+          onSuccess: operation.onSuccess,
+          onError: operation.onError,
+          onProgress: operation.onProgress
+        });
+      }
+      return existingOp!.id;
     }
 
     this.queue.push(op);
@@ -135,12 +155,16 @@ export class OperationsQueueService {
 
       // Success
       op.status = 'completed';
-      if (op.onSuccess) {
-        op.onSuccess(result);
+
+      // Get callbacks from map and call onSuccess if exists
+      const callbacks = callbackMap.get(op.id);
+      if (callbacks?.onSuccess) {
+        callbacks.onSuccess(result);
       }
 
-      // Remove from queue
+      // Remove from queue and cleanup callbacks
       this.removeOperation(op.id);
+      callbackMap.delete(op.id);
       console.log(`[OperationsQueue] Completed ${op.type} operation ${op.id}`);
 
     } catch (error: any) {
@@ -152,8 +176,8 @@ export class OperationsQueueService {
         op.retryCount++;
         op.error = error.message || 'Operation failed';
 
-        // Exponential backoff
-        const delay = Math.pow(2, op.retryCount) * 1000;
+        // FIXED: Exponential backoff with cap at 5 minutes to prevent infinite waits
+        const delay = Math.min(Math.pow(2, op.retryCount) * 1000, 5 * 60 * 1000);
         console.log(`[OperationsQueue] Will retry ${op.type} in ${delay}ms`);
 
         await this.sleep(delay);
@@ -163,10 +187,14 @@ export class OperationsQueueService {
         op.status = 'failed';
         op.error = error.message || 'Operation failed after max retries';
 
-        if (op.onError) {
-          op.onError(error);
+        // Get callbacks from map and call onError if exists
+        const callbacks = callbackMap.get(op.id);
+        if (callbacks?.onError) {
+          callbacks.onError(error);
         }
 
+        // Cleanup callbacks on failure
+        callbackMap.delete(op.id);
         console.error(`[OperationsQueue] Operation ${op.id} failed permanently:`, op.error);
       }
     }
@@ -185,23 +213,46 @@ export class OperationsQueueService {
 
   /**
    * Perform the actual operation using registered executors
+   * FIXED: Use callback map for onProgress instead of op.onProgress
    */
   private async performOperation(op: Operation): Promise<any> {
     const executor = this.executors.get(op.type);
     if (!executor) {
       throw new Error(`No executor registered for operation type: ${op.type}`);
     }
-    return executor(op.data, op.onProgress);
+    const callbacks = callbackMap.get(op.id);
+    return executor(op.data, callbacks?.onProgress);
   }
 
   /**
    * Get the next operation that's ready to execute (dependencies met)
+   * FIXED: Fail operations if their dependencies failed (don't wait forever)
    */
   private getNextReadyOperation(): Operation | null {
     for (const op of this.queue) {
       if (op.status !== 'pending') continue;
 
-      // Check if all dependencies are completed
+      // Check if any dependency failed - if so, fail this operation too
+      const failedDep = op.dependencies.find(depId => {
+        const dep = this.queue.find(o => o.id === depId);
+        return dep && (dep.status === 'failed' || dep.status === 'cancelled');
+      });
+
+      if (failedDep) {
+        // Mark this operation as failed due to dependency failure
+        op.status = 'failed';
+        op.error = `Dependency ${failedDep} failed or was cancelled`;
+        const callbacks = callbackMap.get(op.id);
+        if (callbacks?.onError) {
+          callbacks.onError(new Error(op.error));
+        }
+        callbackMap.delete(op.id);
+        console.error(`[OperationsQueue] Operation ${op.id} failed: dependency ${failedDep} failed/cancelled`);
+        this.queueSubject.next([...this.queue]);
+        continue;
+      }
+
+      // Check if all dependencies are completed (or removed from queue)
       const dependenciesMet = op.dependencies.every(depId => {
         const dep = this.queue.find(o => o.id === depId);
         return !dep || dep.status === 'completed';
@@ -265,38 +316,91 @@ export class OperationsQueueService {
   }
 
   /**
-   * Persist queue to IndexedDB (placeholder - to be implemented)
+   * Persist queue to IndexedDB using Dexie
+   * FIXED: Migrated from localStorage to IndexedDB for larger queue support
    */
   private async persist(): Promise<void> {
-    // TODO: Implement IndexedDB persistence
     try {
-      localStorage.setItem('operations_queue', JSON.stringify(
-        this.queue.map(op => ({
-          ...op,
-          // Remove callbacks for serialization
-          onSuccess: undefined,
-          onError: undefined,
-          onProgress: undefined
-        }))
-      ));
+      // Clear existing queue and add all current operations
+      await db.transaction('rw', db.operationsQueue, async () => {
+        await db.operationsQueue.clear();
+        // Add all operations (without callbacks - they're in memory map)
+        const queuedOps: QueuedOperation[] = this.queue.map(op => ({
+          id: op.id,
+          type: op.type,
+          status: op.status,
+          retryCount: op.retryCount,
+          maxRetries: op.maxRetries,
+          data: op.data,
+          dependencies: op.dependencies,
+          createdAt: op.createdAt,
+          lastAttempt: op.lastAttempt,
+          error: op.error,
+          dedupeKey: op.dedupeKey
+        }));
+        if (queuedOps.length > 0) {
+          await db.operationsQueue.bulkAdd(queuedOps);
+        }
+      });
     } catch (error) {
-      console.error('[OperationsQueue] Failed to persist queue:', error);
+      console.error('[OperationsQueue] Failed to persist queue to IndexedDB:', error);
+      // Fallback to localStorage for older data migration
+      try {
+        localStorage.setItem('operations_queue', JSON.stringify(
+          this.queue.map(op => ({
+            ...op,
+            onSuccess: undefined,
+            onError: undefined,
+            onProgress: undefined
+          }))
+        ));
+      } catch (e) {
+        console.error('[OperationsQueue] Fallback localStorage persist also failed:', e);
+      }
     }
   }
 
   /**
-   * Restore queue from IndexedDB (placeholder - to be implemented)
+   * Restore queue from IndexedDB using Dexie
+   * FIXED: Auto-called on service initialization, migrates from localStorage if needed
    */
   async restore(): Promise<void> {
-    try {
-      const stored = localStorage.getItem('operations_queue');
-      if (stored) {
-        this.queue = JSON.parse(stored);
-        this.queueSubject.next([...this.queue]);
-        console.log(`[OperationsQueue] Restored ${this.queue.length} operations from storage`);
+    if (this.initialized) {
+      console.log('[OperationsQueue] Already initialized, skipping restore');
+      return;
+    }
+    this.initialized = true;
 
-        // Resume processing
-        if (this.queue.length > 0 && navigator.onLine) {
+    try {
+      // Try to restore from IndexedDB first
+      const storedOps = await db.operationsQueue.toArray();
+
+      if (storedOps.length > 0) {
+        this.queue = storedOps.map(op => ({ ...op }));
+        this.queueSubject.next([...this.queue]);
+        console.log(`[OperationsQueue] Restored ${this.queue.length} operations from IndexedDB`);
+      } else {
+        // Migrate from localStorage if exists
+        const localStorageData = localStorage.getItem('operations_queue');
+        if (localStorageData) {
+          const parsed = JSON.parse(localStorageData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.queue = parsed;
+            this.queueSubject.next([...this.queue]);
+            // Persist to IndexedDB to complete migration
+            await this.persist();
+            // Remove localStorage after successful migration
+            localStorage.removeItem('operations_queue');
+            console.log(`[OperationsQueue] Migrated ${this.queue.length} operations from localStorage to IndexedDB`);
+          }
+        }
+      }
+
+      // Resume processing if queue has pending items
+      if (this.queue.length > 0 && navigator.onLine) {
+        const pendingCount = this.queue.filter(op => op.status === 'pending').length;
+        if (pendingCount > 0) {
+          console.log(`[OperationsQueue] Found ${pendingCount} pending operations, resuming processing`);
           this.processQueue();
         }
       }
