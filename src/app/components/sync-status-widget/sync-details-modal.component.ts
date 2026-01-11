@@ -411,33 +411,18 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
           outbox: outboxItems.length
         });
 
-        // Filter out photo upload requests from pendingRequests to avoid double-counting
-        // The new LocalImage system uses uploadOutbox, legacy system used pendingRequests
-        const isPhotoUploadRequest = (r: any) => 
-          r.endpoint === 'VISUAL_PHOTO_UPLOAD' || 
-          r.endpoint === 'EFE_POINT_PHOTO_UPLOAD' ||
-          (r.type === 'UPLOAD_FILE' && r.data?.fileId);
-
-        // Update requests by status, excluding photo uploads (shown via pendingPhotos)
-        this.pendingRequests = requests.filter(r => r.status === 'pending' && !isPhotoUploadRequest(r));
-        this.syncingRequests = requests.filter(r => r.status === 'syncing' && !isPhotoUploadRequest(r));
+        // Update requests by status
+        this.pendingRequests = requests.filter(r => r.status === 'pending');
+        this.syncingRequests = requests.filter(r => r.status === 'syncing');
         this.failedRequests = requests.filter(r => r.status === 'failed');
 
         // Update pending captions (all statuses except 'synced')
         this.pendingCaptions = captions.filter(c => c.status !== 'synced');
 
-        // Load pending photos with LocalImage details (deduplicated by imageId)
+        // Load pending photos with LocalImage details
         try {
           this.pendingPhotos = [];
-          const seenImageIds = new Set<string>();
           for (const item of outboxItems) {
-            // Skip duplicates by imageId
-            if (seenImageIds.has(item.imageId)) {
-              console.warn('[SyncModal] Duplicate outbox item for imageId:', item.imageId);
-              continue;
-            }
-            seenImageIds.add(item.imageId);
-            
             const localImage = await this.indexedDb.getLocalImage(item.imageId);
             if (localImage) {
               this.pendingPhotos.push({
@@ -447,7 +432,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
               });
             }
           }
-          console.log('[SyncModal] Pending photos loaded:', this.pendingPhotos.length, 'from outbox items:', outboxItems.length);
         } catch (e) {
           console.warn('[SyncModal] Error loading photo details:', e);
         }
@@ -520,32 +504,19 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     try {
       const requests = await this.indexedDb.getAllRequests();
       
-      // Filter out photo upload requests to avoid double-counting with pendingPhotos
-      const isPhotoUploadRequest = (r: any) => 
-        r.endpoint === 'VISUAL_PHOTO_UPLOAD' || 
-        r.endpoint === 'EFE_POINT_PHOTO_UPLOAD' ||
-        (r.type === 'UPLOAD_FILE' && r.data?.fileId);
-      
-      this.pendingRequests = requests.filter(r => r.status === 'pending' && !isPhotoUploadRequest(r));
-      this.syncingRequests = requests.filter(r => r.status === 'syncing' && !isPhotoUploadRequest(r));
+      this.pendingRequests = requests.filter(r => r.status === 'pending');
+      this.syncingRequests = requests.filter(r => r.status === 'syncing');
       this.failedRequests = requests.filter(r => r.status === 'failed');
       
       // Load ALL pending captions (not just sync-ready ones) so users can see everything in queue
       this.pendingCaptions = await this.indexedDb.getAllPendingCaptions();
       
-      // Load pending photos from uploadOutbox (new LocalImage system) - deduplicated by imageId
+      // Load pending photos from uploadOutbox (new LocalImage system)
       try {
         const outboxItems = await this.indexedDb.getAllUploadOutboxItems();
-        const seenImageIds = new Set<string>();
+        // Get LocalImage details for each outbox item
         this.pendingPhotos = [];
         for (const item of outboxItems) {
-          // Skip duplicates by imageId
-          if (seenImageIds.has(item.imageId)) {
-            console.warn('[SyncModal] refreshDetails: Duplicate outbox item for imageId:', item.imageId);
-            continue;
-          }
-          seenImageIds.add(item.imageId);
-          
           const localImage = await this.indexedDb.getLocalImage(item.imageId);
           if (localImage) {
             this.pendingPhotos.push({
@@ -555,7 +526,6 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
             });
           }
         }
-        console.log('[SyncModal] refreshDetails: Pending photos:', this.pendingPhotos.length, 'from outbox:', outboxItems.length);
       } catch (e) {
         console.warn('[SyncModal] Error loading uploadOutbox:', e);
         this.pendingPhotos = [];
