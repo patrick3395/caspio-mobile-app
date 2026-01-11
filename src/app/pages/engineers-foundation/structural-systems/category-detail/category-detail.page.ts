@@ -4465,7 +4465,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               photo.originalUrl = freshUrl;
               photo.displayUrl = freshUrl;
             } else {
-              // Fallback: Try cached photo by attachId (uses Dexie cachedPhotos table)
+              // Fallback 1: Try cached photo by attachId (uses Dexie cachedPhotos table)
+              let foundUrl = false;
               if (localImage.attachId) {
                 const cached = await this.indexedDb.getCachedPhoto(String(localImage.attachId));
                 if (cached) {
@@ -4474,6 +4475,38 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   photo.thumbnailUrl = cached;
                   photo.originalUrl = cached;
                   photo.displayUrl = cached;
+                  foundUrl = true;
+                }
+              }
+              
+              // Fallback 2: Try S3 URL directly if image has remoteS3Key
+              if (!foundUrl && localImage.remoteS3Key) {
+                try {
+                  console.log('[VIEW PHOTO] Trying S3 URL for LocalImage:', localImage.remoteS3Key);
+                  const s3Url = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
+                  if (s3Url) {
+                    photo.url = s3Url;
+                    photo.thumbnailUrl = s3Url;
+                    photo.originalUrl = s3Url;
+                    photo.displayUrl = s3Url;
+                    foundUrl = true;
+                    console.log('[VIEW PHOTO] Got S3 URL for LocalImage');
+                  }
+                } catch (s3Err) {
+                  console.warn('[VIEW PHOTO] S3 URL fetch failed:', s3Err);
+                }
+              }
+              
+              // Fallback 3: Try to find in bulk cached photos map
+              if (!foundUrl && localImage.attachId) {
+                const bulkCached = this.bulkCachedPhotosMap.get(String(localImage.attachId));
+                if (bulkCached) {
+                  console.log('[VIEW PHOTO] Using bulk cached photo for LocalImage:', localImage.attachId);
+                  photo.url = bulkCached;
+                  photo.thumbnailUrl = bulkCached;
+                  photo.originalUrl = bulkCached;
+                  photo.displayUrl = bulkCached;
+                  foundUrl = true;
                 }
               }
             }
@@ -4569,6 +4602,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // CRITICAL: Always use the original URL (base image without annotations) for editing
       // This ensures annotations are applied to the original image, not a previously annotated version
       const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+
+      // CRITICAL: Don't open annotator if we only have placeholder URL
+      // This prevents the FabricAnnotator from failing to load the placeholder and going black
+      if (!originalImageUrl || originalImageUrl === 'assets/img/photo-placeholder.png') {
+        console.error('[VIEW PHOTO] Cannot open photo - no valid image URL available:', {
+          attachId,
+          originalUrl: photo.originalUrl,
+          url: photo.url,
+          imageUrl,
+          isLocalFirst: isLocalFirstPhoto,
+          isTempPhoto
+        });
+        await this.showToast('Photo not available. Please try again later.', 'warning');
+        return;
+      }
 
       // Try to load existing annotations (EXACTLY like original at line 12184-12208)
       let existingAnnotations: any = null;
