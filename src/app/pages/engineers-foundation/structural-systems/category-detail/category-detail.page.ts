@@ -4921,10 +4921,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // CRITICAL: Update IndexedDB cache FIRST (offline-first pattern)
     // This ensures annotations persist locally even if API call fails
+    let isLocalFirstPhoto = false;
+    let localImageId: string | null = null;
+    
     try {
       // CRITICAL FIX: Check if this is a local-first photo and update LocalImage record
       // Find the photo to check for localImageId
-      let localImageId: string | null = null;
       for (const [key, photos] of Object.entries(this.visualPhotos)) {
         const photo = (photos as any[]).find(p => 
           String(p.AttachID) === String(attachId) || 
@@ -4933,7 +4935,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         );
         if (photo) {
           localImageId = photo.localImageId || photo.imageId || null;
-          if (localImageId && (photo.isLocalFirst || photo.isLocalImage)) {
+          isLocalFirstPhoto = !!(localImageId && (photo.isLocalFirst || photo.isLocalImage));
+          
+          if (isLocalFirstPhoto && localImageId) {
             // Update the LocalImage record with new drawings
             await this.localImageService.updateCaptionAndDrawings(
               localImageId,
@@ -4944,6 +4948,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
           break;
         }
+      }
+      
+      // Also check if attachId itself looks like a local-first ID
+      if (String(attachId).startsWith('img_')) {
+        isLocalFirstPhoto = true;
       }
       
       if (visualIdForCache) {
@@ -4987,19 +4996,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Continue anyway - still try API
     }
 
-    // ALWAYS queue the annotation update using unified method
-    // This ensures annotations are never lost during sync operations
-    await this.foundationData.queueCaptionAndAnnotationUpdate(
-      attachId,
-      caption || '',
-      updateData.Drawings,
-      'visual',
-      {
-        serviceId: this.serviceId,
-        visualId: visualIdForCache || undefined
-      }
-    );
-    console.log('[SAVE] ✅ Annotation queued for sync:', attachId);
+    // Queue the annotation update ONLY for non-local-first photos
+    // For local-first photos, the annotations are stored in LocalImage record
+    // and will sync when the photo syncs (no duplicate queue entry needed)
+    if (!isLocalFirstPhoto) {
+      await this.foundationData.queueCaptionAndAnnotationUpdate(
+        attachId,
+        caption || '',
+        updateData.Drawings,
+        'visual',
+        {
+          serviceId: this.serviceId,
+          visualId: visualIdForCache || undefined
+        }
+      );
+      console.log('[SAVE] ✅ Annotation queued for sync:', attachId);
+    } else {
+      console.log('[SAVE] ✅ Local-first photo - annotations stored in LocalImage, no separate queue entry');
+    }
 
     // Return the compressed drawings string so caller can update local photo object
     return updateData.Drawings;
@@ -5505,10 +5519,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
             console.log(`[CREATE CUSTOM] Photo ${index + 1} uploaded with AttachID:`, attachId);
 
-            // If there are annotations, save them to the database
-            if (annotationData) {
+            // If there are annotations, save them to the LocalImage record
+            // NOTE: For local-first photos, we do NOT call saveAnnotationToDatabase here
+            // because that would create a duplicate entry in pendingCaptions.
+            // The caption/drawings are already stored in the LocalImage record via captureImage().
+            // The annotations will be synced when the photo is uploaded.
+            if (annotationData && attachId && !String(attachId).startsWith('img_')) {
+              // Only save to database if this is a real Caspio AttachID (legacy path)
               try {
-                console.log(`[CREATE CUSTOM] Saving annotations for photo ${index + 1}`);
+                console.log(`[CREATE CUSTOM] Saving annotations for photo ${index + 1} (legacy path)`);
 
                 // Use the annotated file as the blob (file contains the annotated version)
                 // The originalFile is what we uploaded, file is the one with annotations baked in
@@ -5520,6 +5539,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 console.error(`[CREATE CUSTOM] Failed to save annotations for photo ${index + 1}:`, annotError);
                 // Don't fail the whole upload if just annotations fail
               }
+            } else if (annotationData) {
+              // Local-first photo: annotations are already in LocalImage record
+              console.log(`[CREATE CUSTOM] Annotations stored in LocalImage for photo ${index + 1} (local-first path)`);
             }
 
             // Mark this specific photo as done uploading

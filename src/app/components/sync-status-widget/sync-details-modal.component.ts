@@ -501,41 +501,10 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   }
 
   async refreshDetails() {
+    // NOTE: This method is now mostly a fallback since liveQuery handles real-time updates
+    // We only use this for calculating stuck counts which require more complex queries
     try {
-      const requests = await this.indexedDb.getAllRequests();
-      
-      this.pendingRequests = requests.filter(r => r.status === 'pending');
-      this.syncingRequests = requests.filter(r => r.status === 'syncing');
-      this.failedRequests = requests.filter(r => r.status === 'failed');
-      
-      // Load ALL pending captions (not just sync-ready ones) so users can see everything in queue
-      this.pendingCaptions = await this.indexedDb.getAllPendingCaptions();
-      
-      // Load pending photos from uploadOutbox (new LocalImage system)
-      try {
-        const outboxItems = await this.indexedDb.getAllUploadOutboxItems();
-        // Get LocalImage details for each outbox item
-        this.pendingPhotos = [];
-        for (const item of outboxItems) {
-          const localImage = await this.indexedDb.getLocalImage(item.imageId);
-          if (localImage) {
-            this.pendingPhotos.push({
-              ...item,
-              fileName: localImage.fileName,
-              status: localImage.status
-            });
-          }
-        }
-      } catch (e) {
-        console.warn('[SyncModal] Error loading uploadOutbox:', e);
-        this.pendingPhotos = [];
-      }
-      
-      // Calculate total pending count (for Clear All button)
-      this.totalPendingCount = this.pendingRequests.length + this.pendingCaptions.length + this.pendingPhotos.length + this.failedRequests.length;
-      
-      // Calculate stuck count (pending for over 30 minutes with high retry count)
-      // Lower threshold would flag items that are just waiting for exponential backoff retry
+      // Stuck count calculation (requires checking timestamps)
       const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
       const stuckRequests = this.pendingRequests.filter(r => 
         r.createdAt < thirtyMinutesAgo && (r.retryCount || 0) > 5
@@ -546,9 +515,13 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       
       this.stuckCount = stuckRequests + staleCaptions;
       
+      // Total count is updated by liveQuery, but update here as fallback
+      this.totalPendingCount = this.pendingRequests.length + this.pendingCaptions.length + 
+                                this.pendingPhotos.length + this.failedRequests.length;
+      
       this.changeDetectorRef.detectChanges();
     } catch (error) {
-      console.error('[SyncModal] Error loading details:', error);
+      console.error('[SyncModal] Error in refreshDetails:', error);
     }
   }
 
