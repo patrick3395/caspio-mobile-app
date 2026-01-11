@@ -729,6 +729,12 @@ export class IndexedDbService {
   async cachePhoto(attachId: string, serviceId: string, imageDataUrl: string, s3Key?: string): Promise<void> {
     const photoKey = `photo_${attachId}`;
 
+    // Validate input
+    if (!imageDataUrl || imageDataUrl.length < 100) {
+      console.error('[IndexedDB] ❌ Invalid photo data - too short or empty:', attachId, 'length:', imageDataUrl?.length);
+      throw new Error('Invalid photo data - cannot cache empty or too-short image');
+    }
+
     const photoData = {
       photoKey: photoKey,
       attachId: attachId,
@@ -739,7 +745,7 @@ export class IndexedDbService {
     };
 
     await db.cachedPhotos.put(photoData);
-    console.log('[IndexedDB] Photo cached:', attachId);
+    console.log('[IndexedDB] ✅ Photo cached:', attachId, 'size:', (imageDataUrl.length / 1024).toFixed(1), 'KB');
   }
 
   /**
@@ -773,6 +779,50 @@ export class IndexedDbService {
 
     console.log(`[IndexedDB] getAllCachedPhotoIds: Found ${cachedIds.size} cached photos`);
     return cachedIds;
+  }
+
+  /**
+   * Verify image cache integrity for debugging
+   * Returns a report of LocalImages and their cache status
+   */
+  async verifyCacheIntegrity(serviceId: string): Promise<{
+    localImages: number;
+    withBlobs: number;
+    withCachedPhotos: number;
+    missingFallback: number;
+    details: string[];
+  }> {
+    const details: string[] = [];
+    let withBlobs = 0;
+    let withCachedPhotos = 0;
+    let missingFallback = 0;
+
+    const localImages = await this.getLocalImagesForService(serviceId);
+    
+    for (const image of localImages) {
+      const hasBlob = image.localBlobId ? await this.getLocalBlob(image.localBlobId) !== null : false;
+      const hasCached = image.attachId ? await this.getCachedPhoto(String(image.attachId)) !== null : false;
+      
+      if (hasBlob) withBlobs++;
+      if (hasCached) withCachedPhotos++;
+      
+      if (!hasBlob && !hasCached && image.status !== 'local_only') {
+        missingFallback++;
+        details.push(`⚠️ ${image.imageId}: no blob, no cache, status=${image.status}, attachId=${image.attachId}`);
+      } else {
+        details.push(`✅ ${image.imageId}: blob=${hasBlob}, cached=${hasCached}, status=${image.status}`);
+      }
+    }
+
+    console.log(`[IndexedDB] Cache integrity for ${serviceId}: ${localImages.length} images, ${withBlobs} with blobs, ${withCachedPhotos} with cache, ${missingFallback} missing fallback`);
+    
+    return {
+      localImages: localImages.length,
+      withBlobs,
+      withCachedPhotos,
+      missingFallback,
+      details
+    };
   }
 
   /**

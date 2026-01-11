@@ -1911,6 +1911,74 @@ export class BackgroundSyncService {
   }
 
   /**
+   * Cache photo from local blob BEFORE it gets pruned
+   * This is the CRITICAL step that ensures photos don't disappear after sync
+   * 
+   * The flow is:
+   * 1. Photo captured -> stored in localBlobs (ArrayBuffer)
+   * 2. Photo uploads successfully -> we call this method
+   * 3. This converts the local blob to base64 and stores in cachedPhotos
+   * 4. Later, when blob is pruned, getDisplayUrl() uses cachedPhotos as fallback
+   */
+  private async cachePhotoFromLocalBlob(
+    imageId: string, 
+    attachId: string, 
+    serviceId: string, 
+    s3Key: string
+  ): Promise<void> {
+    try {
+      // Get the LocalImage to find the blobId
+      const image = await this.indexedDb.getLocalImage(imageId);
+      if (!image || !image.localBlobId) {
+        console.warn('[BackgroundSync] Cannot cache from blob - no blobId for image:', imageId);
+        return;
+      }
+
+      // Get the actual blob data from IndexedDB
+      const blob = await this.indexedDb.getLocalBlob(image.localBlobId);
+      if (!blob || !blob.data) {
+        console.warn('[BackgroundSync] Cannot cache from blob - blob not found:', image.localBlobId);
+        return;
+      }
+
+      // Convert ArrayBuffer to base64 data URL
+      const base64 = await this.arrayBufferToBase64DataUrl(blob.data, blob.contentType || 'image/jpeg');
+
+      // Cache in IndexedDB using attachId (the real Caspio ID)
+      await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
+      
+      console.log('[BackgroundSync] ✅ Cached photo from local blob:', attachId, 'imageId:', imageId, 'size:', base64.length);
+    } catch (err: any) {
+      console.error('[BackgroundSync] Failed to cache photo from local blob:', imageId, err?.message || err);
+      // Don't throw - we'll fall back to S3 URL if needed
+    }
+  }
+
+  /**
+   * Convert ArrayBuffer to base64 data URL
+   * Works in both browser and Capacitor environments
+   */
+  private arrayBufferToBase64DataUrl(buffer: ArrayBuffer, contentType: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      try {
+        const blob = new Blob([buffer], { type: contentType });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('FileReader did not return string'));
+          }
+        };
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  /**
    * Download and cache photos for offline viewing
    * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)
    */
@@ -2178,6 +2246,10 @@ export class BackgroundSyncService {
     // Mark as uploaded (NOT verified yet)
     await this.localImageService.handleUploadSuccess(item.opId, item.imageId, s3Key, attachId);
 
+    // CRITICAL: Cache the photo from local blob BEFORE it can be pruned
+    // This ensures we have a base64 fallback even after the blob is deleted
+    await this.cachePhotoFromLocalBlob(item.imageId, attachId, image.serviceId, s3Key);
+
     // Verify remote is loadable (async, non-blocking)
     this.verifyAndMarkImage(item.imageId).catch(err => {
       console.warn('[BackgroundSync] Verification failed (will retry):', item.imageId, err);
@@ -2284,6 +2356,7 @@ export class BackgroundSyncService {
    * - Image status is 'verified'
    * - Remote has been successfully loaded in UI at least once
    * - OR image is older than 24 hours (grace period for UI to load)
+   * - AND a cached base64 exists (or we create one first)
    */
   private async pruneVerifiedBlobs(): Promise<void> {
     if (!this.indexedDb.hasNewImageSystem()) {
@@ -2297,6 +2370,7 @@ export class BackgroundSyncService {
       const GRACE_PERIOD_MS = 24 * 60 * 60 * 1000; // 24 hours
       
       let prunedCount = 0;
+      let cachedBeforePrune = 0;
       
       for (const image of allImages) {
         // Skip if not verified
@@ -2315,6 +2389,22 @@ export class BackgroundSyncService {
         
         if (hasLoadedInUI || isPastGracePeriod) {
           try {
+            // DEFENSIVE CHECK: Before pruning, ensure we have a cached photo fallback
+            if (image.attachId) {
+              const cachedPhoto = await this.indexedDb.getCachedPhoto(String(image.attachId));
+              if (!cachedPhoto) {
+                // No cached photo exists - create one from the local blob before pruning
+                console.log('[BackgroundSync] No cached photo found, creating from blob before pruning:', image.imageId);
+                await this.cachePhotoFromLocalBlob(
+                  image.imageId, 
+                  String(image.attachId), 
+                  image.serviceId, 
+                  image.remoteS3Key || ''
+                );
+                cachedBeforePrune++;
+              }
+            }
+            
             await this.localImageService.pruneLocalBlob(image.imageId);
             prunedCount++;
           } catch (err) {
@@ -2323,8 +2413,8 @@ export class BackgroundSyncService {
         }
       }
       
-      if (prunedCount > 0) {
-        console.log(`[BackgroundSync] ✅ Pruned ${prunedCount} verified local blobs`);
+      if (prunedCount > 0 || cachedBeforePrune > 0) {
+        console.log(`[BackgroundSync] ✅ Pruned ${prunedCount} verified local blobs (cached ${cachedBeforePrune} first)`);
       }
     } catch (err) {
       console.warn('[BackgroundSync] Blob pruning error:', err);
@@ -2402,6 +2492,20 @@ export class BackgroundSyncService {
         // Prune oldest verified images until storage is under 70%
         for (const image of verifiedImages) {
           if (image.localBlobId && image.remoteLoadedInUI) {
+            // DEFENSIVE CHECK: Ensure cached photo exists before pruning
+            if (image.attachId) {
+              const cachedPhoto = await this.indexedDb.getCachedPhoto(String(image.attachId));
+              if (!cachedPhoto) {
+                // Create cached photo from blob before pruning
+                await this.cachePhotoFromLocalBlob(
+                  image.imageId, 
+                  String(image.attachId), 
+                  image.serviceId, 
+                  image.remoteS3Key || ''
+                );
+              }
+            }
+            
             await this.localImageService.pruneLocalBlob(image.imageId);
             prunedCount++;
             
@@ -2454,6 +2558,20 @@ export class BackgroundSyncService {
       for (const image of verifiedImages) {
         // Only prune if older than retention period and remote has been loaded
         if (image.updatedAt < cutoffTime && image.localBlobId && image.remoteLoadedInUI) {
+          // DEFENSIVE CHECK: Ensure cached photo exists before pruning
+          if (image.attachId) {
+            const cachedPhoto = await this.indexedDb.getCachedPhoto(String(image.attachId));
+            if (!cachedPhoto) {
+              // Create cached photo from blob before pruning
+              await this.cachePhotoFromLocalBlob(
+                image.imageId, 
+                String(image.attachId), 
+                image.serviceId, 
+                image.remoteS3Key || ''
+              );
+            }
+          }
+          
           await this.localImageService.pruneLocalBlob(image.imageId);
           prunedCount++;
         }
