@@ -203,9 +203,9 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
         await this.indexedDb.removePendingRequest(request.requestId);
       }
       
-      // Refresh count
-      await this.refreshPendingCount();
+      // Count will refresh automatically via liveQuery subscription
       console.log('[SyncWidget] All pending requests cleared');
+      this.changeDetectorRef.markForCheck();
     } catch (error) {
       console.error('[SyncWidget] Error clearing pending requests:', error);
     }
