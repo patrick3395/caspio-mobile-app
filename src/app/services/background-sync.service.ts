@@ -1487,17 +1487,19 @@ export class BackgroundSyncService {
   }
 
   /**
-   * Resolve temporary IDs to real IDs in request data
+   * Resolve temporary IDs to real IDs in request data AND endpoint URL
    */
   private async resolveTempIds(request: PendingRequest): Promise<PendingRequest> {
     const data = { ...request.data };
+    let endpoint = request.endpoint;
 
     // Check common foreign key fields for temp IDs
     // Include both standard fields and custom field names used for offline queuing
     const foreignKeyFields = [
-      'VisualID', 'EFEID', 'ProjectID', 'ServiceID', 
+      'VisualID', 'EFEID', 'ProjectID', 'ServiceID',
       'PointID', 'HUDID', 'LBWID', 'ParentID',
-      'tempVisualId', 'tempPointId', 'tempRoomId'  // Custom fields used for offline photo uploads
+      'tempVisualId', 'tempPointId', 'tempRoomId',
+      '_tempEfeId'  // Custom field for deferred FDF updates
     ];
 
     for (const field of foreignKeyFields) {
@@ -1513,7 +1515,25 @@ export class BackgroundSyncService {
       }
     }
 
-    return { ...request, data };
+    // TASK 2 FIX: Resolve DEFERRED placeholders in endpoint URL for FDF/Location/Notes updates
+    // When FDF is updated on a room with temp ID, endpoint is set to EFEID=DEFERRED
+    // We need to resolve the _tempEfeId to get the real EFEID and update the endpoint
+    if (endpoint.includes('EFEID=DEFERRED') && data._tempEfeId) {
+      const tempEfeId = data._tempEfeId;
+      const realEfeId = await this.indexedDb.getRealId(tempEfeId);
+      if (realEfeId) {
+        endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID=${realEfeId}`);
+        console.log(`[BackgroundSync] Resolved DEFERRED endpoint: ${tempEfeId} → ${realEfeId}`);
+        // Clean up the temp field from data
+        delete data._tempEfeId;
+      } else {
+        // Room not synced yet - throw error to defer until room syncs
+        console.log(`[BackgroundSync] FDF update deferred - room not synced yet: ${tempEfeId}`);
+        throw new Error(`Room not synced yet: ${tempEfeId}`);
+      }
+    }
+
+    return { ...request, endpoint, data };
   }
 
   /**

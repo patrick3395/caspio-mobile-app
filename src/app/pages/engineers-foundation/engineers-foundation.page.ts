@@ -25,6 +25,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { EngineersFoundationDataService } from './engineers-foundation-data.service';
 import { OfflineTemplateService } from '../../services/offline-template.service';
 import { LocalImageService } from '../../services/local-image.service';
+import { BackgroundSyncService } from '../../services/background-sync.service';
 // STATIC import for offline support - prevents ChunkLoadError when offline
 import { AddCustomVisualModalComponent } from '../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 
@@ -484,7 +485,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     private ngZone: NgZone,
     private indexedDb: IndexedDbService,
     private offlineTemplate: OfflineTemplateService,
-    private localImageService: LocalImageService
+    private localImageService: LocalImageService,
+    private backgroundSync: BackgroundSyncService
   ) {
     // CRITICAL FIX: Setup scroll lock mechanism on webapp only
     if (typeof window !== 'undefined') {
@@ -2436,6 +2438,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Handle FDF selection change
+  // TASK 2 FIX: Queue FDF updates for sync instead of direct API calls
+  // This makes FDF changes visible in the sync modal and ensures offline support
   async onFDFChange(roomName: string) {
     const roomId = this.efeRecordIds[roomName];
     if (!roomId) {
@@ -2453,11 +2457,57 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         return;
       }
 
-      // Update Services_EFE record with FDF value using EFEID field
-      const updateData = { FDF: fdfValue };
-      const query = `EFEID=${roomId}`;
+      // TASK 2 FIX: First update local IndexedDB cache for offline-first behavior
+      const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+      const roomIdStr = String(roomId);
+      const roomIndex = cachedRooms.findIndex((r: any) =>
+        String(r.EFEID) === roomIdStr ||
+        String(r.PK_ID) === roomIdStr ||
+        r.RoomName === roomName
+      );
+      if (roomIndex >= 0) {
+        cachedRooms[roomIndex] = {
+          ...cachedRooms[roomIndex],
+          FDF: fdfValue,
+          _localUpdate: true
+        };
+        await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', cachedRooms);
+        console.log('[FDF] Updated local cache for room:', roomName);
+      }
 
-      await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+      // TASK 2 FIX: Queue for background sync (visible in sync modal) instead of direct API call
+      // This ensures FDF changes appear in the sync queue like all other operations
+      const isTempId = String(roomId).startsWith('temp_');
+      if (isTempId) {
+        // Room not synced yet - queue with dependency
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+          method: 'PUT',
+          data: { FDF: fdfValue, _tempEfeId: roomId, RoomName: roomName },
+          dependencies: [roomId],
+          status: 'pending',
+          priority: 'normal',
+          serviceId: this.serviceId
+        });
+        console.log('[FDF] Update queued for sync (room not yet synced):', roomName);
+      } else {
+        // Room already synced - queue direct update
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`,
+          method: 'PUT',
+          data: { FDF: fdfValue, RoomName: roomName },
+          dependencies: [],
+          status: 'pending',
+          priority: 'normal',
+          serviceId: this.serviceId
+        });
+        console.log('[FDF] Update queued for sync:', roomName);
+      }
+
+      // Update sync pending count to show in UI immediately
+      await this.backgroundSync.refreshSyncStatus();
 
       // Mark that changes have been made (enables Update button)
       this.markReportChanged();
@@ -2501,7 +2551,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
             }
 
             try {
-
               // Store in customOtherValues
               this.customOtherValues['FDF_' + roomName] = customValue;
 
@@ -2515,23 +2564,66 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
                 }
               }
 
-              // Update Services_EFE record with custom FDF value
-              const updateData = { FDF: customValue };
-              const query = `EFEID=${roomId}`;
+              // TASK 2 FIX: First update local IndexedDB cache for offline-first behavior
+              const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+              const roomIdStr = String(roomId);
+              const roomIndex = cachedRooms.findIndex((r: any) =>
+                String(r.EFEID) === roomIdStr ||
+                String(r.PK_ID) === roomIdStr ||
+                r.RoomName === roomName
+              );
+              if (roomIndex >= 0) {
+                cachedRooms[roomIndex] = {
+                  ...cachedRooms[roomIndex],
+                  FDF: customValue,
+                  _localUpdate: true
+                };
+                await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', cachedRooms);
+                console.log('[FDF Other] Updated local cache for room:', roomName);
+              }
 
-              await this.caspioService.put(`/tables/LPS_Services_EFE/records?q.where=${encodeURIComponent(query)}`, updateData).toPromise();
+              // TASK 2 FIX: Queue for background sync instead of direct API call
+              const isTempId = String(roomId).startsWith('temp_');
+              if (isTempId) {
+                await this.indexedDb.addPendingRequest({
+                  type: 'UPDATE',
+                  endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+                  method: 'PUT',
+                  data: { FDF: customValue, _tempEfeId: roomId, RoomName: roomName },
+                  dependencies: [roomId],
+                  status: 'pending',
+                  priority: 'normal',
+                  serviceId: this.serviceId
+                });
+                console.log('[FDF Other] Update queued for sync (room not yet synced):', roomName);
+              } else {
+                await this.indexedDb.addPendingRequest({
+                  type: 'UPDATE',
+                  endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`,
+                  method: 'PUT',
+                  data: { FDF: customValue, RoomName: roomName },
+                  dependencies: [],
+                  status: 'pending',
+                  priority: 'normal',
+                  serviceId: this.serviceId
+                });
+                console.log('[FDF Other] Update queued for sync:', roomName);
+              }
+
+              // Update sync pending count to show in UI immediately
+              await this.backgroundSync.refreshSyncStatus();
 
               // Update local data - this will now show the custom value in the dropdown
               this.roomElevationData[roomName].fdf = customValue;
 
-            // Force change detection to update the UI
-            this.changeDetectorRef.detectChanges();
-          } catch (error) {
-            console.error('Error updating custom FDF:', error);
-            await this.showToast('Failed to update FDF', 'danger');
+              // Force change detection to update the UI
+              this.changeDetectorRef.detectChanges();
+            } catch (error) {
+              console.error('Error updating custom FDF:', error);
+              await this.showToast('Failed to update FDF', 'danger');
+            }
           }
-        }
-      },
+        },
       {
         text: 'Cancel',
         role: 'cancel',

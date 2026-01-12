@@ -312,23 +312,17 @@
                     <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                   </button>
                 </div>
-                <!-- Skeleton loader while photo is loading -->
-                <div *ngIf="getPointPhotoByType(point, 'Measurement') && getPointPhotoByType(point, 'Measurement').loading" class="image-preview fdf-photo-preview skeleton-loader"
-                     style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
-                  <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
-                  <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
-                </div>
                 <!-- Measurement Photo Thumbnail - ALWAYS show if photo exists (matches structural-systems pattern) -->
+                <!-- NO skeleton loader - images should display from cache immediately -->
                 <div *ngIf="getPointPhotoByType(point, 'Measurement')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
                   <div class="image-preview fdf-photo-preview"
-                       [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading"
-                       [class.loading]="getPointPhotoByType(point, 'Measurement').displayState === 'remote_loading' || getPointPhotoByType(point, 'Measurement').loading">
+                       [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading">
                     <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url || 'assets/img/photo-placeholder.png'"
                          width="90" height="90"
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), point)"
-                         alt="Measurement"
-                         [class.loading]="getPointPhotoByType(point, 'Measurement').displayState === 'remote_loading' || getPointPhotoByType(point, 'Measurement').loading">
-                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading || getPointPhotoByType(point, 'Measurement').displayState === 'remote_loading'">
+                         alt="Measurement">
+                    <!-- Only show spinner when actively uploading - NOT for cached images -->
+                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
                       <ion-spinner name="crescent" color="light"></ion-spinner>
                     </div>
                     <button class="delete-btn"
@@ -371,23 +365,17 @@
                     <ion-icon name="images" style="font-size: 28px;"></ion-icon>
                   </button>
                 </div>
-                <!-- Skeleton loader while photo is loading -->
-                <div *ngIf="getPointPhotoByType(point, 'Location') && getPointPhotoByType(point, 'Location').loading" class="image-preview fdf-photo-preview skeleton-loader"
-                     style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
-                  <div class="skeleton-image" style="width: 90px; height: 90px;"></div>
-                  <div class="skeleton-caption" style="width: 60px; height: 20px; margin-top: 4px;"></div>
-                </div>
                 <!-- Location Photo Thumbnail - ALWAYS show if photo exists (matches structural-systems pattern) -->
+                <!-- NO skeleton loader - images should display from cache immediately -->
                 <div *ngIf="getPointPhotoByType(point, 'Location')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
                   <div class="image-preview fdf-photo-preview"
-                       [class.uploading]="getPointPhotoByType(point, 'Location').uploading"
-                       [class.loading]="getPointPhotoByType(point, 'Location').displayState === 'remote_loading' || getPointPhotoByType(point, 'Location').loading">
+                       [class.uploading]="getPointPhotoByType(point, 'Location').uploading">
                     <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url || 'assets/img/photo-placeholder.png'"
                          width="90" height="90"
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), point)"
-                         alt="Location"
-                         [class.loading]="getPointPhotoByType(point, 'Location').displayState === 'remote_loading' || getPointPhotoByType(point, 'Location').loading">
-                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading || getPointPhotoByType(point, 'Location').displayState === 'remote_loading'">
+                         alt="Location">
+                    <!-- Only show spinner when actively uploading - NOT for cached images -->
+                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
                       <ion-spinner name="crescent" color="light"></ion-spinner>
                     </div>
                     <button class="delete-btn"

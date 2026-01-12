@@ -215,11 +215,37 @@ export class OfflineDataCacheService {
       try {
         const rooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
 
-        // Cache the data
-        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', rooms);
-        console.log('[OfflineCache] Fetched and cached EFE rooms:', rooms.length);
+        // TASK 2 FIX: Preserve local updates (FDF, Location, Notes) when merging server data
+        // Without this, local FDF changes would be lost when reloading while online
+        const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
+        const localUpdateRooms = existingCache.filter((r: any) => r._localUpdate);
 
-        return rooms;
+        // Merge local updates into server data
+        const mergedRooms = rooms.map((serverRoom: any) => {
+          const localRoom = localUpdateRooms.find((lr: any) =>
+            String(lr.EFEID) === String(serverRoom.EFEID) ||
+            String(lr.PK_ID) === String(serverRoom.PK_ID) ||
+            lr.RoomName === serverRoom.RoomName
+          );
+          if (localRoom) {
+            // Preserve local fields that haven't synced yet
+            console.log(`[OfflineCache] Preserving local updates for room: ${serverRoom.RoomName}`);
+            return {
+              ...serverRoom,
+              FDF: localRoom.FDF !== undefined ? localRoom.FDF : serverRoom.FDF,
+              Location: localRoom.Location !== undefined ? localRoom.Location : serverRoom.Location,
+              Notes: localRoom.Notes !== undefined ? localRoom.Notes : serverRoom.Notes,
+              _localUpdate: true  // Keep the flag until sync completes
+            };
+          }
+          return serverRoom;
+        });
+
+        // Cache the merged data
+        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', mergedRooms);
+        console.log('[OfflineCache] Fetched and cached EFE rooms:', rooms.length, `(${localUpdateRooms.length} with local updates preserved)`);
+
+        return mergedRooms;
       } catch (error) {
         console.error('[OfflineCache] Failed to fetch EFE rooms:', error);
 

@@ -570,8 +570,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     });
 
     // TASK 1 FIX: Subscribe to LocalImage status changes to handle sync transitions
-    // When photos transition from 'queued' to 'uploading' to 'uploaded', update in-memory state
-    // WITHOUT triggering a full reload - this prevents images from disappearing during sync
+    // SILENT SYNC PATTERN (matches structural-systems): Never show uploading spinners
+    // Photos display from cache immediately, sync happens invisibly in background
     this.localImageStatusSubscription = this.localImageService.statusChange$.subscribe(async (event) => {
       console.log('[RoomElevation] LocalImage status changed:', event.imageId, event.oldStatus, '->', event.newStatus);
 
@@ -584,10 +584,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             // Match by imageId, localImageId, or attachId
             const photoId = photo.imageId || photo.localImageId || photo.attachId || photo._tempId;
             if (photoId === event.imageId || photo.attachId === event.attachId) {
-              // Update status flags WITHOUT clearing displayUrl
-              // This is the key fix - we update metadata but preserve the visible image
+              // SILENT SYNC: Update metadata but NEVER show uploading spinner
+              // This matches structural-systems pattern where photos always display without indicators
               if (event.newStatus === 'uploading') {
-                photo.uploading = true;
+                // SILENT SYNC: Don't set uploading=true, photo appears normal
+                photo.uploading = false;
                 photo.queued = false;
               } else if (event.newStatus === 'uploaded' || event.newStatus === 'verified') {
                 photo.uploading = false;
@@ -601,7 +602,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 }
               } else if (event.newStatus === 'queued') {
                 photo.uploading = false;
-                photo.queued = true;
+                photo.queued = false; // SILENT SYNC: Don't show queued indicator either
               } else if (event.newStatus === 'failed') {
                 photo.uploading = false;
                 photo.queued = false;
@@ -612,27 +613,24 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               // The blob URL should remain valid until explicitly replaced
 
               this.changeDetectorRef.detectChanges();
-              console.log('[RoomElevation] Updated photo status in-place:', photoId, '->', event.newStatus);
+              console.log('[RoomElevation] Updated photo status (silent sync):', photoId, '->', event.newStatus);
               break;
             }
           }
         }
       }
 
-      // Also update FDF photos if applicable
+      // Also update FDF photos if applicable - SILENT SYNC pattern
       if (this.roomData?.fdfPhotos) {
         const fdfPhotos = this.roomData.fdfPhotos;
         for (const photoType of ['top', 'bottom', 'threshold']) {
           const imageId = fdfPhotos[`${photoType}ImageId`];
           if (imageId === event.imageId) {
-            if (event.newStatus === 'uploading') {
-              fdfPhotos[`${photoType}Uploading`] = true;
-            } else if (event.newStatus === 'uploaded' || event.newStatus === 'verified') {
-              fdfPhotos[`${photoType}Uploading`] = false;
-            }
+            // SILENT SYNC: Never show uploading spinner for FDF photos either
+            fdfPhotos[`${photoType}Uploading`] = false;
             // CRITICAL: Never clear displayUrl
             this.changeDetectorRef.detectChanges();
-            console.log('[RoomElevation] Updated FDF photo status:', photoType, '->', event.newStatus);
+            console.log('[RoomElevation] Updated FDF photo status (silent sync):', photoType, '->', event.newStatus);
             break;
           }
         }
@@ -794,24 +792,40 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     const sectionKey = `${this.serviceId}_room_${this.roomName}`;
-    
+
     // Check if we have data in memory and if section is dirty
     const hasDataInMemory = this.roomData && (this.roomData.elevationPoints?.length > 0 || this.roomData.fdfPhotos);
     const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
-    
+
     // CRITICAL: Check if room has changed (navigating from project details to different room)
     const roomChanged = this.lastLoadedRoomId !== this.roomId;
-    
-    console.log(`[RoomElevation] ionViewWillEnter - hasData: ${!!hasDataInMemory}, isDirty: ${isDirty}, roomChanged: ${roomChanged}`);
-    
+
+    // TASK 1 FIX: Check if sync is in progress - avoid full reloads during sync to prevent photo disappearing
+    const syncStatus = this.backgroundSync.syncStatus$.getValue();
+    const syncInProgress = syncStatus.isSyncing;
+
+    console.log(`[RoomElevation] ionViewWillEnter - hasData: ${!!hasDataInMemory}, isDirty: ${isDirty}, roomChanged: ${roomChanged}, syncInProgress: ${syncInProgress}`);
+
     // ALWAYS reload if:
     // 1. First load (no data in memory)
-    // 2. Section is marked dirty (data changed while away)
-    // 3. Room has changed (navigating from project details)
-    if (!hasDataInMemory || isDirty || roomChanged) {
-      console.log('[RoomElevation] Reloading data - section dirty, no data, or room changed');
+    // 2. Room has changed (navigating from project details)
+    // But SKIP reload if sync is in progress and we have data - just refresh local state
+    if (!hasDataInMemory || roomChanged) {
+      console.log('[RoomElevation] Reloading data - no data or room changed');
       await this.loadRoomData();
       this.backgroundSync.clearSectionDirty(sectionKey);
+    } else if (isDirty && !syncInProgress) {
+      // Section is dirty but sync is NOT in progress - safe to reload
+      console.log('[RoomElevation] Reloading data - section dirty and sync not in progress');
+      await this.loadRoomData();
+      this.backgroundSync.clearSectionDirty(sectionKey);
+    } else if (isDirty && syncInProgress) {
+      // TASK 1 FIX: Section is dirty but sync IS in progress
+      // DON'T do full reload - it would cause photos to disappear
+      // Just refresh local state (blob URLs) and defer full reload until sync completes
+      console.log('[RoomElevation] Sync in progress - refreshing local state only, deferring full reload');
+      this.pendingSyncReload = true;  // Will reload after sync completes
+      await this.refreshLocalState();
     } else {
       // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
       // This ensures images don't disappear when navigating back to this page
@@ -853,17 +867,20 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     // 4. Update elevation point photos
+    // TASK 1 FIX: Refresh ALL photos with LocalImage IDs, not just those with isLocalImage flag
+    // This ensures photos persist through navigation during sync even after flags change
     if (this.roomData?.elevationPoints) {
       for (const point of this.roomData.elevationPoints) {
         if (point.photos) {
           for (const photo of point.photos as any[]) {
             const imageId = photo.localImageId || photo.imageId;
-            if (imageId && (photo.isLocalImage || photo.isLocalFirst)) {
+            if (imageId) {
               const newUrl = urlMap.get(imageId);
               if (newUrl) {
                 photo.displayUrl = newUrl;
                 photo.url = newUrl;
                 photo.thumbnailUrl = newUrl;
+                console.log(`[RoomElevation] Refreshed photo URL for imageId: ${imageId}`);
               }
             }
           }
@@ -1070,6 +1087,25 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               const preserved = preservedByName || preservedById;
               if (preserved && preserved.length > 0) {
                 localPoint.photos = [...preserved];
+                // TASK 1 FIX: Regenerate blob URLs for preserved photos that may have expired
+                // This ensures photos don't disappear when navigating back during sync
+                for (const photo of localPoint.photos) {
+                  const imageId = photo.localImageId || photo.imageId;
+                  if (imageId && (photo.isLocalImage || photo.isLocalFirst)) {
+                    // Find matching LocalImage
+                    const localImagesForPoint = bulkLocalImagesMap.get(pointIdStr) || [];
+                    const matchingLocalImage = localImagesForPoint.find((li: any) => li.imageId === imageId);
+                    if (matchingLocalImage) {
+                      const freshUrl = await this.localImageService.getDisplayUrl(matchingLocalImage);
+                      if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
+                        photo.displayUrl = freshUrl;
+                        photo.url = freshUrl;
+                        photo.thumbnailUrl = freshUrl;
+                        console.log(`[RoomElevation] ✅ Refreshed blob URL for preserved photo ${imageId}`);
+                      }
+                    }
+                  }
+                }
                 console.log(`[RoomElevation] ✅ Restored ${preserved.length} preserved photos for point "${pointName}"`);
               } else {
                 // BULLETPROOF FIX: Try bulkLocalImagesMap as last resort
@@ -1090,8 +1126,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                         caption: localImg.caption || '',
                         drawings: localImg.drawings || null,
                         hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
-                        uploading: localImg.status === 'uploading',
-                        queued: localImg.status === 'queued',
+                        uploading: false,  // SILENT SYNC: Never show spinner
+                        queued: false,     // SILENT SYNC: Never show queued indicator
                         isPending: localImg.status !== 'verified',
                         isLocalImage: true,
                         isLocalFirst: true,
@@ -2496,8 +2532,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   caption: localImg.caption || '',
                   drawings: localImg.drawings || null,
                   hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
-                  uploading: localImg.status === 'uploading',
-                  queued: localImg.status === 'queued',
+                  uploading: false,  // SILENT SYNC: Never show spinner
+                  queued: false,     // SILENT SYNC: Never show queued indicator
                   isPending: localImg.status !== 'verified',
                   isLocalImage: true,
                   isLocalFirst: true,
