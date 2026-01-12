@@ -1245,10 +1245,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         for (const point of this.roomData.elevationPoints) {
           if (point.photos && point.photos.length > 0) {
             // BULLETPROOF PRESERVATION: During sync, preserve ALL photos
-            // Outside sync, only preserve photos with valid display URLs or pending status
+            // Outside sync, preserve photos that have an ID or valid state
+            // TASK 2 FIX: Added attachId check - synced photos have attachId but may have placeholder displayUrl
             const photosToPreserve = syncInProgress
               ? [...point.photos]
               : point.photos.filter((p: any) =>
+                  p.attachId ||         // TASK 2 FIX: Synced photos have real attachId
                   p.imageId ||
                   p._pendingFileId ||
                   p.uploading ||

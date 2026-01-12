@@ -546,8 +546,8 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   async clearAllPending() {
     console.log('[SyncModal] Clearing ALL pending sync items...');
     const result = await this.indexedDb.clearAllPendingSync();
-    console.log(`[SyncModal] Cleared: ${result.requests} requests, ${result.captions} captions, ${result.images} images`);
-    
+    console.log(`[SyncModal] Cleared: ${result.requests} requests, ${result.captions} captions, ${result.images} images, ${result.outbox} outbox, ${result.localImages} stuck localImages`);
+
     // Refresh the list immediately
     await this.refreshDetails();
   }

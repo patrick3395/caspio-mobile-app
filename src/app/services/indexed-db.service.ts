@@ -1725,9 +1725,10 @@ export class IndexedDbService {
 
   /**
    * Clear ALL pending requests and related data
+   * TASK 1 FIX: Also clears uploadOutbox and resets localImages stuck in syncing state
    */
-  async clearAllPendingSync(): Promise<{ requests: number; captions: number; images: number }> {
-    const result = { requests: 0, captions: 0, images: 0 };
+  async clearAllPendingSync(): Promise<{ requests: number; captions: number; images: number; outbox: number; localImages: number }> {
+    const result = { requests: 0, captions: 0, images: 0, outbox: 0, localImages: 0 };
 
     result.requests = await db.pendingRequests.count();
     await db.pendingRequests.clear();
@@ -1738,7 +1739,25 @@ export class IndexedDbService {
     result.images = await db.pendingImages.count();
     await db.pendingImages.clear();
 
-    console.log(`[IndexedDB] Cleared all pending sync: ${result.requests} requests, ${result.captions} captions, ${result.images} images`);
+    // TASK 1 FIX: Also clear uploadOutbox - this was missing and caused stuck syncing on reload
+    result.outbox = await db.uploadOutbox.count();
+    await db.uploadOutbox.clear();
+
+    // TASK 1 FIX: Reset any localImages stuck in 'uploading' or 'pending_upload' status
+    // Mark them as 'failed' so user knows they need to re-upload
+    const stuckImages = await db.localImages
+      .filter(img => img.status === 'uploading' || img.status === 'pending_upload')
+      .toArray();
+
+    for (const img of stuckImages) {
+      await db.localImages.update(img.imageId, {
+        status: 'failed',
+        lastError: 'Cleared by user - sync was stuck'
+      });
+      result.localImages++;
+    }
+
+    console.log(`[IndexedDB] Cleared all pending sync: ${result.requests} requests, ${result.captions} captions, ${result.images} images, ${result.outbox} outbox, ${result.localImages} stuck localImages`);
     return result;
   }
 

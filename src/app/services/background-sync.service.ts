@@ -241,9 +241,23 @@ export class BackgroundSyncService {
   private startBackgroundSync(): void {
     console.log('[BackgroundSync] Starting background sync service with rolling window');
 
+    // TASK 1 FIX: Await reset of stuck items before triggering sync
+    // This prevents race conditions where sync starts before stuck items are reset
+    this.initializeSync();
+  }
+
+  /**
+   * Initialize sync by resetting stuck items first, then starting the sync loop
+   * TASK 1 FIX: Separated from startBackgroundSync to properly await async operations
+   */
+  private async initializeSync(): Promise<void> {
     // Reset any stuck 'syncing' requests to 'pending' on startup
     // This handles cases where the app was closed during a sync
-    this.resetStuckSyncingRequests();
+    await this.resetStuckSyncingRequests();
+
+    // TASK 1 FIX: Also reset the sync status from DB after cleanup
+    // This ensures the UI shows correct state on startup
+    await this.updateSyncStatusFromDb();
 
     // Run outside Angular zone to prevent unnecessary change detection
     this.ngZone.runOutsideAngular(() => {
