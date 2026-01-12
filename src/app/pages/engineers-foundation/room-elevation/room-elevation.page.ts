@@ -748,9 +748,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 photo.thumbnailUrl = freshUrl;
               }
 
-              // Update sync status flags from LocalImage
-              photo.uploading = localImage.status === 'uploading';
-              photo.queued = localImage.status === 'queued';
+              // SILENT SYNC: Don't show uploading indicators (matches Structural Systems pattern)
+              // Photos should display normally from cache without spinners
+              photo.uploading = false;
+              photo.queued = false;
               photo.isPending = localImage.status !== 'verified';
 
               // Update attachId if LocalImage has a real one
