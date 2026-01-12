@@ -1906,7 +1906,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             }
 
             const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
-            const attachIdStr = String(attach.AttachID || attach.PK_ID);
+            // attachIdStr already declared at line 1875
 
             // FAST LOAD FIX: Check bulk cache FIRST before setting placeholder
             // This matches structural-category pattern for instant photo display
