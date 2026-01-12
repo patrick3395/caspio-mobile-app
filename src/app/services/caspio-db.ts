@@ -298,6 +298,36 @@ export class CaspioDB extends Dexie {
   }
 
   /**
+   * TASK 3: Non-reactive sync stats getter for immediate feedback
+   * Used by sync widget to get immediate counts when pendingChanges$ fires
+   */
+  async getSyncStats(): Promise<{ pending: number; synced: number; failed: number; uploading: number; total: number }> {
+    const [
+      pendingRequests,
+      syncedRequests,
+      failedRequests,
+      uploadOutbox,
+      pendingCaptions,
+      failedCaptions
+    ] = await Promise.all([
+      this.pendingRequests.where('status').equals('pending').count(),
+      this.pendingRequests.where('status').equals('synced').count(),
+      this.pendingRequests.where('status').equals('failed').count(),
+      this.uploadOutbox.count(),
+      this.pendingCaptions.where('status').anyOf(['pending', 'syncing']).count(),
+      this.pendingCaptions.where('status').equals('failed').count()
+    ]);
+
+    return {
+      pending: pendingRequests + pendingCaptions + uploadOutbox,
+      synced: syncedRequests,
+      failed: failedRequests + failedCaptions,
+      uploading: uploadOutbox,
+      total: pendingRequests + uploadOutbox + pendingCaptions + failedRequests + failedCaptions
+    };
+  }
+
+  /**
    * Live query for cached service data by service ID and data type
    */
   liveCachedServiceData$(serviceId: string, dataType: string): Observable<any[] | null> {

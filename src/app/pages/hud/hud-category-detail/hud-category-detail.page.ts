@@ -76,6 +76,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   private _loggedPhotoKeys = new Set<string>();
   private isCaptionPopupOpen = false;
 
+  // TASK 4: Bulk cache maps for fast annotated thumbnail display
+  private bulkAnnotatedImagesMap: Map<string, string> = new Map();
+
   // Background upload subscriptions
   private uploadSubscription?: Subscription;
   private taskSubscription?: Subscription;
@@ -2368,6 +2371,21 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     // Update the HUD attach record
     await firstValueFrom(this.caspioService.updateServicesHUDAttach(attachId, updateData));
     console.log('[SAVE ANNOTATION] ✅ Annotations saved successfully');
+
+    // TASK 4 FIX: Cache the annotated blob for thumbnail display on reload
+    // This ensures annotations are visible in thumbnails after page reload
+    if (annotatedBlob && annotatedBlob.size > 0) {
+      try {
+        const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
+        console.log('[SAVE ANNOTATION] ✅ Annotated image blob cached for thumbnail display');
+        // Update in-memory map so same-session navigation shows the annotation
+        if (base64 && this.bulkAnnotatedImagesMap) {
+          this.bulkAnnotatedImagesMap.set(String(attachId), base64);
+        }
+      } catch (annotCacheErr) {
+        console.warn('[SAVE ANNOTATION] Failed to cache annotated image blob:', annotCacheErr);
+      }
+    }
 
     return attachId;
   }

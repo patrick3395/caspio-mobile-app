@@ -26,6 +26,7 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
 
   private subscription?: Subscription;
   private liveQuerySubscription?: Subscription;
+  private pendingChangesSubscription?: Subscription;
 
   constructor(
     private backgroundSync: BackgroundSyncService,
@@ -43,6 +44,18 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
         this.changeDetectorRef.markForCheck();
       }
     );
+
+    // TASK 3 FIX: Subscribe to pendingChanges$ for INSTANT feedback on caption/annotation changes
+    // This provides immediate visual feedback when user saves a caption or annotation
+    this.pendingChangesSubscription = this.backgroundSync.pendingChanges$.pipe(
+      debounceTime(50) // Quick debounce for immediate feedback
+    ).subscribe(pendingCount => {
+      if (pendingCount > 0) {
+        console.log(`[SyncWidget] 📝 Pending changes detected: ${pendingCount}`);
+        // Force a refresh of the actual counts from IndexedDB
+        this.refreshPendingCounts();
+      }
+    });
 
     // FIXED: Use Dexie liveQuery for reactive sync counts instead of polling
     // This is more efficient - only updates when data actually changes
@@ -65,12 +78,38 @@ export class SyncStatusWidgetComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * TASK 3: Force refresh pending counts for immediate feedback on caption/annotation changes
+   */
+  private async refreshPendingCounts(): Promise<void> {
+    try {
+      const stats = await db.getSyncStats();
+      this.ngZone.run(() => {
+        if (this.syncStatus.pendingCount !== stats.pending) {
+          this.syncStatus = {
+            ...this.syncStatus,
+            pendingCount: stats.pending,
+            failedCount: stats.failed,
+            syncedCount: stats.synced,
+          };
+          this.changeDetectorRef.markForCheck();
+          console.log(`[SyncWidget] ✅ Updated pending count: ${stats.pending}`);
+        }
+      });
+    } catch (error) {
+      console.warn('[SyncWidget] Failed to refresh pending counts:', error);
+    }
+  }
+
   ngOnDestroy() {
     if (this.subscription) {
       this.subscription.unsubscribe();
     }
     if (this.liveQuerySubscription) {
       this.liveQuerySubscription.unsubscribe();
+    }
+    if (this.pendingChangesSubscription) {
+      this.pendingChangesSubscription.unsubscribe();
     }
   }
 
