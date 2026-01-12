@@ -358,6 +358,23 @@ export class LocalImageService {
       remoteS3Key,
       attachId
     });
+
+    // CRITICAL FIX: Transfer annotated image cache from imageId to attachId
+    // This ensures annotations persist in thumbnails after local-first photo syncs
+    if (attachId && attachId !== imageId) {
+      try {
+        const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(imageId);
+        if (cachedAnnotatedImage) {
+          // Re-cache with real attachId
+          const response = await fetch(cachedAnnotatedImage);
+          const blob = await response.blob();
+          await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+          console.log('[LocalImage] ✅ Transferred annotated image cache from imageId to attachId:', imageId, '->', attachId);
+        }
+      } catch (err) {
+        console.warn('[LocalImage] Failed to transfer annotated image cache:', err);
+      }
+    }
   }
 
   /**

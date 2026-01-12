@@ -76,6 +76,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private bulkCachedPhotosMap: Map<string, string> = new Map();
   private bulkAnnotatedImagesMap: Map<string, string> = new Map();
   private cacheLoadPromise: Promise<void> = Promise.resolve();
+
+  // ===== PHOTO PRESERVATION (prevents disappearing during sync/reload) =====
+  // These maps preserve photos BEFORE roomData is cleared, then restore them
+  private preservedPhotosByPointName: Map<string, any[]> = new Map();
+  private preservedPhotosByPointId: Map<string, any[]> = new Map();
+  private preservedFdfPhotos: any = null;
   
   // Lazy image loading - photos only load when user clicks to expand a point
   expandedPoints: { [pointId: string]: boolean } = {};
@@ -530,9 +536,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Subscribe to background refresh completion for EFE points data
     this.backgroundRefreshSubscription = this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
-      if (event.serviceId === this.serviceId && 
+      if (event.serviceId === this.serviceId &&
           (event.dataType === 'efe_points' || event.dataType === 'efe_point_attachments')) {
         console.log('[RoomElevation] Background refresh complete for:', event.dataType);
+
+        // CRITICAL FIX: Skip reload during active sync - defer until sync completes
+        // This prevents photos from disappearing during sync
+        const syncStatus = this.backgroundSync.syncStatus$.getValue();
+        if (syncStatus.isSyncing) {
+          console.log('[RoomElevation] Skipping background refresh reload - sync in progress, will reload after sync completes');
+          this.pendingSyncReload = true;
+          return;
+        }
+
         // Debounce with same timer to prevent duplicate reloads
         if (this.cacheInvalidationDebounceTimer) {
           clearTimeout(this.cacheInvalidationDebounceTimer);
@@ -709,10 +725,40 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[RoomElevation] Skipping - already reloading');
       return;
     }
-    
+
     this.isReloadingAfterSync = true;
     try {
       console.log('[RoomElevation] Reloading points and attachments after sync...');
+
+      // CRITICAL FIX: Preserve ALL existing photos BEFORE reloading
+      // This prevents photos from disappearing during sync - matching structural-category pattern
+      const syncStatus = this.backgroundSync.syncStatus$.getValue();
+      const syncInProgress = syncStatus.isSyncing;
+
+      // Build maps of ALL existing photos by point name AND point ID
+      // This ensures photos are preserved even if point IDs change during sync
+      const preservedPhotosByPointName = new Map<string, any[]>();
+      const preservedPhotosByPointId = new Map<string, any[]>();
+
+      if (this.roomData?.elevationPoints) {
+        for (const point of this.roomData.elevationPoints) {
+          if (point.photos && point.photos.length > 0) {
+            // Deep copy photos to prevent mutation issues
+            const photosCopy = point.photos.map((p: any) => ({ ...p }));
+
+            // Preserve by name (always)
+            preservedPhotosByPointName.set(point.name, photosCopy);
+
+            // Also preserve by point ID if available
+            if (point.pointId) {
+              preservedPhotosByPointId.set(String(point.pointId), photosCopy);
+            }
+
+            console.log(`[RoomElevation] Preserving ${photosCopy.length} photos for point "${point.name}" (ID: ${point.pointId}, sync: ${syncInProgress})`);
+          }
+        }
+      }
+      console.log(`[RoomElevation] Preserved photos for ${preservedPhotosByPointName.size} points`);
 
       // FAST LOAD FIX: Reload photo caches first for instant display
       const [cachedPhotos, annotatedImages] = await Promise.all([
@@ -792,16 +838,37 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             delete localPoint._tempId;
             delete localPoint._localOnly;
             delete localPoint._syncing;
-            
-            // CRITICAL: Reload photos for this point
+
+            // CRITICAL FIX: Restore preserved photos if point.photos was cleared
+            // This ensures photos captured before reload are not lost
             const pointIdStr = String(realId);
+            if (!localPoint.photos || localPoint.photos.length === 0) {
+              // Try to restore from preserved photos (by name first, then by ID)
+              const preservedByName = preservedPhotosByPointName.get(pointName);
+              const preservedById = preservedPhotosByPointId.get(pointIdStr);
+              const preserved = preservedByName || preservedById;
+              if (preserved && preserved.length > 0) {
+                localPoint.photos = [...preserved];
+                console.log(`[RoomElevation] ✅ Restored ${preserved.length} preserved photos for point "${pointName}"`);
+              } else {
+                localPoint.photos = [];
+              }
+            }
+
+            // CRITICAL: Reload photos for this point
             const pointAttachments = attachments.filter((att: any) => String(att.PointID) === pointIdStr);
             console.log(`[RoomElevation] Found ${pointAttachments.length} attachments for point "${pointName}"`);
-            
-            // Build a set of existing photo IDs to avoid duplicates
-            const existingPhotoIds = new Set(
-              (localPoint.photos || []).map((p: any) => String(p.attachId))
-            );
+
+            // Build a comprehensive set of existing photo IDs to avoid duplicates
+            // CRITICAL FIX: Include ALL possible ID fields (attachId, imageId, _tempId, localImageId)
+            const existingPhotoIds = new Set<string>();
+            for (const p of (localPoint.photos || [])) {
+              if (p.attachId) existingPhotoIds.add(String(p.attachId));
+              if (p.imageId) existingPhotoIds.add(String(p.imageId));
+              if (p._tempId) existingPhotoIds.add(String(p._tempId));
+              if (p.localImageId) existingPhotoIds.add(String(p.localImageId));
+              if (p.AttachID) existingPhotoIds.add(String(p.AttachID));
+            }
             
             for (const attach of pointAttachments) {
               const attachIdStr = String(attach.AttachID || attach.PK_ID);
@@ -832,7 +899,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               let cachedDisplayUrl: string | null = null;
 
               // Check for cached ANNOTATED image first
-              const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachIdStr);
+              // TASK 3 FIX: Check both attachId AND localImageId for local-first photos
+              const attachLocalImageId = attach.localImageId || attach.imageId;
+              const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachIdStr)
+                || (attachLocalImageId ? this.bulkAnnotatedImagesMap.get(String(attachLocalImageId)) : null);
               if (cachedAnnotatedImage) {
                 cachedDisplayUrl = cachedAnnotatedImage;
                 console.log(`[RoomElevation] ✅ Using cached ANNOTATED image for new photo ${attachIdStr}`);
@@ -892,15 +962,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           if (pendingPhotos && pendingPhotos.length > 0) {
             console.log(`[RoomElevation] Merging ${pendingPhotos.length} pending photos for point "${point.name}"`);
 
-            // Build set of existing photo IDs
-            const existingPhotoIds = new Set(
-              (point.photos || []).map((p: any) => String(p.attachId || p._tempId))
-            );
+            // Build comprehensive set of existing photo IDs to avoid duplicates
+            // CRITICAL FIX: Include ALL possible ID fields
+            const existingPhotoIds = new Set<string>();
+            for (const p of (point.photos || [])) {
+              if (p.attachId) existingPhotoIds.add(String(p.attachId));
+              if (p.imageId) existingPhotoIds.add(String(p.imageId));
+              if (p._tempId) existingPhotoIds.add(String(p._tempId));
+              if (p.localImageId) existingPhotoIds.add(String(p.localImageId));
+              if (p.AttachID) existingPhotoIds.add(String(p.AttachID));
+              if (p._pendingFileId) existingPhotoIds.add(String(p._pendingFileId));
+            }
 
             for (const pendingPhoto of pendingPhotos) {
               const pendingAttachId = String(pendingPhoto.AttachID || pendingPhoto._pendingFileId);
 
-              // Skip if already exists
+              // Skip if already exists (check multiple ID fields)
               if (existingPhotoIds.has(pendingAttachId)) {
                 continue;
               }
@@ -909,7 +986,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               let displayUrl = pendingPhoto.url || pendingPhoto.displayUrl || pendingPhoto.thumbnailUrl;
 
               // PERFORMANCE FIX: Use bulk map (O(1) lookup) instead of individual IndexedDB calls
-              const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(pendingAttachId);
+              // TASK 3 FIX: Check both pendingAttachId AND localImageId for local-first photos
+              const pendingLocalImageId = pendingPhoto.localImageId || pendingPhoto.imageId;
+              const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(pendingAttachId)
+                || (pendingLocalImageId ? this.bulkAnnotatedImagesMap.get(String(pendingLocalImageId)) : null);
               if (cachedAnnotatedImage) {
                 displayUrl = cachedAnnotatedImage;
               }
@@ -943,21 +1023,58 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       if (this.roomData?.elevationPoints && bulkLocalImagesMap.size > 0) {
         for (const point of this.roomData.elevationPoints) {
           const pointIdStr = String(point.pointId);
-          const localImagesForPoint = bulkLocalImagesMap.get(pointIdStr) || [];
+
+          // CRITICAL FIX: Also check for LocalImages by point name (via preserved mapping)
+          // This handles the case where pointId changed during sync
+          let localImagesForPoint = bulkLocalImagesMap.get(pointIdStr) || [];
+
+          // If no images found by ID, try by temp ID mapping
+          if (localImagesForPoint.length === 0 && point.name) {
+            // Check if we have preserved photos that might have LocalImage references
+            const preserved = preservedPhotosByPointName.get(point.name);
+            if (preserved) {
+              // Look for LocalImages that match any of the preserved photo IDs
+              for (const preservedPhoto of preserved) {
+                if (preservedPhoto.localImageId || preservedPhoto.imageId) {
+                  const lookupId = preservedPhoto.localImageId || preservedPhoto.imageId;
+                  // Search all LocalImages for this ID
+                  const mapEntries = Array.from(bulkLocalImagesMap.entries());
+                  for (let i = 0; i < mapEntries.length; i++) {
+                    const images = mapEntries[i][1];
+                    const match = images.find((img: any) => img.imageId === lookupId);
+                    if (match && !localImagesForPoint.includes(match)) {
+                      localImagesForPoint.push(match);
+                    }
+                  }
+                }
+              }
+            }
+          }
 
           if (localImagesForPoint.length > 0) {
             console.log(`[RoomElevation] Merging ${localImagesForPoint.length} LocalImages for point "${point.name}"`);
 
-            // Build set of existing photo IDs
-            const existingPhotoIds = new Set(
-              (point.photos || []).map((p: any) => String(p.attachId || p.imageId || p._tempId))
-            );
+            // Build comprehensive set of existing photo IDs to avoid duplicates
+            const existingPhotoIds = new Set<string>();
+            for (const p of (point.photos || [])) {
+              if (p.attachId) existingPhotoIds.add(String(p.attachId));
+              if (p.imageId) existingPhotoIds.add(String(p.imageId));
+              if (p._tempId) existingPhotoIds.add(String(p._tempId));
+              if (p.localImageId) existingPhotoIds.add(String(p.localImageId));
+              if (p.AttachID) existingPhotoIds.add(String(p.AttachID));
+              if (p._pendingFileId) existingPhotoIds.add(String(p._pendingFileId));
+            }
 
             for (const localImage of localImagesForPoint) {
               const imageId = localImage.imageId;
 
-              // Skip if already added (by imageId or attachId)
-              if (existingPhotoIds.has(imageId) || (localImage.attachId && existingPhotoIds.has(localImage.attachId))) {
+              // Skip if already added (check all possible ID fields)
+              if (existingPhotoIds.has(imageId)) {
+                console.log(`[RoomElevation] Skipping duplicate LocalImage: ${imageId}`);
+                continue;
+              }
+              if (localImage.attachId && existingPhotoIds.has(String(localImage.attachId))) {
+                console.log(`[RoomElevation] Skipping duplicate LocalImage by attachId: ${localImage.attachId}`);
                 continue;
               }
 
@@ -1115,6 +1232,57 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[RoomElevation] Room FDF value from database:', room.FDF);
       console.log('[RoomElevation] Room full record:', room);
 
+      // CRITICAL FIX: Preserve existing photos BEFORE clearing roomData
+      // This prevents photos from disappearing during reloads/sync - matches category-detail pattern
+      const syncStatus = this.backgroundSync.syncStatus$.getValue();
+      const syncInProgress = syncStatus.isSyncing;
+
+      // Preserve elevation point photos by point name AND point ID
+      this.preservedPhotosByPointName = new Map<string, any[]>();
+      this.preservedPhotosByPointId = new Map<string, any[]>();
+
+      if (this.roomData?.elevationPoints) {
+        for (const point of this.roomData.elevationPoints) {
+          if (point.photos && point.photos.length > 0) {
+            // BULLETPROOF PRESERVATION: During sync, preserve ALL photos
+            // Outside sync, only preserve photos with valid display URLs or pending status
+            const photosToPreserve = syncInProgress
+              ? [...point.photos]
+              : point.photos.filter((p: any) =>
+                  p.imageId ||
+                  p._pendingFileId ||
+                  p.uploading ||
+                  p.queued ||
+                  p.isLocalImage ||
+                  p.isLocalFirst ||
+                  (p.displayUrl && (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:')))
+                );
+
+            if (photosToPreserve.length > 0) {
+              // Deep copy photos to prevent mutation issues
+              const photosCopy = photosToPreserve.map((p: any) => ({ ...p }));
+
+              // Preserve by point name
+              this.preservedPhotosByPointName.set(point.name, photosCopy);
+
+              // Also preserve by point ID if available
+              if (point.pointId) {
+                this.preservedPhotosByPointId.set(String(point.pointId), photosCopy);
+              }
+
+              console.log(`[RoomElevation] PRESERVED ${photosCopy.length} photos for point "${point.name}" (ID: ${point.pointId}, sync: ${syncInProgress})`);
+            }
+          }
+        }
+      }
+      console.log(`[RoomElevation] Total preserved: ${this.preservedPhotosByPointName.size} points with photos`);
+
+      // Preserve FDF photos
+      this.preservedFdfPhotos = this.roomData?.fdfPhotos ? { ...this.roomData.fdfPhotos } : null;
+      if (this.preservedFdfPhotos) {
+        console.log('[RoomElevation] Preserved FDF photos state');
+      }
+
       // Initialize room data structure
       this.roomData = {
         roomName: this.roomName,
@@ -1202,6 +1370,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const fdfPhotos = this.roomData.fdfPhotos;
     const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
 
+    // CRITICAL FIX: Check if we have preserved FDF photos with local blob/data URLs
+    // During sync, we should preserve these URLs instead of resetting to placeholders
+    const preserved = this.preservedFdfPhotos;
+    const syncStatus = this.backgroundSync.syncStatus$.getValue();
+    const syncInProgress = syncStatus.isSyncing;
+
+    // Helper function to check if a URL is a local blob or data URL worth preserving
+    const hasValidLocalUrl = (url: string | null) => url && (url.startsWith('blob:') || url.startsWith('data:'));
+
     // CRITICAL: Load photo metadata IMMEDIATELY (don't wait for images)
     // This allows skeletons to show while images load in background
 
@@ -1215,15 +1392,38 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       fdfPhotos.topAttachment = topS3Key;
       fdfPhotos.topCaption = room.FDFTopAnnotation || '';
       fdfPhotos.topDrawings = room.FDFTopDrawings || null;
-      fdfPhotos.topLoading = true; // Skeleton state
-      fdfPhotos.topUrl = 'assets/img/photo-placeholder.png'; // Placeholder
-      fdfPhotos.topDisplayUrl = 'assets/img/photo-placeholder.png';
       fdfPhotos.topHasAnnotations = !!(room.FDFTopDrawings && room.FDFTopDrawings !== 'null' && room.FDFTopDrawings !== '' && room.FDFTopDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
-      // Load actual image in background - PREFER S3 key
-      this.loadFDFPhotoImage(topS3Key || topLegacyPath, 'top').catch(err => {
-        console.error('Error loading top photo:', err);
-      });
+      // CRITICAL FIX: If we have a preserved local URL, use it instead of placeholder
+      if (preserved && hasValidLocalUrl(preserved.topDisplayUrl)) {
+        fdfPhotos.topUrl = preserved.topUrl;
+        fdfPhotos.topDisplayUrl = preserved.topDisplayUrl;
+        fdfPhotos.topLoading = false;
+        fdfPhotos.topIsLocalFirst = preserved.topIsLocalFirst;
+        fdfPhotos.topImageId = preserved.topImageId;
+        console.log('[RoomElevation] ✅ Restored preserved FDF top photo URL');
+      } else {
+        fdfPhotos.topLoading = true; // Skeleton state
+        fdfPhotos.topUrl = 'assets/img/photo-placeholder.png'; // Placeholder
+        fdfPhotos.topDisplayUrl = 'assets/img/photo-placeholder.png';
+
+        // Load actual image in background - PREFER S3 key
+        this.loadFDFPhotoImage(topS3Key || topLegacyPath, 'top').catch(err => {
+          console.error('Error loading top photo:', err);
+        });
+      }
+    } else if (preserved && hasValidLocalUrl(preserved.topDisplayUrl)) {
+      // No S3 key but we have a local photo - restore it
+      fdfPhotos.top = true;
+      fdfPhotos.topUrl = preserved.topUrl;
+      fdfPhotos.topDisplayUrl = preserved.topDisplayUrl;
+      fdfPhotos.topLoading = false;
+      fdfPhotos.topIsLocalFirst = preserved.topIsLocalFirst;
+      fdfPhotos.topImageId = preserved.topImageId;
+      fdfPhotos.topCaption = preserved.topCaption || '';
+      fdfPhotos.topDrawings = preserved.topDrawings || null;
+      fdfPhotos.topHasAnnotations = preserved.topHasAnnotations;
+      console.log('[RoomElevation] ✅ Restored local-only FDF top photo');
     }
 
     // Load Bottom photo metadata - PREFER S3 Attachment column over legacy Files API path
@@ -1236,15 +1436,38 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       fdfPhotos.bottomAttachment = bottomS3Key;
       fdfPhotos.bottomCaption = room.FDFBottomAnnotation || '';
       fdfPhotos.bottomDrawings = room.FDFBottomDrawings || null;
-      fdfPhotos.bottomLoading = true; // Skeleton state
-      fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
-      fdfPhotos.bottomDisplayUrl = 'assets/img/photo-placeholder.png';
       fdfPhotos.bottomHasAnnotations = !!(room.FDFBottomDrawings && room.FDFBottomDrawings !== 'null' && room.FDFBottomDrawings !== '' && room.FDFBottomDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
-      // Load actual image in background - PREFER S3 key
-      this.loadFDFPhotoImage(bottomS3Key || bottomLegacyPath, 'bottom').catch(err => {
-        console.error('Error loading bottom photo:', err);
-      });
+      // CRITICAL FIX: If we have a preserved local URL, use it instead of placeholder
+      if (preserved && hasValidLocalUrl(preserved.bottomDisplayUrl)) {
+        fdfPhotos.bottomUrl = preserved.bottomUrl;
+        fdfPhotos.bottomDisplayUrl = preserved.bottomDisplayUrl;
+        fdfPhotos.bottomLoading = false;
+        fdfPhotos.bottomIsLocalFirst = preserved.bottomIsLocalFirst;
+        fdfPhotos.bottomImageId = preserved.bottomImageId;
+        console.log('[RoomElevation] ✅ Restored preserved FDF bottom photo URL');
+      } else {
+        fdfPhotos.bottomLoading = true; // Skeleton state
+        fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
+        fdfPhotos.bottomDisplayUrl = 'assets/img/photo-placeholder.png';
+
+        // Load actual image in background - PREFER S3 key
+        this.loadFDFPhotoImage(bottomS3Key || bottomLegacyPath, 'bottom').catch(err => {
+          console.error('Error loading bottom photo:', err);
+        });
+      }
+    } else if (preserved && hasValidLocalUrl(preserved.bottomDisplayUrl)) {
+      // No S3 key but we have a local photo - restore it
+      fdfPhotos.bottom = true;
+      fdfPhotos.bottomUrl = preserved.bottomUrl;
+      fdfPhotos.bottomDisplayUrl = preserved.bottomDisplayUrl;
+      fdfPhotos.bottomLoading = false;
+      fdfPhotos.bottomIsLocalFirst = preserved.bottomIsLocalFirst;
+      fdfPhotos.bottomImageId = preserved.bottomImageId;
+      fdfPhotos.bottomCaption = preserved.bottomCaption || '';
+      fdfPhotos.bottomDrawings = preserved.bottomDrawings || null;
+      fdfPhotos.bottomHasAnnotations = preserved.bottomHasAnnotations;
+      console.log('[RoomElevation] ✅ Restored local-only FDF bottom photo');
     }
 
     // Load Threshold (Location) photo metadata - PREFER S3 Attachment column over legacy Files API path
@@ -1257,15 +1480,38 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       fdfPhotos.thresholdAttachment = thresholdS3Key;
       fdfPhotos.thresholdCaption = room.FDFThresholdAnnotation || '';
       fdfPhotos.thresholdDrawings = room.FDFThresholdDrawings || null;
-      fdfPhotos.thresholdLoading = true; // Skeleton state
-      fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
-      fdfPhotos.thresholdDisplayUrl = 'assets/img/photo-placeholder.png';
       fdfPhotos.thresholdHasAnnotations = !!(room.FDFThresholdDrawings && room.FDFThresholdDrawings !== 'null' && room.FDFThresholdDrawings !== '' && room.FDFThresholdDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
-      // Load actual image in background - PREFER S3 key
-      this.loadFDFPhotoImage(thresholdS3Key || thresholdLegacyPath, 'threshold').catch(err => {
-        console.error('Error loading threshold photo:', err);
-      });
+      // CRITICAL FIX: If we have a preserved local URL, use it instead of placeholder
+      if (preserved && hasValidLocalUrl(preserved.thresholdDisplayUrl)) {
+        fdfPhotos.thresholdUrl = preserved.thresholdUrl;
+        fdfPhotos.thresholdDisplayUrl = preserved.thresholdDisplayUrl;
+        fdfPhotos.thresholdLoading = false;
+        fdfPhotos.thresholdIsLocalFirst = preserved.thresholdIsLocalFirst;
+        fdfPhotos.thresholdImageId = preserved.thresholdImageId;
+        console.log('[RoomElevation] ✅ Restored preserved FDF threshold photo URL');
+      } else {
+        fdfPhotos.thresholdLoading = true; // Skeleton state
+        fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
+        fdfPhotos.thresholdDisplayUrl = 'assets/img/photo-placeholder.png';
+
+        // Load actual image in background - PREFER S3 key
+        this.loadFDFPhotoImage(thresholdS3Key || thresholdLegacyPath, 'threshold').catch(err => {
+          console.error('Error loading threshold photo:', err);
+        });
+      }
+    } else if (preserved && hasValidLocalUrl(preserved.thresholdDisplayUrl)) {
+      // No S3 key but we have a local photo - restore it
+      fdfPhotos.threshold = true;
+      fdfPhotos.thresholdUrl = preserved.thresholdUrl;
+      fdfPhotos.thresholdDisplayUrl = preserved.thresholdDisplayUrl;
+      fdfPhotos.thresholdLoading = false;
+      fdfPhotos.thresholdIsLocalFirst = preserved.thresholdIsLocalFirst;
+      fdfPhotos.thresholdImageId = preserved.thresholdImageId;
+      fdfPhotos.thresholdCaption = preserved.thresholdCaption || '';
+      fdfPhotos.thresholdDrawings = preserved.thresholdDrawings || null;
+      fdfPhotos.thresholdHasAnnotations = preserved.thresholdHasAnnotations;
+      console.log('[RoomElevation] ✅ Restored local-only FDF threshold photo');
     }
     
     // Also restore any pending FDF photo uploads from IndexedDB (legacy system)
@@ -1537,9 +1783,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       } catch (e) { /* ignore */ }
       
       // Check for cached ANNOTATED image
-      const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
+      // TASK 3 FIX: Check both attachId AND localImageId for local-first photos
+      // Annotations may be cached under localImageId before photo is synced to get real attachId
+      const localImageId = photoData.localImageId || photoData.imageId;
+      const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId)
+        || (localImageId ? this.bulkAnnotatedImagesMap.get(String(localImageId)) : null);
       if (cachedAnnotatedImage) {
-        if (this.DEBUG) console.log(`[Point Photo] ✅ Using bulk cached ANNOTATED image for ${attachId}`);
+        if (this.DEBUG) console.log(`[Point Photo] ✅ Using bulk cached ANNOTATED image for ${attachId} (or localImageId: ${localImageId})`);
         photoData.url = cachedAnnotatedImage;
         photoData.displayUrl = cachedAnnotatedImage;
         photoData.displayState = 'cached';
@@ -1815,25 +2065,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       const syncStatus = this.backgroundSync.syncStatus$.getValue();
       const syncInProgress = syncStatus.isSyncing;
 
-      // Build maps of existing photos by BOTH point name AND point ID (for preservation during sync)
-      // This ensures photos are preserved even if point names change on server
-      const existingPhotosByPointName = new Map<string, any[]>();
-      const existingPhotosByPointId = new Map<string, any[]>();
-      if (this.roomData?.elevationPoints) {
-        for (const point of this.roomData.elevationPoints) {
-          if (point.photos && point.photos.length > 0) {
-            // Always preserve by name
-            existingPhotosByPointName.set(point.name, [...point.photos]);
-            // Also preserve by point ID if available
-            if (point.pointId) {
-              existingPhotosByPointId.set(String(point.pointId), [...point.photos]);
-            }
-            if (syncInProgress) {
-              console.log(`[RoomElevation] SYNC IN PROGRESS - preserving ${point.photos.length} photos for point "${point.name}" (ID: ${point.pointId})`);
-            }
-          }
-        }
-      }
+      // CRITICAL FIX: Use class-level preserved photos (saved in loadRoomData BEFORE clearing)
+      // The local maps were always empty because roomData.elevationPoints was already cleared
+      // by the time this function runs. Now we use this.preservedPhotosByPointName and
+      // this.preservedPhotosByPointId which are populated BEFORE roomData is reinitialized.
+      console.log(`[RoomElevation] Using preserved photos: ${this.preservedPhotosByPointName.size} points by name, ${this.preservedPhotosByPointId.size} points by ID`);
 
       for (const templatePoint of templatePoints) {
         console.log(`\n[RoomElevation] --- Processing template point: "${templatePoint.name}" ---`);
@@ -1842,14 +2078,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         const existingPoint = existingPoints?.find((p: any) => p.PointName === templatePoint.name);
         console.log(`[RoomElevation]   Existing point in DB:`, existingPoint ? `Yes (ID: ${existingPoint.PointID})` : 'No');
 
-        // CRITICAL FIX: During sync, start with preserved photos instead of empty array
+        // CRITICAL FIX: Use class-level preserved photos instead of empty local maps
         // Try by name first, then by point ID - ensures photos aren't lost if names change
         const pointId = existingPoint ? (existingPoint.PointID || existingPoint.PK_ID) : null;
         let preservedPhotos: any[] = [];
-        if (existingPhotosByPointName.has(templatePoint.name)) {
-          preservedPhotos = existingPhotosByPointName.get(templatePoint.name) || [];
-        } else if (pointId && existingPhotosByPointId.has(String(pointId))) {
-          preservedPhotos = existingPhotosByPointId.get(String(pointId)) || [];
+        if (this.preservedPhotosByPointName.has(templatePoint.name)) {
+          preservedPhotos = this.preservedPhotosByPointName.get(templatePoint.name) || [];
+          console.log(`[RoomElevation]   ✅ Restored ${preservedPhotos.length} preserved photos by point name`);
+        } else if (pointId && this.preservedPhotosByPointId.has(String(pointId))) {
+          preservedPhotos = this.preservedPhotosByPointId.get(String(pointId)) || [];
+          console.log(`[RoomElevation]   ✅ Restored ${preservedPhotos.length} preserved photos by point ID`);
         }
 
         const pointData: any = {
@@ -1914,7 +2152,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             let displayState: 'local' | 'cached' | 'remote_loading' | 'remote' = 'remote';
 
             // Check for cached ANNOTATED image first (highest priority after local blob)
-            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachIdStr);
+            // TASK 3 FIX: Check both attachId AND localImageId for local-first photos
+            const attachLocalImgId = attach.localImageId || attach.imageId;
+            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachIdStr)
+              || (attachLocalImgId ? this.bulkAnnotatedImagesMap.get(String(attachLocalImgId)) : null);
             if (cachedAnnotatedImage) {
               cachedDisplayUrl = cachedAnnotatedImage;
               displayState = 'cached';
@@ -2018,10 +2259,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             // getAllPendingPhotosGroupedByPoint() generates fresh blob URLs and sets them to url
             let displayUrl = pendingPhoto.url || pendingPhoto.displayUrl || pendingPhoto.thumbnailUrl;
             let hasAnnotations = !!(pendingPhoto.Drawings || pendingPhoto.drawings);
-            
+
             // PERFORMANCE FIX: Use bulk map (O(1) lookup) instead of individual IndexedDB calls
             // This matches the category-detail pattern for fast image loading
-            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(photoId);
+            // TASK 3 FIX: Check both photoId AND localImageId for local-first photos
+            const pendingPhotoLocalImageId = pendingPhoto.localImageId || pendingPhoto.imageId;
+            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(photoId)
+              || (pendingPhotoLocalImageId ? this.bulkAnnotatedImagesMap.get(String(pendingPhotoLocalImageId)) : null);
             if (cachedAnnotatedImage) {
               console.log('[RoomElevation] ✅ Using bulk cached annotated image for pending photo:', photoId);
               displayUrl = cachedAnnotatedImage;
@@ -4222,33 +4466,24 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       caption: caption || '(empty)'
     });
 
-    // CRITICAL: Handle temp IDs - resolve to real ID or queue for sync
-    let resolvedRoomId = roomId;
-    if (String(roomId).startsWith('temp_')) {
-      const realId = await this.indexedDb.getRealId(roomId);
-      if (realId) {
-        console.log('[SAVE FDF] Resolved temp ID to real ID:', roomId, '->', realId);
-        resolvedRoomId = realId;
-      } else {
-        // Queue for background sync - room not synced yet
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
-          method: 'PUT',
-          data: { ...updateData, _tempEfeId: roomId },
-          dependencies: [roomId],
-          status: 'pending',
-          priority: 'normal'
-        });
-        console.log('[SAVE FDF] FDF annotation update queued for sync (room not yet synced)');
-        return drawingsData;
+    // TASK 2 FIX: Always queue FDF annotation updates through unified queue system
+    // This ensures annotations appear in sync queue icon (matching point photos behavior)
+    // FDF uses roomId as the "attachId" since FDF data is stored on the EFE room record
+    // The photoType is passed in pointId for the background sync handler to use
+
+    // Queue the FDF annotation update using unified method
+    // This handles both temp IDs and real IDs, online and offline
+    await this.foundationData.queueCaptionAndAnnotationUpdate(
+      roomId,  // Use roomId as attachId - FDF data is on EFE room record
+      caption || '',
+      drawingsData,
+      'fdf',
+      {
+        serviceId: this.serviceId,
+        pointId: photoType  // photoType (Top/Bottom/Threshold) passed as pointId for FDF sync handler
       }
-    }
-
-    // Save BOTH Annotation and Drawings fields in a single call
-    await this.caspioService.updateServicesEFEByEFEID(resolvedRoomId, updateData).toPromise();
-
-    console.log('[SAVE FDF] Successfully saved caption and drawings for room:', resolvedRoomId);
+    );
+    console.log('[SAVE FDF] ✅ FDF annotation queued for sync, roomId:', roomId, 'photoType:', photoType);
 
     // CRITICAL FIX: Cache the annotated image blob for thumbnail display on reload
     if (annotatedBlob && annotatedBlob.size > 0) {
@@ -4454,6 +4689,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           // Update in-memory map so same-session navigation shows the annotation
           if (base64) {
             this.bulkAnnotatedImagesMap.set(String(attachId), base64);
+          }
+
+          // CRITICAL FIX: Also cache under imageId if it's different (local-first photos)
+          // This ensures annotations are found before sync when attachId is still imageId
+          const localImageId = foundPhoto?.localImageId || foundPhoto?.imageId;
+          if (localImageId && localImageId !== String(attachId)) {
+            await this.indexedDb.cacheAnnotatedImage(localImageId, annotatedBlob);
+            if (base64) {
+              this.bulkAnnotatedImagesMap.set(localImageId, base64);
+            }
+            console.log('[SAVE] ✅ Also cached under localImageId:', localImageId);
           }
         } catch (annotCacheErr) {
           console.warn('[SAVE] Failed to cache EFE annotated image blob:', annotCacheErr);

@@ -2461,6 +2461,13 @@ export class IndexedDbService {
       entityId: updated.entityId,
       serviceId: updated.serviceId
     });
+
+    // CRITICAL FIX: Emit sync queue change if caption or drawings were updated
+    // This ensures the sync icon shows pending count when annotations are saved on local-first photos
+    if (updates.caption !== undefined || updates.drawings !== undefined) {
+      this.emitSyncQueueChange('localimage_annotation_update');
+      console.log('[IndexedDB] ✅ Sync queue change emitted for annotation update:', imageId);
+    }
   }
 
   /**
