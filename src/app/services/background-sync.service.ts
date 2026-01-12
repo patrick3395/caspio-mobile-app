@@ -220,49 +220,7 @@ export class BackgroundSyncService {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
     this.subscribeToSyncQueueChanges();
-    this.listenToAppStateChanges();  // TASK 2: Resume sync when app comes back to foreground
-  }
-
-  /**
-   * TASK 2 FIX: Listen to app state changes (foreground/background)
-   * When app comes back to foreground, resume sync immediately
-   * This ensures sync persists when user backgrounds the app
-   */
-  private async listenToAppStateChanges(): Promise<void> {
-    // Only listen on native platforms (iOS/Android)
-    if (!Capacitor.isNativePlatform()) {
-      return;
-    }
-
-    try {
-      // Dynamic import to avoid build errors on web
-      const { App } = await import('@capacitor/app');
-
-      App.addListener('appStateChange', (state: { isActive: boolean }) => {
-        console.log('[BackgroundSync] App state changed:', state.isActive ? 'foreground' : 'background');
-
-        if (state.isActive) {
-          // App came back to foreground - check for pending syncs and trigger immediately
-          this.ngZone.run(async () => {
-            console.log('[BackgroundSync] App resumed - checking for pending sync items');
-
-            // Update sync status from DB first (might have changed while backgrounded)
-            await this.updateSyncStatusFromDb();
-
-            // If we have pending items and we're online, trigger sync immediately
-            const status = this.syncStatus$.getValue();
-            if (status.pendingCount > 0 && navigator.onLine) {
-              console.log('[BackgroundSync] Triggering sync after app resume');
-              this.triggerSync();
-            }
-          });
-        }
-      });
-
-      console.log('[BackgroundSync] App state listener registered');
-    } catch (err) {
-      console.log('[BackgroundSync] @capacitor/app not available, skipping app state listener');
-    }
+    // NOTE: App state listener for native foreground/background removed - @capacitor/app not available in web build
   }
 
   /**
