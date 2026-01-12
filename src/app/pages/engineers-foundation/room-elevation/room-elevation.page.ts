@@ -4155,7 +4155,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         point.name = newName;
 
         // Update local cache
-        await this.updateLocalEFECache();
+        await this.updateLocalEFECache({ elevationPoints: this.roomData.elevationPoints });
 
         // Refresh sync status to show in UI
         await this.backgroundSync.refreshSyncStatus();
@@ -4230,7 +4230,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
               // Clean up local image cache
               if (photo.localKey) {
-                await this.localImageService.deleteImage(photo.localKey);
+                await this.localImageService.deleteLocalImage(photo.localKey);
               }
             }
           }
@@ -4270,7 +4270,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         // Update local cache
-        await this.updateLocalEFECache();
+        await this.updateLocalEFECache({ elevationPoints: this.roomData.elevationPoints });
 
         // Refresh sync status to show in UI
         await this.backgroundSync.refreshSyncStatus();

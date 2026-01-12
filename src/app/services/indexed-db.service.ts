@@ -31,6 +31,7 @@ export interface PendingRequest {
   createdAt: number;
   syncedAt?: number;
   error?: string;
+  serviceId?: string;
 }
 
 export interface TempIdMapping {
