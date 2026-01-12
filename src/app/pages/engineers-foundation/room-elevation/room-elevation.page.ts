@@ -19,6 +19,7 @@ import { LocalImageService } from '../../../services/local-image.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { compressAnnotationData, decompressAnnotationData } from '../../../utils/annotation-utils';
 import { environment } from '../../../../environments/environment';
+import { db } from '../../../services/caspio-db';
 
 @Component({
   selector: 'app-room-elevation',
@@ -84,6 +85,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private preservedPhotosByPointName: Map<string, any[]> = new Map();
   private preservedPhotosByPointId: Map<string, any[]> = new Map();
   private preservedFdfPhotos: any = null;
+
+  // ===== LIVE QUERY SUPPORT (matches structural-systems pattern) =====
+  // This subscription keeps the UI updated when LocalImages change without requiring full reload
+  private localImagesSubscription?: Subscription;
+  private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();
   
   // Lazy image loading - photos only load when user clicks to expand a point
   expandedPoints: { [pointId: string]: boolean } = {};
@@ -633,8 +639,148 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     });
 
+    // TASK 1 FIX: Subscribe to live LocalImages changes (matches structural-systems pattern)
+    // This keeps the UI updated when LocalImages are added/modified without requiring full reload
+    this.subscribeToLocalImagesChanges();
+
     // Mark initial load as complete
     this.initialLoadComplete = true;
+  }
+
+  /**
+   * Subscribe to LiveQuery for LocalImages changes (matches structural-systems pattern)
+   * When LocalImages are added or updated, the UI is updated immediately without full reload
+   */
+  private subscribeToLocalImagesChanges(): void {
+    // Unsubscribe from previous subscription if exists
+    if (this.localImagesSubscription) {
+      this.localImagesSubscription.unsubscribe();
+    }
+
+    if (!this.serviceId) {
+      console.log('[RoomElevation] No serviceId, skipping LocalImages subscription');
+      return;
+    }
+
+    console.log('[RoomElevation] Subscribing to LocalImages changes for service:', this.serviceId);
+
+    // Subscribe to all LocalImages for this service (efe_point entity type)
+    this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'efe_point').subscribe(
+      (localImages) => {
+        console.log('[RoomElevation] LiveQuery - LocalImages updated:', localImages.length, 'images');
+
+        // Update bulkLocalImagesMap reactively
+        this.updateBulkLocalImagesMap(localImages);
+
+        // CRITICAL: Update in-memory photos with fresh displayUrls from LocalImages
+        // This prevents photos from disappearing when sync status changes
+        this.refreshPhotosFromLocalImages(localImages);
+
+        // Trigger change detection to update UI
+        this.changeDetectorRef.detectChanges();
+      },
+      (error) => {
+        console.error('[RoomElevation] Error in LocalImages subscription:', error);
+      }
+    );
+  }
+
+  /**
+   * Update bulkLocalImagesMap from liveQuery results
+   * Groups LocalImages by entityId (pointId) for efficient lookup
+   */
+  private updateBulkLocalImagesMap(localImages: LocalImage[]): void {
+    // Clear existing map
+    this.bulkLocalImagesMap.clear();
+
+    // Group LocalImages by entityId (pointId)
+    for (const img of localImages) {
+      if (!img.entityId) continue;
+
+      const entityId = String(img.entityId);
+      if (!this.bulkLocalImagesMap.has(entityId)) {
+        this.bulkLocalImagesMap.set(entityId, []);
+      }
+      this.bulkLocalImagesMap.get(entityId)!.push(img);
+    }
+
+    console.log('[RoomElevation] Updated bulkLocalImagesMap with', this.bulkLocalImagesMap.size, 'point groups');
+  }
+
+  /**
+   * Refresh in-memory photos from LocalImages (prevents disappearing during sync)
+   * This is the key fix - when LocalImages change, we update displayUrls without reload
+   */
+  private async refreshPhotosFromLocalImages(localImages: LocalImage[]): Promise<void> {
+    if (!this.roomData?.elevationPoints) return;
+
+    for (const localImage of localImages) {
+      // Find matching point
+      const pointId = localImage.entityId;
+      const point = this.roomData.elevationPoints.find((p: any) =>
+        String(p.pointId) === String(pointId)
+      );
+
+      if (!point || !point.photos) continue;
+
+      // Find matching photo in point's photos array
+      for (const photo of point.photos) {
+        const isMatch =
+          photo.imageId === localImage.imageId ||
+          photo.localImageId === localImage.imageId ||
+          (localImage.attachId && String(photo.attachId) === String(localImage.attachId));
+
+        if (isMatch) {
+          // CRITICAL: Update the displayUrl from the LocalImage
+          // This ensures the photo stays visible even if blob URL was invalidated
+          try {
+            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
+            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
+              // Only update if we got a valid URL and current one is invalid
+              const currentUrl = photo.displayUrl;
+              const needsUpdate = !currentUrl ||
+                currentUrl === 'assets/img/photo-placeholder.png' ||
+                currentUrl.includes('placeholder') ||
+                (currentUrl.startsWith('blob:') && !await this.isValidBlobUrl(currentUrl));
+
+              if (needsUpdate) {
+                console.log('[RoomElevation] Refreshing displayUrl for photo:', localImage.imageId);
+                photo.displayUrl = freshUrl;
+                photo.url = freshUrl;
+                photo.thumbnailUrl = freshUrl;
+              }
+
+              // Update sync status flags from LocalImage
+              photo.uploading = localImage.status === 'uploading';
+              photo.queued = localImage.status === 'queued';
+              photo.isPending = localImage.status !== 'verified';
+
+              // Update attachId if LocalImage has a real one
+              if (localImage.attachId && !String(localImage.attachId).startsWith('img_')) {
+                photo.attachId = localImage.attachId;
+                photo.AttachID = localImage.attachId;
+              }
+            }
+          } catch (e) {
+            console.warn('[RoomElevation] Error refreshing displayUrl for:', localImage.imageId, e);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if a blob URL is still valid
+   */
+  private async isValidBlobUrl(url: string): Promise<boolean> {
+    if (!url || !url.startsWith('blob:')) return false;
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      return response.ok;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -923,7 +1069,37 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 localPoint.photos = [...preserved];
                 console.log(`[RoomElevation] ✅ Restored ${preserved.length} preserved photos for point "${pointName}"`);
               } else {
-                localPoint.photos = [];
+                // BULLETPROOF FIX: Try bulkLocalImagesMap as last resort
+                const localImagesForPoint = bulkLocalImagesMap.get(pointIdStr) || [];
+                if (localImagesForPoint.length > 0) {
+                  localPoint.photos = [];
+                  for (const localImg of localImagesForPoint) {
+                    const displayUrl = await this.localImageService.getDisplayUrl(localImg);
+                    if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.png') {
+                      localPoint.photos.push({
+                        imageId: localImg.imageId,
+                        localImageId: localImg.imageId,
+                        attachId: localImg.attachId || localImg.imageId,
+                        photoType: localImg.photoType || 'Measurement',
+                        url: displayUrl,
+                        displayUrl: displayUrl,
+                        thumbnailUrl: displayUrl,
+                        caption: localImg.caption || '',
+                        drawings: localImg.drawings || null,
+                        hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
+                        uploading: localImg.status === 'uploading',
+                        queued: localImg.status === 'queued',
+                        isPending: localImg.status !== 'verified',
+                        isLocalImage: true,
+                        isLocalFirst: true,
+                        _tempId: localImg.imageId,
+                      });
+                      console.log(`[RoomElevation] BULLETPROOF: Restored photo from LocalImage ${localImg.imageId} for point "${pointName}"`);
+                    }
+                  }
+                } else {
+                  localPoint.photos = [];
+                }
               }
             }
 
@@ -941,17 +1117,56 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               if (p.localImageId) existingPhotoIds.add(String(p.localImageId));
               if (p.AttachID) existingPhotoIds.add(String(p.AttachID));
             }
-            
+
             for (const attach of pointAttachments) {
               const attachIdStr = String(attach.AttachID || attach.PK_ID);
-              
-              // Check if we already have this photo
-              if (existingPhotoIds.has(attachIdStr)) {
-                // Update existing photo with server data if needed
-                const existingPhoto = localPoint.photos.find((p: any) => String(p.attachId) === attachIdStr);
+
+              // TASK 1 FIX: Check if this server attachment matches any LocalImage we have
+              // This handles the case where photo was captured with imageId, then synced to get real attachId
+              // The in-memory photo still has imageId as attachId, but server has the real attachId
+              let matchingImageId: string | null = null;
+              const localImagesForPoint = this.bulkLocalImagesMap.get(pointIdStr) || [];
+              for (const localImg of localImagesForPoint) {
+                if (localImg.attachId === attachIdStr) {
+                  matchingImageId = localImg.imageId;
+                  break;
+                }
+              }
+
+              // Check if we already have this photo (by direct ID match OR via LocalImage mapping)
+              const alreadyExists = existingPhotoIds.has(attachIdStr) ||
+                (matchingImageId && existingPhotoIds.has(matchingImageId));
+
+              if (alreadyExists) {
+                // Find the existing photo - check all possible ID matches
+                let existingPhoto = localPoint.photos.find((p: any) =>
+                  String(p.attachId) === attachIdStr ||
+                  String(p.imageId) === attachIdStr ||
+                  (matchingImageId && (
+                    String(p.imageId) === matchingImageId ||
+                    String(p.localImageId) === matchingImageId ||
+                    String(p.attachId) === matchingImageId
+                  ))
+                );
+
                 if (existingPhoto) {
-                  // If photo is still loading/placeholder, try to load the actual image
-                  if (existingPhoto.loading || existingPhoto.url === 'assets/img/photo-placeholder.png') {
+                  // CRITICAL: Update attachId to the real server ID so future matches work
+                  if (existingPhoto.attachId !== attachIdStr) {
+                    console.log(`[RoomElevation] Updating photo attachId: ${existingPhoto.attachId} -> ${attachIdStr}`);
+                    existingPhoto.attachId = attachIdStr;
+                    existingPhoto.AttachID = attachIdStr;
+                  }
+
+                  // If photo has a valid displayUrl, keep it - DON'T replace
+                  // BULLETPROOF: Any displayUrl that isn't a placeholder is valid
+                  // Matches category-detail.page.ts pattern at line 1071-1073
+                  const hasValidDisplayUrl = existingPhoto.displayUrl &&
+                    existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png' &&
+                    !existingPhoto.displayUrl.includes('placeholder') &&
+                    !existingPhoto.loading;
+
+                  // If photo is still loading/placeholder AND doesn't have local blob, try to load from S3
+                  if (!hasValidDisplayUrl && (existingPhoto.loading || existingPhoto.url === 'assets/img/photo-placeholder.png')) {
                     const s3Key = attach.Attachment || attach.Photo;
                     if (s3Key && this.caspioService.isS3Key(s3Key)) {
                       this.loadPointPhotoImage(s3Key, existingPhoto).catch(err => {
@@ -1242,6 +1457,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.localImageStatusSubscription) {
       this.localImageStatusSubscription.unsubscribe();
     }
+    if (this.localImagesSubscription) {
+      this.localImagesSubscription.unsubscribe();
+    }
 
     // NOTE: We intentionally do NOT revoke blob URLs here anymore.
     // Revoking causes images to disappear when navigating back to this page
@@ -1339,21 +1557,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       if (this.roomData?.elevationPoints) {
         for (const point of this.roomData.elevationPoints) {
           if (point.photos && point.photos.length > 0) {
-            // BULLETPROOF PRESERVATION: During sync, preserve ALL photos
-            // Outside sync, preserve photos that have an ID or valid state
-            // TASK 2 FIX: Added attachId check - synced photos have attachId but may have placeholder displayUrl
-            const photosToPreserve = syncInProgress
-              ? [...point.photos]
-              : point.photos.filter((p: any) =>
-                  p.attachId ||         // TASK 2 FIX: Synced photos have real attachId
-                  p.imageId ||
-                  p._pendingFileId ||
-                  p.uploading ||
-                  p.queued ||
-                  p.isLocalImage ||
-                  p.isLocalFirst ||
-                  (p.displayUrl && (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:')))
-                );
+            // TASK 1 FIX: ALWAYS preserve ALL photos with ANY identifier
+            // This is the key fix - we NEVER want photos to disappear
+            // Previously this was conditional on syncInProgress which caused photos to vanish
+            const photosToPreserve = point.photos.filter((p: any) =>
+              p.attachId ||         // Synced photos have real attachId
+              p.imageId ||          // LocalImage system photos
+              p.localImageId ||     // LocalImage reference
+              p._pendingFileId ||   // Legacy pending system
+              p._tempId ||          // Temp ID reference
+              p.uploading ||        // Currently uploading
+              p.queued ||           // Queued for upload
+              p.isLocalImage ||     // LocalImage flag
+              p.isLocalFirst ||     // Local-first flag
+              (p.displayUrl && p.displayUrl !== 'assets/img/photo-placeholder.png')  // Has any real URL
+            );
 
             if (photosToPreserve.length > 0) {
               // Deep copy photos to prevent mutation issues
@@ -1367,7 +1585,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 this.preservedPhotosByPointId.set(String(point.pointId), photosCopy);
               }
 
-              console.log(`[RoomElevation] PRESERVED ${photosCopy.length} photos for point "${point.name}" (ID: ${point.pointId}, sync: ${syncInProgress})`);
+              console.log(`[RoomElevation] PRESERVED ${photosCopy.length} photos for point "${point.name}" (ID: ${point.pointId})`);
             }
           }
         }
@@ -2214,16 +2432,23 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           console.log(`[RoomElevation]   ✅ Restored ${preservedPhotos.length} preserved photos by point ID`);
         }
 
-        // TASK 1 FIX: During sync, if we have preserved photos with valid displayUrls, skip database merge
-        // This ensures photos aren't replaced with placeholder URLs during sync
+        // TASK 1 FIX: ALWAYS preserve photos with valid displayUrls, not just during sync
+        // This is the key fix - photos should NEVER disappear during any reload
+        // BULLETPROOF: Any displayUrl that isn't a placeholder is considered valid
+        // Matches category-detail.page.ts pattern at line 1071-1073
         const hasValidPreservedPhotos = preservedPhotos.some((p: any) =>
           p.displayUrl &&
-          (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:')) &&
-          !p.displayUrl.includes('placeholder')
+          p.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          !p.displayUrl.includes('placeholder') &&
+          !p.loading
         );
-        const skipDatabasePhotos = syncInProgress && hasValidPreservedPhotos;
+
+        // CRITICAL: Skip database merge if we have valid preserved photos with local blob URLs
+        // This prevents the "disappearing during sync" issue by always prioritizing local photos
+        // The local photos have the actual image data - database records may not yet have S3 URLs
+        const skipDatabasePhotos = hasValidPreservedPhotos;
         if (skipDatabasePhotos) {
-          console.log(`[RoomElevation]   SYNC MODE: Using preserved photos only, skipping database attachment merge`);
+          console.log(`[RoomElevation]   PRESERVING local photos with valid displayUrls, skipping database merge`);
         }
 
         const pointData: any = {
@@ -2233,6 +2458,46 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           value: existingPoint ? (existingPoint.Elevation || '') : '',
           photos: [...preservedPhotos]  // Start with preserved photos
         };
+
+        // BULLETPROOF FIX: If no preserved photos, check bulkLocalImagesMap for this point
+        // This handles the case where preservation maps were empty but LocalImages exist
+        // Matches category-detail pattern of NEVER losing photos
+        if (pointData.photos.length === 0 && pointId) {
+          const localImagesForPoint = bulkLocalImagesMap.get(String(pointId)) || [];
+          for (const localImg of localImagesForPoint) {
+            // Check if we already have this photo
+            const alreadyHas = pointData.photos.some((p: any) =>
+              String(p.imageId) === localImg.imageId ||
+              String(p.localImageId) === localImg.imageId
+            );
+            if (!alreadyHas) {
+              // Get displayUrl from LocalImage
+              const displayUrl = await this.localImageService.getDisplayUrl(localImg);
+              if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.png') {
+                const localPhotoData = {
+                  imageId: localImg.imageId,
+                  localImageId: localImg.imageId,
+                  attachId: localImg.attachId || localImg.imageId,
+                  photoType: localImg.photoType || 'Measurement',
+                  url: displayUrl,
+                  displayUrl: displayUrl,
+                  thumbnailUrl: displayUrl,
+                  caption: localImg.caption || '',
+                  drawings: localImg.drawings || null,
+                  hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
+                  uploading: localImg.status === 'uploading',
+                  queued: localImg.status === 'queued',
+                  isPending: localImg.status !== 'verified',
+                  isLocalImage: true,
+                  isLocalFirst: true,
+                  _tempId: localImg.imageId,
+                };
+                pointData.photos.push(localPhotoData);
+                console.log(`[RoomElevation] BULLETPROOF: Restored photo from LocalImage ${localImg.imageId} for point "${pointData.name}"`);
+              }
+            }
+          }
+        }
 
         // If point exists in database, load its photos (unless in sync mode with valid preserved photos)
         if (existingPoint && !skipDatabasePhotos) {
@@ -2248,14 +2513,45 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             const photoType = attach.Type || attach.photoType || 'Measurement';
             const attachIdStr = String(attach.AttachID || attach.PK_ID);
             console.log(`[RoomElevation]     Processing attachment: Type=${photoType}, Photo=${attach.Photo}, isPending=${attach.isPending}, ID=${attachIdStr}`);
-            
-            // CRITICAL FIX: Check for duplicate before adding - use String() conversion for consistent comparison
-            const alreadyExists = pointData.photos.some((p: any) => 
-              String(p.attachId) === attachIdStr
+
+            // TASK 1 FIX: Check if server attachment matches any LocalImage by attachId
+            // This handles photos that were captured with imageId then synced to get real attachId
+            let matchingImageId: string | null = null;
+            const localImagesForPoint = bulkLocalImagesMap.get(pointIdStr) || [];
+            for (const localImg of localImagesForPoint) {
+              if (localImg.attachId === attachIdStr) {
+                matchingImageId = localImg.imageId;
+                break;
+              }
+            }
+
+            // CRITICAL FIX: Check for duplicate before adding (direct ID OR via LocalImage mapping)
+            const alreadyExists = pointData.photos.some((p: any) =>
+              String(p.attachId) === attachIdStr ||
+              String(p.imageId) === attachIdStr ||
+              (matchingImageId && (
+                String(p.imageId) === matchingImageId ||
+                String(p.localImageId) === matchingImageId ||
+                String(p.attachId) === matchingImageId
+              ))
             );
-            
+
             if (alreadyExists) {
-              console.log(`[RoomElevation]     Skipping duplicate attachment: ${attachIdStr}`);
+              console.log(`[RoomElevation]     Skipping duplicate attachment: ${attachIdStr} (matched via ${matchingImageId || 'direct ID'})`);
+              // CRITICAL: Update the photo's attachId to the real server ID if needed
+              const existingPhoto = pointData.photos.find((p: any) =>
+                String(p.attachId) === attachIdStr ||
+                String(p.imageId) === attachIdStr ||
+                (matchingImageId && (
+                  String(p.imageId) === matchingImageId ||
+                  String(p.localImageId) === matchingImageId
+                ))
+              );
+              if (existingPhoto && existingPhoto.attachId !== attachIdStr) {
+                console.log(`[RoomElevation]     Updating photo attachId: ${existingPhoto.attachId} -> ${attachIdStr}`);
+                existingPhoto.attachId = attachIdStr;
+                existingPhoto.AttachID = attachIdStr;
+              }
               continue;
             }
             
@@ -2869,53 +3165,40 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // This ensures the FDF value persists even if offline
       await this.updateLocalEFECache({ FDF: this.roomData.fdf });
 
+      // TASK 2 FIX: ALWAYS queue FDF updates for sync - this makes them visible in sync modal
+      // This matches the workflow for all other operations (images, notes, etc.)
       if (isTempId) {
         // Queue for background sync - room not synced yet
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
           endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
           method: 'PUT',
-          data: { FDF: this.roomData.fdf, _tempEfeId: this.roomId },
+          data: { FDF: this.roomData.fdf, _tempEfeId: this.roomId, RoomName: this.roomName },
           dependencies: [this.roomId],
           status: 'pending',
-          priority: 'normal'
+          priority: 'normal',
+          serviceId: this.serviceId
         });
         console.log('[RoomElevation] FDF update queued for sync (room not yet synced)');
-        return;
-      }
-
-      // Check if online - if offline, queue for background sync
-      if (!this.offlineService.isOnline()) {
+      } else {
+        // TASK 2 FIX: Queue for background sync (visible in sync modal) instead of direct API call
+        // This ensures FDF changes appear in the sync queue like all other operations
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
           endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
           method: 'PUT',
-          data: { FDF: this.roomData.fdf },
+          data: { FDF: this.roomData.fdf, RoomName: this.roomName },
           dependencies: [],
           status: 'pending',
-          priority: 'normal'
+          priority: 'normal',
+          serviceId: this.serviceId
         });
-        console.log('[RoomElevation] FDF update queued for sync (offline)');
-        return;
+        console.log('[RoomElevation] FDF update queued for sync');
       }
 
-      // Online with real ID - make direct API call
-      try {
-        await this.caspioService.updateServicesEFEByEFEID(id, { FDF: this.roomData.fdf }).toPromise();
-        console.log('[RoomElevation] FDF saved to server');
-      } catch (apiError) {
-        // API call failed (network error, etc.) - queue for background sync
-        console.warn('[RoomElevation] FDF API call failed, queuing for sync:', apiError);
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
-          method: 'PUT',
-          data: { FDF: this.roomData.fdf },
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal'
-        });
-      }
+      // Update sync pending count to show in UI immediately
+      await this.backgroundSync.refreshSyncStatus();
+
     } catch (error) {
       console.error('Error saving FDF:', error);
     } finally {
@@ -2997,52 +3280,39 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
       await this.updateLocalEFECache({ Location: this.roomData.location });
 
+      // TASK 3 FIX: ALWAYS queue updates for sync - this makes them visible in sync modal
+      // This matches the workflow for all other operations
       if (isTempId) {
         // Queue for background sync - room not synced yet
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
           endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
           method: 'PUT',
-          data: { Location: this.roomData.location, _tempEfeId: this.roomId },
+          data: { Location: this.roomData.location, _tempEfeId: this.roomId, RoomName: this.roomName },
           dependencies: [this.roomId],
           status: 'pending',
-          priority: 'normal'
+          priority: 'normal',
+          serviceId: this.serviceId
         });
         console.log('[RoomElevation] Location update queued for sync (room not yet synced)');
-        return;
-      }
-
-      // Check if online - if offline, queue for background sync
-      if (!this.offlineService.isOnline()) {
+      } else {
+        // Queue for background sync (visible in sync modal) instead of direct API call
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
           endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
           method: 'PUT',
-          data: { Location: this.roomData.location },
+          data: { Location: this.roomData.location, RoomName: this.roomName },
           dependencies: [],
           status: 'pending',
-          priority: 'normal'
+          priority: 'normal',
+          serviceId: this.serviceId
         });
-        console.log('[RoomElevation] Location update queued for sync (offline)');
-        return;
+        console.log('[RoomElevation] Location update queued for sync');
       }
 
-      // Online with real ID - make direct API call
-      try {
-        await this.caspioService.updateServicesEFEByEFEID(id, { Location: this.roomData.location }).toPromise();
-        console.log('[RoomElevation] Location saved to server');
-      } catch (apiError) {
-        console.warn('[RoomElevation] Location API call failed, queuing for sync:', apiError);
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
-          method: 'PUT',
-          data: { Location: this.roomData.location },
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal'
-        });
-      }
+      // Update sync pending count to show in UI immediately
+      await this.backgroundSync.refreshSyncStatus();
+
     } catch (error) {
       console.error('Error saving location:', error);
     } finally {
@@ -3093,52 +3363,39 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
       await this.updateLocalEFECache({ Notes: this.roomData.notes });
 
+      // TASK 3 FIX: ALWAYS queue updates for sync - this makes them visible in sync modal
+      // This matches the workflow for all other operations
       if (isTempId) {
         // Queue for background sync - room not synced yet
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
           endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
           method: 'PUT',
-          data: { Notes: this.roomData.notes, _tempEfeId: this.roomId },
+          data: { Notes: this.roomData.notes, _tempEfeId: this.roomId, RoomName: this.roomName },
           dependencies: [this.roomId],
           status: 'pending',
-          priority: 'normal'
+          priority: 'normal',
+          serviceId: this.serviceId
         });
         console.log('[RoomElevation] Notes update queued for sync (room not yet synced)');
-        return;
-      }
-
-      // Check if online - if offline, queue for background sync
-      if (!this.offlineService.isOnline()) {
+      } else {
+        // Queue for background sync (visible in sync modal) instead of direct API call
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
           endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
           method: 'PUT',
-          data: { Notes: this.roomData.notes },
+          data: { Notes: this.roomData.notes, RoomName: this.roomName },
           dependencies: [],
           status: 'pending',
-          priority: 'normal'
+          priority: 'normal',
+          serviceId: this.serviceId
         });
-        console.log('[RoomElevation] Notes update queued for sync (offline)');
-        return;
+        console.log('[RoomElevation] Notes update queued for sync');
       }
 
-      // Online with real ID - make direct API call
-      try {
-        await this.caspioService.updateServicesEFEByEFEID(id, { Notes: this.roomData.notes }).toPromise();
-        console.log('[RoomElevation] Notes saved to server');
-      } catch (apiError) {
-        console.warn('[RoomElevation] Notes API call failed, queuing for sync:', apiError);
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
-          method: 'PUT',
-          data: { Notes: this.roomData.notes },
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal'
-        });
-      }
+      // Update sync pending count to show in UI immediately
+      await this.backgroundSync.refreshSyncStatus();
+
     } catch (error) {
       console.error('Error saving notes:', error);
     } finally {
@@ -3335,8 +3592,23 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       const updateData: any = {};
       updateData[attachmentColumnName] = s3Key;
 
-      await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-      console.log(`[FDF Upload S3] Updated room record with S3 key in ${attachmentColumnName}`);
+      // TASK 3 FIX: Add fallback to queue if direct API call fails
+      try {
+        await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
+        console.log(`[FDF Upload S3] Updated room record with S3 key in ${attachmentColumnName}`);
+      } catch (apiError) {
+        console.warn(`[FDF Upload S3] API update failed, queuing for sync:`, apiError);
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${this.roomId}`,
+          method: 'PUT',
+          data: updateData,
+          dependencies: [],
+          status: 'pending',
+          priority: 'high',
+          serviceId: this.serviceId
+        });
+      }
 
       // Update local state - clear uploading flags
       fdfPhotos[`${photoKey}Uploading`] = false;
@@ -3838,9 +4110,47 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     if (result.role !== 'cancel' && result.data?.values?.newName) {
       const newName = result.data.values.newName;
       try {
-        await this.caspioService.updateServicesEFEPoint(point.pointId, { PointName: newName }).toPromise();
+        // TASK 3 FIX: Use sync queue pattern instead of direct API call
+        // This ensures operation works offline and appears in sync queue
+        const isTempId = String(point.pointId).startsWith('temp_');
+
+        if (isTempId) {
+          // Point not synced yet - queue update with dependency
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=DEFERRED`,
+            method: 'PUT',
+            data: { PointName: newName, _tempPointId: point.pointId },
+            dependencies: [point.pointId],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+        } else {
+          // Point already synced - queue direct update
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=${point.pointId}`,
+            method: 'PUT',
+            data: { PointName: newName },
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+        }
+
+        // Update local state immediately
         point.name = newName;
+
+        // Update local cache
+        await this.updateLocalEFECache();
+
+        // Refresh sync status to show in UI
+        await this.backgroundSync.refreshSyncStatus();
+
         this.changeDetectorRef.detectChanges();
+        console.log('[RoomElevation] Point name update queued for sync');
       } catch (error) {
         console.error('Error updating point name:', error);
       }
@@ -3871,29 +4181,91 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // Only process if user clicked Delete
     if (result.role === 'destructive') {
       try {
-        // Delete all photos first
+        // TASK 3 FIX: Use sync queue pattern instead of direct API calls
+        // This ensures operations work offline and appear in sync queue
+        const isTempPointId = String(point.pointId).startsWith('temp_');
+
+        // Queue photo deletions first
         if (point.photos && point.photos.length > 0) {
           for (const photo of point.photos) {
             if (photo.attachId) {
-              try {
-                await this.caspioService.deleteServicesEFEPointsAttach(photo.attachId).toPromise();
-              } catch (photoError) {
-                console.error('Failed to delete photo:', photoError);
+              const isTempAttachId = String(photo.attachId).startsWith('temp_');
+
+              if (isTempAttachId) {
+                // Photo not synced yet - queue deletion with dependency
+                await this.indexedDb.addPendingRequest({
+                  type: 'DELETE',
+                  endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=DEFERRED`,
+                  method: 'DELETE',
+                  data: { _tempAttachId: photo.attachId },
+                  dependencies: [photo.attachId],
+                  status: 'pending',
+                  priority: 'normal',
+                  serviceId: this.serviceId
+                });
+              } else {
+                // Photo already synced - queue direct deletion
+                await this.indexedDb.addPendingRequest({
+                  type: 'DELETE',
+                  endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+                  method: 'DELETE',
+                  data: {},
+                  dependencies: [],
+                  status: 'pending',
+                  priority: 'normal',
+                  serviceId: this.serviceId
+                });
+              }
+
+              // Clean up local image cache
+              if (photo.localKey) {
+                await this.localImageService.deleteImage(photo.localKey);
               }
             }
           }
         }
 
-        // Delete point
-        await this.caspioService.deleteServicesEFEPoint(point.pointId).toPromise();
+        // Queue point deletion (after photos in queue)
+        if (isTempPointId) {
+          // Point not synced yet - queue deletion with dependency
+          await this.indexedDb.addPendingRequest({
+            type: 'DELETE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=DEFERRED`,
+            method: 'DELETE',
+            data: { _tempPointId: point.pointId },
+            dependencies: [point.pointId],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+        } else {
+          // Point already synced - queue direct deletion
+          await this.indexedDb.addPendingRequest({
+            type: 'DELETE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=${point.pointId}`,
+            method: 'DELETE',
+            data: {},
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+        }
 
-        // Remove from local array
+        // Remove from local array immediately
         const index = this.roomData.elevationPoints.findIndex((p: any) => p.pointId === point.pointId);
         if (index >= 0) {
           this.roomData.elevationPoints.splice(index, 1);
         }
 
+        // Update local cache
+        await this.updateLocalEFECache();
+
+        // Refresh sync status to show in UI
+        await this.backgroundSync.refreshSyncStatus();
+
         this.changeDetectorRef.detectChanges();
+        console.log('[RoomElevation] Point and photo deletions queued for sync');
       } catch (error) {
         console.error('Error deleting point:', error);
       }

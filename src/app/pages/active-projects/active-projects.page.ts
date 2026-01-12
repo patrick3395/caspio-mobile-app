@@ -781,7 +781,10 @@ URL Attempted: ${imgUrl}`;
             });
             
             if (result.activeApplicationPathChanged) {
-              // Reload to apply the update
+              // TASK 4 FIX: Show loading state before reload to prevent jarring black screen
+              this.error = 'Applying update...';
+              // Small delay to allow UI to update before reload
+              await new Promise(resolve => setTimeout(resolve, 100));
               await LiveUpdates.reload();
               return;
             }
@@ -797,10 +800,12 @@ URL Attempted: ${imgUrl}`;
             );
             
             if (isCorrupted) {
-              
-              // Show error to user
-              this.error = 'Live Update corrupted. Please close and reopen the app.';
-              
+
+              // TASK 4 FIX: Show loading state before reload to prevent jarring black screen
+              this.error = 'Repairing update, please wait...';
+              // Small delay to allow UI to update before reload
+              await new Promise(resolve => setTimeout(resolve, 100));
+
               try {
                 await LiveUpdates.reload();
               } catch (reloadErr) {

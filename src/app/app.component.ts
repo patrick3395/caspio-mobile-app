@@ -247,9 +247,16 @@ export class AppComponent {
         return;
       }
 
+      // TASK 4 FIX: Show loading state before reload to prevent jarring black screen
+      console.log('[App] Update corruption detected, preparing to reload...');
+      document.body.classList.add('app-reloading');
+      // Small delay to allow any visual feedback before reload
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       try {
         await LiveUpdates.reload();
       } catch {
+        document.body.classList.remove('app-reloading');
         this.showCorruptionAlert();
       }
     }
