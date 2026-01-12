@@ -787,8 +787,9 @@ export class BackgroundSyncService {
         if (isDependencyError) {
           // DON'T increment retry count for dependency failures
           // These should retry immediately when the dependency resolves
+          // TASK 2 FIX: Skip lastAttempt update so exponential backoff doesn't delay retry
           console.log(`[BackgroundSync] ⏳ Dependency pending for ${request.requestId}: ${errorMessage}`);
-          await this.indexedDb.updateRequestStatus(request.requestId, 'pending', errorMessage);
+          await this.indexedDb.updateRequestStatus(request.requestId, 'pending', errorMessage, true);
         } else {
           // Real failure - increment retry count for exponential backoff
           await this.indexedDb.incrementRetryCount(request.requestId);

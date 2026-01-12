@@ -248,17 +248,23 @@ export class IndexedDbService {
 
   /**
    * Update request status
+   * @param skipLastAttempt - If true, don't update lastAttempt (for dependency errors that should retry immediately)
    */
-  async updateRequestStatus(requestId: string, status: PendingRequest['status'], error?: string): Promise<void> {
+  async updateRequestStatus(requestId: string, status: PendingRequest['status'], error?: string, skipLastAttempt = false): Promise<void> {
     const request = await db.pendingRequests.get(requestId);
     if (!request) {
       throw new Error('Request not found');
     }
 
     const updates: Partial<PendingRequest> = {
-      status,
-      lastAttempt: Date.now()
+      status
     };
+
+    // TASK 2 FIX: Only update lastAttempt if not skipped
+    // Dependency errors should NOT update lastAttempt so they retry immediately
+    if (!skipLastAttempt) {
+      updates.lastAttempt = Date.now();
+    }
 
     if (error) {
       updates.error = error;
