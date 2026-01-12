@@ -5,6 +5,7 @@ import * as LiveUpdates from '@capacitor/live-updates';
 import { ThemeService } from './services/theme.service';
 import { PerformanceMonitorService } from './services/performance-monitor.service';
 import { FabricService } from './services/fabric.service';
+import { BackgroundSyncService } from './services/background-sync.service';
 import { addIcons } from 'ionicons';
 import {
   // Photo annotator toolbar icons
@@ -102,7 +103,10 @@ export class AppComponent {
     private platform: Platform,
     private readonly themeService: ThemeService,
     private readonly performanceMonitor: PerformanceMonitorService,
-    private readonly fabricService: FabricService
+    private readonly fabricService: FabricService,
+    // TASK 2 FIX: Inject BackgroundSyncService at app startup to ensure it persists
+    // across all navigation (main page, project switching, app backgrounding)
+    private readonly backgroundSync: BackgroundSyncService
   ) {
     // Register icons for offline use
     addIcons({
@@ -207,6 +211,13 @@ export class AppComponent {
       }
 
       this.performanceMonitor.start();
+
+      // TASK 2 FIX: Log that background sync is initialized at app startup
+      // The service is now injected here so it persists across all navigation
+      console.log('[App] BackgroundSyncService initialized at app startup - sync will persist across navigation');
+
+      // Trigger a sync status refresh to show correct state on app load
+      this.backgroundSync.refreshSyncStatus();
 
       // Preload Fabric.js for offline photo annotation support
       // This ensures the Fabric chunk is cached by the service worker

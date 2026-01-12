@@ -1,6 +1,7 @@
 import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, Subject, interval, Subscription, firstValueFrom } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
+import { App, AppState } from '@capacitor/app';
 import { IndexedDbService, PendingRequest, LocalImage, UploadOutboxItem } from './indexed-db.service';
 import { ApiGatewayService } from './api-gateway.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
@@ -220,6 +221,42 @@ export class BackgroundSyncService {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
     this.subscribeToSyncQueueChanges();
+    this.listenToAppStateChanges();  // TASK 2: Resume sync when app comes back to foreground
+  }
+
+  /**
+   * TASK 2 FIX: Listen to app state changes (foreground/background)
+   * When app comes back to foreground, resume sync immediately
+   * This ensures sync persists when user backgrounds the app
+   */
+  private listenToAppStateChanges(): void {
+    // Only listen on native platforms (iOS/Android)
+    if (!Capacitor.isNativePlatform()) {
+      return;
+    }
+
+    App.addListener('appStateChange', (state: AppState) => {
+      console.log('[BackgroundSync] App state changed:', state.isActive ? 'foreground' : 'background');
+
+      if (state.isActive) {
+        // App came back to foreground - check for pending syncs and trigger immediately
+        this.ngZone.run(async () => {
+          console.log('[BackgroundSync] App resumed - checking for pending sync items');
+
+          // Update sync status from DB first (might have changed while backgrounded)
+          await this.updateSyncStatusFromDb();
+
+          // If we have pending items and we're online, trigger sync immediately
+          const status = this.syncStatus$.getValue();
+          if (status.pendingCount > 0 && navigator.onLine) {
+            console.log('[BackgroundSync] Triggering sync after app resume');
+            this.triggerSync();
+          }
+        });
+      }
+    });
+
+    console.log('[BackgroundSync] App state listener registered');
   }
 
   /**
@@ -1573,6 +1610,15 @@ export class BackgroundSyncService {
   async forceSyncNow(): Promise<void> {
     console.log('[BackgroundSync] Force sync triggered');
     await this.triggerSync();
+  }
+
+  /**
+   * TASK 3 FIX: Public method to refresh sync status from database
+   * Called after clearing pending items to update the UI
+   */
+  async refreshSyncStatus(): Promise<void> {
+    console.log('[BackgroundSync] Refreshing sync status from database');
+    await this.updateSyncStatusFromDb();
   }
 
   /**

@@ -3883,10 +3883,25 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             progress: 0
           };
 
-          // Add photo to UI immediately
-          this.visualPhotos[key].push(photoEntry);
-          this.changeDetectorRef.detectChanges();
-          console.log('[CAMERA UPLOAD] ✅ Photo added (silent sync):', localImage.imageId);
+          // TASK 5 FIX: Check for duplicates before adding photo
+          // This prevents extra broken images when uploading photos
+          const existingIndex = this.visualPhotos[key].findIndex((p: any) =>
+            p.imageId === localImage.imageId ||
+            p.AttachID === localImage.imageId ||
+            p.id === localImage.imageId
+          );
+
+          if (existingIndex === -1) {
+            // Add photo to UI immediately (no duplicate found)
+            this.visualPhotos[key].push(photoEntry);
+            this.changeDetectorRef.detectChanges();
+            console.log('[CAMERA UPLOAD] ✅ Photo added (silent sync):', localImage.imageId);
+          } else {
+            // Duplicate found - update existing entry instead of adding
+            console.log('[CAMERA UPLOAD] ⚠️ Photo already exists, updating:', localImage.imageId);
+            this.visualPhotos[key][existingIndex] = { ...this.visualPhotos[key][existingIndex], ...photoEntry };
+            this.changeDetectorRef.detectChanges();
+          }
           console.log(`  key: ${key}`);
           console.log(`  imageId: ${localImage.imageId}`);
           console.log(`  AttachID: ${photoEntry.AttachID}`);
@@ -4032,10 +4047,25 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 progress: 0
               };
 
-              // Add photo to UI immediately
-              this.visualPhotos[key].push(photoEntry);
-              this.changeDetectorRef.detectChanges();
-              console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} added (silent sync):`, localImage.imageId);
+              // TASK 5 FIX: Check for duplicates before adding photo
+              // This prevents extra broken images when uploading multiple photos
+              const existingIndex = this.visualPhotos[key].findIndex((p: any) =>
+                p.imageId === localImage.imageId ||
+                p.AttachID === localImage.imageId ||
+                p.id === localImage.imageId
+              );
+
+              if (existingIndex === -1) {
+                // Add photo to UI immediately (no duplicate found)
+                this.visualPhotos[key].push(photoEntry);
+                this.changeDetectorRef.detectChanges();
+                console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} added (silent sync):`, localImage.imageId);
+              } else {
+                // Duplicate found - update existing entry instead of adding
+                console.log(`[GALLERY UPLOAD] ⚠️ Photo ${i + 1} already exists, updating:`, localImage.imageId);
+                this.visualPhotos[key][existingIndex] = { ...this.visualPhotos[key][existingIndex], ...photoEntry };
+                this.changeDetectorRef.detectChanges();
+              }
               console.log(`  key: ${key}`);
               console.log(`  imageId: ${localImage.imageId}`);
               console.log(`  AttachID: ${photoEntry.AttachID}`);

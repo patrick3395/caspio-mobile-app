@@ -62,11 +62,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private cacheInvalidationDebounceTimer: any = null;
   private isReloadingAfterSync = false;
   private localOperationCooldown = false;
+  private localOperationCooldownTimer: any = null;  // Timer for cooldown management
   private initialLoadComplete: boolean = false;  // Track if initial load is complete
 
   // Track if we need to reload after sync completes
   private pendingSyncReload = false;
   private syncStatusSubscription?: Subscription;
+  private localImageStatusSubscription?: Subscription;  // For LocalImage status changes (sync transitions)
   
   // Track last loaded IDs to detect when navigation requires fresh data
   private lastLoadedRoomId: string = '';
@@ -558,6 +560,76 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             this.reloadElevationDataAfterSync();
           }
         }, 500);
+      }
+    });
+
+    // TASK 1 FIX: Subscribe to LocalImage status changes to handle sync transitions
+    // When photos transition from 'queued' to 'uploading' to 'uploaded', update in-memory state
+    // WITHOUT triggering a full reload - this prevents images from disappearing during sync
+    this.localImageStatusSubscription = this.localImageService.statusChange$.subscribe(async (event) => {
+      console.log('[RoomElevation] LocalImage status changed:', event.imageId, event.oldStatus, '->', event.newStatus);
+
+      // Find and update the corresponding photo in elevation points
+      if (this.roomData?.elevationPoints) {
+        for (const point of this.roomData.elevationPoints) {
+          if (!point.photos) continue;
+
+          for (const photo of point.photos as any[]) {
+            // Match by imageId, localImageId, or attachId
+            const photoId = photo.imageId || photo.localImageId || photo.attachId || photo._tempId;
+            if (photoId === event.imageId || photo.attachId === event.attachId) {
+              // Update status flags WITHOUT clearing displayUrl
+              // This is the key fix - we update metadata but preserve the visible image
+              if (event.newStatus === 'uploading') {
+                photo.uploading = true;
+                photo.queued = false;
+              } else if (event.newStatus === 'uploaded' || event.newStatus === 'verified') {
+                photo.uploading = false;
+                photo.queued = false;
+                photo.isPending = false;
+
+                // If we got a real attachId from the sync, update it
+                if (event.attachId && !photo.attachId?.startsWith('temp_')) {
+                  photo.attachId = event.attachId;
+                  photo.AttachID = event.attachId;
+                }
+              } else if (event.newStatus === 'queued') {
+                photo.uploading = false;
+                photo.queued = true;
+              } else if (event.newStatus === 'failed') {
+                photo.uploading = false;
+                photo.queued = false;
+                photo.failed = true;
+              }
+
+              // CRITICAL: Never clear displayUrl during status transitions
+              // The blob URL should remain valid until explicitly replaced
+
+              this.changeDetectorRef.detectChanges();
+              console.log('[RoomElevation] Updated photo status in-place:', photoId, '->', event.newStatus);
+              break;
+            }
+          }
+        }
+      }
+
+      // Also update FDF photos if applicable
+      if (this.roomData?.fdfPhotos) {
+        const fdfPhotos = this.roomData.fdfPhotos;
+        for (const photoType of ['top', 'bottom', 'threshold']) {
+          const imageId = fdfPhotos[`${photoType}ImageId`];
+          if (imageId === event.imageId) {
+            if (event.newStatus === 'uploading') {
+              fdfPhotos[`${photoType}Uploading`] = true;
+            } else if (event.newStatus === 'uploaded' || event.newStatus === 'verified') {
+              fdfPhotos[`${photoType}Uploading`] = false;
+            }
+            // CRITICAL: Never clear displayUrl
+            this.changeDetectorRef.detectChanges();
+            console.log('[RoomElevation] Updated FDF photo status:', photoType, '->', event.newStatus);
+            break;
+          }
+        }
       }
     });
 
@@ -1122,13 +1194,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
       this.changeDetectorRef.detectChanges();
       console.log('[RoomElevation] Elevation data reload complete');
-      
+
       // Set cooldown to prevent rapid re-invalidations
-      this.localOperationCooldown = true;
-      setTimeout(() => {
-        this.localOperationCooldown = false;
-      }, 2000);
-      
+      this.startLocalOperationCooldown();
+
     } catch (error) {
       console.error('[RoomElevation] Error reloading elevation data:', error);
     } finally {
@@ -1143,6 +1212,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     if (this.cacheInvalidationDebounceTimer) {
       clearTimeout(this.cacheInvalidationDebounceTimer);
+    }
+    if (this.localOperationCooldownTimer) {
+      clearTimeout(this.localOperationCooldownTimer);
     }
 
     // Clean up upload subscriptions - but uploads will continue in background service
@@ -1167,7 +1239,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.backgroundRefreshSubscription) {
       this.backgroundRefreshSubscription.unsubscribe();
     }
-    
+    if (this.localImageStatusSubscription) {
+      this.localImageStatusSubscription.unsubscribe();
+    }
+
     // NOTE: We intentionally do NOT revoke blob URLs here anymore.
     // Revoking causes images to disappear when navigating back to this page
     // because ionViewWillEnter may skip reload if data appears cached.
@@ -1175,6 +1250,26 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // See refreshLocalState() for how we regenerate URLs on page return.
 
     console.log('[ROOM ELEVATION] Component destroyed, but uploads continue in background');
+  }
+
+  /**
+   * Start local operation cooldown to prevent cache invalidation during photo operations
+   * TASK 1 FIX: Matches category-detail.page.ts pattern - prevents images from disappearing
+   * during sync status changes by blocking reload triggers
+   */
+  private startLocalOperationCooldown(): void {
+    console.log('[RoomElevation] Starting local operation cooldown (2s)');
+
+    // Clear any existing timer
+    if (this.localOperationCooldownTimer) {
+      clearTimeout(this.localOperationCooldownTimer);
+    }
+
+    this.localOperationCooldown = true;
+    this.localOperationCooldownTimer = setTimeout(() => {
+      this.localOperationCooldown = false;
+      console.log('[RoomElevation] Local operation cooldown ended');
+    }, 2000); // 2 second cooldown after local operation
   }
 
   goBack() {
@@ -2071,7 +2166,34 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // The local maps were always empty because roomData.elevationPoints was already cleared
       // by the time this function runs. Now we use this.preservedPhotosByPointName and
       // this.preservedPhotosByPointId which are populated BEFORE roomData is reinitialized.
-      console.log(`[RoomElevation] Using preserved photos: ${this.preservedPhotosByPointName.size} points by name, ${this.preservedPhotosByPointId.size} points by ID`);
+      console.log(`[RoomElevation] Using preserved photos: ${this.preservedPhotosByPointName.size} points by name, ${this.preservedPhotosByPointId.size} points by ID (sync in progress: ${syncInProgress})`);
+
+      // TASK 1 FIX: During sync, also preserve photos from current roomData.elevationPoints
+      // This handles the case where sync starts AFTER initial load - photos would be in memory
+      // but not in the class-level preservation maps (which are populated in loadRoomData)
+      if (syncInProgress && this.roomData?.elevationPoints) {
+        for (const point of this.roomData.elevationPoints) {
+          if (point.photos && point.photos.length > 0) {
+            const existingPreserved = this.preservedPhotosByPointName.get(point.name) || [];
+            for (const photo of point.photos) {
+              const photoId = photo.attachId || photo.imageId || photo._tempId;
+              const alreadyPreserved = existingPreserved.some((p: any) =>
+                (p.attachId && String(p.attachId) === String(photoId)) ||
+                (p.imageId && String(p.imageId) === String(photoId)) ||
+                (p._tempId && String(p._tempId) === String(photoId))
+              );
+              if (!alreadyPreserved) {
+                existingPreserved.push({ ...photo });
+              }
+            }
+            this.preservedPhotosByPointName.set(point.name, existingPreserved);
+            if (point.pointId) {
+              this.preservedPhotosByPointId.set(String(point.pointId), existingPreserved);
+            }
+          }
+        }
+        console.log(`[RoomElevation] SYNC IN PROGRESS - augmented preservation maps with current photos`);
+      }
 
       for (const templatePoint of templatePoints) {
         console.log(`\n[RoomElevation] --- Processing template point: "${templatePoint.name}" ---`);
@@ -2092,6 +2214,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           console.log(`[RoomElevation]   ✅ Restored ${preservedPhotos.length} preserved photos by point ID`);
         }
 
+        // TASK 1 FIX: During sync, if we have preserved photos with valid displayUrls, skip database merge
+        // This ensures photos aren't replaced with placeholder URLs during sync
+        const hasValidPreservedPhotos = preservedPhotos.some((p: any) =>
+          p.displayUrl &&
+          (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:')) &&
+          !p.displayUrl.includes('placeholder')
+        );
+        const skipDatabasePhotos = syncInProgress && hasValidPreservedPhotos;
+        if (skipDatabasePhotos) {
+          console.log(`[RoomElevation]   SYNC MODE: Using preserved photos only, skipping database attachment merge`);
+        }
+
         const pointData: any = {
           pointNumber: templatePoint.pointNumber,
           name: templatePoint.name,
@@ -2100,8 +2234,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           photos: [...preservedPhotos]  // Start with preserved photos
         };
 
-        // If point exists in database, load its photos
-        if (existingPoint) {
+        // If point exists in database, load its photos (unless in sync mode with valid preserved photos)
+        if (existingPoint && !skipDatabasePhotos) {
           const dbPointId = existingPoint.PointID || existingPoint.PK_ID;
           const pointIdStr = String(dbPointId);
           // CRITICAL FIX: Use String() conversion to avoid type mismatch when comparing IDs
@@ -3016,6 +3150,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   // FDF Photo Methods
   // Take FDF photo from camera - EXACT implementation from engineers-foundation
   async takeFDFPhotoCamera(photoType: 'Top' | 'Bottom' | 'Threshold') {
+    // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
+    this.startLocalOperationCooldown();
+
     if (!this.roomId) {
       // Toast removed per user request
       // await this.showToast('Please save the room first', 'warning');
@@ -3048,6 +3185,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Take FDF photo from gallery - EXACT implementation from engineers-foundation
   async takeFDFPhotoGallery(photoType: 'Top' | 'Bottom' | 'Threshold') {
+    // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
+    this.startLocalOperationCooldown();
+
     if (!this.roomId) {
       // Toast removed per user request
       // await this.showToast('Please save the room first', 'warning');
@@ -3764,6 +3904,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   async capturePointPhotoCamera(point: any, photoType: 'Measurement' | 'Location', event: Event) {
     event.stopPropagation();
 
+    // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
+    // This prevents images from disappearing when sync status changes
+    this.startLocalOperationCooldown();
+
     try {
       const image = await Camera.getPhoto({
         quality: 90,
@@ -3786,6 +3930,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
   async capturePointPhotoGallery(point: any, photoType: 'Measurement' | 'Location', event: Event) {
     event.stopPropagation();
+
+    // TASK 1 FIX: Start cooldown to prevent cache invalidation during photo capture
+    // This prevents images from disappearing when sync status changes
+    this.startLocalOperationCooldown();
 
     try {
       const image = await Camera.getPhoto({

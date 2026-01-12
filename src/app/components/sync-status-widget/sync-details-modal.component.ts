@@ -548,6 +548,9 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     const result = await this.indexedDb.clearAllPendingSync();
     console.log(`[SyncModal] Cleared: ${result.requests} requests, ${result.captions} captions, ${result.images} images, ${result.outbox} outbox, ${result.localImages} stuck localImages`);
 
+    // TASK 3 FIX: Refresh background sync status so widget shows correct count
+    await this.backgroundSync.refreshSyncStatus();
+
     // Refresh the list immediately
     await this.refreshDetails();
   }

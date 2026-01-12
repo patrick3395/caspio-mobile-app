@@ -120,6 +120,28 @@ export class LocalImageService {
    * NEVER causes broken images or disappearing photos
    */
   async getDisplayUrl(image: LocalImage): Promise<string> {
+    // TASK 4 FIX: Check for cached ANNOTATED image FIRST (before local blob)
+    // This ensures annotated thumbnails persist after page reload
+    // Must check BOTH imageId and attachId since annotations can be cached with either
+    const hasAnnotations = image.drawings && image.drawings.length > 10;
+    if (hasAnnotations) {
+      // Try imageId first (for local-first images before sync)
+      const annotatedByImageId = await this.indexedDb.getCachedAnnotatedImage(image.imageId);
+      if (annotatedByImageId) {
+        console.log('[LocalImage] ✅ Using cached ANNOTATED image (by imageId) for:', image.imageId);
+        return annotatedByImageId;
+      }
+      // Try attachId (for synced images)
+      if (image.attachId) {
+        const annotatedByAttachId = await this.indexedDb.getCachedAnnotatedImage(String(image.attachId));
+        if (annotatedByAttachId) {
+          console.log('[LocalImage] ✅ Using cached ANNOTATED image (by attachId) for:', image.imageId, 'attachId:', image.attachId);
+          return annotatedByAttachId;
+        }
+      }
+      console.log('[LocalImage] Image has annotations but no cached annotated image found:', image.imageId);
+    }
+
     // Rule 1: ALWAYS prefer local blob if it exists
     // This is the key to preventing disappearing photos
     if (image.localBlobId) {
@@ -136,6 +158,14 @@ export class LocalImageService {
     // CRITICAL: This is the primary fallback after local blob is pruned
     if (image.attachId) {
       try {
+        // TASK 4: Also try annotated image cache even if no drawings field set
+        // (in case annotations were added before drawings was persisted)
+        const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(image.attachId));
+        if (cachedAnnotated) {
+          console.log('[LocalImage] ✅ Using cached ANNOTATED image (fallback) for:', image.imageId, 'attachId:', image.attachId);
+          return cachedAnnotated;
+        }
+
         const cached = await this.indexedDb.getCachedPhoto(String(image.attachId));
         if (cached) {
           console.log('[LocalImage] ✅ Using cached base64 for:', image.imageId, 'attachId:', image.attachId);
