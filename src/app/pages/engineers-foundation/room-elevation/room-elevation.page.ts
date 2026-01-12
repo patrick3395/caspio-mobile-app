@@ -1041,6 +1041,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
       console.log(`[RoomElevation] Reloaded ${allLocalImages.length} LocalImages for ${bulkLocalImagesMap.size} points`);
 
+      // TASK 1 FIX: Update class-level bulkLocalImagesMap so liveQuery updates work correctly
+      this.bulkLocalImagesMap = bulkLocalImagesMap;
+
       // Update our local points array with fresh data
       if (this.roomData?.elevationPoints && existingPoints) {
         for (const serverPoint of existingPoints) {
@@ -1283,6 +1286,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
               const pendingPhotoData: any = {
                 attachId: pendingAttachId,
+                // CRITICAL: Set imageId and localImageId for LocalImage matching
+                imageId: pendingPhoto.imageId || pendingLocalImageId,
+                localImageId: pendingPhoto.localImageId || pendingLocalImageId,
                 photoType: pendingPhoto.Type || pendingPhoto.photoType || 'Measurement',
                 url: pendingPhoto.url || displayUrl,
                 displayUrl: displayUrl,
@@ -2347,7 +2353,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
       console.log(`[RoomElevation] Loaded ${allLocalImages.length} LocalImages for ${bulkLocalImagesMap.size} points (with temp ID resolution)`);
-      
+
+      // TASK 1 FIX: Update class-level bulkLocalImagesMap so liveQuery updates work correctly
+      // The local variable is used during initial load, but the class property is needed
+      // for refreshPhotosFromLocalImages() to find the right photos when status changes
+      this.bulkLocalImagesMap = bulkLocalImagesMap;
+
       if (existingPoints && existingPoints.length > 0) {
         const pointIds = existingPoints.map((p: any) => p.PointID || p.PK_ID).filter(id => id);
         console.log('[RoomElevation] Point IDs to fetch attachments for:', pointIds);
@@ -4409,6 +4420,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Update local state with result
       if (result) {
+        // CRITICAL: Set imageId and localImageId for LocalImage system matching
+        // These are the stable UUIDs that never change - essential for refreshPhotosFromLocalImages()
+        existingPhoto.imageId = result.imageId;
+        existingPhoto.localImageId = result.imageId;
+
         // CRITICAL: Preserve all ID fields for annotation lookups
         existingPhoto.AttachID = result.AttachID || result._tempId || tempPhotoId;
         existingPhoto.attachId = result.attachId || result.AttachID || result._tempId || tempPhotoId;
