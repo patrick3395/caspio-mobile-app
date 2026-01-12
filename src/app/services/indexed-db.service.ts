@@ -1743,10 +1743,10 @@ export class IndexedDbService {
     result.outbox = await db.uploadOutbox.count();
     await db.uploadOutbox.clear();
 
-    // TASK 1 FIX: Reset any localImages stuck in 'uploading' or 'pending_upload' status
+    // TASK 1 FIX: Reset any localImages stuck in 'uploading' or 'queued' status
     // Mark them as 'failed' so user knows they need to re-upload
     const stuckImages = await db.localImages
-      .filter(img => img.status === 'uploading' || img.status === 'pending_upload')
+      .filter(img => img.status === 'uploading' || img.status === 'queued')
       .toArray();
 
     for (const img of stuckImages) {
