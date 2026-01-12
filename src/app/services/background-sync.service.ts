@@ -61,6 +61,19 @@ export class BackgroundSyncService {
   private isSyncing = false;
   private syncIntervalMs = 60000; // Check every 60 seconds (batched sync - was 30s)
 
+  // ==========================================================================
+  // ROLLING SYNC WINDOW
+  // Changes are batched and synced after 60 seconds of no new changes
+  // Timer resets each time a new change is queued (rolling window)
+  // ==========================================================================
+  private rollingSyncTimer: any = null;
+  private rollingWindowMs = 60000; // 60-second rolling window
+  private pendingChangesCount = 0;
+  private syncQueueSubscription: Subscription | null = null;
+
+  // Subject to notify when pending count changes (for UI)
+  public pendingChanges$ = new BehaviorSubject<number>(0);
+
   // Observable sync status for UI
   public syncStatus$ = new BehaviorSubject<SyncStatus>({
     isSyncing: false,
@@ -138,6 +151,64 @@ export class BackgroundSyncService {
     console.log(`[BackgroundSync] Section cleared: ${sectionKey}`);
   }
 
+  // ==========================================================================
+  // ROLLING SYNC WINDOW METHODS
+  // ==========================================================================
+
+  /**
+   * Queue a change and reset the rolling sync window
+   * Called whenever a new change is made (photo added, annotation updated, etc.)
+   * This batches changes and syncs after 60 seconds of no new changes
+   */
+  queueChange(reason: string = 'change'): void {
+    this.pendingChangesCount++;
+    this.pendingChanges$.next(this.pendingChangesCount);
+    console.log(`[BackgroundSync] Change queued (${reason}), pending: ${this.pendingChangesCount}, resetting 60s timer`);
+    this.resetRollingSyncWindow();
+  }
+
+  /**
+   * Reset the rolling sync window timer
+   * Called whenever a new change is queued - creates a 60-second debounce effect
+   */
+  private resetRollingSyncWindow(): void {
+    // Clear existing timer
+    if (this.rollingSyncTimer) {
+      clearTimeout(this.rollingSyncTimer);
+      this.rollingSyncTimer = null;
+    }
+
+    // Don't set timer if offline
+    if (!navigator.onLine) {
+      console.log('[BackgroundSync] Offline - rolling sync timer not started');
+      return;
+    }
+
+    // Set new timer - sync after 60 seconds of no new changes
+    this.rollingSyncTimer = setTimeout(() => {
+      console.log(`[BackgroundSync] Rolling window expired - syncing ${this.pendingChangesCount} pending changes`);
+      this.rollingSyncTimer = null;
+      this.triggerSync();
+    }, this.rollingWindowMs);
+
+    console.log(`[BackgroundSync] Rolling sync timer reset - will sync in ${this.rollingWindowMs / 1000}s if no new changes`);
+  }
+
+  /**
+   * Get current pending changes count
+   */
+  getPendingChangesCount(): number {
+    return this.pendingChangesCount;
+  }
+
+  /**
+   * Clear pending changes count (called after successful sync)
+   */
+  private clearPendingChangesCount(): void {
+    this.pendingChangesCount = 0;
+    this.pendingChanges$.next(0);
+  }
+
   constructor(
     private indexedDb: IndexedDbService,
     private apiGateway: ApiGatewayService,
@@ -148,13 +219,27 @@ export class BackgroundSyncService {
   ) {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
+    this.subscribeToSyncQueueChanges();
+  }
+
+  /**
+   * Subscribe to sync queue changes from IndexedDbService
+   * When changes are queued (pending requests, captions, uploads), reset the rolling sync window
+   */
+  private subscribeToSyncQueueChanges(): void {
+    this.syncQueueSubscription = this.indexedDb.syncQueueChange$.subscribe(({ reason }) => {
+      console.log(`[BackgroundSync] Sync queue change detected: ${reason}`);
+      this.queueChange(reason);
+    });
   }
 
   /**
    * Start the background sync loop
+   * MODIFIED: Uses rolling window instead of fixed interval for user-initiated changes
+   * Fixed interval kept as fallback for any missed changes
    */
   private startBackgroundSync(): void {
-    console.log('[BackgroundSync] Starting background sync service');
+    console.log('[BackgroundSync] Starting background sync service with rolling window');
 
     // Reset any stuck 'syncing' requests to 'pending' on startup
     // This handles cases where the app was closed during a sync
@@ -162,12 +247,19 @@ export class BackgroundSyncService {
 
     // Run outside Angular zone to prevent unnecessary change detection
     this.ngZone.runOutsideAngular(() => {
-      // Sync immediately on start
+      // Sync immediately on start to process any pending items from previous session
       this.triggerSync();
 
-      // Then sync every 60 seconds (batched sync)
+      // Keep the fixed interval as a fallback safety net (every 60 seconds)
+      // This catches any changes that might not have triggered queueChange()
+      // The rolling window handles user-initiated changes with proper debouncing
       this.syncInterval = interval(this.syncIntervalMs).subscribe(() => {
-        this.triggerSync();
+        // Only trigger if we're not already waiting on rolling window
+        if (!this.rollingSyncTimer) {
+          this.triggerSync();
+        } else {
+          console.log('[BackgroundSync] Skipping fixed interval - rolling window active');
+        }
       });
     });
   }
@@ -380,6 +472,10 @@ export class BackgroundSyncService {
       this.performStorageCleanup().catch(err => {
         console.warn('[BackgroundSync] Storage cleanup failed:', err);
       });
+
+      // Clear pending changes count after successful sync
+      this.clearPendingChangesCount();
+      console.log('[BackgroundSync] Sync completed successfully, pending changes cleared');
     } catch (error) {
       console.error('[BackgroundSync] Sync failed:', error);
     } finally {
@@ -1467,7 +1563,7 @@ export class BackgroundSyncService {
 
   /**
    * Pause background sync
-   * FIXED: Also cleanup connection subscription to prevent memory leak
+   * FIXED: Also cleanup connection subscription and rolling timer to prevent memory leak
    */
   pauseSync(): void {
     console.log('[BackgroundSync] Pausing sync');
@@ -1479,6 +1575,16 @@ export class BackgroundSyncService {
     if (this.connectionSubscription) {
       this.connectionSubscription.unsubscribe();
       this.connectionSubscription = null;
+    }
+    // Clear rolling sync timer
+    if (this.rollingSyncTimer) {
+      clearTimeout(this.rollingSyncTimer);
+      this.rollingSyncTimer = null;
+    }
+    // Cleanup sync queue subscription
+    if (this.syncQueueSubscription) {
+      this.syncQueueSubscription.unsubscribe();
+      this.syncQueueSubscription = null;
     }
   }
 

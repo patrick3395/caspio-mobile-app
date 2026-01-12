@@ -1686,6 +1686,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('\n[RoomElevation] STEP 5: Merging template points with database data...');
       console.log('[RoomElevation] Processing', templatePoints.length, 'template points...');
 
+      // CRITICAL FIX: Check sync status to preserve photos during sync
+      const syncStatus = this.backgroundSync.syncStatus$.getValue();
+      const syncInProgress = syncStatus.isSyncing;
+
+      // Build a map of existing photos by point name (for preservation during sync)
+      const existingPhotosByPointName = new Map<string, any[]>();
+      if (syncInProgress && this.roomData?.elevationPoints) {
+        for (const point of this.roomData.elevationPoints) {
+          if (point.photos && point.photos.length > 0) {
+            existingPhotosByPointName.set(point.name, [...point.photos]);
+            console.log(`[RoomElevation] SYNC IN PROGRESS - preserving ${point.photos.length} photos for point "${point.name}"`);
+          }
+        }
+      }
+
       for (const templatePoint of templatePoints) {
         console.log(`\n[RoomElevation] --- Processing template point: "${templatePoint.name}" ---`);
 
@@ -1693,12 +1708,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         const existingPoint = existingPoints?.find((p: any) => p.PointName === templatePoint.name);
         console.log(`[RoomElevation]   Existing point in DB:`, existingPoint ? `Yes (ID: ${existingPoint.PointID})` : 'No');
 
+        // CRITICAL FIX: During sync, start with preserved photos instead of empty array
+        const preservedPhotos = syncInProgress ? (existingPhotosByPointName.get(templatePoint.name) || []) : [];
+
         const pointData: any = {
           pointNumber: templatePoint.pointNumber,
           name: templatePoint.name,
           pointId: existingPoint ? (existingPoint.PointID || existingPoint.PK_ID) : null,
           value: existingPoint ? (existingPoint.Elevation || '') : '',
-          photos: []
+          photos: [...preservedPhotos]  // Start with preserved photos during sync
         };
 
         // If point exists in database, load its photos

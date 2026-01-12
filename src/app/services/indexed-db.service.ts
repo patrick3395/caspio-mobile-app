@@ -168,9 +168,24 @@ export class IndexedDbService {
   // Convenience subjects for specific store changes
   public imageChange$ = new Subject<DbChangeEvent>();
 
+  // ==========================================================================
+  // SYNC QUEUE CHANGE EVENT
+  // Emitted when changes are queued that should trigger rolling sync window
+  // BackgroundSyncService subscribes to this to reset the 60-second timer
+  // ==========================================================================
+  public syncQueueChange$ = new Subject<{ reason: string; count?: number }>();
+
   constructor() {
     // Database is initialized automatically by Dexie when first accessed
     console.log('[IndexedDB] Service initialized with Dexie wrapper');
+  }
+
+  /**
+   * Emit a sync queue change event
+   * This notifies BackgroundSyncService to reset the rolling sync window
+   */
+  private emitSyncQueueChange(reason: string, count?: number): void {
+    this.syncQueueChange$.next({ reason, count });
   }
 
   /**
@@ -187,6 +202,7 @@ export class IndexedDbService {
 
   /**
    * Add a pending request to the queue
+   * MODIFIED: Emits syncQueueChange$ to trigger rolling sync window reset
    */
   async addPendingRequest(request: Omit<PendingRequest, 'requestId' | 'retryCount' | 'createdAt'>): Promise<string> {
     const requestId = this.generateUUID();
@@ -203,6 +219,10 @@ export class IndexedDbService {
 
     await db.pendingRequests.add(fullRequest);
     console.log('[IndexedDB] Request added:', requestId);
+
+    // Emit sync queue change to reset rolling sync window
+    this.emitSyncQueueChange(`pending_request:${request.type}`);
+
     return requestId;
   }
 
@@ -1849,6 +1869,10 @@ export class IndexedDbService {
 
       await db.pendingCaptions.put(toUpdate);
       console.log('[IndexedDB] ✅ Updated pending caption:', toUpdate.captionId, 'for attach:', data.attachId);
+
+      // Emit sync queue change to reset rolling sync window
+      this.emitSyncQueueChange('caption_update');
+
       return toUpdate.captionId;
     } else {
       // Create new pending caption
@@ -1869,6 +1893,10 @@ export class IndexedDbService {
 
       await db.pendingCaptions.add(pendingCaption);
       console.log('[IndexedDB] ✅ Queued new caption update:', captionId, 'for attach:', data.attachId);
+
+      // Emit sync queue change to reset rolling sync window
+      this.emitSyncQueueChange('caption_create');
+
       return captionId;
     }
   }
@@ -2335,6 +2363,9 @@ export class IndexedDbService {
       entityId: entityId,
       serviceId: serviceId
     });
+
+    // Emit sync queue change to reset rolling sync window
+    this.emitSyncQueueChange(`image_upload:${entityType}`);
 
     return localImage;
   }

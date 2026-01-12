@@ -2358,18 +2358,30 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Set the photo count based on unique IDs (deduped across all sources)
       this.photoCountsByKey[key] = uniquePhotoIds.size;
 
-      // CRITICAL FIX: Clear existing photos to prevent duplicates
-      // Only keep photos that are actively being captured (have blob URL and are in-progress)
-      // This prevents stale data from causing duplicates when loadPhotosForVisual is called multiple times
+      // CRITICAL FIX: During sync, preserve ALL existing photos to prevent disappearing
+      // Only clear photos when NOT syncing to prevent duplicates on normal reloads
+      const syncStatus = this.backgroundSync.syncStatus$.getValue();
+      const syncInProgress = syncStatus.isSyncing;
+
       const existingPhotos = this.visualPhotos[key] || [];
-      const inProgressCaptures = existingPhotos.filter(p => 
-        p._isInProgressCapture === true && p.uploading === true
-      );
-      
-      // Start fresh with only in-progress captures
-      this.visualPhotos[key] = [...inProgressCaptures];
-      
-      // Build a set of already loaded photo IDs from the in-progress captures
+      let preservedPhotos: any[];
+
+      if (syncInProgress) {
+        // SYNC IN PROGRESS: Preserve ALL photos to prevent disappearing
+        // This is critical - photos should NEVER disappear during sync
+        preservedPhotos = [...existingPhotos];
+        console.log(`[LOAD PHOTOS] SYNC IN PROGRESS - preserving ALL ${preservedPhotos.length} existing photos for key: ${key}`);
+      } else {
+        // NOT syncing: Only keep in-progress captures to prevent duplicates
+        preservedPhotos = existingPhotos.filter(p =>
+          p._isInProgressCapture === true && p.uploading === true
+        );
+      }
+
+      // Start with preserved photos
+      this.visualPhotos[key] = [...preservedPhotos];
+
+      // Build a set of already loaded photo IDs from preserved photos
       const loadedPhotoIds = new Set<string>();
       for (const p of this.visualPhotos[key]) {
         if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
@@ -2379,7 +2391,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (p.localImageId) loadedPhotoIds.add(String(p.localImageId));
         if (p._pendingFileId) loadedPhotoIds.add(String(p._pendingFileId));
       }
-      console.log(`[LOAD PHOTOS] Key ${key} starting fresh with ${inProgressCaptures.length} in-progress captures`);
+      console.log(`[LOAD PHOTOS] Key ${key} starting with ${preservedPhotos.length} preserved photos (sync: ${syncInProgress})`);
 
       // STEP 4: Add pending photos with regenerated blob URLs (they appear first)
       // SILENT SYNC: Don't show uploading/queued indicators for legacy pending photos

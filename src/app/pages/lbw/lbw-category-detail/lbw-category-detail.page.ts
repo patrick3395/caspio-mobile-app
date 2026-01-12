@@ -656,10 +656,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     try {
       this.loadingPhotosByKey[key] = true;
 
+      // CRITICAL FIX: Check sync status to preserve photos during sync
+      const syncStatus = this.backgroundSync.syncStatus$.getValue();
+      const syncInProgress = syncStatus.isSyncing;
+
       // Get attachments from database
       const attachments = await this.hudData.getVisualAttachments(LBWID);
 
-      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for HUD', LBWID, 'key:', key);
+      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for LBW', LBWID, 'key:', key, 'sync:', syncInProgress);
 
       // Set photo count immediately so skeleton loaders can be displayed
       this.photoCountsByKey[key] = attachments.length;
@@ -671,6 +675,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           console.log('[LOAD PHOTOS] Initialized empty photo array for', key);
         } else {
           console.log('[LOAD PHOTOS] Photo array already exists with', this.visualPhotos[key].length, 'photos');
+
+          // CRITICAL FIX: During sync, skip reload to prevent photos from disappearing
+          if (syncInProgress) {
+            console.log('[LOAD PHOTOS] SYNC IN PROGRESS - preserving existing photos, skipping reload for', key);
+            this.loadingPhotosByKey[key] = false;
+            this.changeDetectorRef.detectChanges();
+            return;
+          }
 
           // Check if we already have all the photos loaded
           const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => p.AttachID));
@@ -689,7 +701,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Load photos sequentially
         for (let i = 0; i < attachments.length; i++) {
           const attach = attachments[i];
-          
+
           // Check if photo already loaded
           const existingPhotoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attach.AttachID);
           if (existingPhotoIndex !== -1) {
@@ -702,6 +714,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
         console.log('[LOAD PHOTOS] Completed loading all photos for', key);
       } else {
+        // CRITICAL FIX: During sync, don't clear photos even if attachments is empty
+        if (syncInProgress && this.visualPhotos[key]?.length > 0) {
+          console.log('[LOAD PHOTOS] SYNC IN PROGRESS - preserving existing photos despite empty attachments for', key);
+          this.loadingPhotosByKey[key] = false;
+          this.changeDetectorRef.detectChanges();
+          return;
+        }
         this.visualPhotos[key] = [];
       }
 
