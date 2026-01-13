@@ -2674,7 +2674,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Process FDF photo after file selection
-  // REFACTORED: Process FDF photo with robust queuing system
+  // TASK 2 FIX: Use LocalImageService for offline-first handling (same as room-elevation.page.ts)
   async processFDFPhoto(file: File) {
     if (!this.currentFDFPhotoContext) {
       console.error('[FDF Queue] No FDF photo context - photo rejected');
@@ -2686,9 +2686,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     const capturedContext = { ...this.currentFDFPhotoContext };
     const { roomName, photoType, roomId } = capturedContext;
     const photoKey = photoType.toLowerCase();
-    const tempId = `fdf_${roomName}_${photoType}_${Date.now()}`;
 
-    console.log(`[FDF Queue] Processing photo: ${roomName} ${photoType}, tempId: ${tempId}`);
+    console.log(`[FDF Queue] Processing photo: ${roomName} ${photoType} (LOCAL-FIRST via LocalImageService)`);
 
     try {
       // Initialize fdfPhotos structure if needed
@@ -2696,65 +2695,41 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.roomElevationData[roomName].fdfPhotos = {};
       }
 
-      // Check if this photo type is already uploading
-      if (this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] === true) {
-        console.warn(`[FDF Queue] ${photoType} photo is already uploading for ${roomName}. Allowing new upload to replace it.`);
-        // Allow it but log it - the new photo will replace the old one
-      }
+      // Compress the image first
+      const compressedFile = await this.imageCompression.compressImage(file, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
 
-      // Set uploading flag to show loading spinner IMMEDIATELY
-      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = true;
+      // TASK 2 FIX: Use LocalImageService for local-first handling - same pattern as room-elevation.page.ts
+      // This adds to uploadOutbox for background sync instead of direct upload
+      const localImage = await this.localImageService.captureImage(
+        compressedFile,
+        'fdf',                    // Entity type for FDF photos
+        String(roomId),           // Room ID as entity ID
+        this.serviceId,
+        '',                       // Caption (empty for FDF photos)
+        this.roomElevationData[roomName].fdfPhotos[`${photoKey}Drawings`] || '',  // Drawings
+        photoType                 // photoType (Top/Bottom/Threshold) - stored in LocalImage.photoType
+      );
+
+      // Get display URL from local blob
+      const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+      // Update UI immediately with local image (SILENT SYNC pattern)
       this.roomElevationData[roomName].fdfPhotos[photoKey] = true;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = displayUrl;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}DisplayUrl`] = displayUrl;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}LocalImageId`] = localImage.imageId;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;  // SILENT SYNC - no spinner
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Queued`] = false;     // SILENT SYNC - no badge
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Loading`] = false;
+      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Caption`] = '';
 
-      // Revoke old blob URL if it exists (prevent memory leaks)
-      const oldUrl = this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
-      if (oldUrl && oldUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(oldUrl);
-        console.log(`[FDF Queue] Revoked old blob URL for ${photoType}`);
-      }
+      console.log(`[FDF Queue] ✅ FDF photo saved locally: ${localImage.imageId}, will sync in background`);
 
-      // Create new blob URL for instant preview
-      const blobUrl = URL.createObjectURL(file);
-      this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`] = blobUrl;
-
-      // Trigger change detection to show preview with loading spinner
       this.changeDetectorRef.detectChanges();
-
-      // Add to pending queue
-      if (!this.pendingFDFUploads[roomName]) {
-        this.pendingFDFUploads[roomName] = [];
-      }
-
-      this.pendingFDFUploads[roomName].push({
-        file,
-        photoType,
-        roomName,
-        roomId,
-        timestamp: Date.now(),
-        tempId
-      });
-
-      console.log(`[FDF Queue] Added to queue: ${roomName} ${photoType}. Queue size: ${this.pendingFDFUploads[roomName].length}`);
-
-      // Start upload process (queues if room not ready, uploads immediately if room ready)
-      // This runs in background - we don't await it
-      this.waitForRoomIdAndUploadFDF(roomName, photoType, file, tempId).then(() => {
-        console.log(`[FDF Queue] ✅ Upload process completed successfully for ${roomName} ${photoType}`);
-      }).catch(error => {
-        console.error(`[FDF Queue] ❌ Upload process failed for ${roomName} ${photoType}:`, error);
-
-        // Show error toast
-        this.showToast(`Failed to upload ${photoType} photo: ${error.message}`, 'danger');
-
-        // Remove from queue
-        if (this.pendingFDFUploads[roomName]) {
-          const index = this.pendingFDFUploads[roomName].findIndex(p => p.tempId === tempId);
-          if (index !== -1) {
-            this.pendingFDFUploads[roomName].splice(index, 1);
-            console.log(`[FDF Queue] Removed failed upload from queue. Remaining: ${this.pendingFDFUploads[roomName].length}`);
-          }
-        }
-      });
 
     } catch (error: any) {
       console.error(`[FDF Queue] Error processing FDF ${photoType} photo:`, error);
@@ -2766,6 +2741,7 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         this.roomElevationData[roomName].fdfPhotos[`${photoKey}Uploading`] = false;
         delete this.roomElevationData[roomName].fdfPhotos[photoKey];
         delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}Url`];
+        delete this.roomElevationData[roomName].fdfPhotos[`${photoKey}DisplayUrl`];
       }
 
       this.changeDetectorRef.detectChanges();
@@ -4827,7 +4803,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       // OPTIMISTIC UI: Immediately show room as selected with temp ID
       this.selectedRooms[roomName] = true;
       this.expandedRooms[roomName] = true;
-      this.efeRecordIds[roomName] = `temp_${Date.now()}`;
+      const tempRoomId = `temp_${Date.now()}`;
+      this.efeRecordIds[roomName] = tempRoomId;
       this.savingRooms[roomName] = true;
       this.changeDetectorRef.detectChanges();
 
@@ -4837,11 +4814,19 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         data: roomData,
         dedupeKey: `room_${serviceIdNum}_${roomName}`,
         maxRetries: 3,
-        onSuccess: (result: any) => {
+        onSuccess: async (result: any) => {
           console.log(`[Room Queue] Success for ${roomName}:`, result.roomId);
           this.efeRecordIds[roomName] = result.roomId;
           this.savingRooms[roomName] = false;
           this.changeDetectorRef.detectChanges();
+
+          // TASK 2 FIX: Map temp ID to real ID in IndexedDB for FDF photo sync
+          try {
+            await this.indexedDb.mapTempId(tempRoomId, String(result.roomId), 'room');
+            console.log(`[Room Queue] Mapped temp ID ${tempRoomId} → ${result.roomId} for FDF photo sync`);
+          } catch (err) {
+            console.warn(`[Room Queue] Failed to map temp ID:`, err);
+          }
         },
         onError: (error: any) => {
           console.error(`[Room Queue] Failed for ${roomName}:`, error);
@@ -4895,7 +4880,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       }
 
       // Optimistic: assign temp ID
-      this.efePointIds[pointKey] = `temp_${Date.now()}_${Math.random()}`;
+      const tempPointId = `temp_${Date.now()}_${Math.random()}`;
+      this.efePointIds[pointKey] = tempPointId;
       this.pointCreationStatus[pointKey] = 'pending';
 
       // Queue point creation
@@ -4910,13 +4896,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         dependencies: [roomOpId], // Wait for room to be created
         dedupeKey: `point_${roomName}_${point.name}`, // Use roomName instead of roomId for consistent deduping
         maxRetries: 3,
-        onSuccess: (result: any) => {
+        onSuccess: async (result: any) => {
           console.log(`[Point Queue] Success for ${point.name}:`, result.pointId);
           this.efePointIds[pointKey] = result.pointId;
           this.pointCreationStatus[pointKey] = 'created';
           this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
           delete this.pointCreationErrors[pointKey];
           this.changeDetectorRef.detectChanges();
+
+          // TASK 2 FIX: Map temp ID to real ID in IndexedDB for EFE point photo sync
+          try {
+            await this.indexedDb.mapTempId(tempPointId, String(result.pointId), 'point');
+            console.log(`[Point Queue] Mapped temp ID ${tempPointId} → ${result.pointId} for point photo sync`);
+          } catch (err) {
+            console.warn(`[Point Queue] Failed to map temp ID:`, err);
+          }
 
           // Schedule change detection after 1 second to enable camera buttons
           setTimeout(() => {
@@ -4990,11 +4984,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Optimistic UI: Mark room as selected and saving
     this.selectedRooms[roomName] = true;
     this.expandedRooms[roomName] = true;
-    this.efeRecordIds[roomName] = `temp_${Date.now()}`;
+    const tempRoomId = `temp_${Date.now()}`;
+    this.efeRecordIds[roomName] = tempRoomId;
     this.savingRooms[roomName] = true;
     this.changeDetectorRef.detectChanges();
 
-    console.log(`[Ensure Room] Queuing room creation for ${roomName}`);
+    console.log(`[Ensure Room] Queuing room creation for ${roomName}, tempId: ${tempRoomId}`);
 
     // Queue room creation
     const roomOpId = await this.operationsQueue.enqueue({
@@ -5002,11 +4997,20 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       data: roomData,
       dedupeKey: `room_${serviceIdNum}_${roomName}`,
       maxRetries: 3,
-      onSuccess: (result: any) => {
+      onSuccess: async (result: any) => {
         console.log(`[Ensure Room] Room ${roomName} created successfully with ID ${result.roomId}`);
         this.efeRecordIds[roomName] = result.roomId;
         this.savingRooms[roomName] = false;
         this.changeDetectorRef.detectChanges();
+
+        // TASK 2 FIX: Map temp ID to real ID in IndexedDB for FDF photo sync
+        // This allows BackgroundSync to resolve temp room IDs when uploading FDF photos
+        try {
+          await this.indexedDb.mapTempId(tempRoomId, String(result.roomId), 'room');
+          console.log(`[Ensure Room] Mapped temp ID ${tempRoomId} → ${result.roomId} for FDF photo sync`);
+        } catch (err) {
+          console.warn(`[Ensure Room] Failed to map temp ID:`, err);
+        }
       },
       onError: (error: any) => {
         console.error(`[Ensure Room] Failed to create room ${roomName}:`, error);
@@ -5064,11 +5068,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     }
 
     // Optimistic: assign temp ID
-    this.efePointIds[pointKey] = `temp_${Date.now()}_${Math.random()}`;
+    const tempPointId = `temp_${Date.now()}_${Math.random()}`;
+    this.efePointIds[pointKey] = tempPointId;
     this.pointCreationStatus[pointKey] = 'pending';
     this.changeDetectorRef.detectChanges();
 
-    console.log(`[Ensure Point] Queuing point creation for ${pointName} in room ${roomName}`);
+    console.log(`[Ensure Point] Queuing point creation for ${pointName} in room ${roomName}, tempId: ${tempPointId}`);
 
     // Queue point creation with dependency on room
     const roomIdStr = String(roomId || ''); // Convert to string for checking
@@ -5082,13 +5087,21 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       dependencies: dependencies,
       dedupeKey: `point_${roomName}_${pointName}`, // Use roomName for consistent deduping
       maxRetries: 3,
-      onSuccess: (result: any) => {
+      onSuccess: async (result: any) => {
         console.log(`[Ensure Point] Point ${pointName} created successfully with ID ${result.pointId}`);
         this.efePointIds[pointKey] = result.pointId;
         this.pointCreationStatus[pointKey] = 'created';
         this.pointCreationTimestamps[pointKey] = Date.now(); // Track creation time for DB commit delay
         delete this.pointCreationErrors[pointKey];
         this.changeDetectorRef.detectChanges();
+
+        // TASK 2 FIX: Map temp ID to real ID in IndexedDB for EFE point photo sync
+        try {
+          await this.indexedDb.mapTempId(tempPointId, String(result.pointId), 'point');
+          console.log(`[Ensure Point] Mapped temp ID ${tempPointId} → ${result.pointId} for point photo sync`);
+        } catch (err) {
+          console.warn(`[Ensure Point] Failed to map temp ID:`, err);
+        }
 
         // Schedule change detection after 1 second to enable camera buttons
         setTimeout(() => {

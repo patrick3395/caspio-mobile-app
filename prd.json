@@ -1,0 +1,29 @@
+{
+  "project": "Caspio Mobile App Fixes",
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Elevation Plot Images Disappear During Navigation",
+      "description": "Images in room-elevation disappear when navigating away and back during sync. Copy pattern from category-detail.page.ts (Structural Systems) which works correctly.",
+      "file": "src/app/pages/engineers-foundation/room-elevation/room-elevation.page.ts",
+      "passes": false,
+      "priority": 1
+    },
+    {
+      "id": "TASK-002", 
+      "title": "FDF Photos Not Syncing",
+      "description": "FDF photos appear in sync queue but never sync. Clicking 'Sync Now' does nothing. Find and fix FDF photo sync handler.",
+      "passes": false,
+      "priority": 2
+    },
+    {
+      "id": "TASK-003",
+      "title": "FDF Captions Not Syncing",
+      "description": "FDF captions stuck in queue. Depends on TASK-002 being fixed first.",
+      "passes": false,
+      "priority": 3,
+      "dependencies": ["TASK-002"]
+    }
+  ]
+}
+

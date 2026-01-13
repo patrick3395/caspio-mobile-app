@@ -48,7 +48,16 @@
       "Bash(xargs:*)",
       "Bash(wc:*)",
       "Bash(git -C /mnt/c/Users/Owner/Caspio log --oneline -20)",
-      "WebFetch(domain:dexie.org)"
+      "WebFetch(domain:dexie.org)",
+      "WebFetch(domain:apidog.com)",
+      "Bash(command -v:*)",
+      "WebFetch(domain:x.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "Bash(ralph --help:*)",
+      "Bash(ralph --status:*)",
+      "Bash(ralph --reset-session:*)",
+      "Bash(ralph --circuit-status:*)"
     ],
     "deny": [],
     "ask": []
