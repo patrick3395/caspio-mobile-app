@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { BackgroundSyncService, SyncStatus } from '../../services/background-sync.service';
 import { IndexedDbService, PendingCaptionUpdate } from '../../services/indexed-db.service';
@@ -22,105 +23,173 @@ import { db } from '../../services/caspio-db';
     </ion-header>
     
     <ion-content class="ion-padding">
-      <!-- Summary -->
-      <div class="sync-summary">
-        <div class="sync-stat" [class.active]="syncStatus.isSyncing">
-          <ion-icon name="sync" [class.spinning]="syncStatus.isSyncing"></ion-icon>
-          <span>{{ syncStatus.isSyncing ? 'Syncing...' : 'Idle' }}</span>
-        </div>
-        <div class="sync-stat pending">
-          <span class="count">{{ pendingRequests.length }}</span>
-          <span class="label">Pending</span>
-        </div>
-        <div class="sync-stat syncing">
-          <span class="count">{{ syncingRequests.length }}</span>
-          <span class="label">Syncing</span>
-        </div>
-        <div class="sync-stat failed" *ngIf="failedRequests.length > 0">
-          <span class="count">{{ failedRequests.length }}</span>
-          <span class="label">Failed</span>
-        </div>
-      </div>
-
-      <!-- Currently Syncing -->
-      <div class="sync-section" *ngIf="syncingRequests.length > 0">
-        <h4><ion-icon name="sync" class="spinning"></ion-icon> Currently Syncing</h4>
-        <div class="request-list">
-          <div class="request-item syncing" *ngFor="let req of syncingRequests">
-            <ion-icon [name]="getRequestIcon(req)"></ion-icon>
-            <span class="request-desc">{{ getRequestDescription(req) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pending Queue -->
-      <div class="sync-section" *ngIf="pendingRequests.length > 0 || pendingCaptions.length > 0 || pendingPhotos.length > 0">
-        <h4><ion-icon name="time-outline"></ion-icon> Waiting to Sync</h4>
-        <div class="request-list">
-          <!-- Pending Photos (new LocalImage system) -->
-          <div class="request-item photo" *ngFor="let photo of pendingPhotos; let i = index">
-            <span class="queue-number">{{ i + 1 }}</span>
-            <ion-icon name="image-outline"></ion-icon>
-            <span class="request-desc">Photo: {{ photo.fileName || 'Uploading...' }}</span>
-            <span class="status-badge" *ngIf="photo.status">{{ photo.status }}</span>
-          </div>
-          <!-- Pending Captions/Annotations -->
-          <div class="request-item caption" 
-               *ngFor="let cap of pendingCaptions; let i = index"
-               [class.syncing]="cap.status === 'syncing'"
-               [class.failed]="cap.status === 'failed'">
-            <span class="queue-number">{{ pendingPhotos.length + i + 1 }}</span>
-            <ion-icon name="text-outline"></ion-icon>
-            <span class="request-desc">{{ getCaptionDescription(cap) }}</span>
-            <span class="status-badge" [class.syncing]="cap.status === 'syncing'" [class.failed]="cap.status === 'failed'">
-              {{ getCaptionStatusLabel(cap) }}
+      <!-- Tab Selector -->
+      <ion-segment [(ngModel)]="selectedTab" mode="ios" class="sync-tabs">
+        <ion-segment-button value="queue">
+          <ion-label>Queue ({{ queueCount }})</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="failed">
+          <ion-label>
+            <span class="failed-tab-label" [class.has-failed]="failedCount > 0">
+              Failed ({{ failedCount }})
             </span>
+          </ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
+      <!-- QUEUE TAB -->
+      <div *ngIf="selectedTab === 'queue'" class="tab-content">
+        <!-- Summary -->
+        <div class="sync-summary">
+          <div class="sync-stat" [class.active]="syncStatus.isSyncing">
+            <ion-icon name="sync" [class.spinning]="syncStatus.isSyncing"></ion-icon>
+            <span>{{ syncStatus.isSyncing ? 'Syncing...' : 'Idle' }}</span>
           </div>
-          <!-- Pending Requests -->
-          <div class="request-item" *ngFor="let req of pendingRequests; let i = index">
-            <span class="queue-number">{{ pendingPhotos.length + pendingCaptions.length + i + 1 }}</span>
-            <ion-icon [name]="getRequestIcon(req)"></ion-icon>
-            <span class="request-desc">{{ getRequestDescription(req) }}</span>
-            <span class="dependency-badge" *ngIf="req.dependencies?.length > 0" title="Waiting for dependencies">
-              <ion-icon name="git-branch-outline"></ion-icon>
-            </span>
+          <div class="sync-stat pending">
+            <span class="count">{{ pendingRequests.length + pendingCaptions.length + pendingPhotos.length }}</span>
+            <span class="label">Pending</span>
           </div>
+          <div class="sync-stat syncing">
+            <span class="count">{{ syncingRequests.length }}</span>
+            <span class="label">Syncing</span>
+          </div>
+        </div>
+
+        <!-- Currently Syncing -->
+        <div class="sync-section" *ngIf="syncingRequests.length > 0">
+          <h4><ion-icon name="sync" class="spinning"></ion-icon> Currently Syncing</h4>
+          <div class="request-list">
+            <div class="request-item syncing" *ngFor="let req of syncingRequests">
+              <ion-icon [name]="getRequestIcon(req)"></ion-icon>
+              <span class="request-desc">{{ getRequestDescription(req) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pending Queue -->
+        <div class="sync-section" *ngIf="pendingRequests.length > 0 || pendingCaptions.length > 0 || pendingPhotos.length > 0">
+          <h4><ion-icon name="time-outline"></ion-icon> Waiting to Sync</h4>
+          <div class="request-list">
+            <!-- Pending Photos (new LocalImage system) -->
+            <div class="request-item photo" *ngFor="let photo of pendingPhotos; let i = index">
+              <span class="queue-number">{{ i + 1 }}</span>
+              <ion-icon name="image-outline"></ion-icon>
+              <span class="request-desc">Photo: {{ photo.fileName || 'Uploading...' }}</span>
+              <span class="status-badge" *ngIf="photo.status">{{ photo.status }}</span>
+            </div>
+            <!-- Pending Captions/Annotations -->
+            <div class="request-item caption"
+                 *ngFor="let cap of pendingCaptions; let i = index"
+                 [class.syncing]="cap.status === 'syncing'"
+                 [class.failed]="cap.status === 'failed'">
+              <span class="queue-number">{{ pendingPhotos.length + i + 1 }}</span>
+              <ion-icon name="text-outline"></ion-icon>
+              <span class="request-desc">{{ getCaptionDescription(cap) }}</span>
+              <span class="status-badge" [class.syncing]="cap.status === 'syncing'" [class.failed]="cap.status === 'failed'">
+                {{ getCaptionStatusLabel(cap) }}
+              </span>
+            </div>
+            <!-- Pending Requests -->
+            <div class="request-item" *ngFor="let req of pendingRequests; let i = index">
+              <span class="queue-number">{{ pendingPhotos.length + pendingCaptions.length + i + 1 }}</span>
+              <ion-icon [name]="getRequestIcon(req)"></ion-icon>
+              <span class="request-desc">{{ getRequestDescription(req) }}</span>
+              <span class="dependency-badge" *ngIf="req.dependencies?.length > 0" title="Waiting for dependencies">
+                <ion-icon name="git-branch-outline"></ion-icon>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State for Queue -->
+        <div class="empty-state" *ngIf="pendingRequests.length === 0 && syncingRequests.length === 0 && pendingCaptions.length === 0 && pendingPhotos.length === 0">
+          <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+          <p>All changes synced!</p>
         </div>
       </div>
 
-      <!-- Failed -->
-      <div class="sync-section failed-section" *ngIf="failedRequests.length > 0 || failedCaptions.length > 0">
-        <h4><ion-icon name="alert-circle-outline"></ion-icon> Failed</h4>
-        <div class="request-list">
-          <div class="request-item failed" *ngFor="let req of failedRequests">
-            <ion-icon [name]="getRequestIcon(req)"></ion-icon>
-            <span class="request-desc">{{ getRequestDescription(req) }}</span>
-            <span class="error-msg" *ngIf="req.error">{{ req.error }}</span>
-            <ion-button fill="clear" size="small" (click)="retryFailedRequest(req.requestId)" title="Retry this item">
-              <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
-            </ion-button>
+      <!-- FAILED TAB -->
+      <div *ngIf="selectedTab === 'failed'" class="tab-content">
+        <!-- Failed Items -->
+        <div class="sync-section failed-section" *ngIf="failedRequests.length > 0 || failedCaptions.length > 0">
+          <div class="failed-header">
+            <h4><ion-icon name="alert-circle-outline"></ion-icon> Failed Sync Items</h4>
+            <p class="failed-subtitle">These items could not be synced. Tap an item to see error details.</p>
           </div>
-          <!-- Failed Captions -->
-          <div class="request-item failed caption" *ngFor="let cap of failedCaptions">
-            <ion-icon name="text-outline"></ion-icon>
-            <span class="request-desc">{{ getCaptionDescription(cap) }}</span>
-            <span class="error-msg" *ngIf="cap.error">{{ cap.error }}</span>
-            <ion-button fill="clear" size="small" (click)="retryFailedCaption(cap.captionId)" title="Retry this item">
-              <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
-            </ion-button>
+          <div class="request-list">
+            <!-- Failed Requests -->
+            <div class="failed-item-card" *ngFor="let req of failedRequests" (click)="toggleErrorDetails(req.requestId)">
+              <div class="failed-item-header">
+                <ion-icon [name]="getRequestIcon(req)" class="failed-icon"></ion-icon>
+                <span class="request-desc">{{ getRequestDescription(req) }}</span>
+                <ion-button fill="clear" size="small" (click)="retryFailedRequest(req.requestId); $event.stopPropagation()" title="Retry this item">
+                  <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
+                </ion-button>
+              </div>
+              <div class="failed-item-error" *ngIf="req.error">
+                <div class="error-summary">
+                  <ion-icon name="warning-outline"></ion-icon>
+                  <span>{{ req.error }}</span>
+                </div>
+                <div class="error-details" *ngIf="expandedErrorId === req.requestId">
+                  <div class="error-detail-row" *ngIf="req.retryCount">
+                    <span class="detail-label">Retry attempts:</span>
+                    <span class="detail-value">{{ req.retryCount }}</span>
+                  </div>
+                  <div class="error-detail-row" *ngIf="req.lastAttempt">
+                    <span class="detail-label">Last attempt:</span>
+                    <span class="detail-value">{{ formatTimestamp(req.lastAttempt) }}</span>
+                  </div>
+                  <div class="error-detail-row" *ngIf="req.endpoint">
+                    <span class="detail-label">Endpoint:</span>
+                    <span class="detail-value endpoint">{{ req.endpoint }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Failed Captions -->
+            <div class="failed-item-card" *ngFor="let cap of failedCaptions" (click)="toggleErrorDetails(cap.captionId)">
+              <div class="failed-item-header">
+                <ion-icon name="text-outline" class="failed-icon"></ion-icon>
+                <span class="request-desc">{{ getCaptionDescription(cap) }}</span>
+                <ion-button fill="clear" size="small" (click)="retryFailedCaption(cap.captionId); $event.stopPropagation()" title="Retry this item">
+                  <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
+                </ion-button>
+              </div>
+              <div class="failed-item-error" *ngIf="cap.error">
+                <div class="error-summary">
+                  <ion-icon name="warning-outline"></ion-icon>
+                  <span>{{ cap.error }}</span>
+                </div>
+                <div class="error-details" *ngIf="expandedErrorId === cap.captionId">
+                  <div class="error-detail-row" *ngIf="cap.retryCount">
+                    <span class="detail-label">Retry attempts:</span>
+                    <span class="detail-value">{{ cap.retryCount }}</span>
+                  </div>
+                  <div class="error-detail-row" *ngIf="cap.lastAttempt">
+                    <span class="detail-label">Last attempt:</span>
+                    <span class="detail-value">{{ formatTimestamp(cap.lastAttempt) }}</span>
+                  </div>
+                  <div class="error-detail-row">
+                    <span class="detail-label">Attach ID:</span>
+                    <span class="detail-value endpoint">{{ cap.attachId }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+          <!-- Retry All Failed button -->
+          <ion-button expand="block" fill="outline" color="warning" (click)="retryAllFailed()" *ngIf="failedRequests.length + failedCaptions.length > 1" class="retry-all-btn">
+            <ion-icon name="refresh" slot="start"></ion-icon>
+            Retry All Failed ({{ failedRequests.length + failedCaptions.length }})
+          </ion-button>
         </div>
-        <!-- Retry All Failed button -->
-        <ion-button expand="block" fill="outline" color="warning" (click)="retryAllFailed()" *ngIf="failedRequests.length + failedCaptions.length > 1" class="retry-all-btn">
-          <ion-icon name="refresh" slot="start"></ion-icon>
-          Retry All Failed ({{ failedRequests.length + failedCaptions.length }})
-        </ion-button>
-      </div>
 
-      <!-- Empty State -->
-      <div class="empty-state" *ngIf="pendingRequests.length === 0 && syncingRequests.length === 0 && failedRequests.length === 0 && pendingCaptions.length === 0 && pendingPhotos.length === 0">
-        <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
-        <p>All changes synced!</p>
+        <!-- Empty State for Failed -->
+        <div class="empty-state" *ngIf="failedRequests.length === 0 && failedCaptions.length === 0">
+          <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+          <p>No failed sync items</p>
+        </div>
       </div>
     </ion-content>
 
@@ -375,9 +444,146 @@ import { db } from '../../services/caspio-db';
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    /* Tab Styles */
+    .sync-tabs {
+      margin-bottom: 16px;
+    }
+
+    .tab-content {
+      min-height: 200px;
+    }
+
+    .failed-tab-label {
+      color: inherit;
+    }
+
+    .failed-tab-label.has-failed {
+      color: #d9534f;
+      font-weight: 600;
+    }
+
+    /* Failed Item Card Styles */
+    .failed-header {
+      margin-bottom: 12px;
+    }
+
+    .failed-header h4 {
+      margin-bottom: 4px;
+    }
+
+    .failed-subtitle {
+      font-size: 12px;
+      color: var(--ion-color-medium);
+      margin: 0;
+    }
+
+    .failed-item-card {
+      background: #fdf2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .failed-item-card:hover {
+      background: #fee2e2;
+    }
+
+    .failed-item-card:active {
+      background: #fecaca;
+    }
+
+    .failed-item-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .failed-item-header .failed-icon {
+      font-size: 20px;
+      color: #dc2626;
+      flex-shrink: 0;
+    }
+
+    .failed-item-header .request-desc {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ion-color-dark);
+    }
+
+    .failed-item-header ion-button {
+      --padding-start: 6px;
+      --padding-end: 6px;
+      margin: 0;
+    }
+
+    .failed-item-error {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #fca5a5;
+    }
+
+    .error-summary {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      color: #b91c1c;
+      font-size: 12px;
+    }
+
+    .error-summary ion-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .error-summary span {
+      word-break: break-word;
+    }
+
+    .error-details {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 6px;
+      font-size: 11px;
+    }
+
+    .error-detail-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .error-detail-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .detail-label {
+      color: var(--ion-color-medium-shade);
+      flex-shrink: 0;
+      min-width: 90px;
+    }
+
+    .detail-value {
+      color: var(--ion-color-dark);
+      word-break: break-word;
+    }
+
+    .detail-value.endpoint {
+      font-family: monospace;
+      font-size: 10px;
+      background: var(--ion-color-light);
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
   `],
   standalone: true,
-  imports: [CommonModule, IonicModule],
+  imports: [CommonModule, FormsModule, IonicModule],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SyncDetailsModalComponent implements OnInit, OnDestroy {
@@ -388,6 +594,10 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     failedCount: 0,
   };
 
+  // Tab state
+  selectedTab: 'queue' | 'failed' = 'queue';
+  expandedErrorId: string | null = null;
+
   pendingRequests: any[] = [];
   syncingRequests: any[] = [];
   failedRequests: any[] = [];
@@ -396,6 +606,16 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   pendingPhotos: any[] = [];  // New LocalImage system photos waiting to upload
   stuckCount: number = 0;
   totalPendingCount: number = 0;
+
+  // Computed counts for tabs
+  get queueCount(): number {
+    return this.pendingRequests.length + this.pendingCaptions.length +
+           this.pendingPhotos.length + this.syncingRequests.length;
+  }
+
+  get failedCount(): number {
+    return this.failedRequests.length + this.failedCaptions.length;
+  }
 
   private subscription?: Subscription;
   private liveQuerySub?: Subscription;
@@ -866,6 +1086,40 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
 
     // Trigger sync to process all retries
     await this.backgroundSync.forceSyncNow();
+  }
+
+  /**
+   * Toggle expanded error details for a failed item
+   */
+  toggleErrorDetails(id: string): void {
+    if (this.expandedErrorId === id) {
+      this.expandedErrorId = null;
+    } else {
+      this.expandedErrorId = id;
+    }
+    this.changeDetectorRef.markForCheck();
+  }
+
+  /**
+   * Format a timestamp for display
+   */
+  formatTimestamp(timestamp: number): string {
+    if (!timestamp) return 'Unknown';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) {
+      return 'Just now';
+    } else if (diffMins < 60) {
+      return `${diffMins} min ago`;
+    } else if (diffMins < 1440) {
+      const hours = Math.floor(diffMins / 60);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else {
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
   }
 }
 
