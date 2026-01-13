@@ -157,9 +157,15 @@ export class OperationsQueueService {
       op.status = 'completed';
 
       // Get callbacks from map and call onSuccess if exists
+      // CRITICAL FIX: Await async callbacks to ensure temp ID mappings complete
+      // before the next sync stage starts (fixes auto-sync random failures)
       const callbacks = callbackMap.get(op.id);
       if (callbacks?.onSuccess) {
-        callbacks.onSuccess(result);
+        try {
+          await Promise.resolve(callbacks.onSuccess(result));
+        } catch (callbackErr) {
+          console.warn(`[OperationsQueue] onSuccess callback error for ${op.id}:`, callbackErr);
+        }
       }
 
       // Remove from queue and cleanup callbacks

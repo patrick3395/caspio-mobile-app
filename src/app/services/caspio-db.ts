@@ -220,6 +220,16 @@ export class CaspioDB extends Dexie {
   }
 
   /**
+   * Live query for failed local images (photos that failed to upload)
+   */
+  liveFailedLocalImages$(): Observable<LocalImage[]> {
+    const query = liveQuery(() =>
+      this.localImages.where('status').equals('failed').toArray()
+    );
+    return this.toRxObservable<LocalImage[]>(query);
+  }
+
+  /**
    * Live query for pending captions
    */
   livePendingCaptions$(): Observable<PendingCaptionUpdate[]> {

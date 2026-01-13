@@ -111,7 +111,7 @@ import { db } from '../../services/caspio-db';
       <!-- FAILED TAB -->
       <div *ngIf="selectedTab === 'failed'" class="tab-content">
         <!-- Failed Items -->
-        <div class="sync-section failed-section" *ngIf="failedRequests.length > 0 || failedCaptions.length > 0">
+        <div class="sync-section failed-section" *ngIf="failedRequests.length > 0 || failedCaptions.length > 0 || failedPhotos.length > 0">
           <div class="failed-header">
             <h4><ion-icon name="alert-circle-outline"></ion-icon> Failed Sync Items</h4>
             <p class="failed-subtitle">These items could not be synced. Tap an item to see error details.</p>
@@ -143,6 +143,36 @@ import { db } from '../../services/caspio-db';
                   <div class="error-detail-row" *ngIf="req.endpoint">
                     <span class="detail-label">Endpoint:</span>
                     <span class="detail-value endpoint">{{ req.endpoint }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Failed Photos -->
+            <div class="failed-item-card" *ngFor="let photo of failedPhotos" (click)="toggleErrorDetails(photo.imageId)">
+              <div class="failed-item-header">
+                <ion-icon name="image-outline" class="failed-icon"></ion-icon>
+                <span class="request-desc">Photo: {{ photo.fileName || photo.imageId }}</span>
+                <ion-button fill="clear" size="small" (click)="retryFailedPhoto(photo.imageId); $event.stopPropagation()" title="Retry this item">
+                  <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
+                </ion-button>
+              </div>
+              <div class="failed-item-error" *ngIf="photo.lastError">
+                <div class="error-summary">
+                  <ion-icon name="warning-outline"></ion-icon>
+                  <span>{{ photo.lastError }}</span>
+                </div>
+                <div class="error-details" *ngIf="expandedErrorId === photo.imageId">
+                  <div class="error-detail-row">
+                    <span class="detail-label">Entity type:</span>
+                    <span class="detail-value">{{ photo.entityType }}</span>
+                  </div>
+                  <div class="error-detail-row">
+                    <span class="detail-label">Entity ID:</span>
+                    <span class="detail-value endpoint">{{ photo.entityId }}</span>
+                  </div>
+                  <div class="error-detail-row" *ngIf="photo.createdAt">
+                    <span class="detail-label">Created:</span>
+                    <span class="detail-value">{{ formatTimestamp(photo.createdAt) }}</span>
                   </div>
                 </div>
               </div>
@@ -179,14 +209,14 @@ import { db } from '../../services/caspio-db';
             </div>
           </div>
           <!-- Retry All Failed button -->
-          <ion-button expand="block" fill="outline" color="warning" (click)="retryAllFailed()" *ngIf="failedRequests.length + failedCaptions.length > 1" class="retry-all-btn">
+          <ion-button expand="block" fill="outline" color="warning" (click)="retryAllFailed()" *ngIf="failedRequests.length + failedCaptions.length + failedPhotos.length > 1" class="retry-all-btn">
             <ion-icon name="refresh" slot="start"></ion-icon>
-            Retry All Failed ({{ failedRequests.length + failedCaptions.length }})
+            Retry All Failed ({{ failedRequests.length + failedCaptions.length + failedPhotos.length }})
           </ion-button>
         </div>
 
         <!-- Empty State for Failed -->
-        <div class="empty-state" *ngIf="failedRequests.length === 0 && failedCaptions.length === 0">
+        <div class="empty-state" *ngIf="failedRequests.length === 0 && failedCaptions.length === 0 && failedPhotos.length === 0">
           <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
           <p>No failed sync items</p>
         </div>
@@ -602,6 +632,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   syncingRequests: any[] = [];
   failedRequests: any[] = [];
   failedCaptions: PendingCaptionUpdate[] = [];
+  failedPhotos: any[] = [];  // Failed LocalImage uploads
   pendingCaptions: PendingCaptionUpdate[] = [];
   pendingPhotos: any[] = [];  // New LocalImage system photos waiting to upload
   stuckCount: number = 0;
@@ -614,7 +645,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   }
 
   get failedCount(): number {
-    return this.failedRequests.length + this.failedCaptions.length;
+    return this.failedRequests.length + this.failedCaptions.length + this.failedPhotos.length;
   }
 
   private subscription?: Subscription;
@@ -644,14 +675,16 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     this.liveQuerySub = combineLatest([
       db.liveAllPendingRequests$(),
       db.liveAllPendingCaptions$(),
-      db.liveUploadOutbox$()
+      db.liveUploadOutbox$(),
+      db.liveFailedLocalImages$()
     ]).pipe(
       debounceTime(250) // Debounce rapid-fire updates
-    ).subscribe(async ([requests, captions, outboxItems]) => {
+    ).subscribe(async ([requests, captions, outboxItems, failedImages]) => {
       console.log('[SyncModal] Dexie liveQuery update:', {
         requests: requests.length,
         captions: captions.length,
-        outbox: outboxItems.length
+        outbox: outboxItems.length,
+        failedImages: failedImages.length
       });
 
       // Update requests by status (fast filter operations)
@@ -698,10 +731,11 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
         this.syncingRequests = syncingReqs;
         this.failedRequests = failedReqs;
         this.failedCaptions = failedCaps;
+        this.failedPhotos = failedImages;
         this.pendingCaptions = pendingCaps;
         this.pendingPhotos = photos;
         this.totalPendingCount = pendingReqs.length + pendingCaps.length +
-                                  photos.length + failedReqs.length + failedCaps.length;
+                                  photos.length + failedReqs.length + failedCaps.length + failedImages.length;
         this.stuckCount = stuckRequests + staleCaptions;
         this.changeDetectorRef.markForCheck();
       });
@@ -1067,7 +1101,18 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Retry all failed items (requests and captions)
+   * Retry a single failed photo upload
+   */
+  async retryFailedPhoto(imageId: string): Promise<void> {
+    console.log(`[SyncModal] Retrying failed photo: ${imageId}`);
+    // Reset the photo status to 'queued' and re-add to outbox
+    await this.indexedDb.retryFailedPhoto(imageId);
+    // Trigger sync to process the retry immediately
+    await this.backgroundSync.forceSyncNow();
+  }
+
+  /**
+   * Retry all failed items (requests, captions, and photos)
    */
   async retryAllFailed(): Promise<void> {
     console.log(`[SyncModal] Retrying all failed items...`);
@@ -1082,7 +1127,12 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       await this.indexedDb.retryCaption(cap.captionId);
     }
 
-    console.log(`[SyncModal] Reset ${this.failedRequests.length} requests and ${this.failedCaptions.length} captions for retry`);
+    // Reset all failed photos
+    for (const photo of this.failedPhotos) {
+      await this.indexedDb.retryFailedPhoto(photo.imageId);
+    }
+
+    console.log(`[SyncModal] Reset ${this.failedRequests.length} requests, ${this.failedCaptions.length} captions, and ${this.failedPhotos.length} photos for retry`);
 
     // Trigger sync to process all retries
     await this.backgroundSync.forceSyncNow();

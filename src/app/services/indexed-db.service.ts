@@ -331,6 +331,47 @@ export class IndexedDbService {
   }
 
   /**
+   * Retry a single failed photo upload - resets status to queued and re-adds to outbox
+   */
+  async retryFailedPhoto(imageId: string): Promise<boolean> {
+    const image = await db.localImages.get(imageId);
+    if (!image) {
+      console.warn(`[IndexedDB] Cannot retry - image not found: ${imageId}`);
+      return false;
+    }
+
+    // Reset image status to queued
+    await db.localImages.update(imageId, {
+      status: 'queued',
+      lastError: undefined
+    });
+
+    // Re-add to upload outbox if not already there
+    const existingOutbox = await db.uploadOutbox.where('imageId').equals(imageId).first();
+    if (!existingOutbox) {
+      await db.uploadOutbox.add({
+        opId: `retry_${imageId}_${Date.now()}`,
+        type: 'UPLOAD_IMAGE',
+        imageId: imageId,
+        attempts: 0,
+        createdAt: Date.now(),
+        nextRetryAt: Date.now(),
+        lastError: null
+      });
+    } else {
+      // Reset the existing outbox entry
+      await db.uploadOutbox.update(existingOutbox.opId, {
+        attempts: 0,
+        nextRetryAt: Date.now(),
+        lastError: undefined
+      });
+    }
+
+    console.log(`[IndexedDB] Photo reset for retry: ${imageId}`);
+    return true;
+  }
+
+  /**
    * Check if dependencies are completed
    */
   async areDependenciesCompleted(dependencyIds: string[]): Promise<boolean> {
