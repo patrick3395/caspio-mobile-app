@@ -239,6 +239,10 @@ export class OfflineDataCacheService {
               FDFTopAnnotation: localRoom.FDFTopAnnotation !== undefined ? localRoom.FDFTopAnnotation : serverRoom.FDFTopAnnotation,
               FDFBottomAnnotation: localRoom.FDFBottomAnnotation !== undefined ? localRoom.FDFBottomAnnotation : serverRoom.FDFBottomAnnotation,
               FDFThresholdAnnotation: localRoom.FDFThresholdAnnotation !== undefined ? localRoom.FDFThresholdAnnotation : serverRoom.FDFThresholdAnnotation,
+              // FDF drawings - preserve local image annotations until synced
+              FDFTopDrawings: localRoom.FDFTopDrawings !== undefined ? localRoom.FDFTopDrawings : serverRoom.FDFTopDrawings,
+              FDFBottomDrawings: localRoom.FDFBottomDrawings !== undefined ? localRoom.FDFBottomDrawings : serverRoom.FDFBottomDrawings,
+              FDFThresholdDrawings: localRoom.FDFThresholdDrawings !== undefined ? localRoom.FDFThresholdDrawings : serverRoom.FDFThresholdDrawings,
               _localUpdate: true  // Keep the flag until sync completes
             };
           }
