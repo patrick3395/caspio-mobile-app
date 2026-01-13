@@ -4,12 +4,12 @@
   "userStories": [
     {
       "id": "US-001",
-      "title": "FDF Question (Same/Different Elevation) Not Syncing",
-      "description": "As a user, I want the Same/Different Elevation dropdown to save and sync properly so that my form data is preserved and doesn't block other syncs.",
+      "title": "FDF Question Not Persisting Locally",
+      "description": "As a user, I want the Same/Different Elevation dropdown value to persist locally after selection so that when I navigate out and back into a room, my answer is still visible without requiring a sync.",
       "acceptanceCriteria": [
-        "Same/Different Elevation dropdown value saves locally",
-        "Value syncs successfully to Caspio",
-        "Sync does not block or cause other items to get stuck"
+        "Same/Different Elevation dropdown value persists locally after selection",
+        "Value is still visible when navigating out and back into a room",
+        "Value does not require sync to be visible locally"
       ],
       "priority": 1,
       "passes": true,
@@ -18,42 +18,21 @@
     },
     {
       "id": "US-002",
-      "title": "Sync Error Handling - Prevent Cascade Failures",
-      "description": "As a user, I want better error handling during sync so that one failed item doesn't block all other syncs.",
+      "title": "FDF Photo Syncing Failing - entityId.startsWith Error",
+      "description": "As a user, I want FDF photos to sync successfully without errors. Currently syncing fails with: TypeError: ue.entityId.startsWith is not a function",
       "acceptanceCriteria": [
-        "Failed sync items are skipped and retried later",
-        "Clear error messages displayed for each failed item",
-        "Circuit breaker pattern implemented - after repeated failures, pause and alert user",
-        "User can manually retry failed items",
-        "Sync queue continues processing other items when one fails"
+        "FDF photos sync successfully without errors",
+        "No TypeError related to entityId.startsWith",
+        "Photos are uploaded to Caspio backend correctly"
       ],
+      "errorLog": "[BackgroundSync] Sync failed: TypeError: ue.entityId.startsWith is not a function at main.6eefdef0138008d6.js:1:2854848",
       "priority": 2,
       "passes": true,
-      "dependsOn": [
-        "US-001"
-      ],
-      "completionNotes": "Completed by agent"
-    },
-    {
-      "id": "US-003",
-      "title": "PDF Preview Missing All Images",
-      "description": "As a user, I want to see all images in the PDF preview within the app so I can verify my form is complete before submission.",
-      "acceptanceCriteria": [
-        "All images display correctly in PDF preview",
-        "Photos attached to forms appear in preview",
-        "Signatures appear in preview",
-        "Images render at appropriate quality/resolution"
-      ],
-      "priority": 3,
-      "passes": true,
-      "dependsOn": [
-        "US-001",
-        "US-002"
-      ],
+      "dependsOn": [],
       "completionNotes": "Completed by agent"
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-13T16:56:21.983Z"
+    "updatedAt": "2026-01-13T17:42:46.308Z"
   }
 }

@@ -5,46 +5,28 @@
   "tasks": [
     {
       "id": "TASK-001",
-      "title": "FDF Question (Same/Different Elevation) Not Syncing",
-      "description": "The FDF question for 'Same Elevation' or 'Different Elevation' dropdown value doesn't save/sync at all. This appears to be the root cause blocking other syncs - when this fails, subsequent sync items get stuck and eventually need to be cleared manually.",
+      "title": "FDF Question Not Persisting Locally",
+      "description": "FDF question (Same Elevation, Different Elevation) is now syncing, but it is not persisting in the local data. If I answer the question and go out and back in to a room the question is not answered. After sync the question answer comes back.",
       "acceptance_criteria": [
-        "Same/Different Elevation dropdown value saves locally",
-        "Value syncs successfully to Caspio backend",
-        "Value persists after app restart",
-        "No errors in sync queue related to this field"
+        "Same/Different Elevation dropdown value persists locally after selection",
+        "Value is still visible when navigating out and back into a room",
+        "Value does not require sync to be visible locally"
       ],
       "passes": false,
       "priority": 1
     },
     {
       "id": "TASK-002",
-      "title": "PDF Preview Missing All Images",
-      "description": "When clicking the PDF preview in the app, all images are missing. This affects all PDF previews across all forms/templates - no images display regardless of image type.",
+      "title": "FDF Photo Syncing Failing - entityId.startsWith Error",
+      "description": "FDF photo syncing is failing with console error: TypeError: ue.entityId.startsWith is not a function. This occurs in the BackgroundSync process when attempting to sync FDF photos.",
+      "error_log": "[BackgroundSync] Sync failed: TypeError: ue.entityId.startsWith is not a function at main.6eefdef0138008d6.js:1:2854848",
       "acceptance_criteria": [
-        "All captured photos display in PDF preview",
-        "Signature images display in PDF preview",
-        "Any other image types display correctly",
-        "Images render at appropriate resolution/quality"
+        "FDF photos sync successfully without errors",
+        "No TypeError related to entityId.startsWith",
+        "Photos are uploaded to Caspio backend correctly"
       ],
       "passes": false,
-      "priority": 3
-    },
-    {
-      "id": "TASK-003",
-      "title": "Sync Error Handling - Prevent Cascade Failures",
-      "description": "Improve sync error handling to prevent a single failed item (like the FDF question) from blocking the entire sync queue. Implement comprehensive error handling including: skip failed items and continue syncing others with retry later, show clear error messages for each failed item without blocking the queue, and implement a circuit breaker pattern that pauses and alerts user after repeated failures.",
-      "acceptance_criteria": [
-        "Failed sync items are skipped, allowing other items to continue",
-        "Failed items are automatically retried later",
-        "Clear error messages shown for each individual failure",
-        "Sync queue is not blocked by single item failures",
-        "Circuit breaker activates after X consecutive failures",
-        "User is alerted when circuit breaker triggers",
-        "User can manually clear or retry failed items"
-      ],
-      "passes": false,
-      "priority": 2,
-      "dependencies": ["TASK-001"]
+      "priority": 2
     }
   ]
 }
