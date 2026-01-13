@@ -1551,16 +1551,26 @@ export class BackgroundSyncService {
     // We need to resolve the _tempEfeId to get the real EFEID and update the endpoint
     if (endpoint.includes('EFEID=DEFERRED') && data._tempEfeId) {
       const tempEfeId = data._tempEfeId;
-      const realEfeId = await this.indexedDb.getRealId(tempEfeId);
-      if (realEfeId) {
-        endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID=${realEfeId}`);
-        console.log(`[BackgroundSync] Resolved DEFERRED endpoint: ${tempEfeId} → ${realEfeId}`);
-        // Clean up the temp field from data
+
+      // US-002 FIX: Check if _tempEfeId is already a real ID (not starting with 'temp_')
+      // This can happen if the loop above already resolved it, or if a real ID was stored
+      if (typeof tempEfeId === 'string' && !tempEfeId.startsWith('temp_')) {
+        // Already a real ID - use it directly
+        endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID=${tempEfeId}`);
+        console.log(`[BackgroundSync] Using real EFEID directly: ${tempEfeId}`);
         delete data._tempEfeId;
       } else {
-        // Room not synced yet - throw error to defer until room syncs
-        console.log(`[BackgroundSync] FDF update deferred - room not synced yet: ${tempEfeId}`);
-        throw new Error(`Room not synced yet: ${tempEfeId}`);
+        // Still a temp ID - try to resolve it
+        const realEfeId = await this.indexedDb.getRealId(tempEfeId);
+        if (realEfeId) {
+          endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID=${realEfeId}`);
+          console.log(`[BackgroundSync] Resolved DEFERRED endpoint: ${tempEfeId} → ${realEfeId}`);
+          delete data._tempEfeId;
+        } else {
+          // Room not synced yet - throw error to defer until room syncs
+          console.log(`[BackgroundSync] FDF update deferred - room not synced yet: ${tempEfeId}`);
+          throw new Error(`Room not synced yet: ${tempEfeId}`);
+        }
       }
     }
 
