@@ -109,6 +109,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   
   // Dexie liveQuery subscription for reactive LocalImages updates
   private localImagesSubscription?: Subscription;
+  // Debounce timer for liveQuery updates to prevent multiple rapid change detections
+  private liveQueryDebounceTimer: any = null;
 
   // Cooldown after local operations to prevent immediate reload
   private localOperationCooldown = false;
@@ -434,6 +436,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     if (this.localOperationCooldownTimer) {
       clearTimeout(this.localOperationCooldownTimer);
+    }
+    if (this.liveQueryDebounceTimer) {
+      clearTimeout(this.liveQueryDebounceTimer);
     }
     
     // NOTE: We intentionally do NOT revoke blob URLs here anymore.
@@ -781,17 +786,25 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     
     console.log('[LIVEQUERY] Subscribing to LocalImages changes for service:', this.serviceId);
-    
+
     // Subscribe to all LocalImages for this service (visual entity type)
     this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'visual').subscribe(
       (localImages) => {
         console.log('[LIVEQUERY] LocalImages updated:', localImages.length, 'images');
-        
-        // Update bulkLocalImagesMap reactively
+
+        // Update bulkLocalImagesMap reactively (always update data immediately)
         this.updateBulkLocalImagesMap(localImages);
-        
-        // Trigger change detection to update UI
-        this.changeDetectorRef.detectChanges();
+
+        // CRITICAL: Debounce change detection to prevent multiple rapid UI updates
+        // This prevents the "hard refresh" feeling when multiple operations happen quickly
+        // (e.g., saving caption triggers both local update and IndexedDB update)
+        if (this.liveQueryDebounceTimer) {
+          clearTimeout(this.liveQueryDebounceTimer);
+        }
+        this.liveQueryDebounceTimer = setTimeout(() => {
+          this.changeDetectorRef.detectChanges();
+          this.liveQueryDebounceTimer = null;
+        }, 100); // 100ms debounce - fast enough to feel responsive, slow enough to batch updates
       },
       (error) => {
         console.error('[LIVEQUERY] Error in LocalImages subscription:', error);
@@ -5503,6 +5516,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 }
               } catch (error) {
                 console.error('Error handling undo button click:', error);
+              }
+            });
+          }
+
+          // CRITICAL: Add Enter key handler to prevent form submission and provide smooth save
+          if (captionInput) {
+            captionInput.addEventListener('keydown', (e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                // Find and click the Save button to trigger the save handler
+                const saveBtn = document.querySelector('.caption-popup-alert button.alert-button:not([data-role="cancel"])') as HTMLButtonElement;
+                if (saveBtn) {
+                  saveBtn.click();
+                }
               }
             });
           }

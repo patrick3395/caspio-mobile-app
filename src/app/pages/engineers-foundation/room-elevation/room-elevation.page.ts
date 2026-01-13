@@ -5720,6 +5720,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               }
             });
           }
+
+          // CRITICAL: Add Enter key handler to prevent form submission and provide smooth save
+          if (captionInput) {
+            captionInput.addEventListener('keydown', (e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                // Find and click the Save button to trigger the save handler
+                const saveBtn = document.querySelector('.caption-popup-alert button.alert-button:not([data-role="cancel"])') as HTMLButtonElement;
+                if (saveBtn) {
+                  saveBtn.click();
+                }
+              }
+            });
+          }
         } catch (error) {
           console.error('Error setting up caption popup:', error);
         }

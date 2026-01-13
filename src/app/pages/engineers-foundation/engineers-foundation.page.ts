@@ -13542,6 +13542,20 @@ Stack: ${error?.stack}`;
           if (captionInput.value.length > 0) captionInput.value += ' ';
         });
       }
+
+      // CRITICAL: Add Enter key handler to prevent form submission and provide smooth save
+      if (captionInput) {
+        captionInput.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            const saveBtn = document.querySelector('.caption-popup-alert button.alert-button:not([data-role="cancel"])') as HTMLButtonElement;
+            if (saveBtn) {
+              saveBtn.click();
+            }
+          }
+        });
+      }
     });
   }
 
@@ -13629,6 +13643,20 @@ Stack: ${error?.stack}`;
           if (words.length > 0) words.pop();
           captionInput.value = words.join(' ');
           if (captionInput.value.length > 0) captionInput.value += ' ';
+        });
+      }
+
+      // CRITICAL: Add Enter key handler to prevent form submission and provide smooth save
+      if (captionInput) {
+        captionInput.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            const saveBtn = document.querySelector('.caption-popup-alert button.alert-button:not([data-role="cancel"])') as HTMLButtonElement;
+            if (saveBtn) {
+              saveBtn.click();
+            }
+          }
         });
       }
     });
@@ -13720,6 +13748,20 @@ Stack: ${error?.stack}`;
           if (captionInput.value.length > 0) captionInput.value += ' ';
         });
       }
+
+      // CRITICAL: Add Enter key handler to prevent form submission and provide smooth save
+      if (captionInput) {
+        captionInput.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            const saveBtn = document.querySelector('.caption-popup-alert button.alert-button:not([data-role="cancel"])') as HTMLButtonElement;
+            if (saveBtn) {
+              saveBtn.click();
+            }
+          }
+        });
+      }
     });
   }
 
@@ -13808,9 +13850,23 @@ Stack: ${error?.stack}`;
           if (captionInput.value.length > 0) captionInput.value += ' ';
         });
       }
+
+      // CRITICAL: Add Enter key handler to prevent form submission and provide smooth save
+      if (captionInput) {
+        captionInput.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            const saveBtn = document.querySelector('.caption-popup-alert button.alert-button:not([data-role="cancel"])') as HTMLButtonElement;
+            if (saveBtn) {
+              saveBtn.click();
+            }
+          }
+        });
+      }
     });
   }
-  
+
   // Verify if visual was actually saved - v1.4.225 - FORCE REBUILD
   async verifyVisualSaved(category: string, templateId: string): Promise<boolean> {
     try {
