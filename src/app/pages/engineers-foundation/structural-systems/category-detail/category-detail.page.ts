@@ -1067,14 +1067,42 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           
           for (const att of attachments) {
             const realAttachId = String(att.PK_ID || att.AttachID);
-            
+
             // BULLETPROOF: Check by multiple identifiers
             // Photos may have been added with imageId (UUID) but server returns real AttachID
-            const existingPhotoIndex = this.visualPhotos[key].findIndex(p => 
-              String(p.AttachID) === realAttachId || 
+            // CRITICAL FIX: Also check for LocalImage by attachId to find photos that have synced
+            // This prevents phantom duplicate images when refreshing after multi-image upload
+            let matchedByLocalImage = false;
+            let localImageForAttach: LocalImage | null = null;
+            try {
+              localImageForAttach = await this.localImageService.getImageByAttachId(realAttachId);
+            } catch (e) {
+              // Ignore - LocalImage system not available
+            }
+
+            const existingPhotoIndex = this.visualPhotos[key].findIndex(p =>
+              String(p.AttachID) === realAttachId ||
               String(p.attachId) === realAttachId ||
-              String(p.id) === realAttachId
+              String(p.id) === realAttachId ||
+              // CRITICAL FIX: Also match by imageId if we found a LocalImage for this attachment
+              (localImageForAttach && p.imageId === localImageForAttach.imageId)
             );
+
+            // Track if we matched via LocalImage
+            if (existingPhotoIndex !== -1 && localImageForAttach) {
+              const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
+              if (existingPhoto.imageId === localImageForAttach.imageId) {
+                matchedByLocalImage = true;
+                // Update the AttachID on the existing photo so future matches work directly
+                this.visualPhotos[key][existingPhotoIndex] = {
+                  ...existingPhoto,
+                  AttachID: realAttachId,
+                  attachId: realAttachId,
+                  id: realAttachId
+                };
+                console.log('[RELOAD AFTER SYNC] Matched photo by LocalImage imageId:', localImageForAttach.imageId, '-> AttachID:', realAttachId);
+              }
+            }
             
             if (existingPhotoIndex !== -1) {
               const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
@@ -1133,6 +1161,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             // The photoUploadComplete$ subscription already handles temp->real ID transition
             // Generic matching causes caption duplication when multiple photos sync at once
             // Instead, just add the new photo from server if it doesn't already exist
+
+            // CRITICAL FIX FOR PHANTOM IMAGES: Before adding server photo, check if a LocalImage
+            // exists that will be added later when loadPhotosForVisual runs. This prevents
+            // duplicates when refreshPhotoCountsAfterSync runs before photos are expanded.
+            if (localImageForAttach) {
+              // LocalImage exists for this attachment - it will be added when user expands photos
+              // Just update the photo count but don't add to visualPhotos array yet
+              console.log('[RELOAD AFTER SYNC] Skipping server photo - LocalImage exists:', localImageForAttach.imageId, '-> AttachID:', realAttachId);
+              continue;
+            }
+
             if (att.Attachment) {
               console.log('[RELOAD AFTER SYNC] Loading new photo from server:', realAttachId);
               // loadSinglePhoto checks for existing entries and adds if not found
