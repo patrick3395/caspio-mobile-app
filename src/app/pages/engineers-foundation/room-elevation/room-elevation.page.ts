@@ -1023,8 +1023,23 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       for (const point of this.roomData.elevationPoints) {
         if (point.photos) {
           for (const photo of point.photos as any[]) {
-            const attachId = photo.AttachID || photo.localImageId;
-            const pending = captionMap.get(attachId);
+            // Check all possible ID fields for local-first and legacy photos
+            const possibleIds = [
+              photo.AttachID,
+              photo.attachId,
+              photo.localImageId,
+              photo.imageId,
+              photo._tempId,
+              photo._pendingFileId
+            ].filter(id => id);
+
+            // Find matching pending caption using any of the IDs
+            let pending = null;
+            for (const id of possibleIds) {
+              pending = captionMap.get(String(id));
+              if (pending) break;
+            }
+
             if (pending) {
               if (pending.caption !== undefined) {
                 photo.caption = pending.caption;
@@ -3223,50 +3238,81 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private async mergePendingCaptionsIntoPointPhotos(): Promise<void> {
     try {
-      // Collect all photo attachIds from all points
+      // Collect all possible photo IDs from all points (including local-first IDs)
       const allAttachIds: string[] = [];
       for (const point of this.roomData.elevationPoints) {
         if (point.photos && point.photos.length > 0) {
           for (const photo of point.photos) {
-            if (photo.attachId) {
-              allAttachIds.push(String(photo.attachId));
-            }
+            // Collect all possible ID fields for local-first and legacy photos
+            if (photo.attachId) allAttachIds.push(String(photo.attachId));
+            if (photo.AttachID) allAttachIds.push(String(photo.AttachID));
+            if (photo.localImageId) allAttachIds.push(String(photo.localImageId));
+            if (photo.imageId) allAttachIds.push(String(photo.imageId));
+            if (photo._tempId) allAttachIds.push(String(photo._tempId));
+            if (photo._pendingFileId) allAttachIds.push(String(photo._pendingFileId));
           }
         }
       }
 
-      if (allAttachIds.length === 0) {
+      // Remove duplicates
+      const uniqueAttachIds = [...new Set(allAttachIds)];
+
+      if (uniqueAttachIds.length === 0) {
         return;
       }
 
       // Fetch pending captions for all photo attachIds
-      const pendingCaptions = await this.indexedDb.getPendingCaptionsForAttachments(allAttachIds);
-      
+      const pendingCaptions = await this.indexedDb.getPendingCaptionsForAttachments(uniqueAttachIds);
+
       if (pendingCaptions.length === 0) {
         return;
       }
-      
-      console.log(`[MERGE CAPTIONS] Merging ${pendingCaptions.length} pending captions into ${allAttachIds.length} photos`);
-      
+
+      console.log(`[MERGE CAPTIONS] Merging ${pendingCaptions.length} pending captions into ${uniqueAttachIds.length} photo IDs`);
+
+      // Build lookup map for faster matching
+      const captionMap = new Map<string, any>();
+      for (const pc of pendingCaptions) {
+        captionMap.set(pc.attachId, pc);
+      }
+
       // Apply pending captions to matching photos
       for (const point of this.roomData.elevationPoints) {
         if (!point.photos) continue;
-        
+
         for (const photo of point.photos) {
-          const photoId = String(photo.attachId);
-          const pendingCaption = pendingCaptions.find(c => c.attachId === photoId);
-          
+          // Check all possible ID fields for local-first and legacy photos
+          const possibleIds = [
+            photo.attachId,
+            photo.AttachID,
+            photo.localImageId,
+            photo.imageId,
+            photo._tempId,
+            photo._pendingFileId
+          ].filter(id => id).map(id => String(id));
+
+          // Find matching pending caption using any of the IDs
+          let pendingCaption = null;
+          let matchedId = '';
+          for (const id of possibleIds) {
+            pendingCaption = captionMap.get(id);
+            if (pendingCaption) {
+              matchedId = id;
+              break;
+            }
+          }
+
           if (pendingCaption) {
             // Update caption if pending
             if (pendingCaption.caption !== undefined) {
-              console.log(`[MERGE CAPTIONS] Applying caption to photo ${photoId}: "${pendingCaption.caption?.substring(0, 30)}..."`);
+              console.log(`[MERGE CAPTIONS] Applying caption to photo ${matchedId}: "${pendingCaption.caption?.substring(0, 30)}..."`);
               photo.caption = pendingCaption.caption;
               photo.Annotation = pendingCaption.caption;
             }
-            
+
             // Update drawings if pending
             if (pendingCaption.drawings !== undefined) {
-              console.log(`[MERGE CAPTIONS] Applying drawings to photo ${photoId}`);
+              console.log(`[MERGE CAPTIONS] Applying drawings to photo ${matchedId}`);
               photo.drawings = pendingCaption.drawings;
               photo.Drawings = pendingCaption.drawings;
               photo.hasAnnotations = !!pendingCaption.drawings;
@@ -4942,22 +4988,37 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       photo.Annotation = newCaption;
       photo._localUpdate = true;
       this.changeDetectorRef.detectChanges();
-      
+
+      // CRITICAL: For local-first images, update the LocalImage record directly
+      // This ensures captions persist through navigation and page reloads
+      // (Matches category-detail.page.ts pattern)
+      const isLocalFirst = photo.isLocalFirst || photo.isLocalImage;
+      const localImageId = photo.localImageId || photo.imageId;
+
+      if (isLocalFirst && localImageId) {
+        this.localImageService.updateCaptionAndDrawings(localImageId, newCaption).catch((e: any) => {
+          console.warn('[Point Caption] Failed to update LocalImage caption:', e);
+        });
+      }
+
       // 2. Get the attachment ID (could be temp or real)
+      // For local-first images, use localImageId (will be resolved to real attachId by sync worker)
       // Check all possible property names that might hold the ID
-      const attachId = String(
-        photo._pendingFileId || 
-        photo._tempId || 
-        photo.attachId || 
-        photo.AttachID ||
-        ''
-      );
-      
+      const attachId = isLocalFirst && localImageId
+        ? localImageId  // Will be resolved to real attachId by sync worker
+        : String(
+            photo._pendingFileId ||
+            photo._tempId ||
+            photo.attachId ||
+            photo.AttachID ||
+            ''
+          );
+
       if (!attachId) {
         console.error('[Point Caption] ❌ No attachId found for photo:', photo);
         return;
       }
-      
+
       console.log(`[Point Caption] Saving caption for attachId: ${attachId}`);
       
       // 3. Find the point ID for cache lookup
