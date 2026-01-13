@@ -5,38 +5,43 @@
   "tasks": [
     {
       "id": "TASK-001",
-      "title": "FDF Captions Not Persisting Locally",
-      "description": "FDF captions are not persisting in local storage before syncing. They disappear when navigating out and back into a room.",
+      "title": "FDF Question Not Persisting Locally on Mobile",
+      "description": "FDF Question (Same Elevation or Different Elevation) is not persisting while queued and local on mobile app. When navigating out of a room and back in, the answer is gone. After sync the question comes back. FDF images ARE persisting in queue but not the question dropdown. The webapp works correctly - only the mobile app has this issue. Review how local data persists in category-detail.page.ts and apply the same practices to room-elevation.page.ts.",
       "acceptance_criteria": [
-        "FDF captions persist locally after entry",
-        "Captions remain visible when navigating out and back into a room",
-        "Captions do not require sync to be visible locally"
+        "FDF dropdown answer persists locally after selection on mobile",
+        "Answer remains visible when navigating out and back into a room",
+        "Answer does not require sync to be visible locally",
+        "Behavior matches the webapp and category-detail.page.ts implementation"
       ],
+      "reference_file": "src/app/pages/engineers-foundation/structural-systems/category-detail/category-detail.page.ts",
       "passes": false,
       "priority": 1
     },
     {
       "id": "TASK-002",
-      "title": "FDF Annotations on Images Not Persisting Locally",
-      "description": "FDF annotations on images are not persisting in local storage before syncing.",
+      "title": "FDF Sync Error: Room not synced yet (false positive)",
+      "description": "When adding an FDF, sync sometimes fails with 'Error: Room not synced yet: 724' even though the room IS synced. The dependency temp_efe_xxx is correctly mapped to real ID 724, but the sync still fails. This blocks FDF images from loading. Clearing the broken images and adding another one works fine.",
+      "error_log": "[BackgroundSync] Sync failed: Error: Room not synced yet: 724",
       "acceptance_criteria": [
-        "Image annotations persist locally after creation",
-        "Annotations remain visible when navigating out and back into a room",
-        "Annotations do not require sync to be visible locally"
+        "FDF sync does not fail when room is already synced",
+        "Real room IDs (non-temp) are recognized as synced",
+        "FDF images sync successfully after room sync completes",
+        "No false positive 'room not synced' errors"
       ],
       "passes": false,
       "priority": 2
     },
     {
       "id": "TASK-003",
-      "title": "Background Sync Pausing When App Not Active",
-      "description": "Syncing pauses when the app is not open or when navigating to a different project/template. Need syncing to persist as long as the app is not killed.",
+      "title": "Image Caption Disappears from UI After Sync",
+      "description": "In both web and mobile app, after syncing an image caption for a point in a room, the caption is visible in the Caspio backend but disappears from the UI. The category-detail.page.ts in Structural Systems section handles this correctly - UI, local caching, and IndexedDB through Dexie all work perfectly there. Apply the same pattern to room-elevation.",
       "acceptance_criteria": [
-        "Syncing continues when app is in background (not killed)",
-        "Syncing continues when navigating to a different project",
-        "Syncing continues when closing/switching templates",
-        "Sync only stops when app is fully terminated"
+        "Caption remains visible in UI after sync completes",
+        "Caption persists in local cache/IndexedDB after sync",
+        "UI updates correctly without losing caption data",
+        "Behavior matches category-detail.page.ts implementation"
       ],
+      "reference_file": "src/app/pages/engineers-foundation/structural-systems/category-detail/category-detail.page.ts",
       "passes": false,
       "priority": 3
     }
