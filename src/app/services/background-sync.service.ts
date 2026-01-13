@@ -549,6 +549,23 @@ export class BackgroundSyncService {
       try {
         const result = await this.performSync(resolvedRequest);
 
+        // CRITICAL FIX: Verify RecordsAffected for UPDATE requests
+        // Caspio returns 200 OK with RecordsAffected:0 if no matching record exists
+        // This was causing FDF updates to be silently lost when room EFEID didn't match
+        if (request.type === 'UPDATE' && request.method === 'PUT') {
+          const recordsAffected = result?.RecordsAffected ?? result?.recordsAffected;
+          if (recordsAffected === 0) {
+            console.warn(`[BackgroundSync] ⚠️ UPDATE returned 0 records affected - record may not exist yet`);
+            console.warn(`[BackgroundSync] Request endpoint: ${request.endpoint}`);
+            console.warn(`[BackgroundSync] Request data:`, request.data);
+
+            // Keep the request pending for retry - don't remove from queue
+            await this.indexedDb.updateRequestStatus(request.requestId, 'pending', 'No records updated - retrying', true);
+            continue;
+          }
+          console.log(`[BackgroundSync] ✅ UPDATE affected ${recordsAffected} record(s)`);
+        }
+
       // If this created a new record, store ID mapping and emit events
       if (request.tempId) {
         let realId: number | string | null = null;
