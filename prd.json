@@ -1,29 +1,50 @@
 {
   "project": "Caspio Mobile App Fixes",
+  "version": "1.0",
+  "created": "2026-01-13",
   "tasks": [
     {
       "id": "TASK-001",
-      "title": "Elevation Plot Images Disappear During Navigation",
-      "description": "Images in room-elevation disappear when navigating away and back during sync. Copy pattern from category-detail.page.ts (Structural Systems) which works correctly.",
-      "file": "src/app/pages/engineers-foundation/room-elevation/room-elevation.page.ts",
+      "title": "FDF Question (Same/Different Elevation) Not Syncing",
+      "description": "The FDF question for 'Same Elevation' or 'Different Elevation' dropdown value doesn't save/sync at all. This appears to be the root cause blocking other syncs - when this fails, subsequent sync items get stuck and eventually need to be cleared manually.",
+      "acceptance_criteria": [
+        "Same/Different Elevation dropdown value saves locally",
+        "Value syncs successfully to Caspio backend",
+        "Value persists after app restart",
+        "No errors in sync queue related to this field"
+      ],
       "passes": false,
       "priority": 1
     },
     {
-      "id": "TASK-002", 
-      "title": "FDF Photos Not Syncing",
-      "description": "FDF photos appear in sync queue but never sync. Clicking 'Sync Now' does nothing. Find and fix FDF photo sync handler.",
+      "id": "TASK-002",
+      "title": "PDF Preview Missing All Images",
+      "description": "When clicking the PDF preview in the app, all images are missing. This affects all PDF previews across all forms/templates - no images display regardless of image type.",
+      "acceptance_criteria": [
+        "All captured photos display in PDF preview",
+        "Signature images display in PDF preview",
+        "Any other image types display correctly",
+        "Images render at appropriate resolution/quality"
+      ],
       "passes": false,
-      "priority": 2
+      "priority": 3
     },
     {
       "id": "TASK-003",
-      "title": "FDF Captions Not Syncing",
-      "description": "FDF captions stuck in queue. Depends on TASK-002 being fixed first.",
+      "title": "Sync Error Handling - Prevent Cascade Failures",
+      "description": "Improve sync error handling to prevent a single failed item (like the FDF question) from blocking the entire sync queue. Implement comprehensive error handling including: skip failed items and continue syncing others with retry later, show clear error messages for each failed item without blocking the queue, and implement a circuit breaker pattern that pauses and alerts user after repeated failures.",
+      "acceptance_criteria": [
+        "Failed sync items are skipped, allowing other items to continue",
+        "Failed items are automatically retried later",
+        "Clear error messages shown for each individual failure",
+        "Sync queue is not blocked by single item failures",
+        "Circuit breaker activates after X consecutive failures",
+        "User is alerted when circuit breaker triggers",
+        "User can manually clear or retry failed items"
+      ],
       "passes": false,
-      "priority": 3,
-      "dependencies": ["TASK-002"]
+      "priority": 2,
+      "dependencies": ["TASK-001"]
     }
   ]
 }
-

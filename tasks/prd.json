@@ -1,18 +1,15 @@
 {
-  "name": "Sync and Image Caching Bug Fixes",
-  "branchName": "fix/sync-and-image-caching-bugs",
+  "name": "Caspio Mobile App Fixes",
+  "branchName": "feature/caspio-mobile-app-fixes",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Fix Elevation Plot Images Disappearing on Navigation",
-      "description": "As a user, I want Elevation Plot images to remain visible when I navigate away from the page and return, so that I don't lose track of my work during sync operations.",
+      "title": "FDF Question (Same/Different Elevation) Not Syncing",
+      "description": "As a user, I want the Same/Different Elevation dropdown to save and sync properly so that my form data is preserved and doesn't block other syncs.",
       "acceptanceCriteria": [
-        "Elevation Plot images persist after navigating away and returning to the page",
-        "Images remain visible even when sync is in progress",
-        "LocalImageService is integrated for caching blob URLs",
-        "IndexedDB caching is implemented for offline persistence",
-        "ionViewWillEnter lifecycle hook restores cached images",
-        "Pattern matches the working Structural Systems implementation"
+        "Same/Different Elevation dropdown value saves locally",
+        "Value syncs successfully to Caspio",
+        "Sync does not block or cause other items to get stuck"
       ],
       "priority": 1,
       "passes": true,
@@ -21,38 +18,42 @@
     },
     {
       "id": "US-002",
-      "title": "Fix FDF Photos Not Syncing",
-      "description": "As a user, I want FDF photos to successfully sync to the server when I click 'Sync Now', so that my photos are not lost and are available across devices.",
+      "title": "Sync Error Handling - Prevent Cascade Failures",
+      "description": "As a user, I want better error handling during sync so that one failed item doesn't block all other syncs.",
       "acceptanceCriteria": [
-        "FDF photos in sync queue are processed when 'Sync Now' is clicked",
-        "FDF photos successfully upload to the server",
-        "FDF photos are removed from sync queue after successful sync",
-        "Sync status is accurately reflected in the UI"
-      ],
-      "priority": 1,
-      "passes": true,
-      "dependsOn": [],
-      "completionNotes": "Completed by agent"
-    },
-    {
-      "id": "US-003",
-      "title": "Fix FDF Captions Stuck in Sync Queue",
-      "description": "As a user, I want FDF photo captions to sync along with their photos, so that my caption text is preserved and visible on the server.",
-      "acceptanceCriteria": [
-        "FDF captions sync successfully with their associated photos",
-        "Captions are not stuck indefinitely in the sync queue",
-        "Caption metadata is included in the photo sync payload",
-        "Captions appear correctly on the server after sync"
+        "Failed sync items are skipped and retried later",
+        "Clear error messages displayed for each failed item",
+        "Circuit breaker pattern implemented - after repeated failures, pause and alert user",
+        "User can manually retry failed items",
+        "Sync queue continues processing other items when one fails"
       ],
       "priority": 2,
       "passes": true,
       "dependsOn": [
+        "US-001"
+      ],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-003",
+      "title": "PDF Preview Missing All Images",
+      "description": "As a user, I want to see all images in the PDF preview within the app so I can verify my form is complete before submission.",
+      "acceptanceCriteria": [
+        "All images display correctly in PDF preview",
+        "Photos attached to forms appear in preview",
+        "Signatures appear in preview",
+        "Images render at appropriate quality/resolution"
+      ],
+      "priority": 3,
+      "passes": true,
+      "dependsOn": [
+        "US-001",
         "US-002"
       ],
       "completionNotes": "Completed by agent"
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-13T15:41:34.502Z"
+    "updatedAt": "2026-01-13T16:56:21.983Z"
   }
 }
