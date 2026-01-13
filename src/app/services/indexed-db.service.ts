@@ -2368,7 +2368,7 @@ export class IndexedDbService {
       type: 'UPLOAD_IMAGE',
       imageId,
       attempts: 0,
-      nextRetryAt: now + 5000,
+      nextRetryAt: now,  // Ready immediately - no artificial delay
       createdAt: now,
       lastError: null
     };

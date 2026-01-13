@@ -70,6 +70,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private pendingSyncReload = false;
   private syncStatusSubscription?: Subscription;
   private localImageStatusSubscription?: Subscription;  // For LocalImage status changes (sync transitions)
+  private efeRoomSyncSubscription?: Subscription;  // TASK 3 FIX: For EFE room sync (updates roomId)
   
   // Track last loaded IDs to detect when navigation requires fresh data
   private lastLoadedRoomId: string = '';
@@ -492,6 +493,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     });
 
+    // TASK 3 FIX: Subscribe to EFE room sync completions
+    // This updates this.roomId when a room syncs from temp_xxx to real ID
+    // Critical for FDF captions which use roomId as attachId
+    this.efeRoomSyncSubscription = this.backgroundSync.efeRoomSyncComplete$.subscribe((event) => {
+      // Check if this is our room
+      if (String(this.roomId) === String(event.tempId)) {
+        console.log(`[RoomElevation] Room synced! Updating roomId: ${event.tempId} -> ${event.realId}`);
+        this.roomId = String(event.realId);
+        this.lastLoadedRoomId = this.roomId;
+      }
+    });
+
     // Subscribe to cache invalidation events - reload data when sync completes
     // CRITICAL: Debounce to prevent multiple rapid reloads
     this.cacheInvalidationSubscription = this.foundationData.cacheInvalidated$.subscribe(event => {
@@ -844,20 +857,58 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private async refreshLocalState(): Promise<void> {
     // 1. Get all LocalImages for this service (EFE points + FDF)
     const localEFEImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_point');
-    const localFDFImages = await this.localImageService.getImagesForEntity('fdf', this.roomId);
+    let localFDFImages = await this.localImageService.getImagesForEntity('fdf', this.roomId);
+
+    // TASK 1 FIX: Also get FDF photos stored with temp IDs that map to this real room ID
+    if (!String(this.roomId).startsWith('temp_')) {
+      try {
+        const allFDFImages = await this.indexedDb.getLocalImagesForService(this.serviceId, 'fdf');
+        for (const img of allFDFImages) {
+          if (img.entityId.startsWith('temp_')) {
+            const realId = await this.indexedDb.getRealId(img.entityId);
+            if (realId === this.roomId && !localFDFImages.some(e => e.imageId === img.imageId)) {
+              localFDFImages.push(img);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[RoomElevation] Error in refreshLocalState temp ID lookup:', e);
+      }
+    }
+
     const allLocalImages = [...localEFEImages, ...localFDFImages];
 
-    // 2. Regenerate blob URLs from IndexedDB
+    // 2. Build lookup map of LocalImages by imageId for fallback URL resolution
+    const localImageMap = new Map<string, any>();
+    for (const img of allLocalImages) {
+      localImageMap.set(img.imageId, img);
+    }
+
+    // 3. Regenerate blob URLs from IndexedDB (only works for images with local blobs)
     const urlMap = await this.localImageService.refreshBlobUrlsForImages(allLocalImages);
 
-    // 3. Update FDF photos (object with keys like 'top', 'topUrl', etc.)
+    // 4. Update FDF photos (object with keys like 'top', 'topUrl', etc.)
     if (this.roomData?.fdfPhotos) {
       const fdfPhotos = this.roomData.fdfPhotos;
-      
+
       for (const photoType of ['top', 'bottom', 'threshold']) {
         const imageId = fdfPhotos[`${photoType}ImageId`];
         if (imageId && fdfPhotos[`${photoType}IsLocalFirst`]) {
-          const newUrl = urlMap.get(imageId);
+          let newUrl = urlMap.get(imageId);
+
+          // TASK 1 FIX: If no blob URL, try getDisplayUrl which handles pruned blobs
+          // This uses cached base64 or signed S3 URL as fallback
+          if (!newUrl) {
+            const localImage = localImageMap.get(imageId);
+            if (localImage) {
+              try {
+                newUrl = await this.localImageService.getDisplayUrl(localImage);
+              } catch (e) {
+                console.warn(`[RoomElevation] Failed to get FDF ${photoType} displayUrl:`, e);
+              }
+            }
+          }
+
           if (newUrl) {
             fdfPhotos[`${photoType}Url`] = newUrl;
             fdfPhotos[`${photoType}DisplayUrl`] = newUrl;
@@ -867,7 +918,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     }
 
-    // 4. Update elevation point photos
+    // 5. Update elevation point photos
     // TASK 1 FIX: Refresh ALL photos with LocalImage IDs, not just those with isLocalImage flag
     // This ensures photos persist through navigation during sync even after flags change
     if (this.roomData?.elevationPoints) {
@@ -876,7 +927,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           for (const photo of point.photos as any[]) {
             const imageId = photo.localImageId || photo.imageId;
             if (imageId) {
-              const newUrl = urlMap.get(imageId);
+              let newUrl = urlMap.get(imageId);
+
+              // TASK 1 FIX: If no blob URL, try getDisplayUrl which handles pruned blobs
+              // This uses cached base64 or signed S3 URL as fallback
+              if (!newUrl) {
+                const localImage = localImageMap.get(imageId);
+                if (localImage) {
+                  try {
+                    newUrl = await this.localImageService.getDisplayUrl(localImage);
+                  } catch (e) {
+                    console.warn(`[RoomElevation] Failed to get photo displayUrl for ${imageId}:`, e);
+                  }
+                }
+              }
+
               if (newUrl) {
                 photo.displayUrl = newUrl;
                 photo.url = newUrl;
@@ -889,8 +954,31 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     }
 
-    // 5. Merge any pending captions/drawings
+    // 6. Merge any pending captions/drawings
     await this.mergePendingCaptions();
+
+    // 7. TASK 1 FIX: Update class-level preservation maps for subsequent reloads
+    // This ensures photos survive through reloadElevationDataAfterSync() calls
+    // Without this, photos could disappear when sync completes and triggers reload
+    if (this.roomData?.elevationPoints) {
+      for (const point of this.roomData.elevationPoints) {
+        if (point.photos && point.photos.length > 0) {
+          const photosToPreserve = point.photos.filter((p: any) =>
+            p.displayUrl &&
+            p.displayUrl !== 'assets/img/photo-placeholder.png' &&
+            !p.displayUrl.includes('placeholder')
+          );
+          if (photosToPreserve.length > 0) {
+            const photosCopy = photosToPreserve.map((p: any) => ({ ...p }));
+            this.preservedPhotosByPointName.set(point.name, photosCopy);
+            if (point.pointId) {
+              this.preservedPhotosByPointId.set(String(point.pointId), photosCopy);
+            }
+          }
+        }
+      }
+      console.log(`[RoomElevation] Updated preservation maps: ${this.preservedPhotosByPointName.size} points`);
+    }
 
     console.log('[RoomElevation] Local state refreshed - URLs regenerated, captions merged');
   }
@@ -1114,28 +1202,34 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 if (localImagesForPoint.length > 0) {
                   localPoint.photos = [];
                   for (const localImg of localImagesForPoint) {
-                    const displayUrl = await this.localImageService.getDisplayUrl(localImg);
-                    if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.png') {
-                      localPoint.photos.push({
-                        imageId: localImg.imageId,
-                        localImageId: localImg.imageId,
-                        attachId: localImg.attachId || localImg.imageId,
-                        photoType: localImg.photoType || 'Measurement',
-                        url: displayUrl,
-                        displayUrl: displayUrl,
-                        thumbnailUrl: displayUrl,
-                        caption: localImg.caption || '',
-                        drawings: localImg.drawings || null,
-                        hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
-                        uploading: false,  // SILENT SYNC: Never show spinner
-                        queued: false,     // SILENT SYNC: Never show queued indicator
-                        isPending: localImg.status !== 'verified',
-                        isLocalImage: true,
-                        isLocalFirst: true,
-                        _tempId: localImg.imageId,
-                      });
-                      console.log(`[RoomElevation] BULLETPROOF: Restored photo from LocalImage ${localImg.imageId} for point "${pointName}"`);
+                    // TASK 1 FIX: Add photo UNCONDITIONALLY even with placeholder URL
+                    // Matches category-detail pattern - placeholder will be updated via liveQuery
+                    let displayUrl = 'assets/img/photo-placeholder.png';
+                    try {
+                      displayUrl = await this.localImageService.getDisplayUrl(localImg);
+                    } catch (e) {
+                      console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
                     }
+
+                    localPoint.photos.push({
+                      imageId: localImg.imageId,
+                      localImageId: localImg.imageId,
+                      attachId: localImg.attachId || localImg.imageId,
+                      photoType: localImg.photoType || 'Measurement',
+                      url: displayUrl,
+                      displayUrl: displayUrl,
+                      thumbnailUrl: displayUrl,
+                      caption: localImg.caption || '',
+                      drawings: localImg.drawings || null,
+                      hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
+                      uploading: false,  // SILENT SYNC: Never show spinner
+                      queued: false,     // SILENT SYNC: Never show queued indicator
+                      isPending: localImg.status !== 'verified',
+                      isLocalImage: true,
+                      isLocalFirst: true,
+                      _tempId: localImg.imageId,
+                    });
+                    console.log(`[RoomElevation] BULLETPROOF: Restored photo from LocalImage ${localImg.imageId} for point "${pointName}" (displayUrl: ${displayUrl.substring(0, 50)}...)`);
                   }
                 } else {
                   localPoint.photos = [];
@@ -1453,6 +1547,28 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       this.changeDetectorRef.detectChanges();
       console.log('[RoomElevation] Elevation data reload complete');
 
+      // TASK 1 FIX: Update class-level preservation maps after successful reload
+      // This ensures photos survive subsequent navigations and reloads
+      if (this.roomData?.elevationPoints) {
+        for (const point of this.roomData.elevationPoints) {
+          if (point.photos && point.photos.length > 0) {
+            const photosWithUrls = point.photos.filter((p: any) =>
+              p.displayUrl &&
+              p.displayUrl !== 'assets/img/photo-placeholder.png' &&
+              !p.displayUrl.includes('placeholder')
+            );
+            if (photosWithUrls.length > 0) {
+              const photosCopy = photosWithUrls.map((p: any) => ({ ...p }));
+              this.preservedPhotosByPointName.set(point.name, photosCopy);
+              if (point.pointId) {
+                this.preservedPhotosByPointId.set(String(point.pointId), photosCopy);
+              }
+            }
+          }
+        }
+        console.log(`[RoomElevation] Updated preservation maps after reload: ${this.preservedPhotosByPointName.size} points`);
+      }
+
       // Set cooldown to prevent rapid re-invalidations
       this.startLocalOperationCooldown();
 
@@ -1493,6 +1609,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     if (this.syncStatusSubscription) {
       this.syncStatusSubscription.unsubscribe();
+    }
+    if (this.efeRoomSyncSubscription) {
+      this.efeRoomSyncSubscription.unsubscribe();
     }
     if (this.backgroundRefreshSubscription) {
       this.backgroundRefreshSubscription.unsubscribe();
@@ -1883,26 +2002,62 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private async loadLocalFDFPhotos() {
     try {
       const fdfPhotos = this.roomData.fdfPhotos;
-      
-      // Get all FDF photos for this room
-      const localFDFImages = await this.localImageService.getImagesForEntity('fdf', this.roomId);
-      console.log(`[RoomElevation] Found ${localFDFImages.length} LocalImage FDF photos for room ${this.roomId}`);
-      
+
+      // TASK 1 FIX: Get FDF photos by both real room ID AND any temp IDs that map to this room
+      // This handles the case where FDF photos were captured with temp room ID before room synced
+      let localFDFImages = await this.localImageService.getImagesForEntity('fdf', this.roomId);
+
+      // Also check for photos stored with temp IDs that map to this real room ID
+      if (!String(this.roomId).startsWith('temp_')) {
+        try {
+          // Get all FDF images for the service and filter by temp ID mapping
+          const allFDFImages = await this.indexedDb.getLocalImagesForService(this.serviceId, 'fdf');
+          for (const img of allFDFImages) {
+            // If image entityId is a temp ID, check if it maps to current roomId
+            if (img.entityId.startsWith('temp_')) {
+              const realId = await this.indexedDb.getRealId(img.entityId);
+              if (realId === this.roomId) {
+                // Avoid duplicates
+                if (!localFDFImages.some(existing => existing.imageId === img.imageId)) {
+                  localFDFImages.push(img);
+                  console.log(`[RoomElevation] Found FDF photo via temp->real mapping: ${img.imageId} (${img.entityId} -> ${this.roomId})`);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[RoomElevation] Error checking temp ID mappings for FDF photos:', e);
+        }
+      }
+
+      console.log(`[RoomElevation] Found ${localFDFImages.length} LocalImage FDF photos for room ${this.roomId} (including temp ID mappings)`);
+
       for (const localImage of localFDFImages) {
         const photoType = localImage.photoType || 'Top';  // Default to Top if not specified
         const photoKey = photoType.toLowerCase();
-        
-        // Only set if not already loaded from server
-        if (!fdfPhotos[photoKey] || fdfPhotos[`${photoKey}IsLocalFirst`]) {
+
+        // TASK 1 FIX: ALWAYS apply LocalImage data if the image exists and has local blob
+        // This ensures photos persist through navigation during sync
+        // The local blob URL is the source of truth until the image is fully verified on server
+        const hasLocalBlob = !!localImage.localBlobId;
+        const isStillLocal = localImage.status !== 'verified';
+        const currentUrlIsPlaceholder = !fdfPhotos[`${photoKey}DisplayUrl`] ||
+                                         fdfPhotos[`${photoKey}DisplayUrl`] === 'assets/img/photo-placeholder.png' ||
+                                         fdfPhotos[`${photoKey}Loading`];
+
+        // Apply local image if: has local blob AND (still local/syncing OR current URL is placeholder)
+        if (hasLocalBlob && (isStillLocal || currentUrlIsPlaceholder)) {
           // Get display URL
+          // TASK 1 FIX: Set photo UNCONDITIONALLY even with placeholder URL
+          // Matches category-detail pattern - placeholder will be updated via liveQuery
           let displayUrl = 'assets/img/photo-placeholder.png';
           try {
             displayUrl = await this.localImageService.getDisplayUrl(localImage);
           } catch (e) {
             console.warn('[RoomElevation] Failed to get LocalImage FDF displayUrl:', e);
           }
-          
-          // Set the FDF photo data
+
+          // Set the FDF photo data (even with placeholder - will update via liveQuery)
           fdfPhotos[photoKey] = true;
           fdfPhotos[`${photoKey}Url`] = displayUrl;
           fdfPhotos[`${photoKey}DisplayUrl`] = displayUrl;
@@ -1915,11 +2070,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           fdfPhotos[`${photoKey}LocalBlobId`] = localImage.localBlobId;
           fdfPhotos[`${photoKey}IsLocalFirst`] = true;
           fdfPhotos[`${photoKey}HasAnnotations`] = !!(localImage.drawings && localImage.drawings.length > 10);
-          
-          console.log(`[RoomElevation] Loaded local FDF ${photoType} photo: ${localImage.imageId}`);
+
+          console.log(`[RoomElevation] ✅ Loaded local FDF ${photoType} photo: ${localImage.imageId} (status: ${localImage.status}, displayUrl: ${displayUrl.substring(0, 50)}...)`);
         }
       }
-      
+
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('[RoomElevation] Error loading local FDF photos:', error);
@@ -2520,29 +2675,35 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             );
             if (!alreadyHas) {
               // Get displayUrl from LocalImage
-              const displayUrl = await this.localImageService.getDisplayUrl(localImg);
-              if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.png') {
-                const localPhotoData = {
-                  imageId: localImg.imageId,
-                  localImageId: localImg.imageId,
-                  attachId: localImg.attachId || localImg.imageId,
-                  photoType: localImg.photoType || 'Measurement',
-                  url: displayUrl,
-                  displayUrl: displayUrl,
-                  thumbnailUrl: displayUrl,
-                  caption: localImg.caption || '',
-                  drawings: localImg.drawings || null,
-                  hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
-                  uploading: false,  // SILENT SYNC: Never show spinner
-                  queued: false,     // SILENT SYNC: Never show queued indicator
-                  isPending: localImg.status !== 'verified',
-                  isLocalImage: true,
-                  isLocalFirst: true,
-                  _tempId: localImg.imageId,
-                };
-                pointData.photos.push(localPhotoData);
-                console.log(`[RoomElevation] BULLETPROOF: Restored photo from LocalImage ${localImg.imageId} for point "${pointData.name}"`);
+              // TASK 1 FIX: Add photo UNCONDITIONALLY even with placeholder URL
+              // Matches category-detail pattern - placeholder will be updated via liveQuery when URL becomes available
+              let displayUrl = 'assets/img/photo-placeholder.png';
+              try {
+                displayUrl = await this.localImageService.getDisplayUrl(localImg);
+              } catch (e) {
+                console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
               }
+
+              const localPhotoData = {
+                imageId: localImg.imageId,
+                localImageId: localImg.imageId,
+                attachId: localImg.attachId || localImg.imageId,
+                photoType: localImg.photoType || 'Measurement',
+                url: displayUrl,
+                displayUrl: displayUrl,
+                thumbnailUrl: displayUrl,
+                caption: localImg.caption || '',
+                drawings: localImg.drawings || null,
+                hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
+                uploading: false,  // SILENT SYNC: Never show spinner
+                queued: false,     // SILENT SYNC: Never show queued indicator
+                isPending: localImg.status !== 'verified',
+                isLocalImage: true,
+                isLocalFirst: true,
+                _tempId: localImg.imageId,
+              };
+              pointData.photos.push(localPhotoData);
+              console.log(`[RoomElevation] BULLETPROOF: Restored photo from LocalImage ${localImg.imageId} for point "${pointData.name}" (displayUrl: ${displayUrl.substring(0, 50)}...)`);
             }
           }
         }
@@ -3992,43 +4153,24 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     updateData[columnName] = newCaption;
     await this.updateLocalEFECache(updateData);
 
-    // 3. Queue for backend sync
+    // 3. Queue for backend sync using unified caption system
+    // This ensures FDF captions go through the same sync path as annotations
     try {
-      const { id, isTempId } = await this.resolveRoomId();
+      // Get existing drawings (if any) to include in the update
+      const existingDrawings = fdfPhotos[`${photoKey}Drawings`] || '';
 
-      if (isTempId || !this.offlineService.isOnline()) {
-        // Offline or temp room - queue for background sync
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: isTempId 
-            ? `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`
-            : `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
-          method: 'PUT',
-          data: isTempId ? { ...updateData, _tempEfeId: this.roomId } : updateData,
-          dependencies: isTempId ? [this.roomId] : [],
-          status: 'pending',
-          priority: 'normal'
-        });
-        console.log('[FDF Caption] Queued for sync');
-      } else {
-        // Online with real ID - try direct API call
-        try {
-          await this.caspioService.updateServicesEFEByEFEID(id, updateData).toPromise();
-          console.log('[FDF Caption] Saved to server');
-        } catch (apiError) {
-          // API failed - queue for background sync
-          console.warn('[FDF Caption] API call failed, queuing for sync:', apiError);
-          await this.indexedDb.addPendingRequest({
-            type: 'UPDATE',
-            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
-            method: 'PUT',
-            data: updateData,
-            dependencies: [],
-            status: 'pending',
-            priority: 'normal'
-          });
+      // Use unified caption/annotation queue - same as saveFDFAnnotationToDatabase
+      await this.foundationData.queueCaptionAndAnnotationUpdate(
+        this.roomId,  // Use roomId as attachId - FDF data is on EFE room record
+        newCaption,
+        existingDrawings,
+        'fdf',
+        {
+          serviceId: this.serviceId,
+          pointId: photoType  // photoType (Top/Bottom/Threshold) passed as pointId for FDF sync handler
         }
-      }
+      );
+      console.log('[FDF Caption] ✅ Queued for sync via unified system, roomId:', this.roomId, 'photoType:', photoType);
     } catch (error) {
       console.error('[FDF Caption] Error:', error);
     }
@@ -4446,11 +4588,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // OFFLINE-FIRST: Use foundationData.uploadEFEPointPhoto which handles both
       // online (immediate upload) and offline (IndexedDB queue) scenarios
+      // TASK 1 FIX: Pass serviceId so LocalImages can be found by getImagesForService()
+      // Without serviceId, photos would be stored with serviceId='' but queried with actual serviceId
       const result = await this.foundationData.uploadEFEPointPhoto(
         point.pointId,
         compressedFile,
         photoType,
-        '' // No drawings initially
+        '', // No drawings initially
+        this.serviceId  // CRITICAL: Pass serviceId for LocalImage lookup
       );
 
       console.log(`[Point Photo] Photo ${photoType} processed for point ${point.pointName}:`, result);

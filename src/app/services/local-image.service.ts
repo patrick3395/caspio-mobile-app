@@ -597,8 +597,9 @@ export class LocalImageService {
    * Mark upload as in progress
    */
   async markUploadStarted(opId: string, imageId: string): Promise<void> {
+    const item = await this.indexedDb.getOutboxItemForImage(imageId);
     await this.indexedDb.updateOutboxItem(opId, {
-      attempts: (await this.indexedDb.getOutboxItemForImage(imageId))?.attempts ?? 0 + 1
+      attempts: (item?.attempts ?? 0) + 1
     });
     await this.updateStatus(imageId, 'uploading');
   }

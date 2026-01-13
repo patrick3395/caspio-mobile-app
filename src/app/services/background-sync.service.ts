@@ -6,6 +6,7 @@ import { ApiGatewayService } from './api-gateway.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
 import { CaspioService } from './caspio.service';
 import { LocalImageService } from './local-image.service';
+import { OperationsQueueService } from './operations-queue.service';
 import { environment } from '../../environments/environment';
 
 export interface PhotoUploadComplete {
@@ -215,7 +216,8 @@ export class BackgroundSyncService {
     private connectionMonitor: ConnectionMonitorService,
     private ngZone: NgZone,
     private caspioService: CaspioService,
-    private localImageService: LocalImageService
+    private localImageService: LocalImageService,
+    private operationsQueue: OperationsQueueService
   ) {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
@@ -461,11 +463,22 @@ export class BackgroundSyncService {
       // Reset any stuck 'syncing' requests before processing
       // This handles cases where sync was interrupted (navigation, network issues, etc.)
       await this.resetStuckSyncingRequests();
-      
-      // NEW: Process upload outbox (new local-first image system)
-      await this.processUploadOutbox();
-      
+
+      // TASK 2 FIX: Process OperationsQueue FIRST (rooms, points creation)
+      // OperationsQueue handles CREATE operations that generate temp IDs
+      // These must complete before FDF photos can sync (they reference room temp IDs)
+      // Without this, clicking "Sync Now" wouldn't process queued room creations
+      console.log('[BackgroundSync] Processing OperationsQueue (room/point creations)...');
+      await this.operationsQueue.processQueue();
+
+      // Process pending requests (rooms, points updates)
+      // This ensures rooms have real IDs before we try to upload FDF photos
+      // FDF photos use room ID as entityId - if room hasn't synced, photo would be deferred
       await this.syncPendingRequests();
+
+      // Process upload outbox (new local-first image system) AFTER rooms/points sync
+      await this.processUploadOutbox();
+
       // CRITICAL: Process pending caption updates independently from photo uploads
       await this.syncPendingCaptions();
       
@@ -2376,8 +2389,52 @@ export class BackgroundSyncService {
   // ============================================================================
 
   /**
+   * TASK 2 FIX: Reset deferred photos whose dependencies are now resolved
+   * Photos with temp entityIds that were deferred get reset to be processed immediately
+   * when their parent entity (room, point) has synced and has a real ID
+   */
+  private async resetDeferredPhotosWithResolvedDependencies(): Promise<number> {
+    if (!this.indexedDb.hasNewImageSystem()) {
+      return 0;
+    }
+
+    const allItems = await this.indexedDb.getAllUploadOutboxItems();
+    const now = Date.now();
+    let resetCount = 0;
+
+    for (const item of allItems) {
+      // Skip items that are already ready
+      if (item.nextRetryAt <= now) {
+        continue;
+      }
+
+      const image = await this.indexedDb.getLocalImage(item.imageId);
+      if (!image) continue;
+
+      // Check if this photo was deferred due to temp entityId
+      if (image.entityId.startsWith('temp_')) {
+        const realId = await this.indexedDb.getRealId(image.entityId);
+        if (realId) {
+          // Dependency resolved! Reset nextRetryAt to process immediately
+          await this.indexedDb.updateOutboxItem(item.opId, {
+            nextRetryAt: now
+          });
+          console.log(`[BackgroundSync] Reset deferred photo ${item.imageId} - dependency resolved: ${image.entityId} -> ${realId}`);
+          resetCount++;
+        }
+      }
+    }
+
+    if (resetCount > 0) {
+      console.log(`[BackgroundSync] Reset ${resetCount} deferred photos with resolved dependencies`);
+    }
+
+    return resetCount;
+  }
+
+  /**
    * Process upload outbox - new local-first image system
-   * 
+   *
    * Key features:
    * - Stable imageId never changes
    * - Local blob preserved until remote is VERIFIED
@@ -2386,11 +2443,28 @@ export class BackgroundSyncService {
   private async processUploadOutbox(): Promise<void> {
     // Check if new system is available
     if (!this.indexedDb.hasNewImageSystem()) {
+      console.log('[BackgroundSync] Upload outbox: new image system not available');
       return;
     }
 
+    // TASK 2 FIX: Reset any deferred photos whose dependencies (rooms/points) have now synced
+    // This ensures photos don't stay stuck in deferred state after their parent entity syncs
+    await this.resetDeferredPhotosWithResolvedDependencies();
+
+    // TASK 2 FIX: Log all outbox items for debugging
+    const allItems = await this.indexedDb.getAllUploadOutboxItems();
     const readyItems = await this.localImageService.getReadyUploads();
-    
+
+    if (allItems.length > 0) {
+      console.log(`[BackgroundSync] Upload outbox: ${allItems.length} total, ${readyItems.length} ready`);
+      // Log details for items that aren't ready
+      const notReadyItems = allItems.filter(a => !readyItems.some(r => r.opId === a.opId));
+      for (const item of notReadyItems) {
+        const image = await this.indexedDb.getLocalImage(item.imageId);
+        console.log(`[BackgroundSync]   NOT READY: ${item.opId}, type: ${image?.entityType || 'unknown'}, nextRetry: ${new Date(item.nextRetryAt).toISOString()}, attempts: ${item.attempts}, error: ${item.lastError || 'none'}`);
+      }
+    }
+
     if (readyItems.length === 0) {
       return;
     }
@@ -2426,6 +2500,8 @@ export class BackgroundSyncService {
     if (!image.localBlobId) {
       console.warn('[BackgroundSync] No local blob for image:', item.imageId);
       await this.indexedDb.removeOutboxItem(item.opId);
+      // Mark image as failed so it doesn't show as stuck
+      await this.localImageService.markFailed(item.imageId, 'No local blob data');
       return;
     }
 
@@ -2433,15 +2509,15 @@ export class BackgroundSyncService {
     if (!blob) {
       console.warn('[BackgroundSync] Blob not found:', image.localBlobId);
       await this.indexedDb.removeOutboxItem(item.opId);
+      // Mark image as failed so it doesn't show as stuck
+      await this.localImageService.markFailed(item.imageId, 'Blob data not found');
       return;
     }
 
-    // Mark as uploading
-    await this.localImageService.markUploadStarted(item.opId, item.imageId);
+    console.log('[BackgroundSync] Uploading image:', item.imageId, 'type:', image.entityType, 'entityId:', image.entityId, 'photoType:', image.photoType);
 
-    console.log('[BackgroundSync] Uploading image:', item.imageId, 'type:', image.entityType);
-
-    // Resolve temp entityId if needed
+    // Resolve temp entityId if needed BEFORE marking as uploading
+    // This prevents items from getting stuck in 'uploading' status when deferred
     let entityId = image.entityId;
     if (entityId.startsWith('temp_')) {
       const realId = await this.indexedDb.getRealId(entityId);
@@ -2451,12 +2527,16 @@ export class BackgroundSyncService {
         await this.indexedDb.updateOutboxItem(item.opId, {
           nextRetryAt: Date.now() + 30000  // Retry in 30 seconds
         });
+        // Keep status as 'queued' (don't mark as uploading yet)
         return;  // Skip for now, will retry on next sync cycle
       }
       entityId = realId;
       // Update image with resolved entityId
       await this.indexedDb.updateLocalImage(item.imageId, { entityId: realId });
     }
+
+    // Mark as uploading ONLY after we've confirmed we can proceed
+    await this.localImageService.markUploadStarted(item.opId, item.imageId);
 
     // Convert ArrayBuffer back to File
     const file = new File(
@@ -2488,7 +2568,9 @@ export class BackgroundSyncService {
       case 'fdf':
         // FDF photos are stored on the EFE room record itself, not as attachments
         // photoType is stored in image.photoType (e.g., 'Top', 'Bottom', 'Threshold')
+        console.log('[BackgroundSync] FDF photo upload starting:', item.imageId, 'roomId:', entityId, 'photoType:', image.photoType);
         result = await this.uploadFDFPhoto(entityId, file, image.photoType || 'Top');
+        console.log('[BackgroundSync] FDF photo upload completed:', item.imageId, 'result:', result);
         break;
       // Add more entity types as needed
       default:
