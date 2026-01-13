@@ -290,6 +290,47 @@ export class IndexedDbService {
   }
 
   /**
+   * Retry a single failed request - resets status to pending and clears error
+   * Returns true if request was found and reset, false otherwise
+   */
+  async retryRequest(requestId: string): Promise<boolean> {
+    const request = await db.pendingRequests.get(requestId);
+    if (!request) {
+      console.warn(`[IndexedDB] Cannot retry - request not found: ${requestId}`);
+      return false;
+    }
+
+    await db.pendingRequests.update(requestId, {
+      status: 'pending',
+      retryCount: 0,
+      lastAttempt: 0,
+      error: undefined
+    });
+    console.log(`[IndexedDB] Request reset for retry: ${requestId}`);
+    return true;
+  }
+
+  /**
+   * Retry a single failed caption update - resets status to pending
+   */
+  async retryCaption(captionId: string): Promise<boolean> {
+    const caption = await db.pendingCaptions.get(captionId);
+    if (!caption) {
+      console.warn(`[IndexedDB] Cannot retry - caption not found: ${captionId}`);
+      return false;
+    }
+
+    await db.pendingCaptions.update(captionId, {
+      status: 'pending',
+      retryCount: 0,
+      lastAttempt: 0,
+      error: undefined
+    });
+    console.log(`[IndexedDB] Caption reset for retry: ${captionId}`);
+    return true;
+  }
+
+  /**
    * Check if dependencies are completed
    */
   async areDependenciesCompleted(dependencyIds: string[]): Promise<boolean> {

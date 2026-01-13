@@ -89,15 +89,32 @@ import { db } from '../../services/caspio-db';
       </div>
 
       <!-- Failed -->
-      <div class="sync-section failed-section" *ngIf="failedRequests.length > 0">
+      <div class="sync-section failed-section" *ngIf="failedRequests.length > 0 || failedCaptions.length > 0">
         <h4><ion-icon name="alert-circle-outline"></ion-icon> Failed</h4>
         <div class="request-list">
           <div class="request-item failed" *ngFor="let req of failedRequests">
             <ion-icon [name]="getRequestIcon(req)"></ion-icon>
             <span class="request-desc">{{ getRequestDescription(req) }}</span>
             <span class="error-msg" *ngIf="req.error">{{ req.error }}</span>
+            <ion-button fill="clear" size="small" (click)="retryFailedRequest(req.requestId)" title="Retry this item">
+              <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+          </div>
+          <!-- Failed Captions -->
+          <div class="request-item failed caption" *ngFor="let cap of failedCaptions">
+            <ion-icon name="text-outline"></ion-icon>
+            <span class="request-desc">{{ getCaptionDescription(cap) }}</span>
+            <span class="error-msg" *ngIf="cap.error">{{ cap.error }}</span>
+            <ion-button fill="clear" size="small" (click)="retryFailedCaption(cap.captionId)" title="Retry this item">
+              <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
+            </ion-button>
           </div>
         </div>
+        <!-- Retry All Failed button -->
+        <ion-button expand="block" fill="outline" color="warning" (click)="retryAllFailed()" *ngIf="failedRequests.length + failedCaptions.length > 1" class="retry-all-btn">
+          <ion-icon name="refresh" slot="start"></ion-icon>
+          Retry All Failed ({{ failedRequests.length + failedCaptions.length }})
+        </ion-button>
       </div>
 
       <!-- Empty State -->
@@ -262,6 +279,21 @@ import { db } from '../../services/caspio-db';
       font-size: 11px;
       color: #d9534f;
       flex-shrink: 0;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .request-item ion-button {
+      --padding-start: 4px;
+      --padding-end: 4px;
+      margin: 0;
+      flex-shrink: 0;
+    }
+
+    .retry-all-btn {
+      margin-top: 12px;
     }
 
     .request-item.syncing {
@@ -359,6 +391,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   pendingRequests: any[] = [];
   syncingRequests: any[] = [];
   failedRequests: any[] = [];
+  failedCaptions: PendingCaptionUpdate[] = [];
   pendingCaptions: PendingCaptionUpdate[] = [];
   pendingPhotos: any[] = [];  // New LocalImage system photos waiting to upload
   stuckCount: number = 0;
@@ -406,8 +439,9 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       const syncingReqs = requests.filter(r => r.status === 'syncing');
       const failedReqs = requests.filter(r => r.status === 'failed');
 
-      // Update pending captions (all statuses except 'synced')
-      const pendingCaps = captions.filter(c => c.status !== 'synced');
+      // Separate pending captions from failed captions for UI display
+      const pendingCaps = captions.filter(c => c.status === 'pending' || c.status === 'syncing');
+      const failedCaps = captions.filter(c => c.status === 'failed');
 
       // FIXED: Batch load pending photos using Promise.all instead of sequential loop
       let photos: any[] = [];
@@ -443,10 +477,11 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
         this.pendingRequests = pendingReqs;
         this.syncingRequests = syncingReqs;
         this.failedRequests = failedReqs;
+        this.failedCaptions = failedCaps;
         this.pendingCaptions = pendingCaps;
         this.pendingPhotos = photos;
         this.totalPendingCount = pendingReqs.length + pendingCaps.length +
-                                  photos.length + failedReqs.length;
+                                  photos.length + failedReqs.length + failedCaps.length;
         this.stuckCount = stuckRequests + staleCaptions;
         this.changeDetectorRef.markForCheck();
       });
@@ -770,7 +805,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   getCaptionStatusLabel(caption: PendingCaptionUpdate): string {
     const attachIdStr = String(caption.attachId || '');
     const hasTempId = attachIdStr.startsWith('temp_') || attachIdStr.startsWith('img_');
-    
+
     switch (caption.status) {
       case 'syncing':
         return 'syncing';
@@ -785,6 +820,52 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
         }
         return 'pending';
     }
+  }
+
+  /**
+   * Retry a single failed request
+   */
+  async retryFailedRequest(requestId: string): Promise<void> {
+    console.log(`[SyncModal] Retrying failed request: ${requestId}`);
+    const success = await this.indexedDb.retryRequest(requestId);
+    if (success) {
+      // Trigger sync to process the retry immediately
+      await this.backgroundSync.forceSyncNow();
+    }
+  }
+
+  /**
+   * Retry a single failed caption update
+   */
+  async retryFailedCaption(captionId: string): Promise<void> {
+    console.log(`[SyncModal] Retrying failed caption: ${captionId}`);
+    const success = await this.indexedDb.retryCaption(captionId);
+    if (success) {
+      // Trigger sync to process the retry immediately
+      await this.backgroundSync.forceSyncNow();
+    }
+  }
+
+  /**
+   * Retry all failed items (requests and captions)
+   */
+  async retryAllFailed(): Promise<void> {
+    console.log(`[SyncModal] Retrying all failed items...`);
+
+    // Reset all failed requests
+    for (const req of this.failedRequests) {
+      await this.indexedDb.retryRequest(req.requestId);
+    }
+
+    // Reset all failed captions
+    for (const cap of this.failedCaptions) {
+      await this.indexedDb.retryCaption(cap.captionId);
+    }
+
+    console.log(`[SyncModal] Reset ${this.failedRequests.length} requests and ${this.failedCaptions.length} captions for retry`);
+
+    // Trigger sync to process all retries
+    await this.backgroundSync.forceSyncNow();
   }
 }
 
