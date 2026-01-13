@@ -1815,9 +1815,10 @@ export class IndexedDbService {
   /**
    * Clear ALL pending requests and related data
    * TASK 1 FIX: Also clears uploadOutbox and resets localImages stuck in syncing state
+   * US-001 FIX: Also clears failed items to prevent stale failure data persisting
    */
-  async clearAllPendingSync(): Promise<{ requests: number; captions: number; images: number; outbox: number; localImages: number }> {
-    const result = { requests: 0, captions: 0, images: 0, outbox: 0, localImages: 0 };
+  async clearAllPendingSync(): Promise<{ requests: number; captions: number; images: number; outbox: number; localImages: number; failedCleared: number }> {
+    const result = { requests: 0, captions: 0, images: 0, outbox: 0, localImages: 0, failedCleared: 0 };
 
     result.requests = await db.pendingRequests.count();
     await db.pendingRequests.clear();
@@ -1832,21 +1833,54 @@ export class IndexedDbService {
     result.outbox = await db.uploadOutbox.count();
     await db.uploadOutbox.clear();
 
-    // TASK 1 FIX: Reset any localImages stuck in 'uploading' or 'queued' status
-    // Mark them as 'failed' so user knows they need to re-upload
-    const stuckImages = await db.localImages
-      .filter(img => img.status === 'uploading' || img.status === 'queued')
+    // US-001 FIX: Delete localImages stuck in 'uploading', 'queued', or 'failed' status
+    // This prevents stale failure data from persisting after clearing
+    const stuckOrFailedImages = await db.localImages
+      .filter(img => img.status === 'uploading' || img.status === 'queued' || img.status === 'failed')
       .toArray();
 
-    for (const img of stuckImages) {
-      await db.localImages.update(img.imageId, {
-        status: 'failed',
-        lastError: 'Cleared by user - sync was stuck'
-      });
+    for (const img of stuckOrFailedImages) {
+      await db.localImages.delete(img.imageId);
       result.localImages++;
     }
 
-    console.log(`[IndexedDB] Cleared all pending sync: ${result.requests} requests, ${result.captions} captions, ${result.images} images, ${result.outbox} outbox, ${result.localImages} stuck localImages`);
+    // Also delete any blobs associated with deleted images
+    for (const img of stuckOrFailedImages) {
+      try {
+        await db.localBlobs.delete(img.imageId);
+        result.failedCleared++;
+      } catch (e) {
+        // Blob may not exist, ignore
+      }
+    }
+
+    console.log(`[IndexedDB] Cleared all pending sync: ${result.requests} requests, ${result.captions} captions, ${result.images} images, ${result.outbox} outbox, ${result.localImages} stuck/failed localImages`);
+    return result;
+  }
+
+  /**
+   * Clear ALL failed items (requests, captions, and photos)
+   * This removes stale failure data that persists after successful uploads or clearing
+   */
+  async clearAllFailed(): Promise<{ requests: number; captions: number; photos: number }> {
+    const result = { requests: 0, captions: 0, photos: 0 };
+
+    // Clear failed requests
+    const failedRequests = await db.pendingRequests.where('status').equals('failed').toArray();
+    result.requests = failedRequests.length;
+    await db.pendingRequests.bulkDelete(failedRequests.map(r => r.requestId));
+
+    // Clear failed captions
+    const failedCaptions = await db.pendingCaptions.where('status').equals('failed').toArray();
+    result.captions = failedCaptions.length;
+    await db.pendingCaptions.bulkDelete(failedCaptions.map(c => c.captionId));
+
+    // Clear failed local images
+    const failedImages = await db.localImages.where('status').equals('failed').toArray();
+    result.photos = failedImages.length;
+    await db.localImages.bulkDelete(failedImages.map(i => i.imageId));
+
+    console.log(`[IndexedDB] Cleared all failed: ${result.requests} requests, ${result.captions} captions, ${result.photos} photos`);
     return result;
   }
 

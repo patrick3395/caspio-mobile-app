@@ -213,6 +213,11 @@ import { db } from '../../services/caspio-db';
             <ion-icon name="refresh" slot="start"></ion-icon>
             Retry All Failed ({{ failedRequests.length + failedCaptions.length + failedPhotos.length }})
           </ion-button>
+          <!-- Clear All Failed button -->
+          <ion-button expand="block" fill="outline" color="danger" (click)="clearAllFailed()" *ngIf="failedRequests.length + failedCaptions.length + failedPhotos.length > 0" class="clear-failed-btn">
+            <ion-icon name="trash-outline" slot="start"></ion-icon>
+            Clear All Failed ({{ failedRequests.length + failedCaptions.length + failedPhotos.length }})
+          </ion-button>
         </div>
 
         <!-- Empty State for Failed -->
@@ -1136,6 +1141,21 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
 
     // Trigger sync to process all retries
     await this.backgroundSync.forceSyncNow();
+  }
+
+  /**
+   * Clear all failed items permanently (removes stale failure data)
+   */
+  async clearAllFailed(): Promise<void> {
+    console.log(`[SyncModal] Clearing all failed items...`);
+    const result = await this.indexedDb.clearAllFailed();
+    console.log(`[SyncModal] Cleared: ${result.requests} requests, ${result.captions} captions, ${result.photos} photos`);
+
+    // Refresh sync status so widget shows correct count
+    await this.backgroundSync.refreshSyncStatus();
+
+    // Refresh the list immediately
+    await this.refreshDetails();
   }
 
   /**
