@@ -1219,11 +1219,11 @@ export class OfflineTemplateService {
    */
   async getEFERooms(serviceId: string): Promise<any[]> {
     console.log(`[OfflineTemplate] getEFERooms(${serviceId}) called`);
-    
+
     // 1. Read from cache IMMEDIATELY
     const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
     console.log(`[OfflineTemplate] getEFERooms: ${cached.length} rooms in cache`);
-    
+
     // 2. Merge with pending offline rooms
     const pending = await this.indexedDb.getPendingEFEByService(serviceId);
     const pendingRooms = pending
@@ -1237,8 +1237,24 @@ export class OfflineTemplateService {
         _syncing: true,
       }));
     console.log(`[OfflineTemplate] getEFERooms: ${pendingRooms.length} pending rooms`);
-    
-    const merged = [...cached, ...pendingRooms];
+
+    // CRITICAL FIX: Deduplicate rooms - pending rooms have latest local changes (e.g., FDF selection)
+    // and should override cached versions. Use a Map keyed by room identifier to ensure uniqueness.
+    const roomMap = new Map<string, any>();
+
+    // First, add cached rooms
+    for (const room of cached) {
+      const key = room.RoomName || String(room.EFEID || room.PK_ID || room._tempId);
+      roomMap.set(key, room);
+    }
+
+    // Then, override with pending rooms (they have the most recent local changes like FDF)
+    for (const room of pendingRooms) {
+      const key = room.RoomName || String(room.EFEID || room.PK_ID || room._tempId);
+      roomMap.set(key, room);
+    }
+
+    const merged = Array.from(roomMap.values());
     
     // 3. Return immediately if we have data
     if (merged.length > 0) {
