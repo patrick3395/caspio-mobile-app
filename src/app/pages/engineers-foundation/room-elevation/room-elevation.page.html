@@ -320,7 +320,8 @@
                     <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url || 'assets/img/photo-placeholder.png'"
                          width="90" height="90"
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), point)"
-                         alt="Measurement">
+                         alt="Measurement"
+                         [class.has-annotations]="getPointPhotoByType(point, 'Measurement').hasAnnotations">
                     <!-- Only show spinner when actively uploading - NOT for cached images -->
                     <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
                       <ion-spinner name="crescent" color="light"></ion-spinner>
@@ -373,7 +374,8 @@
                     <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url || 'assets/img/photo-placeholder.png'"
                          width="90" height="90"
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), point)"
-                         alt="Location">
+                         alt="Location"
+                         [class.has-annotations]="getPointPhotoByType(point, 'Location').hasAnnotations">
                     <!-- Only show spinner when actively uploading - NOT for cached images -->
                     <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
                       <ion-spinner name="crescent" color="light"></ion-spinner>

@@ -319,6 +319,11 @@ select.styled-input {
     &:active {
       transform: scale(0.98);
     }
+
+    // Support has-annotations class directly on img element (point photos)
+    &.has-annotations {
+      border-color: #F15A27;
+    }
   }
 
   &.has-annotations img {
