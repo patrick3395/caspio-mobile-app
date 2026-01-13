@@ -4,12 +4,12 @@
   "userStories": [
     {
       "id": "US-001",
-      "title": "FDF Question Not Persisting Locally",
-      "description": "As a user, I want the Same/Different Elevation dropdown value to persist locally after selection so that when I navigate out and back into a room, my answer is still visible without requiring a sync.",
+      "title": "FDF Captions Not Persisting Locally",
+      "description": "As a user, I want FDF captions to persist in local storage before syncing so that when I navigate out and back into a room, my captions are still visible.",
       "acceptanceCriteria": [
-        "Same/Different Elevation dropdown value persists locally after selection",
-        "Value is still visible when navigating out and back into a room",
-        "Value does not require sync to be visible locally"
+        "FDF captions persist locally after entry",
+        "Captions remain visible when navigating out and back into a room",
+        "Captions do not require sync to be visible locally"
       ],
       "priority": 1,
       "passes": true,
@@ -18,21 +18,35 @@
     },
     {
       "id": "US-002",
-      "title": "FDF Photo Syncing Failing - entityId.startsWith Error",
-      "description": "As a user, I want FDF photos to sync successfully without errors. Currently syncing fails with: TypeError: ue.entityId.startsWith is not a function",
+      "title": "FDF Annotations on Images Not Persisting Locally",
+      "description": "As a user, I want FDF annotations on images to persist in local storage before syncing so that my annotations are preserved when navigating between rooms.",
       "acceptanceCriteria": [
-        "FDF photos sync successfully without errors",
-        "No TypeError related to entityId.startsWith",
-        "Photos are uploaded to Caspio backend correctly"
+        "Image annotations persist locally after creation",
+        "Annotations remain visible when navigating out and back into a room",
+        "Annotations do not require sync to be visible locally"
       ],
-      "errorLog": "[BackgroundSync] Sync failed: TypeError: ue.entityId.startsWith is not a function at main.6eefdef0138008d6.js:1:2854848",
       "priority": 2,
+      "passes": true,
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-003",
+      "title": "Background Sync Pausing When App Not Active",
+      "description": "As a user, I want syncing to continue as long as the app is not killed, even when the app is in the background or when I navigate to a different project/template.",
+      "acceptanceCriteria": [
+        "Syncing continues when app is in background (not killed)",
+        "Syncing continues when navigating to a different project",
+        "Syncing continues when closing/switching templates",
+        "Sync only stops when app is fully terminated"
+      ],
+      "priority": 3,
       "passes": true,
       "dependsOn": [],
       "completionNotes": "Completed by agent"
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-13T17:42:46.308Z"
+    "updatedAt": "2026-01-13T18:44:40.813Z"
   }
 }

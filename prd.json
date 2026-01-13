@@ -5,28 +5,40 @@
   "tasks": [
     {
       "id": "TASK-001",
-      "title": "FDF Question Not Persisting Locally",
-      "description": "FDF question (Same Elevation, Different Elevation) is now syncing, but it is not persisting in the local data. If I answer the question and go out and back in to a room the question is not answered. After sync the question answer comes back.",
+      "title": "FDF Captions Not Persisting Locally",
+      "description": "FDF captions are not persisting in local storage before syncing. They disappear when navigating out and back into a room.",
       "acceptance_criteria": [
-        "Same/Different Elevation dropdown value persists locally after selection",
-        "Value is still visible when navigating out and back into a room",
-        "Value does not require sync to be visible locally"
+        "FDF captions persist locally after entry",
+        "Captions remain visible when navigating out and back into a room",
+        "Captions do not require sync to be visible locally"
       ],
       "passes": false,
       "priority": 1
     },
     {
       "id": "TASK-002",
-      "title": "FDF Photo Syncing Failing - entityId.startsWith Error",
-      "description": "FDF photo syncing is failing with console error: TypeError: ue.entityId.startsWith is not a function. This occurs in the BackgroundSync process when attempting to sync FDF photos.",
-      "error_log": "[BackgroundSync] Sync failed: TypeError: ue.entityId.startsWith is not a function at main.6eefdef0138008d6.js:1:2854848",
+      "title": "FDF Annotations on Images Not Persisting Locally",
+      "description": "FDF annotations on images are not persisting in local storage before syncing.",
       "acceptance_criteria": [
-        "FDF photos sync successfully without errors",
-        "No TypeError related to entityId.startsWith",
-        "Photos are uploaded to Caspio backend correctly"
+        "Image annotations persist locally after creation",
+        "Annotations remain visible when navigating out and back into a room",
+        "Annotations do not require sync to be visible locally"
       ],
       "passes": false,
       "priority": 2
+    },
+    {
+      "id": "TASK-003",
+      "title": "Background Sync Pausing When App Not Active",
+      "description": "Syncing pauses when the app is not open or when navigating to a different project/template. Need syncing to persist as long as the app is not killed.",
+      "acceptance_criteria": [
+        "Syncing continues when app is in background (not killed)",
+        "Syncing continues when navigating to a different project",
+        "Syncing continues when closing/switching templates",
+        "Sync only stops when app is fully terminated"
+      ],
+      "passes": false,
+      "priority": 3
     }
   ]
 }
