@@ -235,6 +235,10 @@ export class OfflineDataCacheService {
               FDF: localRoom.FDF !== undefined ? localRoom.FDF : serverRoom.FDF,
               Location: localRoom.Location !== undefined ? localRoom.Location : serverRoom.Location,
               Notes: localRoom.Notes !== undefined ? localRoom.Notes : serverRoom.Notes,
+              // FDF captions - preserve local annotations until synced
+              FDFTopAnnotation: localRoom.FDFTopAnnotation !== undefined ? localRoom.FDFTopAnnotation : serverRoom.FDFTopAnnotation,
+              FDFBottomAnnotation: localRoom.FDFBottomAnnotation !== undefined ? localRoom.FDFBottomAnnotation : serverRoom.FDFBottomAnnotation,
+              FDFThresholdAnnotation: localRoom.FDFThresholdAnnotation !== undefined ? localRoom.FDFThresholdAnnotation : serverRoom.FDFThresholdAnnotation,
               _localUpdate: true  // Keep the flag until sync completes
             };
           }
