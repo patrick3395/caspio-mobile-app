@@ -1427,7 +1427,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Also resolves temp IDs to real IDs so photos persist after parent entity syncs
       this.bulkLocalImagesMap.clear();
       for (const img of allLocalImages) {
-        const entityId = img.entityId;
+        // BUGFIX: Convert entityId to string to handle numeric IDs from database
+        const entityId = String(img.entityId);
 
         // Add to map by original entityId
         if (!this.bulkLocalImagesMap.has(entityId)) {

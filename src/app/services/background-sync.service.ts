@@ -2429,7 +2429,8 @@ export class BackgroundSyncService {
       if (!image) continue;
 
       // Check if this photo was deferred due to temp entityId
-      if (image.entityId.startsWith('temp_')) {
+      // BUGFIX: Convert entityId to string to handle numeric IDs from database
+      if (String(image.entityId).startsWith('temp_')) {
         const realId = await this.indexedDb.getRealId(image.entityId);
         if (realId) {
           // Dependency resolved! Reset nextRetryAt to process immediately
@@ -2535,7 +2536,8 @@ export class BackgroundSyncService {
 
     // Resolve temp entityId if needed BEFORE marking as uploading
     // This prevents items from getting stuck in 'uploading' status when deferred
-    let entityId = image.entityId;
+    // BUGFIX: Convert entityId to string to handle numeric IDs from database
+    let entityId = String(image.entityId);
     if (entityId.startsWith('temp_')) {
       const realId = await this.indexedDb.getRealId(entityId);
       if (!realId) {

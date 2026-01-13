@@ -864,7 +864,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       try {
         const allFDFImages = await this.indexedDb.getLocalImagesForService(this.serviceId, 'fdf');
         for (const img of allFDFImages) {
-          if (img.entityId.startsWith('temp_')) {
+          // BUGFIX: Convert entityId to string to handle numeric IDs from database
+          if (String(img.entityId).startsWith('temp_')) {
             const realId = await this.indexedDb.getRealId(img.entityId);
             if (realId === this.roomId && !localFDFImages.some(e => e.imageId === img.imageId)) {
               localFDFImages.push(img);
@@ -1123,7 +1124,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // Build LocalImages map with BIDIRECTIONAL temp ID <-> real ID mapping
       const bulkLocalImagesMap = new Map<string, any[]>();
       for (const img of allLocalImages) {
-        const entityId = img.entityId;
+        // BUGFIX: Convert entityId to string to handle numeric IDs from database
+        const entityId = String(img.entityId);
 
         // Add by original entityId
         if (!bulkLocalImagesMap.has(entityId)) {
@@ -2014,7 +2016,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           const allFDFImages = await this.indexedDb.getLocalImagesForService(this.serviceId, 'fdf');
           for (const img of allFDFImages) {
             // If image entityId is a temp ID, check if it maps to current roomId
-            if (img.entityId.startsWith('temp_')) {
+            // BUGFIX: Convert entityId to string to handle numeric IDs from database
+            if (String(img.entityId).startsWith('temp_')) {
               const realId = await this.indexedDb.getRealId(img.entityId);
               if (realId === this.roomId) {
                 // Avoid duplicates
@@ -2520,7 +2523,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // Also resolve temp IDs to real IDs for photos captured before point synced
       const bulkLocalImagesMap = new Map<string, LocalImage[]>();
       for (const img of allLocalImages) {
-        const entityId = img.entityId;
+        // BUGFIX: Convert entityId to string to handle numeric IDs from database
+        const entityId = String(img.entityId);
 
         // Add by original entityId
         if (!bulkLocalImagesMap.has(entityId)) {
