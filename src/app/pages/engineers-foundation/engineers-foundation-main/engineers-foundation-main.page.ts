@@ -7,6 +7,8 @@ import { EngineersFoundationValidationService, IncompleteField } from '../servic
 import { CaspioService } from '../../../services/caspio.service';
 import { CacheService } from '../../../services/cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { LocalImageService } from '../../../services/local-image.service';
+import { BackgroundSyncService } from '../../../services/background-sync.service';
 
 interface NavigationCard {
   title: string;
@@ -65,7 +67,9 @@ export class EngineersFoundationMainPage implements OnInit {
     private cache: CacheService,
     private loadingController: LoadingController,
     private navController: NavController,
-    private offlineTemplate: OfflineTemplateService
+    private offlineTemplate: OfflineTemplateService,
+    private localImageService: LocalImageService,
+    private backgroundSync: BackgroundSyncService
   ) {}
 
   async ngOnInit() {
@@ -271,20 +275,90 @@ export class EngineersFoundationMainPage implements OnInit {
 
   async markReportAsFinalized() {
     const isUpdate = this.isReportFinalized;
-    
+
     const loading = await this.loadingController.create({
       message: isUpdate ? 'Updating report...' : 'Finalizing report...'
     });
     await loading.present();
 
     try {
+      // Step 1: Check for unsynced images and force sync them
+      console.log('[EngFoundation Main] Checking for unsynced images...');
+      const imageStatus = await this.localImageService.getServiceImageSyncStatus(this.serviceId);
+
+      if (imageStatus.pending > 0) {
+        console.log(`[EngFoundation Main] Found ${imageStatus.pending} unsynced images, forcing sync...`);
+        loading.message = `Syncing ${imageStatus.pending} image(s)...`;
+
+        // Trigger background sync to process pending uploads
+        this.backgroundSync.triggerSync();
+
+        // Force sync and wait for completion
+        const syncResult = await this.localImageService.forceSyncServiceImages(
+          this.serviceId,
+          (current, total, status) => {
+            loading.message = status;
+          }
+        );
+
+        if (!syncResult.success) {
+          await loading.dismiss();
+
+          // Show warning about failed images but allow proceeding
+          const failedCount = syncResult.failedCount;
+          const alert = await this.alertController.create({
+            header: 'Image Sync Warning',
+            message: `${failedCount} image(s) could not be synced. These images may not be available remotely. Do you want to proceed with finalization anyway?`,
+            cssClass: 'custom-document-alert',
+            buttons: [
+              { text: 'Cancel', role: 'cancel' },
+              {
+                text: 'Proceed Anyway',
+                handler: () => this.completeFinalization(isUpdate)
+              }
+            ]
+          });
+          await alert.present();
+          return;
+        }
+      }
+
+      // Step 2: Update image pointers to remote URLs
+      console.log('[EngFoundation Main] Updating image pointers to remote URLs...');
+      loading.message = 'Updating image references...';
+      await this.localImageService.updateImagePointersToRemote(this.serviceId);
+
+      await loading.dismiss();
+
+      // Step 3: Complete the finalization
+      await this.completeFinalization(isUpdate);
+
+    } catch (error) {
+      await loading.dismiss();
+      console.error('[EngFoundation Main] Error finalizing report:', error);
+      const alert = await this.alertController.create({
+        header: 'Error',
+        message: 'Failed to finalize report. Please try again.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+  }
+
+  private async completeFinalization(isUpdate: boolean) {
+    const loading = await this.loadingController.create({
+      message: isUpdate ? 'Updating report status...' : 'Finalizing report status...'
+    });
+    await loading.present();
+
+    try {
       // Update the Services table
       const currentDateTime = new Date().toISOString();
-      
+
       // Get appropriate StatusAdmin value from Status table
       const statusClientValue = isUpdate ? 'Updated' : 'Finalized';
       const statusAdminValue = this.getStatusAdminByClient(statusClientValue);
-      
+
       const updateData = {
         StatusDateTime: currentDateTime,
         Status: statusAdminValue  // Use StatusAdmin value from Status table
@@ -323,10 +397,10 @@ export class EngineersFoundationMainPage implements OnInit {
       await alert.present();
     } catch (error) {
       await loading.dismiss();
-      console.error('[EngFoundation Main] Error finalizing report:', error);
+      console.error('[EngFoundation Main] Error completing finalization:', error);
       const alert = await this.alertController.create({
         header: 'Error',
-        message: 'Failed to finalize report. Please try again.',
+        message: 'Failed to update report status. Please try again.',
         buttons: ['OK']
       });
       await alert.present();

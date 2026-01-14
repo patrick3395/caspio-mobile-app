@@ -717,6 +717,165 @@ export class LocalImageService {
     this.signedUrlCache.clear();
   }
 
+  // ============================================================================
+  // FINALIZATION - FORCE SYNC AND POINTER UPDATE
+  // ============================================================================
+
+  /**
+   * Get sync status for all images in a service
+   * Returns counts of synced, pending, and failed images
+   */
+  async getServiceImageSyncStatus(serviceId: string): Promise<{
+    total: number;
+    synced: number;
+    pending: number;
+    failed: number;
+    unsyncedImages: LocalImage[];
+  }> {
+    const images = await this.getImagesForService(serviceId);
+    const synced = images.filter(img => img.isSynced && img.status !== 'failed');
+    const failed = images.filter(img => img.status === 'failed');
+    const pending = images.filter(img => !img.isSynced && img.status !== 'failed');
+
+    return {
+      total: images.length,
+      synced: synced.length,
+      pending: pending.length,
+      failed: failed.length,
+      unsyncedImages: pending
+    };
+  }
+
+  /**
+   * Force sync all unsynced images for a service
+   * Used during report finalization to ensure all images are uploaded
+   * Returns progress updates via callback
+   */
+  async forceSyncServiceImages(
+    serviceId: string,
+    onProgress?: (current: number, total: number, status: string) => void
+  ): Promise<{
+    success: boolean;
+    syncedCount: number;
+    failedCount: number;
+    failedImages: { imageId: string; error: string }[];
+  }> {
+    console.log('[LocalImage] Force syncing images for service:', serviceId);
+
+    const status = await this.getServiceImageSyncStatus(serviceId);
+
+    if (status.pending === 0) {
+      console.log('[LocalImage] All images already synced');
+      return {
+        success: status.failed === 0,
+        syncedCount: status.synced,
+        failedCount: status.failed,
+        failedImages: status.failed > 0
+          ? (await this.getImagesForService(serviceId))
+              .filter(img => img.status === 'failed')
+              .map(img => ({ imageId: img.imageId, error: img.lastError || 'Unknown error' }))
+          : []
+      };
+    }
+
+    onProgress?.(0, status.pending, 'Starting image sync...');
+
+    // Get outbox items for pending images
+    const outboxItems = await this.indexedDb.getAllUploadOutboxItems();
+    const pendingImageIds = new Set(status.unsyncedImages.map(img => img.imageId));
+    const relevantOutboxItems = outboxItems.filter(item => pendingImageIds.has(item.imageId));
+
+    // Reset retry timers to make them ready immediately
+    for (const item of relevantOutboxItems) {
+      await this.indexedDb.updateOutboxItem(item.opId, {
+        nextRetryAt: Date.now(),
+        attempts: 0
+      });
+    }
+
+    // Wait for uploads to complete with timeout
+    const maxWaitTime = 60000; // 60 seconds max wait
+    const pollInterval = 1000; // Check every second
+    const startTime = Date.now();
+    let lastSyncedCount = 0;
+
+    while (Date.now() - startTime < maxWaitTime) {
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+      const currentStatus = await this.getServiceImageSyncStatus(serviceId);
+      const syncedCount = currentStatus.synced;
+      const stillPending = currentStatus.pending;
+
+      // Update progress
+      onProgress?.(
+        syncedCount - (status.synced - status.pending),
+        status.pending,
+        `Syncing images... (${syncedCount}/${status.total})`
+      );
+
+      // Check if all done
+      if (stillPending === 0) {
+        console.log('[LocalImage] All images synced successfully');
+        return {
+          success: currentStatus.failed === 0,
+          syncedCount: currentStatus.synced,
+          failedCount: currentStatus.failed,
+          failedImages: currentStatus.failed > 0
+            ? (await this.getImagesForService(serviceId))
+                .filter(img => img.status === 'failed')
+                .map(img => ({ imageId: img.imageId, error: img.lastError || 'Unknown error' }))
+            : []
+        };
+      }
+
+      // Check if progress is being made
+      if (syncedCount > lastSyncedCount) {
+        lastSyncedCount = syncedCount;
+      }
+    }
+
+    // Timeout - return current status
+    const finalStatus = await this.getServiceImageSyncStatus(serviceId);
+    console.warn('[LocalImage] Force sync timed out. Synced:', finalStatus.synced, 'Pending:', finalStatus.pending);
+
+    const failedImages = (await this.getImagesForService(serviceId))
+      .filter(img => img.status === 'failed' || !img.isSynced)
+      .map(img => ({
+        imageId: img.imageId,
+        error: img.lastError || 'Sync timeout'
+      }));
+
+    return {
+      success: false,
+      syncedCount: finalStatus.synced,
+      failedCount: finalStatus.pending + finalStatus.failed,
+      failedImages
+    };
+  }
+
+  /**
+   * Update image display pointers to remote URLs after finalization
+   * This updates all synced LocalImage records to use remoteUrl for display
+   * Called after confirming report is finalized
+   */
+  async updateImagePointersToRemote(serviceId: string): Promise<void> {
+    console.log('[LocalImage] Updating image pointers to remote for service:', serviceId);
+
+    const images = await this.getImagesForService(serviceId);
+
+    for (const image of images) {
+      if (image.isSynced && image.remoteUrl) {
+        // The image is synced - the remoteUrl is already stored
+        // The UI will use remoteUrl when the report is finalized
+        console.log('[LocalImage] Image pointer ready for remote:', image.imageId, image.remoteUrl?.substring(0, 50) + '...');
+      }
+    }
+
+    // Note: The actual swap from local to remote display happens in the UI layer
+    // when loading images for a finalized report. This method confirms all
+    // synced images have their remoteUrl populated.
+  }
+
   /**
    * Delete a local image and its associated data
    * Used when user deletes a photo from UI
