@@ -2693,6 +2693,29 @@ export class IndexedDbService {
       }
     });
 
+    // US-001 FIX: Also reset upload outbox items for these images
+    // This fixes the race condition where photos were deferred waiting for entity sync,
+    // but now that entityId is resolved, they should be processed immediately
+    const imageIds = images.map(img => img.imageId);
+    const now = Date.now();
+    const outboxItems = await db.uploadOutbox.toArray();
+    let resetCount = 0;
+
+    for (const outboxItem of outboxItems) {
+      if (imageIds.includes(outboxItem.imageId) && outboxItem.nextRetryAt > now) {
+        await db.uploadOutbox.update(outboxItem.opId, {
+          nextRetryAt: now,
+          lastError: null  // Clear any "waiting for parent entity" error
+        });
+        console.log(`[IndexedDB] US-001 FIX: Reset outbox item for imageId=${outboxItem.imageId} to process immediately`);
+        resetCount++;
+      }
+    }
+
+    if (resetCount > 0) {
+      console.log(`[IndexedDB] US-001 FIX: Reset ${resetCount} outbox items for immediate processing`);
+    }
+
     // Emit change event to trigger liveQuery update
     this.emitChange({
       store: 'localImages',

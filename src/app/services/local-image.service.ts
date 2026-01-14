@@ -671,10 +671,18 @@ export class LocalImageService {
   /**
    * Handle upload failure - schedule retry
    * US-001 FIX: Don't increment attempts here since markUploadStarted already did
+   * US-001 FIX: Always update LocalImage status even if outbox item is missing
    */
   async handleUploadFailure(opId: string, imageId: string, error: string): Promise<void> {
     const item = await this.indexedDb.getOutboxItemForImage(imageId);
-    if (!item) return;
+
+    // US-001 FIX: Even if outbox item not found, still update the LocalImage status with error
+    // This ensures the error is visible in the UI for debugging mobile issues
+    if (!item) {
+      console.warn('[LocalImage] Outbox item not found, but still updating image status:', imageId, 'error:', error);
+      await this.updateStatus(imageId, 'queued', { lastError: error || 'Upload failed (no outbox item)' });
+      return;
+    }
 
     // US-001 FIX: Use current attempts count (already incremented by markUploadStarted)
     // Previously this was incrementing again, causing double-counting and faster backoff

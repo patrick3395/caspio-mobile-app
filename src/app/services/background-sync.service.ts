@@ -2824,44 +2824,56 @@ export class BackgroundSyncService {
     };
 
     // Upload based on entity type
+    // US-001 FIX: Wrap upload in try-catch to catch mobile-specific silent failures
     let result: any;
-    switch (image.entityType) {
-      case 'visual':
-        result = await uploadWithTimeout(
-          this.caspioService.uploadVisualsAttachWithS3(
-            parseInt(entityId),
-            image.drawings || '',
-            file,
-            image.caption || ''
-          ),
-          `visual upload for ${item.imageId}`
-        );
-        break;
-      case 'efe_point':
-        result = await uploadWithTimeout(
-          this.caspioService.uploadEFEPointsAttachWithS3(
-            parseInt(entityId),
-            image.drawings || '',
-            file,
-            image.photoType || 'Measurement', // Use stored photoType (Measurement/Location)
-            image.caption || ''
-          ),
-          `efe_point upload for ${item.imageId}`
-        );
-        break;
-      case 'fdf':
-        // FDF photos are stored on the EFE room record itself, not as attachments
-        // photoType is stored in image.photoType (e.g., 'Top', 'Bottom', 'Threshold')
-        console.log('[BackgroundSync] FDF photo upload starting:', item.imageId, 'roomId:', entityId, 'photoType:', image.photoType);
-        result = await uploadWithTimeout(
-          this.uploadFDFPhoto(entityId, file, image.photoType || 'Top'),
-          `fdf upload for ${item.imageId}`
-        );
-        console.log('[BackgroundSync] FDF photo upload completed:', item.imageId, 'result:', result);
-        break;
-      // Add more entity types as needed
-      default:
-        throw new Error(`Unsupported entity type: ${image.entityType}`);
+    try {
+      switch (image.entityType) {
+        case 'visual':
+          result = await uploadWithTimeout(
+            this.caspioService.uploadVisualsAttachWithS3(
+              parseInt(entityId),
+              image.drawings || '',
+              file,
+              image.caption || ''
+            ),
+            `visual upload for ${item.imageId}`
+          );
+          break;
+        case 'efe_point':
+          result = await uploadWithTimeout(
+            this.caspioService.uploadEFEPointsAttachWithS3(
+              parseInt(entityId),
+              image.drawings || '',
+              file,
+              image.photoType || 'Measurement', // Use stored photoType (Measurement/Location)
+              image.caption || ''
+            ),
+            `efe_point upload for ${item.imageId}`
+          );
+          break;
+        case 'fdf':
+          // FDF photos are stored on the EFE room record itself, not as attachments
+          // photoType is stored in image.photoType (e.g., 'Top', 'Bottom', 'Threshold')
+          console.log('[BackgroundSync] FDF photo upload starting:', item.imageId, 'roomId:', entityId, 'photoType:', image.photoType);
+          result = await uploadWithTimeout(
+            this.uploadFDFPhoto(entityId, file, image.photoType || 'Top'),
+            `fdf upload for ${item.imageId}`
+          );
+          console.log('[BackgroundSync] FDF photo upload completed:', item.imageId, 'result:', result);
+          break;
+        // Add more entity types as needed
+        default:
+          throw new Error(`Unsupported entity type: ${image.entityType}`);
+      }
+
+      // US-001 FIX: Validate result immediately after API call to catch malformed responses
+      if (!result || typeof result !== 'object') {
+        throw new Error(`Invalid upload response (type: ${typeof result}): ${JSON.stringify(result)?.substring(0, 100)}`);
+      }
+    } catch (uploadError: any) {
+      // US-001 FIX: Explicit logging for mobile upload failures
+      console.error('[BackgroundSync] Mobile upload error:', item.imageId, 'entityType:', image.entityType, 'error:', uploadError?.message || uploadError);
+      throw uploadError; // Re-throw to trigger handleUploadFailure
     }
 
     // Extract results
