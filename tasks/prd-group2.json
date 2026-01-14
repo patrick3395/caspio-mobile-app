@@ -45,11 +45,47 @@
       "priority": 1,
       "skipTester": true,
       "markCompleteOnCodeEdit": true
+    },
+    {
+      "id": "US-002",
+      "title": "Add New Modal Photos Sync But Don't Display in UI (MOBILE ONLY)",
+      "description": "Images added through the 'Add New' modals (Add New Deficiency, Add New Limitation, Add New Comment) sync successfully to backend but do NOT display in the UI. User adds a new deficiency with 3 photos, all photos sync, visual shows as checked, but no images appear in the UI.",
+      "mobileOnlyIssue": true,
+      "completed": false,
+      "affectedModals": [
+        "Add New Deficiency",
+        "Add New Limitation",
+        "Add New Comment"
+      ],
+      "symptoms": [
+        "Photos added in 'Add New' modals sync successfully to backend",
+        "Visual shows as checked (indicating data exists)",
+        "UI does not display the uploaded images",
+        "Images exist in backend but not shown to user"
+      ],
+      "acceptanceCriteria": [
+        "Photos added in Add New Deficiency modal display in UI after sync",
+        "Photos added in Add New Limitation modal display in UI after sync",
+        "Photos added in Add New Comment modal display in UI after sync",
+        "Visual checked status matches visible image count",
+        "No disconnect between backend data and UI display"
+      ],
+      "investigationSteps": [
+        "Trace photo upload flow in Add New modal components",
+        "Check if photos are being saved with correct visual/entity IDs",
+        "Investigate if UI query is missing the newly created photos",
+        "Check if there's a refresh/reload issue after modal closes",
+        "Compare how existing deficiency photos load vs new modal photos",
+        "Check LocalImage entity association for modal-created items"
+      ],
+      "priority": 2,
+      "skipTester": true,
+      "markCompleteOnCodeEdit": true
     }
   ],
   "completedStories": [
     {
-      "id": "US-002",
+      "id": "US-003",
       "title": "Random Hard Refreshes Throughout App - FIXED",
       "fixedIn": "commit 93e1ad55 in zeroshot/ruby-atlas-15 branch",
       "solution": "Changed auto-reload to user confirmation dialog to prevent unexpected hard refreshes"
@@ -61,6 +97,6 @@
     "notes": "Skip the Tester agent. Mark tasks complete when code edits are done."
   },
   "metadata": {
-    "updatedAt": "2026-01-14T11:00:00.000Z"
+    "updatedAt": "2026-01-14T11:15:00.000Z"
   }
 }
