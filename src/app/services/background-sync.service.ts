@@ -2825,29 +2825,8 @@ export class BackgroundSyncService {
     };
 
     // Upload based on entity type
-    // US-001 FIX: Wrap upload in try-catch to catch mobile-specific silent failures
     let result: any;
     try {
-      // US-001 FIX: Network warm-up before S3 upload on mobile
-      // Debug alerts made uploads succeed - they block the thread and trigger UI/system activity.
-      // A simple delay doesn't fully replicate this. Instead, make a lightweight OPTIONS request
-      // to the SAME domain we'll upload to, warming up the connection and TLS session.
-      try {
-        const warmupController = new AbortController();
-        const warmupTimeout = setTimeout(() => warmupController.abort(), 3000);
-        // Use OPTIONS to same S3 upload endpoint - this warms up DNS, TCP, and TLS
-        await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, {
-          method: 'OPTIONS',
-          signal: warmupController.signal
-        }).catch(() => {}); // Ignore errors - this is just a warm-up
-        clearTimeout(warmupTimeout);
-        console.log('[BackgroundSync] Network warm-up complete');
-      } catch (e) {
-        console.log('[BackgroundSync] Network warm-up skipped:', e);
-      }
-      // Delay after warm-up to let connection stabilize
-      await new Promise(resolve => setTimeout(resolve, 200));
-
       switch (image.entityType) {
         case 'visual':
           result = await uploadWithTimeout(

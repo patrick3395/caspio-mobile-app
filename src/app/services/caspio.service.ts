@@ -2499,35 +2499,27 @@ export class CaspioService {
       // Use a temporary placeholder attachId for S3 key generation (will be part of path)
       const tempAttachId = `pending_${timestamp}`;
 
-      // US-001 FIX: S3 upload with retry for mobile "first request fails" issue
-      // DEBUG ALERTS ENABLED - Remove after debugging
+      // US-001 FIX: S3 upload with retry for mobile failures
       const MAX_S3_RETRIES = 3;
       const INITIAL_RETRY_DELAY_MS = 500;
-
-      alert(`[S3 DEBUG] Starting upload\nVisualID: ${visualId}\nOriginal: ${(file?.size / 1024 / 1024).toFixed(2)}MB\nAfter compress: ${(fileToUpload?.size / 1024 / 1024).toFixed(2)}MB`);
 
       let s3Key: string | null = null;
       let lastError: Error | null = null;
 
       for (let attempt = 1; attempt <= MAX_S3_RETRIES; attempt++) {
         try {
-          alert(`[S3 DEBUG] Attempt ${attempt}/${MAX_S3_RETRIES}\nFile size: ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
-
           // Create fresh FormData for each attempt (FormData can only be consumed once)
           const formData = new FormData();
           formData.append('file', fileToUpload, uniqueFilename);
           formData.append('tableName', 'LPS_Services_Visuals_Attach');
           formData.append('attachId', tempAttachId);
 
-          alert(`[S3 DEBUG] FormData ready\nFilename: ${uniqueFilename}\nSending to: ${environment.apiGatewayUrl}/api/s3/upload`);
+          console.log(`[VISUALS ATTACH S3] Uploading (attempt ${attempt}/${MAX_S3_RETRIES}), size: ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
 
           const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
 
-          alert(`[S3 DEBUG] Response received\nStatus: ${uploadResponse.status} ${uploadResponse.statusText}\nOK: ${uploadResponse.ok}`);
-
           if (!uploadResponse.ok) {
             const errorText = await uploadResponse.text();
-            alert(`[S3 DEBUG] UPLOAD FAILED!\nStatus: ${uploadResponse.status}\nError: ${errorText?.substring(0, 300)}`);
             console.error(`[VISUALS ATTACH S3] S3 upload failed (attempt ${attempt}):`, uploadResponse.status, errorText);
             throw new Error(`S3 upload failed: ${uploadResponse.status} - ${errorText?.substring(0, 100)}`);
           }
@@ -2535,25 +2527,20 @@ export class CaspioService {
           const result = await uploadResponse.json();
           s3Key = result.s3Key;
 
-          alert(`[S3 DEBUG] Response parsed\ns3Key: ${s3Key ? s3Key.substring(0, 50) + '...' : 'NULL/EMPTY'}`);
-
           if (!s3Key) {
-            alert(`[S3 DEBUG] ERROR: No s3Key in response!\nFull result: ${JSON.stringify(result).substring(0, 200)}`);
             throw new Error('S3 upload succeeded but no s3Key returned');
           }
 
-          alert(`[S3 DEBUG] SUCCESS!\nAttempt: ${attempt}\ns3Key: ${s3Key.substring(0, 50)}...`);
           console.log(`[VISUALS ATTACH S3] ✅ S3 upload complete (attempt ${attempt}), key:`, s3Key);
           break; // Success - exit retry loop
 
         } catch (err: any) {
           lastError = err;
-          alert(`[S3 DEBUG] CATCH ERROR\nAttempt: ${attempt}\nError: ${err?.message || String(err)}`);
           console.warn(`[VISUALS ATTACH S3] S3 upload attempt ${attempt} failed:`, err?.message || err);
 
           if (attempt < MAX_S3_RETRIES) {
             const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-            alert(`[S3 DEBUG] Will retry in ${delayMs}ms...`);
+            console.log(`[VISUALS ATTACH S3] Retrying in ${delayMs}ms...`);
             await new Promise(resolve => setTimeout(resolve, delayMs));
           }
         }
@@ -2561,7 +2548,6 @@ export class CaspioService {
 
       // Check if all retries failed
       if (!s3Key) {
-        alert(`[S3 DEBUG] ALL RETRIES FAILED!\nLast error: ${lastError?.message || 'Unknown'}`);
         console.error('[VISUALS ATTACH S3] ❌ All S3 upload attempts failed');
         throw lastError || new Error('S3 upload failed after all retries');
       }
