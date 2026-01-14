@@ -1,0 +1,65 @@
+{
+  "name": "Caspio Mobile App - Group 2: Performance & Annotations",
+  "branchName": "feature/performance-and-annotations",
+  "userStories": [
+    {
+      "id": "US-003",
+      "title": "Optimize Page Load Speed Without Breaking Functionality",
+      "description": "Structural category pages and Rooms take too long to load with loading screens. Need optimization but CANNOT affect: image disappearance, photos not showing, lazy loading, captions, annotations. Must optimize while maintaining 100% current functionality. Conservative, safe optimizations only.",
+      "acceptanceCriteria": [
+        "Structural category pages load faster (under 2 seconds)",
+        "Rooms load faster (under 2 seconds)",
+        "ALL images still display correctly - no disappearance",
+        "ALL photos still show up - no missing images",
+        "Lazy loading still works",
+        "Captions persist correctly",
+        "Annotations persist correctly",
+        "Zero functionality regression"
+      ],
+      "safeOptimizationStrategies": [
+        "Profile to find actual bottlenecks (don't guess)",
+        "Optimize database queries (indexes, batch reads)",
+        "Defer non-visible content (below fold)",
+        "Use virtual scrolling for long lists",
+        "Optimize blob URL generation (cache, reuse)",
+        "Reduce redundant change detection cycles"
+      ],
+      "safetyConstraints": [
+        "DO NOT touch image display logic",
+        "DO NOT change LocalImages loading flow",
+        "DO NOT modify lazy loading logic",
+        "MUST maintain all existing functionality",
+        "Test extensively before deploying",
+        "If optimization risks stability - DON'T DO IT"
+      ],
+      "priority": 3,
+      "passes": false,
+      "dependsOn": []
+    },
+    {
+      "id": "US-004",
+      "title": "Annotations Not Syncing in Structural Categories",
+      "description": "When adding an annotation in structural categories, it does not show up in the queue to be synced. Annotations are not being synced to the backend.",
+      "acceptanceCriteria": [
+        "Annotations appear in sync queue after being added",
+        "Annotations sync to Caspio backend successfully",
+        "Annotation data is properly formatted for sync",
+        "Sync modal shows annotation updates as pending items"
+      ],
+      "investigationSteps": [
+        "Check if queueCaptionAndAnnotationUpdate() is being called",
+        "Verify annotation data is being stored in IndexedDB outbox",
+        "Check if annotation sync requests have correct format",
+        "Verify background-sync.service processes annotation updates",
+        "Check for validation that might be rejecting annotation syncs"
+      ],
+      "priority": 4,
+      "passes": false,
+      "dependsOn": []
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-01-14T05:30:00.000Z"
+  }
+}
+

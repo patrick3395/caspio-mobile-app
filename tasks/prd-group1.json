@@ -1,0 +1,67 @@
+{
+  "name": "Caspio Mobile App - Group 1: Upload Queue & Hard Refresh",
+  "branchName": "feature/critical-stability-fixes-group1",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Multi-Image Upload - One Image Stuck in Queue Forever (MOBILE ONLY)",
+      "description": "CRITICAL - NOT FIXED. When adding multiple photos in Structural Systems (mobile app), 1 image remains stuck in queue forever. Clicking Sync shows 'uploading' briefly then back to queue. Pattern: Upload 3 images, 2 sync, 1 stuck forever. Upload 4 images, 3 sync, 1 stuck. This ONLY happens on mobile app - webapp works perfectly. TAKE YOUR TIME AND FIND THE ROOT CAUSE.",
+      "mobileOnlyIssue": true,
+      "acceptanceCriteria": [
+        "All images in multi-image upload sync successfully on mobile",
+        "No images get stuck in queue permanently",
+        "Force sync clears all queued items",
+        "Works with 3, 4, 5+ images on mobile app",
+        "Behavior matches webapp (which works correctly)"
+      ],
+      "investigationSteps": [
+        "Compare mobile vs webapp upload flow - what's different?",
+        "Check if mobile has different batch size limits",
+        "Look for race conditions in mobile-specific code paths",
+        "Check LocalImage outbox processing on mobile",
+        "Verify upload worker doesn't skip items on mobile",
+        "Check for mobile-specific network/blob handling differences"
+      ],
+      "priority": 1,
+      "passes": false,
+      "dependsOn": []
+    },
+    {
+      "id": "US-002",
+      "title": "Random Hard Refreshes Throughout App - Critical Stability Issue",
+      "description": "CRITICAL - NOT FIXED. The mobile app hard refreshes randomly and consistently, making it feel completely broken. Triggers: clicking sync modal, clicking image, saving annotation, after sync completes, entering category/room. NOT PREVIOUSLY FIXED - still happening. SPEND AS MUCH TIME AS NEEDED. RUN AS MANY TESTS AS NEEDED. Find the root cause: Is it local data saving? Broken data? Memory issue? State corruption?",
+      "acceptanceCriteria": [
+        "No hard refreshes when clicking sync modal",
+        "No hard refreshes when clicking images",
+        "No hard refreshes when saving annotations",
+        "No hard refreshes after sync completes",
+        "No hard refreshes when navigating to categories/rooms",
+        "App remains stable during all normal operations",
+        "Root cause identified and permanently resolved"
+      ],
+      "investigationAreas": [
+        "Check for unhandled exceptions that trigger page reload",
+        "Look for state corruption causing Angular to force reload",
+        "Check IndexedDB errors that might crash change detection",
+        "Look for memory leaks causing app to restart",
+        "Check for infinite loops in liveQuery subscriptions",
+        "Verify change detection doesn't trigger recursive reloads",
+        "Check for broken data structures causing errors",
+        "Add global error handler to catch and log before refresh happens"
+      ],
+      "testingApproach": [
+        "Add extensive logging before each potential refresh trigger",
+        "Wrap all IndexedDB operations in try-catch with logging",
+        "Monitor browser console for errors immediately before refresh",
+        "Test each user action systematically to reproduce refresh",
+        "Use performance profiling to detect memory/CPU spikes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "dependsOn": []
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-01-14T05:17:37.159Z"
+  }
+}
