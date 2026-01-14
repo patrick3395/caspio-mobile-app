@@ -17,7 +17,7 @@ import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.se
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
 import { OfflineTemplateService } from '../../../../services/offline-template.service';
 import { LocalImageService } from '../../../../services/local-image.service';
-import { compressAnnotationData, decompressAnnotationData } from '../../../../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../../utils/annotation-utils';
 import { AddCustomVisualModalComponent } from '../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 import { db } from '../../../../services/caspio-db';
 
@@ -5099,10 +5099,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           // COMPRESS (this is the key step!)
           const originalSize = drawingsData.length;
-          const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+          // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils - uses proper JSON format, not gzip
           drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
 
-          console.log(`[SAVE] Compressed annotations: ${originalSize} â†’ ${drawingsData.length} bytes`);
+          console.log(`[SAVE] Compressed annotations: ${originalSize} â†' ${drawingsData.length} bytes`);
 
           // Final size check
           if (drawingsData.length > 64000) {
@@ -5119,12 +5119,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Set the Drawings field with COMPRESSED data
         updateData.Drawings = drawingsData;
       } else {
-        // Empty annotations
-        updateData.Drawings = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+        // Empty annotations - use proper JSON format from annotation-utils
+        updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
       }
     } else {
-      // No annotations provided
-      updateData.Drawings = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+      // No annotations provided - use proper JSON format from annotation-utils
+      updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
     }
 
     console.log('[SAVE] Saving annotations to database:', {

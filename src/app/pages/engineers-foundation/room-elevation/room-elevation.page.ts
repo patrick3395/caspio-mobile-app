@@ -17,7 +17,7 @@ import { IndexedDbService, LocalImage } from '../../../services/indexed-db.servi
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { firstValueFrom, Subscription } from 'rxjs';
-import { compressAnnotationData, decompressAnnotationData } from '../../../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../utils/annotation-utils';
 import { environment } from '../../../../environments/environment';
 import { db } from '../../../services/caspio-db';
 
@@ -1429,7 +1429,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               
               // Add new photo from server - check cache FIRST for fast display
               const photoType = attach.Type || attach.photoType || 'Measurement';
-              const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+              // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils
 
               // FAST LOAD FIX: Check bulk cache FIRST before setting placeholder
               let cachedDisplayUrl: string | null = null;
@@ -1963,7 +1963,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private async loadFDFPhotos(room: any) {
     const fdfPhotos = this.roomData.fdfPhotos;
-    const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+    // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils
 
     // CRITICAL FIX: Check if we have preserved FDF photos with local blob/data URLs
     // During sync, we should preserve these URLs instead of resetting to placeholders
@@ -2904,7 +2904,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               continue;
             }
 
-            const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+            // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils
             // attachIdStr already declared at line 1875
 
             // FAST LOAD FIX: Check bulk cache FIRST before setting placeholder
@@ -3223,7 +3223,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 continue;
               }
 
-              const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+              // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils
               const photoData: any = {
                 attachId: attach.AttachID || attach.PK_ID,
                 photoType: photoType,
@@ -3231,7 +3231,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 displayUrl: null,
                 caption: attach.Annotation || '',
                 drawings: attach.Drawings || null,
-                hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null' && attach.Drawings !== '' && attach.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS),
+                hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null' && attach.Drawings !== '' && attach.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS && !attach.Drawings.startsWith('H4sI')),
                 path: attach.Attachment || attach.Photo || null,
                 Attachment: attach.Attachment,
                 Photo: attach.Photo,
@@ -4084,7 +4084,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       let existingAnnotations: any = null;
       const compressedDrawings = fdfPhotos[`${photoKey}Drawings`];
 
-      if (compressedDrawings && compressedDrawings !== 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA') {
+      if (compressedDrawings && compressedDrawings !== EMPTY_COMPRESSED_ANNOTATIONS && !compressedDrawings.startsWith('H4sI')) {
         try {
           console.log('[FDF Annotate] Decompressing existing annotations, length:', compressedDrawings.length);
           // Using static import for offline support
@@ -4890,7 +4890,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       let existingAnnotations: any = null;
       const compressedDrawings = photo.drawings;
 
-      if (compressedDrawings && compressedDrawings !== 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA') {
+      if (compressedDrawings && compressedDrawings !== EMPTY_COMPRESSED_ANNOTATIONS && !compressedDrawings.startsWith('H4sI')) {
         try {
           console.log('[Point Annotate] Decompressing existing annotations, length:', compressedDrawings.length);
           // Using static import for offline support
@@ -5279,7 +5279,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // CRITICAL: Process annotation data EXACTLY like structural-systems
     let drawingsData = '';
-    const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+    // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils - uses proper JSON format, not gzip
 
     // Add annotations to Drawings field if provided
     if (annotationsData) {
@@ -5465,10 +5465,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
           // COMPRESS (this is the key step!)
           const originalSize = drawingsData.length;
-          const EMPTY_COMPRESSED_ANNOTATIONS = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+          // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils - uses proper JSON format, not gzip
           drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
 
-          console.log(`[SAVE] Compressed annotations: ${originalSize} â†’ ${drawingsData.length} bytes`);
+          console.log(`[SAVE] Compressed annotations: ${originalSize} â†' ${drawingsData.length} bytes`);
 
           // Final size check
           if (drawingsData.length > 64000) {
@@ -5485,12 +5485,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         // Set the Drawings field with COMPRESSED data
         updateData.Drawings = drawingsData;
       } else {
-        // Empty annotations
-        updateData.Drawings = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+        // Empty annotations - use proper JSON format from annotation-utils
+        updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
       }
     } else {
-      // No annotations provided
-      updateData.Drawings = 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA';
+      // No annotations provided - use proper JSON format from annotation-utils
+      updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
     }
 
     console.log('[SAVE] Saving annotations to database:', {
