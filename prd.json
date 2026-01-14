@@ -1,62 +1,90 @@
 {
-  "project": "Caspio Mobile App Fixes",
+  "project": "Caspio Mobile App - Local-First Until Finalization",
   "version": "1.0",
-  "created": "2026-01-13",
+  "created": "2026-01-14",
+  "description": "Implement local-first data display pattern where all UI data comes from IndexedDB/LocalImages until the report is finalized. Eliminates image flickering, disappearing, and persistence issues.",
   "tasks": [
     {
       "id": "TASK-001",
-      "title": "Sync Modal Showing Stale Failed Sync Data",
-      "description": "Sync window is showing all syncs as failing even though they were cleared and all images uploaded correctly. This appears to be stale cached data from previous failed attempts, not actual current failures.",
+      "title": "Always Display Images from LocalImages in Elevation Plot",
+      "description": "Modify room-elevation.page.ts to always display from LocalImages Dexie table instead of switching to remote URLs after sync. Sync happens in background but UI always shows local blob until finalization.",
+      "current_state": "NOT CORRECTLY IMPLEMENTED - Code currently SWAPS displayUrl from local blob to remote URL after sync. At lines 298-303, after sync it calls fetchS3ImageAsDataUrl() then sets photo.displayUrl = dataUrl (remote). This swap causes flicker/disappear when S3 fetch fails, network slow, race conditions, or blob garbage collected.",
+      "problem_code": "Lines 298-303: photo.displayUrl = dataUrl - This URL SWAP causes all the issues",
       "acceptance_criteria": [
-        "Sync modal shows accurate current sync status",
-        "Cleared syncs are removed from the failed list",
-        "No stale cached failure data persists after clearing",
-        "Sync status refreshes properly after manual clear"
+        "All FDF/Measurement Point images display from LocalImages table",
+        "Images never flicker or disappear during sync",
+        "Synced status tracked via flag, not URL change",
+        "REMOVE the displayUrl swap logic at lines 298-303"
       ],
+      "technical_approach": "REMOVE photo.displayUrl = dataUrl swap (lines 298-303). Always return LocalImages blob. Never call fetchS3ImageAsDataUrl() to swap display during sync.",
       "passes": false,
       "priority": 1
     },
     {
       "id": "TASK-002",
-      "title": "Phantom Broken Image After Multi-Image Upload in Structural Systems",
-      "description": "STILL BROKEN. After syncing and refreshing in category-structural pages, an extra broken image appears when uploading multiple images via photo album. Upload 3 images, 4 are showing with one broken.",
+      "title": "Always Display Images from LocalImages in Structural Systems",
+      "description": "Ensure category-detail.page.ts maintains local-first display. All photos, captions, annotations display from LocalImages/IndexedDB until finalization.",
       "acceptance_criteria": [
-        "No phantom/extra broken images appear after multi-image upload",
-        "Image count matches exactly what was uploaded",
-        "Page refresh does not create duplicate image entries",
-        "Photo album multi-upload maintains correct image count"
+        "All visual photos display from LocalImages",
+        "Captions/annotations persist from local storage",
+        "No image flickering during sync"
       ],
+      "technical_approach": "Audit getPhotoDisplayUrl() for LocalImages priority. Verify loadPhotosForVisual() uses LocalImages first.",
       "passes": false,
-      "priority": 2,
-      "note": "CRITICAL: Not resolved in previous pushes"
+      "priority": 2
     },
     {
       "id": "TASK-003",
-      "title": "FDF Images Disappearing During Sync in Elevation Plot/Rooms",
-      "description": "STILL BROKEN. In Rooms pages (Elevation Plot), FDF images disappear during sync. Should be preserved via IndexedDB/cache. Works in Structural Systems but NOT Elevation Plot.",
+      "title": "Track Sync Status Separately from Display URL",
+      "description": "Add isSynced boolean, remoteAttachmentId, and remoteUrl fields to LocalImage. Sync updates these without changing displayUrl/blobData.",
       "acceptance_criteria": [
-        "FDF images remain visible during entire sync process",
-        "Images fallback to IndexedDB/cached version during sync",
-        "No image flickering or disappearing during sync",
-        "Behavior matches Structural Systems section"
+        "LocalImage has isSynced, remoteAttachmentId, remoteUrl fields",
+        "Sync updates metadata without changing blob display",
+        "UI can show sync badge without changing image source"
       ],
+      "technical_approach": "Update LocalImage interface. Modify background-sync to update fields after upload. Keep blobData until finalization.",
       "passes": false,
-      "priority": 3,
-      "note": "CRITICAL: Not resolved in previous pushes"
+      "priority": 3
     },
     {
       "id": "TASK-004",
-      "title": "Annotations Corrupted and Captions Lost When Added Before Sync",
-      "description": "STILL BROKEN. Annotations added before sync save as gzipped base64 instead of JSON. Captions also lost when added before sync for both FDF and Measurement points.",
+      "title": "Extend Finalize Button to Update Image Pointers",
+      "description": "Add logic to existing Finalize button that swaps all image references from local blobs to remote URLs. This is the only time the swap happens.",
       "acceptance_criteria": [
-        "Annotations save as proper JSON format, not gzipped/compressed",
-        "Annotations added before sync are preserved correctly after sync",
-        "Captions added before sync are preserved correctly after sync",
-        "Both FDF and Measurement point annotations/captions work correctly"
+        "Finalize triggers pointer update process",
+        "Synced images switch to remoteUrl",
+        "Unsynced images force-sync before completing",
+        "Progress indicator during finalization"
       ],
+      "technical_approach": "Add updateImagePointersToRemote(). Query LocalImages, update synced ones to remoteUrl, force-sync unsynced.",
       "passes": false,
-      "priority": 4,
-      "note": "CRITICAL: Not resolved in previous pushes"
+      "priority": 4
+    },
+    {
+      "id": "TASK-005",
+      "title": "Clean Up Local Data After Finalization",
+      "description": "After finalization, delete local blob data from IndexedDB to free storage. Keep metadata but remove binary data.",
+      "acceptance_criteria": [
+        "Local blob data deleted after finalization",
+        "Device storage freed",
+        "Metadata preserved (captions, annotations, remoteUrl)"
+      ],
+      "technical_approach": "Add cleanupLocalBlobData(). Set blobData to null for finalized images. Run after pointer update.",
+      "passes": false,
+      "priority": 5
+    },
+    {
+      "id": "TASK-006",
+      "title": "Handle Captions and Annotations in Local-First Pattern",
+      "description": "Captions and annotations stored/displayed from local until finalization. Edits update local immediately, sync to Caspio in background.",
+      "acceptance_criteria": [
+        "Captions display from LocalImages.caption",
+        "Annotations display from LocalImages.annotationsJson",
+        "Edits sync to Caspio but don't affect local display"
+      ],
+      "technical_approach": "Store to LocalImages on save. Background sync to Caspio. Finalization verifies sync complete.",
+      "passes": false,
+      "priority": 6
     }
   ]
 }
