@@ -1099,6 +1099,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         // Update UI state flags and exit
         this.isEmpty = this.roomTemplates.length === 0;
         this.isOnline = this.offlineService.isOnline();
+        this.loading = false; // CRITICAL: Reset loading flag before early return
         this.changeDetectorRef.detectChanges();
         return;
       }
