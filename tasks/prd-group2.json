@@ -1,14 +1,71 @@
 {
-  "name": "Caspio Mobile App - Group 2: Performance & Annotations",
-  "branchName": "feature/performance-and-annotations",
+  "name": "Caspio Mobile App - Group 2: Critical Mobile Fixes",
+  "branchName": "feature/critical-mobile-fixes-group2",
+  "skipAgents": ["tester"],
+  "completionCriteria": "Mark complete when code edits are done - do not wait for testing",
   "userStories": [
     {
-      "id": "US-003",
-      "title": "Optimize Page Load Speed Without Breaking Functionality",
-      "description": "Structural category pages and Rooms take too long to load with loading screens. Need optimization but CANNOT affect: image disappearance, photos not showing, lazy loading, captions, annotations. Must optimize while maintaining 100% current functionality. Conservative, safe optimizations only.",
+      "id": "US-001",
+      "title": "Multi-Image Upload - One Image Stuck in Queue Forever (MOBILE ONLY)",
+      "description": "CRITICAL: When adding multiple photos in Structural Systems (mobile app), 1 image remains stuck in queue forever. Clicking Sync shows 'uploading' briefly then back to queue. The FIRST image listed in the queue is typically the one that gets stuck. This ONLY happens on mobile app - webapp works perfectly fine with multiple images.",
+      "mobileOnlyIssue": true,
       "acceptanceCriteria": [
-        "Structural category pages load faster (under 2 seconds)",
-        "Rooms load faster (under 2 seconds)",
+        "All images in multi-image upload sync successfully on mobile",
+        "No images get stuck in queue permanently",
+        "First image in queue syncs correctly",
+        "Force sync clears all queued items",
+        "Works with 3, 4, 5+ images on mobile app",
+        "Behavior matches webapp (which works correctly)"
+      ],
+      "investigationSteps": [
+        "Compare mobile vs webapp upload flow - what's different?",
+        "Check if mobile has different batch size limits",
+        "Look for race conditions in mobile-specific code paths",
+        "Check LocalImage outbox processing on mobile",
+        "Verify upload worker doesn't skip first item on mobile",
+        "Check for mobile-specific network/blob handling differences",
+        "Focus on why the FIRST image gets stuck specifically"
+      ],
+      "priority": 1,
+      "skipTester": true,
+      "markCompleteOnCodeEdit": true
+    },
+    {
+      "id": "US-002",
+      "title": "Random Hard Refreshes Throughout App - Critical Stability Issue",
+      "description": "CRITICAL: The mobile app hard refreshes randomly and consistently, making it feel completely broken. Triggers include: clicking sync modal, clicking image, saving annotation, after sync completes, entering category/room. This is happening randomly and consistently. DO NOT assume this has been fixed previously - it is still happening. Spend as much time as needed. Run as many tests as needed. Find the root cause: Is it local data saving? Broken data? Memory issue? State corruption?",
+      "acceptanceCriteria": [
+        "No hard refreshes when clicking sync modal",
+        "No hard refreshes when clicking images",
+        "No hard refreshes when saving annotations",
+        "No hard refreshes after sync completes",
+        "No hard refreshes when navigating to categories/rooms",
+        "App remains stable during all normal operations",
+        "Root cause identified and permanently resolved"
+      ],
+      "investigationAreas": [
+        "Check for unhandled exceptions that trigger page reload",
+        "Look for state corruption causing Angular to force reload",
+        "Check IndexedDB errors that might crash change detection",
+        "Look for memory leaks causing app to restart",
+        "Check for infinite loops in liveQuery subscriptions",
+        "Verify change detection doesn't trigger recursive reloads",
+        "Check for broken data structures causing errors",
+        "Add global error handler to catch and log before refresh happens",
+        "Check window.location assignments or navigation.reload() calls",
+        "Look for Zone.js errors causing full app reload"
+      ],
+      "priority": 2,
+      "skipTester": true,
+      "markCompleteOnCodeEdit": true
+    },
+    {
+      "id": "US-003",
+      "title": "Optimize Structural Categories and Rooms Page Load Speed",
+      "description": "Loading of structural categories pages shows loading screen and takes too long to load. Rooms also take a bit of time to load. Need to optimize page loading while maintaining 100% of current functionality. Do NOT lose any functionality - same features must work exactly as before, just faster.",
+      "acceptanceCriteria": [
+        "Structural category pages load faster",
+        "Rooms load faster",
         "ALL images still display correctly - no disappearance",
         "ALL photos still show up - no missing images",
         "Lazy loading still works",
@@ -20,46 +77,29 @@
         "Profile to find actual bottlenecks (don't guess)",
         "Optimize database queries (indexes, batch reads)",
         "Defer non-visible content (below fold)",
-        "Use virtual scrolling for long lists",
+        "Use virtual scrolling for long lists if applicable",
         "Optimize blob URL generation (cache, reuse)",
-        "Reduce redundant change detection cycles"
+        "Reduce redundant change detection cycles",
+        "Check for N+1 query patterns"
       ],
       "safetyConstraints": [
-        "DO NOT touch image display logic",
-        "DO NOT change LocalImages loading flow",
-        "DO NOT modify lazy loading logic",
+        "DO NOT break image display logic",
+        "DO NOT change LocalImages loading flow in ways that break display",
+        "DO NOT modify lazy loading logic in ways that break it",
         "MUST maintain all existing functionality",
-        "Test extensively before deploying",
         "If optimization risks stability - DON'T DO IT"
       ],
       "priority": 3,
-      "passes": false,
-      "dependsOn": []
-    },
-    {
-      "id": "US-004",
-      "title": "Annotations Not Syncing in Structural Categories",
-      "description": "When adding an annotation in structural categories, it does not show up in the queue to be synced. Annotations are not being synced to the backend.",
-      "acceptanceCriteria": [
-        "Annotations appear in sync queue after being added",
-        "Annotations sync to Caspio backend successfully",
-        "Annotation data is properly formatted for sync",
-        "Sync modal shows annotation updates as pending items"
-      ],
-      "investigationSteps": [
-        "Check if queueCaptionAndAnnotationUpdate() is being called",
-        "Verify annotation data is being stored in IndexedDB outbox",
-        "Check if annotation sync requests have correct format",
-        "Verify background-sync.service processes annotation updates",
-        "Check for validation that might be rejecting annotation syncs"
-      ],
-      "priority": 4,
-      "passes": false,
-      "dependsOn": []
+      "skipTester": true,
+      "markCompleteOnCodeEdit": true
     }
   ],
+  "agentInstructions": {
+    "skipTester": true,
+    "completionTrigger": "code_edits_complete",
+    "notes": "Skip the Tester agent. Mark tasks complete when code edits are done."
+  },
   "metadata": {
-    "updatedAt": "2026-01-14T05:30:00.000Z"
+    "updatedAt": "2026-01-14T06:45:00.000Z"
   }
 }
-
