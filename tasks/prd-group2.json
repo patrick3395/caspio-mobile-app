@@ -1,8 +1,5 @@
 {
   "name": "Caspio Mobile App - Group 2: Critical Mobile Fixes",
-  "branchName": "feature/critical-mobile-fixes-group2",
-  "skipAgents": ["tester"],
-  "completionCriteria": "Mark complete when code edits are done - do not wait for testing",
   "userStories": [
     {
       "id": "US-001",
@@ -42,9 +39,7 @@
         "Investigate IndexedDB state when first album photo is added to new visual",
         "Check if second photo succeeds because visual is now fully initialized"
       ],
-      "priority": 1,
-      "skipTester": true,
-      "markCompleteOnCodeEdit": true
+      "priority": 1
     },
     {
       "id": "US-002",
@@ -78,9 +73,7 @@
         "Compare how existing deficiency photos load vs new modal photos",
         "Check LocalImage entity association for modal-created items"
       ],
-      "priority": 2,
-      "skipTester": true,
-      "markCompleteOnCodeEdit": true
+      "priority": 2
     }
   ],
   "completedStories": [
@@ -91,12 +84,7 @@
       "solution": "Changed auto-reload to user confirmation dialog to prevent unexpected hard refreshes"
     }
   ],
-  "agentInstructions": {
-    "skipTester": true,
-    "completionTrigger": "code_edits_complete",
-    "notes": "Skip the Tester agent. Mark tasks complete when code edits are done."
-  },
   "metadata": {
-    "updatedAt": "2026-01-14T11:15:00.000Z"
+    "updatedAt": "2026-01-14T11:20:00.000Z"
   }
 }
