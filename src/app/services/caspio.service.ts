@@ -2456,6 +2456,27 @@ export class CaspioService {
       throw new Error('Cannot upload empty or missing file');
     }
 
+    // US-001 FIX: Compress image before upload to avoid 413 Request Entity Too Large
+    // API Gateway has size limits - compress to max 1MB to ensure uploads succeed
+    let fileToUpload: File = file;
+    const MAX_SIZE_MB = 1; // 1MB max to stay under API Gateway limits
+
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      console.log(`[VISUALS ATTACH S3] File too large (${(file.size / 1024 / 1024).toFixed(2)}MB), compressing...`);
+      try {
+        const compressedBlob = await this.imageCompression.compressImage(file, {
+          maxSizeMB: MAX_SIZE_MB,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true
+        });
+        fileToUpload = new File([compressedBlob], file.name, { type: compressedBlob.type || 'image/jpeg' });
+        console.log(`[VISUALS ATTACH S3] Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
+      } catch (compressErr) {
+        console.warn('[VISUALS ATTACH S3] Compression failed, using original:', compressErr);
+        // Continue with original file - may fail with 413 but worth trying
+      }
+    }
+
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
@@ -2483,18 +2504,18 @@ export class CaspioService {
       const MAX_S3_RETRIES = 3;
       const INITIAL_RETRY_DELAY_MS = 500;
 
-      alert(`[S3 DEBUG] Starting upload\nVisualID: ${visualId}\nFile: ${file?.name}\nSize: ${file?.size} bytes\nType: ${file?.type}`);
+      alert(`[S3 DEBUG] Starting upload\nVisualID: ${visualId}\nOriginal: ${(file?.size / 1024 / 1024).toFixed(2)}MB\nAfter compress: ${(fileToUpload?.size / 1024 / 1024).toFixed(2)}MB`);
 
       let s3Key: string | null = null;
       let lastError: Error | null = null;
 
       for (let attempt = 1; attempt <= MAX_S3_RETRIES; attempt++) {
         try {
-          alert(`[S3 DEBUG] Attempt ${attempt}/${MAX_S3_RETRIES}\nCreating FormData...`);
+          alert(`[S3 DEBUG] Attempt ${attempt}/${MAX_S3_RETRIES}\nFile size: ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
 
           // Create fresh FormData for each attempt (FormData can only be consumed once)
           const formData = new FormData();
-          formData.append('file', file, uniqueFilename);
+          formData.append('file', fileToUpload, uniqueFilename);
           formData.append('tableName', 'LPS_Services_Visuals_Attach');
           formData.append('attachId', tempAttachId);
 
