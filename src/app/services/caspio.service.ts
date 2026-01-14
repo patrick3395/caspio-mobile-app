@@ -2450,8 +2450,12 @@ export class CaspioService {
     console.log('[VISUALS ATTACH S3] Drawings length:', drawingsData?.length || 0);
     console.log('[VISUALS ATTACH S3] Caption:', caption || '(none)');
 
+    // DEBUG POPUP: Show file details
+    alert(`[DEBUG S3] Starting upload. VisualID: ${visualId}, File: ${file?.name}, Size: ${file?.size} bytes, Type: ${file?.type}`);
+
     // VALIDATION: Reject empty or invalid files
     if (!file || file.size === 0) {
+      alert(`[DEBUG S3] ERROR: File is empty or missing! Size: ${file?.size}`);
       console.error('[VISUALS ATTACH S3] ❌ REJECTING: Empty or missing file!');
       throw new Error('Cannot upload empty or missing file');
     }
@@ -2483,14 +2487,24 @@ export class CaspioService {
       formData.append('tableName', 'LPS_Services_Visuals_Attach');
       formData.append('attachId', tempAttachId);
 
+      // DEBUG POPUP: Show what we're sending to S3
+      alert(`[DEBUG S3] Sending to S3. Filename: ${uniqueFilename}, FormData file size: ${file.size}`);
+
       console.log('[VISUALS ATTACH S3] Step 1: Uploading to S3 FIRST...');
       const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+
+      // DEBUG POPUP: Show response status
+      alert(`[DEBUG S3] Response status: ${uploadResponse.status} ${uploadResponse.statusText}`);
+
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
+        // DEBUG POPUP: Show actual error from S3
+        alert(`[DEBUG S3] S3 UPLOAD FAILED!\nStatus: ${uploadResponse.status}\nError: ${errorText?.substring(0, 200)}`);
         console.error('[VISUALS ATTACH S3] ❌ S3 upload failed:', errorText);
         throw new Error('S3 upload failed');
       }
       const { s3Key } = await uploadResponse.json();
+      alert(`[DEBUG S3] S3 upload SUCCESS! Key: ${s3Key?.substring(0, 50)}`);
       console.log('[VISUALS ATTACH S3] ✅ S3 upload complete, key:', s3Key);
 
       // Step 2: Now create the Caspio record WITH the Attachment field populated
