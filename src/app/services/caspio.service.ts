@@ -2450,12 +2450,8 @@ export class CaspioService {
     console.log('[VISUALS ATTACH S3] Drawings length:', drawingsData?.length || 0);
     console.log('[VISUALS ATTACH S3] Caption:', caption || '(none)');
 
-    // DEBUG POPUP: Show file details
-    alert(`[DEBUG S3] Starting upload. VisualID: ${visualId}, File: ${file?.name}, Size: ${file?.size} bytes, Type: ${file?.type}`);
-
     // VALIDATION: Reject empty or invalid files
     if (!file || file.size === 0) {
-      alert(`[DEBUG S3] ERROR: File is empty or missing! Size: ${file?.size}`);
       console.error('[VISUALS ATTACH S3] ❌ REJECTING: Empty or missing file!');
       throw new Error('Cannot upload empty or missing file');
     }
@@ -2482,30 +2478,61 @@ export class CaspioService {
       // Use a temporary placeholder attachId for S3 key generation (will be part of path)
       const tempAttachId = `pending_${timestamp}`;
 
-      const formData = new FormData();
-      formData.append('file', file, uniqueFilename);
-      formData.append('tableName', 'LPS_Services_Visuals_Attach');
-      formData.append('attachId', tempAttachId);
+      // US-001 FIX: S3 upload with retry for mobile "first request fails" issue
+      // On mobile, the first HTTP request after app activation can fail due to network initialization
+      // Retry with exponential backoff ensures uploads eventually succeed
+      const MAX_S3_RETRIES = 3;
+      const INITIAL_RETRY_DELAY_MS = 500;
 
-      // DEBUG POPUP: Show what we're sending to S3
-      alert(`[DEBUG S3] Sending to S3. Filename: ${uniqueFilename}, FormData file size: ${file.size}`);
+      let s3Key: string | null = null;
+      let lastError: Error | null = null;
 
-      console.log('[VISUALS ATTACH S3] Step 1: Uploading to S3 FIRST...');
-      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+      for (let attempt = 1; attempt <= MAX_S3_RETRIES; attempt++) {
+        try {
+          // Create fresh FormData for each attempt (FormData can only be consumed once)
+          const formData = new FormData();
+          formData.append('file', file, uniqueFilename);
+          formData.append('tableName', 'LPS_Services_Visuals_Attach');
+          formData.append('attachId', tempAttachId);
 
-      // DEBUG POPUP: Show response status
-      alert(`[DEBUG S3] Response status: ${uploadResponse.status} ${uploadResponse.statusText}`);
+          console.log(`[VISUALS ATTACH S3] Step 1: Uploading to S3 (attempt ${attempt}/${MAX_S3_RETRIES})...`);
 
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        // DEBUG POPUP: Show actual error from S3
-        alert(`[DEBUG S3] S3 UPLOAD FAILED!\nStatus: ${uploadResponse.status}\nError: ${errorText?.substring(0, 200)}`);
-        console.error('[VISUALS ATTACH S3] ❌ S3 upload failed:', errorText);
-        throw new Error('S3 upload failed');
+          const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            console.error(`[VISUALS ATTACH S3] S3 upload failed (attempt ${attempt}):`, uploadResponse.status, errorText);
+            throw new Error(`S3 upload failed: ${uploadResponse.status} - ${errorText?.substring(0, 100)}`);
+          }
+
+          const result = await uploadResponse.json();
+          s3Key = result.s3Key;
+
+          if (!s3Key) {
+            throw new Error('S3 upload succeeded but no s3Key returned');
+          }
+
+          console.log(`[VISUALS ATTACH S3] ✅ S3 upload complete (attempt ${attempt}), key:`, s3Key);
+          break; // Success - exit retry loop
+
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[VISUALS ATTACH S3] S3 upload attempt ${attempt} failed:`, err?.message || err);
+
+          if (attempt < MAX_S3_RETRIES) {
+            // Wait before retry with exponential backoff
+            const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+            console.log(`[VISUALS ATTACH S3] Retrying in ${delayMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+        }
       }
-      const { s3Key } = await uploadResponse.json();
-      alert(`[DEBUG S3] S3 upload SUCCESS! Key: ${s3Key?.substring(0, 50)}`);
-      console.log('[VISUALS ATTACH S3] ✅ S3 upload complete, key:', s3Key);
+
+      // Check if all retries failed
+      if (!s3Key) {
+        console.error('[VISUALS ATTACH S3] ❌ All S3 upload attempts failed');
+        throw lastError || new Error('S3 upload failed after all retries');
+      }
 
       // Step 2: Now create the Caspio record WITH the Attachment field populated
       // This ensures we NEVER create a record without an Attachment
