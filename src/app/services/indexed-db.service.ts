@@ -2696,7 +2696,7 @@ export class IndexedDbService {
     // Emit change event to trigger liveQuery update
     this.emitChange({
       store: 'localImages',
-      action: 'bulk_update',
+      action: 'update',
       key: `entityId_${oldEntityId}_to_${newEntityId}`,
       entityType: images[0]?.entityType || 'visual',
       entityId: newEntityId,
