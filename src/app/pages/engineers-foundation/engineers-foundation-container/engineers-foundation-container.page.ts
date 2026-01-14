@@ -35,10 +35,14 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   currentPageTitle: string = 'Engineers Foundation Evaluation';
   currentPageShortTitle: string = 'EFE';
   isGeneratingPDF: boolean = false;
-  
+
   // Offline-first: template loading state
   templateReady: boolean = false;
   downloadProgress: string = 'Preparing template for offline use...';
+
+  // US-002 FIX: Track last loaded service to prevent unnecessary re-downloads
+  // This prevents the loading overlay from appearing when navigating within the same service
+  private lastLoadedServiceId: string = '';
 
   // Subscriptions for cleanup
   private syncSubscriptions: Subscription[] = [];
@@ -69,8 +73,18 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
     // Get project and service IDs from route params
     this.route.params.subscribe(async params => {
-      this.projectId = params['projectId'];
-      this.serviceId = params['serviceId'];
+      const newProjectId = params['projectId'];
+      const newServiceId = params['serviceId'];
+
+      // US-002 FIX: Skip re-download if navigating within the same service
+      // This prevents the loading overlay from appearing unnecessarily when:
+      // - Navigating between rooms/categories in the same service
+      // - Returning to a page after clicking back
+      // - Any internal navigation that doesn't change the service
+      const isSameService = this.lastLoadedServiceId === newServiceId && this.templateReady;
+
+      this.projectId = newProjectId;
+      this.serviceId = newServiceId;
 
       // Initialize state service with IDs
       this.stateService.initialize(this.projectId, this.serviceId);
@@ -85,17 +99,25 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       // Subscribe to sync events to refresh cache when data syncs
       this.subscribeToSyncEvents();
 
-      // CRITICAL: Force loading screen to render before starting download
-      this.templateReady = false;
-      this.downloadProgress = 'Loading template data...';
-      this.changeDetectorRef.detectChanges();
+      // US-002 FIX: Only show loading and re-download if this is a NEW service
+      if (!isSameService) {
+        // CRITICAL: Force loading screen to render before starting download
+        this.templateReady = false;
+        this.downloadProgress = 'Loading template data...';
+        this.changeDetectorRef.detectChanges();
 
-      // Small delay to ensure UI renders loading state
-      await new Promise(resolve => setTimeout(resolve, 50));
+        // Small delay to ensure UI renders loading state
+        await new Promise(resolve => setTimeout(resolve, 50));
 
-      // CRITICAL: Download ALL template data for offline use
-      // This MUST complete before user can work on template
-      await this.downloadTemplateData();
+        // CRITICAL: Download ALL template data for offline use
+        // This MUST complete before user can work on template
+        await this.downloadTemplateData();
+
+        // Track that we've loaded this service
+        this.lastLoadedServiceId = newServiceId;
+      } else {
+        console.log('[EF Container] Same service, skipping re-download to prevent refresh');
+      }
     });
 
     // Subscribe to router events to update breadcrumbs

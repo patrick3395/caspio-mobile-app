@@ -3,6 +3,8 @@ ion-content {
 }
 
 // Template loading overlay
+// US-002 FIX: Changed from *ngIf to CSS class-based visibility
+// This prevents the overlay from destroying the router-outlet
 .template-loading-overlay {
   position: absolute;
   top: 0;
@@ -14,6 +16,16 @@ ion-content {
   justify-content: center;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   z-index: 1000;
+  // US-002: Use opacity and pointer-events for smooth transitions
+  opacity: 1;
+  transition: opacity 0.2s ease-out;
+  pointer-events: auto;
+
+  // US-002 FIX: When hidden, fade out and allow clicks through
+  &.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
 
   .loading-content {
     text-align: center;
@@ -44,6 +56,21 @@ ion-content {
       color: #999;
       font-style: italic;
     }
+  }
+}
+
+// US-002 CRITICAL FIX: Router wrapper ensures child components are never destroyed
+// by templateReady state changes. The router-outlet is always mounted.
+.router-wrapper {
+  height: 100%;
+  width: 100%;
+
+  // When loading, hide but don't destroy child components
+  // Using visibility:hidden instead of display:none preserves layout calculations
+  &.loading {
+    visibility: hidden;
+    // Ensure no interaction while loading
+    pointer-events: none;
   }
 }
 

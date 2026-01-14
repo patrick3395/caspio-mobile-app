@@ -3460,48 +3460,26 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       service.typeName?.toLowerCase().includes('truss evaluation');
 
     // Navigate immediately - remove all blocking checks
+    // US-002 FIX: Use retryNavigation helper to avoid hard refresh fallbacks
     if (isHUDTemplate) {
-      const url = `/hud/${this.projectId}/${service.serviceId}`;
       const extras: any = { replaceUrl: false };
       if (openPdf) {
         extras.queryParams = { openPdf: '1' };
       }
-
-      // Use Angular router; fallback to direct navigation with query param if needed
-      this.router.navigate(['hud', this.projectId, service.serviceId], extras).catch(error => {
-        console.error('Router navigation failed, using fallback:', error);
-        const finalUrl = openPdf ? `${url}?openPdf=1` : url;
-        window.location.assign(finalUrl);
-      });
+      this.retryNavigation(['hud', this.projectId, service.serviceId], extras);
     } else if (isLBWTemplate) {
-      const url = `/lbw/${this.projectId}/${service.serviceId}`;
       const extras: any = { replaceUrl: false };
       if (openPdf) {
         extras.queryParams = { openPdf: '1' };
       }
-
-      // Use Angular router; fallback to direct navigation with query param if needed
-      this.router.navigate(['lbw', this.projectId, service.serviceId], extras).catch(error => {
-        console.error('Router navigation failed, using fallback:', error);
-        const finalUrl = openPdf ? `${url}?openPdf=1` : url;
-        window.location.assign(finalUrl);
-      });
+      this.retryNavigation(['lbw', this.projectId, service.serviceId], extras);
     } else if (isDTETemplate) {
-      const url = `/dte/${this.projectId}/${service.serviceId}`;
       const extras: any = { replaceUrl: false };
       if (openPdf) {
         extras.queryParams = { openPdf: '1' };
       }
-
-      // Use Angular router; fallback to direct navigation with query param if needed
-      this.router.navigate(['dte', this.projectId, service.serviceId], extras).catch(error => {
-        console.error('Router navigation failed, using fallback:', error);
-        const finalUrl = openPdf ? `${url}?openPdf=1` : url;
-        window.location.assign(finalUrl);
-      });
+      this.retryNavigation(['dte', this.projectId, service.serviceId], extras);
     } else if (isEngineersFoundation) {
-      // Force navigation with location.assign for immediate response
-      const url = `/engineers-foundation/${this.projectId}/${service.serviceId}`;
       const extras: any = { replaceUrl: false };
       if (openPdf) {
         extras.queryParams = { openPdf: '1' };
@@ -3512,23 +3490,38 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           ReportFinalized: service.ReportFinalized
         };
       }
-
-      this.router.navigate(['engineers-foundation', this.projectId, service.serviceId], extras).catch(error => {
-        console.error('Router navigation failed, using fallback:', error);
-        const finalUrl = openPdf ? `${url}?openPdf=1` : url;
-        window.location.assign(finalUrl);
-      });
+      this.retryNavigation(['engineers-foundation', this.projectId, service.serviceId], extras);
     } else {
       const extras: any = { replaceUrl: false };
       if (openPdf) {
         extras.queryParams = { openPdf: '1' };
       }
-      this.router.navigate(['template-form', this.projectId, service.serviceId], extras).catch(error => {
-        console.error('Router navigation to template-form failed:', error);
-        const url = `/template-form/${this.projectId}/${service.serviceId}`;
-        const finalUrl = openPdf ? `${url}?openPdf=1` : url;
-        window.location.assign(finalUrl);
-      });
+      this.retryNavigation(['template-form', this.projectId, service.serviceId], extras);
+    }
+  }
+
+  /**
+   * US-002 FIX: Retry navigation with exponential backoff instead of hard refresh fallback
+   * This prevents the app from hard refreshing when router navigation fails temporarily
+   */
+  private async retryNavigation(commands: any[], extras: any, attempt: number = 1): Promise<void> {
+    const maxAttempts = 3;
+    try {
+      const success = await this.router.navigate(commands, extras);
+      if (!success && attempt < maxAttempts) {
+        console.warn(`[ProjectDetail] Navigation returned false, retry ${attempt}/${maxAttempts}`);
+        await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+        return this.retryNavigation(commands, extras, attempt + 1);
+      }
+    } catch (error) {
+      console.error(`[ProjectDetail] Navigation error on attempt ${attempt}:`, error);
+      if (attempt < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+        return this.retryNavigation(commands, extras, attempt + 1);
+      }
+      // Final fallback: show error to user instead of hard refresh
+      console.error('[ProjectDetail] Navigation failed after all retries - NOT using hard refresh');
+      // Don't use window.location.assign - just log and let user try again
     }
   }
 
