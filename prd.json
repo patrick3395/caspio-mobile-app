@@ -1,51 +1,64 @@
 {
-  "project": "Caspio Mobile App Fixes",
+  "project": "Caspio Mobile App Fixes - Critical Issues",
   "version": "1.0",
   "created": "2026-01-14",
   "tasks": [
     {
       "id": "TASK-001",
-      "title": "Multi-Image Upload - Third Image Gets Stuck in Queue",
-      "description": "When uploading 3 images via photo album in Structural Systems, 2 images sync but the 3rd sits in queue indefinitely. Force sync shows 'uploading' briefly then returns to queue/idle. Pattern: 2 images work, 3+ causes 1 to get stuck. With 4 images, 3 sync and 1 stuck.",
+      "title": "Multi-Image Upload Stuck Forever (MOBILE ONLY - NOT FIXED)",
+      "description": "CRITICAL - NOT FIXED. Multiple photos in Structural Systems: 1 image stuck in queue forever on mobile. Force sync shows 'uploading' then back to queue. Mobile only issue - webapp works. TAKE TIME TO FIND ROOT CAUSE.",
+      "mobile_only": true,
       "acceptance_criteria": [
-        "All images in multi-image upload sync successfully",
-        "No images get stuck in queue after partial sync",
-        "Force sync successfully syncs queued items",
-        "Works with 3, 4, or more images"
+        "All images sync on mobile (3, 4, 5+ images)",
+        "No images stuck in queue permanently",
+        "Force sync clears all queued items",
+        "Matches webapp behavior"
       ],
-      "suspected_cause": "Race condition during batch upload. Sync worker may skip items if previous ones processing. Possible duplicate prevention incorrectly filtering valid images.",
+      "investigation": "Compare mobile vs webapp upload flow. Check race conditions, batch limits, LocalImage outbox processing differences.",
       "passes": false,
       "priority": 1
     },
     {
       "id": "TASK-002",
-      "title": "Elevation Plot Rooms Infinite Loading - Performance Issue",
-      "description": "Elevation plot rooms show loading screen and never finish loading. Pages should load faster with local-only data (offline experience). Need optimization while ensuring images sustain, captions persist, no functionality breaks.",
+      "title": "Random Hard Refreshes - Critical Stability (NOT FIXED)",
+      "description": "CRITICAL - NOT FIXED. App hard refreshes randomly: clicking sync modal, images, saving annotations, after sync, entering rooms/categories. Makes app feel broken. SPEND AS MUCH TIME AS NEEDED. Find root cause: local data? broken data? memory? state corruption?",
       "acceptance_criteria": [
-        "Elevation plot rooms load quickly (under 2 seconds)",
-        "No infinite loading screens",
-        "Images display correctly from local storage",
-        "Captions and annotations persist",
-        "No functionality breakage"
+        "No hard refreshes during any normal operation",
+        "App remains stable throughout user session",
+        "Root cause identified and permanently resolved"
       ],
-      "technical_approach": "Profile bottlenecks. Optimize LocalImages queries. Defer non-critical loading. Lazy load images. ONLY change if confident won't break persistence.",
-      "safety_constraint": "DO NOT change if not confident about image sustainability. Prioritize reliability over speed.",
+      "investigation": "Check unhandled exceptions, state corruption, IndexedDB errors, memory leaks, infinite loops, recursive reloads. Add global error handler. Extensive logging.",
       "passes": false,
       "priority": 2
     },
     {
       "id": "TASK-003",
-      "title": "Optimize Image Thumbnail Loading in Elevation Plot Rooms",
-      "description": "Image thumbnails in elevation plot rooms should load faster. With local-first approach, thumbnails should display nearly instantly since data is on device.",
+      "title": "Optimize Page Load Speed (Zero Functionality Loss)",
+      "description": "Structural categories and Rooms load too slow with loading screens. Optimize BUT CANNOT break: image display, photo showing, lazy loading, captions, annotations. Conservative safe optimizations only.",
       "acceptance_criteria": [
-        "Thumbnails load quickly (under 500ms)",
-        "Progressive loading - show visible thumbnails first",
-        "No functionality breakage - images sustain, captions persist"
+        "Pages load under 2 seconds",
+        "ALL images display correctly",
+        "ALL photos show up",
+        "Lazy loading works",
+        "Captions/annotations persist",
+        "Zero functionality regression"
       ],
-      "technical_approach": "Use thumbnail-sized blobs. Implement progressive/lazy loading. Batch blob URL generation. Cache URLs.",
-      "safety_constraint": "Only change if confident won't break image sustainability.",
+      "safe_optimizations": "Profile bottlenecks. Optimize DB queries. Defer non-visible content. Cache blob URLs. IF optimization risks stability - DON'T DO IT.",
       "passes": false,
       "priority": 3
+    },
+    {
+      "id": "TASK-004",
+      "title": "Annotations Not Syncing in Structural Categories",
+      "description": "Annotations added in structural categories don't appear in sync queue and don't sync to backend.",
+      "acceptance_criteria": [
+        "Annotations appear in sync queue",
+        "Annotations sync to Caspio successfully",
+        "Sync modal shows annotation updates"
+      ],
+      "investigation": "Check if queueCaptionAndAnnotationUpdate() called. Verify IndexedDB outbox storage. Check background-sync processing.",
+      "passes": false,
+      "priority": 4
     }
   ]
 }
