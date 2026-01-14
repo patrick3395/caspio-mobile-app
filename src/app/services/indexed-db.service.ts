@@ -2474,7 +2474,21 @@ export class IndexedDbService {
     const blobId = `blob_${this.generateUUID()}`;
     const now = Date.now();
 
+    // US-001 FIX: Validate file before processing
+    // On mobile, gallery-selected images can have empty/corrupt file data
+    if (!file || file.size === 0) {
+      console.error('[IndexedDB] US-001: Cannot create LocalImage - file is empty or missing');
+      throw new Error('Cannot add empty image - please select the photo again');
+    }
+
     const arrayBuffer = await file.arrayBuffer();
+
+    // US-001 FIX: Validate arrayBuffer has content after conversion
+    // This catches cases where file.size > 0 but arrayBuffer conversion fails
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      console.error('[IndexedDB] US-001: ArrayBuffer is empty after conversion. File size was:', file.size);
+      throw new Error('Image data could not be read - please try again');
+    }
 
     const localBlob: LocalBlob = {
       blobId,

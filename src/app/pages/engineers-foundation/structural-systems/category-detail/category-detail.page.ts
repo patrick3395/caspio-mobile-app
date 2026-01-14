@@ -4033,6 +4033,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           for (let i = 0; i < images.photos.length; i++) {
             const image = images.photos[i];
 
+            // US-001 FIX: Add small delay between processing photos on mobile
+            // This helps prevent timing issues where the last image's blob isn't ready yet
+            if (i > 0) {
+              await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+            }
+
             if (image.webPath) {
               try {
               console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
@@ -4040,7 +4046,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 // Fetch the blob
                 const response = await fetch(image.webPath);
                 const blob = await response.blob();
+
+                // US-001 FIX: Validate blob has content before creating File
+                // On mobile, gallery-selected images (especially the last in a batch)
+                // can have empty or corrupt blob data due to timing issues
+                if (!blob || blob.size === 0) {
+                  console.error(`[GALLERY UPLOAD] US-001: Photo ${i + 1} has empty blob data - skipping`);
+                  continue;
+                }
+
                 const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+
+                // US-001 FIX: Double-check file size after File creation
+                if (file.size === 0) {
+                  console.error(`[GALLERY UPLOAD] US-001: Photo ${i + 1} file size is 0 after creation - skipping`);
+                  continue;
+                }
 
               // Create LocalImage with stable UUID
               const localImage = await this.localImageService.captureImage(
