@@ -283,14 +283,17 @@ export class IndexedDbService {
   /**
    * Increment retry count
    */
-  async incrementRetryCount(requestId: string): Promise<void> {
+  async incrementRetryCount(requestId: string): Promise<number> {
     const request = await db.pendingRequests.get(requestId);
     if (request) {
+      const newCount = (request.retryCount || 0) + 1;
       await db.pendingRequests.update(requestId, {
-        retryCount: request.retryCount + 1,
+        retryCount: newCount,
         lastAttempt: Date.now()
       });
+      return newCount;
     }
+    return 0;
   }
 
   /**
@@ -2258,28 +2261,49 @@ export class IndexedDbService {
   }
 
   /**
-   * Clear stale pending captions
+   * Clear stale pending captions - marks them as failed so users can see the reason
+   * instead of silently deleting them
    */
   async clearStalePendingCaptions(olderThanMinutes: number = 30): Promise<number> {
     const cutoffTime = Date.now() - (olderThanMinutes * 60 * 1000);
     const captions = await db.pendingCaptions.toArray();
 
-    const toDelete = captions.filter(caption => {
+    const toMark = captions.filter(caption => {
       const isStale = caption.createdAt < cutoffTime;
-      const hasUnresolvedTempId = caption.attachId && caption.attachId.startsWith('temp_');
+      const hasUnresolvedTempId = caption.attachId && String(caption.attachId).startsWith('temp_');
+      const hasLocalFirstId = caption.attachId && (String(caption.attachId).startsWith('img_') || String(caption.attachId).includes('-'));
       const hasHighRetries = (caption.retryCount || 0) >= 3;
 
       return (caption.status === 'pending' || caption.status === 'syncing') &&
-        isStale && (hasUnresolvedTempId || hasHighRetries);
+        isStale && (hasUnresolvedTempId || hasLocalFirstId || hasHighRetries);
     });
 
-    for (const caption of toDelete) {
-      console.log(`[IndexedDB] Clearing stale caption: ${caption.captionId}, attachId: ${caption.attachId}, age: ${(Date.now() - caption.createdAt) / 60000}min`);
+    // Mark each caption as failed with appropriate error message instead of deleting
+    for (const caption of toMark) {
+      const ageMinutes = Math.round((Date.now() - caption.createdAt) / 60000);
+      let errorReason = '';
+
+      if (String(caption.attachId).startsWith('temp_')) {
+        errorReason = `Photo never synced (temp ID unresolved after ${ageMinutes} minutes)`;
+      } else if (String(caption.attachId).startsWith('img_') || String(caption.attachId).includes('-')) {
+        errorReason = `Photo upload pending (local-first ID not yet synced after ${ageMinutes} minutes)`;
+      } else if ((caption.retryCount || 0) >= 3) {
+        errorReason = `Failed after ${caption.retryCount} retries over ${ageMinutes} minutes`;
+      } else {
+        errorReason = `Sync timed out after ${ageMinutes} minutes`;
+      }
+
+      console.log(`[IndexedDB] Marking stale caption as failed: ${caption.captionId}, attachId: ${caption.attachId}, reason: ${errorReason}`);
+
+      await db.pendingCaptions.update(caption.captionId, {
+        status: 'failed',
+        error: errorReason,
+        lastAttempt: Date.now()
+      });
     }
 
-    await db.pendingCaptions.bulkDelete(toDelete.map(c => c.captionId));
-    console.log(`[IndexedDB] Cleared ${toDelete.length} stale pending caption updates`);
-    return toDelete.length;
+    console.log(`[IndexedDB] Marked ${toMark.length} stale pending captions as failed`);
+    return toMark.length;
   }
 
   /**

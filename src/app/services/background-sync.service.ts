@@ -808,12 +808,12 @@ export class BackgroundSyncService {
 
       } catch (error: any) {
         const errorMessage = error.message || 'Sync failed';
-        
+
         // Check if this is a dependency-related failure (should retry immediately when dependency resolves)
-        const isDependencyError = errorMessage.includes('not synced yet') || 
+        const isDependencyError = errorMessage.includes('not synced yet') ||
                                    errorMessage.includes('dependency') ||
                                    errorMessage.includes('waiting for');
-        
+
         if (isDependencyError) {
           // DON'T increment retry count for dependency failures
           // These should retry immediately when the dependency resolves
@@ -822,9 +822,19 @@ export class BackgroundSyncService {
           await this.indexedDb.updateRequestStatus(request.requestId, 'pending', errorMessage, true);
         } else {
           // Real failure - increment retry count for exponential backoff
-          await this.indexedDb.incrementRetryCount(request.requestId);
-          await this.indexedDb.updateRequestStatus(request.requestId, 'pending', errorMessage);
-          console.warn(`[BackgroundSync] ❌ Failed (will retry): ${request.requestId}`, error);
+          const newRetryCount = await this.indexedDb.incrementRetryCount(request.requestId);
+
+          // US-001 FIX: Mark as 'failed' after too many retries so it shows in Failed tab
+          // This prevents silent failures where users never know something went wrong
+          const MAX_RETRIES_BEFORE_FAILED = 10;
+          if (newRetryCount >= MAX_RETRIES_BEFORE_FAILED) {
+            const failedMessage = `Failed after ${newRetryCount} attempts: ${errorMessage}`;
+            await this.indexedDb.updateRequestStatus(request.requestId, 'failed', failedMessage);
+            console.error(`[BackgroundSync] ❌ FAILED PERMANENTLY: ${request.requestId}`, failedMessage);
+          } else {
+            await this.indexedDb.updateRequestStatus(request.requestId, 'pending', errorMessage);
+            console.warn(`[BackgroundSync] ❌ Failed (will retry ${newRetryCount}/${MAX_RETRIES_BEFORE_FAILED}): ${request.requestId}`, error);
+          }
         }
       }
     }
@@ -858,8 +868,10 @@ export class BackgroundSyncService {
         if (attachIdStr.startsWith('temp_')) {
           const realId = await this.indexedDb.getRealId(attachIdStr);
           if (!realId) {
-            // Don't change status - just skip this caption until photo syncs
-            // The caption will be picked up on the next sync cycle after photo syncs
+            // Track the dependency wait so it's visible in failed tab
+            const dependencyError = `Waiting for photo sync (temp ID: ${attachIdStr})`;
+            console.log(`[BackgroundSync] Caption ${caption.captionId} waiting: ${dependencyError}`);
+            await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending', dependencyError);
             continue;
           }
           resolvedAttachId = realId;
@@ -870,13 +882,15 @@ export class BackgroundSyncService {
           // This looks like a local-first imageId - look up the LocalImage to get real attachId
           const localImage = await this.indexedDb.getLocalImage(attachIdStr);
           if (localImage) {
-            if (localImage.attachId && !localImage.attachId.startsWith('img_')) {
+            if (localImage.attachId && !String(localImage.attachId).startsWith('img_')) {
               // Photo has synced and has a real Caspio AttachID
               resolvedAttachId = localImage.attachId;
               console.log(`[BackgroundSync] Resolved caption attachId (local-first): ${caption.attachId} → ${resolvedAttachId}`);
             } else {
-              // Photo hasn't synced yet - skip and try again later
-              console.log(`[BackgroundSync] Local-first image ${attachIdStr} not synced yet, skipping caption`);
+              // Photo hasn't synced yet - track the dependency so it's visible
+              const dependencyError = `Waiting for photo upload (image: ${attachIdStr})`;
+              console.log(`[BackgroundSync] Caption ${caption.captionId} waiting: ${dependencyError}`);
+              await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending', dependencyError);
               continue;
             }
           } else {
@@ -2552,10 +2566,15 @@ export class BackgroundSyncService {
       const realId = await this.indexedDb.getRealId(entityId);
       if (!realId) {
         // Parent entity not synced yet - delay and retry later (don't throw)
+        // Track the dependency wait with error message so it's visible in failed tab
+        const dependencyError = `Waiting for parent entity sync (entity: ${entityId})`;
         console.log(`[BackgroundSync] Entity not synced yet, delaying photo: ${item.imageId} (entity: ${entityId})`);
         await this.indexedDb.updateOutboxItem(item.opId, {
-          nextRetryAt: Date.now() + 30000  // Retry in 30 seconds
+          nextRetryAt: Date.now() + 30000,  // Retry in 30 seconds
+          lastError: dependencyError
         });
+        // Update local image with dependency error so it's visible
+        await this.localImageService.updateStatus(item.imageId, 'queued', { lastError: dependencyError });
         // Keep status as 'queued' (don't mark as uploading yet)
         return;  // Skip for now, will retry on next sync cycle
       }
