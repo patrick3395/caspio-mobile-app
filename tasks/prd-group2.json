@@ -1,117 +1,57 @@
 {
-  "name": "Caspio Mobile App - Group 2: Critical Mobile Fixes - ISSUES STILL PERSIST",
-  "branchName": "feature/critical-mobile-fixes-group2-retry",
+  "name": "Caspio Mobile App - Group 2: Critical Mobile Fixes",
+  "branchName": "feature/critical-mobile-fixes-group2",
   "skipAgents": ["tester"],
   "completionCriteria": "Mark complete when code edits are done - do not wait for testing",
-  "criticalNote": "PREVIOUS FIX ATTEMPTS DID NOT WORK. These issues are STILL HAPPENING as of January 14, 2026. Do NOT assume previous commits fixed these issues - they did NOT. Fresh investigation and NEW fixes are required.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Multi-Image Upload - One Image Stuck in Queue Forever (MOBILE ONLY) - NOT FIXED",
-      "description": "CRITICAL - NOT FIXED - ISSUE STILL PERSISTS. Previous fix attempts in commits 54960ed1, 0aa9602e did NOT resolve this issue. When adding multiple photos in Structural Systems (mobile app), 1 image remains stuck in queue forever. Clicking Sync shows 'uploading' briefly then back to queue. The FIRST image listed in the queue is typically the one that gets stuck. This ONLY happens on mobile app - webapp works perfectly fine. DO NOT ASSUME THIS IS FIXED - IT IS NOT. Requires fresh investigation and new solution.",
-      "status": "NOT_FIXED",
-      "previousAttemptsFailed": true,
+      "title": "Multi-Image Upload - Phantom Row & Stuck Queue Issue (MOBILE ONLY)",
+      "description": "CRITICAL: In structural systems section (Foundations, Grading and Drainage, etc), when adding more than one photo from photo album, one photo remains stuck in the sync queue. When uploading 3 photos: 1 stays in sync queue, 3 rows are added to backend but one has NO attachment, and the UI shows 4 images instead of 3 (one is a broken image because there's no attachment).",
       "mobileOnlyIssue": true,
+      "completed": false,
+      "symptoms": [
+        "1 image stuck in sync queue after multi-image upload",
+        "Backend gets extra row without an Attachment",
+        "UI shows N+1 images (e.g., upload 3, see 4)",
+        "One image in UI is broken/missing (no attachment)"
+      ],
       "acceptanceCriteria": [
-        "All images in multi-image upload sync successfully on mobile",
-        "No images get stuck in queue permanently",
-        "First image in queue syncs correctly",
-        "Force sync clears all queued items",
-        "Works with 3, 4, 5+ images on mobile app",
-        "Behavior matches webapp (which works correctly)"
+        "All selected images sync successfully - none stuck in queue",
+        "Backend rows match number of images uploaded (3 photos = 3 rows with attachments)",
+        "UI displays correct number of images (3 photos = 3 images shown)",
+        "No broken/missing image links in UI",
+        "No phantom rows without attachments created",
+        "Works correctly with 2, 3, 4, 5+ images"
       ],
       "investigationSteps": [
-        "IGNORE previous fix attempts - they did not work",
-        "Compare mobile vs webapp upload flow - what's different?",
-        "Check if mobile has different batch size limits",
-        "Look for race conditions in mobile-specific code paths",
-        "Check LocalImage outbox processing on mobile",
-        "Verify upload worker doesn't skip first item on mobile",
-        "Check for mobile-specific network/blob handling differences",
-        "Focus on why the FIRST image gets stuck specifically"
+        "Trace the multi-image selection flow in structural-category pages",
+        "Check if duplicate LocalImage records are being created",
+        "Look for race conditions between queue processing and UI updates",
+        "Verify attachment upload completes before row creation",
+        "Check if phantom row is created before blob is ready",
+        "Investigate why UI count differs from actual uploaded count",
+        "Check outbox/queue processing for duplicate entries"
       ],
       "priority": 1,
       "skipTester": true,
       "markCompleteOnCodeEdit": true
-    },
+    }
+  ],
+  "completedStories": [
     {
       "id": "US-002",
-      "title": "Random Hard Refreshes Throughout App - NOT FIXED - STILL HAPPENING",
-      "description": "CRITICAL - NOT FIXED - ISSUE STILL PERSISTS. Previous fix attempts in commits 9a33cde3, 5a102ca9 did NOT resolve this issue. The mobile app STILL hard refreshes randomly and consistently, making it feel completely broken. Triggers include: clicking sync modal, clicking image, saving annotation, after sync completes, entering category/room. DO NOT ASSUME previous commits fixed this - THEY DID NOT. The issue is STILL happening as of January 14, 2026. Requires fresh investigation and entirely new approach.",
-      "status": "NOT_FIXED",
-      "previousAttemptsFailed": true,
-      "acceptanceCriteria": [
-        "No hard refreshes when clicking sync modal",
-        "No hard refreshes when clicking images",
-        "No hard refreshes when saving annotations",
-        "No hard refreshes after sync completes",
-        "No hard refreshes when navigating to categories/rooms",
-        "App remains stable during all normal operations",
-        "Root cause identified and permanently resolved"
-      ],
-      "investigationAreas": [
-        "IGNORE previous fix attempts - they did not work",
-        "Check for unhandled exceptions that trigger page reload",
-        "Look for state corruption causing Angular to force reload",
-        "Check IndexedDB errors that might crash change detection",
-        "Look for memory leaks causing app to restart",
-        "Check for infinite loops in liveQuery subscriptions",
-        "Verify change detection doesn't trigger recursive reloads",
-        "Check for broken data structures causing errors",
-        "Add global error handler to catch and log before refresh happens",
-        "Check window.location assignments or navigation.reload() calls",
-        "Look for Zone.js errors causing full app reload"
-      ],
-      "priority": 2,
-      "skipTester": true,
-      "markCompleteOnCodeEdit": true
-    },
-    {
-      "id": "US-003",
-      "title": "Optimize Structural Categories and Rooms Page Load Speed - STILL SLOW",
-      "description": "Loading of structural categories pages STILL shows loading screen and takes too long to load. Rooms STILL take too long to load. Previous optimization attempts did not sufficiently improve performance. Need additional optimization while maintaining 100% of current functionality. Do NOT lose any functionality - same features must work exactly as before, just faster.",
-      "status": "NOT_FIXED",
-      "previousAttemptsFailed": true,
-      "acceptanceCriteria": [
-        "Structural category pages load faster",
-        "Rooms load faster",
-        "ALL images still display correctly - no disappearance",
-        "ALL photos still show up - no missing images",
-        "Lazy loading still works",
-        "Captions persist correctly",
-        "Annotations persist correctly",
-        "Zero functionality regression"
-      ],
-      "safeOptimizationStrategies": [
-        "Profile to find actual bottlenecks (don't guess)",
-        "Optimize database queries (indexes, batch reads)",
-        "Defer non-visible content (below fold)",
-        "Use virtual scrolling for long lists if applicable",
-        "Optimize blob URL generation (cache, reuse)",
-        "Reduce redundant change detection cycles",
-        "Check for N+1 query patterns"
-      ],
-      "safetyConstraints": [
-        "DO NOT break image display logic",
-        "DO NOT change LocalImages loading flow in ways that break display",
-        "DO NOT modify lazy loading logic in ways that break it",
-        "MUST maintain all existing functionality",
-        "If optimization risks stability - DON'T DO IT"
-      ],
-      "priority": 3,
-      "skipTester": true,
-      "markCompleteOnCodeEdit": true
+      "title": "Random Hard Refreshes Throughout App - FIXED",
+      "fixedIn": "commit 93e1ad55 in zeroshot/ruby-atlas-15 branch",
+      "solution": "Changed auto-reload to user confirmation dialog to prevent unexpected hard refreshes"
     }
   ],
   "agentInstructions": {
     "skipTester": true,
     "completionTrigger": "code_edits_complete",
-    "criticalWarning": "DO NOT assume previous commits fixed these issues. They did NOT. All issues are STILL occurring. Fresh investigation and NEW code changes are REQUIRED.",
     "notes": "Skip the Tester agent. Mark tasks complete when code edits are done."
   },
   "metadata": {
-    "updatedAt": "2026-01-14T07:00:00.000Z",
-    "previousFixAttemptsFailed": true,
-    "issuesStillPersist": true
+    "updatedAt": "2026-01-14T07:45:00.000Z"
   }
 }
