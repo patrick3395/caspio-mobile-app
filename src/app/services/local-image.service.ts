@@ -384,9 +384,19 @@ export class LocalImageService {
    * Mark image as uploaded (after S3 success)
    */
   async markUploaded(imageId: string, remoteS3Key: string, attachId: string): Promise<void> {
+    // Generate and store the remote URL for finalization
+    let remoteUrl: string | null = null;
+    try {
+      remoteUrl = await this.caspioService.getS3FileUrl(remoteS3Key);
+    } catch (err) {
+      console.warn('[LocalImage] Failed to generate remoteUrl:', err);
+    }
+
     await this.updateStatus(imageId, 'uploaded', {
       remoteS3Key,
-      attachId
+      attachId,
+      isSynced: true,
+      remoteUrl
     });
 
     // CRITICAL FIX: Transfer annotated image cache from imageId to attachId

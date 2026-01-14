@@ -112,6 +112,10 @@ export interface LocalImage {
   // Caspio sync
   attachId: string | null;      // Real AttachID from Caspio (null until synced)
 
+  // Sync status tracking (independent from display URL)
+  isSynced: boolean;            // True when image has been successfully uploaded to remote
+  remoteUrl: string | null;     // Full remote URL (stored but not displayed until finalization)
+
   // Metadata
   fileName: string;
   fileSize: number;
@@ -2465,6 +2469,8 @@ export class IndexedDbService {
       remoteS3Key: null,
       status: 'local_only',
       attachId: null,
+      isSynced: false,
+      remoteUrl: null,
       fileName: file.name || `photo_${now}.jpg`,
       fileSize: file.size,
       contentType: file.type || 'image/jpeg',
