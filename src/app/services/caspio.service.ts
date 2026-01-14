@@ -2480,15 +2480,23 @@ export class CaspioService {
 
       // US-001 FIX: S3 upload with retry for mobile "first request fails" issue
       // On mobile, the first HTTP request after app activation can fail due to network initialization
+      // A small delay before the first attempt allows the mobile network stack to initialize
       // Retry with exponential backoff ensures uploads eventually succeed
       const MAX_S3_RETRIES = 3;
       const INITIAL_RETRY_DELAY_MS = 500;
+      const PRE_UPLOAD_DELAY_MS = 100; // Small delay before first upload to allow network initialization
 
       let s3Key: string | null = null;
       let lastError: Error | null = null;
 
       for (let attempt = 1; attempt <= MAX_S3_RETRIES; attempt++) {
         try {
+          // US-001 FIX: Add small delay before each attempt to allow mobile network to stabilize
+          // This replicates the effect that debug alert() calls had in making uploads succeed
+          if (attempt === 1) {
+            await new Promise(resolve => setTimeout(resolve, PRE_UPLOAD_DELAY_MS));
+          }
+
           // Create fresh FormData for each attempt (FormData can only be consumed once)
           const formData = new FormData();
           formData.append('file', file, uniqueFilename);
