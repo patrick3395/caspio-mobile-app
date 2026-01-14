@@ -2736,8 +2736,12 @@ export class BackgroundSyncService {
    * Process a single upload outbox item
    */
   private async processUploadOutboxItem(item: UploadOutboxItem): Promise<void> {
+    // DEBUG POPUP: Start of upload processing
+    alert(`[DEBUG] Starting upload for image: ${item.imageId.substring(0, 20)}...`);
+
     const image = await this.indexedDb.getLocalImage(item.imageId);
     if (!image) {
+      alert(`[DEBUG] ERROR: Image not found in database: ${item.imageId.substring(0, 20)}`);
       console.warn('[BackgroundSync] Image not found for outbox item:', item.imageId);
       await this.indexedDb.removeOutboxItem(item.opId);
       return;
@@ -2745,6 +2749,7 @@ export class BackgroundSyncService {
 
     // Get the blob data
     if (!image.localBlobId) {
+      alert(`[DEBUG] ERROR: No local blob ID for image: ${item.imageId.substring(0, 20)}`);
       console.warn('[BackgroundSync] No local blob for image:', item.imageId);
       await this.indexedDb.removeOutboxItem(item.opId);
       // Mark image as failed so it doesn't show as stuck
@@ -2754,6 +2759,7 @@ export class BackgroundSyncService {
 
     const blob = await this.indexedDb.getLocalBlob(image.localBlobId);
     if (!blob) {
+      alert(`[DEBUG] ERROR: Blob not found: ${image.localBlobId}`);
       console.warn('[BackgroundSync] Blob not found:', image.localBlobId);
       await this.indexedDb.removeOutboxItem(item.opId);
       // Mark image as failed so it doesn't show as stuck
@@ -2765,12 +2771,16 @@ export class BackgroundSyncService {
     // On mobile, gallery-selected images can have corrupted/empty blob data
     // especially the last image in a multi-select batch
     if (!blob.data || blob.data.byteLength === 0) {
+      alert(`[DEBUG] ERROR: Blob data is empty/corrupt. Size: ${blob.data?.byteLength || 0}`);
       console.error('[BackgroundSync] US-001: Blob data is empty/corrupt:', item.imageId, 'blobId:', image.localBlobId, 'byteLength:', blob.data?.byteLength);
       await this.indexedDb.removeOutboxItem(item.opId);
       // Mark as FAILED (not queued) - corrupt blob will never succeed
       await this.localImageService.markFailed(item.imageId, 'Image data is corrupt or empty - please re-add the photo');
       return;
     }
+
+    // DEBUG POPUP: Blob validated
+    alert(`[DEBUG] Blob OK. Type: ${image.entityType}, EntityId: ${image.entityId}, Size: ${blob.data.byteLength} bytes`);
 
     console.log('[BackgroundSync] Uploading image:', item.imageId, 'type:', image.entityType, 'entityId:', image.entityId, 'photoType:', image.photoType, 'blobSize:', blob.data.byteLength);
 
@@ -2779,11 +2789,13 @@ export class BackgroundSyncService {
     // BUGFIX: Convert entityId to string to handle numeric IDs from database
     let entityId = String(image.entityId);
     if (entityId.startsWith('temp_')) {
+      alert(`[DEBUG] EntityId is temp: ${entityId}. Looking up real ID...`);
       const realId = await this.indexedDb.getRealId(entityId);
       if (!realId) {
         // Parent entity not synced yet - delay and retry later (don't throw)
         // Track the dependency wait with error message so it's visible in failed tab
         const dependencyError = `Waiting for parent entity sync (entity: ${entityId})`;
+        alert(`[DEBUG] DEFERRED: Parent entity not synced yet. TempId: ${entityId}`);
         console.log(`[BackgroundSync] Entity not synced yet, delaying photo: ${item.imageId} (entity: ${entityId})`);
         await this.indexedDb.updateOutboxItem(item.opId, {
           nextRetryAt: Date.now() + 30000,  // Retry in 30 seconds
@@ -2794,12 +2806,16 @@ export class BackgroundSyncService {
         // Keep status as 'queued' (don't mark as uploading yet)
         return;  // Skip for now, will retry on next sync cycle
       }
+      alert(`[DEBUG] Resolved temp ID: ${entityId} -> ${realId}`);
       entityId = realId;
       // Update image with resolved entityId
       await this.indexedDb.updateLocalImage(item.imageId, { entityId: realId });
+    } else {
+      alert(`[DEBUG] EntityId is real: ${entityId}`);
     }
 
     // Mark as uploading ONLY after we've confirmed we can proceed
+    alert(`[DEBUG] Marking as uploading and starting upload...`);
     await this.localImageService.markUploadStarted(item.opId, item.imageId);
 
     // Convert ArrayBuffer back to File
@@ -2870,8 +2886,10 @@ export class BackgroundSyncService {
       if (!result || typeof result !== 'object') {
         throw new Error(`Invalid upload response (type: ${typeof result}): ${JSON.stringify(result)?.substring(0, 100)}`);
       }
+      alert(`[DEBUG] Upload API returned. Result type: ${typeof result}`);
     } catch (uploadError: any) {
       // US-001 FIX: Explicit logging for mobile upload failures
+      alert(`[DEBUG] UPLOAD ERROR: ${uploadError?.message || String(uploadError)}`);
       console.error('[BackgroundSync] Mobile upload error:', item.imageId, 'entityType:', image.entityType, 'error:', uploadError?.message || uploadError);
       throw uploadError; // Re-throw to trigger handleUploadFailure
     }
@@ -2885,11 +2903,15 @@ export class BackgroundSyncService {
     const attachId = rawAttachId !== undefined ? String(rawAttachId) : '';
     const s3Key = rawS3Key || '';
 
+    alert(`[DEBUG] Extracted: AttachID=${attachId}, s3Key=${s3Key?.substring(0, 30) || 'EMPTY'}`);
+
     // US-001 FIX: More robust validation - check for empty strings and "undefined" string
     if (!attachId || attachId === 'undefined' || !s3Key || s3Key === 'undefined') {
+      alert(`[DEBUG] VALIDATION FAILED: AttachID or s3Key missing/invalid`);
       throw new Error(`Upload response missing AttachID or s3Key (got attachId='${attachId}', s3Key='${s3Key?.substring(0, 30)}')`);
     }
 
+    alert(`[DEBUG] SUCCESS! AttachID: ${attachId}`);
     console.log('[BackgroundSync] ✅ Upload success:', item.imageId, 'attachId:', attachId, 's3Key:', s3Key?.substring(0, 50));
 
     // Mark as uploaded (NOT verified yet)
