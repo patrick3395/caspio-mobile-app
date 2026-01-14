@@ -1,13 +1,16 @@
 {
-  "name": "Caspio Mobile App - Group 2: Critical Mobile Fixes",
-  "branchName": "feature/critical-mobile-fixes-group2",
+  "name": "Caspio Mobile App - Group 2: Critical Mobile Fixes - ISSUES STILL PERSIST",
+  "branchName": "feature/critical-mobile-fixes-group2-retry",
   "skipAgents": ["tester"],
   "completionCriteria": "Mark complete when code edits are done - do not wait for testing",
+  "criticalNote": "PREVIOUS FIX ATTEMPTS DID NOT WORK. These issues are STILL HAPPENING as of January 14, 2026. Do NOT assume previous commits fixed these issues - they did NOT. Fresh investigation and NEW fixes are required.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Multi-Image Upload - One Image Stuck in Queue Forever (MOBILE ONLY)",
-      "description": "CRITICAL: When adding multiple photos in Structural Systems (mobile app), 1 image remains stuck in queue forever. Clicking Sync shows 'uploading' briefly then back to queue. The FIRST image listed in the queue is typically the one that gets stuck. This ONLY happens on mobile app - webapp works perfectly fine with multiple images.",
+      "title": "Multi-Image Upload - One Image Stuck in Queue Forever (MOBILE ONLY) - NOT FIXED",
+      "description": "CRITICAL - NOT FIXED - ISSUE STILL PERSISTS. Previous fix attempts in commits 54960ed1, 0aa9602e did NOT resolve this issue. When adding multiple photos in Structural Systems (mobile app), 1 image remains stuck in queue forever. Clicking Sync shows 'uploading' briefly then back to queue. The FIRST image listed in the queue is typically the one that gets stuck. This ONLY happens on mobile app - webapp works perfectly fine. DO NOT ASSUME THIS IS FIXED - IT IS NOT. Requires fresh investigation and new solution.",
+      "status": "NOT_FIXED",
+      "previousAttemptsFailed": true,
       "mobileOnlyIssue": true,
       "acceptanceCriteria": [
         "All images in multi-image upload sync successfully on mobile",
@@ -18,6 +21,7 @@
         "Behavior matches webapp (which works correctly)"
       ],
       "investigationSteps": [
+        "IGNORE previous fix attempts - they did not work",
         "Compare mobile vs webapp upload flow - what's different?",
         "Check if mobile has different batch size limits",
         "Look for race conditions in mobile-specific code paths",
@@ -32,8 +36,10 @@
     },
     {
       "id": "US-002",
-      "title": "Random Hard Refreshes Throughout App - Critical Stability Issue",
-      "description": "CRITICAL: The mobile app hard refreshes randomly and consistently, making it feel completely broken. Triggers include: clicking sync modal, clicking image, saving annotation, after sync completes, entering category/room. This is happening randomly and consistently. DO NOT assume this has been fixed previously - it is still happening. Spend as much time as needed. Run as many tests as needed. Find the root cause: Is it local data saving? Broken data? Memory issue? State corruption?",
+      "title": "Random Hard Refreshes Throughout App - NOT FIXED - STILL HAPPENING",
+      "description": "CRITICAL - NOT FIXED - ISSUE STILL PERSISTS. Previous fix attempts in commits 9a33cde3, 5a102ca9 did NOT resolve this issue. The mobile app STILL hard refreshes randomly and consistently, making it feel completely broken. Triggers include: clicking sync modal, clicking image, saving annotation, after sync completes, entering category/room. DO NOT ASSUME previous commits fixed this - THEY DID NOT. The issue is STILL happening as of January 14, 2026. Requires fresh investigation and entirely new approach.",
+      "status": "NOT_FIXED",
+      "previousAttemptsFailed": true,
       "acceptanceCriteria": [
         "No hard refreshes when clicking sync modal",
         "No hard refreshes when clicking images",
@@ -44,6 +50,7 @@
         "Root cause identified and permanently resolved"
       ],
       "investigationAreas": [
+        "IGNORE previous fix attempts - they did not work",
         "Check for unhandled exceptions that trigger page reload",
         "Look for state corruption causing Angular to force reload",
         "Check IndexedDB errors that might crash change detection",
@@ -61,8 +68,10 @@
     },
     {
       "id": "US-003",
-      "title": "Optimize Structural Categories and Rooms Page Load Speed",
-      "description": "Loading of structural categories pages shows loading screen and takes too long to load. Rooms also take a bit of time to load. Need to optimize page loading while maintaining 100% of current functionality. Do NOT lose any functionality - same features must work exactly as before, just faster.",
+      "title": "Optimize Structural Categories and Rooms Page Load Speed - STILL SLOW",
+      "description": "Loading of structural categories pages STILL shows loading screen and takes too long to load. Rooms STILL take too long to load. Previous optimization attempts did not sufficiently improve performance. Need additional optimization while maintaining 100% of current functionality. Do NOT lose any functionality - same features must work exactly as before, just faster.",
+      "status": "NOT_FIXED",
+      "previousAttemptsFailed": true,
       "acceptanceCriteria": [
         "Structural category pages load faster",
         "Rooms load faster",
@@ -97,9 +106,12 @@
   "agentInstructions": {
     "skipTester": true,
     "completionTrigger": "code_edits_complete",
+    "criticalWarning": "DO NOT assume previous commits fixed these issues. They did NOT. All issues are STILL occurring. Fresh investigation and NEW code changes are REQUIRED.",
     "notes": "Skip the Tester agent. Mark tasks complete when code edits are done."
   },
   "metadata": {
-    "updatedAt": "2026-01-14T06:45:00.000Z"
+    "updatedAt": "2026-01-14T07:00:00.000Z",
+    "previousFixAttemptsFailed": true,
+    "issuesStillPersist": true
   }
 }
