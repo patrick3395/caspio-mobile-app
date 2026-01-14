@@ -519,8 +519,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     });
 
     // Subscribe to background sync photo upload completions
-    // This handles seamless URL transition from blob URL to cached base64
-    // CRITICAL: No flicker - image stays the same, only metadata changes
+    // ALWAYS display from LocalImages table - never swap displayUrl to remote URLs
+    // Sync happens in background, but UI always shows local blob until finalization
+    // Only update metadata and cache the remote image for persistence
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
       console.log('[PHOTO SYNC] Photo upload completed:', event.tempFileId);
 
@@ -552,50 +553,42 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           const result = event.result;
           const actualResult = result?.Result?.[0] || result;
           const realAttachId = actualResult.PK_ID || actualResult.AttachID;
-          
-          // SEAMLESS SWAP: Get the cached base64 (already downloaded by BackgroundSyncService)
-          let newThumbnailUrl = this.visualPhotos[key][photoIndex].thumbnailUrl;
+
+          // Cache the remote image for persistence (used after local blob is pruned)
+          // but do NOT update displayUrl - it stays as local blob from LocalImages
+          let cachedUrl = this.visualPhotos[key][photoIndex].url;
           try {
             const cachedBase64 = await this.indexedDb.getCachedPhoto(String(realAttachId));
             if (cachedBase64) {
-              newThumbnailUrl = cachedBase64;
-              console.log('[PHOTO SYNC] ✅ Seamless swap to cached base64 for:', realAttachId);
+              cachedUrl = cachedBase64;
+              console.log('[PHOTO SYNC] ✅ Found cached base64 for persistence:', realAttachId);
             } else {
-              console.log('[PHOTO SYNC] No cached image yet, keeping blob URL temporarily');
-            }
-            
-            // Check for annotated image - use it for display if exists
-            const annotatedImage = this.bulkAnnotatedImagesMap.get(String(realAttachId)) 
-              || this.bulkAnnotatedImagesMap.get(event.tempFileId);
-            if (annotatedImage) {
-              newThumbnailUrl = annotatedImage;
-              console.log('[PHOTO SYNC] ✅ Using annotated image for thumbnail:', realAttachId);
+              console.log('[PHOTO SYNC] No cached image yet (displayUrl unchanged - staying with LocalImages)');
             }
           } catch (err) {
             console.warn('[PHOTO SYNC] Failed to get cached image:', err);
           }
 
-          // Update photo metadata without flicker
+          // Update photo metadata - preserve displayUrl (local blob from LocalImages)
           // CRITICAL: Preserve caption - it may have been set locally before sync
           // The upload includes the caption, so we can safely keep the local one
           const existingPhoto = this.visualPhotos[key][photoIndex];
           const serverCaption = actualResult.Annotation || actualResult.Caption || '';
           const localCaption = existingPhoto.caption || '';
-          
+
           // Use local caption if it exists, otherwise use server caption
           // (server caption should match if upload worked correctly)
           const finalCaption = localCaption || serverCaption;
-          
+
           this.visualPhotos[key][photoIndex] = {
             ...existingPhoto,
             AttachID: realAttachId,
             attachId: String(realAttachId),  // CRITICAL: Update lowercase for caption lookups
             id: realAttachId,                 // CRITICAL: Update id for consistency
-            thumbnailUrl: newThumbnailUrl,
-            url: newThumbnailUrl,
-            Photo: newThumbnailUrl,
-            originalUrl: newThumbnailUrl,
-            displayUrl: newThumbnailUrl,
+            url: cachedUrl,  // Store cached URL for reference, but displayUrl unchanged
+            // displayUrl: unchanged - stays as local blob from LocalImages table
+            // thumbnailUrl: unchanged - stays as local blob from LocalImages table
+            // originalUrl: unchanged - stays as local blob from LocalImages table
             caption: finalCaption,  // CRITICAL: Preserve caption
             Annotation: finalCaption,  // Also set Caspio field
             queued: false,
@@ -607,6 +600,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           };
 
           this.changeDetectorRef.detectChanges();
+          console.log('[PHOTO SYNC] Updated photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
           break;
         }
       }
