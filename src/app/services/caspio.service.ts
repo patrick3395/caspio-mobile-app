@@ -2107,7 +2107,7 @@ export class CaspioService {
    * @param originalFile - Optional original file before annotation
    */
   private async uploadHUDAttachWithS3(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
-    console.log('[HUD ATTACH S3] ========== Starting S3 HUD Attach Upload ==========');
+    console.log('[HUD ATTACH S3] ========== Starting S3 HUD Attach Upload (Atomic) ==========');
     console.log('[HUD ATTACH S3] Parameters:', {
       hudId,
       annotation: annotation || '(empty)',
@@ -2123,8 +2123,7 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
     try {
-      // STEP 1: Create database record first to get AttachID
-      console.log('[HUD ATTACH S3] Step 1: Creating database record...');
+      // Prepare record data
       const recordData: any = {
         HUDID: parseInt(hudId.toString()),
         Annotation: annotation || ''
@@ -2150,74 +2149,22 @@ export class CaspioService {
         }
       }
 
-      let attachId: number | undefined = undefined;
+      // US-002 FIX: ATOMIC UPLOAD - Upload to S3 FIRST, then create record with Attachment
+      // This prevents orphaned records without Attachment field
 
-      // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
-      try {
-        const orphanQuery = `q.where=HUDID=${hudId} AND (Attachment IS NULL OR Attachment='')&q.orderBy=AttachID DESC&q.limit=1`;
-        const orphanResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?${orphanQuery}`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-        });
-
-        if (orphanResponse.ok) {
-          const orphanData = await orphanResponse.json();
-          const orphanRecords = orphanData.Result || [];
-
-          if (orphanRecords.length > 0) {
-            attachId = orphanRecords[0].AttachID;
-            console.log('[HUD ATTACH S3] ♻️ Reusing orphaned record AttachID:', attachId);
-
-            if (recordData.Drawings) {
-              await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ Drawings: recordData.Drawings })
-              });
-            }
-          }
-        }
-      } catch (orphanError) {
-        console.warn('[HUD ATTACH S3] Could not check for orphaned records:', orphanError);
-      }
-
-      if (!attachId) {
-        const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(recordData)
-        });
-
-        if (!recordResponse.ok) {
-          const errorText = await recordResponse.text();
-          console.error('[HUD ATTACH S3] ❌ Record creation failed:', errorText);
-          throw new Error(`HUD attach record creation failed: ${recordResponse.status} - ${errorText}`);
-        }
-
-        const recordResult = await recordResponse.json();
-        attachId = recordResult.Result && recordResult.Result[0] ? recordResult.Result[0].AttachID : recordResult.AttachID;
-        console.log('[HUD ATTACH S3] ✨ Created new record AttachID:', attachId);
-      }
-
-      // STEP 2: Upload file to S3
-      console.log('[HUD ATTACH S3] Step 2: Uploading file to S3...');
+      // Step 1: Generate unique filename and upload to S3 FIRST
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2, 8);
       const fileExt = file.name.split('.').pop() || 'jpg';
       const uniqueFilename = `hud_${hudId}_${timestamp}_${randomId}.${fileExt}`;
-
-      if (!attachId) {
-        throw new Error('Failed to create or find HUD attach record');
-      }
+      const tempAttachId = `pending_${timestamp}`;
 
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
       formData.append('tableName', 'LPS_Services_HUD_Attach');
-      formData.append('attachId', attachId.toString());
+      formData.append('attachId', tempAttachId);
 
+      console.log('[HUD ATTACH S3] Step 1: Uploading to S3 FIRST...');
       const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
       const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
@@ -2232,32 +2179,34 @@ export class CaspioService {
 
       const uploadResult = await uploadResponse.json();
       const s3Key = uploadResult.s3Key;
+      console.log('[HUD ATTACH S3] ✅ S3 upload complete, key:', s3Key);
 
-      console.log('[HUD ATTACH S3] ✅ File uploaded to S3:', s3Key);
+      // Step 2: Create the Caspio record WITH the Attachment field populated
+      recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
-      // STEP 3: Update database record with S3 key
-      console.log('[HUD ATTACH S3] Step 3: Updating record with S3 key...');
-      const updateData: any = {
-        Attachment: s3Key
-      };
-
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`, {
-        method: 'PUT',
+      console.log('[HUD ATTACH S3] Step 2: Creating Caspio record with Attachment...');
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(updateData)
+        body: JSON.stringify(recordData)
       });
 
-      if (!updateResponse.ok) {
-        const errorText = await updateResponse.text();
-        console.error('[HUD ATTACH S3] ❌ Record update failed:', errorText);
-        // Don't throw - file is uploaded, just log the error
-        console.warn('[HUD ATTACH S3] ⚠️ Continuing despite update failure');
-      } else {
-        console.log('[HUD ATTACH S3] ✅ Record updated with S3 key');
+      if (!recordResponse.ok) {
+        const errorText = await recordResponse.text();
+        console.error('[HUD ATTACH S3] ❌ Record creation failed:', errorText);
+        throw new Error(`HUD attach record creation failed: ${recordResponse.status} - ${errorText}`);
       }
+
+      const recordResult = await recordResponse.json();
+      const attachId = recordResult.Result && recordResult.Result[0] ? recordResult.Result[0].AttachID : recordResult.AttachID;
+      if (!attachId) {
+        throw new Error('Failed to get AttachID from record creation response');
+      }
+
+      console.log('[HUD ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
 
       // Return result in same format as Caspio response
       const finalResult = {
@@ -2272,7 +2221,7 @@ export class CaspioService {
         Attachment: s3Key
       };
 
-      console.log('[HUD ATTACH S3] ✅ Upload complete!');
+      console.log('[HUD ATTACH S3] ✅ Upload complete! (Atomic - no orphaned records)');
       console.log('[HUD ATTACH S3] Final result:', JSON.stringify(finalResult, null, 2));
 
       return finalResult;
@@ -2289,32 +2238,31 @@ export class CaspioService {
    * Uses AWS API Gateway proxy for all Caspio API calls
    */
   async uploadEFEPointsAttachWithS3(pointId: number, drawingsData: string, file: File, photoType?: string, caption?: string): Promise<any> {
-    console.log('[EFE ATTACH S3] ========== Starting S3 EFE Attach Upload ==========');
+    console.log('[EFE ATTACH S3] ========== Starting S3 EFE Attach Upload (Atomic) ==========');
     console.log('[EFE ATTACH S3] Input PointID:', pointId, 'type:', typeof pointId);
     console.log('[EFE ATTACH S3] Caption:', caption || '(empty)');
-    
+
     // CRITICAL: Validate PointID before proceeding
     const parsedPointId = parseInt(String(pointId), 10);
     if (isNaN(parsedPointId) || parsedPointId <= 0) {
       console.error('[EFE ATTACH S3] ❌ INVALID PointID:', pointId);
       throw new Error(`Invalid PointID for EFE photo upload: ${pointId}`);
     }
-    
+
     // Use API Gateway proxy instead of direct Caspio API
     const PROXY_BASE_URL = `${environment.apiGatewayUrl}/api/caspio-proxy`;
 
     try {
+      // Prepare record data
       const recordData: any = {
         PointID: parsedPointId,
-        Annotation: caption || ''  // CRITICAL: Use caption if provided
+        Annotation: caption || ''
       };
-      
+
       // Add Type field only if specified (field name is "Type", not "PhotoType")
       if (photoType) {
         recordData.Type = photoType;
       }
-      
-      console.log('[EFE ATTACH S3] Creating record with data:', JSON.stringify(recordData));
 
       if (drawingsData && drawingsData.length > 0) {
         let compressedDrawings = drawingsData;
@@ -2326,7 +2274,37 @@ export class CaspioService {
         }
       }
 
-      // Step 1: Create record via AWS API Gateway proxy (handles auth)
+      // US-002 FIX: ATOMIC UPLOAD - Upload to S3 FIRST, then create record with Attachment
+      // This prevents orphaned records without Attachment field
+
+      // Step 1: Generate unique filename and upload to S3 FIRST
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 8);
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const uniqueFilename = `efe_${pointId}_${timestamp}_${randomId}.${fileExt}`;
+      const tempAttachId = `pending_${timestamp}`;
+
+      const formData = new FormData();
+      formData.append('file', file, uniqueFilename);
+      formData.append('tableName', 'LPS_Services_EFE_Points_Attach');
+      formData.append('attachId', tempAttachId);
+
+      console.log('[EFE ATTACH S3] Step 1: Uploading to S3 FIRST...');
+      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+      if (!uploadResponse.ok) {
+        const uploadError = await uploadResponse.text();
+        console.error('[EFE ATTACH S3] ❌ S3 upload failed:', uploadError);
+        throw new Error('S3 upload failed');
+      }
+      const { s3Key } = await uploadResponse.json();
+      console.log('[EFE ATTACH S3] ✅ S3 upload complete, key:', s3Key);
+
+      // Step 2: Create the Caspio record WITH the Attachment field populated
+      recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
+
+      console.log('[EFE ATTACH S3] Step 2: Creating Caspio record with Attachment...');
+      console.log('[EFE ATTACH S3] Creating record with data:', JSON.stringify(recordData));
+
       const recordResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?response=rows`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2335,47 +2313,18 @@ export class CaspioService {
 
       if (!recordResponse.ok) {
         const errorText = await recordResponse.text();
-        console.error('[EFE ATTACH S3] Record creation failed:', recordResponse.status, errorText);
+        console.error('[EFE ATTACH S3] ❌ Record creation failed:', recordResponse.status, errorText);
         throw new Error(`EFE attach record creation failed: ${recordResponse.status}`);
       }
 
       const recordResult = await recordResponse.json();
       const attachId = recordResult.Result?.[0]?.AttachID || recordResult.AttachID;
-      console.log('[EFE ATTACH S3] Record created with AttachID:', attachId);
-
-      // Step 2: Upload file to S3
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const uniqueFilename = `efe_${pointId}_${timestamp}_${randomId}.${fileExt}`;
-
-      const formData = new FormData();
-      formData.append('file', file, uniqueFilename);
-      formData.append('tableName', 'LPS_Services_EFE_Points_Attach');
-      formData.append('attachId', attachId.toString());
-
-      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
-      if (!uploadResponse.ok) {
-        const uploadError = await uploadResponse.text();
-        console.error('[EFE ATTACH S3] S3 upload failed:', uploadError);
-        throw new Error('S3 upload failed');
+      if (!attachId) {
+        throw new Error('Failed to get AttachID from record creation response');
       }
 
-      const { s3Key } = await uploadResponse.json();
-      console.log('[EFE ATTACH S3] S3 upload complete, key:', s3Key);
-
-      // Step 3: Update record with S3 key via proxy
-      const updateResponse = await fetch(`${PROXY_BASE_URL}/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Attachment: s3Key })
-      });
-
-      if (!updateResponse.ok) {
-        console.warn('[EFE ATTACH S3] Record update failed but S3 upload succeeded');
-      }
-
-      console.log('[EFE ATTACH S3] ✅ Complete!');
+      console.log('[EFE ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
+      console.log('[EFE ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
       return { Result: [{ AttachID: attachId, PointID: pointId, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
     } catch (error) {
       console.error('[EFE ATTACH S3] ❌ Failed:', error);
@@ -2428,11 +2377,12 @@ export class CaspioService {
   }
 
   private async uploadLBWAttachWithS3(lbwId: number, annotation: string, file: File, drawings?: string): Promise<any> {
-    console.log('[LBW ATTACH S3] ========== Starting S3 Upload ==========');
+    console.log('[LBW ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
     try {
+      // Prepare record data
       const recordData: any = { LBWID: parseInt(lbwId.toString()), Annotation: annotation || '' };
       if (drawings && drawings.length > 0) {
         let compressedDrawings = drawings;
@@ -2440,71 +2390,52 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      let attachId: number | undefined = undefined;
+      // US-002 FIX: ATOMIC UPLOAD - Upload to S3 FIRST, then create record with Attachment
+      // This prevents orphaned records without Attachment field
 
-      // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
-      try {
-        const orphanQuery = `q.where=LBWID=${lbwId} AND (Attachment IS NULL OR Attachment='')&q.orderBy=AttachID DESC&q.limit=1`;
-        const orphanResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?${orphanQuery}`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-        });
-
-        if (orphanResponse.ok) {
-          const orphanData = await orphanResponse.json();
-          const orphanRecords = orphanData.Result || [];
-
-          if (orphanRecords.length > 0) {
-            attachId = orphanRecords[0].AttachID;
-            console.log('[LBW ATTACH S3] ♻️ Reusing orphaned record AttachID:', attachId);
-
-            if (recordData.Drawings) {
-              await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ Drawings: recordData.Drawings })
-              });
-            }
-          }
-        }
-      } catch (orphanError) {
-        console.warn('[LBW ATTACH S3] Could not check for orphaned records:', orphanError);
-      }
-
-      if (!attachId) {
-        const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(recordData)
-        });
-        if (!recordResponse.ok) throw new Error('LBW record creation failed');
-
-        attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
-        console.log('[LBW ATTACH S3] ✨ Created new record AttachID:', attachId);
-      }
+      // Step 1: Generate unique filename and upload to S3 FIRST
       const timestamp = Date.now();
       const uniqueFilename = `lbw_${lbwId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
-
-      if (!attachId) {
-        throw new Error('Failed to create or find LBW attach record');
-      }
+      const tempAttachId = `pending_${timestamp}`;
 
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
       formData.append('tableName', 'LPS_Services_LBW_Attach');
-      formData.append('attachId', attachId.toString());
+      formData.append('attachId', tempAttachId);
 
+      console.log('[LBW ATTACH S3] Step 1: Uploading to S3 FIRST...');
       const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
-      if (!uploadResponse.ok) throw new Error('S3 upload failed');
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('[LBW ATTACH S3] ❌ S3 upload failed:', errorText);
+        throw new Error('S3 upload failed');
+      }
       const { s3Key } = await uploadResponse.json();
+      console.log('[LBW ATTACH S3] ✅ S3 upload complete, key:', s3Key);
 
-      await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`, {
-        method: 'PUT',
+      // Step 2: Create the Caspio record WITH the Attachment field populated
+      recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
+
+      console.log('[LBW ATTACH S3] Step 2: Creating Caspio record with Attachment...');
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
+        method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Attachment: s3Key })
+        body: JSON.stringify(recordData)
       });
 
-      console.log('[LBW ATTACH S3] ✅ Complete!');
+      if (!recordResponse.ok) {
+        const errorText = await recordResponse.text();
+        console.error('[LBW ATTACH S3] ❌ Record creation failed:', errorText);
+        throw new Error('LBW record creation failed');
+      }
+
+      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      if (!attachId) {
+        throw new Error('Failed to get AttachID from record creation response');
+      }
+
+      console.log('[LBW ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
+      console.log('[LBW ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
       return { Result: [{ AttachID: attachId, LBWID: lbwId, Annotation: annotation, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
     } catch (error) {
       console.error('[LBW ATTACH S3] ❌ Failed:', error);
@@ -2513,7 +2444,7 @@ export class CaspioService {
   }
 
   async uploadVisualsAttachWithS3(visualId: number, drawingsData: string, file: File, caption?: string): Promise<any> {
-    console.log('[VISUALS ATTACH S3] ========== Starting S3 Upload ==========');
+    console.log('[VISUALS ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
     console.log('[VISUALS ATTACH S3] VisualID:', visualId);
     console.log('[VISUALS ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
     console.log('[VISUALS ATTACH S3] Drawings length:', drawingsData?.length || 0);
@@ -2529,7 +2460,7 @@ export class CaspioService {
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
     try {
-      // CRITICAL: Include caption in Annotation field
+      // Prepare record data for Caspio
       const recordData: any = { VisualID: parseInt(visualId.toString()), Annotation: caption || '' };
       if (drawingsData && drawingsData.length > 0) {
         let compressedDrawings = drawingsData;
@@ -2537,91 +2468,70 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      let attachId: number | undefined = undefined;
+      // US-002 FIX: ATOMIC UPLOAD - Upload to S3 FIRST, then create record with Attachment
+      // This prevents orphaned records without Attachment field
 
-      // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
-      // These have VisualID and optionally Drawings, but empty Attachment
-      try {
-        const orphanQuery = `q.where=VisualID=${visualId} AND (Attachment IS NULL OR Attachment='')&q.orderBy=AttachID DESC&q.limit=1`;
-        const orphanResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?${orphanQuery}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (orphanResponse.ok) {
-          const orphanData = await orphanResponse.json();
-          const orphanRecords = orphanData.Result || [];
-
-          if (orphanRecords.length > 0) {
-            // Found orphaned record - reuse it instead of creating duplicate
-            attachId = orphanRecords[0].AttachID;
-            console.log('[VISUALS ATTACH S3] ♻️ Reusing orphaned record AttachID:', attachId);
-
-            // Update drawings and caption if needed (in case they changed)
-            const updateData: any = {};
-            if (recordData.Drawings) updateData.Drawings = recordData.Drawings;
-            if (caption) updateData.Annotation = caption;
-            
-            if (Object.keys(updateData).length > 0) {
-              await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData)
-              });
-            }
-          }
-        }
-      } catch (orphanError) {
-        console.warn('[VISUALS ATTACH S3] Could not check for orphaned records:', orphanError);
-      }
-
-      // If no orphaned record found, create new one
-      if (!attachId) {
-        const recordResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(recordData)
-        });
-        if (!recordResponse.ok) throw new Error('Visuals record creation failed');
-
-        attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
-        console.log('[VISUALS ATTACH S3] ✨ Created new record AttachID:', attachId);
-      }
+      // Step 1: Generate unique filename and upload to S3 FIRST (before creating record)
       const timestamp = Date.now();
       const uniqueFilename = `visual_${visualId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
 
-      if (!attachId) {
-        throw new Error('Failed to create or find Visuals attach record');
-      }
+      // Use a temporary placeholder attachId for S3 key generation (will be part of path)
+      const tempAttachId = `pending_${timestamp}`;
 
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
       formData.append('tableName', 'LPS_Services_Visuals_Attach');
-      formData.append('attachId', attachId.toString());
+      formData.append('attachId', tempAttachId);
 
+      console.log('[VISUALS ATTACH S3] Step 1: Uploading to S3 FIRST...');
       const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
-      if (!uploadResponse.ok) throw new Error('S3 upload failed');
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('[VISUALS ATTACH S3] ❌ S3 upload failed:', errorText);
+        throw new Error('S3 upload failed');
+      }
       const { s3Key } = await uploadResponse.json();
+      console.log('[VISUALS ATTACH S3] ✅ S3 upload complete, key:', s3Key);
 
-      await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`, {
-        method: 'PUT',
+      // Step 2: Now create the Caspio record WITH the Attachment field populated
+      // This ensures we NEVER create a record without an Attachment
+      recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
+
+      console.log('[VISUALS ATTACH S3] Step 2: Creating Caspio record with Attachment...');
+      const recordResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?response=rows`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Attachment: s3Key })
+        body: JSON.stringify(recordData)
       });
 
-      console.log('[VISUALS ATTACH S3] ✅ Complete!');
-      // CRITICAL: Include Annotation (caption) in result so it's preserved in cache and UI
-      return { 
-        Result: [{ 
-          AttachID: attachId, 
-          VisualID: visualId, 
-          Attachment: s3Key, 
+      if (!recordResponse.ok) {
+        const errorText = await recordResponse.text();
+        console.error('[VISUALS ATTACH S3] ❌ Record creation failed:', errorText);
+        // S3 file was uploaded but record creation failed - file is orphaned in S3
+        // This is acceptable - orphaned S3 files don't cause broken images in UI
+        throw new Error('Visuals record creation failed');
+      }
+
+      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      if (!attachId) {
+        throw new Error('Failed to get AttachID from record creation response');
+      }
+
+      console.log('[VISUALS ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
+
+      console.log('[VISUALS ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
+      // Return result with all fields
+      return {
+        Result: [{
+          AttachID: attachId,
+          VisualID: visualId,
+          Attachment: s3Key,
           Drawings: recordData.Drawings || '',
-          Annotation: caption || ''  // CRITICAL: Include caption in result
-        }], 
-        AttachID: attachId, 
+          Annotation: caption || ''
+        }],
+        AttachID: attachId,
         Attachment: s3Key,
-        Annotation: caption || ''  // Also include at top level
+        Annotation: caption || ''
       };
     } catch (error) {
       console.error('[VISUALS ATTACH S3] ❌ Failed:', error);
@@ -2630,11 +2540,12 @@ export class CaspioService {
   }
 
   private async uploadDTEAttachWithS3(dteId: number, annotation: string, file: File, drawings?: string): Promise<any> {
-    console.log('[DTE ATTACH S3] ========== Starting S3 Upload ==========');
+    console.log('[DTE ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
     try {
+      // Prepare record data
       const recordData: any = { DTEID: parseInt(dteId.toString()), Annotation: annotation || '' };
       if (drawings && drawings.length > 0) {
         let compressedDrawings = drawings;
@@ -2642,71 +2553,52 @@ export class CaspioService {
         if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
-      let attachId: number | undefined = undefined;
+      // US-002 FIX: ATOMIC UPLOAD - Upload to S3 FIRST, then create record with Attachment
+      // This prevents orphaned records without Attachment field
 
-      // IDEMPOTENCY FIX: Check for orphaned records (created but S3 upload failed)
-      try {
-        const orphanQuery = `q.where=DTEID=${dteId} AND (Attachment IS NULL OR Attachment='')&q.orderBy=AttachID DESC&q.limit=1`;
-        const orphanResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?${orphanQuery}`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
-        });
-
-        if (orphanResponse.ok) {
-          const orphanData = await orphanResponse.json();
-          const orphanRecords = orphanData.Result || [];
-
-          if (orphanRecords.length > 0) {
-            attachId = orphanRecords[0].AttachID;
-            console.log('[DTE ATTACH S3] ♻️ Reusing orphaned record AttachID:', attachId);
-
-            if (recordData.Drawings) {
-              await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ Drawings: recordData.Drawings })
-              });
-            }
-          }
-        }
-      } catch (orphanError) {
-        console.warn('[DTE ATTACH S3] Could not check for orphaned records:', orphanError);
-      }
-
-      if (!attachId) {
-        const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(recordData)
-        });
-        if (!recordResponse.ok) throw new Error('DTE record creation failed');
-
-        attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
-        console.log('[DTE ATTACH S3] ✨ Created new record AttachID:', attachId);
-      }
+      // Step 1: Generate unique filename and upload to S3 FIRST
       const timestamp = Date.now();
       const uniqueFilename = `dte_${dteId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
-
-      if (!attachId) {
-        throw new Error('Failed to create or find DTE attach record');
-      }
+      const tempAttachId = `pending_${timestamp}`;
 
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
       formData.append('tableName', 'LPS_Services_DTE_Attach');
-      formData.append('attachId', attachId.toString());
+      formData.append('attachId', tempAttachId);
 
+      console.log('[DTE ATTACH S3] Step 1: Uploading to S3 FIRST...');
       const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
-      if (!uploadResponse.ok) throw new Error('S3 upload failed');
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('[DTE ATTACH S3] ❌ S3 upload failed:', errorText);
+        throw new Error('S3 upload failed');
+      }
       const { s3Key } = await uploadResponse.json();
+      console.log('[DTE ATTACH S3] ✅ S3 upload complete, key:', s3Key);
 
-      await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?q.where=AttachID=${attachId}`, {
-        method: 'PUT',
+      // Step 2: Create the Caspio record WITH the Attachment field populated
+      recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
+
+      console.log('[DTE ATTACH S3] Step 2: Creating Caspio record with Attachment...');
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_DTE_Attach/records?response=rows`, {
+        method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Attachment: s3Key })
+        body: JSON.stringify(recordData)
       });
 
-      console.log('[DTE ATTACH S3] ✅ Complete!');
+      if (!recordResponse.ok) {
+        const errorText = await recordResponse.text();
+        console.error('[DTE ATTACH S3] ❌ Record creation failed:', errorText);
+        throw new Error('DTE record creation failed');
+      }
+
+      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      if (!attachId) {
+        throw new Error('Failed to get AttachID from record creation response');
+      }
+
+      console.log('[DTE ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
+      console.log('[DTE ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
       return { Result: [{ AttachID: attachId, DTEID: dteId, Annotation: annotation, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
     } catch (error) {
       console.error('[DTE ATTACH S3] ❌ Failed:', error);

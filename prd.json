@@ -1,90 +1,38 @@
 {
-  "project": "Caspio Mobile App - Local-First Until Finalization",
+  "project": "Caspio Mobile App Fixes",
   "version": "1.0",
   "created": "2026-01-14",
-  "description": "Implement local-first data display pattern where all UI data comes from IndexedDB/LocalImages until the report is finalized. Eliminates image flickering, disappearing, and persistence issues.",
   "tasks": [
     {
       "id": "TASK-001",
-      "title": "Always Display Images from LocalImages in Elevation Plot",
-      "description": "Modify room-elevation.page.ts to always display from LocalImages Dexie table instead of switching to remote URLs after sync. Sync happens in background but UI always shows local blob until finalization.",
-      "current_state": "NOT CORRECTLY IMPLEMENTED - Code currently SWAPS displayUrl from local blob to remote URL after sync. At lines 298-303, after sync it calls fetchS3ImageAsDataUrl() then sets photo.displayUrl = dataUrl (remote). This swap causes flicker/disappear when S3 fetch fails, network slow, race conditions, or blob garbage collected.",
-      "problem_code": "Lines 298-303: photo.displayUrl = dataUrl - This URL SWAP causes all the issues",
+      "title": "Failed Syncs Not Showing in Failed Tab - Silent Failures",
+      "description": "When adding photos in FDF, Measurement point, or Structural systems, syncing is obviously broken but not showing as failed sync. Syncs should retry until success, but failures must be visible in failed tab with error reason.",
+      "console_error": "TypeError: S.attachId.startsWith is not a function - attachId is a number, not string",
+      "root_cause": "attachId.startsWith() fails because attachId is a number. Need String(attachId).startsWith() - same fix pattern as entityId.startsWith",
       "acceptance_criteria": [
-        "All FDF/Measurement Point images display from LocalImages table",
-        "Images never flicker or disappear during sync",
-        "Synced status tracked via flag, not URL change",
-        "REMOVE the displayUrl swap logic at lines 298-303"
+        "All sync failures captured and shown in failed tab",
+        "Failed syncs show error reason/message",
+        "Syncs continue retrying with exponential backoff",
+        "No silent failures - every failed attempt logged and visible",
+        "Fix TypeError: use String(attachId).startsWith() instead of attachId.startsWith()"
       ],
-      "technical_approach": "REMOVE photo.displayUrl = dataUrl swap (lines 298-303). Always return LocalImages blob. Never call fetchS3ImageAsDataUrl() to swap display during sync.",
+      "technical_approach": "Find all attachId.startsWith() calls, wrap in String(). Same fix as entityId.startsWith.",
       "passes": false,
       "priority": 1
     },
     {
       "id": "TASK-002",
-      "title": "Always Display Images from LocalImages in Structural Systems",
-      "description": "Ensure category-detail.page.ts maintains local-first display. All photos, captions, annotations display from LocalImages/IndexedDB until finalization.",
+      "title": "Duplicate Records Without Attachment Field - Broken Images",
+      "description": "In LPS_Services_Visuals_Attach table, duplicate records are being created with annotation field but NO Attachment field. This causes broken images in UI - record exists but no actual image. Annotation updates should UPDATE existing records, not INSERT new ones.",
       "acceptance_criteria": [
-        "All visual photos display from LocalImages",
-        "Captions/annotations persist from local storage",
-        "No image flickering during sync"
+        "Never create attachment records without Attachment field",
+        "Annotation updates UPDATE existing records, not INSERT new",
+        "No duplicate attachment records for same image",
+        "Broken images eliminated from UI"
       ],
-      "technical_approach": "Audit getPhotoDisplayUrl() for LocalImages priority. Verify loadPhotosForVisual() uses LocalImages first.",
+      "technical_approach": "Audit code creating LPS_Services_Visuals_Attach records. Ensure annotation saves UPDATE by AttachID. Add validation to prevent INSERT without Attachment.",
       "passes": false,
       "priority": 2
-    },
-    {
-      "id": "TASK-003",
-      "title": "Track Sync Status Separately from Display URL",
-      "description": "Add isSynced boolean, remoteAttachmentId, and remoteUrl fields to LocalImage. Sync updates these without changing displayUrl/blobData.",
-      "acceptance_criteria": [
-        "LocalImage has isSynced, remoteAttachmentId, remoteUrl fields",
-        "Sync updates metadata without changing blob display",
-        "UI can show sync badge without changing image source"
-      ],
-      "technical_approach": "Update LocalImage interface. Modify background-sync to update fields after upload. Keep blobData until finalization.",
-      "passes": false,
-      "priority": 3
-    },
-    {
-      "id": "TASK-004",
-      "title": "Extend Finalize Button to Update Image Pointers",
-      "description": "Add logic to existing Finalize button that swaps all image references from local blobs to remote URLs. This is the only time the swap happens.",
-      "acceptance_criteria": [
-        "Finalize triggers pointer update process",
-        "Synced images switch to remoteUrl",
-        "Unsynced images force-sync before completing",
-        "Progress indicator during finalization"
-      ],
-      "technical_approach": "Add updateImagePointersToRemote(). Query LocalImages, update synced ones to remoteUrl, force-sync unsynced.",
-      "passes": false,
-      "priority": 4
-    },
-    {
-      "id": "TASK-005",
-      "title": "Clean Up Local Data After Finalization",
-      "description": "After finalization, delete local blob data from IndexedDB to free storage. Keep metadata but remove binary data.",
-      "acceptance_criteria": [
-        "Local blob data deleted after finalization",
-        "Device storage freed",
-        "Metadata preserved (captions, annotations, remoteUrl)"
-      ],
-      "technical_approach": "Add cleanupLocalBlobData(). Set blobData to null for finalized images. Run after pointer update.",
-      "passes": false,
-      "priority": 5
-    },
-    {
-      "id": "TASK-006",
-      "title": "Handle Captions and Annotations in Local-First Pattern",
-      "description": "Captions and annotations stored/displayed from local until finalization. Edits update local immediately, sync to Caspio in background.",
-      "acceptance_criteria": [
-        "Captions display from LocalImages.caption",
-        "Annotations display from LocalImages.annotationsJson",
-        "Edits sync to Caspio but don't affect local display"
-      ],
-      "technical_approach": "Store to LocalImages on save. Background sync to Caspio. Finalization verifies sync complete.",
-      "passes": false,
-      "priority": 6
     }
   ]
 }
