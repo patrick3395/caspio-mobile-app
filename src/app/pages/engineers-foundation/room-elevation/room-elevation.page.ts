@@ -1,4 +1,4 @@
-﻿import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+﻿import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ViewWillEnter } from '@ionic/angular';
@@ -121,10 +121,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     private offlineService: OfflineService,
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
-    private localImageService: LocalImageService
+    private localImageService: LocalImageService,
+    private ngZone: NgZone
   ) {}
 
   async ngOnInit() {
+    console.time('[RoomElevation] ngOnInit total');
     console.log('========================================');
     console.log('[RoomElevation] ngOnInit - Starting Route Debug');
     console.log('========================================');
@@ -513,11 +515,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           return;
         }
 
-        // Debounce: wait 500ms before reloading to batch multiple rapid events
+        // Debounce: wait 100ms before reloading to batch multiple rapid events
+        // Reduced from 500ms for faster UI response after sync
         this.cacheInvalidationDebounceTimer = setTimeout(() => {
           console.log('[RoomElevation] Cache invalidated (debounced), reloading elevation data...');
           this.reloadElevationDataAfterSync();
-        }, 500);
+        }, 100);
       }
     });
 
@@ -550,6 +553,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         // Debounce with same timer to prevent duplicate reloads
+        // Reduced from 500ms to 100ms for faster UI response
         if (this.cacheInvalidationDebounceTimer) {
           clearTimeout(this.cacheInvalidationDebounceTimer);
         }
@@ -557,7 +561,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           if (this.initialLoadComplete && !this.localOperationCooldown) {
             this.reloadElevationDataAfterSync();
           }
-        }, 500);
+        }, 100);
       }
     });
 
@@ -635,6 +639,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Mark initial load as complete
     this.initialLoadComplete = true;
+    console.timeEnd('[RoomElevation] ngOnInit total');
   }
 
   /**
@@ -876,8 +881,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
    * Uses smart skip logic to avoid redundant reloads while ensuring new data always appears
    */
   async ionViewWillEnter() {
+    console.time('[RoomElevation] ionViewWillEnter');
+
     // Only process if initial load is complete and we have required IDs
     if (!this.initialLoadComplete || !this.roomId) {
+      console.timeEnd('[RoomElevation] ionViewWillEnter');
       return;
     }
 
@@ -922,6 +930,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[RoomElevation] Refreshing local images and pending captions');
       await this.refreshLocalState();
     }
+    console.timeEnd('[RoomElevation] ionViewWillEnter');
   }
 
   /**
@@ -5574,10 +5583,27 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // Continue anyway - still queue for sync
     }
 
-    // ALWAYS queue the annotation update using unified method
-    // This ensures annotations are never lost during sync operations
+    // Queue the annotation update using the correct attachId
+    // For local-first photos that have synced, use the real Caspio attachId
+    let syncAttachId = attachId;
+    const localImageId = foundPhoto?.localImageId || foundPhoto?.imageId;
+
+    if (localImageId && (foundPhoto?.isLocalFirst || foundPhoto?.isLocalImage)) {
+      // Check if this local-first photo has already synced (has real Caspio ID)
+      try {
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+        if (localImage?.attachId && !String(localImage.attachId).startsWith('img_') && !String(localImage.attachId).startsWith('temp_')) {
+          // Photo was synced - use the real attachId for queueing annotation update
+          syncAttachId = localImage.attachId;
+          console.log('[SAVE] Local-first photo already synced, using real attachId for queue:', syncAttachId);
+        }
+      } catch (e) {
+        console.warn('[SAVE] Could not check LocalImage sync status:', e);
+      }
+    }
+
     await this.foundationData.queueCaptionAndAnnotationUpdate(
-      attachId,
+      syncAttachId,
       caption || '',
       updateData.Drawings,
       'efe_point',
@@ -5586,7 +5612,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         pointId: pointIdForCache || undefined
       }
     );
-    console.log('[SAVE] ✅ EFE annotation queued for sync:', attachId);
+    console.log('[SAVE] ✅ EFE annotation queued for sync:', syncAttachId);
 
     // CRITICAL: Clear the attachments cache to ensure annotations appear after navigation
     this.foundationData.clearEFEAttachmentsCache();

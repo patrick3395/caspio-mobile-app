@@ -1,4 +1,4 @@
-﻿import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef, OnDestroy } from '@angular/core';
+﻿import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent, ViewWillEnter } from '@ionic/angular';
@@ -166,7 +166,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
     private offlineTemplate: OfflineTemplateService,
-    private localImageService: LocalImageService
+    private localImageService: LocalImageService,
+    private ngZone: NgZone
   ) {
     // Set up global error handler for this page
     this.setupErrorTracking();
@@ -232,31 +233,33 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async ngOnInit() {
+    console.time('[CategoryDetail] ngOnInit total');
     console.log('[CategoryDetail] ========== ngOnInit START ==========');
-    
+
     // Check if new image system is available
     const hasNewSystem = this.indexedDb.hasNewImageSystem();
     this.logDebug('INIT', `New image system available: ${hasNewSystem}`);
     console.log('[CategoryDetail] New image system available:', hasNewSystem);
-    
-    // Subscribe to background upload task updates
-    this.subscribeToUploadUpdates();
+
+    // Defer subscription setup to after initial render for faster first paint
+    // This will be called in ionViewDidEnter instead
+    // this.subscribeToUploadUpdates(); -- DEFERRED
 
     // Get category name from route params
     this.categoryName = this.route.snapshot.params['category'];
     console.log('[CategoryDetail] Category from route:', this.categoryName);
-    
+
     // Get IDs from container route using snapshot (for offline reliability)
     // Route structure: '' (Container) -> 'structural' (anonymous) -> 'category/:category' (we are here)
     // So parent?.parent gets us to the Container which has :projectId/:serviceId
     const containerParams = this.route.parent?.parent?.snapshot?.params;
     console.log('[CategoryDetail] Container params:', containerParams);
-    
+
     if (containerParams) {
       this.projectId = containerParams['projectId'];
       this.serviceId = containerParams['serviceId'];
     }
-    
+
     // Fallback: Try parent?.parent?.parent for different route structures
     if (!this.projectId || !this.serviceId) {
       console.log('[CategoryDetail] Trying alternate route structure...');
@@ -274,18 +277,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[CategoryDetail] All params present, calling loadData()');
       await this.loadData();
       console.log('[CategoryDetail] loadData() completed');
-      
-      // Subscribe to Dexie liveQuery for reactive LocalImages updates
-      // This automatically updates bulkLocalImagesMap when IndexedDB changes
-      this.subscribeToLocalImagesChanges();
+
+      // NOTE: subscribeToLocalImagesChanges() is now deferred to ionViewDidEnter
+      // for faster initial render - subscriptions run after UI is visible
     } else {
       console.error('[CategoryDetail] ❌ Missing required route params - cannot load data');
       console.error('[CategoryDetail] Missing: projectId=', !this.projectId, 'serviceId=', !this.serviceId, 'categoryName=', !this.categoryName);
       this.loading = false;
       this.changeDetectorRef.detectChanges();
     }
-    
+
     console.log('[CategoryDetail] ========== ngOnInit END ==========');
+    console.timeEnd('[CategoryDetail] ngOnInit total');
 
     // Also subscribe to param changes for dynamic updates
     this.route.params.subscribe(params => {
@@ -298,7 +301,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
     });
-    
+
     // Mark initial load as complete
     this.initialLoadComplete = true;
   }
@@ -308,37 +311,53 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * Uses smart skip logic to avoid redundant reloads while ensuring new data always appears
    */
   async ionViewWillEnter() {
+    console.time('[CategoryDetail] ionViewWillEnter');
+
+    // Set up deferred subscriptions on first entry (after initial render for faster paint)
+    // This moves non-critical subscriptions out of ngOnInit
+    if (!this.uploadSubscription) {
+      this.subscribeToUploadUpdates();
+    }
+    if (!this.localImagesSubscription && this.serviceId) {
+      this.subscribeToLocalImagesChanges();
+    }
+
     // Only process if initial load is complete and we have required IDs
     if (!this.initialLoadComplete || !this.serviceId || !this.categoryName) {
+      console.timeEnd('[CategoryDetail] ionViewWillEnter');
       return;
     }
 
     const sectionKey = `${this.serviceId}_${this.categoryName}`;
-    
+
     // Check if we have data in memory and if section is dirty
     const hasDataInMemory = Object.keys(this.visualPhotos).length > 0;
     const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
-    
+
     // CRITICAL: Check if service/category has changed (navigating from project details to different template)
-    const serviceOrCategoryChanged = this.lastLoadedServiceId !== this.serviceId || 
+    const serviceOrCategoryChanged = this.lastLoadedServiceId !== this.serviceId ||
                                       this.lastLoadedCategoryName !== this.categoryName;
-    
+
     console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}, changed: ${serviceOrCategoryChanged}`);
-    
-    // ALWAYS reload if:
-    // 1. First load (no data in memory)
-    // 2. Section is marked dirty (data changed while away)
-    // 3. Service or category has changed (navigating from project details)
-    if (!hasDataInMemory || isDirty || serviceOrCategoryChanged) {
-      console.log('[CategoryDetail] Reloading data - section dirty, no data, or context changed');
-      await this.loadData();
-      this.backgroundSync.clearSectionDirty(sectionKey);
-    } else {
+
+    // Early return if data is fresh and context unchanged
+    if (hasDataInMemory && !isDirty && !serviceOrCategoryChanged) {
       // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
       // This ensures images don't disappear when navigating back to this page
       console.log('[CategoryDetail] Refreshing local images and pending captions');
       await this.refreshLocalState();
+      console.timeEnd('[CategoryDetail] ionViewWillEnter');
+      return;
     }
+
+    // ALWAYS reload if:
+    // 1. First load (no data in memory)
+    // 2. Section is marked dirty (data changed while away)
+    // 3. Service or category has changed (navigating from project details)
+    console.log('[CategoryDetail] Reloading data - section dirty, no data, or context changed');
+    await this.loadData();
+    this.backgroundSync.clearSectionDirty(sectionKey);
+    console.timeEnd('[CategoryDetail] ionViewWillEnter');
   }
 
   /**
@@ -741,11 +760,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           return;
         }
 
-        // Debounce: wait 500ms before reloading to batch multiple rapid events
+        // Debounce: wait 100ms before reloading to batch multiple rapid events
+        // Reduced from 500ms for faster UI response after sync
         this.cacheInvalidationDebounceTimer = setTimeout(async () => {
           console.log('[CACHE INVALIDATED] Debounced reload for service:', this.serviceId);
           await this.reloadVisualsAfterSync();
-        }, 500);
+        }, 100);
       }
     });
 
@@ -1331,9 +1351,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     this.isLoadingData = true;
 
+    console.time('[CategoryDetail] loadData total');
     console.log('[LOAD DATA] ========== loadData START ==========');
     console.log('[LOAD DATA] Stack trace:', new Error().stack?.split('\n').slice(1, 4).join(' → '));
-    const startTime = Date.now();
+    const startTime = performance.now();
 
     // CRITICAL: Start cooldown to prevent cache invalidation events from causing UI flash
     this.startLocalOperationCooldown();
@@ -1471,59 +1492,62 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       
       // NEW: Group LocalImages by entityId for fast lookup
       // Also resolves temp IDs to real IDs so photos persist after parent entity syncs
-      this.bulkLocalImagesMap.clear();
-      for (const img of allLocalImages) {
-        // BUGFIX: Convert entityId to string to handle numeric IDs from database
-        const entityId = String(img.entityId);
+      // Run outside Angular zone to avoid unnecessary change detection during data processing
+      await this.ngZone.runOutsideAngular(async () => {
+        this.bulkLocalImagesMap.clear();
+        for (const img of allLocalImages) {
+          // BUGFIX: Convert entityId to string to handle numeric IDs from database
+          const entityId = String(img.entityId);
 
-        // Add to map by original entityId
-        if (!this.bulkLocalImagesMap.has(entityId)) {
-          this.bulkLocalImagesMap.set(entityId, []);
-        }
-        this.bulkLocalImagesMap.get(entityId)!.push(img);
-
-        // CRITICAL: Also add by resolved real ID if entityId is a temp ID
-        // This ensures photos show after the parent visual syncs (temp ID -> real ID)
-        // but before the photo itself syncs (which updates entityId)
-        if (entityId.startsWith('temp_')) {
-          const realId = await this.indexedDb.getRealId(entityId);
-          if (realId && realId !== entityId) {
-            if (!this.bulkLocalImagesMap.has(realId)) {
-              this.bulkLocalImagesMap.set(realId, []);
-            }
-            // Avoid duplicates
-            const existing = this.bulkLocalImagesMap.get(realId)!;
-            if (!existing.some(e => e.imageId === img.imageId)) {
-              existing.push(img);
-            }
+          // Add to map by original entityId
+          if (!this.bulkLocalImagesMap.has(entityId)) {
+            this.bulkLocalImagesMap.set(entityId, []);
           }
-        }
-      }
+          this.bulkLocalImagesMap.get(entityId)!.push(img);
 
-      // CRITICAL FIX: Reverse mapping - for images whose entityId is already a real ID,
-      // also add them under any temp IDs in visualRecordIds that map to that real ID.
-      // This handles the case where the image's entityId was updated to real ID by sync,
-      // but the visual in organizedData is still tracked by temp ID.
-      for (const [key, tempOrRealId] of Object.entries(this.visualRecordIds)) {
-        if (tempOrRealId && tempOrRealId.startsWith('temp_')) {
-          // Check if this temp ID maps to a real ID that has images
-          const realId = await this.indexedDb.getRealId(tempOrRealId);
-          if (realId && realId !== tempOrRealId && this.bulkLocalImagesMap.has(realId)) {
-            // Copy images from real ID to temp ID
-            const imagesForRealId = this.bulkLocalImagesMap.get(realId)!;
-            if (!this.bulkLocalImagesMap.has(tempOrRealId)) {
-              this.bulkLocalImagesMap.set(tempOrRealId, []);
-            }
-            const existingForTemp = this.bulkLocalImagesMap.get(tempOrRealId)!;
-            for (const img of imagesForRealId) {
-              if (!existingForTemp.some(e => e.imageId === img.imageId)) {
-                existingForTemp.push(img);
+          // CRITICAL: Also add by resolved real ID if entityId is a temp ID
+          // This ensures photos show after the parent visual syncs (temp ID -> real ID)
+          // but before the photo itself syncs (which updates entityId)
+          if (entityId.startsWith('temp_')) {
+            const realId = await this.indexedDb.getRealId(entityId);
+            if (realId && realId !== entityId) {
+              if (!this.bulkLocalImagesMap.has(realId)) {
+                this.bulkLocalImagesMap.set(realId, []);
+              }
+              // Avoid duplicates
+              const existing = this.bulkLocalImagesMap.get(realId)!;
+              if (!existing.some(e => e.imageId === img.imageId)) {
+                existing.push(img);
               }
             }
-            console.log(`[LOAD DATA] Reverse-mapped ${imagesForRealId.length} images from realId ${realId} to tempId ${tempOrRealId}`);
           }
         }
-      }
+
+        // CRITICAL FIX: Reverse mapping - for images whose entityId is already a real ID,
+        // also add them under any temp IDs in visualRecordIds that map to that real ID.
+        // This handles the case where the image's entityId was updated to real ID by sync,
+        // but the visual in organizedData is still tracked by temp ID.
+        for (const [key, tempOrRealId] of Object.entries(this.visualRecordIds)) {
+          if (tempOrRealId && tempOrRealId.startsWith('temp_')) {
+            // Check if this temp ID maps to a real ID that has images
+            const realId = await this.indexedDb.getRealId(tempOrRealId);
+            if (realId && realId !== tempOrRealId && this.bulkLocalImagesMap.has(realId)) {
+              // Copy images from real ID to temp ID
+              const imagesForRealId = this.bulkLocalImagesMap.get(realId)!;
+              if (!this.bulkLocalImagesMap.has(tempOrRealId)) {
+                this.bulkLocalImagesMap.set(tempOrRealId, []);
+              }
+              const existingForTemp = this.bulkLocalImagesMap.get(tempOrRealId)!;
+              for (const img of imagesForRealId) {
+                if (!existingForTemp.some(e => e.imageId === img.imageId)) {
+                  existingForTemp.push(img);
+                }
+              }
+              console.log(`[LOAD DATA] Reverse-mapped ${imagesForRealId.length} images from realId ${realId} to tempId ${tempOrRealId}`);
+            }
+          }
+        }
+      });
 
       console.log(`[LOAD DATA] Loaded ${allLocalImages.length} LocalImages for ${this.bulkLocalImagesMap.size} entities (with bidirectional ID resolution)`);
       
@@ -1577,32 +1601,65 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.restorePendingPhotosFromIndexedDB();
       console.log('[LOAD DATA] ✅ Pending photos restored');
 
-      // ===== STEP 3.5: Load attachments (BLOCKING - required for photos) =====
-      const visualIds = this.bulkVisualsCache
-        .filter((v: any) => v.Category === this.categoryName)
-        .map((v: any) => String(v.VisualID || v.PK_ID || v.id))
-        .filter((id: string) => id && !id.startsWith('temp_'));
-      
-      if (visualIds.length > 0) {
-        this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(visualIds);
-        console.log(`[LOAD DATA] ✅ Loaded attachments for ${this.bulkAttachmentsMap.size} visuals`);
-      }
+      // ===== STEP 3.5: Show initial photo counts from LocalImages (INSTANT - no I/O) =====
+      // This gives users immediate feedback on photo counts while server data loads
+      this.showInitialPhotoCountsFromLocalImages();
 
-      // ===== STEP 3.6: Pre-load all photo URLs (BLOCKING - ensures images show on first load) =====
-      await this.preloadAllPhotoUrls();
-      console.log('[LOAD DATA] ✅ All photo URLs pre-loaded');
-
-      // Show page after ALL data is ready
+      // ===== STEP 3.6: Show page NOW - don't wait for photos =====
       this.loading = false;
       this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
       this.changeDetectorRef.detectChanges();
-      
-      console.log(`[LOAD DATA] ========== UI READY: ${Date.now() - startTime}ms ==========`);
+      const loadTimeMs = performance.now() - startTime;
+      console.log(`[LOAD DATA] ========== UI READY (skeleton): ${loadTimeMs.toFixed(0)}ms ==========`);
+      console.timeEnd('[CategoryDetail] loadData total');
+
+      // Performance warning if load takes too long
+      if (loadTimeMs > 2000) {
+        console.warn(`[PERF] Page load took ${loadTimeMs.toFixed(0)}ms - exceeds 2s target`);
+      }
+
+      // ===== STEP 3.7: Load attachments + photo URLs in background (NON-BLOCKING) =====
+      // Use requestIdleCallback for better performance, falling back to setTimeout
+      const loadPhotosInBackground = async () => {
+        try {
+          this.isLoadingPhotosInBackground = true;
+
+          const visualIds = this.bulkVisualsCache
+            .filter((v: any) => v.Category === this.categoryName)
+            .map((v: any) => String(v.VisualID || v.PK_ID || v.id))
+            .filter((id: string) => id && !id.startsWith('temp_'));
+
+          if (visualIds.length > 0) {
+            this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(visualIds);
+            console.log(`[LOAD DATA BG] ✅ Loaded attachments for ${this.bulkAttachmentsMap.size} visuals`);
+          }
+
+          // Pre-load photo URLs
+          await this.preloadAllPhotoUrls();
+          console.log(`[LOAD DATA BG] ✅ All photo URLs pre-loaded (total: ${Date.now() - startTime}ms)`);
+
+          // Trigger UI update
+          this.changeDetectorRef.detectChanges();
+        } catch (err) {
+          console.warn('[LOAD DATA BG] Background photo loading failed:', err);
+        } finally {
+          this.isLoadingPhotosInBackground = false;
+        }
+      };
+
+      // Use requestIdleCallback for non-blocking execution when browser is idle
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(() => loadPhotosInBackground(), { timeout: 2000 });
+      } else {
+        // Fallback for environments without requestIdleCallback
+        setTimeout(loadPhotosInBackground, 50);
+      }
 
     } catch (error) {
       console.error('[LOAD DATA] ❌ Error:', error);
       this.loading = false;
       this.changeDetectorRef.detectChanges();
+      console.timeEnd('[CategoryDetail] loadData total');
     } finally {
       // CRITICAL: Always reset the loading flag to allow future loads
       this.isLoadingData = false;
@@ -1697,6 +1754,54 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     
     console.log(`[PRELOAD] Loading photos for ${loadPromises.length} visuals...`);
     await Promise.all(loadPromises);
+  }
+
+  /**
+   * Show initial photo counts from LocalImages (instant, no I/O)
+   * This provides immediate feedback to users while server data loads in background
+   */
+  private showInitialPhotoCountsFromLocalImages(): void {
+    // Iterate through all visuals in this category and set initial photo counts from LocalImages
+    for (const visual of this.bulkVisualsCache) {
+      if (visual.Category !== this.categoryName) continue;
+      if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
+
+      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
+        this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+
+      if (!item) continue;
+
+      const key = `${visual.Category}_${item.id}`;
+
+      // Get counts from various sources (already in memory)
+      const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+      const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
+
+      // Set initial photo count (will be updated when server attachments load)
+      const count = localImages.length + pendingPhotos.length;
+      if (count > 0 && this.photoCountsByKey[key] === undefined) {
+        this.photoCountsByKey[key] = count;
+      }
+    }
+
+    // Also handle pending visuals with temp IDs
+    for (const [entityId, localImages] of this.bulkLocalImagesMap.entries()) {
+      if (!entityId.startsWith('temp_')) continue;
+      if (localImages.length === 0) continue;
+
+      // Find matching key from visualRecordIds
+      const matchingKey = Object.entries(this.visualRecordIds)
+        .find(([_, id]) => id === entityId)?.[0];
+
+      if (matchingKey && this.photoCountsByKey[matchingKey] === undefined) {
+        this.photoCountsByKey[matchingKey] = localImages.length;
+      }
+    }
+
+    console.log(`[INITIAL COUNTS] Set photo counts for ${Object.keys(this.photoCountsByKey).length} visuals from LocalImages`);
   }
 
   private async waitForSkeletonsReady(): Promise<void> {
@@ -2644,21 +2749,43 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
   /**
    * Download uncached photos in parallel batches for faster loading
+   * Uses staggered loading: first 3 photos load immediately, rest load with 50ms delays
    * Updates UI after each batch completes
    */
   private async downloadPhotosInParallel(attachments: any[], key: string): Promise<void> {
-    const BATCH_SIZE = 5; // Download 5 at a time
-    
-    for (let i = 0; i < attachments.length; i += BATCH_SIZE) {
-      const batch = attachments.slice(i, i + BATCH_SIZE);
-      
-      // Download batch in parallel
-      await Promise.all(batch.map(attach => 
+    const IMMEDIATE_COUNT = 3; // Load first 3 immediately for fast visual feedback
+    const BATCH_SIZE = 5; // Then download 5 at a time
+    const STAGGER_DELAY_MS = 50; // Small delay between batches to prevent UI blocking
+
+    // Load first 3 photos immediately (no delay) for fast visual feedback
+    const immediatePhotos = attachments.slice(0, IMMEDIATE_COUNT);
+    const remainingPhotos = attachments.slice(IMMEDIATE_COUNT);
+
+    if (immediatePhotos.length > 0) {
+      await Promise.all(immediatePhotos.map(attach =>
         this.loadSinglePhoto(attach, key).catch(err => {
           console.error('[DOWNLOAD] Failed:', attach.AttachID, err);
         })
       ));
-      
+      this.changeDetectorRef.detectChanges();
+    }
+
+    // Load remaining photos in staggered batches
+    for (let i = 0; i < remainingPhotos.length; i += BATCH_SIZE) {
+      // Small delay between batches to prevent UI blocking
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, STAGGER_DELAY_MS));
+      }
+
+      const batch = remainingPhotos.slice(i, i + BATCH_SIZE);
+
+      // Download batch in parallel
+      await Promise.all(batch.map(attach =>
+        this.loadSinglePhoto(attach, key).catch(err => {
+          console.error('[DOWNLOAD] Failed:', attach.AttachID, err);
+        })
+      ));
+
       // Update UI after each batch completes
       this.changeDetectorRef.detectChanges();
     }
@@ -5015,7 +5142,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   console.warn('[SAVE OFFLINE] Failed to cache annotated image:', cacheErr);
                 }
               }
-              
+
+              // Queue caption/annotation update for sync - background sync will resolve temp ID when photo syncs
+              try {
+                await this.foundationData.queueCaptionAndAnnotationUpdate(
+                  pendingFileId,
+                  data.caption || '',
+                  compressedDrawings,
+                  'visual',
+                  { serviceId: this.serviceId }
+                );
+                console.log('[SAVE OFFLINE] ✅ Caption/annotation queued for sync:', pendingFileId);
+              } catch (queueErr) {
+                console.warn('[SAVE OFFLINE] Failed to queue caption update:', queueErr);
+              }
+
               // CRITICAL: Force change detection to update UI immediately
               this.changeDetectorRef.detectChanges();
               console.log('[SAVE OFFLINE] ✅ Change detection triggered');
@@ -5263,24 +5404,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Continue anyway - still try API
     }
 
-    // Queue the annotation update ONLY for non-local-first photos
-    // For local-first photos, the annotations are stored in LocalImage record
-    // and will sync when the photo syncs (no duplicate queue entry needed)
-    if (!isLocalFirstPhoto) {
-      await this.foundationData.queueCaptionAndAnnotationUpdate(
-        attachId,
-        caption || '',
-        updateData.Drawings,
-        'visual',
-        {
-          serviceId: this.serviceId,
-          visualId: visualIdForCache || undefined
-        }
-      );
-      console.log('[SAVE] ✅ Annotation queued for sync:', attachId);
-    } else {
-      console.log('[SAVE] ✅ Local-first photo - annotations stored in LocalImage, no separate queue entry');
-    }
+    // ALWAYS queue annotation updates - sync worker handles ID resolution for local-first photos
+    // The background sync service already handles img_ prefixed IDs and resolves them to real attachIds
+    await this.foundationData.queueCaptionAndAnnotationUpdate(
+      isLocalFirstPhoto && localImageId ? localImageId : attachId,
+      caption || '',
+      updateData.Drawings,
+      'visual',
+      {
+        serviceId: this.serviceId,
+        visualId: visualIdForCache || undefined
+      }
+    );
+    console.log('[SAVE] ✅ Annotation queued for sync:', isLocalFirstPhoto ? `local-first ${localImageId}` : attachId);
 
     // Return the compressed drawings string so caller can update local photo object
     return updateData.Drawings;
