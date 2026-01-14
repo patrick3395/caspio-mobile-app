@@ -2828,6 +2828,11 @@ export class BackgroundSyncService {
     // US-001 FIX: Wrap upload in try-catch to catch mobile-specific silent failures
     let result: any;
     try {
+      // US-001 FIX: Add delay before S3 upload to allow mobile network to stabilize
+      // Debug alerts were making uploads succeed by creating a pause here.
+      // This replicates that effect programmatically (300ms matches typical alert dismiss time)
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       switch (image.entityType) {
         case 'visual':
           result = await uploadWithTimeout(
