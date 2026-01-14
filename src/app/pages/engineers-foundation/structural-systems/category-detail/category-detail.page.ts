@@ -141,6 +141,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Guard to prevent concurrent/duplicate loadPhotosForVisual calls for the same key
   private loadingPhotoPromises: Map<string, Promise<void>> = new Map();
 
+  // US-003 FIX: Suppress liveQuery during batch multi-image upload to prevent race conditions
+  // The liveQuery subscription fires on each IndexedDB write, which can cause duplicate entries
+  // when processing multiple photos in a loop. This flag suppresses change detection during batch ops.
+  private isMultiImageUploadInProgress = false;
+  // Track imageIds in current batch to prevent duplicates even if liveQuery fires
+  private batchUploadImageIds = new Set<string>();
+
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -808,6 +815,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // Update bulkLocalImagesMap reactively (always update data immediately)
         this.updateBulkLocalImagesMap(localImages);
+
+        // US-003 FIX: Skip change detection during batch multi-image upload
+        // This prevents the race condition where liveQuery triggers UI updates mid-loop,
+        // causing duplicate entries when the loop's per-iteration push also adds the same photo.
+        if (this.isMultiImageUploadInProgress) {
+          console.log('[LIVEQUERY] Suppressing change detection - batch upload in progress');
+          return;
+        }
 
         // CRITICAL: Debounce change detection to prevent multiple rapid UI updates
         // This prevents the "hard refresh" feeling when multiple operations happen quickly
@@ -4118,7 +4133,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async addPhotoFromGallery(category: string, itemId: string | number) {
     // Set cooldown to prevent cache invalidation from causing UI flash
     this.startLocalOperationCooldown();
-    
+
     try {
       // Use pickImages to allow multiple photo selection
       const images = await Camera.pickImages({
@@ -4152,11 +4167,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         // ============================================
-        // NEW LOCAL-FIRST IMAGE SYSTEM
-        // Uses stable UUID that NEVER changes
+        // US-003 FIX: BATCH UPLOAD COORDINATION
+        // Suppresses liveQuery during batch to prevent race condition duplicates.
+        // Collects all photo entries, then adds to UI once at end.
         // ============================================
 
-        // Process each photo with LocalImageService
+        // Set batch flag to suppress liveQuery change detection during processing
+        this.isMultiImageUploadInProgress = true;
+        this.batchUploadImageIds.clear();
+
+        // Collect all photo entries during loop, add to UI once at end
+        const batchPhotoEntries: any[] = [];
+
+        try {
+          // Process each photo with LocalImageService
           for (let i = 0; i < images.photos.length; i++) {
             const image = images.photos[i];
 
@@ -4168,7 +4192,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
             if (image.webPath) {
               try {
-              console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
+                console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
 
                 // Fetch the blob
                 const response = await fetch(image.webPath);
@@ -4190,89 +4214,106 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   continue;
                 }
 
-              // Create LocalImage with stable UUID
-              const localImage = await this.localImageService.captureImage(
-                file,
-                'visual',
-                String(visualId),
-                this.serviceId,
-                '', // caption
-                ''  // drawings
-              );
-              
-              console.log(`[GALLERY UPLOAD] ✅ Created LocalImage ${i + 1} with stable ID:`, localImage.imageId);
+                // Create LocalImage with stable UUID
+                const localImage = await this.localImageService.captureImage(
+                  file,
+                  'visual',
+                  String(visualId),
+                  this.serviceId,
+                  '', // caption
+                  ''  // drawings
+                );
 
-              // Get display URL from LocalImageService
-              const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+                console.log(`[GALLERY UPLOAD] ✅ Created LocalImage ${i + 1} with stable ID:`, localImage.imageId);
 
-              // Create photo entry using STABLE imageId as the key
-              const photoEntry = {
-                // STABLE ID - never changes, safe for UI key
-                imageId: localImage.imageId,
-                
-                // For compatibility with existing code
-                AttachID: localImage.imageId,
-                attachId: localImage.imageId,
-                id: localImage.imageId,
-                
-                // Display URLs
-                url: displayUrl,
-                displayUrl: displayUrl,
-                originalUrl: displayUrl,
-                thumbnailUrl: displayUrl,
-                
-                // Metadata
-                name: `photo_${i}.jpg`,
-                    caption: '',
-                    annotation: '',
-                Annotation: '',
-                Drawings: '',
-                hasAnnotations: false,
-                
-                // Status from LocalImage system - SILENT SYNC
-                status: localImage.status,
-                isLocal: true,
-                isLocalFirst: true,
-                isLocalImage: true,
-                isObjectUrl: true,
-                uploading: false,         // SILENT SYNC: No spinner
-                queued: false,            // SILENT SYNC: No indicator
-                isPending: localImage.status !== 'verified',
-                isSkeleton: false,
-                progress: 0
-              };
+                // US-003 FIX: Track this imageId to prevent duplicates from liveQuery race
+                this.batchUploadImageIds.add(localImage.imageId);
 
-              // TASK 5 FIX: Check for duplicates before adding photo
-              // This prevents extra broken images when uploading multiple photos
-              const existingIndex = this.visualPhotos[key].findIndex((p: any) =>
-                p.imageId === localImage.imageId ||
-                p.AttachID === localImage.imageId ||
-                p.id === localImage.imageId
-              );
+                // Get display URL from LocalImageService
+                const displayUrl = await this.localImageService.getDisplayUrl(localImage);
 
-              if (existingIndex === -1) {
-                // Add photo to UI immediately (no duplicate found)
-                this.visualPhotos[key].push(photoEntry);
-                this.changeDetectorRef.detectChanges();
-                console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} added (silent sync):`, localImage.imageId);
-              } else {
-                // Duplicate found - update existing entry instead of adding
-                console.log(`[GALLERY UPLOAD] ⚠️ Photo ${i + 1} already exists, updating:`, localImage.imageId);
-                this.visualPhotos[key][existingIndex] = { ...this.visualPhotos[key][existingIndex], ...photoEntry };
-                this.changeDetectorRef.detectChanges();
-              }
-              console.log(`  key: ${key}`);
-              console.log(`  imageId: ${localImage.imageId}`);
-              console.log(`  AttachID: ${photoEntry.AttachID}`);
-              console.log(`  Total photos in key: ${this.visualPhotos[key].length}`);
+                // Create photo entry using STABLE imageId as the key
+                const photoEntry = {
+                  // STABLE ID - never changes, safe for UI key
+                  imageId: localImage.imageId,
+
+                  // For compatibility with existing code
+                  AttachID: localImage.imageId,
+                  attachId: localImage.imageId,
+                  id: localImage.imageId,
+
+                  // Display URLs
+                  url: displayUrl,
+                  displayUrl: displayUrl,
+                  originalUrl: displayUrl,
+                  thumbnailUrl: displayUrl,
+
+                  // Metadata
+                  name: `photo_${i}.jpg`,
+                  caption: '',
+                  annotation: '',
+                  Annotation: '',
+                  Drawings: '',
+                  hasAnnotations: false,
+
+                  // Status from LocalImage system - SILENT SYNC
+                  status: localImage.status,
+                  isLocal: true,
+                  isLocalFirst: true,
+                  isLocalImage: true,
+                  isObjectUrl: true,
+                  uploading: false,         // SILENT SYNC: No spinner
+                  queued: false,            // SILENT SYNC: No indicator
+                  isPending: localImage.status !== 'verified',
+                  isSkeleton: false,
+                  progress: 0
+                };
+
+                // US-003 FIX: Check for duplicates in BOTH existing photos AND current batch
+                // This prevents duplicates from: (1) liveQuery mid-loop, (2) same image selected twice
+                const existingIndex = this.visualPhotos[key].findIndex((p: any) =>
+                  p.imageId === localImage.imageId ||
+                  p.AttachID === localImage.imageId ||
+                  p.id === localImage.imageId
+                );
+                const alreadyInBatch = batchPhotoEntries.some((p: any) => p.imageId === localImage.imageId);
+
+                if (existingIndex === -1 && !alreadyInBatch) {
+                  // Collect for batch insert (no duplicate found)
+                  batchPhotoEntries.push(photoEntry);
+                  console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} collected for batch:`, localImage.imageId);
+                } else {
+                  // Duplicate found - skip or update existing
+                  console.log(`[GALLERY UPLOAD] ⚠️ Photo ${i + 1} duplicate detected, skipping:`, localImage.imageId);
+                }
+                console.log(`  key: ${key}`);
+                console.log(`  imageId: ${localImage.imageId}`);
 
               } catch (error) {
                 console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
+              }
             }
           }
+
+          // US-003 FIX: Batch insert all photos at once after loop completes
+          // This prevents the race condition where per-iteration pushes + liveQuery updates
+          // both add the same photo to visualPhotos
+          if (batchPhotoEntries.length > 0) {
+            this.visualPhotos[key].push(...batchPhotoEntries);
+            console.log(`[GALLERY UPLOAD] ✅ Batch inserted ${batchPhotoEntries.length} photos to UI`);
+          }
+
+        } finally {
+          // US-003 FIX: Always reset batch flag, even if error occurs
+          this.isMultiImageUploadInProgress = false;
+          this.batchUploadImageIds.clear();
+
+          // Trigger single change detection after batch completes
+          this.changeDetectorRef.detectChanges();
         }
 
         console.log(`[GALLERY UPLOAD] ✅ All ${images.photos.length} photos processed with stable IDs`);
+        console.log(`[GALLERY UPLOAD] Total photos in key: ${this.visualPhotos[key].length}`);
         // Sync will happen on next 60-second interval via upload outbox
       }
     } catch (error) {
