@@ -5574,10 +5574,27 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // Continue anyway - still queue for sync
     }
 
-    // ALWAYS queue the annotation update using unified method
-    // This ensures annotations are never lost during sync operations
+    // Queue the annotation update using the correct attachId
+    // For local-first photos that have synced, use the real Caspio attachId
+    let syncAttachId = attachId;
+    const localImageId = foundPhoto?.localImageId || foundPhoto?.imageId;
+
+    if (localImageId && (foundPhoto?.isLocalFirst || foundPhoto?.isLocalImage)) {
+      // Check if this local-first photo has already synced (has real Caspio ID)
+      try {
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+        if (localImage?.attachId && !String(localImage.attachId).startsWith('img_') && !String(localImage.attachId).startsWith('temp_')) {
+          // Photo was synced - use the real attachId for queueing annotation update
+          syncAttachId = localImage.attachId;
+          console.log('[SAVE] Local-first photo already synced, using real attachId for queue:', syncAttachId);
+        }
+      } catch (e) {
+        console.warn('[SAVE] Could not check LocalImage sync status:', e);
+      }
+    }
+
     await this.foundationData.queueCaptionAndAnnotationUpdate(
-      attachId,
+      syncAttachId,
       caption || '',
       updateData.Drawings,
       'efe_point',
@@ -5586,7 +5603,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         pointId: pointIdForCache || undefined
       }
     );
-    console.log('[SAVE] ✅ EFE annotation queued for sync:', attachId);
+    console.log('[SAVE] ✅ EFE annotation queued for sync:', syncAttachId);
 
     // CRITICAL: Clear the attachments cache to ensure annotations appear after navigation
     this.foundationData.clearEFEAttachmentsCache();

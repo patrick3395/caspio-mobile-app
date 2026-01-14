@@ -1577,27 +1577,52 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.restorePendingPhotosFromIndexedDB();
       console.log('[LOAD DATA] ✅ Pending photos restored');
 
-      // ===== STEP 3.5: Load attachments (BLOCKING - required for photos) =====
-      const visualIds = this.bulkVisualsCache
-        .filter((v: any) => v.Category === this.categoryName)
-        .map((v: any) => String(v.VisualID || v.PK_ID || v.id))
-        .filter((id: string) => id && !id.startsWith('temp_'));
-      
-      if (visualIds.length > 0) {
-        this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(visualIds);
-        console.log(`[LOAD DATA] ✅ Loaded attachments for ${this.bulkAttachmentsMap.size} visuals`);
-      }
+      // ===== STEP 3.5: Show initial photo counts from LocalImages (INSTANT - no I/O) =====
+      // This gives users immediate feedback on photo counts while server data loads
+      this.showInitialPhotoCountsFromLocalImages();
 
-      // ===== STEP 3.6: Pre-load all photo URLs (BLOCKING - ensures images show on first load) =====
-      await this.preloadAllPhotoUrls();
-      console.log('[LOAD DATA] ✅ All photo URLs pre-loaded');
-
-      // Show page after ALL data is ready
+      // ===== STEP 3.6: Show page NOW - don't wait for photos =====
       this.loading = false;
       this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
       this.changeDetectorRef.detectChanges();
-      
-      console.log(`[LOAD DATA] ========== UI READY: ${Date.now() - startTime}ms ==========`);
+      console.log(`[LOAD DATA] ========== UI READY (skeleton): ${Date.now() - startTime}ms ==========`);
+
+      // ===== STEP 3.7: Load attachments + photo URLs in background (NON-BLOCKING) =====
+      // Use requestIdleCallback for better performance, falling back to setTimeout
+      const loadPhotosInBackground = async () => {
+        try {
+          this.isLoadingPhotosInBackground = true;
+
+          const visualIds = this.bulkVisualsCache
+            .filter((v: any) => v.Category === this.categoryName)
+            .map((v: any) => String(v.VisualID || v.PK_ID || v.id))
+            .filter((id: string) => id && !id.startsWith('temp_'));
+
+          if (visualIds.length > 0) {
+            this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(visualIds);
+            console.log(`[LOAD DATA BG] ✅ Loaded attachments for ${this.bulkAttachmentsMap.size} visuals`);
+          }
+
+          // Pre-load photo URLs
+          await this.preloadAllPhotoUrls();
+          console.log(`[LOAD DATA BG] ✅ All photo URLs pre-loaded (total: ${Date.now() - startTime}ms)`);
+
+          // Trigger UI update
+          this.changeDetectorRef.detectChanges();
+        } catch (err) {
+          console.warn('[LOAD DATA BG] Background photo loading failed:', err);
+        } finally {
+          this.isLoadingPhotosInBackground = false;
+        }
+      };
+
+      // Use requestIdleCallback for non-blocking execution when browser is idle
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(() => loadPhotosInBackground(), { timeout: 2000 });
+      } else {
+        // Fallback for environments without requestIdleCallback
+        setTimeout(loadPhotosInBackground, 50);
+      }
 
     } catch (error) {
       console.error('[LOAD DATA] ❌ Error:', error);
@@ -1697,6 +1722,54 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     
     console.log(`[PRELOAD] Loading photos for ${loadPromises.length} visuals...`);
     await Promise.all(loadPromises);
+  }
+
+  /**
+   * Show initial photo counts from LocalImages (instant, no I/O)
+   * This provides immediate feedback to users while server data loads in background
+   */
+  private showInitialPhotoCountsFromLocalImages(): void {
+    // Iterate through all visuals in this category and set initial photo counts from LocalImages
+    for (const visual of this.bulkVisualsCache) {
+      if (visual.Category !== this.categoryName) continue;
+      if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
+
+      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
+        this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+
+      if (!item) continue;
+
+      const key = `${visual.Category}_${item.id}`;
+
+      // Get counts from various sources (already in memory)
+      const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+      const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
+
+      // Set initial photo count (will be updated when server attachments load)
+      const count = localImages.length + pendingPhotos.length;
+      if (count > 0 && this.photoCountsByKey[key] === undefined) {
+        this.photoCountsByKey[key] = count;
+      }
+    }
+
+    // Also handle pending visuals with temp IDs
+    for (const [entityId, localImages] of this.bulkLocalImagesMap.entries()) {
+      if (!entityId.startsWith('temp_')) continue;
+      if (localImages.length === 0) continue;
+
+      // Find matching key from visualRecordIds
+      const matchingKey = Object.entries(this.visualRecordIds)
+        .find(([_, id]) => id === entityId)?.[0];
+
+      if (matchingKey && this.photoCountsByKey[matchingKey] === undefined) {
+        this.photoCountsByKey[matchingKey] = localImages.length;
+      }
+    }
+
+    console.log(`[INITIAL COUNTS] Set photo counts for ${Object.keys(this.photoCountsByKey).length} visuals from LocalImages`);
   }
 
   private async waitForSkeletonsReady(): Promise<void> {
@@ -5263,12 +5336,31 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Continue anyway - still try API
     }
 
-    // Queue the annotation update ONLY for non-local-first photos
-    // For local-first photos, the annotations are stored in LocalImage record
-    // and will sync when the photo syncs (no duplicate queue entry needed)
-    if (!isLocalFirstPhoto) {
+    // Queue the annotation update for:
+    // 1. Non-local-first photos (always queue)
+    // 2. Local-first photos that have ALREADY been synced (have real Caspio attachId)
+    // For local-first photos that haven't synced yet, annotations sync with the photo upload
+    let shouldQueueForSync = !isLocalFirstPhoto;
+    let syncAttachId = attachId;
+
+    if (isLocalFirstPhoto && localImageId) {
+      // Check if this local-first photo has already synced (has real Caspio ID)
+      try {
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+        if (localImage?.attachId && !String(localImage.attachId).startsWith('img_') && !String(localImage.attachId).startsWith('temp_')) {
+          // Photo was synced - use the real attachId for queueing annotation update
+          shouldQueueForSync = true;
+          syncAttachId = localImage.attachId;
+          console.log('[SAVE] Local-first photo already synced, will queue annotation update with real attachId:', syncAttachId);
+        }
+      } catch (e) {
+        console.warn('[SAVE] Could not check LocalImage sync status:', e);
+      }
+    }
+
+    if (shouldQueueForSync) {
       await this.foundationData.queueCaptionAndAnnotationUpdate(
-        attachId,
+        syncAttachId,
         caption || '',
         updateData.Drawings,
         'visual',
@@ -5277,9 +5369,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           visualId: visualIdForCache || undefined
         }
       );
-      console.log('[SAVE] ✅ Annotation queued for sync:', attachId);
+      console.log('[SAVE] ✅ Annotation queued for sync:', syncAttachId);
     } else {
-      console.log('[SAVE] ✅ Local-first photo - annotations stored in LocalImage, no separate queue entry');
+      console.log('[SAVE] ✅ Local-first photo not yet synced - annotations will sync with photo upload');
     }
 
     // Return the compressed drawings string so caller can update local photo object
