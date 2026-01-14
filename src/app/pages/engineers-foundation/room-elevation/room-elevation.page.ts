@@ -279,43 +279,32 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           photo.queued = false;
           photo.uploading = false;
 
-          // If we have a URL, update it - but PRELOAD first for seamless transition
+          // ALWAYS display from LocalImages table - never swap displayUrl to remote URLs
+          // Sync happens in background, but UI always shows local blob until finalization
+          // Only update metadata and cache the remote image for persistence
           if (photoUrl) {
-            // CRITICAL: Keep showing local blob URL while preloading server image
-            // This prevents broken images during the transition
-            const originalDisplayUrl = photo.displayUrl;
-            
-            // Get S3 URL and fetch as data URL for canvas compatibility
+            photo.loading = false;
+
+            // Cache the remote image for persistence (used after local blob is pruned)
+            // but do NOT update displayUrl - it stays as local blob
             try {
               let imageUrl = photoUrl;
               if (s3Key && this.caspioService.isS3Key(s3Key)) {
                 imageUrl = await this.caspioService.getS3FileUrl(s3Key);
               }
-              
-              // PRELOAD: Fetch the server image as data URL before switching
+
+              // Fetch and cache for future use (after blob pruning)
               const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
-              
-              // Only update URL after successful preload - ensures no broken images
-              photo.url = dataUrl;
-              // CRITICAL: Preserve displayUrl if user added annotations while uploading
-              if (!hasExistingAnnotations) {
-                photo.displayUrl = dataUrl;
-              }
-              photo.loading = false;
-              
-              // Cache the photo
+              photo.url = dataUrl; // Store for reference, but displayUrl unchanged
+
+              // Cache the photo for persistence
               if (realAttachId) {
                 await this.indexedDb.cachePhoto(String(realAttachId), this.serviceId, dataUrl, s3Key || '');
               }
-              
-              console.log('[RoomElevation PHOTO SYNC] ✅ Server image preloaded and cached successfully');
+
+              console.log('[RoomElevation PHOTO SYNC] ✅ Server image cached (displayUrl unchanged - staying with LocalImages)');
             } catch (err) {
-              console.warn('[RoomElevation PHOTO SYNC] Failed to fetch as data URL, keeping local blob:', err);
-              // CRITICAL: Keep showing the original local blob URL on error
-              // This ensures the image doesn't break
-              if (!hasExistingAnnotations && originalDisplayUrl) {
-                photo.displayUrl = originalDisplayUrl;
-              }
+              console.warn('[RoomElevation PHOTO SYNC] Failed to cache remote image:', err);
               photo.url = photoUrl;
             }
           }
@@ -369,6 +358,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             photo._tempId = undefined;
             photo.isPending = false;
             
+            // ALWAYS display from LocalImages table - never swap displayUrl to remote URLs
+            // Sync happens in background, but UI always shows local blob until finalization
             if (photoUrl) {
               try {
                 let imageUrl = photoUrl;
@@ -376,19 +367,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   imageUrl = await this.caspioService.getS3FileUrl(s3Key);
                 }
                 const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
-                fdfPhotos[`${key}Url`] = dataUrl;
-                // CRITICAL: Preserve displayUrl if user added annotations while uploading
-                if (!hasExistingAnnotations) {
-                  fdfPhotos[`${key}DisplayUrl`] = dataUrl;
-                }
-                
-                // Cache the photo
+                fdfPhotos[`${key}Url`] = dataUrl; // Store for reference, but displayUrl unchanged
+
+                // Cache the photo for persistence (used after local blob is pruned)
                 await this.indexedDb.cachePhoto(cacheId, this.serviceId, dataUrl, s3Key || '');
+                console.log('[RoomElevation PHOTO SYNC] ✅ FDF server image cached (displayUrl unchanged - staying with LocalImages)');
               } catch (err) {
                 fdfPhotos[`${key}Url`] = photoUrl;
-                if (!hasExistingAnnotations) {
-                  fdfPhotos[`${key}DisplayUrl`] = photoUrl;
-                }
+                console.warn('[RoomElevation PHOTO SYNC] Failed to cache FDF remote image:', err);
               }
             }
             
@@ -413,69 +399,61 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     });
 
     // Subscribe to EFE photo upload completions (for elevation point photos)
-    // This handles seamless URL transition from blob URL to cached base64
+    // ALWAYS display from LocalImages table - never swap displayUrl to remote URLs
     this.efePhotoSyncSubscription = this.backgroundSync.efePhotoUploadComplete$.subscribe(async (event) => {
       console.log('[RoomElevation EFE PHOTO SYNC] EFE photo upload completed:', event.tempFileId);
-      
+
       const realAttachId = event.result?.AttachID || event.result?.PK_ID;
-      const s3Key = event.result?.Attachment;
-      
+      const s3Key = event.result?.Attachment || event.result?.Photo;
+
       // Find the photo in our elevationPoints by temp file ID
       for (const point of this.roomData?.elevationPoints || []) {
         const photoIndex = point.photos?.findIndex((p: any) =>
           String(p._tempId) === String(event.tempFileId) ||
           String(p.attachId) === String(event.tempFileId)
         );
-        
+
         if (photoIndex >= 0 && photoIndex !== undefined) {
           console.log('[RoomElevation EFE PHOTO SYNC] Found EFE photo at point:', point.name, 'index:', photoIndex);
-          
-          // SEAMLESS SWAP: Get the cached base64 (already downloaded by BackgroundSyncService)
-          let newImageUrl = point.photos[photoIndex].displayUrl || point.photos[photoIndex].url;
-          const s3Key = event.result?.Attachment || event.result?.Photo;
-          
+
+          const existingPhoto = point.photos[photoIndex];
+
+          // Cache the remote image for persistence (used after local blob is pruned)
+          // but do NOT update displayUrl - it stays as local blob from LocalImages
+          let cachedUrl = existingPhoto.url;
           try {
             const cachedBase64 = await this.indexedDb.getCachedPhoto(String(realAttachId));
             if (cachedBase64) {
-              newImageUrl = cachedBase64;
-              console.log('[RoomElevation EFE PHOTO SYNC] ✅ Seamless swap to cached base64');
+              cachedUrl = cachedBase64;
+              console.log('[RoomElevation EFE PHOTO SYNC] ✅ Found cached base64');
             } else if (s3Key && this.offlineService.isOnline()) {
-              // FALLBACK: Cache wasn't ready yet, fetch from S3 directly
-              console.log('[RoomElevation EFE PHOTO SYNC] Cache miss, fetching from S3...');
+              // FALLBACK: Cache wasn't ready yet, fetch from S3 and cache for persistence
+              console.log('[RoomElevation EFE PHOTO SYNC] Cache miss, fetching from S3 for persistence...');
               try {
                 const s3Url = await this.caspioService.getS3FileUrl(s3Key);
-                newImageUrl = await this.fetchS3ImageAsDataUrl(s3Url);
+                cachedUrl = await this.fetchS3ImageAsDataUrl(s3Url);
                 // Cache it for next time
-                await this.indexedDb.cachePhoto(String(realAttachId), this.serviceId, newImageUrl, s3Key);
+                await this.indexedDb.cachePhoto(String(realAttachId), this.serviceId, cachedUrl, s3Key);
                 console.log('[RoomElevation EFE PHOTO SYNC] ✅ Fetched and cached from S3');
               } catch (s3Err) {
                 console.warn('[RoomElevation EFE PHOTO SYNC] S3 fetch failed:', s3Err);
               }
             }
-            
-            // Check for annotated image - use it for display if exists
-            const annotatedImage = this.bulkAnnotatedImagesMap.get(String(realAttachId)) 
-              || this.bulkAnnotatedImagesMap.get(event.tempFileId);
-            if (annotatedImage) {
-              newImageUrl = annotatedImage;
-              console.log('[RoomElevation EFE PHOTO SYNC] ✅ Using annotated image for thumbnail');
-            }
           } catch (err) {
             console.warn('[RoomElevation EFE PHOTO SYNC] Failed to get cached image:', err);
           }
-          
-          // Update photo metadata without flicker
+
+          // Update photo metadata - preserve displayUrl (local blob from LocalImages)
           // CRITICAL: Preserve caption - it may have been set locally before sync
-          const existingPhoto = point.photos[photoIndex];
           const serverCaption = event.result?.Annotation || event.result?.Caption || '';
           const localCaption = existingPhoto.caption || existingPhoto.Annotation || '';
           const finalCaption = localCaption || serverCaption;
-          
+
           point.photos[photoIndex] = {
             ...existingPhoto,
             attachId: realAttachId,
-            url: newImageUrl,
-            displayUrl: newImageUrl,
+            url: cachedUrl,  // Store cached URL for reference
+            // displayUrl: unchanged - stays as local blob from LocalImages table
             caption: finalCaption,  // CRITICAL: Preserve caption
             Annotation: finalCaption,  // Also set Caspio field
             _tempId: undefined,
@@ -486,9 +464,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             uploading: false,
             loading: false
           };
-          
+
           this.changeDetectorRef.detectChanges();
-          console.log('[RoomElevation EFE PHOTO SYNC] Updated EFE photo with real ID:', realAttachId);
+          console.log('[RoomElevation EFE PHOTO SYNC] Updated EFE photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
           break;
         }
       }
