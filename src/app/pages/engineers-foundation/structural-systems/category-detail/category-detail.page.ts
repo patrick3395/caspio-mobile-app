@@ -135,6 +135,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private bulkAnnotatedImagesMap: Map<string, string> = new Map();
   private bulkPendingPhotosMap: Map<string, any[]> = new Map();
   private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();  // NEW: LocalImages by entityId
+  // US-001 FIX: Cache temp_ID -> real_ID mappings for synchronous lookup in liveQuery handler
+  // Populated during initial load and when visuals sync
+  private tempIdToRealIdCache: Map<string, string> = new Map();
   private bulkVisualsCache: any[] = [];
   private bulkPendingRequestsCache: any[] = [];
   
@@ -848,18 +851,56 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private updateBulkLocalImagesMap(localImages: LocalImage[]): void {
     // Clear existing map
     this.bulkLocalImagesMap.clear();
-    
+
     // Group LocalImages by entityId
     for (const img of localImages) {
       if (!img.entityId) continue;
-      
+
       const entityId = String(img.entityId);
       if (!this.bulkLocalImagesMap.has(entityId)) {
         this.bulkLocalImagesMap.set(entityId, []);
       }
       this.bulkLocalImagesMap.get(entityId)!.push(img);
     }
-    
+
+    // US-001 FIX: Bidirectional ID mapping using cached temp->real mappings
+    // This handles the race condition where background-sync updates photo entityId to real_ID,
+    // but reloadVisualsAfterSync hasn't run yet to update visualRecordIds from temp_ID to real_ID.
+    // Without this, photos "disappear" between sync completing and UI refresh.
+
+    // Build reverse mapping: for each temp_ID in visualRecordIds, check tempIdToRealIdCache
+    // and also map images with real_ID back to temp_ID
+    for (const [key, tempOrRealId] of Object.entries(this.visualRecordIds)) {
+      if (!tempOrRealId || !String(tempOrRealId).startsWith('temp_')) continue;
+
+      const tempId = String(tempOrRealId);
+      const realId = this.tempIdToRealIdCache.get(tempId);
+
+      if (realId && this.bulkLocalImagesMap.has(realId)) {
+        // Copy images from real_ID to temp_ID for backward compatibility
+        const imagesUnderRealId = this.bulkLocalImagesMap.get(realId)!;
+        if (!this.bulkLocalImagesMap.has(tempId)) {
+          this.bulkLocalImagesMap.set(tempId, []);
+        }
+        const existing = this.bulkLocalImagesMap.get(tempId)!;
+        for (const img of imagesUnderRealId) {
+          if (!existing.some(e => e.imageId === img.imageId)) {
+            existing.push(img);
+          }
+        }
+      }
+    }
+
+    // Also do reverse: for each real_ID in visualRecordIds, check if there's a temp_ID mapping
+    // This handles the case where visualRecordIds was already updated to real_ID
+    for (const [tempId, realId] of this.tempIdToRealIdCache.entries()) {
+      if (this.bulkLocalImagesMap.has(tempId) && !this.bulkLocalImagesMap.has(realId)) {
+        // Copy images from temp_ID to real_ID
+        const imagesUnderTempId = this.bulkLocalImagesMap.get(tempId)!;
+        this.bulkLocalImagesMap.set(realId, [...imagesUnderTempId]);
+      }
+    }
+
     console.log('[LIVEQUERY] Updated bulkLocalImagesMap with', this.bulkLocalImagesMap.size, 'entity groups');
   }
 
@@ -943,7 +984,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               continue;
             }
             processedKeys.add(key);
-            
+
+            // US-001 FIX: If we had a temp_ID and now have a real ID, cache the mapping
+            // This allows the synchronous liveQuery handler to resolve temp->real IDs
+            const previousRecordId = this.visualRecordIds[key];
+            if (previousRecordId && String(previousRecordId).startsWith('temp_') && !visualId.startsWith('temp_')) {
+              this.tempIdToRealIdCache.set(String(previousRecordId), visualId);
+              console.log(`[RELOAD AFTER SYNC] Cached temp->real mapping: ${previousRecordId} -> ${visualId}`);
+
+              // US-001 FIX: Update all LocalImages with temp entityId to use the real ID
+              // This fixes the "first album photo stuck" bug where photos captured with temp_ID
+              // never get updated when the visual syncs. The liveQuery will re-fire after this
+              // update and bulkLocalImagesMap will have entries under the correct real ID.
+              this.indexedDb.updateEntityIdForImages(String(previousRecordId), visualId).catch(err => {
+                console.error(`[RELOAD AFTER SYNC] Failed to update LocalImage entityIds:`, err);
+              });
+            }
+
             // Store the visual record ID for later operations (select/unselect/photo uploads)
             this.visualRecordIds[key] = visualId;
             
@@ -1526,6 +1583,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (entityId.startsWith('temp_')) {
             const realId = await this.indexedDb.getRealId(entityId);
             if (realId && realId !== entityId) {
+              // US-001 FIX: Cache the temp->real mapping for synchronous lookup in liveQuery
+              this.tempIdToRealIdCache.set(entityId, realId);
+
               if (!this.bulkLocalImagesMap.has(realId)) {
                 this.bulkLocalImagesMap.set(realId, []);
               }
@@ -1546,19 +1606,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           if (tempOrRealId && tempOrRealId.startsWith('temp_')) {
             // Check if this temp ID maps to a real ID that has images
             const realId = await this.indexedDb.getRealId(tempOrRealId);
-            if (realId && realId !== tempOrRealId && this.bulkLocalImagesMap.has(realId)) {
-              // Copy images from real ID to temp ID
-              const imagesForRealId = this.bulkLocalImagesMap.get(realId)!;
-              if (!this.bulkLocalImagesMap.has(tempOrRealId)) {
-                this.bulkLocalImagesMap.set(tempOrRealId, []);
-              }
-              const existingForTemp = this.bulkLocalImagesMap.get(tempOrRealId)!;
-              for (const img of imagesForRealId) {
-                if (!existingForTemp.some(e => e.imageId === img.imageId)) {
-                  existingForTemp.push(img);
+            if (realId && realId !== tempOrRealId) {
+              // US-001 FIX: Cache the temp->real mapping for synchronous lookup in liveQuery
+              this.tempIdToRealIdCache.set(tempOrRealId, realId);
+
+              if (this.bulkLocalImagesMap.has(realId)) {
+                // Copy images from real ID to temp ID
+                const imagesForRealId = this.bulkLocalImagesMap.get(realId)!;
+                if (!this.bulkLocalImagesMap.has(tempOrRealId)) {
+                  this.bulkLocalImagesMap.set(tempOrRealId, []);
                 }
+                const existingForTemp = this.bulkLocalImagesMap.get(tempOrRealId)!;
+                for (const img of imagesForRealId) {
+                  if (!existingForTemp.some(e => e.imageId === img.imageId)) {
+                    existingForTemp.push(img);
+                  }
+                }
+                console.log(`[LOAD DATA] Reverse-mapped ${imagesForRealId.length} images from realId ${realId} to tempId ${tempOrRealId}`);
               }
-              console.log(`[LOAD DATA] Reverse-mapped ${imagesForRealId.length} images from realId ${realId} to tempId ${tempOrRealId}`);
             }
           }
         }
@@ -4491,7 +4556,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // CRITICAL: Pass annotations as serialized JSON string (drawings)
       const drawings = annotationData ? JSON.stringify(annotationData) : '';
-      const result = await this.foundationData.uploadVisualPhoto(visualId, photo, caption, drawings, originalPhoto || undefined);
+      const result = await this.foundationData.uploadVisualPhoto(visualId, photo, caption, drawings, originalPhoto || undefined, this.serviceId);
 
       console.log(`[PHOTO UPLOAD] Upload complete for VisualID ${visualId}, imageId: ${result.imageId}, AttachID: ${result.AttachID}`);
 
@@ -5961,7 +6026,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             
             // CRITICAL: Pass annotations as serialized JSON string (drawings) and original file
             const drawings = annotationData ? JSON.stringify(annotationData) : '';
-            const result = await this.foundationData.uploadVisualPhoto(visualIdForUpload, fileToUpload, caption, drawings, originalFile || undefined);
+            const result = await this.foundationData.uploadVisualPhoto(visualIdForUpload, fileToUpload, caption, drawings, originalFile || undefined, this.serviceId);
             const attachId = result?.AttachID || result?.PK_ID || result?.id;
 
             if (!attachId) {

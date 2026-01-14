@@ -2667,6 +2667,47 @@ export class IndexedDbService {
   }
 
   /**
+   * US-001 FIX: Update entityId for all LocalImages with a given old entityId
+   * Used when a temp_ID visual syncs and gets a real ID - updates all photos to use the real ID
+   * @param oldEntityId The temp entity ID to replace (e.g., "temp_1234567890")
+   * @param newEntityId The real entity ID from server (e.g., "12345")
+   * @returns Number of images updated
+   */
+  async updateEntityIdForImages(oldEntityId: string, newEntityId: string): Promise<number> {
+    const images = await db.localImages.where('entityId').equals(oldEntityId).toArray();
+
+    if (images.length === 0) {
+      console.log(`[IndexedDB] No LocalImages found with entityId=${oldEntityId}`);
+      return 0;
+    }
+
+    console.log(`[IndexedDB] US-001 FIX: Updating ${images.length} LocalImages from entityId=${oldEntityId} to ${newEntityId}`);
+
+    // Update all images in a single transaction for atomicity
+    await db.transaction('rw', db.localImages, async () => {
+      for (const img of images) {
+        await db.localImages.update(img.imageId, {
+          entityId: newEntityId,
+          updatedAt: Date.now()
+        });
+      }
+    });
+
+    // Emit change event to trigger liveQuery update
+    this.emitChange({
+      store: 'localImages',
+      action: 'bulk_update',
+      key: `entityId_${oldEntityId}_to_${newEntityId}`,
+      entityType: images[0]?.entityType || 'visual',
+      entityId: newEntityId,
+      serviceId: images[0]?.serviceId || ''
+    });
+
+    console.log(`[IndexedDB] US-001 FIX: Successfully updated ${images.length} LocalImages entityId`);
+    return images.length;
+  }
+
+  /**
    * Get a local blob by ID
    */
   async getLocalBlob(blobId: string): Promise<LocalBlob | null> {
