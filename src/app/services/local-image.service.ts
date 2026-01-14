@@ -50,14 +50,19 @@ export interface ImageStatusChange {
 export class LocalImageService {
   // Cache of blob URLs to avoid creating duplicates
   private blobUrlCache = new Map<string, string>();
-  
+
+  // Cache of display URLs (keyed by imageId) to avoid repeated async lookups
+  // This memoizes getDisplayUrl() results for faster repeat calls
+  private displayUrlCache = new Map<string, { url: string; cachedAt: number }>();
+  private readonly DISPLAY_URL_CACHE_MS = 30 * 1000; // 30 seconds - short-lived for freshness
+
   // Cache of signed S3 URLs with expiration
   private signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
   private readonly SIGNED_URL_CACHE_MS = 50 * 60 * 1000; // 50 minutes (S3 URLs last 60 min)
-  
+
   // Status change events for UI updates
   public statusChange$ = new Subject<ImageStatusChange>();
-  
+
   // Pending upload count for UI badges
   public pendingUploadCount$ = new BehaviorSubject<number>(0);
 
@@ -116,27 +121,44 @@ export class LocalImageService {
    * 1. If local blob exists -> use local (ALWAYS)
    * 2. If remote verified AND loaded in UI -> use signed S3 URL
    * 3. Otherwise -> placeholder
-   * 
+   *
    * NEVER causes broken images or disappearing photos
+   * Uses memoization cache for faster repeat calls (30 second TTL)
    */
   async getDisplayUrl(image: LocalImage): Promise<string> {
+    // Fast path: Check memoization cache first (avoids repeated async operations)
+    const now = Date.now();
+    const cached = this.displayUrlCache.get(image.imageId);
+    if (cached && (now - cached.cachedAt) < this.DISPLAY_URL_CACHE_MS) {
+      return cached.url;
+    }
+
     // TASK 4 FIX: Check for cached ANNOTATED image FIRST (before local blob)
     // This ensures annotated thumbnails persist after page reload
     // Must check BOTH imageId and attachId since annotations can be cached with either
     const hasAnnotations = image.drawings && image.drawings.length > 10;
+    // Helper to cache and return result
+    const cacheAndReturn = (url: string): string => {
+      // Don't cache placeholders - they should be re-evaluated
+      if (url !== 'assets/img/photo-placeholder.png') {
+        this.displayUrlCache.set(image.imageId, { url, cachedAt: now });
+      }
+      return url;
+    };
+
     if (hasAnnotations) {
       // Try imageId first (for local-first images before sync)
       const annotatedByImageId = await this.indexedDb.getCachedAnnotatedImage(image.imageId);
       if (annotatedByImageId) {
         console.log('[LocalImage] ✅ Using cached ANNOTATED image (by imageId) for:', image.imageId);
-        return annotatedByImageId;
+        return cacheAndReturn(annotatedByImageId);
       }
       // Try attachId (for synced images)
       if (image.attachId) {
         const annotatedByAttachId = await this.indexedDb.getCachedAnnotatedImage(String(image.attachId));
         if (annotatedByAttachId) {
           console.log('[LocalImage] ✅ Using cached ANNOTATED image (by attachId) for:', image.imageId, 'attachId:', image.attachId);
-          return annotatedByAttachId;
+          return cacheAndReturn(annotatedByAttachId);
         }
       }
       console.log('[LocalImage] Image has annotations but no cached annotated image found:', image.imageId);
@@ -147,7 +169,7 @@ export class LocalImageService {
     if (image.localBlobId) {
       const blobUrl = await this.getBlobUrl(image.localBlobId);
       if (blobUrl) {
-        return blobUrl;
+        return cacheAndReturn(blobUrl);
       }
       // Blob was referenced but not found - this is expected after pruning
       // Clear the stale reference in memory to avoid repeated lookups
@@ -163,13 +185,13 @@ export class LocalImageService {
         const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(image.attachId));
         if (cachedAnnotated) {
           console.log('[LocalImage] ✅ Using cached ANNOTATED image (fallback) for:', image.imageId, 'attachId:', image.attachId);
-          return cachedAnnotated;
+          return cacheAndReturn(cachedAnnotated);
         }
 
-        const cached = await this.indexedDb.getCachedPhoto(String(image.attachId));
-        if (cached) {
+        const cachedPhoto = await this.indexedDb.getCachedPhoto(String(image.attachId));
+        if (cachedPhoto) {
           console.log('[LocalImage] ✅ Using cached base64 for:', image.imageId, 'attachId:', image.attachId);
-          return cached;
+          return cacheAndReturn(cachedPhoto);
         } else {
           console.log('[LocalImage] No cached photo found for attachId:', image.attachId);
         }
@@ -183,7 +205,7 @@ export class LocalImageService {
     if (image.remoteS3Key && image.status === 'verified' && image.remoteLoadedInUI) {
       try {
         const signedUrl = await this.getSignedUrl(image.remoteS3Key);
-        return signedUrl;
+        return cacheAndReturn(signedUrl);
       } catch (err) {
         console.warn('[LocalImage] Failed to get signed URL:', err);
         // Fall through to next fallback
@@ -196,13 +218,13 @@ export class LocalImageService {
       try {
         console.log('[LocalImage] Trying remote S3 URL for:', image.imageId, 'status:', image.status);
         const signedUrl = await this.getSignedUrl(image.remoteS3Key);
-        
+
         // Mark that we successfully used remote URL
         if (image.status === 'verified' && !image.remoteLoadedInUI) {
           this.markRemoteLoadedInUI(image.imageId).catch(() => {});
         }
-        
-        return signedUrl;
+
+        return cacheAndReturn(signedUrl);
       } catch (err) {
         console.warn('[LocalImage] S3 URL failed:', err);
         // Fall through to next fallback
@@ -216,9 +238,9 @@ export class LocalImageService {
     }
 
     // Rule 6: Placeholder (should be rare if local-first is working correctly)
-    console.warn('[LocalImage] ⚠️ No display URL available for:', image.imageId, 
-      'status:', image.status, 
-      'localBlobId:', image.localBlobId, 
+    console.warn('[LocalImage] ⚠️ No display URL available for:', image.imageId,
+      'status:', image.status,
+      'localBlobId:', image.localBlobId,
       'attachId:', image.attachId,
       'remoteS3Key:', image.remoteS3Key ? 'present' : 'none');
     return 'assets/img/photo-placeholder.png';
@@ -266,23 +288,39 @@ export class LocalImageService {
    */
   private async getSignedUrl(s3Key: string): Promise<string> {
     const now = Date.now();
-    
+
     // Check cache
     const cached = this.signedUrlCache.get(s3Key);
     if (cached && cached.expiresAt > now) {
       return cached.url;
     }
-    
+
     // Generate new signed URL
     const url = await this.caspioService.getS3FileUrl(s3Key);
-    
+
     // Cache it
     this.signedUrlCache.set(s3Key, {
       url,
       expiresAt: now + this.SIGNED_URL_CACHE_MS
     });
-    
+
     return url;
+  }
+
+  /**
+   * Invalidate display URL cache for an image
+   * Call this when image status changes (sync completes, annotations added, etc.)
+   */
+  invalidateDisplayUrlCache(imageId: string): void {
+    this.displayUrlCache.delete(imageId);
+  }
+
+  /**
+   * Clear all display URL caches
+   * Useful when navigating away from a page or after major state changes
+   */
+  clearDisplayUrlCache(): void {
+    this.displayUrlCache.clear();
   }
 
   // ============================================================================
