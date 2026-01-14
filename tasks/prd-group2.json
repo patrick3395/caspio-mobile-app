@@ -6,32 +6,41 @@
   "userStories": [
     {
       "id": "US-001",
-      "title": "Multi-Image Upload - Phantom Row & Stuck Queue Issue (MOBILE ONLY)",
-      "description": "CRITICAL: In structural systems section (Foundations, Grading and Drainage, etc), when adding more than one photo from photo album, one photo remains stuck in the sync queue. When uploading 3 photos: 1 stays in sync queue, 3 rows are added to backend but one has NO attachment, and the UI shows 4 images instead of 3 (one is a broken image because there's no attachment).",
+      "title": "First Photo Album Upload on New Visual - Stuck Queue Issue (MOBILE ONLY)",
+      "description": "CRITICAL: In structural systems section (structural-category pages), the FIRST photo uploaded via photo album to a NEW visual gets stuck in sync queue and fails. Second and subsequent photos sync successfully. Camera photos work fine as first photo. The issue is SPECIFICALLY the first photo album upload on a newly created visual.",
       "mobileOnlyIssue": true,
       "completed": false,
+      "narrowedDownCause": {
+        "trigger": "First photo album upload on a NEW visual",
+        "worksCorrectly": [
+          "Camera photos as first photo on new visual",
+          "Second and subsequent photo album uploads",
+          "Photo album uploads on existing visuals with photos"
+        ],
+        "fails": [
+          "First photo album upload on a brand new visual"
+        ]
+      },
       "symptoms": [
-        "1 image stuck in sync queue after multi-image upload",
-        "Backend gets extra row without an Attachment",
-        "UI shows N+1 images (e.g., upload 3, see 4)",
-        "One image in UI is broken/missing (no attachment)"
+        "First photo from album on new visual stuck in sync queue",
+        "Backend gets row without an Attachment for first photo",
+        "Broken/missing image in UI for first photo",
+        "Second+ photos sync successfully"
       ],
       "acceptanceCriteria": [
-        "All selected images sync successfully - none stuck in queue",
-        "Backend rows match number of images uploaded (3 photos = 3 rows with attachments)",
-        "UI displays correct number of images (3 photos = 3 images shown)",
+        "First photo album upload on new visual syncs successfully",
+        "No photos stuck in queue regardless of upload order",
+        "Backend rows all have attachments",
         "No broken/missing image links in UI",
-        "No phantom rows without attachments created",
-        "Works correctly with 2, 3, 4, 5+ images"
+        "Works for: first camera photo, first album photo, multiple album photos"
       ],
       "investigationSteps": [
-        "Trace the multi-image selection flow in structural-category pages",
-        "Check if duplicate LocalImage records are being created",
-        "Look for race conditions between queue processing and UI updates",
-        "Verify attachment upload completes before row creation",
-        "Check if phantom row is created before blob is ready",
-        "Investigate why UI count differs from actual uploaded count",
-        "Check outbox/queue processing for duplicate entries"
+        "Compare code path for camera capture vs photo album on NEW visual",
+        "Check if visual record is fully created before first album upload starts",
+        "Look for race condition between visual creation and first photo album upload",
+        "Check if camera capture has different timing/sequencing that avoids the bug",
+        "Investigate IndexedDB state when first album photo is added to new visual",
+        "Check if second photo succeeds because visual is now fully initialized"
       ],
       "priority": 1,
       "skipTester": true,
@@ -52,6 +61,6 @@
     "notes": "Skip the Tester agent. Mark tasks complete when code edits are done."
   },
   "metadata": {
-    "updatedAt": "2026-01-14T07:45:00.000Z"
+    "updatedAt": "2026-01-14T11:00:00.000Z"
   }
 }
