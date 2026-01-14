@@ -4,13 +4,13 @@
   "userStories": [
     {
       "id": "US-001",
-      "title": "Hard Refresh and Broken Images During Sync in Structural Systems",
-      "description": "In Structural Systems, right after or during the sync process, if I open a category page (e.g., Foundations) the app hard refreshes. Then there is an extra broken image showing in the UI for multi-images loaded with the photo album. Eventually the broken image disappears when revisiting the category.",
+      "title": "Sync Modal Showing Stale Failed Sync Data",
+      "description": "Sync window is showing all syncs as failing even though they were cleared and all images uploaded correctly. This appears to be stale cached data from previous failed attempts, not actual current failures. The sync modal needs to accurately reflect the current sync state.",
       "acceptanceCriteria": [
-        "No hard refresh when opening category pages during sync",
-        "No broken/phantom images appear in the UI during or after sync",
-        "Photo album multi-image loading handles sync state correctly",
-        "UI remains stable during background sync operations"
+        "Sync modal shows accurate current sync status",
+        "Cleared syncs are removed from the failed list",
+        "No stale cached failure data persists after clearing",
+        "Sync status refreshes properly after manual clear"
       ],
       "priority": 1,
       "passes": true,
@@ -19,67 +19,57 @@
     },
     {
       "id": "US-002",
-      "title": "Show Failed Syncs with Error Details in Sync Modal",
-      "description": "Failed syncs occur without being able to see why they failed. Need a tab at the top of the photo sync modal that shows what syncs failed and why.",
+      "title": "Phantom Broken Image After Multi-Image Upload in Structural Systems",
+      "description": "STILL BROKEN - NOT RESOLVED IN PREVIOUS PUSHES. After syncing and refreshing the page in category-structural pages, an extra broken image appears when uploading multiple images via photo album. In local it is perfect, after sync it is perfect, but randomly when visiting the page there will be an added broken image (e.g., upload 3 images, 4 are showing with one broken).",
       "acceptanceCriteria": [
-        "New tab in sync modal showing failed sync items",
-        "Each failed item shows the error reason/message",
-        "Failed items are clearly distinguishable from pending/successful items",
-        "User can see detailed error information for debugging"
+        "No phantom/extra broken images appear after multi-image upload",
+        "Image count matches exactly what was uploaded",
+        "Page refresh does not create duplicate image entries",
+        "Photo album multi-upload maintains correct image count"
       ],
       "priority": 2,
       "passes": true,
       "dependsOn": [],
+      "note": "CRITICAL: Not resolved in previous pushes - up to date testing confirms still broken",
       "completionNotes": "Completed by agent"
     },
     {
       "id": "US-003",
-      "title": "Random Sync Failures on Auto-Sync (1-minute interval)",
-      "description": "When manually syncing immediately after adding room, FDF, images, and captions - no problems. But when adding multiple items and letting the 1-minute auto-sync happen, seemingly random failures occur. Need to see these issues in the Sync Modal to resolve them.",
+      "title": "FDF Images Disappearing During Sync in Elevation Plot/Rooms",
+      "description": "STILL BROKEN - NOT RESOLVED IN PREVIOUS PUSHES. In the Rooms pages (Elevation Plot section), images for FDF are disappearing during the syncing process. Everything should be preserved and pointed to IndexedDB or cached image - no images should disappear during sync. This works perfectly in Structural Systems section but NOT in Elevation Plot section.",
       "acceptanceCriteria": [
-        "Auto-sync (1-minute interval) works as reliably as manual sync",
-        "All sync failures are visible in the Sync Modal with details",
-        "No unexplained random failures during auto-sync",
-        "Root cause of auto-sync failures is identified and fixed"
+        "FDF images remain visible during entire sync process",
+        "Images fallback to IndexedDB/cached version during sync",
+        "No image flickering or disappearing during sync",
+        "Behavior matches Structural Systems section implementation"
       ],
       "priority": 3,
       "passes": true,
-      "dependsOn": [
-        "US-002"
-      ],
+      "dependsOn": [],
+      "referenceFile": "src/app/pages/engineers-foundation/structural-systems/category-detail/category-detail.page.ts",
+      "note": "CRITICAL: Not resolved in previous pushes - up to date testing confirms still broken",
       "completionNotes": "Completed by agent"
     },
     {
       "id": "US-004",
-      "title": "Eliminate Random Hard Refreshes Throughout App",
-      "description": "Random hard refreshes occur throughout the app. Adding a caption to a queued image caused a hard refresh. The app needs to be solid - force refreshing feels like the app is failing/breaking. Everything needs to operate in an unbreakable way.",
+      "title": "Annotations Corrupted and Captions Lost When Added Before Sync",
+      "description": "STILL BROKEN - NOT RESOLVED IN PREVIOUS PUSHES. Adding an annotation before the image syncs results in corrupted data in backend (showing as gzipped base64 'H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVR...' instead of proper JSON). Image captions are also being lost when added prior to syncing for both FDF and Measurement points.",
       "acceptanceCriteria": [
-        "No hard refreshes when adding captions to queued images",
-        "No unexpected page reloads during normal operations",
-        "App maintains stable state during all user interactions",
-        "Error handling is graceful without forcing page refreshes"
+        "Annotations save as proper JSON format, not gzipped/compressed",
+        "Annotations added before sync are preserved correctly after sync",
+        "Captions added before sync are preserved correctly after sync",
+        "Both FDF and Measurement point annotations/captions work correctly"
       ],
+      "corruptedDataExample": "H4sIAAAAAAAAA6tWKkktLlGyUlAqS8wpTtVRKi1OLYrPTFGyUqoFAJRGGIYcAAAA",
+      "expectedDataFormat": "{\"version\":\"6.7.1\",\"objects\":[{\"type\":\"Group\",...}]}",
       "priority": 4,
       "passes": true,
       "dependsOn": [],
-      "completionNotes": "Completed by agent"
-    },
-    {
-      "id": "US-005",
-      "title": "Annotations Not Showing on Queued Image Thumbnails in Elevation Plot",
-      "description": "When adding annotations to an image that is queued to sync in the Elevation Plot section, the annotation does not show in the photo thumbnail. Adding annotations to already synced images works perfectly.",
-      "acceptanceCriteria": [
-        "Annotations display on thumbnails for queued (unsynced) images",
-        "Annotation preview matches behavior of synced images",
-        "Local annotation data is properly rendered before sync completes"
-      ],
-      "priority": 5,
-      "passes": true,
-      "dependsOn": [],
+      "note": "CRITICAL: Not resolved in previous pushes - up to date testing confirms still broken",
       "completionNotes": "Completed by agent"
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-13T22:06:18.396Z"
+    "updatedAt": "2026-01-14T00:31:30.598Z"
   }
 }
