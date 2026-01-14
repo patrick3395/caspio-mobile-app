@@ -90,6 +90,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   // ===== LIVE QUERY SUPPORT (matches structural-systems pattern) =====
   // This subscription keeps the UI updated when LocalImages change without requiring full reload
   private localImagesSubscription?: Subscription;
+  private fdfLocalImagesSubscription?: Subscription;  // FDF photos need separate subscription
   private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();
   
   // Lazy image loading - photos only load when user clicks to expand a point
@@ -663,9 +664,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
    * When LocalImages are added or updated, the UI is updated immediately without full reload
    */
   private subscribeToLocalImagesChanges(): void {
-    // Unsubscribe from previous subscription if exists
+    // Unsubscribe from previous subscriptions if they exist
     if (this.localImagesSubscription) {
       this.localImagesSubscription.unsubscribe();
+    }
+    if (this.fdfLocalImagesSubscription) {
+      this.fdfLocalImagesSubscription.unsubscribe();
     }
 
     if (!this.serviceId) {
@@ -692,6 +696,24 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       },
       (error) => {
         console.error('[RoomElevation] Error in LocalImages subscription:', error);
+      }
+    );
+
+    // FIX: Also subscribe to FDF entity type to keep FDF photos visible during sync
+    // This matches the pattern used for elevation points above
+    this.fdfLocalImagesSubscription = db.liveLocalImages$(this.serviceId, 'fdf').subscribe(
+      (localImages) => {
+        console.log('[RoomElevation] LiveQuery - FDF LocalImages updated:', localImages.length, 'images');
+
+        // CRITICAL: Update FDF photos with fresh displayUrls from LocalImages
+        // This prevents FDF photos from disappearing when sync status changes
+        this.refreshFdfPhotosFromLocalImages(localImages);
+
+        // Trigger change detection to update UI
+        this.changeDetectorRef.detectChanges();
+      },
+      (error) => {
+        console.error('[RoomElevation] Error in FDF LocalImages subscription:', error);
       }
     );
   }
@@ -792,6 +814,82 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       return response.ok;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Refresh FDF photos from LocalImages (prevents disappearing during sync)
+   * This is the key fix - when FDF LocalImages change, we update displayUrls without reload
+   */
+  private async refreshFdfPhotosFromLocalImages(localImages: LocalImage[]): Promise<void> {
+    if (!this.roomData?.fdfPhotos) return;
+
+    const fdfPhotos = this.roomData.fdfPhotos;
+
+    for (const localImage of localImages) {
+      // Only process FDF images for this room
+      const entityId = String(localImage.entityId);
+      if (entityId !== String(this.roomId)) {
+        // Also check temp ID mappings
+        if (!entityId.startsWith('temp_')) continue;
+        try {
+          const realId = await this.indexedDb.getRealId(entityId);
+          if (realId !== this.roomId) continue;
+        } catch {
+          continue;
+        }
+      }
+
+      // Determine which photo slot this belongs to (top, bottom, threshold)
+      const photoType = localImage.photoType || 'Top';
+      const photoKey = photoType.toLowerCase();
+
+      // CRITICAL: Update the displayUrl from the LocalImage
+      // This ensures the FDF photo stays visible even if blob URL was invalidated
+      try {
+        const freshUrl = await this.localImageService.getDisplayUrl(localImage);
+        if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
+          // Only update if we got a valid URL and current one is invalid
+          const currentUrl = fdfPhotos[`${photoKey}DisplayUrl`];
+          const needsUpdate = !currentUrl ||
+            currentUrl === 'assets/img/photo-placeholder.png' ||
+            currentUrl.includes('placeholder') ||
+            (currentUrl.startsWith('blob:') && !await this.isValidBlobUrl(currentUrl));
+
+          if (needsUpdate) {
+            console.log('[RoomElevation] Refreshing FDF displayUrl for:', photoKey, localImage.imageId);
+            fdfPhotos[photoKey] = true;
+            fdfPhotos[`${photoKey}Url`] = freshUrl;
+            fdfPhotos[`${photoKey}DisplayUrl`] = freshUrl;
+          }
+
+          // SILENT SYNC: Don't show uploading indicators (matches Structural Systems pattern)
+          fdfPhotos[`${photoKey}Loading`] = false;
+          fdfPhotos[`${photoKey}Uploading`] = false;
+          fdfPhotos[`${photoKey}Queued`] = false;
+
+          // Update imageId and localBlobId for tracking
+          fdfPhotos[`${photoKey}ImageId`] = localImage.imageId;
+          fdfPhotos[`${photoKey}LocalBlobId`] = localImage.localBlobId;
+          fdfPhotos[`${photoKey}IsLocalFirst`] = true;
+
+          // Update attachId if LocalImage has a real one
+          if (localImage.attachId && !String(localImage.attachId).startsWith('img_')) {
+            fdfPhotos[`${photoKey}AttachId`] = localImage.attachId;
+          }
+
+          // Update caption and drawings if present
+          if (localImage.caption) {
+            fdfPhotos[`${photoKey}Caption`] = localImage.caption;
+          }
+          if (localImage.drawings) {
+            fdfPhotos[`${photoKey}Drawings`] = localImage.drawings;
+            fdfPhotos[`${photoKey}HasAnnotations`] = localImage.drawings.length > 10;
+          }
+        }
+      } catch (e) {
+        console.warn('[RoomElevation] Error refreshing FDF displayUrl for:', photoKey, localImage.imageId, e);
+      }
     }
   }
 
@@ -1638,6 +1736,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     if (this.localImagesSubscription) {
       this.localImagesSubscription.unsubscribe();
+    }
+    if (this.fdfLocalImagesSubscription) {
+      this.fdfLocalImagesSubscription.unsubscribe();
     }
 
     // NOTE: We intentionally do NOT revoke blob URLs here anymore.
