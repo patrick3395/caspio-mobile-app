@@ -1,6 +1,5 @@
 {
   "name": "Caspio Mobile App - Group 2: Critical Mobile Fixes",
-  "skipAgents": ["tester"],
   "userStories": [
     {
       "id": "US-001",
