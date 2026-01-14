@@ -859,6 +859,16 @@ export class BackgroundSyncService {
     
     for (const caption of pendingCaptions) {
       try {
+        // Apply exponential backoff for retries (same logic as requests)
+        if (caption.retryCount && caption.retryCount > 0 && caption.lastAttempt) {
+          const timeSinceLastAttempt = Date.now() - caption.lastAttempt;
+          const retryDelay = this.calculateRetryDelay(caption.retryCount);
+          if (timeSinceLastAttempt < retryDelay) {
+            // Skip this caption for now, will retry later
+            continue;
+          }
+        }
+
         // Check if attachId needs resolution BEFORE marking as syncing
         // This prevents status flicker (pending->syncing->pending) on mobile
         const attachIdStr = String(caption.attachId || '');
@@ -1038,8 +1048,23 @@ export class BackgroundSyncService {
         }
         
       } catch (error: any) {
-        console.warn(`[BackgroundSync] ❌ Caption sync failed: ${caption.captionId}`, error);
-        await this.indexedDb.updateCaptionStatus(caption.captionId, 'failed', error.message || 'Sync failed');
+        const errorMessage = error.message || 'Sync failed';
+        const currentRetryCount = caption.retryCount || 0;
+        const MAX_RETRIES_BEFORE_FAILED = 10;
+
+        // Increment retry count and apply exponential backoff
+        const newRetryCount = currentRetryCount + 1;
+
+        if (newRetryCount >= MAX_RETRIES_BEFORE_FAILED) {
+          // Mark as failed after too many retries so it shows in Failed tab
+          const failedMessage = `Failed after ${newRetryCount} attempts: ${errorMessage}`;
+          console.error(`[BackgroundSync] ❌ Caption FAILED PERMANENTLY: ${caption.captionId}`, failedMessage);
+          await this.indexedDb.updateCaptionStatus(caption.captionId, 'failed', failedMessage, true);
+        } else {
+          // Keep as pending for retry with backoff
+          console.warn(`[BackgroundSync] ❌ Caption sync failed (will retry ${newRetryCount}/${MAX_RETRIES_BEFORE_FAILED}): ${caption.captionId}`, error);
+          await this.indexedDb.updateCaptionStatus(caption.captionId, 'pending', errorMessage, true);
+        }
       }
     }
   }

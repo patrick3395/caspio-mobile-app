@@ -588,7 +588,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 photo.isPending = false;
 
                 // If we got a real attachId from the sync, update it
-                if (event.attachId && !photo.attachId?.startsWith('temp_')) {
+                if (event.attachId && !String(photo.attachId || '').startsWith('temp_')) {
                   photo.attachId = event.attachId;
                   photo.AttachID = event.attachId;
                 }
@@ -2466,7 +2466,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         photoData.displayState = 'cached';
         photoData.loading = false;
         
-        if (attachId && !attachId.startsWith('temp_')) {
+        if (attachId && !String(attachId).startsWith('temp_')) {
           await this.indexedDb.cachePhoto(attachId, this.serviceId, imageData, s3Key || photoPath);
           if (this.DEBUG) console.log(`[Point Photo] ✅ Loaded and cached image for ${attachId}`);
         }
