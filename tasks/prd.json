@@ -4,22 +4,20 @@
   "userStories": [
     {
       "id": "US-001",
-      "title": "Failed Syncs Not Showing in Failed Tab - Silent Failures",
-      "description": "Sometimes when adding a photo in FDF, Measurement point, or Structural systems, the syncing is obviously broken but it is not showing up as a failed sync. Syncs should sustain/retry until they eventually succeed, but failures must be visible in the failed tab with the reason why they failed.",
-      "consoleError": "[BackgroundSync] Sync failed: TypeError: S.attachId.startsWith is not a function at main.js:1:743311 at Array.filter",
-      "rootCause": "attachId is a number (not a string) when .startsWith() is called on it. This is the same pattern as the previous entityId.startsWith error - need to convert attachId to String() before calling .startsWith().",
+      "title": "Multi-Image Upload - Third Image Gets Stuck in Queue",
+      "description": "When uploading 3 images via photo album in Structural Systems, the visual and 2 images sync during the 60-second cycle, but the 3rd image sits in queue. Adding more visuals/images causes them to sync before the stuck image. Force sync shows 'uploading' briefly then returns to queue/idle without syncing. Pattern: 2 images work fine, 3+ images causes 1 to get stuck. With 4 images, 3 sync and 1 gets stuck.",
       "acceptanceCriteria": [
-        "All sync failures are captured and shown in the failed tab",
-        "Failed syncs show the error reason/message",
-        "Syncs continue retrying until successful (with exponential backoff)",
-        "No silent failures - every failed attempt is logged and visible",
-        "User can see what went wrong for each failed sync item",
-        "Fix TypeError: attachId.startsWith by converting to String(attachId) before calling .startsWith()"
+        "All images in multi-image upload sync successfully",
+        "No images get stuck in queue after partial sync",
+        "Force sync successfully syncs queued items",
+        "Works reliably with 3, 4, or more images uploaded at once",
+        "Queue processes all items in order, none left behind"
       ],
-      "technicalApproach": [
-        "Find all occurrences of attachId.startsWith() in the codebase",
-        "Wrap attachId in String() before calling .startsWith()",
-        "Same fix pattern as entityId.startsWith fix applied previously"
+      "suspectedCause": [
+        "Race condition during batch upload processing",
+        "Sync worker may skip over items if previous ones are still processing",
+        "Possible duplicate prevention logic incorrectly filtering valid images",
+        "Queue ordering issue where stuck item gets deprioritized"
       ],
       "priority": 1,
       "passes": true,
@@ -28,27 +26,61 @@
     },
     {
       "id": "US-002",
-      "title": "Duplicate Records Created Without Attachment Field - Broken Images",
-      "description": "In LPS_Services_Visuals_Attach table, images are being added that appear to be duplicates with just an annotation field filled out but NO Attachment field. This causes broken images in the UI because the record exists but has no actual image attachment. Need to prevent creating attachment records without the Attachment field populated.",
+      "title": "Elevation Plot Rooms Infinite Loading - Performance Degradation",
+      "description": "Pages should load much faster when only pointing to local data - this is the whole point of offline experience. Elevation plot rooms now show loading screen and never finish loading. Need to optimize page load performance while ensuring images sustain, captions persist, and no functionality breaks.",
       "acceptanceCriteria": [
-        "Never create attachment records without Attachment field populated",
-        "Annotation updates should UPDATE existing records, not INSERT new ones",
-        "No duplicate attachment records for the same image",
-        "Broken images eliminated from UI",
-        "Validate Attachment field before INSERT to LPS_Services_Visuals_Attach"
+        "Elevation plot rooms load quickly (under 2 seconds)",
+        "No infinite loading screens",
+        "Images display correctly from local storage",
+        "Captions and annotations persist correctly",
+        "No functionality breakage - images sustain through navigation",
+        "Performance improvements are conservative and safe"
       ],
       "technicalApproach": [
-        "Audit code that creates LPS_Services_Visuals_Attach records",
-        "Ensure annotation saves UPDATE existing record by AttachID, not INSERT new",
-        "Add validation to prevent INSERT without Attachment field",
-        "Clean up existing orphaned records without Attachment field"
+        "Profile page load to identify bottlenecks",
+        "Optimize LocalImages queries (use indexes, batch reads)",
+        "Defer non-critical data loading (load photos on-demand when expanded)",
+        "Use lazy loading for images not immediately visible",
+        "Only make changes if confident they won't break image persistence"
+      ],
+      "safetyConstraints": [
+        "DO NOT change if not confident about image sustainability",
+        "Preserve all existing functionality",
+        "Test thoroughly before deploying performance changes",
+        "Prioritize reliability over speed"
       ],
       "priority": 2,
+      "passes": true,
+      "dependsOn": [],
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-003",
+      "title": "Optimize Image Thumbnail Loading Speed in Elevation Plot Rooms",
+      "description": "Image thumbnails in elevation plot rooms should load and show faster. With local-first approach, thumbnail display should be nearly instant since data is already on device.",
+      "acceptanceCriteria": [
+        "Image thumbnails load quickly (under 500ms)",
+        "Thumbnails display progressively as they load",
+        "No delay waiting for all thumbnails before showing page",
+        "Maintains all existing functionality (captions, annotations, persistence)"
+      ],
+      "technicalApproach": [
+        "Use thumbnail-sized blobs in LocalImages (smaller file size)",
+        "Implement progressive/lazy loading - load visible thumbnails first",
+        "Batch thumbnail URL generation for efficiency",
+        "Cache blob URLs to avoid regenerating on each navigation"
+      ],
+      "safetyConstraints": [
+        "DO NOT change if not confident about image sustainability",
+        "Preserve all existing functionality",
+        "Thumbnails must maintain captions and annotation indicators"
+      ],
+      "priority": 3,
       "passes": false,
       "dependsOn": []
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-14T03:34:26.241Z"
+    "updatedAt": "2026-01-14T04:50:07.056Z"
   }
 }
