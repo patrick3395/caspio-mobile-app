@@ -333,6 +333,13 @@ export class HudMainPage implements OnInit {
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
 
+      // Clean up local blob data after successful finalization
+      // This frees device storage while preserving metadata (captions, annotations, remoteUrl)
+      console.log('[HUD Main] Cleaning up local blob data...');
+      loading.message = 'Freeing device storage...';
+      const cleanupResult = await this.localImageService.cleanupBlobDataAfterFinalization(this.serviceId);
+      console.log('[HUD Main] Blob cleanup complete:', cleanupResult);
+
       // Reset change tracking
       this.hasChangesAfterFinalization = false;
       this.isReportFinalized = true;

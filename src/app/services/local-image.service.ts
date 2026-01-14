@@ -921,5 +921,89 @@ export class LocalImageService {
       throw error;
     }
   }
+
+  // ============================================================================
+  // POST-FINALIZATION CLEANUP
+  // ============================================================================
+
+  /**
+   * Clean up local blob data after successful finalization
+   * Deletes binary blob data from IndexedDB while preserving metadata (captions, annotations, remoteUrl)
+   * Only cleans up images that have been successfully synced
+   *
+   * @param serviceId - The service ID to clean up blobs for
+   * @returns Object with cleanup statistics
+   */
+  async cleanupBlobDataAfterFinalization(serviceId: string): Promise<{
+    cleaned: number;
+    skipped: number;
+    errors: number;
+    freedBytes: number;
+  }> {
+    console.log('[LocalImage] Starting post-finalization blob cleanup for service:', serviceId);
+
+    const images = await this.getImagesForService(serviceId);
+    let cleaned = 0;
+    let skipped = 0;
+    let errors = 0;
+    let freedBytes = 0;
+
+    for (const image of images) {
+      // Only clean up images that:
+      // 1. Have been synced (isSynced = true)
+      // 2. Have a remote URL available for viewing
+      // 3. Still have local blob data to clean
+      if (!image.isSynced || !image.remoteUrl) {
+        console.log('[LocalImage] Skipping cleanup for unsynced image:', image.imageId);
+        skipped++;
+        continue;
+      }
+
+      if (!image.localBlobId) {
+        // Already cleaned up
+        skipped++;
+        continue;
+      }
+
+      try {
+        // Get blob size before deleting for stats
+        const blob = await this.indexedDb.getLocalBlob(image.localBlobId);
+        const blobSize = blob?.sizeBytes || 0;
+
+        // Revoke cached blob URL if exists
+        const cachedUrl = this.blobUrlCache.get(image.localBlobId);
+        if (cachedUrl) {
+          URL.revokeObjectURL(cachedUrl);
+          this.blobUrlCache.delete(image.localBlobId);
+        }
+
+        // Delete the blob data
+        await this.indexedDb.deleteLocalBlob(image.localBlobId);
+
+        // Update the LocalImage record to clear the blob reference
+        // but preserve all metadata (caption, drawings, remoteUrl, etc.)
+        await this.indexedDb.updateLocalImage(image.imageId, {
+          localBlobId: null
+        });
+
+        freedBytes += blobSize;
+        cleaned++;
+        console.log('[LocalImage] Cleaned up blob for image:', image.imageId, 'freed:', blobSize, 'bytes');
+
+      } catch (err) {
+        console.error('[LocalImage] Error cleaning up blob for image:', image.imageId, err);
+        errors++;
+      }
+    }
+
+    console.log(`[LocalImage] Blob cleanup complete. Cleaned: ${cleaned}, Skipped: ${skipped}, Errors: ${errors}, Freed: ${(freedBytes / 1024 / 1024).toFixed(2)} MB`);
+
+    return {
+      cleaned,
+      skipped,
+      errors,
+      freedBytes
+    };
+  }
 }
 
