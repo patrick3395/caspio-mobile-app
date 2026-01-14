@@ -456,6 +456,71 @@ export class BackgroundSyncService {
   }
 
   /**
+   * US-001 FIX: Reset ALL stuck 'uploading' images immediately
+   * Called at the start of every sync cycle to handle mobile-specific issues where:
+   * 1. Uploads get interrupted without throwing errors (network timeouts)
+   * 2. Multiple rapid uploads cause race conditions on slower mobile CPUs
+   * 3. App backgrounding/foregrounding interrupts in-progress uploads
+   *
+   * This is different from resetStuckUploadingImages which only runs for old items (> 5 min)
+   */
+  private async resetAllStuckUploadingImages(): Promise<void> {
+    try {
+      const allOutboxItems = await this.indexedDb.getAllUploadOutboxItems();
+      if (allOutboxItems.length === 0) return;
+
+      const now = Date.now();
+      // US-001 FIX: Use 90-second threshold - 30s more than upload timeout (60s)
+      // This ensures timed-out uploads get caught even if error handling fails
+      // Previously 2 minutes was too long and caused stuck items to linger
+      const STUCK_THRESHOLD_MS = 90 * 1000; // 90 seconds (upload timeout is 60s)
+      const stuckImages: { imageId: string; opId: string; stuckDuration: number }[] = [];
+
+      // Find images that are stuck in 'uploading' status for too long
+      for (const item of allOutboxItems) {
+        const image = await this.indexedDb.getLocalImage(item.imageId);
+        if (image && image.status === 'uploading') {
+          // Check how long the image has been in 'uploading' status
+          const uploadingDuration = now - image.updatedAt;
+
+          // US-001 FIX: Only reset if uploading for more than threshold
+          // This prevents interrupting legitimate ongoing uploads
+          if (uploadingDuration > STUCK_THRESHOLD_MS) {
+            stuckImages.push({
+              imageId: image.imageId,
+              opId: item.opId,
+              stuckDuration: uploadingDuration
+            });
+          }
+        }
+      }
+
+      if (stuckImages.length > 0) {
+        console.log(`[BackgroundSync] US-001: Found ${stuckImages.length} images stuck in 'uploading' for >90s:`);
+        stuckImages.forEach(img => {
+          console.log(`[BackgroundSync]   - ${img.imageId} stuck for ${Math.round(img.stuckDuration/1000)}s`);
+        });
+
+        // Reset both the LocalImage status AND the outbox item's nextRetryAt
+        await Promise.all(stuckImages.map(async (img) => {
+          // Reset image status to 'queued' so it can be retried
+          await this.localImageService.updateStatus(img.imageId, 'queued', {
+            lastError: `Upload timed out after ${Math.round(img.stuckDuration/1000)}s - retrying`
+          });
+          // Reset the outbox item's nextRetryAt to now so it's immediately ready
+          await this.indexedDb.updateOutboxItem(img.opId, {
+            nextRetryAt: now
+          });
+        }));
+
+        console.log(`[BackgroundSync] US-001: Reset ${stuckImages.length} stuck uploads, ready for retry`);
+      }
+    } catch (error) {
+      console.warn('[BackgroundSync] Error in resetAllStuckUploadingImages:', error);
+    }
+  }
+
+  /**
    * Listen for connection changes and trigger sync when back online
    * FIXED: Store subscription to prevent memory leak
    */
@@ -1710,12 +1775,55 @@ export class BackgroundSyncService {
   async forceSyncNow(): Promise<void> {
     console.log('[BackgroundSync] Force sync triggered');
 
+    // US-001 FIX: AGGRESSIVE reset - when user clicks Force Sync, reset ALL 'uploading' items
+    // regardless of how long they've been uploading. User expects immediate retry.
+    await this.forceResetAllUploadingImages();
+
     // US-001 FIX: Reset nextRetryAt for all pending upload items
     // When user clicks Force Sync, they expect ALL items to sync immediately,
     // regardless of any exponential backoff delays
     await this.resetAllUploadOutboxRetryTimes();
 
     await this.triggerSync();
+  }
+
+  /**
+   * US-001 FIX: AGGRESSIVE reset for Force Sync - reset ALL 'uploading' items immediately
+   * This is called only by forceSyncNow() when user explicitly wants to retry everything.
+   * Different from resetAllStuckUploadingImages() which uses a 2-minute threshold.
+   */
+  private async forceResetAllUploadingImages(): Promise<void> {
+    try {
+      const allOutboxItems = await this.indexedDb.getAllUploadOutboxItems();
+      if (allOutboxItems.length === 0) return;
+
+      const now = Date.now();
+      const uploadingImages: { imageId: string; opId: string }[] = [];
+
+      // Find ALL images currently in 'uploading' status
+      for (const item of allOutboxItems) {
+        const image = await this.indexedDb.getLocalImage(item.imageId);
+        if (image && image.status === 'uploading') {
+          uploadingImages.push({ imageId: image.imageId, opId: item.opId });
+        }
+      }
+
+      if (uploadingImages.length > 0) {
+        console.log(`[BackgroundSync] Force sync: resetting ${uploadingImages.length} 'uploading' images to 'queued'`);
+
+        // Reset ALL uploading items - user clicked Force Sync so they want immediate retry
+        await Promise.all(uploadingImages.map(async (img) => {
+          await this.localImageService.updateStatus(img.imageId, 'queued', {
+            lastError: 'Force sync - retrying upload'
+          });
+          await this.indexedDb.updateOutboxItem(img.opId, {
+            nextRetryAt: now
+          });
+        }));
+      }
+    } catch (error) {
+      console.warn('[BackgroundSync] Error in forceResetAllUploadingImages:', error);
+    }
   }
 
   /**
@@ -2581,6 +2689,11 @@ export class BackgroundSyncService {
       return;
     }
 
+    // US-001 FIX: Reset ALL stuck 'uploading' images IMMEDIATELY at the start of each sync
+    // This is critical for mobile where uploads can get interrupted without throwing errors
+    // Previously this only ran for items > 5 min old, causing fresh uploads to stay stuck
+    await this.resetAllStuckUploadingImages();
+
     // TASK 2 FIX: Reset any deferred photos whose dependencies (rooms/points) have now synced
     // This ensures photos don't stay stuck in deferred state after their parent entity syncs
     await this.resetDeferredPhotosWithResolvedDependencies();
@@ -2648,7 +2761,18 @@ export class BackgroundSyncService {
       return;
     }
 
-    console.log('[BackgroundSync] Uploading image:', item.imageId, 'type:', image.entityType, 'entityId:', image.entityId, 'photoType:', image.photoType);
+    // US-001 FIX: Validate blob.data exists and has content
+    // On mobile, gallery-selected images can have corrupted/empty blob data
+    // especially the last image in a multi-select batch
+    if (!blob.data || blob.data.byteLength === 0) {
+      console.error('[BackgroundSync] US-001: Blob data is empty/corrupt:', item.imageId, 'blobId:', image.localBlobId, 'byteLength:', blob.data?.byteLength);
+      await this.indexedDb.removeOutboxItem(item.opId);
+      // Mark as FAILED (not queued) - corrupt blob will never succeed
+      await this.localImageService.markFailed(item.imageId, 'Image data is corrupt or empty - please re-add the photo');
+      return;
+    }
+
+    console.log('[BackgroundSync] Uploading image:', item.imageId, 'type:', image.entityType, 'entityId:', image.entityId, 'photoType:', image.photoType, 'blobSize:', blob.data.byteLength);
 
     // Resolve temp entityId if needed BEFORE marking as uploading
     // This prevents items from getting stuck in 'uploading' status when deferred
@@ -2685,31 +2809,54 @@ export class BackgroundSyncService {
       { type: blob.contentType || 'image/jpeg' }
     );
 
+    // US-001 FIX: Upload with timeout to prevent indefinite hangs on mobile
+    // Mobile networks can cause fetch() to hang without throwing errors
+    // 60-second timeout ensures stuck uploads are detected and retried
+    const UPLOAD_TIMEOUT_MS = 60000;
+
+    const uploadWithTimeout = async <T>(uploadPromise: Promise<T>, description: string): Promise<T> => {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Upload timeout after ${UPLOAD_TIMEOUT_MS/1000}s: ${description}`));
+        }, UPLOAD_TIMEOUT_MS);
+      });
+      return Promise.race([uploadPromise, timeoutPromise]);
+    };
+
     // Upload based on entity type
     let result: any;
     switch (image.entityType) {
       case 'visual':
-        result = await this.caspioService.uploadVisualsAttachWithS3(
-          parseInt(entityId),
-          image.drawings || '',
-          file,
-          image.caption || ''
+        result = await uploadWithTimeout(
+          this.caspioService.uploadVisualsAttachWithS3(
+            parseInt(entityId),
+            image.drawings || '',
+            file,
+            image.caption || ''
+          ),
+          `visual upload for ${item.imageId}`
         );
         break;
       case 'efe_point':
-        result = await this.caspioService.uploadEFEPointsAttachWithS3(
-          parseInt(entityId),
-          image.drawings || '',
-          file,
-          image.photoType || 'Measurement', // Use stored photoType (Measurement/Location)
-          image.caption || ''
+        result = await uploadWithTimeout(
+          this.caspioService.uploadEFEPointsAttachWithS3(
+            parseInt(entityId),
+            image.drawings || '',
+            file,
+            image.photoType || 'Measurement', // Use stored photoType (Measurement/Location)
+            image.caption || ''
+          ),
+          `efe_point upload for ${item.imageId}`
         );
         break;
       case 'fdf':
         // FDF photos are stored on the EFE room record itself, not as attachments
         // photoType is stored in image.photoType (e.g., 'Top', 'Bottom', 'Threshold')
         console.log('[BackgroundSync] FDF photo upload starting:', item.imageId, 'roomId:', entityId, 'photoType:', image.photoType);
-        result = await this.uploadFDFPhoto(entityId, file, image.photoType || 'Top');
+        result = await uploadWithTimeout(
+          this.uploadFDFPhoto(entityId, file, image.photoType || 'Top'),
+          `fdf upload for ${item.imageId}`
+        );
         console.log('[BackgroundSync] FDF photo upload completed:', item.imageId, 'result:', result);
         break;
       // Add more entity types as needed
@@ -2718,11 +2865,17 @@ export class BackgroundSyncService {
     }
 
     // Extract results
-    const attachId = String(result.AttachID || result.attachId || result.Result?.[0]?.AttachID);
-    const s3Key = result.Attachment || result.s3Key || result.Result?.[0]?.Attachment;
+    // US-001 FIX: Get raw values first to check for undefined properly
+    const rawAttachId = result.AttachID || result.attachId || result.Result?.[0]?.AttachID;
+    const rawS3Key = result.Attachment || result.s3Key || result.Result?.[0]?.Attachment;
 
-    if (!attachId || !s3Key) {
-      throw new Error('Upload response missing AttachID or s3Key');
+    // Convert to string, handling undefined properly
+    const attachId = rawAttachId !== undefined ? String(rawAttachId) : '';
+    const s3Key = rawS3Key || '';
+
+    // US-001 FIX: More robust validation - check for empty strings and "undefined" string
+    if (!attachId || attachId === 'undefined' || !s3Key || s3Key === 'undefined') {
+      throw new Error(`Upload response missing AttachID or s3Key (got attachId='${attachId}', s3Key='${s3Key?.substring(0, 30)}')`);
     }
 
     console.log('[BackgroundSync] ✅ Upload success:', item.imageId, 'attachId:', attachId, 's3Key:', s3Key?.substring(0, 50));

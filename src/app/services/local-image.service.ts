@@ -605,13 +605,16 @@ export class LocalImageService {
 
   /**
    * Mark upload as in progress
+   * US-001 FIX: Also track upload start time to detect stuck uploads on mobile
    */
   async markUploadStarted(opId: string, imageId: string): Promise<void> {
     const item = await this.indexedDb.getOutboxItemForImage(imageId);
     await this.indexedDb.updateOutboxItem(opId, {
       attempts: (item?.attempts ?? 0) + 1
     });
-    await this.updateStatus(imageId, 'uploading');
+    // US-001 FIX: Update updatedAt to track when upload started
+    // This allows detection of uploads that have been 'uploading' for too long
+    await this.updateStatus(imageId, 'uploading', { updatedAt: Date.now() });
   }
 
   /**
