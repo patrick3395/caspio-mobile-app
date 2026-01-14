@@ -416,8 +416,42 @@ export class BackgroundSyncService {
         ));
         console.log(`[BackgroundSync] Batch reset ${stuckItems.length} outbox items complete`);
       }
+
+      // US-001 FIX: Also reset LocalImages stuck in 'uploading' status
+      // These can occur if the app was closed during an upload
+      await this.resetStuckUploadingImages(allOutboxItems);
     } catch (error) {
       console.warn('[BackgroundSync] Error resetting stuck outbox items:', error);
+    }
+  }
+
+  /**
+   * US-001 FIX: Reset LocalImages that are stuck in 'uploading' status
+   * If a LocalImage has status='uploading' but still has an outbox entry,
+   * it means the upload was interrupted. Reset to 'queued' so it can retry.
+   */
+  private async resetStuckUploadingImages(outboxItems: UploadOutboxItem[]): Promise<void> {
+    if (outboxItems.length === 0) return;
+
+    try {
+      // Find LocalImages that are stuck - have outbox entry and 'uploading' status
+      const stuckImages: { imageId: string }[] = [];
+
+      for (const item of outboxItems) {
+        const image = await this.indexedDb.getLocalImage(item.imageId);
+        if (image && image.status === 'uploading') {
+          stuckImages.push({ imageId: image.imageId });
+        }
+      }
+
+      if (stuckImages.length > 0) {
+        console.log(`[BackgroundSync] Found ${stuckImages.length} images stuck in 'uploading' status, resetting to 'queued'`);
+        await Promise.all(stuckImages.map(img =>
+          this.localImageService.updateStatus(img.imageId, 'queued', { lastError: 'Upload was interrupted' })
+        ));
+      }
+    } catch (error) {
+      console.warn('[BackgroundSync] Error resetting stuck uploading images:', error);
     }
   }
 
@@ -1670,10 +1704,43 @@ export class BackgroundSyncService {
 
   /**
    * Force sync now (for manual trigger)
+   * US-001 FIX: Reset nextRetryAt for ALL upload outbox items before syncing
+   * This ensures items with backoff delays are immediately retried when user clicks Force Sync
    */
   async forceSyncNow(): Promise<void> {
     console.log('[BackgroundSync] Force sync triggered');
+
+    // US-001 FIX: Reset nextRetryAt for all pending upload items
+    // When user clicks Force Sync, they expect ALL items to sync immediately,
+    // regardless of any exponential backoff delays
+    await this.resetAllUploadOutboxRetryTimes();
+
     await this.triggerSync();
+  }
+
+  /**
+   * US-001 FIX: Reset nextRetryAt for all upload outbox items
+   * Called by forceSyncNow to ensure all items are immediately eligible for sync
+   */
+  private async resetAllUploadOutboxRetryTimes(): Promise<void> {
+    try {
+      const allItems = await this.indexedDb.getAllUploadOutboxItems();
+      const now = Date.now();
+
+      // Find items that have nextRetryAt in the future (are waiting for backoff)
+      const delayedItems = allItems.filter(item => item.nextRetryAt > now);
+
+      if (delayedItems.length > 0) {
+        console.log(`[BackgroundSync] Force sync: resetting ${delayedItems.length} delayed upload items`);
+        await Promise.all(delayedItems.map(item =>
+          this.indexedDb.updateOutboxItem(item.opId, {
+            nextRetryAt: now
+          })
+        ));
+      }
+    } catch (error) {
+      console.warn('[BackgroundSync] Error resetting upload retry times:', error);
+    }
   }
 
   /**

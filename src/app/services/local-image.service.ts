@@ -629,20 +629,22 @@ export class LocalImageService {
 
   /**
    * Handle upload failure - schedule retry
+   * US-001 FIX: Don't increment attempts here since markUploadStarted already did
    */
   async handleUploadFailure(opId: string, imageId: string, error: string): Promise<void> {
     const item = await this.indexedDb.getOutboxItemForImage(imageId);
     if (!item) return;
-    
-    const attempts = item.attempts + 1;
+
+    // US-001 FIX: Use current attempts count (already incremented by markUploadStarted)
+    // Previously this was incrementing again, causing double-counting and faster backoff
+    const attempts = item.attempts;
     const backoffMs = this.calculateBackoff(attempts);
-    
+
     await this.indexedDb.updateOutboxItem(opId, {
-      attempts,
       nextRetryAt: Date.now() + backoffMs,
       lastError: error
     });
-    
+
     // Only mark as failed after many retries
     if (attempts >= 10) {
       await this.markFailed(imageId, `Upload failed after ${attempts} attempts: ${error}`);
