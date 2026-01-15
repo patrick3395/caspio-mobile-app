@@ -58,7 +58,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   serviceId: string = '';
   categoryName: string = '';
 
-  loading: boolean = true;
+  loading: boolean = false;
   searchTerm: string = '';
   expandedAccordions: string[] = ['information', 'limitations', 'deficiencies'];
   organizedData: {
@@ -284,7 +284,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     console.log('[CategoryDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
     if (this.projectId && this.serviceId && this.categoryName) {
-      console.log('[CategoryDetail] All params present, calling loadData()');
+      console.log('[CategoryDetail] All params present, checking cache...');
+
+      // Check cache FIRST - only show loading if no cached data
+      // This prevents loading screen flash when data is already cached
+      const cachedTemplates = await this.indexedDb.getCachedTemplates('visual');
+      const hasCachedTemplates = !!(cachedTemplates && cachedTemplates.length > 0);
+
+      if (!hasCachedTemplates) {
+        console.log('[CategoryDetail] No cached templates, showing loading spinner');
+        this.loading = true;
+        this.changeDetectorRef.detectChanges();
+      } else {
+        console.log('[CategoryDetail] Cached templates found, skipping loading spinner');
+      }
+
       await this.loadData();
       console.log('[CategoryDetail] loadData() completed');
 
