@@ -1000,7 +1000,17 @@ export class OfflineTemplateService {
       return false;
     }
 
-    console.log(`[OfflineTemplate] isTemplateReady(${serviceId}, ${templateType}): ✅ All data verified`);
+    // NEW: Verify service visuals cache exists (even if empty array - that's valid)
+    // null means cache entry doesn't exist at all (never fetched)
+    // [] means we fetched but service has no visuals yet (valid for new services)
+    const cachedVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals');
+    if (cachedVisuals === null) {
+      console.log(`[OfflineTemplate] isTemplateReady: Visuals never cached - marking not ready`);
+      await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+      return false;
+    }
+
+    console.log(`[OfflineTemplate] isTemplateReady(${serviceId}, ${templateType}): ✅ All data verified (visuals: ${cachedVisuals?.length || 0})`);
     return true;
   }
 
@@ -1129,36 +1139,45 @@ export class OfflineTemplateService {
    * Returns cached data immediately, refreshes in background when online
    */
   async getVisualsByService(serviceId: string): Promise<any[]> {
+    alert(`[DEBUG getVisualsByService] START for serviceId: ${serviceId}`);
+
     // 1. Read from cache IMMEDIATELY
     const cached = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
-    
+
     // 2. Merge with pending offline visuals
     const pending = await this.getPendingVisuals(serviceId);
     const merged = [...cached, ...pending];
-    
+
+    alert(`[DEBUG getVisualsByService] cached: ${cached.length}, pending: ${pending.length}, merged: ${merged.length}`);
+
     // 3. Return immediately if we have data
     if (merged.length > 0) {
       console.log(`[OfflineTemplate] Visuals: ${cached.length} cached + ${pending.length} pending (instant)`);
-      
+
       // 4. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
         this.refreshVisualsInBackground(serviceId);
       }
       return merged;
     }
-    
+
     // 5. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
+        alert(`[DEBUG getVisualsByService] Cache empty, fetching from API...`);
         console.log(`[OfflineTemplate] No cached visuals, fetching from API...`);
         const freshVisuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
+        alert(`[DEBUG getVisualsByService] API returned: ${freshVisuals?.length || 0} visuals`);
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', freshVisuals);
         return [...freshVisuals, ...pending];
       } catch (error) {
+        alert(`[DEBUG getVisualsByService] API FAILED: ${error}`);
         console.warn(`[OfflineTemplate] API fetch failed:`, error);
       }
+    } else {
+      alert(`[DEBUG getVisualsByService] OFFLINE - cannot fetch from API`);
     }
-    
+
     console.log(`[OfflineTemplate] No visuals available (offline, no cache)`);
     return pending; // Return any pending items at least
   }

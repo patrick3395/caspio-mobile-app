@@ -261,6 +261,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.categoryName = this.route.snapshot.params['category'];
     console.log('[CategoryDetail] Category from route:', this.categoryName);
 
+    // DEBUG: Show exact categoryName with character codes to detect encoding issues
+    alert(`[DEBUG CategoryDetail ngOnInit] categoryName from route:\n"${this.categoryName}"\nLength: ${this.categoryName?.length}\nCharCodes: ${this.categoryName?.split('').map(c => c.charCodeAt(0)).join(',')}`);
+
     // Get IDs from container route using snapshot (for offline reliability)
     // Route structure: '' (Container) -> 'structural' (anonymous) -> 'category/:category' (we are here)
     // So parent?.parent gets us to the Container which has :projectId/:serviceId
@@ -1980,15 +1983,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private loadCategoryTemplatesFromCache(allTemplates: any[]) {
     if (!allTemplates || allTemplates.length === 0) {
+      alert('[DEBUG loadCategoryTemplatesFromCache] No templates in cache - EMPTY');
       console.warn('[CategoryDetail] No templates in cache');
       return;
     }
-    
+
+    // DEBUG: Show what we're filtering for with character codes
+    alert(`[DEBUG loadCategoryTemplatesFromCache] Filtering ${allTemplates.length} templates\ncategoryName from route: "${this.categoryName}"\nLength: ${this.categoryName?.length}`);
+
     // Filter for this category - pure CPU operation
     const visualTemplates = allTemplates.filter((template: any) =>
       template.TypeID === 1 && template.Category === this.categoryName
     );
-    
+
+    // DEBUG: Show filter results
+    alert(`[DEBUG loadCategoryTemplatesFromCache] After filter: ${visualTemplates.length} templates match category "${this.categoryName}"`);
+
+    // DEBUG: Show all unique categories in templates to identify mismatch
+    const allCategories = [...new Set(allTemplates.filter(t => t.TypeID === 1).map(t => t.Category))];
+    alert(`[DEBUG loadCategoryTemplatesFromCache] All unique categories in visual templates (TypeID=1):\n${allCategories.join('\n')}`);
+
+    // DEBUG: If no match found, show first template's Category with char codes
+    if (visualTemplates.length === 0 && allCategories.length > 0) {
+      const firstCat = allCategories[0];
+      alert(`[DEBUG MISMATCH DETECTED]\nRoute category: "${this.categoryName}" (len: ${this.categoryName?.length})\nFirst template category: "${firstCat}" (len: ${firstCat?.length})\n\nRoute charCodes: ${this.categoryName?.split('').map(c => c.charCodeAt(0)).join(',')}\nFirst cat charCodes: ${firstCat?.split('').map((c: string) => c.charCodeAt(0)).join(',')}}`);
+    }
+
     console.log('[CategoryDetail] Templates for', this.categoryName + ':', visualTemplates.length);
 
     // Organize into UI structure - pure CPU
