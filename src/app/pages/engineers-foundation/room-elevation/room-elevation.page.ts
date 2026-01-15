@@ -1836,7 +1836,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     console.log('[RoomElevation] DEXIE-FIRST: Room found in Dexie');
-    const pointsInfo = field.elevationPoints.map(p =>
+    let pointsInfo = field.elevationPoints.map(p =>
       `${p.pointNumber}:${p.pointId || p.tempPointId || 'NO_ID'}`
     ).join(', ');
     alert(`[DEBUG 2] Room found!\nefeId: ${field.efeId || 'null'}\ntempEfeId: ${field.tempEfeId || 'null'}\nPoints: ${pointsInfo}`);
@@ -1845,8 +1845,40 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     this.roomId = field.efeId || field.tempEfeId || '';
     this.lastLoadedRoomId = this.roomId;
 
+    // 2.5 CRITICAL: Check if points need tempPointIds created
+    // This handles rooms seeded from templates where points have no IDs yet
+    const pointsNeedIds = field.elevationPoints.some(p => !p.pointId && !p.tempPointId);
+    if (pointsNeedIds && this.roomId) {
+      console.log('[RoomElevation] Points need tempPointIds - creating now');
+      alert(`[DEBUG 2.5] Points need IDs - creating tempPointIds...`);
+
+      try {
+        // Create tempPointIds and queue points for sync
+        const createdPoints = await this.efeFieldRepo.createPointRecordsForRoom(
+          this.serviceId,
+          this.roomName,
+          this.roomId,
+          this.foundationData
+        );
+        console.log('[RoomElevation] Created', createdPoints.length, 'points with tempPointIds');
+
+        // Reload field from Dexie to get updated points
+        const updatedField = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
+        if (updatedField) {
+          field = updatedField;
+          pointsInfo = field.elevationPoints.map(p =>
+            `${p.pointNumber}:${p.pointId || p.tempPointId || 'NO_ID'}`
+          ).join(', ');
+          alert(`[DEBUG 2.6] Points created!\nNew Points: ${pointsInfo}`);
+        }
+      } catch (err: any) {
+        console.error('[RoomElevation] Failed to create tempPointIds:', err);
+        alert(`[DEBUG 2.5 ERROR] Failed to create tempPointIds: ${err?.message || err}`);
+      }
+    }
+
     // 3. Populate roomData DIRECTLY from Dexie
-    // Points already have IDs (temp or real) from when room was added
+    // Points should now have IDs (temp or real)
     this.roomData = {
       roomName: field.roomName,
       templateId: field.templateId,
