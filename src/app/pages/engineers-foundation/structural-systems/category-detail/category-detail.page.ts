@@ -246,6 +246,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     console.time('[CategoryDetail] ngOnInit total');
     console.log('[CategoryDetail] ========== ngOnInit START ==========');
 
+    alert('[DEBUG CategoryDetail ngOnInit] START');
+
     // Check if new image system is available
     const hasNewSystem = this.indexedDb.hasNewImageSystem();
     this.logDebug('INIT', `New image system available: ${hasNewSystem}`);
@@ -283,16 +285,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     console.log('[CategoryDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
+    alert(`[DEBUG CategoryDetail ngOnInit]\nCategory: ${this.categoryName}\nProjectId: ${this.projectId}\nServiceId: ${this.serviceId}`);
+
     if (this.projectId && this.serviceId && this.categoryName) {
       console.log('[CategoryDetail] All params present, calling loadData()');
+      alert('[DEBUG CategoryDetail ngOnInit] Calling loadData()...');
       await this.loadData();
       console.log('[CategoryDetail] loadData() completed');
+
+      alert(`[DEBUG CategoryDetail ngOnInit] loadData COMPLETE:\n- organizedData.comments: ${this.organizedData.comments?.length || 0}\n- organizedData.limitations: ${this.organizedData.limitations?.length || 0}\n- organizedData.deficiencies: ${this.organizedData.deficiencies?.length || 0}\n- selectedItems: ${Object.keys(this.selectedItems).length}`);
 
       // NOTE: subscribeToLocalImagesChanges() is now deferred to ionViewDidEnter
       // for faster initial render - subscriptions run after UI is visible
     } else {
       console.error('[CategoryDetail] ❌ Missing required route params - cannot load data');
       console.error('[CategoryDetail] Missing: projectId=', !this.projectId, 'serviceId=', !this.serviceId, 'categoryName=', !this.categoryName);
+      alert(`[DEBUG CategoryDetail ngOnInit] ERROR - Missing params:\n- projectId: ${!this.projectId}\n- serviceId: ${!this.serviceId}\n- categoryName: ${!this.categoryName}`);
       this.loading = false;
       this.changeDetectorRef.detectChanges();
     }
@@ -323,6 +331,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async ionViewWillEnter() {
     console.time('[CategoryDetail] ionViewWillEnter');
 
+    alert(`[DEBUG CategoryDetail ionViewWillEnter]\ninitialLoadComplete: ${this.initialLoadComplete}\nserviceId: ${this.serviceId}\ncategoryName: ${this.categoryName}`);
+
     // Set up deferred subscriptions on first entry (after initial render for faster paint)
     // This moves non-critical subscriptions out of ngOnInit
     if (!this.uploadSubscription) {
@@ -334,6 +344,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Only process if initial load is complete and we have required IDs
     if (!this.initialLoadComplete || !this.serviceId || !this.categoryName) {
+      alert('[DEBUG CategoryDetail ionViewWillEnter] Early return - not ready');
       console.timeEnd('[CategoryDetail] ionViewWillEnter');
       return;
     }
@@ -350,11 +361,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}, changed: ${serviceOrCategoryChanged}`);
 
+    alert(`[DEBUG CategoryDetail ionViewWillEnter]\n- hasDataInMemory: ${hasDataInMemory}\n- isDirty: ${isDirty}\n- serviceOrCategoryChanged: ${serviceOrCategoryChanged}\n- visualPhotos keys: ${Object.keys(this.visualPhotos).length}`);
+
     // Early return if data is fresh and context unchanged
     if (hasDataInMemory && !isDirty && !serviceOrCategoryChanged) {
       // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
       // This ensures images don't disappear when navigating back to this page
       console.log('[CategoryDetail] Refreshing local images and pending captions');
+      alert('[DEBUG CategoryDetail ionViewWillEnter] SKIP reload - refreshLocalState only');
       await this.refreshLocalState();
       console.timeEnd('[CategoryDetail] ionViewWillEnter');
       return;
@@ -365,8 +379,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // 2. Section is marked dirty (data changed while away)
     // 3. Service or category has changed (navigating from project details)
     console.log('[CategoryDetail] Reloading data - section dirty, no data, or context changed');
+    alert('[DEBUG CategoryDetail ionViewWillEnter] FULL reload required');
     await this.loadData();
     this.backgroundSync.clearSectionDirty(sectionKey);
+    alert(`[DEBUG CategoryDetail ionViewWillEnter] Reload COMPLETE:\n- comments: ${this.organizedData.comments?.length || 0}\n- limitations: ${this.organizedData.limitations?.length || 0}\n- deficiencies: ${this.organizedData.deficiencies?.length || 0}`);
     console.timeEnd('[CategoryDetail] ionViewWillEnter');
   }
 
@@ -1419,9 +1435,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Prevent concurrent loadData() calls which can cause race conditions and photo loss
     if (this.isLoadingData) {
       console.log('[LOAD DATA] ⚠️ SKIPPING - loadData() already in progress');
+      alert('[DEBUG CategoryDetail loadData] SKIPPING - already in progress');
       return;
     }
     this.isLoadingData = true;
+
+    alert(`[DEBUG CategoryDetail loadData] START\nCategory: ${this.categoryName}\nServiceId: ${this.serviceId}`);
 
     console.time('[CategoryDetail] loadData total');
     console.log('[LOAD DATA] ========== loadData START ==========');
@@ -1543,8 +1562,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // ===== STEP 0: FAST LOAD - All data in ONE parallel batch =====
       // Photo data loads on-demand when user clicks to expand
       console.log('[LOAD DATA] Starting fast load (no photo data)...');
+      alert('[DEBUG CategoryDetail loadData] Starting bulk data load from IndexedDB...');
       const bulkLoadStart = Date.now();
-      
+
       const [allTemplates, visuals, pendingPhotos, pendingRequests, allLocalImages, cachedPhotos, annotatedImages] = await Promise.all([
         this.indexedDb.getCachedTemplates('visual') || [],
         this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [],
@@ -1554,7 +1574,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.indexedDb.getAllCachedPhotosForService(this.serviceId),  // Load cached photos upfront
         this.indexedDb.getAllCachedAnnotatedImagesForService()        // Load annotated images upfront
       ]);
-      
+
+      alert(`[DEBUG CategoryDetail loadData] Bulk load COMPLETE:\n- allTemplates: ${(allTemplates as any[])?.length || 0}\n- visuals (from cache): ${(visuals as any[])?.length || 0}\n- allLocalImages: ${allLocalImages?.length || 0}\n- cachedPhotos: ${cachedPhotos?.size || 0}\n- pendingRequests: ${pendingRequests?.length || 0}`);
+
       // Store ALL bulk data in memory - NO more IndexedDB reads after this
       this.bulkPendingPhotosMap = pendingPhotos;
       this.bulkVisualsCache = visuals as any[] || [];
@@ -1748,6 +1770,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Track last loaded IDs to detect context changes on re-entry
     this.lastLoadedServiceId = this.serviceId;
     this.lastLoadedCategoryName = this.categoryName;
+
+    alert(`[DEBUG CategoryDetail loadData] END:\n- comments: ${this.organizedData.comments?.length || 0}\n- limitations: ${this.organizedData.limitations?.length || 0}\n- deficiencies: ${this.organizedData.deficiencies?.length || 0}\n- selectedItems: ${Object.keys(this.selectedItems).length}\n- visualPhotos keys: ${Object.keys(this.visualPhotos).length}`);
 
     console.log('[LOAD DATA] ========== loadData END ==========');
   }
