@@ -19,7 +19,8 @@ import { LocalImageService } from '../../../services/local-image.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../utils/annotation-utils';
 import { environment } from '../../../../environments/environment';
-import { db } from '../../../services/caspio-db';
+import { db, EfeField, EfePoint } from '../../../services/caspio-db';
+import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
 
 @Component({
   selector: 'app-room-elevation',
@@ -122,7 +123,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
     private localImageService: LocalImageService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private efeFieldRepo: EfeFieldRepoService
   ) {}
 
   async ngOnInit() {
@@ -3508,6 +3510,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     try {
       const { id, isTempId } = await this.resolveRoomId();
 
+      // DEXIE-FIRST: Update Dexie efeFields immediately for instant persistence
+      await this.efeFieldRepo.setRoomFdf(this.serviceId, this.roomName, this.roomData.fdf);
+
       // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
       // This ensures the FDF value persists even if offline
       await this.updateLocalEFECache({ FDF: this.roomData.fdf });
@@ -3624,6 +3629,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     try {
       const { id, isTempId } = await this.resolveRoomId();
 
+      // DEXIE-FIRST: Update Dexie efeFields immediately for instant persistence
+      await this.efeFieldRepo.setRoomLocation(this.serviceId, this.roomName, this.roomData.location);
+
       // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
       await this.updateLocalEFECache({ Location: this.roomData.location });
 
@@ -3706,6 +3714,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     this.isSavingNotes = true;
     try {
       const { id, isTempId } = await this.resolveRoomId();
+
+      // DEXIE-FIRST: Update Dexie efeFields immediately for instant persistence
+      await this.efeFieldRepo.setRoomNotes(this.serviceId, this.roomName, this.roomData.notes);
 
       // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
       await this.updateLocalEFECache({ Notes: this.roomData.notes });

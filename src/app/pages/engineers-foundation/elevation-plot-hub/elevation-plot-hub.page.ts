@@ -13,6 +13,8 @@ import { OfflineTemplateService } from '../../../services/offline-template.servi
 import { OfflineService } from '../../../services/offline.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { SmartSyncService } from '../../../services/smart-sync.service';
+import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
+import { EfeField, EfePoint } from '../../../services/caspio-db';
 
 interface RoomTemplate {
   RoomName: string;
@@ -59,9 +61,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   private backgroundRefreshSubscription?: Subscription;
   private routerSubscription?: Subscription;
   private cacheInvalidationDebounceTimer: any = null;
-  
+
   // Track if initial load is complete (for router-based reload detection)
   private initialLoadComplete: boolean = false;
+
+  // Dexie-first: Reactive subscription to efeFields for instant page rendering
+  private efeFieldsSubscription?: Subscription;
+  private efeFieldsSeeded: boolean = false;
   
   // Standardized UI state flags
   isOnline: boolean = true;
@@ -83,7 +89,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     private offlineTemplate: OfflineTemplateService,
     private offlineService: OfflineService,
     private indexedDb: IndexedDbService,
-    private smartSync: SmartSyncService
+    private smartSync: SmartSyncService,
+    private efeFieldRepo: EfeFieldRepoService
   ) {}
 
   async ngOnInit() {
@@ -152,7 +159,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Subscribe to EFE room sync completions (for offline-first support)
     this.subscribeToSyncEvents();
-    
+
     // Subscribe to router events to detect navigation back to this page
     // This is more reliable than ionViewWillEnter with standard Angular router
     this.subscribeToRouterEvents();
@@ -161,43 +168,189 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // This follows the standardized cache-first pattern
     await this.ensureEFEDataCached();
 
-    await this.loadRoomTemplates();
-    
+    // ===== DEXIE-FIRST: Initialize EFE fields and subscribe to reactive updates =====
+    await this.initializeEfeFields();
+
     // Mark initial load as complete
     this.initialLoadComplete = true;
   }
 
+  // ============================================================================
+  // DEXIE-FIRST: REACTIVE DATA INITIALIZATION
+  // ============================================================================
+
+  /**
+   * Initialize EFE fields for this service using Dexie-first architecture
+   * 1. Seed templates into efeFields (if not already seeded)
+   * 2. Merge existing rooms (user selections)
+   * 3. Subscribe to reactive updates (liveQuery)
+   */
+  private async initializeEfeFields(): Promise<void> {
+    console.time('[ElevationPlotHub] initializeEfeFields');
+    console.log('[ElevationPlotHub] Initializing EFE fields (Dexie-first)...');
+
+    // Unsubscribe from previous subscription if service changed
+    if (this.efeFieldsSubscription) {
+      this.efeFieldsSubscription.unsubscribe();
+      this.efeFieldsSubscription = undefined;
+    }
+
+    // Check if fields exist for this service
+    const hasFields = await this.efeFieldRepo.hasFieldsForService(this.serviceId);
+
+    if (!hasFields) {
+      console.log('[ElevationPlotHub] No fields found, seeding from templates...');
+
+      // Get templates from cache
+      const templates = await this.indexedDb.getCachedTemplates('efe') || [];
+
+      if (templates.length === 0) {
+        console.warn('[ElevationPlotHub] No templates in cache, falling back to loadRoomTemplates...');
+        this.loading = true;
+        this.changeDetectorRef.detectChanges();
+        // Fall back to old loadRoomTemplates() for initial template fetch
+        await this.loadRoomTemplates();
+        console.timeEnd('[ElevationPlotHub] initializeEfeFields');
+        return;
+      }
+
+      // Seed templates into efeFields
+      await this.efeFieldRepo.seedFromTemplates(this.serviceId, templates);
+
+      // Store all templates for later use (e.g., add room dialog)
+      this.allRoomTemplates = templates.map((t: any) => ({ ...t }));
+
+      // Get existing rooms and merge selections
+      const existingRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+      await this.efeFieldRepo.mergeExistingRooms(this.serviceId, existingRooms as any[]);
+
+      console.log('[ElevationPlotHub] Seeding complete');
+    } else {
+      console.log('[ElevationPlotHub] Fields already exist, using cached data');
+      // Still need to load templates for add room dialog
+      const templates = await this.indexedDb.getCachedTemplates('efe') || [];
+      this.allRoomTemplates = templates.map((t: any) => ({ ...t }));
+    }
+
+    // Subscribe to reactive updates - this will trigger UI render
+    this.efeFieldsSubscription = this.efeFieldRepo
+      .getFieldsForService$(this.serviceId)
+      .subscribe({
+        next: (fields) => {
+          console.log(`[ElevationPlotHub] Received ${fields.length} fields from liveQuery`);
+          this.convertFieldsToRoomTemplates(fields);
+          this.loading = false;
+          this.changeDetectorRef.detectChanges();
+        },
+        error: (err) => {
+          console.error('[ElevationPlotHub] Error in efeFields subscription:', err);
+          this.loading = false;
+          this.changeDetectorRef.detectChanges();
+        }
+      });
+
+    this.efeFieldsSeeded = true;
+    console.timeEnd('[ElevationPlotHub] initializeEfeFields');
+  }
+
+  /**
+   * Convert EfeField[] from Dexie to roomTemplates structure for rendering
+   */
+  private convertFieldsToRoomTemplates(fields: EfeField[]): void {
+    // Reset dictionaries
+    this.selectedRooms = {};
+    this.efeRecordIds = {};
+
+    // Sort by organization
+    const sortedFields = [...fields].sort((a, b) => {
+      const orgA = a.organization ?? 999999;
+      const orgB = b.organization ?? 999999;
+      return orgA - orgB;
+    });
+
+    // Convert to RoomDisplayData
+    this.roomTemplates = sortedFields.map(field => {
+      // Update dictionaries
+      this.selectedRooms[field.roomName] = field.isSelected;
+      if (field.efeId || field.tempEfeId) {
+        this.efeRecordIds[field.roomName] = field.efeId || field.tempEfeId || '';
+      }
+
+      // Store elevation data for navigation
+      if (!this.roomElevationData[field.roomName]) {
+        this.roomElevationData[field.roomName] = {
+          roomName: field.roomName,
+          templateId: field.templateId,
+          elevationPoints: field.elevationPoints.map(p => ({
+            pointNumber: p.pointNumber,
+            name: p.name,
+            value: p.value,
+            photo: null,
+            photos: [],
+            photoCount: p.photoCount
+          })),
+          pointCount: field.pointCount,
+          notes: field.notes,
+          fdf: field.fdf,
+          location: field.location,
+          fdfPhotos: field.fdfPhotos
+        };
+      }
+
+      return {
+        RoomName: field.roomName,
+        TemplateID: field.templateId,
+        PK_ID: field.templateId,
+        PointCount: field.pointCount,
+        Organization: field.organization,
+        isSelected: field.isSelected,
+        isSaving: !!this.savingRooms[field.roomName],
+        efeId: field.efeId || field.tempEfeId || undefined
+      } as RoomDisplayData;
+    });
+
+    // Update UI state flags
+    this.isEmpty = this.roomTemplates.length === 0;
+
+    console.log(`[ElevationPlotHub] Converted ${this.roomTemplates.length} room templates`);
+  }
+
   /**
    * Ionic lifecycle hook - called every time the view is about to become active
-   * Uses smart skip logic to avoid redundant reloads while ensuring new data always appears
+   * DEXIE-FIRST: With reactive subscriptions, we don't need to reload on every view enter
+   * The liveQuery subscription automatically updates the UI when data changes
    */
   async ionViewWillEnter() {
     // Update online status
     this.isOnline = this.offlineService.isOnline();
-    
+
     // Only process if initial load is complete and we have required IDs
     if (!this.initialLoadComplete || !this.serviceId) {
       return;
     }
 
     const sectionKey = `${this.serviceId}_elevation`;
-    
-    // Check if we have data in memory and if section is dirty
-    const hasDataInMemory = this.roomTemplates && this.roomTemplates.length > 0;
     const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
-    
-    console.log(`[ElevationPlotHub] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}`);
-    
-    // ALWAYS reload if:
-    // 1. First load (no data in memory)
-    // 2. Section is marked dirty (data changed while away)
-    if (!hasDataInMemory || isDirty) {
-      console.log('[ElevationPlotHub] Reloading data - section dirty or no data in memory');
-      await this.loadRoomTemplates();
-      this.backgroundSync.clearSectionDirty(sectionKey);
-    } else {
-      console.log('[ElevationPlotHub] Skipping reload - data unchanged, using cached view');
+
+    console.log(`[ElevationPlotHub] ionViewWillEnter - isDirty: ${isDirty}, efeFieldsSeeded: ${this.efeFieldsSeeded}`);
+
+    // DEXIE-FIRST: If we have a reactive subscription, we don't need to reload
+    // The liveQuery will automatically update the UI when Dexie data changes
+    if (this.efeFieldsSeeded && this.efeFieldsSubscription) {
+      // Only resync from cache if section is dirty (backend data changed)
+      if (isDirty) {
+        console.log('[ElevationPlotHub] Section dirty, merging new data from cache...');
+        const existingRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+        await this.efeFieldRepo.mergeExistingRooms(this.serviceId, existingRooms as any[]);
+        this.backgroundSync.clearSectionDirty(sectionKey);
+      }
+      console.log('[ElevationPlotHub] Using reactive Dexie subscription - no reload needed');
+      return;
     }
+
+    // Fallback: If no subscription, initialize
+    await this.initializeEfeFields();
+    this.backgroundSync.clearSectionDirty(sectionKey);
   }
   
   /**
@@ -345,25 +498,32 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   private async reloadRoomsAfterSync(): Promise<void> {
     try {
       console.log('[ElevationPlotHub] Reloading rooms after sync...');
-      
+
       // Get fresh EFE rooms from IndexedDB (already updated by BackgroundSyncService)
       const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
       console.log('[ElevationPlotHub] Got', existingRooms?.length || 0, 'rooms from IndexedDB');
-      
-      // Update our room data with fresh server data
+
+      // DEXIE-FIRST: Merge fresh server data into Dexie
+      // The liveQuery subscription will automatically update the UI
+      if (existingRooms && existingRooms.length > 0) {
+        await this.efeFieldRepo.mergeExistingRooms(this.serviceId, existingRooms);
+        console.log('[ElevationPlotHub] ✅ Merged rooms into Dexie efeFields');
+      }
+
+      // Also update local state for immediate feedback (in case subscription is slow)
       if (existingRooms) {
         for (const serverRoom of existingRooms) {
           const roomName = serverRoom.RoomName;
           // CRITICAL: Handle pending rooms with _tempId as well as synced rooms
           const roomId = serverRoom.EFEID || serverRoom.PK_ID || serverRoom._tempId;
-          
+
           if (!roomName || !roomId) continue;
-          
+
           // Update efeRecordIds map
           this.efeRecordIds[roomName] = String(roomId);
           this.selectedRooms[roomName] = true;
           this.savingRooms[roomName] = false;
-          
+
           // Update roomTemplates array
           const roomTemplate = this.roomTemplates.find(r => r.RoomName === roomName);
           if (roomTemplate) {
@@ -373,10 +533,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
       }
-      
+
       this.changeDetectorRef.detectChanges();
       console.log('[ElevationPlotHub] Room reload complete');
-      
+
     } catch (error) {
       console.error('[ElevationPlotHub] Error reloading rooms:', error);
     }
@@ -387,7 +547,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.serviceId) {
       this.smartSync.unregisterActiveService(this.serviceId);
     }
-    
+
+    // Clean up Dexie-first subscription
+    if (this.efeFieldsSubscription) {
+      this.efeFieldsSubscription.unsubscribe();
+    }
+
     if (this.roomSyncSubscription) {
       this.roomSyncSubscription.unsubscribe();
     }
@@ -472,7 +637,28 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
       console.log('[Create Room] Room created with ID:', roomId, response._tempId ? '(temp)' : '(real)');
 
-      // Update local state
+      // DEXIE-FIRST: Update Dexie immediately so liveQuery triggers UI update
+      const elevationPoints: EfePoint[] = this.roomElevationData[roomName]?.elevationPoints?.map((p: any) => ({
+        pointNumber: p.pointNumber,
+        pointId: null,
+        tempPointId: null,
+        name: p.name,
+        value: p.value || '',
+        photoCount: p.photoCount || 0
+      })) || [];
+
+      await this.efeFieldRepo.setRoomSelected(
+        this.serviceId,
+        roomName,
+        true,
+        response?._tempId ? null : roomId,  // efeId only if real
+        response?._tempId ? roomId : null   // tempEfeId if temp
+      );
+
+      // Update organization in Dexie
+      await this.efeFieldRepo.setRoomOrganization(this.serviceId, roomName, nextOrganization);
+
+      // Update local state for immediate UI feedback
       this.selectedRooms[roomName] = true;
       this.efeRecordIds[roomName] = roomId;
       this.savingRooms[roomName] = !!response._syncing; // True if pending sync
@@ -602,6 +788,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           const updateData = { RoomName: newRoomName };
           await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
           console.log('[Rename Room] Database update successful for EFEID:', roomId);
+
+          // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
+          await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
+          console.log('[Rename Room] Updated Dexie efeFields');
 
           // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
           console.log('[Rename Room] Updating all local state dictionaries atomically...');
@@ -984,6 +1174,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           console.warn('[ElevationPlotHub] Failed to update IndexedDB cache:', cacheError);
           // Continue anyway - the API deletion succeeded
         }
+
+        // DEXIE-FIRST: Mark room as deleted/unselected in Dexie (liveQuery will update UI)
+        await this.efeFieldRepo.deleteRoom(this.serviceId, roomName);
+        console.log('[ElevationPlotHub] ✅ Updated Dexie efeFields - room unselected');
 
         // Update local state - mark as unselected
         delete this.efeRecordIds[roomName];

@@ -66,6 +66,54 @@ export interface PendingImage {
 }
 
 /**
+ * EfeField - Normalized field-level storage for EFE (Elevation Field Equipment) rooms
+ * Each room gets one row per service, with elevation points stored as JSON
+ * Enables reactive updates for elevation-plot-hub and room-elevation pages
+ */
+export interface EfeField {
+  id?: number;                    // Auto-increment primary key
+  key: string;                    // Deterministic: ${serviceId}:${roomName}
+  serviceId: string;
+  roomName: string;
+  templateId: number | string;    // Room template ID
+  efeId: string | null;           // Real EFE ID after sync (null if pending)
+  tempEfeId: string | null;       // Temp ID while pending sync
+  isSelected: boolean;            // Room is selected/created
+  organization: number;           // Sort order
+  pointCount: number;             // Number of elevation points
+  notes: string;                  // Room notes
+  fdf: string;                    // FDF value
+  location: string;               // Location value
+  elevationPoints: EfePoint[];    // Elevation points with values/photos
+  fdfPhotos: { [key: string]: EfeFdfPhoto }; // FDF photos (top, bottom, etc.)
+  rev: number;                    // Increment on every local write
+  updatedAt: number;              // Date.now() on update
+  dirty: boolean;                 // true until backend sync acknowledges
+}
+
+/**
+ * EfePoint - Individual elevation point within a room
+ */
+export interface EfePoint {
+  pointNumber: number;
+  pointId: string | null;         // Real point ID (PointID from Services_EFE_Points)
+  tempPointId: string | null;     // Temp ID while pending sync
+  name: string;                   // Point name from template
+  value: string;                  // User-entered value
+  photoCount: number;             // Number of photos attached
+}
+
+/**
+ * EfeFdfPhoto - FDF photo metadata
+ */
+export interface EfeFdfPhoto {
+  attachId: string | null;
+  tempAttachId: string | null;
+  hasPhoto: boolean;
+  hasAnnotations: boolean;
+}
+
+/**
  * VisualField - Normalized field-level storage for visual items
  * Each template item gets one row per service
  * Enables reactive updates and eliminates loading screens
@@ -111,6 +159,7 @@ export class CaspioDB extends Dexie {
   pendingImages!: Table<PendingImage, string>;
   operationsQueue!: Table<QueuedOperation, string>;
   visualFields!: Table<VisualField, number>;
+  efeFields!: Table<EfeField, number>;
 
   constructor() {
     super('CaspioOfflineDB');
@@ -190,6 +239,39 @@ export class CaspioDB extends Dexie {
       // Visual fields (v8) - normalized field-level storage for reactive UI
       // Compound indexes enable fast queries by [serviceId+category] for page rendering
       visualFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt'
+    });
+
+    // Version 9: Add efeFields table for Dexie-first elevation plot architecture
+    // This table stores room-level EFE data for instant page rendering
+    this.version(9).stores({
+      // Local-first image system
+      localImages: 'imageId, entityType, entityId, serviceId, status, attachId, createdAt, [entityType+entityId], [serviceId+entityType]',
+      localBlobs: 'blobId, createdAt',
+      uploadOutbox: 'opId, imageId, nextRetryAt, createdAt',
+
+      // Core sync system
+      pendingRequests: 'requestId, timestamp, status, priority, tempId',
+      tempIdMappings: 'tempId, realId, type',
+
+      // Caching
+      cachedServiceData: 'cacheKey, serviceId, dataType, lastUpdated',
+      cachedTemplates: 'cacheKey, type, lastUpdated',
+      cachedPhotos: 'photoKey, attachId, serviceId, cachedAt',
+
+      // Pending data
+      pendingCaptions: 'captionId, attachId, attachType, status, serviceId, createdAt',
+      pendingEFEData: 'tempId, serviceId, type, parentId',
+      pendingImages: 'imageId, requestId, status, serviceId, visualId',
+
+      // Operations queue
+      operationsQueue: 'id, type, status, createdAt, dedupeKey',
+
+      // Visual fields - normalized field-level storage for reactive UI
+      visualFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // EFE fields (v9) - normalized room-level storage for elevation plot
+      // Compound indexes enable fast queries by serviceId for page rendering
+      efeFields: '++id, key, serviceId, roomName, [serviceId+roomName], efeId, tempEfeId, dirty, updatedAt'
     });
 
     // Log successful database open
@@ -453,6 +535,56 @@ export class CaspioDB extends Dexie {
       this.visualFields.where('serviceId').equals(serviceId).toArray()
     );
     return this.toRxObservable<VisualField[]>(query);
+  }
+
+  // ============================================================================
+  // EFE FIELDS - REACTIVE QUERIES FOR DEXIE-FIRST ARCHITECTURE
+  // ============================================================================
+
+  /**
+   * Live query for all EFE fields (rooms) for a service
+   * This is the primary query for rendering elevation-plot-hub page
+   * Auto-updates when ANY room in the service changes
+   */
+  liveEfeFields$(serviceId: string): Observable<EfeField[]> {
+    const query = liveQuery(() =>
+      this.efeFields.where('serviceId').equals(serviceId).toArray()
+    );
+    return this.toRxObservable<EfeField[]>(query);
+  }
+
+  /**
+   * Live query for a single EFE field (room) by key
+   * Key format: ${serviceId}:${roomName}
+   */
+  liveEfeField$(key: string): Observable<EfeField | undefined> {
+    const query = liveQuery(() =>
+      this.efeFields.where('key').equals(key).first()
+    );
+    return this.toRxObservable<EfeField | undefined>(query);
+  }
+
+  /**
+   * Live query for a single EFE field by service and room name
+   */
+  liveEfeFieldByRoom$(serviceId: string, roomName: string): Observable<EfeField | undefined> {
+    const query = liveQuery(() =>
+      this.efeFields
+        .where('[serviceId+roomName]')
+        .equals([serviceId, roomName])
+        .first()
+    );
+    return this.toRxObservable<EfeField | undefined>(query);
+  }
+
+  /**
+   * Live query for dirty EFE fields (pending sync)
+   */
+  liveDirtyEfeFields$(): Observable<EfeField[]> {
+    const query = liveQuery(() =>
+      this.efeFields.where('dirty').equals(1).toArray()
+    );
+    return this.toRxObservable<EfeField[]>(query);
   }
 }
 
