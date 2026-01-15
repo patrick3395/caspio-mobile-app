@@ -2062,7 +2062,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // FDF photos use roomId as entityId
       fdfImages = localImagesMap.get(String(this.roomId)) || [];
     } else {
-      const allFdfImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_fdf');
+      const allFdfImages = await this.localImageService.getImagesForService(this.serviceId, 'fdf');
       fdfImages = allFdfImages.filter((img: any) => String(img.entityId) === String(this.roomId));
     }
 
