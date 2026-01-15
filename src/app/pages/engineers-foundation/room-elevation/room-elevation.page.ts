@@ -1837,23 +1837,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     this.roomId = existingField.efeId || existingField.tempEfeId || '';
     this.lastLoadedRoomId = this.roomId;
 
-    // CRITICAL FIX: Populate roomData IMMEDIATELY from existingField
-    // This ensures page has data even if liveQuery subscription fails
-    // (IndexedDB internal errors can cause subscription to error immediately)
+    // CRITICAL: Initialize roomData with EMPTY elevationPoints
+    // loadElevationPoints() will populate the points AND run STEP 5.5 to auto-create them
+    // DO NOT pre-populate elevationPoints - loadElevationPoints() pushes to the array
     this.roomData = {
       roomName: existingField.roomName,
       templateId: existingField.templateId,
       notes: existingField.notes || '',
       fdf: existingField.fdf || '',
       location: existingField.location || '',
-      elevationPoints: existingField.elevationPoints.map(ep => ({
-        name: ep.name,
-        pointId: ep.pointId || ep.tempPointId,
-        pointNumber: ep.pointNumber,
-        value: ep.value || '',
-        photos: [],  // Photos loaded separately via loadElevationPoints()
-        expanded: false
-      })),
+      elevationPoints: [],  // EMPTY - loadElevationPoints() handles this AND creates points in sync queue
       fdfPhotos: {
         top: existingField.fdfPhotos?.['top'] || null,
         bottom: existingField.fdfPhotos?.['bottom'] || null,
@@ -1862,7 +1855,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         threshold: existingField.fdfPhotos?.['threshold'] || null
       }
     };
-    alert(`[DEBUG 3.5] roomData populated immediately from existingField`);
+    alert(`[DEBUG 3.5] roomData initialized (elevationPoints empty, will be populated by loadElevationPoints)`);
     this.changeDetectorRef.detectChanges();
 
     // ==========================================================================
@@ -1892,39 +1885,27 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             return;
           }
 
-          // Update roomData from reactive EfeField update
-          // Preserve existing photos since they're loaded separately
-          const existingPhotos = new Map<number, any[]>();
-          if (this.roomData?.elevationPoints) {
-            this.roomData.elevationPoints.forEach((ep: any) => {
-              if (ep.photos?.length > 0) {
-                existingPhotos.set(ep.pointNumber, ep.photos);
-              }
-            });
-          }
+          // CRITICAL: Only update metadata from liveQuery, NOT elevationPoints
+          // loadElevationPoints() properly loaded points with pointIds and photos
+          // EfeField may not have the created pointIds (only template data)
+          // Overwriting elevationPoints would lose the pointIds and break buttons
+          if (this.roomData) {
+            this.roomData.notes = field.notes || this.roomData.notes;
+            this.roomData.fdf = field.fdf || this.roomData.fdf;
+            this.roomData.location = field.location || this.roomData.location;
 
-          this.roomData = {
-            roomName: field.roomName,
-            templateId: field.templateId,
-            notes: field.notes || '',
-            fdf: field.fdf || '',
-            location: field.location || '',
-            elevationPoints: field.elevationPoints.map(ep => ({
-              name: ep.name,
-              pointId: ep.pointId || ep.tempPointId,
-              pointNumber: ep.pointNumber,
-              value: ep.value || '',
-              photos: existingPhotos.get(ep.pointNumber) || [],  // Preserve existing photos
-              expanded: false
-            })),
-            fdfPhotos: {
-              top: field.fdfPhotos?.['top'] || null,
-              bottom: field.fdfPhotos?.['bottom'] || null,
-              topDetails: field.fdfPhotos?.['topDetails'] || null,
-              bottomDetails: field.fdfPhotos?.['bottomDetails'] || null,
-              threshold: field.fdfPhotos?.['threshold'] || null
+            // Update point values from Dexie (but preserve pointId and photos)
+            if (field.elevationPoints && this.roomData.elevationPoints) {
+              for (const efePoint of field.elevationPoints) {
+                const existingPoint = this.roomData.elevationPoints.find(
+                  (p: any) => p.pointNumber === efePoint.pointNumber || p.name === efePoint.name
+                );
+                if (existingPoint && efePoint.value) {
+                  existingPoint.value = efePoint.value;
+                }
+              }
             }
-          };
+          }
 
           // Update roomId if it changed (after sync)
           if (field.efeId && this.roomId !== field.efeId) {
@@ -5830,12 +5811,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   isPointReady(point: any): boolean {
-    // Allow interaction with points that have:
-    // - A real pointId (synced)
-    // - A tempPointId (pending sync)
-    // - Just a name/pointNumber (template point - not yet created in DB)
-    // The point ID will be generated when first photo is taken or value entered
-    return !!point.pointId || !!point.tempPointId || !!point.name || !!point.pointNumber;
+    // Point must have a pointId (real or temp) to enable photo buttons
+    // STEP 5.5 in loadElevationPoints() auto-creates points and assigns IDs
+    return !!point.pointId;
   }
 
   isPointPending(point: any): boolean {
