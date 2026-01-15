@@ -65,6 +65,33 @@ export interface PendingImage {
   updatedAt?: number;
 }
 
+/**
+ * VisualField - Normalized field-level storage for visual items
+ * Each template item gets one row per service
+ * Enables reactive updates and eliminates loading screens
+ */
+export interface VisualField {
+  id?: number;                    // Auto-increment primary key
+  key: string;                    // Deterministic: ${serviceId}:${category}:${templateId}
+  serviceId: string;
+  category: string;
+  templateId: number;
+  templateName: string;           // Name from template for display
+  templateText: string;           // Text/description from template
+  kind: 'Comment' | 'Limitation' | 'Deficiency';
+  answerType: number;             // 0=none, 1=text, 2=dropdown
+  dropdownOptions?: string[];     // Parsed dropdown options if answerType=2
+  isSelected: boolean;            // User selected this item
+  answer: string;                 // User's answer/notes
+  otherValue: string;             // "Other" field value
+  visualId: string | null;        // Real visual ID after sync (null if pending)
+  tempVisualId: string | null;    // Temp ID while pending sync
+  photoCount: number;             // Number of photos attached
+  rev: number;                    // Increment on every local write
+  updatedAt: number;              // Date.now() on update
+  dirty: boolean;                 // true until backend sync acknowledges
+}
+
 // ============================================================================
 // DEXIE DATABASE CLASS
 // ============================================================================
@@ -83,6 +110,7 @@ export class CaspioDB extends Dexie {
   pendingEFEData!: Table<PendingEFEData, string>;
   pendingImages!: Table<PendingImage, string>;
   operationsQueue!: Table<QueuedOperation, string>;
+  visualFields!: Table<VisualField, number>;
 
   constructor() {
     super('CaspioOfflineDB');
@@ -132,6 +160,36 @@ export class CaspioDB extends Dexie {
 
       // Operations queue (v7) - replaces localStorage-based persistence
       operationsQueue: 'id, type, status, createdAt, dedupeKey'
+    });
+
+    // Version 8: Add visualFields table for Dexie-first reactive architecture
+    // This table stores field-level visual data for instant page rendering
+    this.version(8).stores({
+      // Local-first image system
+      localImages: 'imageId, entityType, entityId, serviceId, status, attachId, createdAt, [entityType+entityId], [serviceId+entityType]',
+      localBlobs: 'blobId, createdAt',
+      uploadOutbox: 'opId, imageId, nextRetryAt, createdAt',
+
+      // Core sync system
+      pendingRequests: 'requestId, timestamp, status, priority, tempId',
+      tempIdMappings: 'tempId, realId, type',
+
+      // Caching
+      cachedServiceData: 'cacheKey, serviceId, dataType, lastUpdated',
+      cachedTemplates: 'cacheKey, type, lastUpdated',
+      cachedPhotos: 'photoKey, attachId, serviceId, cachedAt',
+
+      // Pending data
+      pendingCaptions: 'captionId, attachId, attachType, status, serviceId, createdAt',
+      pendingEFEData: 'tempId, serviceId, type, parentId',
+      pendingImages: 'imageId, requestId, status, serviceId, visualId',
+
+      // Operations queue
+      operationsQueue: 'id, type, status, createdAt, dedupeKey',
+
+      // Visual fields (v8) - normalized field-level storage for reactive UI
+      // Compound indexes enable fast queries by [serviceId+category] for page rendering
+      visualFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt'
     });
 
     // Log successful database open
@@ -346,6 +404,55 @@ export class CaspioDB extends Dexie {
       return cached?.data || null;
     });
     return this.toRxObservable<any[] | null>(query);
+  }
+
+  // ============================================================================
+  // VISUAL FIELDS - REACTIVE QUERIES FOR DEXIE-FIRST ARCHITECTURE
+  // ============================================================================
+
+  /**
+   * Live query for visual fields by service and category
+   * This is the primary query for rendering category detail pages
+   * Auto-updates when ANY field in the category changes
+   */
+  liveVisualFields$(serviceId: string, category: string): Observable<VisualField[]> {
+    const query = liveQuery(() =>
+      this.visualFields
+        .where('[serviceId+category]')
+        .equals([serviceId, category])
+        .toArray()
+    );
+    return this.toRxObservable<VisualField[]>(query);
+  }
+
+  /**
+   * Live query for a single visual field by key
+   */
+  liveVisualField$(key: string): Observable<VisualField | undefined> {
+    const query = liveQuery(() =>
+      this.visualFields.where('key').equals(key).first()
+    );
+    return this.toRxObservable<VisualField | undefined>(query);
+  }
+
+  /**
+   * Live query for dirty visual fields (pending sync)
+   */
+  liveDirtyVisualFields$(): Observable<VisualField[]> {
+    const query = liveQuery(() =>
+      this.visualFields.where('dirty').equals(1).toArray()
+    );
+    return this.toRxObservable<VisualField[]>(query);
+  }
+
+  /**
+   * Live query for all visual fields for a service (all categories)
+   */
+  liveAllVisualFieldsForService$(serviceId: string): Observable<VisualField[]> {
+    const query = liveQuery(() =>
+      this.visualFields.where('serviceId').equals(serviceId).toArray()
+    );
+    return this.toRxObservable<VisualField[]>(query);
   }
 }
 

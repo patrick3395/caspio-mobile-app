@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { firstValueFrom, Subscription } from 'rxjs';
+import { firstValueFrom, Observable, Subscription } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
 import { OfflineService } from '../../../../services/offline.service';
 import { CameraService } from '../../../../services/camera.service';
@@ -19,7 +19,8 @@ import { OfflineTemplateService } from '../../../../services/offline-template.se
 import { LocalImageService } from '../../../../services/local-image.service';
 import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../../utils/annotation-utils';
 import { AddCustomVisualModalComponent } from '../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
-import { db } from '../../../../services/caspio-db';
+import { db, VisualField } from '../../../../services/caspio-db';
+import { VisualFieldRepoService } from '../../../../services/visual-field-repo.service';
 
 interface VisualItem {
   id: string | number;
@@ -58,7 +59,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   serviceId: string = '';
   categoryName: string = '';
 
-  loading: boolean = false;
+  loading: boolean = true;
   searchTerm: string = '';
   expandedAccordions: string[] = ['information', 'limitations', 'deficiencies'];
   organizedData: {
@@ -111,6 +112,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private localImagesSubscription?: Subscription;
   // Debounce timer for liveQuery updates to prevent multiple rapid change detections
   private liveQueryDebounceTimer: any = null;
+
+  // Dexie-first: Reactive subscription to visualFields for instant page rendering
+  private visualFieldsSubscription?: Subscription;
+  private visualFieldsSeeded: boolean = false;
 
   // Cooldown after local operations to prevent immediate reload
   private localOperationCooldown = false;
@@ -177,7 +182,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private backgroundSync: BackgroundSyncService,
     private offlineTemplate: OfflineTemplateService,
     private localImageService: LocalImageService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private visualFieldRepo: VisualFieldRepoService
   ) {
     // Set up global error handler for this page
     this.setupErrorTracking();
@@ -284,23 +290,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     console.log('[CategoryDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
     if (this.projectId && this.serviceId && this.categoryName) {
-      console.log('[CategoryDetail] All params present, checking cache...');
+      console.log('[CategoryDetail] All params present, initializing reactive data...');
 
-      // Check cache FIRST - only show loading if no cached data
-      // This prevents loading screen flash when data is already cached
-      const cachedTemplates = await this.indexedDb.getCachedTemplates('visual');
-      const hasCachedTemplates = !!(cachedTemplates && cachedTemplates.length > 0);
-
-      if (!hasCachedTemplates) {
-        console.log('[CategoryDetail] No cached templates, showing loading spinner');
-        this.loading = true;
-        this.changeDetectorRef.detectChanges();
-      } else {
-        console.log('[CategoryDetail] Cached templates found, skipping loading spinner');
-      }
-
-      await this.loadData();
-      console.log('[CategoryDetail] loadData() completed');
+      // ===== DEXIE-FIRST: Seed templates and subscribe to reactive updates =====
+      await this.initializeVisualFields();
 
       // NOTE: subscribeToLocalImagesChanges() is now deferred to ionViewDidEnter
       // for faster initial render - subscriptions run after UI is visible
@@ -321,7 +314,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.categoryName = newCategory;
         console.log('[CategoryDetail] Category changed to:', this.categoryName);
         if (this.projectId && this.serviceId) {
-          this.loadData();
+          // Re-initialize for new category (reactive subscription will auto-update)
+          this.initializeVisualFields();
         }
       }
     });
@@ -473,6 +467,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.localImagesSubscription) {
       this.localImagesSubscription.unsubscribe();
     }
+    // Clean up visualFields subscription
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
+    }
     // Clear debounce timers
     if (this.cacheInvalidationDebounceTimer) {
       clearTimeout(this.cacheInvalidationDebounceTimer);
@@ -491,6 +489,150 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // See refreshLocalState() for how we regenerate URLs on page return.
 
     console.log('[CATEGORY DETAIL] Component destroyed, but uploads continue in background');
+  }
+
+  // ============================================================================
+  // DEXIE-FIRST: REACTIVE DATA INITIALIZATION
+  // ============================================================================
+
+  /**
+   * Initialize visual fields for this category using Dexie-first architecture
+   * 1. Seed templates into visualFields (if not already seeded)
+   * 2. Merge existing visuals (user selections)
+   * 3. Subscribe to reactive updates (liveQuery)
+   */
+  private async initializeVisualFields(): Promise<void> {
+    console.time('[CategoryDetail] initializeVisualFields');
+    console.log('[CategoryDetail] Initializing visual fields (Dexie-first)...');
+
+    // Unsubscribe from previous subscription if category changed
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
+      this.visualFieldsSubscription = undefined;
+    }
+
+    // Check if fields exist for this category
+    const hasFields = await this.visualFieldRepo.hasFieldsForCategory(
+      this.serviceId,
+      this.categoryName
+    );
+
+    if (!hasFields) {
+      console.log('[CategoryDetail] No fields found, seeding from templates...');
+
+      // Get templates from cache
+      const templates = await this.indexedDb.getCachedTemplates('visual') || [];
+
+      if (templates.length === 0) {
+        console.warn('[CategoryDetail] No templates in cache, showing loading...');
+        this.loading = true;
+        this.changeDetectorRef.detectChanges();
+        // Fall back to old loadData() for initial template fetch
+        await this.loadData();
+        console.timeEnd('[CategoryDetail] initializeVisualFields');
+        return;
+      }
+
+      // Seed templates into visualFields
+      await this.visualFieldRepo.seedFromTemplates(
+        this.serviceId,
+        this.categoryName,
+        templates
+      );
+
+      // Get existing visuals and merge selections
+      const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
+      await this.visualFieldRepo.mergeExistingVisuals(
+        this.serviceId,
+        this.categoryName,
+        visuals as any[]
+      );
+
+      console.log('[CategoryDetail] Seeding complete');
+    } else {
+      console.log('[CategoryDetail] Fields already exist, using cached data');
+    }
+
+    // Subscribe to reactive updates - this will trigger UI render
+    this.visualFieldsSubscription = this.visualFieldRepo
+      .getFieldsForCategory$(this.serviceId, this.categoryName)
+      .subscribe({
+        next: (fields) => {
+          console.log(`[CategoryDetail] Received ${fields.length} fields from liveQuery`);
+          this.convertFieldsToOrganizedData(fields);
+          this.loading = false;
+          this.changeDetectorRef.detectChanges();
+        },
+        error: (err) => {
+          console.error('[CategoryDetail] Error in visualFields subscription:', err);
+          this.loading = false;
+          this.changeDetectorRef.detectChanges();
+        }
+      });
+
+    // Update tracking variables
+    this.lastLoadedServiceId = this.serviceId;
+    this.lastLoadedCategoryName = this.categoryName;
+    this.initialLoadComplete = true;
+
+    console.timeEnd('[CategoryDetail] initializeVisualFields');
+  }
+
+  /**
+   * Convert VisualField[] from Dexie to organizedData structure for rendering
+   * This transforms the flat field list into categorized sections
+   */
+  private convertFieldsToOrganizedData(fields: VisualField[]): void {
+    // Reset organized data
+    this.organizedData = {
+      comments: [],
+      limitations: [],
+      deficiencies: []
+    };
+    this.selectedItems = {};
+
+    // Convert each field to VisualItem and add to appropriate section
+    for (const field of fields) {
+      const item: VisualItem = {
+        id: field.visualId || field.tempVisualId || field.templateId,
+        templateId: field.templateId,
+        name: field.templateName,
+        text: field.templateText,
+        originalText: field.templateText,
+        type: field.kind,
+        category: field.category,
+        answerType: field.answerType,
+        required: false,
+        answer: field.answer,
+        isSelected: field.isSelected,
+        photos: [],
+        otherValue: field.otherValue,
+        key: field.key
+      };
+
+      // Store dropdown options
+      if (field.dropdownOptions) {
+        this.visualDropdownOptions[field.templateId] = field.dropdownOptions;
+      }
+
+      // Add to appropriate section
+      if (field.kind === 'Comment') {
+        this.organizedData.comments.push(item);
+      } else if (field.kind === 'Limitation') {
+        this.organizedData.limitations.push(item);
+      } else if (field.kind === 'Deficiency') {
+        this.organizedData.deficiencies.push(item);
+      }
+
+      // Track selection state
+      const selectionKey = `${field.category}_${field.templateId}`;
+      this.selectedItems[selectionKey] = field.isSelected;
+
+      // Set photo count (will be updated by photo loading)
+      this.photoCountsByKey[selectionKey] = field.photoCount;
+    }
+
+    console.log(`[CategoryDetail] Organized: ${this.organizedData.comments.length} comments, ${this.organizedData.limitations.length} limitations, ${this.organizedData.deficiencies.length} deficiencies`);
   }
 
   /**
@@ -3458,9 +3600,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.selectedItems[key] = newState;
 
     console.log('[TOGGLE] Item:', key, 'Selected:', newState);
-    
+
     // Set cooldown to prevent cache invalidation from causing UI flash
     this.startLocalOperationCooldown();
+
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    // The liveQuery subscription will automatically update the UI
+    const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
+    this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+      isSelected: newState
+    }).catch(err => {
+      console.error('[TOGGLE] Failed to write to Dexie:', err);
+    });
 
     if (newState) {
       // Item was checked - create visual record if it doesn't exist, or unhide if it exists
@@ -3533,6 +3684,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async onAnswerChange(category: string, item: VisualItem) {
     const key = `${category}_${item.id}`;
     console.log('[ANSWER] Changed:', item.answer, 'for', key);
+
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+      answer: item.answer || '',
+      isSelected: !!(item.answer && item.answer !== '')
+    }).catch(err => {
+      console.error('[ANSWER] Failed to write to Dexie:', err);
+    });
 
     this.savingItems[key] = true;
 
@@ -3618,6 +3777,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     item.answer = selectedOptions.join(', ');
+
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+      answer: item.answer,
+      isSelected: selectedOptions.length > 0 || !!(item.otherValue && item.otherValue !== '')
+    }).catch(err => {
+      console.error('[OPTION] Failed to write to Dexie:', err);
+    });
 
     // Save to database
     this.savingItems[key] = true;
