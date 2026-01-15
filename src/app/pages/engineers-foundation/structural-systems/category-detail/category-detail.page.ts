@@ -1497,6 +1497,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               this.indexedDb.updateEntityIdForImages(String(previousRecordId), visualId).catch(err => {
                 console.error(`[RELOAD AFTER SYNC] Failed to update LocalImage entityIds:`, err);
               });
+
+              // US-002 FIX: Update VisualField.visualId in Dexie with the real ID
+              // This ensures populatePhotosFromDexie can find photos on page reload
+              // because VisualField.visualId will now match LocalImages.entityId
+              if (templateId) {
+                this.visualFieldRepo.setField(this.serviceId, this.categoryName, templateId, {
+                  visualId: visualId,
+                  tempVisualId: null  // Clear temp ID since we now have real ID
+                }).catch(err => {
+                  console.error(`[RELOAD AFTER SYNC] Failed to update VisualField.visualId:`, err);
+                });
+                console.log(`[RELOAD AFTER SYNC] Updated VisualField.visualId: ${templateId} -> ${visualId}`);
+              }
             }
 
             // Store the visual record ID for later operations (select/unselect/photo uploads)
