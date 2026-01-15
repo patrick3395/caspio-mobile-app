@@ -46,7 +46,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   serviceId: string = '';
   categoryName: string = '';
 
-  loading: boolean = true;
+  loading: boolean = false;  // Start false - show cached data instantly, only show spinner if cache empty
+  isRefreshing: boolean = false;  // Track background refresh status
   searchTerm: string = '';
   expandedAccordions: string[] = []; // Start collapsed
   organizedData: {
@@ -324,22 +325,33 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   private async loadData() {
-    this.loading = true;
+    console.log('[LOAD DATA] ========== STARTING CACHE-FIRST DATA LOAD ==========');
 
     try {
-      // CRITICAL: Clear cache to force fresh data load
-      console.log('[LOAD DATA] ========== STARTING DATA LOAD ==========');
-      console.log('[LOAD DATA] Clearing HUD data service cache...');
-      this.hudData.clearServiceCaches(this.serviceId);
-      
-      // Clear all state for fresh load
-      console.log('[LOAD DATA] Clearing all component state for fresh load');
-      this.visualPhotos = {};
-      this.visualRecordIds = {};
-      this.uploadingPhotosByKey = {};
-      this.loadingPhotosByKey = {};
-      this.photoCountsByKey = {};
-      this.selectedItems = {};
+      // STEP 1: Check if we have cached visuals data - if so, skip loading spinner
+      const cachedVisuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals');
+      const hasCachedData = cachedVisuals && cachedVisuals.length > 0;
+
+      if (hasCachedData) {
+        console.log('[LOAD DATA] ✅ Cache HIT - Found', cachedVisuals.length, 'cached visuals, loading instantly');
+        // Don't show loading spinner - display cached data immediately
+        this.loading = false;
+      } else {
+        console.log('[LOAD DATA] ⏳ Cache MISS - No cached data, showing loading spinner');
+        this.loading = true;
+      }
+
+      // Reset state but preserve any photo data during background refresh
+      if (!hasCachedData) {
+        // Only fully clear state on initial load (cache empty)
+        this.visualPhotos = {};
+        this.visualRecordIds = {};
+        this.uploadingPhotosByKey = {};
+        this.loadingPhotosByKey = {};
+        this.photoCountsByKey = {};
+        this.selectedItems = {};
+      }
+
       this.organizedData = {
         comments: [],
         limitations: [],
@@ -354,9 +366,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       console.log('[LOAD DATA] Step 2: Loading templates...');
       await this.loadCategoryTemplates();
 
-      // Load existing visuals
-      console.log('[LOAD DATA] Step 3: Loading existing visuals...');
-      await this.loadExistingVisuals();
+      // Load existing visuals - use cache for instant display, background refresh for freshness
+      console.log('[LOAD DATA] Step 3: Loading existing visuals (cache-first)...');
+      await this.loadExistingVisuals(!!hasCachedData);
 
       // Restore any pending photos from IndexedDB (offline uploads)
       console.log('[LOAD DATA] Step 4: Restoring pending photos...');
@@ -366,7 +378,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       console.log('[LOAD DATA] Final state - visualRecordIds:', this.visualRecordIds);
       console.log('[LOAD DATA] Final state - selectedItems:', this.selectedItems);
 
-      // Show page
+      // Hide loading spinner (if it was shown)
       this.loading = false;
 
     } catch (error) {
@@ -495,16 +507,25 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  private async loadExistingVisuals() {
+  private async loadExistingVisuals(useCacheFirst: boolean = false) {
     try {
       // Load all existing HUD visuals for this service and category
       console.log('[LOAD EXISTING] ========== START ==========');
       console.log('[LOAD EXISTING] ServiceID:', this.serviceId);
       console.log('[LOAD EXISTING] Category to match:', this.categoryName);
-      
-      // CRITICAL: Bypass cache to get fresh data
-      const allVisuals = await this.hudData.getVisualsByService(this.serviceId, true);
-      console.log('[LOAD EXISTING] Total visuals from API (fresh, no cache):', allVisuals.length);
+      console.log('[LOAD EXISTING] UseCacheFirst:', useCacheFirst);
+
+      // CACHE-FIRST PATTERN: Use cached data for instant display, then refresh in background
+      // If useCacheFirst is true, we use cache (bypassCache=false) and trigger background refresh
+      // If useCacheFirst is false (cache was empty), we do a blocking API call
+      const allVisuals = await this.hudData.getVisualsByService(this.serviceId, !useCacheFirst);
+
+      // If we used cache, schedule a background refresh for freshness
+      if (useCacheFirst && this.offlineService.isOnline()) {
+        this.triggerBackgroundRefresh();
+      }
+
+      console.log('[LOAD EXISTING] Total visuals:', allVisuals.length, useCacheFirst ? '(from cache)' : '(from API)');
       console.log('[LOAD EXISTING] All visuals:', allVisuals);
       
       const categoryVisuals = allVisuals.filter((v: any) => v.Category === this.categoryName);
@@ -627,6 +648,81 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
     } catch (error) {
       console.error('[LOAD EXISTING] ❌ Error loading existing visuals:', error);
+    }
+  }
+
+  /**
+   * Trigger a background refresh to update cached data without blocking the UI
+   * This ensures data stays fresh while providing instant page loads
+   */
+  private triggerBackgroundRefresh(): void {
+    console.log('[BACKGROUND REFRESH] Scheduling background data refresh...');
+    this.isRefreshing = true;
+
+    // Use setTimeout to ensure this runs after the current render cycle
+    setTimeout(async () => {
+      try {
+        console.log('[BACKGROUND REFRESH] Starting background refresh...');
+
+        // Fetch fresh data from API (bypass cache)
+        const freshVisuals = await this.hudData.getVisualsByService(this.serviceId, true);
+        console.log('[BACKGROUND REFRESH] Fetched', freshVisuals.length, 'fresh visuals');
+
+        // Cache the fresh data in IndexedDB for future instant loads
+        await this.indexedDb.cacheServiceData(this.serviceId, 'visuals', freshVisuals);
+        console.log('[BACKGROUND REFRESH] Cached fresh data to IndexedDB');
+
+        // Update UI with fresh data (preserving photos that are uploading)
+        const categoryVisuals = freshVisuals.filter((v: any) => v.Category === this.categoryName);
+        await this.processVisualsUpdate(categoryVisuals);
+
+        this.isRefreshing = false;
+        this.changeDetectorRef.detectChanges();
+        console.log('[BACKGROUND REFRESH] ✅ Background refresh complete');
+      } catch (error) {
+        console.error('[BACKGROUND REFRESH] ❌ Error during background refresh:', error);
+        this.isRefreshing = false;
+      }
+    }, 100);
+  }
+
+  /**
+   * Process visual updates from background refresh without losing upload state
+   */
+  private async processVisualsUpdate(categoryVisuals: any[]): Promise<void> {
+    // Get all available template items
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+
+    for (const visual of categoryVisuals) {
+      // Skip hidden visuals
+      if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
+        continue;
+      }
+
+      const hudId = String(visual.HUDID || visual.PK_ID || visual.id);
+      const item = allItems.find(i => i.name === visual.Name);
+
+      if (item) {
+        const key = `${this.categoryName}_${item.id}`;
+
+        // Update selection state and record ID
+        this.selectedItems[key] = true;
+        this.visualRecordIds[key] = hudId;
+
+        // Update answer but preserve any local edits
+        if (!item.answer && visual.Answers) {
+          item.answer = visual.Answers;
+        }
+
+        // Only load photos if we don't already have them (preserve uploading photos)
+        if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
+          await this.loadPhotosForVisual(hudId, key);
+        }
+      }
     }
   }
 
