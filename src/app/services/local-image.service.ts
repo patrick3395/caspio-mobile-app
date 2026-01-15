@@ -600,7 +600,11 @@ export class LocalImageService {
       URL.revokeObjectURL(cachedUrl);
       this.blobUrlCache.delete(image.localBlobId);
     }
-    
+
+    // US-002 FIX: Invalidate displayUrlCache so stale blob URL is not returned
+    // This prevents the cached (now revoked) blob URL from being returned
+    this.displayUrlCache.delete(imageId);
+
     // Prune via IndexedDB
     await this.indexedDb.pruneLocalBlob(imageId);
     
