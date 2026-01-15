@@ -1,25 +1,35 @@
 {
-  "name": "Caspio Mobile App - Page Loading & Refresh Issues",
-  "branchName": "feature/page-loading-optimization",
+  "name": "Caspio Mobile App - Dexie-First Implementation",
+  "branchName": "feature/dexie-first-implementation",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Reduce Category/Room Page Load Times (Zero Data Loss)",
-      "description": "Loading category or room pages shows loading screen EVERY TIME page opens. User navigates in/out many times per report causing major delays. Using IndexedDB with Dexie liveQuery wrapper. Images are rolled up (lazy load on expand) so should NOT cause load delays. CRITICAL: Cannot lose live updates, data, or images. Every IndexedDB change should update cache to retain loaded info.",
+      "title": "Category Detail - Fix Remaining Dexie-First Photo Issues",
+      "description": "The category-detail page's Dexie-first implementation is almost working perfectly. Two remaining issues need resolution.",
+      "page": "src/app/pages/engineers-foundation/structural-systems/category-detail",
+      "issues": [
+        {
+          "id": "ISSUE-1A",
+          "title": "Photo Disappears After Syncing",
+          "description": "After syncing, the photo disappears from the UI. The implementation should continue to point to local data storage and NOT swap to synced server data. LocalImages should remain the source of truth for display."
+        },
+        {
+          "id": "ISSUE-1B",
+          "title": "Photo Thumbnail Missing Annotations on Reload",
+          "description": "On reload of the page, the photo thumbnail does not show annotations. Annotations should persist and display correctly after page reload."
+        }
+      ],
       "acceptanceCriteria": [
-        "No loading screen on return visits to cached pages",
-        "Pages load instantly when data already in IndexedDB",
-        "ALL images display correctly when expanded",
-        "Live updates still work (liveQuery subscriptions)",
-        "No data loss during optimization",
-        "Captions/annotations persist",
-        "Zero functionality regression"
+        "Photos remain visible after sync completes (local data reference maintained)",
+        "Annotations display correctly on photo thumbnails after page reload",
+        "No regression to existing Dexie-first functionality",
+        "Visual selections remain stable (no deselection issues)"
       ],
       "technicalContext": [
-        "IndexedDB with Dexie wrapper has liveQuery for reactive updates",
-        "Need cache strategy that returns cached data instantly",
-        "Updates cache on every IndexedDB change",
-        "Never blocks UI for data already loaded"
+        "LocalImages table stores photos with stable imageId",
+        "displayUrl should always point to local blob, never swap to server URL",
+        "Annotations are stored in cachedAnnotatedImages table",
+        "Sync should update metadata only, not displayUrl"
       ],
       "priority": 1,
       "passes": true,
@@ -28,27 +38,117 @@
     },
     {
       "id": "US-002",
-      "title": "Hard Refreshes - 'Preparing Template' Screen (NOT FIXED - REINTRODUCED)",
-      "description": "CRITICAL - NOT FIXED. Hard refreshes show 'Preparing Template' screen. Was fixed in previous GitHub solution but issue reintroduced. SUSPECTED ROOT CAUSES: (1) Page flag being marked false causing reload, (2) 5-minute cache TTL expiring triggers full page refresh instead of background update.",
-      "acceptanceCriteria": [
-        "No hard refreshes during any normal operation",
-        "No 'Preparing Template' screen after initial load",
-        "App remains stable throughout user session",
-        "Root cause identified and permanently resolved"
+      "title": "Elevation Plot Hub - Implement Dexie-First for Rooms List",
+      "description": "Implement Dexie-first approach for the elevation-plot-hub page. The elevation plot section has a different data structure than structural systems, so a NEW Dexie table is needed for elevation plot data.",
+      "page": "src/app/pages/engineers-foundation/elevation-plot-hub",
+      "issues": [
+        {
+          "id": "ISSUE-2A",
+          "title": "Photo Does Not Show on Original Load",
+          "description": "When adding an image, it is completely gone immediately - does not appear in the UI after capture."
+        },
+        {
+          "id": "ISSUE-2B",
+          "title": "Photo Does Not Persist on Page Reload",
+          "description": "Photos disappear when navigating away and returning to the page, or on hard refresh."
+        },
+        {
+          "id": "ISSUE-2C",
+          "title": "Photo Disappears After Sync",
+          "description": "After syncing, photos disappear. Implementation should point locally so sync should not change the image display."
+        },
+        {
+          "id": "ISSUE-2D",
+          "title": "Annotations and Captions Do Not Persist",
+          "description": "User-added annotations and captions are lost on navigation or reload."
+        }
       ],
-      "investigationSteps": [
-        "Check page dirty flags being reset incorrectly",
-        "Check 5-minute cache TTL triggering full refresh",
-        "Review previous GitHub fix that resolved this",
-        "Find what reintroduced the bug"
+      "acceptanceCriteria": [
+        "New Dexie table created for elevation plot data (efeFields or similar)",
+        "Photos display immediately after capture",
+        "Photos persist after page navigation and reload",
+        "Photos remain visible after sync (local data reference maintained)",
+        "Annotations and captions persist across navigation/reload",
+        "Room selection state persists correctly",
+        "No regression to existing room creation/rename/delete functionality"
+      ],
+      "technicalContext": [
+        "Elevation plot uses EFEID, RoomName, Point1-Point20 structure",
+        "Different from structural systems VisualFieldRepo pattern",
+        "Need EFE-specific repository service (e.g., EfeFieldRepo)",
+        "Must integrate with existing EFE room sync process without breaking it"
       ],
       "priority": 2,
       "passes": true,
       "dependsOn": [],
       "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "US-003",
+      "title": "Room Elevation - Implement Dexie-First for Room Details",
+      "description": "Implement Dexie-first approach for the room-elevation page (individual room detail view with elevation points). Uses same new Dexie table as elevation-plot-hub.",
+      "page": "src/app/pages/engineers-foundation/room-elevation",
+      "issues": [
+        {
+          "id": "ISSUE-3A",
+          "title": "Photo Does Not Show on Original Load",
+          "description": "When adding an image to an elevation point, it is completely gone immediately - does not appear in the UI after capture."
+        },
+        {
+          "id": "ISSUE-3B",
+          "title": "Photo Does Not Persist on Page Reload",
+          "description": "Photos disappear when navigating away and returning to the room, or on hard refresh."
+        },
+        {
+          "id": "ISSUE-3C",
+          "title": "Photo Disappears After Sync",
+          "description": "After syncing, photos disappear. Implementation should point locally so sync should not change the image display."
+        },
+        {
+          "id": "ISSUE-3D",
+          "title": "Annotations and Captions Do Not Persist",
+          "description": "User-added annotations and captions on elevation point photos are lost on navigation or reload."
+        }
+      ],
+      "acceptanceCriteria": [
+        "Uses same Dexie table as elevation-plot-hub",
+        "Elevation point photos display immediately after capture",
+        "Photos persist after page navigation and reload",
+        "Photos remain visible after sync (local data reference maintained)",
+        "Annotations and captions persist across navigation/reload",
+        "FDF photos also follow Dexie-first pattern",
+        "Point values (elevation readings) persist correctly",
+        "Notes, Location, FDF fields persist correctly"
+      ],
+      "technicalContext": [
+        "Room has multiple elevation points (Point1-Point20)",
+        "Each point can have multiple photos",
+        "FDF section has separate photo slots (top, bottom, etc.)",
+        "Must integrate with existing EFE point sync process without breaking it"
+      ],
+      "priority": 3,
+      "passes": true,
+      "dependsOn": [
+        "US-002"
+      ],
+      "completionNotes": "Completed by agent"
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-15T01:03:22.719Z"
+    "updatedAt": "2026-01-15T17:28:57.717Z",
+    "previousStories": [
+      {
+        "id": "US-001-OLD",
+        "title": "Reduce Category/Room Page Load Times (Zero Data Loss)",
+        "status": "completed",
+        "completionNotes": "Completed by agent"
+      },
+      {
+        "id": "US-002-OLD",
+        "title": "Hard Refreshes - 'Preparing Template' Screen",
+        "status": "completed",
+        "completionNotes": "Completed by agent"
+      }
+    ]
   }
 }
