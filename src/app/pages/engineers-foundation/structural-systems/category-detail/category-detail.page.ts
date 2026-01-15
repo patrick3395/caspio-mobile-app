@@ -3770,13 +3770,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.startLocalOperationCooldown();
 
     // DEXIE-FIRST: Write-through to visualFields for instant reactive update
-    // The liveQuery subscription will automatically update the UI
+    // MUST await to prevent race condition where liveQuery fires before write completes
     const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
-    this.visualFieldRepo.setField(this.serviceId, category, templateId, {
-      isSelected: newState
-    }).catch(err => {
+    try {
+      await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+        isSelected: newState
+      });
+      console.log('[TOGGLE] Persisted isSelected to Dexie:', newState);
+    } catch (err) {
       console.error('[TOGGLE] Failed to write to Dexie:', err);
-    });
+    }
 
     if (newState) {
       // Item was checked - create visual record if it doesn't exist, or unhide if it exists
@@ -5070,6 +5073,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Store the visual ID for photo uploads
       this.visualRecordIds[key] = visualId;
+
+      // DEXIE-FIRST: Persist tempVisualId to VisualField for photo matching after reload
+      // This MUST happen before any photo upload so populatePhotosFromDexie can match photos to fields
+      const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
+      try {
+        await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+          tempVisualId: visualId  // Always a temp ID at this point (temp_visual_xxx)
+        });
+        console.log('[SAVE VISUAL] Persisted tempVisualId to Dexie:', visualId);
+      } catch (err) {
+        console.error('[SAVE VISUAL] Failed to persist tempVisualId:', err);
+      }
 
       // Clear PDF cache so new PDFs show updated data
       this.clearPdfCache();
