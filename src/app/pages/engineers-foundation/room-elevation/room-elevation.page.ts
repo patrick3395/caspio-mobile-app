@@ -5830,7 +5830,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   isPointReady(point: any): boolean {
-    return !!point.pointId;
+    // Allow interaction with points that have:
+    // - A real pointId (synced)
+    // - A tempPointId (pending sync)
+    // - Just a name/pointNumber (template point - not yet created in DB)
+    // The point ID will be generated when first photo is taken or value entered
+    return !!point.pointId || !!point.tempPointId || !!point.name || !!point.pointNumber;
   }
 
   isPointPending(point: any): boolean {
