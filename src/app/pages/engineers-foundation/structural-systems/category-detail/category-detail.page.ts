@@ -5068,12 +5068,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Store the visual ID for photo uploads
       this.visualRecordIds[key] = visualId;
 
-      // DEXIE-FIRST: Update VisualField with visualId so photos can be matched on reload
-      const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : Number(itemId);
-      const isTempId = visualId.startsWith('temp_');
-      await this.visualFieldRepo.setField(this.serviceId, category, templateId, 
-        isTempId ? { tempVisualId: visualId } : { visualId: visualId }
-      );
+      // DEXIE-FIRST: Persist tempVisualId to VisualField for photo matching after reload
+      // MUST await to prevent race conditions with liveQuery on mobile
+      const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
+      try {
+        await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+          tempVisualId: visualId  // Always a temp ID at this point (temp_visual_xxx)
+        });
+        console.log('[SAVE VISUAL] Persisted tempVisualId to Dexie:', visualId);
+      } catch (err) {
+        console.error('[SAVE VISUAL] Failed to persist tempVisualId:', err);
+      }
 
       // Clear PDF cache so new PDFs show updated data
       this.clearPdfCache();
