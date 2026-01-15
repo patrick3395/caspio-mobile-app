@@ -770,13 +770,39 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Store visual record ID for photo operations
       this.visualRecordIds[key] = visualId;
 
-      // US-002 FIX: Lookup by real ID first, fallback to temp ID
-      // After sync, VisualField.visualId gets updated to real ID but LocalImage.entityId
-      // may still have temp ID until updateEntityIdForImages runs
+      // US-002 FIX: Lookup by real ID first, fallback to temp ID, then check temp-to-real mapping
+      // After sync, LocalImages.entityId is updated to real ID but VisualField may still have tempId
       let localImages = realId ? (localImagesMap.get(realId) || []) : [];
       const foundWithRealId = localImages.length;
+      let foundWithTempId = 0;
+      let foundWithMappedId = 0;
+      let mappedRealId: string | null = null;
+
+      // Try tempId lookup
       if (localImages.length === 0 && tempId && tempId !== realId) {
         localImages = localImagesMap.get(tempId) || [];
+        foundWithTempId = localImages.length;
+      }
+
+      // US-002 FIX: If still no photos and we have tempId, check IndexedDB for temp-to-real mapping
+      // This handles the case where sync updated LocalImages.entityId to real ID but VisualField
+      // was never updated (e.g., user reloaded page after sync)
+      if (localImages.length === 0 && tempId) {
+        mappedRealId = await this.indexedDb.getRealId(tempId);
+        if (mappedRealId) {
+          localImages = localImagesMap.get(mappedRealId) || [];
+          foundWithMappedId = localImages.length;
+
+          // Also update VisualField with the real ID so future lookups work directly
+          if (localImages.length > 0 && field.templateId) {
+            this.visualFieldRepo.setField(this.serviceId, this.categoryName, field.templateId, {
+              visualId: mappedRealId,
+              tempVisualId: null
+            }).catch(err => {
+              console.error('[US-002] Failed to update VisualField with mapped realId:', err);
+            });
+          }
+        }
       }
 
       // ===== US-002 DEBUG: Photo lookup ID resolution =====
@@ -785,8 +811,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           `key: ${key}\n` +
           `realId: ${realId || 'null'}\n` +
           `tempId: ${tempId || 'null'}\n` +
+          `mappedRealId: ${mappedRealId || 'null'}\n` +
           `found with realId: ${foundWithRealId}\n` +
-          `found with tempId: ${localImages.length - foundWithRealId}\n` +
+          `found with tempId: ${foundWithTempId}\n` +
+          `found with mappedId: ${foundWithMappedId}\n` +
           `total found: ${localImages.length}`);
       }
       // ===== END US-002 DEBUG =====

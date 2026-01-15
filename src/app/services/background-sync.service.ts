@@ -887,6 +887,15 @@ export class BackgroundSyncService {
           
           if (serviceId && visualId) {
             console.log(`[BackgroundSync] Visual created - emitting visualSyncComplete for serviceId=${serviceId}, visualId=${visualId}`);
+
+            // US-002 FIX: Store temp-to-real ID mapping for visuals
+            // This allows populatePhotosFromDexie to find photos on page reload
+            // when VisualField still has tempId but LocalImages.entityId was updated to realId
+            if (request.tempId) {
+              await this.indexedDb.mapTempId(request.tempId, String(visualId), 'visual');
+              console.log(`[BackgroundSync] ✅ Stored visual ID mapping: ${request.tempId} -> ${visualId}`);
+            }
+
             this.ngZone.run(() => {
               this.visualSyncComplete$.next({
                 serviceId: String(serviceId),
