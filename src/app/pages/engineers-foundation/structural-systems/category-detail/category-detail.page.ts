@@ -116,6 +116,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Dexie-first: Reactive subscription to visualFields for instant page rendering
   private visualFieldsSubscription?: Subscription;
   private visualFieldsSeeded: boolean = false;
+  // Dexie-first: Store fields reference for reactive photo updates
+  private lastConvertedFields: VisualField[] = [];
 
   // Cooldown after local operations to prevent immediate reload
   private localOperationCooldown = false;
@@ -553,13 +555,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[CategoryDetail] Fields already exist, using cached data');
     }
 
+    // DEXIE-FIRST: Set up LocalImages subscription FIRST (before fields subscription)
+    // This ensures bulkLocalImagesMap is populated when populatePhotosFromDexie() runs
+    if (!this.localImagesSubscription && this.serviceId) {
+      this.subscribeToLocalImagesChanges();
+    }
+
     // Subscribe to reactive updates - this will trigger UI render
     this.visualFieldsSubscription = this.visualFieldRepo
       .getFieldsForCategory$(this.serviceId, this.categoryName)
       .subscribe({
-        next: (fields) => {
+        next: async (fields) => {
           console.log(`[CategoryDetail] Received ${fields.length} fields from liveQuery`);
           this.convertFieldsToOrganizedData(fields);
+
+          // DEXIE-FIRST: Populate photos from Dexie LocalImages
+          await this.populatePhotosFromDexie(fields);
+
           this.loading = false;
           this.changeDetectorRef.detectChanges();
         },
@@ -583,6 +595,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * This transforms the flat field list into categorized sections
    */
   private convertFieldsToOrganizedData(fields: VisualField[]): void {
+    // DEXIE-FIRST: Store fields reference for reactive photo updates
+    this.lastConvertedFields = fields;
+
     // Reset organized data
     this.organizedData = {
       comments: [],
@@ -633,6 +648,94 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     console.log(`[CategoryDetail] Organized: ${this.organizedData.comments.length} comments, ${this.organizedData.limitations.length} limitations, ${this.organizedData.deficiencies.length} deficiencies`);
+  }
+
+  /**
+   * DEXIE-FIRST: Populate visualPhotos from Dexie LocalImages
+   * Called after convertFieldsToOrganizedData to render photos from Dexie data
+   * This is the Dexie-first approach for photos - no manual loading, just reactive data
+   */
+  private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
+    console.log('[DEXIE-FIRST] Populating photos from Dexie LocalImages...');
+
+    for (const field of fields) {
+      // Get visual ID (either synced ID or temp ID)
+      const visualId = field.visualId || field.tempVisualId;
+      if (!visualId) continue;
+
+      const key = `${field.category}_${field.templateId}`;
+
+      // Store visual record ID for photo operations
+      this.visualRecordIds[key] = visualId;
+
+      // Get LocalImages from bulkLocalImagesMap (populated by Dexie liveQuery)
+      const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+
+      if (localImages.length === 0) continue;
+
+      // Initialize photos array if not exists
+      if (!this.visualPhotos[key]) {
+        this.visualPhotos[key] = [];
+      }
+
+      // Track already loaded photos to avoid duplicates
+      const loadedPhotoIds = new Set<string>();
+      for (const p of this.visualPhotos[key]) {
+        if (p.imageId) loadedPhotoIds.add(p.imageId);
+        if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
+      }
+
+      // Add LocalImages to visualPhotos
+      for (const localImage of localImages) {
+        const imageId = localImage.imageId;
+
+        // Skip if already loaded
+        if (loadedPhotoIds.has(imageId)) continue;
+        if (localImage.attachId && loadedPhotoIds.has(localImage.attachId)) continue;
+
+        // Get display URL from LocalImageService
+        let displayUrl = 'assets/img/photo-placeholder.png';
+        try {
+          displayUrl = await this.localImageService.getDisplayUrl(localImage);
+        } catch (e) {
+          console.warn('[DEXIE-FIRST] Failed to get displayUrl:', e);
+        }
+
+        // Add photo to array (same format as existing photo loading)
+        this.visualPhotos[key].unshift({
+          AttachID: localImage.attachId || localImage.imageId,
+          attachId: localImage.attachId || localImage.imageId,
+          id: localImage.attachId || localImage.imageId,
+          imageId: localImage.imageId,
+          localImageId: localImage.imageId,
+          localBlobId: localImage.localBlobId,
+          displayUrl: displayUrl,
+          url: displayUrl,
+          thumbnailUrl: displayUrl,
+          originalUrl: displayUrl,
+          name: localImage.fileName,
+          caption: localImage.caption || '',
+          annotation: localImage.caption || '',
+          Annotation: localImage.caption || '',
+          Drawings: localImage.drawings || null,
+          hasAnnotations: !!localImage.drawings && localImage.drawings.length > 10,
+          loading: false,
+          uploading: false,
+          queued: false,
+          isSkeleton: false,
+          isLocalImage: true,
+          isLocalFirst: true
+        });
+
+        loadedPhotoIds.add(imageId);
+        if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+      }
+
+      // Update photo count
+      this.photoCountsByKey[key] = this.visualPhotos[key].length;
+    }
+
+    console.log('[DEXIE-FIRST] Photos populated from Dexie');
   }
 
   /**
@@ -969,11 +1072,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Subscribe to all LocalImages for this service (visual entity type)
     this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'visual').subscribe(
-      (localImages) => {
+      async (localImages) => {
         console.log('[LIVEQUERY] LocalImages updated:', localImages.length, 'images');
 
         // Update bulkLocalImagesMap reactively (always update data immediately)
         this.updateBulkLocalImagesMap(localImages);
+
+        // DEXIE-FIRST: Refresh photos from updated Dexie data
+        if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+          await this.populatePhotosFromDexie(this.lastConvertedFields);
+        }
 
         // US-003 FIX: Skip change detection during batch multi-image upload
         // This prevents the race condition where liveQuery triggers UI updates mid-loop,
