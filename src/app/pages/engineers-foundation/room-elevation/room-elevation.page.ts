@@ -1837,7 +1837,36 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     this.roomId = existingField.efeId || existingField.tempEfeId || '';
     this.lastLoadedRoomId = this.roomId;
 
-    // Subscribe to reactive updates from Dexie
+    // CRITICAL FIX: Populate roomData IMMEDIATELY from existingField
+    // This ensures page has data even if liveQuery subscription fails
+    // (IndexedDB internal errors can cause subscription to error immediately)
+    this.roomData = {
+      roomName: existingField.roomName,
+      templateId: existingField.templateId,
+      notes: existingField.notes || '',
+      fdf: existingField.fdf || '',
+      location: existingField.location || '',
+      elevationPoints: existingField.elevationPoints.map(ep => ({
+        name: ep.name,
+        pointId: ep.pointId || ep.tempPointId,
+        pointNumber: ep.pointNumber,
+        value: ep.value || '',
+        photos: [],  // Photos loaded separately via loadElevationPoints()
+        expanded: false
+      })),
+      fdfPhotos: {
+        top: existingField.fdfPhotos?.['top'] || null,
+        bottom: existingField.fdfPhotos?.['bottom'] || null,
+        topDetails: existingField.fdfPhotos?.['topDetails'] || null,
+        bottomDetails: existingField.fdfPhotos?.['bottomDetails'] || null,
+        threshold: existingField.fdfPhotos?.['threshold'] || null
+      }
+    };
+    alert(`[DEBUG 3.5] roomData populated immediately from existingField`);
+    this.changeDetectorRef.detectChanges();
+
+    // Subscribe to reactive updates from Dexie (for live updates after initial render)
+    // If this fails, we still have initial data from above
     alert(`[DEBUG 4] Setting up Dexie subscription...`);
     this.efeFieldSubscription = this.efeFieldRepo
       .getFieldByRoom$(this.serviceId, this.roomName)
@@ -1851,7 +1880,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
           console.log('[RoomElevation] Received EfeField update from Dexie');
 
-          // Populate roomData from EfeField (INSTANT - no API call)
+          // Update roomData from reactive EfeField update
+          // Preserve existing photos since they're loaded separately
+          const existingPhotos = new Map<number, any[]>();
+          if (this.roomData?.elevationPoints) {
+            this.roomData.elevationPoints.forEach((ep: any) => {
+              if (ep.photos?.length > 0) {
+                existingPhotos.set(ep.pointNumber, ep.photos);
+              }
+            });
+          }
+
           this.roomData = {
             roomName: field.roomName,
             templateId: field.templateId,
@@ -1863,7 +1902,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               pointId: ep.pointId || ep.tempPointId,
               pointNumber: ep.pointNumber,
               value: ep.value || '',
-              photos: [],  // Photos loaded separately via loadElevationPoints()
+              photos: existingPhotos.get(ep.pointNumber) || [],  // Preserve existing photos
               expanded: false
             })),
             fdfPhotos: {
@@ -1887,7 +1926,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         },
         error: (err) => {
           console.error('[RoomElevation] Error in EfeField subscription:', err);
-          alert(`[DEBUG 5 ERROR] Subscription error: ${err?.message || err}`);
+          alert(`[DEBUG 5 ERROR] Subscription error (non-fatal, initial data already loaded): ${err?.message || err}`);
+          // Non-fatal: we already have initial data from existingField above
           this.loading = false;
         }
       });
