@@ -333,6 +333,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async ionViewWillEnter() {
     console.time('[CategoryDetail] ionViewWillEnter');
 
+    // DEBUG ALERT 1: Entry point
+    alert(`[DEBUG 1] ionViewWillEnter called\ninitialLoadComplete: ${this.initialLoadComplete}\nserviceId: ${this.serviceId}\ncategoryName: ${this.categoryName}`);
+
     // Set up deferred subscriptions on first entry (after initial render for faster paint)
     // This moves non-critical subscriptions out of ngOnInit
     if (!this.uploadSubscription) {
@@ -344,6 +347,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Only process if initial load is complete and we have required IDs
     if (!this.initialLoadComplete || !this.serviceId || !this.categoryName) {
+      alert(`[DEBUG 2] Early exit - missing required data`);
       console.timeEnd('[CategoryDetail] ionViewWillEnter');
       return;
     }
@@ -358,6 +362,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const serviceOrCategoryChanged = this.lastLoadedServiceId !== this.serviceId ||
                                       this.lastLoadedCategoryName !== this.categoryName;
 
+    // DEBUG ALERT 2: Show cache check values
+    alert(`[DEBUG 3] Cache check:\nhasDataInMemory: ${hasDataInMemory}\nisDirty: ${isDirty}\nserviceOrCategoryChanged: ${serviceOrCategoryChanged}\nlastConvertedFields: ${this.lastConvertedFields?.length || 0}`);
+
     console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}, changed: ${serviceOrCategoryChanged}`);
 
     // Early return if data is fresh and context unchanged
@@ -365,13 +372,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
       // This ensures images don't disappear when navigating back to this page
       console.log('[CategoryDetail] Refreshing local images and pending captions');
+
+      alert(`[DEBUG 4] Taking EARLY RETURN path - calling refreshLocalState then populatePhotosFromDexie`);
+
       await this.refreshLocalState();
 
       // DEXIE-FIRST: Always reload photos from Dexie on navigation back
       // This ensures photos persist even if blob URLs became invalid
       if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+        alert(`[DEBUG 5] Calling populatePhotosFromDexie with ${this.lastConvertedFields.length} fields`);
         await this.populatePhotosFromDexie(this.lastConvertedFields);
         this.changeDetectorRef.detectChanges();
+      } else {
+        alert(`[DEBUG 5] SKIPPING populatePhotosFromDexie - lastConvertedFields is empty!`);
       }
 
       console.timeEnd('[CategoryDetail] ionViewWillEnter');
@@ -666,9 +679,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
     console.log('[DEXIE-FIRST] Populating photos directly from Dexie...');
 
+    // DEBUG ALERT 6: Entry to populatePhotosFromDexie
+    alert(`[DEBUG 6] populatePhotosFromDexie called\nfields count: ${fields.length}\nserviceId: ${this.serviceId}`);
+
     // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query
     // This eliminates the race condition - we don't rely on bulkLocalImagesMap being populated
     const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+
+    // DEBUG ALERT 7: Show LocalImages query result
+    const entityIds = allLocalImages.map(img => img.entityId).join(', ');
+    alert(`[DEBUG 7] Dexie query result:\nLocalImages found: ${allLocalImages.length}\nentityIds: ${entityIds.substring(0, 200)}`);
 
     // Group by entityId for efficient lookup
     const localImagesMap = new Map<string, LocalImage[]>();
@@ -682,6 +702,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     console.log(`[DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
+
+    // DEBUG ALERT 8: Show fields with visualIds
+    const fieldsWithVisualIds = fields.filter(f => f.visualId || f.tempVisualId);
+    const visualIdsList = fieldsWithVisualIds.map(f => f.visualId || f.tempVisualId).join(', ');
+    alert(`[DEBUG 8] Fields with visualIds: ${fieldsWithVisualIds.length}\nvisualIds: ${visualIdsList.substring(0, 300)}`);
+
+    let photosAddedCount = 0;
 
     for (const field of fields) {
       // Get visual ID (either synced ID or temp ID)
@@ -754,11 +781,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         loadedPhotoIds.add(imageId);
         if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+        photosAddedCount++;
       }
 
       // Update photo count
       this.photoCountsByKey[key] = this.visualPhotos[key].length;
     }
+
+    // DEBUG ALERT 9: Final summary
+    const totalPhotosInVisualPhotos = Object.values(this.visualPhotos).reduce((sum, arr) => sum + arr.length, 0);
+    alert(`[DEBUG 9] FINAL SUMMARY:\nPhotos added this run: ${photosAddedCount}\nTotal photos in visualPhotos: ${totalPhotosInVisualPhotos}\nKeys with photos: ${Object.keys(this.visualPhotos).filter(k => this.visualPhotos[k].length > 0).join(', ').substring(0, 200)}`);
 
     console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
   }
