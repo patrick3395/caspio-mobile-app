@@ -1875,7 +1875,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // This ensures bulkLocalImagesMap and all data is ready
     alert(`[DEBUG 4] About to call loadElevationPoints FIRST (before liveQuery)...`);
     await this.loadElevationPoints();
-    alert(`[DEBUG 5] loadElevationPoints completed!`);
+    // CRITICAL: Set isLoadingPoints to false - UI waits for this flag
+    this.isLoadingPoints = false;
+    alert(`[DEBUG 5] loadElevationPoints completed! isLoadingPoints=${this.isLoadingPoints}`);
 
     // STEP 2: Now that data is ready, subscribe to liveQuery for reactive updates ONLY
     // This matches Structural Systems pattern where subscriptions happen AFTER data is loaded
