@@ -842,6 +842,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           console.warn('[DEXIE-FIRST] Failed to get displayUrl:', e);
         }
 
+        // ===== US-003 DEBUG: Check if annotated image is being used =====
+        const isAnnotatedUrl = displayUrl.startsWith('data:') && displayUrl.length > 5000;
+        if (localImage.drawings && localImage.drawings.length > 10) {
+          console.log(`[US-003 DEBUG] Photo has drawings, displayUrl isAnnotated: ${isAnnotatedUrl}`);
+        }
+        // ===== END US-003 DEBUG =====
+
         // ===== US-002 DEBUG: Adding new photo =====
         console.log(`[US-002 DEBUG] populatePhotosFromDexie: Adding NEW photo\n` +
           `  imageId: ${imageId}\n` +
@@ -884,18 +891,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.photoCountsByKey[key] = this.visualPhotos[key].length;
     }
 
-    // ===== US-001 DEBUG: populatePhotosFromDexie complete =====
+    // ===== US-001/US-003 DEBUG: populatePhotosFromDexie complete =====
     const photosWithAnnotations = Object.values(this.visualPhotos)
       .flat()
       .filter((p: any) => p.hasAnnotations || (p.Drawings && p.Drawings.length > 10));
+    // US-003: Count photos with data: URLs (indicates cached annotated images loaded)
+    const photosWithDataUrls = Object.values(this.visualPhotos)
+      .flat()
+      .filter((p: any) => p.displayUrl?.startsWith('data:'));
     const debugSummary = `populatePhotosFromDexie COMPLETE\n` +
       `Photos added: ${photosAddedCount}\n` +
       `Total photos in visualPhotos: ${Object.values(this.visualPhotos).flat().length}\n` +
       `Photos with annotations: ${photosWithAnnotations.length}\n` +
+      `Photos with data: URLs (US-003): ${photosWithDataUrls.length}\n` +
       `Keys with photos: ${Object.entries(this.visualPhotos).filter(([k, v]) => (v as any[]).length > 0).map(([k, v]) => `${k}:${(v as any[]).length}`).slice(0, 5).join(', ')}`;
     this.logDebug('DEXIE_LOAD', debugSummary);
     alert('[US-001 DEBUG] populatePhotosFromDexie:\n' + debugSummary);
-    // ===== END US-001 DEBUG =====
+    // ===== END US-001/US-003 DEBUG =====
 
     console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
   }
