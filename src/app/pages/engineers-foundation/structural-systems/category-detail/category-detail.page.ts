@@ -333,6 +333,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async ionViewWillEnter() {
     console.time('[CategoryDetail] ionViewWillEnter');
 
+    // ===== US-001 DEBUG: ionViewWillEnter photo population flow =====
+    const debugPhotoCounts: string[] = [];
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      if ((photos as any[]).length > 0) {
+        debugPhotoCounts.push(`${key}: ${(photos as any[]).length} photos`);
+      }
+    }
+    const debugMsg = `ionViewWillEnter START\n` +
+      `serviceId: ${this.serviceId}\n` +
+      `categoryName: ${this.categoryName}\n` +
+      `initialLoadComplete: ${this.initialLoadComplete}\n` +
+      `visualPhotos keys: ${Object.keys(this.visualPhotos).length}\n` +
+      `Photo counts:\n${debugPhotoCounts.slice(0, 5).join('\n') || '(none)'}`;
+    this.logDebug('VIEW_ENTER', debugMsg);
+    console.log('[US-001 DEBUG] ionViewWillEnter:', debugMsg);
+    // ===== END US-001 DEBUG =====
+
     // Set up deferred subscriptions on first entry (after initial render for faster paint)
     // This moves non-critical subscriptions out of ngOnInit
     if (!this.uploadSubscription) {
@@ -360,18 +377,41 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}, changed: ${serviceOrCategoryChanged}`);
 
+    // ===== US-001 DEBUG: Decision point =====
+    this.logDebug('VIEW_ENTER', `Decision: hasData=${hasDataInMemory}, isDirty=${isDirty}, changed=${serviceOrCategoryChanged}`);
+    // ===== END US-001 DEBUG =====
+
     // Early return if data is fresh and context unchanged
     if (hasDataInMemory && !isDirty && !serviceOrCategoryChanged) {
       // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
       // This ensures images don't disappear when navigating back to this page
       console.log('[CategoryDetail] Refreshing local images and pending captions');
 
+      // ===== US-001 DEBUG: Before refreshLocalState =====
+      this.logDebug('VIEW_ENTER', 'Calling refreshLocalState (skip full reload path)');
+      // ===== END US-001 DEBUG =====
+
       await this.refreshLocalState();
 
       // DEXIE-FIRST: Always reload photos from Dexie on navigation back
       // This ensures photos persist even if blob URLs became invalid
       if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+        // ===== US-001 DEBUG: Before populatePhotosFromDexie =====
+        this.logDebug('VIEW_ENTER', `Calling populatePhotosFromDexie with ${this.lastConvertedFields.length} fields`);
+        // ===== END US-001 DEBUG =====
+
         await this.populatePhotosFromDexie(this.lastConvertedFields);
+
+        // ===== US-001 DEBUG: After populatePhotosFromDexie =====
+        const afterPhotoCounts: string[] = [];
+        for (const [key, photos] of Object.entries(this.visualPhotos)) {
+          if ((photos as any[]).length > 0) {
+            afterPhotoCounts.push(`${key}: ${(photos as any[]).length} photos`);
+          }
+        }
+        this.logDebug('VIEW_ENTER', `After populatePhotosFromDexie:\n${afterPhotoCounts.slice(0, 5).join('\n') || '(none)'}`);
+        // ===== END US-001 DEBUG =====
+
         this.changeDetectorRef.detectChanges();
       }
 
@@ -384,6 +424,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // 2. Section is marked dirty (data changed while away)
     // 3. Service or category has changed (navigating from project details)
     console.log('[CategoryDetail] Reloading data - section dirty, no data, or context changed');
+
+    // ===== US-001 DEBUG: Full reload path =====
+    this.logDebug('VIEW_ENTER', 'Taking FULL RELOAD path - calling loadData()');
+    // ===== END US-001 DEBUG =====
+
     await this.loadData();
     this.backgroundSync.clearSectionDirty(sectionKey);
     console.timeEnd('[CategoryDetail] ionViewWillEnter');
@@ -667,9 +712,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
     console.log('[DEXIE-FIRST] Populating photos directly from Dexie...');
 
+    // ===== US-001 DEBUG: populatePhotosFromDexie start =====
+    this.logDebug('DEXIE_LOAD', `populatePhotosFromDexie START\nfields count: ${fields.length}\nserviceId: ${this.serviceId}`);
+    // ===== END US-001 DEBUG =====
+
     // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query
     // This eliminates the race condition - we don't rely on bulkLocalImagesMap being populated
     const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+
+    // ===== US-001 DEBUG: LocalImages query result =====
+    const localImagesWithDrawings = allLocalImages.filter(img => img.drawings && img.drawings.length > 10);
+    this.logDebug('DEXIE_LOAD', `LocalImages query:\nTotal: ${allLocalImages.length}\nWith drawings (annotations): ${localImagesWithDrawings.length}`);
+    // ===== END US-001 DEBUG =====
 
     // Group by entityId for efficient lookup
     const localImagesMap = new Map<string, LocalImage[]>();
@@ -764,6 +818,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.photoCountsByKey[key] = this.visualPhotos[key].length;
     }
 
+    // ===== US-001 DEBUG: populatePhotosFromDexie complete =====
+    const photosWithAnnotations = Object.values(this.visualPhotos)
+      .flat()
+      .filter((p: any) => p.hasAnnotations || (p.Drawings && p.Drawings.length > 10));
+    const debugSummary = `populatePhotosFromDexie COMPLETE\n` +
+      `Photos added: ${photosAddedCount}\n` +
+      `Total photos in visualPhotos: ${Object.values(this.visualPhotos).flat().length}\n` +
+      `Photos with annotations: ${photosWithAnnotations.length}\n` +
+      `Keys with photos: ${Object.entries(this.visualPhotos).filter(([k, v]) => (v as any[]).length > 0).map(([k, v]) => `${k}:${(v as any[]).length}`).slice(0, 5).join(', ')}`;
+    this.logDebug('DEXIE_LOAD', debugSummary);
+    console.log('[US-001 DEBUG] populatePhotosFromDexie:', debugSummary);
+    // ===== END US-001 DEBUG =====
+
     console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
   }
 
@@ -842,6 +909,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
       console.log('[PHOTO SYNC] Photo upload completed:', event.tempFileId);
 
+      // ===== US-001 DEBUG: Sync completion - trace displayUrl changes =====
+      const syncDebugMsg = `SYNC COMPLETE received\n` +
+        `tempFileId: ${event.tempFileId}\n` +
+        `result PK_ID: ${event.result?.Result?.[0]?.PK_ID || event.result?.PK_ID || 'N/A'}\n` +
+        `result AttachID: ${event.result?.Result?.[0]?.AttachID || event.result?.AttachID || 'N/A'}`;
+      this.logDebug('SYNC', syncDebugMsg);
+      console.log('[US-001 DEBUG] Sync Complete:', syncDebugMsg);
+      // ===== END US-001 DEBUG =====
+
       // DEBUG: Log all photos in visualPhotos to find the mismatch
       console.log('[PHOTO SYNC DEBUG] Searching for tempFileId:', event.tempFileId);
       console.log('[PHOTO SYNC DEBUG] Keys in visualPhotos:', Object.keys(this.visualPhotos));
@@ -915,6 +991,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             _localUpdate: false,  // Clear local update flag - sync is complete
             isSkeleton: false
           };
+
+          // ===== US-001 DEBUG: After sync update - trace final displayUrl =====
+          const updatedPhoto = this.visualPhotos[key][photoIndex];
+          const syncUpdateDebugMsg = `SYNC UPDATE APPLIED\n` +
+            `key: ${key}\n` +
+            `old imageId: ${event.tempFileId}\n` +
+            `new AttachID: ${realAttachId}\n` +
+            `displayUrl: ${updatedPhoto.displayUrl?.substring(0, 80)}...\n` +
+            `displayUrl type: ${updatedPhoto.displayUrl?.startsWith('blob:') ? 'BLOB (local)' : updatedPhoto.displayUrl?.startsWith('data:') ? 'DATA (cached)' : 'OTHER'}\n` +
+            `url: ${updatedPhoto.url?.substring(0, 80)}...`;
+          this.logDebug('SYNC', syncUpdateDebugMsg);
+          console.log('[US-001 DEBUG] Sync Update Applied:', syncUpdateDebugMsg);
+          // ===== END US-001 DEBUG =====
 
           this.changeDetectorRef.detectChanges();
           console.log('[PHOTO SYNC] Updated photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
@@ -1676,17 +1765,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // If user added annotations while uploading, transfer cached annotated image to real ID
     if (hasExistingAnnotations && originalTempId) {
       console.log('[UPLOAD UPDATE] Transferring cached annotated image from temp ID to real ID:', originalTempId, '->', result.AttachID);
-      
+
       // Get the cached annotated image using the temp ID and re-cache with real ID
       try {
         const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(originalTempId);
+
+        // ===== US-001 DEBUG: Annotation transfer after upload =====
+        const transferDebugMsg = `ANNOTATION TRANSFER\n` +
+          `originalTempId: ${originalTempId}\n` +
+          `new AttachID: ${result.AttachID}\n` +
+          `cachedAnnotatedImage found: ${!!cachedAnnotatedImage}`;
+        this.logDebug('ANNOTATION', transferDebugMsg);
+        console.log('[US-001 DEBUG] Annotation Transfer:', transferDebugMsg);
+        // ===== END US-001 DEBUG =====
+
         if (cachedAnnotatedImage) {
           // Convert base64 back to blob and re-cache with real ID
           const response = await fetch(cachedAnnotatedImage);
           const blob = await response.blob();
           const base64 = await this.indexedDb.cacheAnnotatedImage(String(result.AttachID), blob);
           console.log('[UPLOAD UPDATE] ✅ Annotated image transferred to real AttachID:', result.AttachID);
-          
+
           // Update in-memory map with the real AttachID so same-session navigation works
           if (base64) {
             this.bulkAnnotatedImagesMap.set(String(result.AttachID), base64);
@@ -3500,18 +3599,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       
       if (photoIndex !== -1) {
         const existingPhoto = this.visualPhotos[key][photoIndex];
-        
+
         // Check for cached annotated image
         let finalDisplayUrl = imageDataUrl;
         if (existingPhoto.hasAnnotations) {
           try {
             const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
+
+            // ===== US-001 DEBUG: Annotation loading from cachedAnnotatedImages =====
+            const annotDebugMsg = `CACHED ANNOTATION CHECK\n` +
+              `attachId: ${attachId}\n` +
+              `hasAnnotations flag: ${existingPhoto.hasAnnotations}\n` +
+              `cachedAnnotated found: ${!!cachedAnnotated}\n` +
+              `cachedAnnotated type: ${cachedAnnotated?.substring(0, 30)}...`;
+            this.logDebug('ANNOTATION', annotDebugMsg);
+            console.log('[US-001 DEBUG] Annotation Check:', annotDebugMsg);
+            // ===== END US-001 DEBUG =====
+
             if (cachedAnnotated) {
               finalDisplayUrl = cachedAnnotated;
             }
           } catch (e) { /* ignore */ }
         }
-        
+
         this.visualPhotos[key][photoIndex] = {
           ...existingPhoto,
           url: imageDataUrl,
@@ -3521,7 +3631,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           displayState: 'cached',
           loading: false
         };
-        
+
     this.changeDetectorRef.detectChanges();
         console.log('[PRELOAD] ✅ Transitioned to cached image:', attachId);
       }
@@ -4421,7 +4531,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           // Get display URL from LocalImageService (always uses local blob first)
           const displayUrl = await this.localImageService.getDisplayUrl(localImage);
-          
+
+          // ===== US-001 DEBUG: Photo upload - LocalImage creation and displayUrl =====
+          const uploadDebugMsg = `PHOTO UPLOAD SUCCESS\n` +
+            `imageId: ${localImage.imageId}\n` +
+            `entityId (visualId): ${localImage.entityId}\n` +
+            `status: ${localImage.status}\n` +
+            `localBlobId: ${localImage.localBlobId}\n` +
+            `displayUrl: ${displayUrl?.substring(0, 80)}...\n` +
+            `displayUrl type: ${displayUrl?.startsWith('blob:') ? 'BLOB' : displayUrl?.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
+            `key: ${key}\n` +
+            `hasAnnotations: ${!!annotationsData}`;
+          this.logDebug('UPLOAD', uploadDebugMsg);
+          console.log('[US-001 DEBUG] Photo Upload:', uploadDebugMsg);
+          // ===== END US-001 DEBUG =====
+
           // For annotated images, create a separate display URL showing annotations
           let annotatedDisplayUrl = displayUrl;
           if (annotatedBlob) {
