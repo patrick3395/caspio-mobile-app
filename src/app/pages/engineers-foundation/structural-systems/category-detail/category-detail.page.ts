@@ -366,6 +366,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // This ensures images don't disappear when navigating back to this page
       console.log('[CategoryDetail] Refreshing local images and pending captions');
       await this.refreshLocalState();
+
+      // DEXIE-FIRST: Always reload photos from Dexie on navigation back
+      // This ensures photos persist even if blob URLs became invalid
+      if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+        await this.populatePhotosFromDexie(this.lastConvertedFields);
+        this.changeDetectorRef.detectChanges();
+      }
+
       console.timeEnd('[CategoryDetail] ionViewWillEnter');
       return;
     }
