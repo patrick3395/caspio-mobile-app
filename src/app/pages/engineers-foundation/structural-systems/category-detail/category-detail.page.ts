@@ -616,6 +616,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * This transforms the flat field list into categorized sections
    */
   private convertFieldsToOrganizedData(fields: VisualField[]): void {
+    // DEBUG: Track selected fields coming from Dexie
+    const selectedFields = fields.filter(f => f.isSelected);
+    alert(`[DEBUG CONVERT] convertFieldsToOrganizedData called\nTotal fields: ${fields.length}\nSelected fields from Dexie: ${selectedFields.length}\nSelected templateIds: ${selectedFields.map(f => f.templateId).join(', ')}`);
+
     // DEXIE-FIRST: Store fields reference for reactive photo updates
     this.lastConvertedFields = fields;
 
@@ -3777,6 +3781,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         isSelected: newState
       });
       console.log('[TOGGLE] Persisted isSelected to Dexie:', newState);
+      alert(`[DEBUG TOGGLE 1] After setField(isSelected: ${newState})\nselectedItems[${key}]: ${this.selectedItems[key]}`);
     } catch (err) {
       console.error('[TOGGLE] Failed to write to Dexie:', err);
     }
@@ -3846,6 +3851,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Clear selection but keep the visual data for potential re-select
       }
     }
+
+    // DEBUG: Show final state after toggleItemSelection completes
+    alert(`[DEBUG TOGGLE END] toggleItemSelection completed\nkey: ${key}\nselectedItems[key]: ${this.selectedItems[key]}\nvisualRecordIds[key]: ${this.visualRecordIds[key]}`);
   }
 
   // Answer change for Yes/No dropdowns (answerType 1)
