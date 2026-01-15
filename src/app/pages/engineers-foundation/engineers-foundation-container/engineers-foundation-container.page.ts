@@ -41,7 +41,11 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   downloadProgress: string = 'Preparing template for offline use...';
 
   // US-002 FIX: Track last loaded service to prevent unnecessary re-downloads
-  // This prevents the loading overlay from appearing when navigating within the same service
+  // CRITICAL: The check ONLY uses lastLoadedServiceId, NOT templateReady state!
+  // This prevents the loading overlay from appearing when:
+  // - Navigating within the same service (between rooms/categories)
+  // - Route params re-firing for any reason (cache invalidation, navigation events)
+  // - Any scenario where templateReady might be temporarily false
   private lastLoadedServiceId: string = '';
 
   // Subscriptions for cleanup
@@ -77,11 +81,18 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       const newServiceId = params['serviceId'];
 
       // US-002 FIX: Skip re-download if navigating within the same service
+      // CRITICAL: Only check serviceId, NOT templateReady state!
       // This prevents the loading overlay from appearing unnecessarily when:
       // - Navigating between rooms/categories in the same service
       // - Returning to a page after clicking back
       // - Any internal navigation that doesn't change the service
-      const isSameService = this.lastLoadedServiceId === newServiceId && this.templateReady;
+      // - Route params re-firing for any reason (cache invalidation, etc.)
+      //
+      // The previous bug checked both lastLoadedServiceId AND templateReady,
+      // which could fail if templateReady was false for any reason during
+      // navigation within the same service.
+      const isNewService = this.lastLoadedServiceId !== newServiceId;
+      const isFirstLoad = !this.lastLoadedServiceId;
 
       this.projectId = newProjectId;
       this.serviceId = newServiceId;
@@ -89,18 +100,23 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       // Initialize state service with IDs
       this.stateService.initialize(this.projectId, this.serviceId);
 
-      // Subscribe to project name updates
-      this.stateService.projectData$.subscribe(data => {
-        if (data?.projectName) {
-          this.projectName = data.projectName;
-        }
-      });
+      // Subscribe to project name updates (only once per service)
+      if (isNewService || isFirstLoad) {
+        this.stateService.projectData$.subscribe(data => {
+          if (data?.projectName) {
+            this.projectName = data.projectName;
+          }
+        });
 
-      // Subscribe to sync events to refresh cache when data syncs
-      this.subscribeToSyncEvents();
+        // Subscribe to sync events to refresh cache when data syncs
+        this.subscribeToSyncEvents();
+      }
 
       // US-002 FIX: Only show loading and re-download if this is a NEW service
-      if (!isSameService) {
+      // CRITICAL: Never show loading overlay for same service - even if templateReady is false
+      if (isNewService || isFirstLoad) {
+        console.log('[EF Container] New service detected, downloading template data...');
+
         // CRITICAL: Force loading screen to render before starting download
         this.templateReady = false;
         this.downloadProgress = 'Loading template data...';
@@ -113,10 +129,11 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         // This MUST complete before user can work on template
         await this.downloadTemplateData();
 
-        // Track that we've loaded this service
+        // Track that we've loaded this service - BEFORE setting templateReady
+        // This ensures any subsequent route param emissions don't trigger reload
         this.lastLoadedServiceId = newServiceId;
       } else {
-        console.log('[EF Container] Same service, skipping re-download to prevent refresh');
+        console.log('[EF Container] Same service (' + newServiceId + '), skipping re-download to prevent hard refresh');
       }
     });
 
