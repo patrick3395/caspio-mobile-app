@@ -144,19 +144,14 @@ export class VisualFieldRepoService {
 
       const key = `${serviceId}:${category}:${templateId}`;
 
-      // DEXIE-FIRST FIX: Properly detect temp vs real IDs
-      // temp IDs start with "temp_" and should be stored in tempVisualId, not visualId
-      const rawId = String(visual.VisualID || visual.PK_ID || visual._tempId || '');
-      const isTempId = rawId.startsWith('temp_');
-
       updates.push({
         key,
         changes: {
           isSelected: true,
-          answer: visual.VisualText || visual.Answer || visual.Answers || '',
-          otherValue: visual.OtherValue || visual.Notes || '',
-          visualId: isTempId ? null : (rawId || null),
-          tempVisualId: isTempId ? rawId : null,
+          answer: visual.VisualText || visual.Answer || '',
+          otherValue: visual.OtherValue || '',
+          visualId: visual.VisualID || visual.PK_ID || null,
+          tempVisualId: visual.tempId || null,
           photoCount: visual.photoCount || 0,
           updatedAt: now,
           dirty: false  // Existing data from server is not dirty

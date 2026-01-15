@@ -1320,15 +1320,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               this.indexedDb.updateEntityIdForImages(String(previousRecordId), visualId).catch(err => {
                 console.error(`[RELOAD AFTER SYNC] Failed to update LocalImage entityIds:`, err);
               });
-
-              // DEXIE-FIRST FIX: Update VisualField with real visualId (replace tempVisualId)
-              // This ensures populatePhotosFromDexie can match LocalImages to fields after sync
-              this.visualFieldRepo.setField(this.serviceId, visual.Category, templateId, {
-                visualId: visualId,
-                tempVisualId: null
-              }).catch(err => {
-                console.error(`[RELOAD AFTER SYNC] Failed to update VisualField with real visualId:`, err);
-              });
             }
 
             // Store the visual record ID for later operations (select/unselect/photo uploads)
@@ -3900,18 +3891,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         };
 
         const result = await this.foundationData.createVisual(visualData);
-        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
-        this.visualRecordIds[key] = newVisualId;
-        console.log('[ANSWER] Created visual:', newVisualId);
-
-        // DEXIE-FIRST FIX: Update VisualField with visualId/tempVisualId
-        const isTempId = newVisualId.startsWith('temp_');
-        this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
-          visualId: isTempId ? null : newVisualId,
-          tempVisualId: isTempId ? newVisualId : null
-        }).catch(err => {
-          console.error('[ANSWER] Failed to update VisualField with visualId:', err);
-        });
+        const visualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = visualId;
+        console.log('[ANSWER] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
         await this.foundationData.updateVisual(visualId, {
@@ -4002,18 +3984,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         };
 
         const result = await this.foundationData.createVisual(visualData);
-        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
-        this.visualRecordIds[key] = newVisualId;
-        console.log('[OPTION] Created visual:', newVisualId);
-
-        // DEXIE-FIRST FIX: Update VisualField with visualId/tempVisualId
-        const isTempId = newVisualId.startsWith('temp_');
-        this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
-          visualId: isTempId ? null : newVisualId,
-          tempVisualId: isTempId ? newVisualId : null
-        }).catch(err => {
-          console.error('[OPTION] Failed to update VisualField with visualId:', err);
-        });
+        const visualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = visualId;
+        console.log('[OPTION] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
         const notesValue = item.otherValue || '';
@@ -4074,18 +4047,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         };
 
         const result = await this.foundationData.createVisual(visualData);
-        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
-        this.visualRecordIds[key] = newVisualId;
-        console.log('[OTHER] Created visual:', newVisualId);
-
-        // DEXIE-FIRST FIX: Update VisualField with visualId/tempVisualId
-        const isTempId = newVisualId.startsWith('temp_');
-        this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
-          visualId: isTempId ? null : newVisualId,
-          tempVisualId: isTempId ? newVisualId : null
-        }).catch(err => {
-          console.error('[OTHER] Failed to update VisualField with visualId:', err);
-        });
+        const visualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = visualId;
+        console.log('[OTHER] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
         await this.foundationData.updateVisual(visualId, {
@@ -5098,24 +5062,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         throw new Error('VisualID not found in response');
       }
 
-      console.log('[SAVE VISUAL] âœ" Created visual with ID:', visualId);
-      console.log('[SAVE VISUAL] âœ" Storing ID in visualRecordIds[' + key + ']');
+      console.log('[SAVE VISUAL] âœ“ Created visual with ID:', visualId);
+      console.log('[SAVE VISUAL] âœ“ Storing ID in visualRecordIds[' + key + ']');
 
       // Store the visual ID for photo uploads
       this.visualRecordIds[key] = visualId;
 
-      // DEXIE-FIRST FIX: Update VisualField with visualId/tempVisualId
-      // This is CRITICAL for populatePhotosFromDexie to match LocalImages to fields
-      const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
-      const isTempId = String(visualId).startsWith('temp_');
-      console.log('[SAVE VISUAL] Updating VisualField with', isTempId ? 'tempVisualId' : 'visualId', ':', visualId);
-      
-      this.visualFieldRepo.setField(this.serviceId, category, templateId, {
-        visualId: isTempId ? null : visualId,
-        tempVisualId: isTempId ? visualId : null
-      }).catch(err => {
-        console.error('[SAVE VISUAL] Failed to update VisualField with visualId:', err);
-      });
+      // DEXIE-FIRST: Update VisualField with visualId so photos can be matched on reload
+      const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : Number(itemId);
+      const isTempId = visualId.startsWith('temp_');
+      await this.visualFieldRepo.setField(this.serviceId, category, templateId, 
+        isTempId ? { tempVisualId: visualId } : { visualId: visualId }
+      );
 
       // Clear PDF cache so new PDFs show updated data
       this.clearPdfCache();
