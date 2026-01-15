@@ -94,6 +94,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private fdfLocalImagesSubscription?: Subscription;  // FDF photos need separate subscription
   private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();
   
+  // ===== DEXIE-FIRST: EfeField subscription for instant room loading =====
+  private efeFieldSubscription?: Subscription;
+  private efeFieldSeeded: boolean = false;
+  
   // Lazy image loading - photos only load when user clicks to expand a point
   expandedPoints: { [pointId: string]: boolean } = {};
 
@@ -244,7 +248,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
     console.log('[RoomElevation] Validation passed. Loading room data...');
 
-    await this.loadRoomData();
+    // DEXIE-FIRST: Use initializeFromDexie() for instant loading from Dexie
+    // Falls back to loadRoomData() if room not in Dexie yet
+    await this.initializeFromDexie();
     await this.loadFDFOptions();
 
     // Subscribe to background sync photo upload completions
@@ -256,15 +262,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       const realAttachId = event.result?.AttachID;
       const photoUrl = event.result?.Photo || event.result?.Attachment;
       const s3Key = event.result?.Attachment;
-
-      // ===== US-004 DEBUG: Sync completion - trace displayUrl changes =====
-      const syncDebugMsg = `SYNC COMPLETE received\n` +
-        `tempFileId: ${event.tempFileId}\n` +
-        `realAttachId: ${realAttachId || 'N/A'}\n` +
-        `photoUrl: ${photoUrl?.substring(0, 50) || 'N/A'}...\n` +
-        `s3Key: ${s3Key || 'N/A'}`;
-      alert('[US-004 DEBUG] Sync Complete:\n' + syncDebugMsg);
-      // ===== END US-004 DEBUG =====
 
       // Find the photo in our elevationPoints by temp file ID
       for (const point of this.roomData?.elevationPoints || []) {
@@ -913,23 +910,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const syncStatus = this.backgroundSync.syncStatus$.getValue();
     const syncInProgress = syncStatus.isSyncing;
 
-    // ===== US-004 DEBUG: ionViewWillEnter - trace photo population flow =====
-    const elevPointsCount = this.roomData?.elevationPoints?.length || 0;
-    const elevPointsWithPhotos = this.roomData?.elevationPoints?.filter((p: any) => p.photos?.length > 0).length || 0;
-    const fdfPhotosCount = ['top', 'bottom', 'threshold'].filter(k => this.roomData?.fdfPhotos?.[k]).length;
-    const debugMsg = `roomId: ${this.roomId}\n` +
-      `roomName: ${this.roomName}\n` +
-      `serviceId: ${this.serviceId}\n` +
-      `initialLoadComplete: ${this.initialLoadComplete}\n` +
-      `hasDataInMemory: ${hasDataInMemory}\n` +
-      `isDirty: ${isDirty}\n` +
-      `roomChanged: ${roomChanged}\n` +
-      `syncInProgress: ${syncInProgress}\n` +
-      `elevationPoints: ${elevPointsCount} (${elevPointsWithPhotos} with photos)\n` +
-      `fdfPhotos: ${fdfPhotosCount}`;
-    alert('[US-004 DEBUG] ionViewWillEnter:\n' + debugMsg);
-    // ===== END US-004 DEBUG =====
-
     console.log(`[RoomElevation] ionViewWillEnter - hasData: ${!!hasDataInMemory}, isDirty: ${isDirty}, roomChanged: ${roomChanged}, syncInProgress: ${syncInProgress}`);
 
     // ALWAYS reload if:
@@ -1455,17 +1435,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachIdStr)
                 || (attachLocalImageId ? this.bulkAnnotatedImagesMap.get(String(attachLocalImageId)) : null);
 
-              // ===== US-004 DEBUG: Point photo annotation loading on reload =====
-              const pointAnnotDebugMsg = `POINT ANNOTATION CHECK (reload)\n` +
-                `pointName: ${localPoint.name || 'N/A'}\n` +
-                `attachIdStr: ${attachIdStr}\n` +
-                `attachLocalImageId: ${attachLocalImageId || 'N/A'}\n` +
-                `photoType: ${photoType}\n` +
-                `cachedAnnotatedImage found: ${!!cachedAnnotatedImage}\n` +
-                `hasDrawings: ${!!(attach.Drawings && attach.Drawings !== 'null')}`;
-              alert('[US-004 DEBUG] Point Annotation Check:\n' + pointAnnotDebugMsg);
-              // ===== END US-004 DEBUG =====
-
               if (cachedAnnotatedImage) {
                 cachedDisplayUrl = cachedAnnotatedImage;
                 console.log(`[RoomElevation] ✅ Using cached ANNOTATED image for new photo ${attachIdStr}`);
@@ -1767,6 +1736,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.fdfLocalImagesSubscription) {
       this.fdfLocalImagesSubscription.unsubscribe();
     }
+    // DEXIE-FIRST: Clean up EfeField subscription
+    if (this.efeFieldSubscription) {
+      this.efeFieldSubscription.unsubscribe();
+    }
 
     // NOTE: We intentionally do NOT revoke blob URLs here anymore.
     // Revoking causes images to disappear when navigating back to this page
@@ -1813,6 +1786,105 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   shouldShowFDFPhotos(): boolean {
     // Only show FDF photos if "Different Elevation" is selected
     return this.roomData?.fdf === 'Different Elevation';
+  }
+
+  /**
+   * DEXIE-FIRST: Initialize room data from Dexie for instant loading
+   * This replaces the slow loadRoomData() -> foundationData.getEFEByService() flow
+   * with direct Dexie reads that are instant.
+   */
+  private async initializeFromDexie(): Promise<void> {
+    console.time('[RoomElevation] initializeFromDexie');
+    console.log('[RoomElevation] initializeFromDexie - Checking Dexie for room:', this.roomName);
+
+    // Unsubscribe from previous subscription if exists
+    if (this.efeFieldSubscription) {
+      this.efeFieldSubscription.unsubscribe();
+    }
+
+    // Check if we have this room in Dexie already
+    const existingField = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
+
+    if (!existingField) {
+      console.log('[RoomElevation] Room not in Dexie, falling back to loadRoomData()');
+      // Room not in Dexie yet - use old flow to seed data
+      // This handles first-time visits before EfeField is populated
+      await this.loadRoomData();
+      console.timeEnd('[RoomElevation] initializeFromDexie');
+      return;
+    }
+
+    console.log('[RoomElevation] Found room in Dexie:', existingField.roomName);
+
+    // Pre-load photo caches in parallel
+    this.cacheLoadPromise = this.preloadPhotoCaches();
+
+    // Set roomId from Dexie (use efeId or tempEfeId)
+    this.roomId = existingField.efeId || existingField.tempEfeId || '';
+    this.lastLoadedRoomId = this.roomId;
+
+    // Subscribe to reactive updates from Dexie
+    this.efeFieldSubscription = this.efeFieldRepo
+      .getFieldByRoom$(this.serviceId, this.roomName)
+      .subscribe({
+        next: async (field) => {
+          if (!field) {
+            console.warn('[RoomElevation] EfeField became undefined');
+            return;
+          }
+
+          console.log('[RoomElevation] Received EfeField update from Dexie');
+
+          // Populate roomData from EfeField (INSTANT - no API call)
+          this.roomData = {
+            roomName: field.roomName,
+            templateId: field.templateId,
+            notes: field.notes || '',
+            fdf: field.fdf || '',
+            location: field.location || '',
+            elevationPoints: field.elevationPoints.map(ep => ({
+              name: ep.name,
+              pointId: ep.pointId || ep.tempPointId,
+              pointNumber: ep.pointNumber,
+              value: ep.value || '',
+              photos: [],  // Photos loaded separately via loadElevationPoints()
+              expanded: false
+            })),
+            fdfPhotos: {
+              top: field.fdfPhotos?.top || null,
+              bottom: field.fdfPhotos?.bottom || null,
+              topDetails: field.fdfPhotos?.topDetails || null,
+              bottomDetails: field.fdfPhotos?.bottomDetails || null,
+              threshold: field.fdfPhotos?.threshold || null
+            }
+          };
+
+          // Update roomId if it changed (after sync)
+          if (field.efeId && this.roomId !== field.efeId) {
+            console.log(`[RoomElevation] RoomId updated: ${this.roomId} -> ${field.efeId}`);
+            this.roomId = field.efeId;
+            this.lastLoadedRoomId = this.roomId;
+          }
+
+          this.loading = false;
+          this.changeDetectorRef.detectChanges();
+        },
+        error: (err) => {
+          console.error('[RoomElevation] Error in EfeField subscription:', err);
+          this.loading = false;
+        }
+      });
+
+    // Still need to load elevation points with photos (uses existing logic)
+    // This is a separate step that loads photos from server/LocalImages
+    await this.loadElevationPoints();
+
+    // Mark initial load complete
+    this.initialLoadComplete = true;
+    this.loading = false;
+    this.changeDetectorRef.detectChanges();
+
+    console.timeEnd('[RoomElevation] initializeFromDexie');
   }
 
   private async loadRoomData() {
@@ -2326,16 +2398,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       
       // Check for cached ANNOTATED image first
       const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(cacheId);
-
-      // ===== US-004 DEBUG: Annotation loading on reload (FDF) =====
-      const annotDebugMsg = `FDF ANNOTATION CHECK (reload)\n` +
-        `photoKey: ${photoKey}\n` +
-        `cacheId: ${cacheId}\n` +
-        `cachedAnnotatedImage found: ${!!cachedAnnotatedImage}\n` +
-        `bulkAnnotatedImagesMap size: ${this.bulkAnnotatedImagesMap.size}\n` +
-        `bulkCachedPhotosMap has key: ${this.bulkCachedPhotosMap.has(cacheId)}`;
-      alert('[US-004 DEBUG] FDF Annotation Check:\n' + annotDebugMsg);
-      // ===== END US-004 DEBUG =====
 
       if (cachedAnnotatedImage) {
         console.log(`[FDF Photo] ✅ Using bulk cached ANNOTATED ${photoKey} image`);
@@ -3930,18 +3992,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       fdfPhotos[`${photoKey}LocalBlobId`] = localImage.localBlobId;
       fdfPhotos[`${photoKey}IsLocalFirst`] = true;
 
-      // ===== US-004 DEBUG: FDF Photo Upload - trace LocalImage creation and displayUrl =====
-      const fdfUploadDebugMsg = `FDF PHOTO UPLOAD\n` +
-        `photoType: ${photoType}\n` +
-        `roomId: ${this.roomId}\n` +
-        `imageId: ${localImage.imageId}\n` +
-        `localBlobId: ${localImage.localBlobId}\n` +
-        `displayUrl: ${displayUrl?.substring(0, 50)}...\n` +
-        `displayUrl type: ${displayUrl?.startsWith('blob:') ? 'BLOB' : displayUrl?.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
-        `status: ${localImage.status}`;
-      alert('[US-004 DEBUG] FDF Photo Upload:\n' + fdfUploadDebugMsg);
-      // ===== END US-004 DEBUG =====
-
       // Trigger change detection to show preview IMMEDIATELY
       this.changeDetectorRef.detectChanges();
       console.log(`[FDF Upload] ✅ Photo captured with LocalImageService:`, localImage.imageId);
@@ -4831,21 +4881,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           existingPhoto.url = persistedUrl;
           existingPhoto.displayUrl = persistedUrl;
         }
-
-        // ===== US-004 DEBUG: Point Photo Upload - trace LocalImage creation and displayUrl =====
-        const uploadDebugMsg = `POINT PHOTO UPLOAD\n` +
-          `pointName: ${point.pointName || point.name}\n` +
-          `pointId: ${point.pointId}\n` +
-          `photoType: ${photoType}\n` +
-          `imageId: ${existingPhoto.imageId}\n` +
-          `tempPhotoId: ${tempPhotoId}\n` +
-          `_tempId: ${existingPhoto._tempId}\n` +
-          `displayUrl: ${existingPhoto.displayUrl?.substring(0, 50)}...\n` +
-          `displayUrl type: ${existingPhoto.displayUrl?.startsWith('blob:') ? 'BLOB' : existingPhoto.displayUrl?.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
-          `isPending: ${existingPhoto.isPending}\n` +
-          `result._syncing: ${!!result._syncing}`;
-        alert('[US-004 DEBUG] Point Photo Upload:\n' + uploadDebugMsg);
-        // ===== END US-004 DEBUG =====
 
         // If offline (result has _syncing flag), photo is queued - don't clear uploading yet
         if (result._syncing) {
