@@ -1797,16 +1797,29 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     console.time('[RoomElevation] initializeFromDexie');
     console.log('[RoomElevation] initializeFromDexie - Checking Dexie for room:', this.roomName);
 
+    // DEBUG ALERT 1: Entry point
+    alert(`[DEBUG 1] initializeFromDexie START\nserviceId: ${this.serviceId}\nroomName: ${this.roomName}`);
+
     // Unsubscribe from previous subscription if exists
     if (this.efeFieldSubscription) {
       this.efeFieldSubscription.unsubscribe();
     }
 
     // Check if we have this room in Dexie already
-    const existingField = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
+    let existingField: EfeField | undefined;
+    try {
+      existingField = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
+      alert(`[DEBUG 2] getFieldByRoom returned:\n${existingField ? 'FOUND - ' + existingField.roomName : 'NOT FOUND'}`);
+    } catch (err: any) {
+      alert(`[DEBUG 2 ERROR] getFieldByRoom failed:\n${err?.message || err}`);
+      // Fall back to loadRoomData on error
+      await this.loadRoomData();
+      return;
+    }
 
     if (!existingField) {
       console.log('[RoomElevation] Room not in Dexie, falling back to loadRoomData()');
+      alert(`[DEBUG 3] Room NOT in Dexie, calling loadRoomData()`);
       // Room not in Dexie yet - use old flow to seed data
       // This handles first-time visits before EfeField is populated
       await this.loadRoomData();
@@ -1815,6 +1828,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     console.log('[RoomElevation] Found room in Dexie:', existingField.roomName);
+    alert(`[DEBUG 3] Room FOUND in Dexie:\nefeId: ${existingField.efeId}\ntempEfeId: ${existingField.tempEfeId}\npoints: ${existingField.elevationPoints?.length || 0}`);
 
     // Pre-load photo caches in parallel
     this.cacheLoadPromise = this.preloadPhotoCaches();
@@ -1824,10 +1838,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     this.lastLoadedRoomId = this.roomId;
 
     // Subscribe to reactive updates from Dexie
+    alert(`[DEBUG 4] Setting up Dexie subscription...`);
     this.efeFieldSubscription = this.efeFieldRepo
       .getFieldByRoom$(this.serviceId, this.roomName)
       .subscribe({
         next: async (field) => {
+          alert(`[DEBUG 5] Subscription received field: ${field ? field.roomName : 'NULL'}`);
           if (!field) {
             console.warn('[RoomElevation] EfeField became undefined');
             return;
@@ -1871,19 +1887,23 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         },
         error: (err) => {
           console.error('[RoomElevation] Error in EfeField subscription:', err);
+          alert(`[DEBUG 5 ERROR] Subscription error: ${err?.message || err}`);
           this.loading = false;
         }
       });
 
     // Still need to load elevation points with photos (uses existing logic)
     // This is a separate step that loads photos from server/LocalImages
+    alert(`[DEBUG 6] About to call loadElevationPoints...`);
     await this.loadElevationPoints();
+    alert(`[DEBUG 7] loadElevationPoints completed!`);
 
     // Mark initial load complete
     this.initialLoadComplete = true;
     this.loading = false;
     this.changeDetectorRef.detectChanges();
 
+    alert(`[DEBUG 8] initializeFromDexie COMPLETE - roomData populated`);
     console.timeEnd('[RoomElevation] initializeFromDexie');
   }
 
@@ -1891,6 +1911,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     console.log('[RoomElevation] loadRoomData() called');
     console.log('  - ServiceId:', this.serviceId);
     console.log('  - RoomName:', this.roomName);
+
+    // DEBUG ALERT: loadRoomData entry
+    alert(`[DEBUG loadRoomData] START\nserviceId: ${this.serviceId}\nroomName: ${this.roomName}`);
 
     // OFFLINE-FIRST: Don't show loading spinner if we have cached data
     // Data is already cached by the container's template download
@@ -1902,7 +1925,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Load room record from Services_EFE (reads from IndexedDB immediately)
       console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
+      alert(`[DEBUG loadRoomData] Calling getEFEByService...`);
       const rooms = await this.foundationData.getEFEByService(this.serviceId, true);
+      alert(`[DEBUG loadRoomData] getEFEByService returned ${rooms?.length || 0} rooms`);
       console.log('[RoomElevation] getEFEByService returned', rooms?.length || 0, 'rooms');
       console.log('[RoomElevation] Rooms:', rooms);
 
@@ -1912,12 +1937,15 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       if (!room) {
         console.error('[RoomElevation] ERROR: Room not found with name:', this.roomName);
         console.error('[RoomElevation] Available room names:', rooms.map((r: any) => r.RoomName));
+        const availableNames = rooms.map((r: any) => r.RoomName).join(', ');
+        alert(`[DEBUG loadRoomData] Room NOT FOUND!\nLooking for: "${this.roomName}"\nAvailable: ${availableNames}`);
         // Toast removed per user request
         // await this.showToast('Room not found', 'danger');
         this.goBack();
         return;
       }
 
+      alert(`[DEBUG loadRoomData] Room FOUND!\nEFEID: ${room.EFEID}\nTemplateID: ${room.TemplateID}`);
       this.roomId = room.EFEID;
       console.log('[RoomElevation] Room ID set to:', this.roomId);
       console.log('[RoomElevation] Room TemplateID from database:', room.TemplateID);
@@ -2025,8 +2053,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       
       this.isLoadingPoints = false;
       this.changeDetectorRef.detectChanges();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading room data:', error);
+      alert(`[DEBUG loadRoomData] ERROR!\n${error?.message || error}`);
       // Toast removed per user request
       // await this.showToast('Failed to load room data', 'danger');
     }
