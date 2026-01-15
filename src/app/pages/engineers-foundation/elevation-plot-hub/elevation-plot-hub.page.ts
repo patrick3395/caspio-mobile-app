@@ -344,6 +344,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         await this.efeFieldRepo.mergeExistingRooms(this.serviceId, existingRooms as any[]);
         this.backgroundSync.clearSectionDirty(sectionKey);
       }
+      // CRITICAL: Ensure loading is false when returning with existing subscription
+      // The liveQuery won't emit again if data hasn't changed, so we must clear loading here
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
       console.log('[ElevationPlotHub] Using reactive Dexie subscription - no reload needed');
       return;
     }
@@ -382,6 +386,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             this.backgroundSync.clearSectionDirty(sectionKey);
           } else {
             console.log('[ElevationPlotHub] Router navigation - skipping reload');
+            // CRITICAL: Ensure loading is false even when skipping reload
+            this.loading = false;
+            this.changeDetectorRef.detectChanges();
           }
         }
       });
