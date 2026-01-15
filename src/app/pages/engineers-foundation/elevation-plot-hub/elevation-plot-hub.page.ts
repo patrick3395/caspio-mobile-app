@@ -1738,9 +1738,50 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       
       this.roomTemplates.push(newRoom);
       this.selectedRooms[roomName] = true;
-      this.efeRecordIds[roomName] = `temp_${Date.now()}`;
+      const tempEfeId = `temp_efe_${Date.now()}`;
+      this.efeRecordIds[roomName] = tempEfeId;
       this.savingRooms[roomName] = true;
       this.changeDetectorRef.detectChanges();
+
+      // DEXIE-FIRST: Add/update room in Dexie with tempEfeId
+      // This ensures room-elevation page can load instantly from Dexie
+      // Use addRoom() which handles both new rooms (like "Bedroom #2") and existing template rooms
+      try {
+        // Convert elevationPoints to EfePoint format for Dexie
+        const efePoints: EfePoint[] = elevationPoints.map((ep: any) => ({
+          pointNumber: ep.pointNumber,
+          pointId: null,
+          tempPointId: null,  // Will be set by createPointRecordsForRoom
+          name: ep.name,
+          value: '',
+          photoCount: 0
+        }));
+
+        // Add room to Dexie (creates new or updates existing)
+        await this.efeFieldRepo.addRoom(
+          this.serviceId,
+          roomName,
+          template.TemplateID || template.PK_ID,
+          nextOrganization,
+          null,  // efeId not yet known
+          tempEfeId,
+          efePoints
+        );
+        console.log('[Add Room] Added room to Dexie with tempEfeId:', tempEfeId);
+
+        // DEXIE-FIRST: Create ALL elevation points with tempPointIds NOW
+        // This ensures all buttons are enabled when entering room-elevation
+        const createdPoints = await this.efeFieldRepo.createPointRecordsForRoom(
+          this.serviceId,
+          roomName,
+          tempEfeId,
+          this.foundationData  // Pass foundationData for queueing points
+        );
+        console.log('[Add Room] Created', createdPoints.length, 'elevation points with temp IDs');
+      } catch (dexieError) {
+        console.error('[Add Room] Dexie update error (non-fatal):', dexieError);
+        // Continue - room will still be created in backend
+      }
 
       try {
         // Create room in database
@@ -1757,6 +1798,14 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             this.roomTemplates[roomIndex].efeId = roomId;
           }
 
+          // DEXIE-FIRST: Update Dexie with real efeId
+          try {
+            await this.efeFieldRepo.updateEfeId(this.serviceId, roomName, String(roomId));
+            console.log('[Add Room] Updated Dexie with real efeId:', roomId);
+          } catch (dexieError) {
+            console.error('[Add Room] Failed to update Dexie with real efeId:', dexieError);
+          }
+
           this.changeDetectorRef.detectChanges();
           // Toast removed per user request
           console.log('[Add Room] Room created successfully:', roomName, 'EFEID:', roomId);
@@ -1771,6 +1820,14 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         delete this.efeRecordIds[roomName];
         this.savingRooms[roomName] = false;
         delete this.roomElevationData[roomName];
+
+        // DEXIE-FIRST: Revert Dexie changes on failure
+        try {
+          await this.efeFieldRepo.deleteRoom(this.serviceId, roomName);
+          console.log('[Add Room] Reverted Dexie room on failure');
+        } catch (dexieError) {
+          console.error('[Add Room] Failed to revert Dexie:', dexieError);
+        }
 
         // Remove from roomTemplates list
         const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);

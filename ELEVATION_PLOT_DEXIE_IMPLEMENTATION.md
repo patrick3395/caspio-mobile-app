@@ -12,205 +12,221 @@ This document outlines the step-by-step implementation of Dexie-first architectu
 
 ---
 
-## CRITICAL: Mobile vs Web IndexedDB Differences
+## CRITICAL PRINCIPLE: True Dexie-First Architecture
 
-**Discovered during Phase 1 implementation - January 2025:**
+**The core principle:** ALL data operations go through Dexie FIRST. The backend is just a sync target.
 
-The liveQuery subscription was failing on **mobile only** with:
-```
-UnknownError: An internal error was encountered in the IndexedDB server
-```
+**WRONG approach (what we were doing):**
+1. Read from Dexie to check if data exists
+2. If points don't have IDs, create them via API/pending queue
+3. Load data from multiple sources
 
-### Root Cause: Race Condition in Operation Order
-
-**Original (broken) order:**
-1. Subscribe to liveQuery
-2. `await loadElevationPoints()` - runs AFTER subscription created
-3. liveQuery fires BEFORE data is ready → IndexedDB conflict on mobile
-
-**Fixed order (matches working Structural Systems pattern):**
-1. `await loadElevationPoints()` - load ALL data first
-2. THEN subscribe to liveQuery - for reactive updates only
-3. No concurrent operations → no conflict
-
-### Key Implementation Rules for Mobile Compatibility
-
-1. **Load data BEFORE subscribing to liveQuery**
-   - Structural Systems: `initializeVisualFields()` loads data, THEN subscribes
-   - Room-Elevation must follow same pattern
-
-2. **Use simple indexes over compound indexes in liveQuery**
-   - Compound index `[serviceId+roomName]` caused issues
-   - Simple `key` index (format: `serviceId:roomName`) is more reliable
-   - Non-reactive queries with compound indexes work fine
-
-3. **Avoid async/await inside liveQuery callback**
-   - Working: `liveQuery(() => this.table.where(...).first())`
-   - Problematic: `liveQuery(async () => { await ... })`
-
-4. **Set loading flags after data operations complete**
-   - `isLoadingPoints = false` must be set in Dexie path
-   - UI waits for this flag before rendering inputs
+**CORRECT approach (Dexie-first):**
+1. When room is ADDED → Create room AND all points immediately with temp IDs
+2. Store everything in Dexie with temp IDs
+3. Queue everything for background sync
+4. When entering room-elevation → Read ONLY from Dexie
+5. All data has IDs (temp or real) → instant display, all buttons enabled
 
 ---
 
-## Phase 1: Room-Elevation Basic Dexie Read (COMPLETED WITH FIXES)
+## Phase 1: Room-Elevation Dexie-First (REWRITE)
 
-### Step 1.1: Remove Debug Alerts ✅
-- Remove all existing US-004 debug alerts from room-elevation.page.ts
-- **Debugging:** Verify no alerts appear when navigating to rooms
+### The Correct Flow
 
-### Step 1.2: Add Dexie Subscription Property ✅
-- Add `efeFieldSubscription` property
-- Add `efeFieldSeeded` flag
-- **Debugging:** Verify properties exist (no compile errors)
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        ROOM ADDED (elevation-plot-hub)                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 1. User clicks "Add Room"                                               │
+│ 2. Create room record → queue for sync → gets tempEfeId                 │
+│ 3. For EACH template point:                                             │
+│    - Create point record → queue for sync → gets tempPointId            │
+│    - Link point to room via tempEfeId                                   │
+│ 4. Store in Dexie EfeField:                                             │
+│    - room.tempEfeId = "temp_efe_xxx"                                    │
+│    - point[0].tempPointId = "temp_point_xxx"                            │
+│    - point[1].tempPointId = "temp_point_yyy"                            │
+│    - etc.                                                               │
+│ 5. UI shows room immediately (optimistic)                               │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     ENTER ROOM (room-elevation)                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 1. Read EfeField from Dexie (ONLY source of truth)                      │
+│ 2. room.tempEfeId exists → roomId = tempEfeId                           │
+│ 3. Each point has tempPointId → buttons enabled                         │
+│ 4. Instant render - NO API calls, NO point creation                     │
+│ 5. Subscribe to liveQuery for reactive updates                          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     BACKGROUND SYNC (automatic)                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 1. Sync room: tempEfeId → realEfeId                                     │
+│ 2. Update Dexie: EfeField.efeId = realEfeId                             │
+│ 3. Sync each point: tempPointId → realPointId                           │
+│ 4. Update Dexie: EfePoint.pointId = realPointId                         │
+│ 5. UI auto-updates via liveQuery subscription                           │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-### Step 1.3: Create initializeFromDexie() Method ✅ (WITH CRITICAL FIXES)
-- Create method that reads from `efeFieldRepo.getFieldByRoom()`
-- Falls back to `loadRoomData()` if room not in Dexie
-- **CRITICAL FIX:** Populate `roomData` immediately from `existingField` before subscribing
+### Step 1.1: Add createPointRecordsForRoom() to EfeFieldRepo
 
-**Correct Implementation Pattern:**
+**Goal:** Create a method that generates temp point records and stores them in Dexie
+
+**File:** `src/app/services/efe-field-repo.service.ts`
+
+**Changes:**
 ```typescript
-private async initializeFromDexie(): Promise<void> {
-  // 1. Get field from Dexie (non-reactive, one-time read)
-  const existingField = await this.efeFieldRepo.getFieldByRoom(serviceId, roomName);
+/**
+ * Create point records for a room when it's first added
+ * This generates tempPointIds and queues points for sync
+ * Called from elevation-plot-hub when user adds a room
+ */
+async createPointRecordsForRoom(
+  serviceId: string,
+  roomName: string,
+  tempEfeId: string,
+  foundationDataService: any  // For creating pending records
+): Promise<EfePoint[]> {
+  const key = `${serviceId}:${roomName}`;
+  const existing = await db.efeFields.where('key').equals(key).first();
 
-  if (!existingField) {
-    await this.loadRoomData();  // Fallback
-    return;
+  if (!existing) {
+    throw new Error(`EfeField not found for room: ${roomName}`);
   }
 
-  // 2. Populate roomData IMMEDIATELY (before any subscriptions)
-  this.roomData = {
-    roomName: existingField.roomName,
-    // ... populate from existingField
-  };
+  const updatedPoints: EfePoint[] = [];
 
-  // 3. Load elevation points FIRST (before liveQuery subscription)
-  await this.loadElevationPoints();
-  this.isLoadingPoints = false;  // CRITICAL: UI waits for this
+  for (const point of existing.elevationPoints) {
+    // Generate tempPointId
+    const tempPointId = `temp_point_${Date.now()}_${point.pointNumber}`;
 
-  // 4. THEN subscribe to liveQuery for reactive updates ONLY
-  this.efeFieldSubscription = this.efeFieldRepo
-    .getFieldByRoom$(serviceId, roomName)
-    .subscribe({
-      next: (field) => { /* Update roomData reactively */ },
-      error: (err) => { /* Non-fatal - initial data already loaded */ }
+    // Create pending record for sync
+    const pointData = {
+      EFEID: tempEfeId,  // Link to room via tempEfeId
+      PointName: point.name
+    };
+
+    // Queue for sync via foundationDataService
+    await foundationDataService.createEFEPoint(pointData, tempEfeId);
+
+    updatedPoints.push({
+      ...point,
+      tempPointId,
+      pointId: null  // Will be set after sync
     });
+  }
+
+  // Update Dexie with tempPointIds
+  await db.efeFields.update(existing.id!, {
+    elevationPoints: updatedPoints,
+    updatedAt: Date.now()
+  });
+
+  return updatedPoints;
 }
 ```
 
-### Step 1.4: Wire Up ngOnInit ✅
-- Replace `loadRoomData()` with `initializeFromDexie()` in ngOnInit
-- **Debugging:** Verify room loads (may be slow if fallback is used)
+### Step 1.2: Modify addRoomTemplate() in elevation-plot-hub
 
-### Issues Fixed in Phase 1:
+**Goal:** When room is added, create room AND all points with temp IDs
 
-| Issue | Symptom | Fix |
-|-------|---------|-----|
-| liveQuery fails on mobile | IndexedDB internal error | Load data BEFORE subscribing |
-| Blank screen after liveQuery error | roomData never populated | Populate roomData from existingField immediately |
-| Infinite loading spinner | isLoadingPoints never set false | Set `isLoadingPoints = false` after loadElevationPoints() |
-
----
-
-## Phase 2: Ensure EfeField is Populated (Seeding)
-
-### Step 2.1: Check elevation-plot-hub Seeding
-**Goal:** Verify EfeFields are seeded when entering elevation-plot-hub
-
-**Files:** `elevation-plot-hub.page.ts`
+**File:** `src/app/pages/engineers-foundation/elevation-plot-hub/elevation-plot-hub.page.ts`
 
 **Changes:**
-1. Check if `efeFieldRepo.seedFromTemplates()` is called
-2. Check if `efeFieldRepo.mergeExistingRooms()` is called after API data loads
+1. After room is created, call `createPointRecordsForRoom()`
+2. Store tempEfeId in Dexie
+3. All points get tempPointIds stored in Dexie
 
-**Debugging:**
+**Key Code:**
 ```typescript
-alert(`[SEED DEBUG] EfeFields seeded: ${await this.efeFieldRepo.hasFieldsForService(this.serviceId)}`);
+// After room is created (line ~1747)
+const response = await this.foundationDataService.createServicesEFE(roomData);
+const tempEfeId = response._tempId || `temp_efe_${Date.now()}`;
+const efeId = response.EFEID || response.PK_ID;
+
+// Update Dexie with room IDs
+await this.efeFieldRepo.setRoomSelected(
+  this.serviceId,
+  roomName,
+  true,
+  efeId || null,
+  tempEfeId
+);
+
+// Create ALL elevation points now (with tempPointIds)
+await this.efeFieldRepo.createPointRecordsForRoom(
+  this.serviceId,
+  roomName,
+  tempEfeId || efeId,
+  this.foundationDataService
+);
 ```
 
-### Step 2.2: Verify Seeding Creates Correct Data
-**Goal:** Ensure seeded EfeFields have correct structure
+### Step 1.3: Rewrite initializeFromDexie() in room-elevation
 
-**Debugging:**
+**Goal:** Pure Dexie read - NO point creation, NO API calls
+
+**File:** `src/app/pages/engineers-foundation/room-elevation/room-elevation.page.ts`
+
+**The CORRECT implementation:**
 ```typescript
-const fields = await this.efeFieldRepo.getFieldsForService(this.serviceId);
-alert(`[SEED DEBUG] Fields count: ${fields.length}\n` +
-  `First room: ${fields[0]?.roomName}\n` +
-  `Has efeId: ${!!fields[0]?.efeId}\n` +
-  `Has tempEfeId: ${!!fields[0]?.tempEfeId}`);
+private async initializeFromDexie(): Promise<void> {
+  // 1. Read from Dexie (ONLY source)
+  const field = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
+
+  if (!field) {
+    // Room not in Dexie - shouldn't happen if flow is correct
+    console.error('Room not found in Dexie - this indicates a bug');
+    return;
+  }
+
+  // 2. Set roomId from Dexie (prefer real ID, fallback to temp)
+  this.roomId = field.efeId || field.tempEfeId || '';
+
+  // 3. Populate roomData DIRECTLY from Dexie
+  this.roomData = {
+    roomName: field.roomName,
+    templateId: field.templateId,
+    notes: field.notes || '',
+    fdf: field.fdf || '',
+    location: field.location || '',
+    elevationPoints: field.elevationPoints.map(ep => ({
+      name: ep.name,
+      pointId: ep.pointId || ep.tempPointId,  // Use real or temp ID
+      pointNumber: ep.pointNumber,
+      value: ep.value || '',
+      photos: [],  // Will be populated from LocalImages
+      expanded: false
+    })),
+    fdfPhotos: { ... }
+  };
+
+  // 4. All points have IDs (temp or real) - buttons are enabled
+  this.isLoadingPoints = false;
+
+  // 5. Load photos from LocalImages (separate from point data)
+  await this.populatePhotosFromLocalImages();
+
+  // 6. Subscribe to liveQuery for reactive updates
+  this.efeFieldSubscription = this.efeFieldRepo
+    .getFieldByRoom$(this.serviceId, this.roomName)
+    .subscribe({ ... });
+}
 ```
 
----
+### Step 1.4: Create populatePhotosFromLocalImages() method
 
-## Phase 3: Room-Elevation Write-Through
+**Goal:** Load photos from LocalImages table, matching by point ID (temp or real)
 
-### Step 3.1: Notes Field Write-Through
-**Goal:** When user types in notes, immediately write to Dexie
-
-**Files:** `room-elevation.page.ts`
-
-**Changes:**
-1. In `onNotesChange()` or similar, call `efeFieldRepo.setRoomNotes()`
-2. Debounce to avoid excessive writes (300ms)
-
-**Debugging:**
 ```typescript
-alert(`[WRITE DEBUG] Notes saved to Dexie: ${notes.substring(0, 30)}...`);
-```
-
-### Step 3.2: FDF Dropdown Write-Through
-**Goal:** When user selects FDF option, immediately write to Dexie
-
-**Changes:**
-1. In FDF change handler, call `efeFieldRepo.setRoomFdf()`
-
-**Debugging:**
-```typescript
-alert(`[WRITE DEBUG] FDF saved to Dexie: ${fdfValue}`);
-```
-
-### Step 3.3: Location Field Write-Through
-**Goal:** When user types location, immediately write to Dexie
-
-**Changes:**
-1. In location change handler, call `efeFieldRepo.setRoomLocation()`
-
-**Debugging:**
-```typescript
-alert(`[WRITE DEBUG] Location saved to Dexie: ${location}`);
-```
-
-### Step 3.4: Point Value Write-Through
-**Goal:** When user enters elevation point value, immediately write to Dexie
-
-**Changes:**
-1. In point value change handler, call `efeFieldRepo.setPointValue()`
-
-**Debugging:**
-```typescript
-alert(`[WRITE DEBUG] Point ${pointNumber} value saved: ${value}`);
-```
-
----
-
-## Phase 4: Photo Population from Dexie (CRITICAL)
-
-### Step 4.1: Create populatePhotosFromDexie() Method
-**Goal:** Load photos from LocalImages table, matching by entityId
-
-**Files:** `room-elevation.page.ts`
-
-**Key Considerations:**
-- Photos are stored in `LocalImages` table with `entityId` = point ID
-- Must check BOTH `pointId` (real) AND `tempPointId` (temp)
-- Must also check `tempIdMappings` table for temp-to-real mapping
-
-**Changes:**
-```typescript
-private async populatePhotosFromDexie(elevationPoints: any[]): Promise<void> {
+private async populatePhotosFromLocalImages(): Promise<void> {
+  // Get all LocalImages for this service
   const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
 
   // Group by entityId
@@ -224,224 +240,110 @@ private async populatePhotosFromDexie(elevationPoints: any[]): Promise<void> {
     localImagesMap.get(entityId)!.push(img);
   }
 
-  for (const point of elevationPoints) {
-    const realId = point.pointId;
-    const tempId = point.tempPointId;
+  // Populate photos for each point
+  for (const point of this.roomData.elevationPoints) {
+    const pointId = point.pointId;  // Already has temp or real ID
+    if (!pointId) continue;
 
-    // Try real ID first, then temp ID, then mapped ID
-    let localImages = realId ? (localImagesMap.get(realId) || []) : [];
-    if (localImages.length === 0 && tempId) {
-      localImages = localImagesMap.get(tempId) || [];
-    }
-    if (localImages.length === 0 && tempId) {
-      const mappedRealId = await this.indexedDb.getRealId(tempId);
+    // Check direct ID match
+    let photos = localImagesMap.get(String(pointId)) || [];
+
+    // Also check temp-to-real mapping
+    if (photos.length === 0) {
+      const mappedRealId = await this.indexedDb.getRealId(pointId);
       if (mappedRealId) {
-        localImages = localImagesMap.get(mappedRealId) || [];
+        photos = localImagesMap.get(mappedRealId) || [];
       }
     }
 
-    // Populate photos...
+    // Convert LocalImages to photo objects
+    point.photos = await Promise.all(photos.map(async (img) => ({
+      imageId: img.imageId,
+      attachId: img.attachId || img.imageId,
+      photoType: img.photoType || 'Measurement',
+      displayUrl: await this.localImageService.getDisplayUrl(img),
+      caption: img.caption || '',
+      // ... other fields
+    })));
   }
 }
 ```
 
-**Debugging:**
-```typescript
-alert(`[PHOTO DEBUG] populatePhotosFromDexie:\n` +
-  `Total LocalImages: ${allLocalImages.length}\n` +
-  `Points with photos: ${pointsWithPhotos}\n` +
-  `entityIds in LocalImages: ${Array.from(localImagesMap.keys()).slice(0, 5).join(', ')}`);
-```
-
-### Step 4.2: Call populatePhotosFromDexie After Dexie Load
-**Goal:** Photos appear immediately after room data loads from Dexie
-
-**Changes:**
-1. In `initializeFromDexie()`, after populating roomData, call `populatePhotosFromDexie()`
-
-**Debugging:**
-```typescript
-alert(`[PHOTO DEBUG] After populatePhotosFromDexie:\n` +
-  `Points: ${this.roomData.elevationPoints.length}\n` +
-  `Points with photos: ${this.roomData.elevationPoints.filter(p => p.photos?.length > 0).length}`);
-```
-
-### Step 4.3: Handle Photo Upload - Store with Correct EntityId
-**Goal:** When photo is uploaded, LocalImage.entityId must match point's ID
-
-**Files:** `room-elevation.page.ts`
-
-**Key Consideration:**
-- If point has `pointId` (real), use that
-- If point only has `tempPointId`, use that
-- DO NOT use `temp_point_xxx` if real ID exists
-
-**Debugging (on photo upload):**
-```typescript
-alert(`[UPLOAD DEBUG] Photo entityId: ${localImage.entityId}\n` +
-  `Point realId: ${point.pointId}\n` +
-  `Point tempId: ${point.tempPointId}`);
-```
-
 ---
 
-## Phase 5: Sync ID Mapping (CRITICAL)
+## Phase 2: Sync Integration
 
-### Step 5.1: Store Point temp-to-real ID Mapping During Sync
-**Goal:** When point syncs, store mapping so photos can be found on reload
+### Step 2.1: Ensure Room Sync Updates Dexie
 
-**Files:** `background-sync.service.ts`
-
-**Check:** Verify `mapTempId()` is called for EFE points (should already exist at line ~733)
-
-**Debugging:**
+When room syncs (tempEfeId → realEfeId), update Dexie:
 ```typescript
-console.log(`[SYNC] Stored point mapping: ${tempId} -> ${realId}`);
+// In background-sync.service.ts after room sync
+await this.efeFieldRepo.updateEfeId(serviceId, roomName, realEfeId);
 ```
 
-### Step 5.2: Update LocalImage.entityId After Point Syncs
-**Goal:** After point syncs, update LocalImages to use real ID
+### Step 2.2: Ensure Point Sync Updates Dexie
 
-**Files:** `room-elevation.page.ts` (in sync handler)
-
-**Changes:**
+When point syncs (tempPointId → realPointId), update Dexie:
 ```typescript
-// In efePointSyncComplete$ handler
+// In background-sync.service.ts after point sync
+await this.efeFieldRepo.setPointId(serviceId, roomName, pointNumber, realPointId);
+```
+
+### Step 2.3: Update LocalImage.entityId After Point Sync
+
+Photos stored with tempPointId need entityId updated:
+```typescript
 await this.indexedDb.updateEntityIdForImages(tempPointId, realPointId);
 ```
 
-**Debugging:**
-```typescript
-alert(`[SYNC DEBUG] Updated LocalImages entityId:\n` +
-  `From: ${tempPointId}\n` +
-  `To: ${realPointId}`);
-```
-
-### Step 5.3: Update EfeField.pointId After Point Syncs
-**Goal:** After point syncs, update EfeField in Dexie with real pointId
-
-**Changes:**
-```typescript
-await this.efeFieldRepo.setPointId(this.serviceId, this.roomName, pointNumber, realPointId);
-```
-
-**Debugging:**
-```typescript
-alert(`[SYNC DEBUG] Updated EfeField pointId:\n` +
-  `Point ${pointNumber}: ${realPointId}`);
-```
-
 ---
 
-## Phase 6: FDF Photo Handling
+## Phase 3: Write-Through (Same as Before)
 
-### Step 6.1: Populate FDF Photos from Dexie
-**Goal:** FDF photos (top, bottom, threshold) load from LocalImages
-
-**Key Consideration:**
-- FDF photos use `entityId` = room ID (not point ID)
-- Must check both `efeId` and `tempEfeId`
-
-**Debugging:**
-```typescript
-alert(`[FDF DEBUG] FDF photos from Dexie:\n` +
-  `Room efeId: ${this.roomId}\n` +
-  `Top photo: ${!!fdfPhotos.top}\n` +
-  `Bottom photo: ${!!fdfPhotos.bottom}`);
-```
-
-### Step 6.2: Handle FDF Photo Upload EntityId
-**Goal:** FDF photos stored with correct room entityId
-
-**Debugging:**
-```typescript
-alert(`[FDF UPLOAD DEBUG] entityId: ${localImage.entityId}\n` +
-  `Room efeId: ${this.roomId}\n` +
-  `Room tempEfeId: ${this.tempRoomId}`);
-```
-
----
-
-## Phase 7: Room Sync ID Mapping
-
-### Step 7.1: Store Room temp-to-real ID Mapping During Sync
-**Goal:** When room syncs, store mapping for FDF photos
-
-**Check:** Verify `mapTempId()` is called for EFE rooms in background-sync.service.ts
-
-### Step 7.2: Update LocalImage.entityId After Room Syncs
-**Goal:** After room syncs, update FDF LocalImages to use real room ID
-
-### Step 7.3: Update EfeField.efeId After Room Syncs
-**Goal:** After room syncs, update EfeField in Dexie with real efeId
-
----
-
-## Phase 8: Elevation-Plot-Hub Dexie-First
-
-### Step 8.1: Replace Room List Loading with Dexie
-**Goal:** Room list loads instantly from EfeFields
-
-**Changes:**
-1. Subscribe to `efeFieldRepo.getFieldsForService$()`
-2. Filter to only `isSelected: true` rooms
-
-### Step 8.2: Room Creation Writes to Dexie First
-**Goal:** When creating room, write to Dexie immediately
-
-### Step 8.3: Room Deletion Updates Dexie
-**Goal:** When deleting room, update Dexie immediately
+### Step 3.1-3.4: Notes, FDF, Location, Point Values
+Write-through to Dexie on every change (already implemented in EfeFieldRepo).
 
 ---
 
 ## Testing Checklist
 
-### For Each Step:
-- [ ] Debug alert shows expected values
-- [ ] No TypeScript compilation errors
-- [ ] App builds successfully
-- [ ] Feature works on mobile device (CRITICAL - test mobile, not just browser)
+### Dexie-First Verification:
+- [ ] Add room → room AND all points appear in sync queue immediately
+- [ ] Enter room-elevation → instant display (no loading, no API calls)
+- [ ] All camera/album buttons enabled (points have tempPointIds)
+- [ ] Refresh page → same instant display from Dexie
+- [ ] Background sync completes → IDs update from temp to real
+- [ ] Photos persist across sync (entityId mapping works)
 
-### Photo Persistence Tests:
-- [ ] Photo shows immediately after upload
-- [ ] Photo persists on page reload (before sync)
-- [ ] Photo persists after sync completes
-- [ ] Photo persists on page reload (after sync)
-- [ ] Annotations/captions persist
+### Mobile-Specific:
+- [ ] Test on actual mobile device
+- [ ] No IndexedDB errors
+- [ ] Buttons not grayed out
 
-### ID Matching Tests:
-- [ ] Before sync: Photos found by tempId
-- [ ] After sync: Photos found by realId (via mapping)
-- [ ] Reload after sync: Photos found by realId
+---
+
+## Key Files to Modify
+
+1. **`efe-field-repo.service.ts`** - Add `createPointRecordsForRoom()`
+2. **`elevation-plot-hub.page.ts`** - Call point creation when room is added
+3. **`room-elevation.page.ts`** - Rewrite to pure Dexie read
+4. **`background-sync.service.ts`** - Ensure sync updates Dexie
 
 ---
 
 ## Rollback Plan
 
-If a step causes issues:
-1. Revert the specific commit
-2. Add more granular debugging
-3. Identify the exact ID mismatch
-4. Fix and re-test
+If issues occur:
+1. The old `loadElevationPoints()` logic still exists as fallback
+2. Can revert to `loadRoomData()` path if Dexie path fails
+3. Debug with `alert()` on mobile
 
 ---
 
 ## Notes
 
-- Always use `alert()` for mobile debugging
-- Remove debug alerts after each phase is verified working
-- Commit after each successful step
-- **Test on actual mobile device, not just browser** - IndexedDB behaves differently!
-- Follow Structural Systems pattern for operation order (load data → then subscribe)
-
----
-
-## Commits Reference (Phase 1 Fixes)
-
-1. `e97116ad` - Add debug alerts for blank screen diagnosis
-2. `236eddba` - Fix blank screen: populate roomData immediately from existingField
-3. `f50afb2c` - Add Dexie debug mode and global error handlers
-4. `5d28755a` - Fix mobile liveQuery: use simple 'key' index
-5. `4bc47189` - Fix race condition: load elevation points BEFORE subscribing to liveQuery
-6. `8608d24a` - Fix infinite loading: set isLoadingPoints=false after loadElevationPoints
+- **NO point creation in room-elevation** - all points created when room is added
+- **Dexie is THE source of truth** - backend is just sync target
+- **Temp IDs enable everything** - buttons, photos, all work with temp IDs
+- **Test on mobile device** - IndexedDB behaves differently than desktop browser
 

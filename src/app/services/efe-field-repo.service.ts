@@ -197,6 +197,91 @@ export class EfeFieldRepoService {
   }
 
   /**
+   * Create point records for a room when it's first added
+   * This generates tempPointIds and queues points for sync
+   * Called from elevation-plot-hub when user adds a room
+   *
+   * DEXIE-FIRST: Points are created upfront with temp IDs so:
+   * - room-elevation page loads instantly from Dexie
+   * - All buttons are enabled (points have IDs)
+   * - No API calls needed when entering room
+   *
+   * @param serviceId - The service ID
+   * @param roomName - The room name
+   * @param tempEfeId - The temp EFE ID for the room (links points to room)
+   * @param foundationDataService - Service for creating pending records
+   * @returns Array of created EfePoints with tempPointIds
+   */
+  async createPointRecordsForRoom(
+    serviceId: string,
+    roomName: string,
+    tempEfeId: string,
+    foundationDataService: any  // For creating pending records
+  ): Promise<EfePoint[]> {
+    const key = `${serviceId}:${roomName}`;
+    const existing = await db.efeFields.where('key').equals(key).first();
+
+    if (!existing) {
+      throw new Error(`[EfeFieldRepo] EfeField not found for room: ${roomName}`);
+    }
+
+    if (existing.elevationPoints.length === 0) {
+      console.log(`[EfeFieldRepo] No elevation points to create for room: ${roomName}`);
+      return [];
+    }
+
+    console.log(`[EfeFieldRepo] Creating ${existing.elevationPoints.length} point records for room: ${roomName}`);
+
+    const updatedPoints: EfePoint[] = [];
+    const now = Date.now();
+
+    for (const point of existing.elevationPoints) {
+      // Skip if point already has an ID (shouldn't happen for new rooms)
+      if (point.pointId || point.tempPointId) {
+        console.log(`[EfeFieldRepo] Point ${point.pointNumber} already has ID, skipping`);
+        updatedPoints.push(point);
+        continue;
+      }
+
+      // Generate unique tempPointId
+      const tempPointId = `temp_point_${now}_${point.pointNumber}`;
+
+      // Create pending record for sync via foundationDataService
+      // This queues the point for background sync to the backend
+      const pointData = {
+        EFEID: tempEfeId,  // Link to room via tempEfeId
+        PointName: point.name
+      };
+
+      try {
+        // Queue for sync - this creates a pending record
+        await foundationDataService.createEFEPoint(pointData, tempEfeId);
+        console.log(`[EfeFieldRepo] Queued point ${point.pointNumber} (${point.name}) for sync with tempId: ${tempPointId}`);
+      } catch (err) {
+        console.error(`[EfeFieldRepo] Failed to queue point ${point.pointNumber}:`, err);
+        // Continue anyway - point will still be in Dexie
+      }
+
+      updatedPoints.push({
+        ...point,
+        tempPointId,
+        pointId: null  // Will be set after sync
+      });
+    }
+
+    // Update Dexie with tempPointIds
+    await db.transaction('rw', db.efeFields, async () => {
+      await db.efeFields.update(existing.id!, {
+        elevationPoints: updatedPoints,
+        updatedAt: Date.now()
+      });
+    });
+
+    console.log(`[EfeFieldRepo] Created ${updatedPoints.length} point records with temp IDs`);
+    return updatedPoints;
+  }
+
+  /**
    * Add a room that was created by the user (not from template)
    * This handles duplicate rooms like "Bedroom #2"
    */

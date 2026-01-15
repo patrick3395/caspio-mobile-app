@@ -1793,151 +1793,312 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
    * This replaces the slow loadRoomData() -> foundationData.getEFEByService() flow
    * with direct Dexie reads that are instant.
    */
+  /**
+   * DEXIE-FIRST: Initialize room-elevation page from Dexie only
+   *
+   * Key principles:
+   * - ALL data comes from Dexie (no API calls here)
+   * - Points already have tempPointIds (created when room was added)
+   * - Instant display - no loading spinners
+   * - Photos loaded from LocalImages separately
+   */
   private async initializeFromDexie(): Promise<void> {
     console.time('[RoomElevation] initializeFromDexie');
-    console.log('[RoomElevation] initializeFromDexie - Checking Dexie for room:', this.roomName);
+    console.log('[RoomElevation] DEXIE-FIRST: Loading from Dexie only');
+    console.log('[RoomElevation] serviceId:', this.serviceId, 'roomName:', this.roomName);
 
-    // DEBUG ALERT 1: Entry point
-    alert(`[DEBUG 1] initializeFromDexie START\nserviceId: ${this.serviceId}\nroomName: ${this.roomName}`);
+    // DEBUG ALERT: Entry point
+    alert(`[DEBUG 1] initializeFromDexie DEXIE-FIRST\nserviceId: ${this.serviceId}\nroomName: ${this.roomName}`);
 
     // Unsubscribe from previous subscription if exists
     if (this.efeFieldSubscription) {
       this.efeFieldSubscription.unsubscribe();
     }
 
-    // Check if we have this room in Dexie already
-    let existingField: EfeField | undefined;
+    // 1. Read from Dexie (ONLY source of truth)
+    let field: EfeField | undefined;
     try {
-      existingField = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
-      alert(`[DEBUG 2] getFieldByRoom returned:\n${existingField ? 'FOUND - ' + existingField.roomName : 'NOT FOUND'}`);
+      field = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
     } catch (err: any) {
-      alert(`[DEBUG 2 ERROR] getFieldByRoom failed:\n${err?.message || err}`);
-      // Fall back to loadRoomData on error
-      await this.loadRoomData();
+      console.error('[RoomElevation] Dexie read error:', err);
+      alert(`[DEBUG ERROR] Dexie read failed: ${err?.message || err}`);
+      this.loading = false;
       return;
     }
 
-    if (!existingField) {
-      console.log('[RoomElevation] Room not in Dexie, falling back to loadRoomData()');
-      alert(`[DEBUG 3] Room NOT in Dexie, calling loadRoomData()`);
-      // Room not in Dexie yet - use old flow to seed data
-      // This handles first-time visits before EfeField is populated
-      await this.loadRoomData();
-      console.timeEnd('[RoomElevation] initializeFromDexie');
+    if (!field) {
+      // Room not in Dexie - this indicates a bug in the flow
+      // The room should have been added to Dexie when it was created in elevation-plot-hub
+      console.error('[RoomElevation] DEXIE-FIRST ERROR: Room not found in Dexie - flow bug');
+      alert(`[DEBUG ERROR] Room "${this.roomName}" NOT in Dexie!\nThis is a bug - room should exist in Dexie.`);
+      this.loading = false;
       return;
     }
 
-    console.log('[RoomElevation] Found room in Dexie:', existingField.roomName);
-    alert(`[DEBUG 3] Room FOUND in Dexie:\nefeId: ${existingField.efeId}\ntempEfeId: ${existingField.tempEfeId}\npoints: ${existingField.elevationPoints?.length || 0}`);
+    console.log('[RoomElevation] DEXIE-FIRST: Room found in Dexie');
+    const pointsInfo = field.elevationPoints.map(p =>
+      `${p.pointNumber}:${p.pointId || p.tempPointId || 'NO_ID'}`
+    ).join(', ');
+    alert(`[DEBUG 2] Room found!\nefeId: ${field.efeId || 'null'}\ntempEfeId: ${field.tempEfeId || 'null'}\nPoints: ${pointsInfo}`);
 
-    // Pre-load photo caches in parallel
-    this.cacheLoadPromise = this.preloadPhotoCaches();
-
-    // Set roomId from Dexie (use efeId or tempEfeId)
-    this.roomId = existingField.efeId || existingField.tempEfeId || '';
+    // 2. Set roomId from Dexie (prefer real ID, fallback to temp)
+    this.roomId = field.efeId || field.tempEfeId || '';
     this.lastLoadedRoomId = this.roomId;
 
-    // CRITICAL: Initialize roomData with EMPTY elevationPoints
-    // loadElevationPoints() will populate the points AND run STEP 5.5 to auto-create them
-    // DO NOT pre-populate elevationPoints - loadElevationPoints() pushes to the array
+    // 3. Populate roomData DIRECTLY from Dexie
+    // Points already have IDs (temp or real) from when room was added
     this.roomData = {
-      roomName: existingField.roomName,
-      templateId: existingField.templateId,
-      notes: existingField.notes || '',
-      fdf: existingField.fdf || '',
-      location: existingField.location || '',
-      elevationPoints: [],  // EMPTY - loadElevationPoints() handles this AND creates points in sync queue
+      roomName: field.roomName,
+      templateId: field.templateId,
+      notes: field.notes || '',
+      fdf: field.fdf || '',
+      location: field.location || '',
+      elevationPoints: field.elevationPoints.map(ep => ({
+        name: ep.name,
+        pointId: ep.pointId || ep.tempPointId,  // Use real or temp ID
+        pointNumber: ep.pointNumber,
+        value: ep.value || '',
+        photos: [],  // Will be populated from LocalImages
+        expanded: false
+      })),
       fdfPhotos: {
-        top: existingField.fdfPhotos?.['top'] || null,
-        bottom: existingField.fdfPhotos?.['bottom'] || null,
-        topDetails: existingField.fdfPhotos?.['topDetails'] || null,
-        bottomDetails: existingField.fdfPhotos?.['bottomDetails'] || null,
-        threshold: existingField.fdfPhotos?.['threshold'] || null
+        top: field.fdfPhotos?.['top'] || null,
+        bottom: field.fdfPhotos?.['bottom'] || null,
+        topDetails: field.fdfPhotos?.['topDetails'] || null,
+        bottomDetails: field.fdfPhotos?.['bottomDetails'] || null,
+        threshold: field.fdfPhotos?.['threshold'] || null
       }
     };
-    alert(`[DEBUG 3.5] roomData initialized (elevationPoints empty, will be populated by loadElevationPoints)`);
+
+    // 4. All points have IDs (temp or real) - buttons should be enabled
+    this.isLoadingPoints = false;
+    this.loading = false;
     this.changeDetectorRef.detectChanges();
 
-    // ==========================================================================
-    // CRITICAL FIX: Match Structural Systems pattern - load data BEFORE subscribing
-    // Structural Systems does: LocalImages subscription → data ready → THEN liveQuery
-    // This prevents IndexedDB transaction conflicts on mobile
-    // ==========================================================================
+    alert(`[DEBUG 3] roomData populated!\nroomId: "${this.roomId}"\nPoints: ${this.roomData.elevationPoints.length}`);
 
-    // STEP 1: Load elevation points FIRST (before any subscriptions)
-    // This ensures bulkLocalImagesMap and all data is ready
-    alert(`[DEBUG 4] About to call loadElevationPoints FIRST (before liveQuery)...`);
-    await this.loadElevationPoints();
-    // CRITICAL: Set isLoadingPoints to false - UI waits for this flag
-    this.isLoadingPoints = false;
-    alert(`[DEBUG 5] loadElevationPoints completed! isLoadingPoints=${this.isLoadingPoints}`);
+    // 5. Load photos from LocalImages (separate from point data)
+    await this.populatePhotosFromLocalImages();
 
-    // STEP 2: Now that data is ready, subscribe to liveQuery for reactive updates ONLY
-    // This matches Structural Systems pattern where subscriptions happen AFTER data is loaded
-    alert(`[DEBUG 6] Now subscribing to liveQuery (data already loaded)...`);
+    // 6. Subscribe to liveQuery for reactive updates
     this.efeFieldSubscription = this.efeFieldRepo
       .getFieldByRoom$(this.serviceId, this.roomName)
       .subscribe({
-        next: async (field) => {
-          console.log(`[RoomElevation] liveQuery update received: ${field ? field.roomName : 'NULL'}`);
-          if (!field) {
-            console.warn('[RoomElevation] EfeField became undefined');
-            return;
-          }
+        next: (updatedField) => {
+          if (!updatedField) return;
 
-          // CRITICAL: Only update metadata from liveQuery, NOT elevationPoints
-          // loadElevationPoints() properly loaded points with pointIds and photos
-          // EfeField may not have the created pointIds (only template data)
-          // Overwriting elevationPoints would lose the pointIds and break buttons
+          console.log('[RoomElevation] liveQuery update received');
+
+          // Update metadata from liveQuery
           if (this.roomData) {
-            this.roomData.notes = field.notes || this.roomData.notes;
-            this.roomData.fdf = field.fdf || this.roomData.fdf;
-            this.roomData.location = field.location || this.roomData.location;
+            this.roomData.notes = updatedField.notes || this.roomData.notes;
+            this.roomData.fdf = updatedField.fdf || this.roomData.fdf;
+            this.roomData.location = updatedField.location || this.roomData.location;
 
-            // Update point values from Dexie (but preserve pointId and photos)
-            if (field.elevationPoints && this.roomData.elevationPoints) {
-              for (const efePoint of field.elevationPoints) {
-                const existingPoint = this.roomData.elevationPoints.find(
-                  (p: any) => p.pointNumber === efePoint.pointNumber || p.name === efePoint.name
-                );
-                if (existingPoint && efePoint.value) {
-                  existingPoint.value = efePoint.value;
+            // Update point values and IDs from Dexie
+            for (const efePoint of updatedField.elevationPoints) {
+              const existingPoint = this.roomData.elevationPoints.find(
+                (p: any) => p.pointNumber === efePoint.pointNumber
+              );
+              if (existingPoint) {
+                if (efePoint.value) existingPoint.value = efePoint.value;
+                // Update pointId if it changed (temp → real after sync)
+                if (efePoint.pointId && existingPoint.pointId !== efePoint.pointId) {
+                  console.log(`[RoomElevation] Point ${efePoint.pointNumber} ID updated: ${existingPoint.pointId} → ${efePoint.pointId}`);
+                  existingPoint.pointId = efePoint.pointId;
                 }
               }
             }
           }
 
-          // Update roomId if it changed (after sync)
-          if (field.efeId && this.roomId !== field.efeId) {
-            console.log(`[RoomElevation] RoomId updated: ${this.roomId} -> ${field.efeId}`);
-            this.roomId = field.efeId;
+          // Update roomId if it changed (temp → real after sync)
+          if (updatedField.efeId && this.roomId !== updatedField.efeId) {
+            console.log(`[RoomElevation] RoomId updated: ${this.roomId} → ${updatedField.efeId}`);
+            this.roomId = updatedField.efeId;
             this.lastLoadedRoomId = this.roomId;
           }
 
-          this.loading = false;
           this.changeDetectorRef.detectChanges();
         },
         error: (err) => {
-          console.error('[RoomElevation] Error in EfeField subscription:', err);
-          // Capture detailed error info
-          const errName = err?.name || 'Unknown';
-          const errMsg = err?.message || String(err);
-          alert(`[DEBUG 6 ERROR] liveQuery subscription error (non-fatal):\nName: ${errName}\nMsg: ${errMsg}`);
-          // Non-fatal: we already have initial data loaded
-          this.loading = false;
+          console.error('[RoomElevation] liveQuery error (non-fatal):', err);
+          // Non-fatal: we already have data from initial read
         }
       });
-    alert(`[DEBUG 7] liveQuery subscription created`);
 
     // Mark initial load complete
     this.initialLoadComplete = true;
-    this.loading = false;
     this.changeDetectorRef.detectChanges();
 
     // DEBUG: Check button enable conditions
     const pointIds = this.roomData?.elevationPoints?.map((p: any) => p.pointId).join(', ') || 'none';
-    alert(`[DEBUG 8] Button state check:\nroomId: "${this.roomId}"\nloading: ${this.loading}\nisRoomReady: ${this.isRoomReady()}\nPoints count: ${this.roomData?.elevationPoints?.length}\nPoint IDs: ${pointIds}`);
+    alert(`[DEBUG 4] DEXIE-FIRST Complete!\nroomId: "${this.roomId}"\nisRoomReady: ${this.isRoomReady()}\nPoints: ${this.roomData?.elevationPoints?.length}\nPoint IDs: ${pointIds}`);
     console.timeEnd('[RoomElevation] initializeFromDexie');
+  }
+
+  /**
+   * DEXIE-FIRST: Load photos from LocalImages table
+   * Matches photos to elevation points by entityId (which can be temp or real pointId)
+   */
+  private async populatePhotosFromLocalImages(): Promise<void> {
+    if (!this.roomData?.elevationPoints) {
+      console.log('[RoomElevation] No elevation points to populate photos for');
+      return;
+    }
+
+    console.log('[RoomElevation] populatePhotosFromLocalImages - Loading photos from LocalImages');
+
+    try {
+      // Get all LocalImages for this service's elevation points
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_point');
+      console.log(`[RoomElevation] Found ${allLocalImages.length} LocalImages for efe_point`);
+
+      // Group LocalImages by entityId (pointId)
+      const localImagesMap = new Map<string, any[]>();
+      for (const img of allLocalImages) {
+        if (!img.entityId) continue;
+
+        const entityId = String(img.entityId);
+
+        // Add by original entityId
+        if (!localImagesMap.has(entityId)) {
+          localImagesMap.set(entityId, []);
+        }
+        localImagesMap.get(entityId)!.push(img);
+
+        // Also add by resolved real ID if entityId is a temp ID
+        // This ensures photos show after the parent point syncs
+        if (entityId.startsWith('temp_')) {
+          const realId = await this.indexedDb.getRealId(entityId);
+          if (realId && realId !== entityId) {
+            if (!localImagesMap.has(realId)) {
+              localImagesMap.set(realId, []);
+            }
+            const existing = localImagesMap.get(realId)!;
+            if (!existing.some((e: any) => e.imageId === img.imageId)) {
+              existing.push(img);
+            }
+          }
+        }
+      }
+
+      // Update class-level map for liveQuery updates
+      this.bulkLocalImagesMap = localImagesMap;
+      console.log(`[RoomElevation] Built LocalImagesMap with ${localImagesMap.size} point groups`);
+
+      // Populate photos for each elevation point
+      for (const point of this.roomData.elevationPoints) {
+        const pointId = point.pointId;
+        if (!pointId) continue;
+
+        const pointIdStr = String(pointId);
+
+        // Check for LocalImages by pointId
+        let localImagesForPoint = localImagesMap.get(pointIdStr) || [];
+
+        // Also check by temp-to-real mapping (if pointId is real but photos have temp entityId)
+        if (localImagesForPoint.length === 0) {
+          // Check if there's a temp ID that maps to this real ID
+          for (const [tempId, images] of localImagesMap.entries()) {
+            if (tempId.startsWith('temp_')) {
+              const mappedRealId = await this.indexedDb.getRealId(tempId);
+              if (mappedRealId === pointIdStr) {
+                localImagesForPoint = images;
+                break;
+              }
+            }
+          }
+        }
+
+        if (localImagesForPoint.length === 0) continue;
+
+        console.log(`[RoomElevation] Found ${localImagesForPoint.length} photos for point ${point.name} (${pointIdStr})`);
+
+        // Convert LocalImages to photo objects
+        point.photos = [];
+        for (const localImage of localImagesForPoint) {
+          // Get display URL
+          let displayUrl = 'assets/img/photo-placeholder.png';
+          try {
+            displayUrl = await this.localImageService.getDisplayUrl(localImage);
+          } catch (e) {
+            console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
+          }
+
+          point.photos.push({
+            imageId: localImage.imageId,
+            attachId: localImage.attachId || localImage.imageId,
+            photoType: localImage.photoType || 'Measurement',
+            displayUrl,
+            url: displayUrl,
+            caption: localImage.caption || '',
+            annotations: localImage.annotations || null,
+            isLocalImage: true,
+            isLocalFirst: true,
+            localImageId: localImage.imageId,
+            syncStatus: localImage.syncStatus || 'pending'
+          });
+        }
+      }
+
+      // Also load FDF photos if any
+      await this.populateFdfPhotosFromLocalImages(localImagesMap);
+
+      console.log('[RoomElevation] populatePhotosFromLocalImages - Complete');
+    } catch (error) {
+      console.error('[RoomElevation] Error loading photos from LocalImages:', error);
+    }
+  }
+
+  /**
+   * DEXIE-FIRST: Load FDF photos from LocalImages
+   */
+  private async populateFdfPhotosFromLocalImages(localImagesMap?: Map<string, any[]>): Promise<void> {
+    if (!this.roomData?.fdfPhotos || !this.roomId) return;
+
+    // If map not provided, get FDF-specific images
+    let fdfImages: any[] = [];
+    if (localImagesMap) {
+      // FDF photos use roomId as entityId
+      fdfImages = localImagesMap.get(String(this.roomId)) || [];
+    } else {
+      const allFdfImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_fdf');
+      fdfImages = allFdfImages.filter((img: any) => String(img.entityId) === String(this.roomId));
+    }
+
+    for (const localImage of fdfImages) {
+      const photoType = localImage.photoType as string;
+      if (!photoType) continue;
+
+      // Map photoType to fdfPhotos key
+      let fdfKey = '';
+      if (photoType.includes('Top') && photoType.includes('Details')) {
+        fdfKey = 'topDetails';
+      } else if (photoType.includes('Bottom') && photoType.includes('Details')) {
+        fdfKey = 'bottomDetails';
+      } else if (photoType.includes('Top')) {
+        fdfKey = 'top';
+      } else if (photoType.includes('Bottom')) {
+        fdfKey = 'bottom';
+      } else if (photoType.includes('Threshold')) {
+        fdfKey = 'threshold';
+      }
+
+      if (!fdfKey) continue;
+
+      let displayUrl = 'assets/img/photo-placeholder.png';
+      try {
+        displayUrl = await this.localImageService.getDisplayUrl(localImage);
+      } catch (e) {
+        console.warn('[RoomElevation] Failed to get FDF LocalImage displayUrl:', e);
+      }
+
+      // Update fdfPhotos
+      (this.roomData.fdfPhotos as any)[fdfKey] = true;
+      (this.roomData.fdfPhotos as any)[`${fdfKey}DisplayUrl`] = displayUrl;
+      (this.roomData.fdfPhotos as any)[`${fdfKey}ImageId`] = localImage.imageId;
+      (this.roomData.fdfPhotos as any)[`${fdfKey}IsLocalFirst`] = true;
+    }
   }
 
   private async loadRoomData() {
