@@ -604,9 +604,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('[ngOnInit] ServiceId from route:', this.serviceId);
     console.log('[ngOnInit] isFirstLoad:', this.isFirstLoad);
 
-    // DEBUG ALERT: Template initialization
-    alert(`[DEBUG ngOnInit]\nProjectId: ${this.projectId}\nServiceId: ${this.serviceId}\nisFirstLoad: ${this.isFirstLoad}`);
-
     // [PERFORMANCE] Detect connection speed and adjust loading strategy
     this.detectConnectionSpeed();
 
@@ -655,7 +652,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
     try {
       console.log('[ngOnInit] Starting Promise.all data loading...');
-      alert('[DEBUG] Starting parallel data load:\n- loadProjectData\n- loadVisualCategories\n- loadRoomTemplates\n- loadFDFOptions\n- Dropdown options');
 
       await Promise.all([
         this.loadProjectData(),
@@ -669,14 +665,10 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       ]);
       console.log('[ngOnInit] Promise.all completed');
 
-      alert(`[DEBUG] Parallel load COMPLETE:\n- projectData: ${this.projectData ? 'LOADED' : 'NULL'}\n- visualTemplates: ${this.visualTemplates?.length || 0} items\n- roomTemplates: ${this.roomTemplates?.length || 0} items`);
-
       // Then load any existing template data (including visual selections)
       console.log('[ngOnInit] Starting loadExistingData...');
       await this.loadExistingData();
       console.log('[ngOnInit] loadExistingData completed');
-
-      alert(`[DEBUG] loadExistingData COMPLETE:\n- selectedItems: ${Object.keys(this.selectedItems).length}\n- selectedRooms: ${Object.keys(this.selectedRooms).length}\n- serviceData: ${this.serviceData ? 'LOADED' : 'NULL'}`);
 
       this.dataInitialized = true;
       this.tryAutoOpenPdf();
@@ -1192,8 +1184,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     console.log('[Lifecycle] Current selectedItems:', Object.keys(this.selectedItems).length);
     console.log('==========================================');
 
-    alert(`[DEBUG ionViewWillEnter]\nisFirstLoad: ${this.isFirstLoad}\nServiceID: ${this.serviceId}\nselectedRooms: ${Object.keys(this.selectedRooms).length}\nselectedItems: ${Object.keys(this.selectedItems).length}`);
-
     // Re-add button listeners in case they were removed
     this.addButtonEventListeners();
 
@@ -1201,14 +1191,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     // Only reload when returning to the page after navigating away
     if (this.isFirstLoad) {
       console.log('[Lifecycle] Skipping data reload on first load - handled by ngOnInit');
-      alert('[DEBUG ionViewWillEnter] Skipping - isFirstLoad=true (ngOnInit handles it)');
       return;
     }
 
     // CRITICAL: Clear all caches to force fresh data load from Caspio
     // This prevents stale cached data from being displayed when returning to the page
     console.log('[Lifecycle] Clearing all data caches...');
-    alert('[DEBUG ionViewWillEnter] CLEARING ALL CACHES - foundationData.clearAllCaches()');
     this.foundationData.clearAllCaches();
 
     // CRITICAL FIX: Reload existing selections when returning to the page
@@ -1216,7 +1204,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     if (this.serviceId) {
       try {
         console.log('[Lifecycle] Starting data reload...');
-        alert('[DEBUG ionViewWillEnter] Starting FULL data reload...');
 
         // Reload project and service data (including all form fields)
         await this.loadProjectData();
@@ -1232,16 +1219,13 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
         console.log('[Lifecycle] After loadExistingVisualSelections - selectedItems:', Object.keys(this.selectedItems).length);
 
         console.log('[Lifecycle] Data reload COMPLETE');
-        alert(`[DEBUG ionViewWillEnter] Reload COMPLETE:\n- selectedRooms: ${Object.keys(this.selectedRooms).length}\n- selectedItems: ${Object.keys(this.selectedItems).length}\n- projectData: ${this.projectData ? 'YES' : 'NO'}`);
       } catch (error) {
         console.error('[Lifecycle] ERROR during data reload:', error);
-        alert(`[DEBUG ionViewWillEnter] ERROR: ${error}`);
         // Show toast to make it visible
         this.showToast('Error loading data: ' + (error as any).message, 'danger');
       }
     } else {
       console.warn('[Lifecycle] No serviceId - skipping data reload');
-      alert('[DEBUG ionViewWillEnter] No serviceId - SKIPPING reload');
     }
   }
 
@@ -1461,12 +1445,8 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   async loadProjectData() {
     if (!this.projectId) return;
 
-    alert(`[DEBUG loadProjectData] START\nProjectId: ${this.projectId}`);
-
     try {
       this.projectData = await this.foundationData.getProject(this.projectId);
-
-      alert(`[DEBUG loadProjectData] Data received:\n- Address: ${this.projectData?.Address || 'N/A'}\n- City: ${this.projectData?.City || 'N/A'}\n- ProjectID: ${this.projectData?.ProjectID || 'N/A'}`);
 
       // Format numeric fields after loading
       this.formatSquareFeet();
@@ -1482,7 +1462,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
 
       // Type information is now loaded from Service data which has the correct TypeID
     } catch (error) {
-      alert(`[DEBUG loadProjectData] ERROR: ${error}`);
       console.error('Error loading project data:', error);
       await this.showToast('Failed to load project data', 'danger');
     }
@@ -1535,17 +1514,12 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
   
   async loadServiceData() {
     if (!this.serviceId) {
-      alert('[DEBUG loadServiceData] No serviceId - skipping');
       return;
     }
-
-    alert(`[DEBUG loadServiceData] START\nServiceId: ${this.serviceId}`);
 
     try {
       // Load service data from Services table
       const serviceResponse = await this.foundationData.getService(this.serviceId);
-
-      alert(`[DEBUG loadServiceData] Response:\n- Status: ${serviceResponse?.Status || 'N/A'}\n- ServiceID: ${serviceResponse?.ServiceID || 'N/A'}\n- TypeID: ${serviceResponse?.TypeID || 'N/A'}`);
 
       if (serviceResponse) {
         this.serviceData = serviceResponse;

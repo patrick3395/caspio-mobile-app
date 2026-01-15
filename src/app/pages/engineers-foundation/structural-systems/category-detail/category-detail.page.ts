@@ -333,9 +333,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async ionViewWillEnter() {
     console.time('[CategoryDetail] ionViewWillEnter');
 
-    // DEBUG ALERT 1: Entry point
-    alert(`[DEBUG 1] ionViewWillEnter called\ninitialLoadComplete: ${this.initialLoadComplete}\nserviceId: ${this.serviceId}\ncategoryName: ${this.categoryName}`);
-
     // Set up deferred subscriptions on first entry (after initial render for faster paint)
     // This moves non-critical subscriptions out of ngOnInit
     if (!this.uploadSubscription) {
@@ -347,7 +344,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Only process if initial load is complete and we have required IDs
     if (!this.initialLoadComplete || !this.serviceId || !this.categoryName) {
-      alert(`[DEBUG 2] Early exit - missing required data`);
       console.timeEnd('[CategoryDetail] ionViewWillEnter');
       return;
     }
@@ -362,9 +358,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const serviceOrCategoryChanged = this.lastLoadedServiceId !== this.serviceId ||
                                       this.lastLoadedCategoryName !== this.categoryName;
 
-    // DEBUG ALERT 2: Show cache check values
-    alert(`[DEBUG 3] Cache check:\nhasDataInMemory: ${hasDataInMemory}\nisDirty: ${isDirty}\nserviceOrCategoryChanged: ${serviceOrCategoryChanged}\nlastConvertedFields: ${this.lastConvertedFields?.length || 0}`);
-
     console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}, changed: ${serviceOrCategoryChanged}`);
 
     // Early return if data is fresh and context unchanged
@@ -373,18 +366,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // This ensures images don't disappear when navigating back to this page
       console.log('[CategoryDetail] Refreshing local images and pending captions');
 
-      alert(`[DEBUG 4] Taking EARLY RETURN path - calling refreshLocalState then populatePhotosFromDexie`);
-
       await this.refreshLocalState();
 
       // DEXIE-FIRST: Always reload photos from Dexie on navigation back
       // This ensures photos persist even if blob URLs became invalid
       if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
-        alert(`[DEBUG 5] Calling populatePhotosFromDexie with ${this.lastConvertedFields.length} fields`);
         await this.populatePhotosFromDexie(this.lastConvertedFields);
         this.changeDetectorRef.detectChanges();
-      } else {
-        alert(`[DEBUG 5] SKIPPING populatePhotosFromDexie - lastConvertedFields is empty!`);
       }
 
       console.timeEnd('[CategoryDetail] ionViewWillEnter');
@@ -616,10 +604,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    * This transforms the flat field list into categorized sections
    */
   private convertFieldsToOrganizedData(fields: VisualField[]): void {
-    // DEBUG: Track selected fields coming from Dexie
-    const selectedFields = fields.filter(f => f.isSelected);
-    alert(`[DEBUG CONVERT] convertFieldsToOrganizedData called\nTotal fields: ${fields.length}\nSelected fields from Dexie: ${selectedFields.length}\nSelected templateIds: ${selectedFields.map(f => f.templateId).join(', ')}`);
-
     // DEXIE-FIRST: Store fields reference for reactive photo updates
     this.lastConvertedFields = fields;
 
@@ -683,16 +667,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
     console.log('[DEXIE-FIRST] Populating photos directly from Dexie...');
 
-    // DEBUG ALERT 6: Entry to populatePhotosFromDexie
-    alert(`[DEBUG 6] populatePhotosFromDexie called\nfields count: ${fields.length}\nserviceId: ${this.serviceId}`);
-
     // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query
     // This eliminates the race condition - we don't rely on bulkLocalImagesMap being populated
     const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
-
-    // DEBUG ALERT 7: Show LocalImages query result
-    const entityIds = allLocalImages.map(img => img.entityId).join(', ');
-    alert(`[DEBUG 7] Dexie query result:\nLocalImages found: ${allLocalImages.length}\nentityIds: ${entityIds.substring(0, 200)}`);
 
     // Group by entityId for efficient lookup
     const localImagesMap = new Map<string, LocalImage[]>();
@@ -706,11 +683,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     console.log(`[DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
-
-    // DEBUG ALERT 8: Show fields with visualIds
-    const fieldsWithVisualIds = fields.filter(f => f.visualId || f.tempVisualId);
-    const visualIdsList = fieldsWithVisualIds.map(f => f.visualId || f.tempVisualId).join(', ');
-    alert(`[DEBUG 8] Fields with visualIds: ${fieldsWithVisualIds.length}\nvisualIds: ${visualIdsList.substring(0, 300)}`);
 
     let photosAddedCount = 0;
 
@@ -791,10 +763,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Update photo count
       this.photoCountsByKey[key] = this.visualPhotos[key].length;
     }
-
-    // DEBUG ALERT 9: Final summary
-    const totalPhotosInVisualPhotos = Object.values(this.visualPhotos).reduce((sum, arr) => sum + arr.length, 0);
-    alert(`[DEBUG 9] FINAL SUMMARY:\nPhotos added this run: ${photosAddedCount}\nTotal photos in visualPhotos: ${totalPhotosInVisualPhotos}\nKeys with photos: ${Object.keys(this.visualPhotos).filter(k => this.visualPhotos[k].length > 0).join(', ').substring(0, 200)}`);
 
     console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
   }
@@ -2929,10 +2897,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         preservedPhotos = [...existingPhotos];
         console.log(`[LOAD PHOTOS] SYNC IN PROGRESS - preserving ALL ${preservedPhotos.length} existing photos for key: ${key}`);
       } else {
-        // NOT syncing: Only keep in-progress captures to prevent duplicates
-        preservedPhotos = existingPhotos.filter(p =>
-          p._isInProgressCapture === true && p.uploading === true
-        );
+        // NOT syncing: Preserve photos that have valid displayUrls OR are in-progress captures
+        // US-001 FIX: Must preserve photos with blob:/data: URLs to prevent disappearing after sync
+        preservedPhotos = existingPhotos.filter(p => {
+          // Always preserve in-progress captures
+          if (p._isInProgressCapture === true && p.uploading === true) {
+            return true;
+          }
+          // Preserve photos with valid blob or data URLs (local-first photos)
+          if (p.displayUrl && (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:'))) {
+            return true;
+          }
+          // Preserve LocalImage photos (they have valid local references)
+          if (p.isLocalImage || p.isLocalFirst || p.localImageId) {
+            return true;
+          }
+          return false;
+        });
+        console.log(`[LOAD PHOTOS] Preserving ${preservedPhotos.length}/${existingPhotos.length} photos with valid URLs`);
       }
 
       // Start with preserved photos
@@ -3781,7 +3763,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         isSelected: newState
       });
       console.log('[TOGGLE] Persisted isSelected to Dexie:', newState);
-      alert(`[DEBUG TOGGLE 1] After setField(isSelected: ${newState})\nselectedItems[${key}]: ${this.selectedItems[key]}`);
     } catch (err) {
       console.error('[TOGGLE] Failed to write to Dexie:', err);
     }
@@ -3852,8 +3833,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     }
 
-    // DEBUG: Show final state after toggleItemSelection completes
-    alert(`[DEBUG TOGGLE END] toggleItemSelection completed\nkey: ${key}\nselectedItems[key]: ${this.selectedItems[key]}\nvisualRecordIds[key]: ${this.visualRecordIds[key]}`);
   }
 
   // Answer change for Yes/No dropdowns (answerType 1)
@@ -4418,7 +4397,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Uses stable UUID that NEVER changes
           // ============================================
           
-          alert(`[PHOTO DEBUG 1] Starting photo capture\nvisualId: ${visualId}\nkey: ${key}\nserviceId: ${this.serviceId}`);
           this.logDebug('CAPTURE', `Starting captureImage for visualId: ${visualId}`);
           
           // Create LocalImage with stable UUID (this stores blob + creates outbox item)
@@ -4435,7 +4413,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             
             this.logDebug('CAPTURE', `✅ LocalImage created: ${localImage.imageId} status: ${localImage.status} blobId: ${localImage.localBlobId}`);
             console.log('[CAMERA UPLOAD] ✅ Created LocalImage with stable ID:', localImage.imageId);
-            alert(`[PHOTO DEBUG 2] LocalImage created\nimageId: ${localImage.imageId}\nentityId: ${localImage.entityId}\nentityType: ${localImage.entityType}\nstatus: ${localImage.status}\nblobId: ${localImage.localBlobId}`);
           } catch (captureError: any) {
             this.logDebug('ERROR', `captureImage FAILED: ${captureError?.message || captureError}`);
             console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
@@ -4520,7 +4497,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           console.log(`  AttachID: ${photoEntry.AttachID}`);
           console.log(`  id: ${photoEntry.id}`);
           console.log(`  Total photos in key: ${this.visualPhotos[key].length}`);
-          alert(`[PHOTO DEBUG 3] Photo added to visualPhotos\nkey: ${key}\nimageId: ${localImage.imageId}\nTotal photos: ${this.visualPhotos[key]?.length}\nduplicateFound: ${existingIndex !== -1}`);
 
           // Cache annotated image for thumbnail persistence across navigation
           if (annotatedBlob && annotationsData) {
