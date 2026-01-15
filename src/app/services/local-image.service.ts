@@ -176,6 +176,19 @@ export class LocalImageService {
       console.log('[LocalImage] Blob pruned, falling back for:', image.imageId, 'blobId:', image.localBlobId);
     }
 
+    // US-003 FIX: ALWAYS check for cached annotated image by imageId first
+    // This is critical for local-first photos where annotations are cached by imageId (not attachId)
+    // even if hasAnnotations flag was false (drawings field may not be persisted yet)
+    try {
+      const annotatedByImageIdFallback = await this.indexedDb.getCachedAnnotatedImage(image.imageId);
+      if (annotatedByImageIdFallback) {
+        console.log('[LocalImage] ✅ US-003 FIX: Using cached ANNOTATED image (fallback by imageId) for:', image.imageId);
+        return cacheAndReturn(annotatedByImageIdFallback);
+      }
+    } catch (err) {
+      // Continue to next fallback
+    }
+
     // Rule 2: Try cached base64 from IndexedDB (synced photos)
     // CRITICAL: This is the primary fallback after local blob is pruned
     if (image.attachId) {
