@@ -58,7 +58,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   serviceId: string = '';
   categoryName: string = '';
 
-  loading: boolean = true;
+  loading: boolean = false; // FIXED: Start with false - show cached data immediately
   searchTerm: string = '';
   expandedAccordions: string[] = ['information', 'limitations', 'deficiencies'];
   organizedData: {
@@ -1567,7 +1567,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       const [allTemplates, visuals, pendingPhotos, pendingRequests, allLocalImages, cachedPhotos, annotatedImages] = await Promise.all([
         this.indexedDb.getCachedTemplates('visual') || [],
-        this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [],
+        // FIXED: Use getVisualsByService which fetches from API if cache is empty
+        this.offlineTemplate.getVisualsByService(this.serviceId),
         this.indexedDb.getAllPendingPhotosGroupedByVisual(),
         this.indexedDb.getPendingRequests(),
         this.localImageService.getImagesForService(this.serviceId),
@@ -1575,7 +1576,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.indexedDb.getAllCachedAnnotatedImagesForService()        // Load annotated images upfront
       ]);
 
-      alert(`[DEBUG CategoryDetail loadData] Bulk load COMPLETE:\n- allTemplates: ${(allTemplates as any[])?.length || 0}\n- visuals (from cache): ${(visuals as any[])?.length || 0}\n- allLocalImages: ${allLocalImages?.length || 0}\n- cachedPhotos: ${cachedPhotos?.size || 0}\n- pendingRequests: ${pendingRequests?.length || 0}`);
+      alert(`[DEBUG CategoryDetail loadData] Bulk load COMPLETE:\n- allTemplates: ${(allTemplates as any[])?.length || 0}\n- visuals (from cache/API): ${(visuals as any[])?.length || 0}\n- allLocalImages: ${allLocalImages?.length || 0}\n- cachedPhotos: ${cachedPhotos?.size || 0}\n- pendingRequests: ${pendingRequests?.length || 0}`);
 
       // Store ALL bulk data in memory - NO more IndexedDB reads after this
       this.bulkPendingPhotosMap = pendingPhotos;

@@ -22,7 +22,7 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   projectId: string = '';
   serviceId: string = '';
   categories: { name: string; deficiencyCount: number }[] = [];
-  loading: boolean = true;
+  loading: boolean = false; // FIXED: Start with false - only show loading if truly needed
   serviceData: any = {};
   
   // Standardized UI state flags
