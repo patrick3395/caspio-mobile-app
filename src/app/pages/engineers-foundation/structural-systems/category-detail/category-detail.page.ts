@@ -347,7 +347,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       `visualPhotos keys: ${Object.keys(this.visualPhotos).length}\n` +
       `Photo counts:\n${debugPhotoCounts.slice(0, 5).join('\n') || '(none)'}`;
     this.logDebug('VIEW_ENTER', debugMsg);
-    console.log('[US-001 DEBUG] ionViewWillEnter:', debugMsg);
+    alert('[US-001 DEBUG] ionViewWillEnter:\n' + debugMsg);
     // ===== END US-001 DEBUG =====
 
     // Set up deferred subscriptions on first entry (after initial render for faster paint)
@@ -765,13 +765,72 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       for (const p of this.visualPhotos[key]) {
         if (p.imageId) loadedPhotoIds.add(p.imageId);
         if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
+        if (p.localImageId) loadedPhotoIds.add(p.localImageId);
       }
 
       // Add LocalImages to visualPhotos
       for (const localImage of localImages) {
         const imageId = localImage.imageId;
 
-        // Skip if already loaded
+        // ===== US-002 FIX: Check if photo already exists and refresh its displayUrl =====
+        // This ensures displayUrl always points to a fresh local blob from LocalImages
+        const existingPhotoIndex = this.visualPhotos[key].findIndex(p =>
+          p.imageId === imageId ||
+          p.localImageId === imageId ||
+          (localImage.attachId && (String(p.AttachID) === localImage.attachId || p.attachId === localImage.attachId))
+        );
+
+        if (existingPhotoIndex !== -1) {
+          // Photo already exists - REFRESH its displayUrl from LocalImages (DEXIE-FIRST)
+          const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
+
+          // ===== US-002 DEBUG: Existing photo found =====
+          console.log(`[US-002 DEBUG] populatePhotosFromDexie: Found existing photo\n` +
+            `  imageId: ${imageId}\n` +
+            `  existingPhoto.displayUrl type: ${existingPhoto.displayUrl?.startsWith('blob:') ? 'BLOB' : existingPhoto.displayUrl?.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
+            `  existingPhoto.displayUrl: ${existingPhoto.displayUrl?.substring(0, 60)}...`);
+          // ===== END US-002 DEBUG =====
+
+          // DEXIE-FIRST: Always refresh displayUrl from LocalImages table (local blob)
+          // This ensures we NEVER use stale cached URLs or server URLs
+          try {
+            const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+            if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.png') {
+              // Update displayUrl to fresh local blob
+              this.visualPhotos[key][existingPhotoIndex] = {
+                ...existingPhoto,
+                displayUrl: freshDisplayUrl,
+                url: freshDisplayUrl,
+                thumbnailUrl: freshDisplayUrl,
+                originalUrl: freshDisplayUrl,
+                // Update metadata that may have changed
+                localBlobId: localImage.localBlobId,
+                caption: localImage.caption || existingPhoto.caption || '',
+                Annotation: localImage.caption || existingPhoto.Annotation || '',
+                Drawings: localImage.drawings || existingPhoto.Drawings || null,
+                hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10) || existingPhoto.hasAnnotations,
+                isLocalImage: true,
+                isLocalFirst: true
+              };
+
+              // ===== US-002 DEBUG: displayUrl refreshed =====
+              console.log(`[US-002 DEBUG] populatePhotosFromDexie: REFRESHED displayUrl\n` +
+                `  imageId: ${imageId}\n` +
+                `  new displayUrl type: ${freshDisplayUrl.startsWith('blob:') ? 'BLOB' : freshDisplayUrl.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
+                `  new displayUrl: ${freshDisplayUrl.substring(0, 60)}...`);
+              // ===== END US-002 DEBUG =====
+            }
+          } catch (e) {
+            console.warn('[DEXIE-FIRST] Failed to refresh displayUrl for existing photo:', e);
+          }
+
+          // Track IDs to prevent duplicates
+          loadedPhotoIds.add(imageId);
+          if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+          continue; // Don't add duplicate
+        }
+
+        // Skip if already loaded by other ID (safety check)
         if (loadedPhotoIds.has(imageId)) continue;
         if (localImage.attachId && loadedPhotoIds.has(localImage.attachId)) continue;
 
@@ -782,6 +841,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         } catch (e) {
           console.warn('[DEXIE-FIRST] Failed to get displayUrl:', e);
         }
+
+        // ===== US-002 DEBUG: Adding new photo =====
+        console.log(`[US-002 DEBUG] populatePhotosFromDexie: Adding NEW photo\n` +
+          `  imageId: ${imageId}\n` +
+          `  displayUrl type: ${displayUrl.startsWith('blob:') ? 'BLOB' : displayUrl.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
+          `  displayUrl: ${displayUrl.substring(0, 60)}...`);
+        // ===== END US-002 DEBUG =====
 
         // Add photo to array
         this.visualPhotos[key].unshift({
@@ -828,7 +894,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       `Photos with annotations: ${photosWithAnnotations.length}\n` +
       `Keys with photos: ${Object.entries(this.visualPhotos).filter(([k, v]) => (v as any[]).length > 0).map(([k, v]) => `${k}:${(v as any[]).length}`).slice(0, 5).join(', ')}`;
     this.logDebug('DEXIE_LOAD', debugSummary);
-    console.log('[US-001 DEBUG] populatePhotosFromDexie:', debugSummary);
+    alert('[US-001 DEBUG] populatePhotosFromDexie:\n' + debugSummary);
     // ===== END US-001 DEBUG =====
 
     console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
@@ -915,7 +981,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         `result PK_ID: ${event.result?.Result?.[0]?.PK_ID || event.result?.PK_ID || 'N/A'}\n` +
         `result AttachID: ${event.result?.Result?.[0]?.AttachID || event.result?.AttachID || 'N/A'}`;
       this.logDebug('SYNC', syncDebugMsg);
-      console.log('[US-001 DEBUG] Sync Complete:', syncDebugMsg);
+      alert('[US-001 DEBUG] Sync Complete:\n' + syncDebugMsg);
       // ===== END US-001 DEBUG =====
 
       // DEBUG: Log all photos in visualPhotos to find the mismatch
@@ -1002,7 +1068,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             `displayUrl type: ${updatedPhoto.displayUrl?.startsWith('blob:') ? 'BLOB (local)' : updatedPhoto.displayUrl?.startsWith('data:') ? 'DATA (cached)' : 'OTHER'}\n` +
             `url: ${updatedPhoto.url?.substring(0, 80)}...`;
           this.logDebug('SYNC', syncUpdateDebugMsg);
-          console.log('[US-001 DEBUG] Sync Update Applied:', syncUpdateDebugMsg);
+          alert('[US-001 DEBUG] Sync Update Applied:\n' + syncUpdateDebugMsg);
           // ===== END US-001 DEBUG =====
 
           this.changeDetectorRef.detectChanges();
@@ -1776,7 +1842,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           `new AttachID: ${result.AttachID}\n` +
           `cachedAnnotatedImage found: ${!!cachedAnnotatedImage}`;
         this.logDebug('ANNOTATION', transferDebugMsg);
-        console.log('[US-001 DEBUG] Annotation Transfer:', transferDebugMsg);
+        alert('[US-001 DEBUG] Annotation Transfer:\n' + transferDebugMsg);
         // ===== END US-001 DEBUG =====
 
         if (cachedAnnotatedImage) {
@@ -3454,21 +3520,41 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (existingIndex !== -1) {
         // BULLETPROOF: Never replace a valid URL with a placeholder
         const existing = this.visualPhotos[key][existingIndex];
-        const existingHasValidUrl = existing.displayUrl && 
+        const existingHasValidUrl = existing.displayUrl &&
           existing.displayUrl !== 'assets/img/photo-placeholder.png' &&
           !existing.displayUrl.startsWith('assets/');
-        
-        if (existingHasValidUrl) {
-          // Keep the existing valid URL
+
+        // ===== US-002 FIX: DEXIE-FIRST - Explicitly preserve local blob URLs =====
+        const isLocalBlobUrl = existing.displayUrl?.startsWith('blob:') || existing.displayUrl?.startsWith('data:');
+        const isLocalFirst = existing.isLocalFirst || existing.isLocalImage;
+
+        if (existingHasValidUrl || (isLocalFirst && isLocalBlobUrl)) {
+          // Keep the existing valid URL (especially local blob URLs)
           photoData.displayUrl = existing.displayUrl;
           photoData.url = existing.displayUrl;
           photoData.thumbnailUrl = existing.displayUrl;
+          photoData.originalUrl = existing.originalUrl || existing.displayUrl;
           photoData.loading = false;
+          // Preserve local-first flags
+          photoData.isLocalFirst = existing.isLocalFirst;
+          photoData.isLocalImage = existing.isLocalImage;
+          photoData.localImageId = existing.localImageId;
+          photoData.localBlobId = existing.localBlobId;
+
+          // ===== US-002 DEBUG: Preserving local blob URL in loadSinglePhoto =====
+          if (isLocalFirst && isLocalBlobUrl) {
+            console.log(`[US-002 DEBUG] loadSinglePhoto: PRESERVING local blob URL\n` +
+              `  attachId: ${attachId}\n` +
+              `  displayUrl type: ${existing.displayUrl.startsWith('blob:') ? 'BLOB' : 'DATA'}\n` +
+              `  isLocalFirst: ${existing.isLocalFirst}`);
+          }
+          // ===== END US-002 DEBUG =====
         }
-        
+        // ===== END US-002 FIX =====
+
         // Merge but preserve displayUrl
         this.visualPhotos[key][existingIndex] = { ...existing, ...photoData };
-          } else {
+      } else {
         // New photo - add it
         this.visualPhotos[key].push(photoData);
       }
@@ -3521,20 +3607,38 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // ONLY update UI after image is confirmed loadable
         if (this.visualPhotos[key]) {
-          const photoIndex = this.visualPhotos[key].findIndex(p => 
+          const photoIndex = this.visualPhotos[key].findIndex(p =>
             String(p.AttachID) === attachId || String(p.id) === attachId
           );
           if (photoIndex !== -1) {
+            const existingPhoto = this.visualPhotos[key][photoIndex];
+            const currentUrl = existingPhoto.displayUrl;
+
+            // ===== US-002 FIX: DEXIE-FIRST - Never replace local blob URL with server URL =====
+            // If photo is local-first with valid blob: or data: URL, keep it
+            if (existingPhoto.isLocalFirst || existingPhoto.isLocalImage) {
+              const isLocalBlobUrl = currentUrl?.startsWith('blob:') || currentUrl?.startsWith('data:');
+              if (isLocalBlobUrl) {
+                // ===== US-002 DEBUG: Skip loadPhotoFromRemote for local-first photo =====
+                console.log(`[US-002 DEBUG] loadPhotoFromRemote: SKIPPING - local-first photo has blob URL\n` +
+                  `  attachId: ${attachId}\n` +
+                  `  displayUrl type: ${currentUrl.startsWith('blob:') ? 'BLOB' : 'DATA'}\n` +
+                  `  isLocalFirst: ${existingPhoto.isLocalFirst}`);
+                // ===== END US-002 DEBUG =====
+                return; // DEXIE-FIRST: Keep local blob URL
+              }
+            }
+            // ===== END US-002 FIX =====
+
             // Check one more time that we're not replacing a valid URL
-            const currentUrl = this.visualPhotos[key][photoIndex].displayUrl;
-            if (currentUrl && 
+            if (currentUrl &&
                 currentUrl !== 'assets/img/photo-placeholder.png' &&
                 !currentUrl.startsWith('assets/')) {
               // Already have a valid URL - don't replace
               this.logDebug('SKIP', `Photo ${attachId} already has valid URL, not replacing`);
               return;
             }
-            
+
             this.visualPhotos[key][photoIndex].displayUrl = imageUrl;
             this.visualPhotos[key][photoIndex].url = imageUrl;
             this.visualPhotos[key][photoIndex].thumbnailUrl = imageUrl;
@@ -3558,16 +3662,38 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   /**
    * Preload image from remote and transition UI only after success
    * Never updates displayUrl until image is verified loadable
+   * US-002 FIX: NEVER replace a valid local blob URL with server URL (DEXIE-FIRST)
    */
   private async preloadAndTransition(
-    attachId: string, 
-    imageKey: string, 
-    key: string, 
+    attachId: string,
+    imageKey: string,
+    key: string,
     isS3: boolean
   ): Promise<void> {
     try {
+      // ===== US-002 FIX: Check if photo has valid local blob URL (DEXIE-FIRST) =====
+      // If photo is local-first with valid blob: or data: URL, do NOT replace with server URL
+      const existingPhoto = this.visualPhotos[key]?.find(p =>
+        String(p.attachId) === attachId || String(p.AttachID) === attachId
+      );
+
+      if (existingPhoto && existingPhoto.isLocalFirst && existingPhoto.displayUrl) {
+        const isLocalBlobUrl = existingPhoto.displayUrl.startsWith('blob:') ||
+                               existingPhoto.displayUrl.startsWith('data:');
+        if (isLocalBlobUrl) {
+          // ===== US-002 DEBUG: Skip preloadAndTransition for local-first photo =====
+          console.log(`[US-002 DEBUG] preloadAndTransition: SKIPPING - photo has local blob URL\n` +
+            `  attachId: ${attachId}\n` +
+            `  displayUrl type: ${existingPhoto.displayUrl.startsWith('blob:') ? 'BLOB' : 'DATA'}\n` +
+            `  isLocalFirst: ${existingPhoto.isLocalFirst}`);
+          // ===== END US-002 DEBUG =====
+          return; // DEXIE-FIRST: Keep local blob URL, don't replace with server URL
+        }
+      }
+      // ===== END US-002 FIX =====
+
       let imageDataUrl: string;
-      
+
       if (isS3 && this.caspioService.isS3Key(imageKey)) {
         // S3 image
         const s3Url = await this.caspioService.getS3FileUrl(imageKey);
@@ -3613,7 +3739,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               `cachedAnnotated found: ${!!cachedAnnotated}\n` +
               `cachedAnnotated type: ${cachedAnnotated?.substring(0, 30)}...`;
             this.logDebug('ANNOTATION', annotDebugMsg);
-            console.log('[US-001 DEBUG] Annotation Check:', annotDebugMsg);
+            alert('[US-001 DEBUG] Annotation Check:\n' + annotDebugMsg);
             // ===== END US-001 DEBUG =====
 
             if (cachedAnnotated) {
@@ -4543,7 +4669,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             `key: ${key}\n` +
             `hasAnnotations: ${!!annotationsData}`;
           this.logDebug('UPLOAD', uploadDebugMsg);
-          console.log('[US-001 DEBUG] Photo Upload:', uploadDebugMsg);
+          alert('[US-001 DEBUG] Photo Upload:\n' + uploadDebugMsg);
           // ===== END US-001 DEBUG =====
 
           // For annotated images, create a separate display URL showing annotations
