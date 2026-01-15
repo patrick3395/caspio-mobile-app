@@ -5,60 +5,34 @@
   "tasks": [
     {
       "id": "TASK-001",
-      "title": "Multi-Image Upload Stuck Forever (MOBILE ONLY - NOT FIXED)",
-      "description": "CRITICAL - NOT FIXED. Multiple photos in Structural Systems: 1 image stuck in queue forever on mobile. Force sync shows 'uploading' then back to queue. Mobile only issue - webapp works. TAKE TIME TO FIND ROOT CAUSE.",
-      "mobile_only": true,
+      "title": "Reduce Category/Room Page Load Times (Zero Data Loss)",
+      "description": "Loading category or room pages shows loading screen EVERY TIME page opens. User navigates in/out many times per report causing major delays. Using IndexedDB with Dexie liveQuery wrapper. Images are rolled up (lazy load on expand) so should NOT cause load delays. CRITICAL: Cannot lose live updates, data, or images. Every IndexedDB change should update cache to retain loaded info.",
       "acceptance_criteria": [
-        "All images sync on mobile (3, 4, 5+ images)",
-        "No images stuck in queue permanently",
-        "Force sync clears all queued items",
-        "Matches webapp behavior"
+        "No loading screen on return visits to cached pages",
+        "Pages load instantly when data already in IndexedDB",
+        "ALL images display correctly when expanded",
+        "Live updates still work (liveQuery subscriptions)",
+        "No data loss during optimization",
+        "Captions/annotations persist",
+        "Zero functionality regression"
       ],
-      "investigation": "Compare mobile vs webapp upload flow. Check race conditions, batch limits, LocalImage outbox processing differences.",
+      "technical_context": "IndexedDB with Dexie wrapper has liveQuery for reactive updates. Need cache strategy that: (1) Returns cached data instantly, (2) Updates cache on every IndexedDB change, (3) Never blocks UI for data already loaded.",
       "passes": false,
       "priority": 1
     },
     {
       "id": "TASK-002",
-      "title": "Random Hard Refreshes - Critical Stability (NOT FIXED)",
-      "description": "CRITICAL - NOT FIXED. App hard refreshes randomly: clicking sync modal, images, saving annotations, after sync, entering rooms/categories. Makes app feel broken. SPEND AS MUCH TIME AS NEEDED. Find root cause: local data? broken data? memory? state corruption?",
+      "title": "Hard Refreshes - 'Preparing Template' Screen (NOT FIXED - REINTRODUCED)",
+      "description": "CRITICAL - NOT FIXED. Hard refreshes show 'Preparing Template' screen. Was fixed in previous GitHub solution but issue reintroduced. SUSPECTED ROOT CAUSES: (1) Page flag being marked false causing reload, (2) 5-minute cache TTL expiring triggers full page refresh instead of background update.",
       "acceptance_criteria": [
         "No hard refreshes during any normal operation",
+        "No 'Preparing Template' screen after initial load",
         "App remains stable throughout user session",
         "Root cause identified and permanently resolved"
       ],
-      "investigation": "Check unhandled exceptions, state corruption, IndexedDB errors, memory leaks, infinite loops, recursive reloads. Add global error handler. Extensive logging.",
+      "investigation": "Check page dirty flags being reset incorrectly. Check 5-minute cache TTL triggering full refresh. Review previous GitHub fix that resolved this. Find what reintroduced the bug.",
       "passes": false,
       "priority": 2
-    },
-    {
-      "id": "TASK-003",
-      "title": "Optimize Page Load Speed (Zero Functionality Loss)",
-      "description": "Structural categories and Rooms load too slow with loading screens. Optimize BUT CANNOT break: image display, photo showing, lazy loading, captions, annotations. Conservative safe optimizations only.",
-      "acceptance_criteria": [
-        "Pages load under 2 seconds",
-        "ALL images display correctly",
-        "ALL photos show up",
-        "Lazy loading works",
-        "Captions/annotations persist",
-        "Zero functionality regression"
-      ],
-      "safe_optimizations": "Profile bottlenecks. Optimize DB queries. Defer non-visible content. Cache blob URLs. IF optimization risks stability - DON'T DO IT.",
-      "passes": false,
-      "priority": 3
-    },
-    {
-      "id": "TASK-004",
-      "title": "Annotations Not Syncing in Structural Categories",
-      "description": "Annotations added in structural categories don't appear in sync queue and don't sync to backend.",
-      "acceptance_criteria": [
-        "Annotations appear in sync queue",
-        "Annotations sync to Caspio successfully",
-        "Sync modal shows annotation updates"
-      ],
-      "investigation": "Check if queueCaptionAndAnnotationUpdate() called. Verify IndexedDB outbox storage. Check background-sync processing.",
-      "passes": false,
-      "priority": 4
     }
   ]
 }

@@ -1,0 +1,38 @@
+{
+  "project": "Caspio Mobile App - Page Loading & Refresh Issues",
+  "version": "1.0",
+  "created": "2026-01-14",
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Reduce Category/Room Page Load Times (Zero Data Loss)",
+      "description": "Loading category or room pages shows loading screen EVERY TIME page opens. User navigates in/out many times per report causing major delays. Using IndexedDB with Dexie liveQuery wrapper. Images are rolled up (lazy load on expand) so should NOT cause load delays. CRITICAL: Cannot lose live updates, data, or images. Every IndexedDB change should update cache to retain loaded info.",
+      "acceptance_criteria": [
+        "No loading screen on return visits to cached pages",
+        "Pages load instantly when data already in IndexedDB",
+        "ALL images display correctly when expanded",
+        "Live updates still work (liveQuery subscriptions)",
+        "No data loss during optimization",
+        "Captions/annotations persist",
+        "Zero functionality regression"
+      ],
+      "technical_context": "IndexedDB with Dexie wrapper has liveQuery for reactive updates. Need cache strategy that: (1) Returns cached data instantly, (2) Updates cache on every IndexedDB change, (3) Never blocks UI for data already loaded.",
+      "passes": false,
+      "priority": 1
+    },
+    {
+      "id": "TASK-002",
+      "title": "Hard Refreshes - 'Preparing Template' Screen (NOT FIXED - REINTRODUCED)",
+      "description": "CRITICAL - NOT FIXED. Hard refreshes show 'Preparing Template' screen. Was fixed in previous GitHub solution but issue reintroduced. SUSPECTED ROOT CAUSES: (1) Page flag being marked false causing reload, (2) 5-minute cache TTL expiring triggers full page refresh instead of background update.",
+      "acceptance_criteria": [
+        "No hard refreshes during any normal operation",
+        "No 'Preparing Template' screen after initial load",
+        "App remains stable throughout user session",
+        "Root cause identified and permanently resolved"
+      ],
+      "investigation": "Check page dirty flags being reset incorrectly. Check 5-minute cache TTL triggering full refresh. Review previous GitHub fix that resolved this. Find what reintroduced the bug.",
+      "passes": false,
+      "priority": 2
+    }
+  ]
+}
