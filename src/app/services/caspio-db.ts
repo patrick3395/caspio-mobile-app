@@ -591,30 +591,17 @@ export class CaspioDB extends Dexie {
 
   /**
    * Live query for a single EFE field by service and room name
+   * NOTE: Using simple 'key' index instead of compound index [serviceId+roomName]
+   * because compound index was causing IndexedDB internal errors on mobile WebView
    */
   liveEfeFieldByRoom$(serviceId: string, roomName: string): Observable<EfeField | undefined> {
     console.log(`[CaspioDB] liveEfeFieldByRoom$ called: serviceId=${serviceId}, roomName=${roomName}`);
-
-    const query = liveQuery(async () => {
-      try {
-        console.log('[CaspioDB] liveQuery callback executing...');
-        // Check if compound index exists
-        const hasCompoundIndex = this.efeFields.schema.indexes.some(
-          idx => idx.name === '[serviceId+roomName]'
-        );
-        console.log(`[CaspioDB] Compound index exists: ${hasCompoundIndex}`);
-
-        const result = await this.efeFields
-          .where('[serviceId+roomName]')
-          .equals([serviceId, roomName])
-          .first();
-        console.log(`[CaspioDB] liveQuery result: ${result ? result.roomName : 'undefined'}`);
-        return result;
-      } catch (queryErr: any) {
-        console.error('[CaspioDB] Error inside liveQuery callback:', queryErr);
-        throw queryErr;  // Re-throw to propagate to subscriber
-      }
-    });
+    // Use the simple 'key' index (format: serviceId:roomName) instead of compound index
+    // This matches the pattern used by liveVisualFields$ which works on mobile
+    const key = `${serviceId}:${roomName}`;
+    const query = liveQuery(() =>
+      this.efeFields.where('key').equals(key).first()
+    );
     return this.toRxObservable<EfeField | undefined>(query);
   }
 
