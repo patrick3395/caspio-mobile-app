@@ -651,12 +651,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /**
-   * DEXIE-FIRST: Populate visualPhotos from Dexie LocalImages
+   * DEXIE-FIRST: Populate visualPhotos by querying Dexie LocalImages directly
+   * This eliminates the race condition by not relying on bulkLocalImagesMap subscription
    * Called after convertFieldsToOrganizedData to render photos from Dexie data
-   * This is the Dexie-first approach for photos - no manual loading, just reactive data
    */
   private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
-    console.log('[DEXIE-FIRST] Populating photos from Dexie LocalImages...');
+    console.log('[DEXIE-FIRST] Populating photos directly from Dexie...');
+
+    // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query
+    // This eliminates the race condition - we don't rely on bulkLocalImagesMap being populated
+    const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+
+    // Group by entityId for efficient lookup
+    const localImagesMap = new Map<string, LocalImage[]>();
+    for (const img of allLocalImages) {
+      if (!img.entityId) continue;
+      const entityId = String(img.entityId);
+      if (!localImagesMap.has(entityId)) {
+        localImagesMap.set(entityId, []);
+      }
+      localImagesMap.get(entityId)!.push(img);
+    }
+
+    console.log(`[DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
 
     for (const field of fields) {
       // Get visual ID (either synced ID or temp ID)
@@ -668,8 +685,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Store visual record ID for photo operations
       this.visualRecordIds[key] = visualId;
 
-      // Get LocalImages from bulkLocalImagesMap (populated by Dexie liveQuery)
-      const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+      // Get LocalImages from our direct query (NOT from bulkLocalImagesMap)
+      const localImages = localImagesMap.get(visualId) || [];
 
       if (localImages.length === 0) continue;
 
@@ -701,7 +718,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           console.warn('[DEXIE-FIRST] Failed to get displayUrl:', e);
         }
 
-        // Add photo to array (same format as existing photo loading)
+        // Add photo to array
         this.visualPhotos[key].unshift({
           AttachID: localImage.attachId || localImage.imageId,
           attachId: localImage.attachId || localImage.imageId,
@@ -735,7 +752,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.photoCountsByKey[key] = this.visualPhotos[key].length;
     }
 
-    console.log('[DEXIE-FIRST] Photos populated from Dexie');
+    console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
   }
 
   /**
