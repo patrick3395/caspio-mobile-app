@@ -347,7 +347,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       `visualPhotos keys: ${Object.keys(this.visualPhotos).length}\n` +
       `Photo counts:\n${debugPhotoCounts.slice(0, 5).join('\n') || '(none)'}`;
     this.logDebug('VIEW_ENTER', debugMsg);
-    alert('[US-001 DEBUG] ionViewWillEnter:\n' + debugMsg);
     // ===== END US-001 DEBUG =====
 
     // Set up deferred subscriptions on first entry (after initial render for faster paint)
@@ -725,16 +724,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.logDebug('DEXIE_LOAD', `LocalImages query:\nTotal: ${allLocalImages.length}\nWith drawings (annotations): ${localImagesWithDrawings.length}`);
     // ===== END US-001 DEBUG =====
 
-    // ===== US-002 DEBUG: Show fields with visualId vs tempVisualId =====
-    const fieldsWithRealId = fields.filter(f => f.visualId);
-    const fieldsWithTempId = fields.filter(f => f.tempVisualId && !f.visualId);
-    alert(`[US-002 DEBUG] VisualFields state:\n` +
-      `Total fields: ${fields.length}\n` +
-      `With realId (visualId): ${fieldsWithRealId.length}\n` +
-      `With tempId only: ${fieldsWithTempId.length}\n` +
-      `tempIds: ${fieldsWithTempId.map(f => f.tempVisualId).slice(0, 3).join(', ')}`);
-    // ===== END US-002 DEBUG =====
-
     // Group by entityId for efficient lookup
     const localImagesMap = new Map<string, LocalImage[]>();
     for (const img of allLocalImages) {
@@ -747,14 +736,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     console.log(`[DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
-
-    // ===== US-002 DEBUG: Show all entityIds in LocalImages =====
-    const allEntityIds = Array.from(localImagesMap.keys());
-    alert(`[US-002 DEBUG] LocalImages available:\n` +
-      `Total images: ${allLocalImages.length}\n` +
-      `Unique entityIds: ${allEntityIds.length}\n` +
-      `entityIds: ${allEntityIds.slice(0, 5).join(', ')}${allEntityIds.length > 5 ? '...' : ''}`);
-    // ===== END US-002 DEBUG =====
 
     let photosAddedCount = 0;
 
@@ -805,20 +786,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
 
-      // ===== US-002 DEBUG: Photo lookup ID resolution =====
-      if (realId || tempId) {
-        alert(`[US-002 DEBUG] Photo lookup:\n` +
-          `key: ${key}\n` +
-          `realId: ${realId || 'null'}\n` +
-          `tempId: ${tempId || 'null'}\n` +
-          `mappedRealId: ${mappedRealId || 'null'}\n` +
-          `found with realId: ${foundWithRealId}\n` +
-          `found with tempId: ${foundWithTempId}\n` +
-          `found with mappedId: ${foundWithMappedId}\n` +
-          `total found: ${localImages.length}`);
-      }
-      // ===== END US-002 DEBUG =====
-
       if (localImages.length === 0) continue;
 
       // Initialize photos array if not exists
@@ -850,13 +817,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Photo already exists - REFRESH its displayUrl from LocalImages (DEXIE-FIRST)
           const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
 
-          // ===== US-002 DEBUG: Existing photo found =====
-          console.log(`[US-002 DEBUG] populatePhotosFromDexie: Found existing photo\n` +
-            `  imageId: ${imageId}\n` +
-            `  existingPhoto.displayUrl type: ${existingPhoto.displayUrl?.startsWith('blob:') ? 'BLOB' : existingPhoto.displayUrl?.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
-            `  existingPhoto.displayUrl: ${existingPhoto.displayUrl?.substring(0, 60)}...`);
-          // ===== END US-002 DEBUG =====
-
           // DEXIE-FIRST: Always refresh displayUrl from LocalImages table (local blob)
           // This ensures we NEVER use stale cached URLs or server URLs
           try {
@@ -879,12 +839,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 isLocalFirst: true
               };
 
-              // ===== US-002 DEBUG: displayUrl refreshed =====
-              console.log(`[US-002 DEBUG] populatePhotosFromDexie: REFRESHED displayUrl\n` +
-                `  imageId: ${imageId}\n` +
-                `  new displayUrl type: ${freshDisplayUrl.startsWith('blob:') ? 'BLOB' : freshDisplayUrl.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
-                `  new displayUrl: ${freshDisplayUrl.substring(0, 60)}...`);
-              // ===== END US-002 DEBUG =====
             }
           } catch (e) {
             console.warn('[DEXIE-FIRST] Failed to refresh displayUrl for existing photo:', e);
@@ -914,13 +868,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           console.log(`[US-003 DEBUG] Photo has drawings, displayUrl isAnnotated: ${isAnnotatedUrl}`);
         }
         // ===== END US-003 DEBUG =====
-
-        // ===== US-002 DEBUG: Adding new photo =====
-        console.log(`[US-002 DEBUG] populatePhotosFromDexie: Adding NEW photo\n` +
-          `  imageId: ${imageId}\n` +
-          `  displayUrl type: ${displayUrl.startsWith('blob:') ? 'BLOB' : displayUrl.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
-          `  displayUrl: ${displayUrl.substring(0, 60)}...`);
-        // ===== END US-002 DEBUG =====
 
         // Add photo to array
         this.visualPhotos[key].unshift({
@@ -972,7 +919,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       `Photos with data: URLs (US-003): ${photosWithDataUrls.length}\n` +
       `Keys with photos: ${Object.entries(this.visualPhotos).filter(([k, v]) => (v as any[]).length > 0).map(([k, v]) => `${k}:${(v as any[]).length}`).slice(0, 5).join(', ')}`;
     this.logDebug('DEXIE_LOAD', debugSummary);
-    alert('[US-001 DEBUG] populatePhotosFromDexie:\n' + debugSummary);
     // ===== END US-001/US-003 DEBUG =====
 
     console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
@@ -1059,7 +1005,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         `result PK_ID: ${event.result?.Result?.[0]?.PK_ID || event.result?.PK_ID || 'N/A'}\n` +
         `result AttachID: ${event.result?.Result?.[0]?.AttachID || event.result?.AttachID || 'N/A'}`;
       this.logDebug('SYNC', syncDebugMsg);
-      alert('[US-001 DEBUG] Sync Complete:\n' + syncDebugMsg);
       // ===== END US-001 DEBUG =====
 
       // DEBUG: Log all photos in visualPhotos to find the mismatch
@@ -1146,7 +1091,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             `displayUrl type: ${updatedPhoto.displayUrl?.startsWith('blob:') ? 'BLOB (local)' : updatedPhoto.displayUrl?.startsWith('data:') ? 'DATA (cached)' : 'OTHER'}\n` +
             `url: ${updatedPhoto.url?.substring(0, 80)}...`;
           this.logDebug('SYNC', syncUpdateDebugMsg);
-          alert('[US-001 DEBUG] Sync Update Applied:\n' + syncUpdateDebugMsg);
           // ===== END US-001 DEBUG =====
 
           this.changeDetectorRef.detectChanges();
@@ -1933,7 +1877,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           `new AttachID: ${result.AttachID}\n` +
           `cachedAnnotatedImage found: ${!!cachedAnnotatedImage}`;
         this.logDebug('ANNOTATION', transferDebugMsg);
-        alert('[US-001 DEBUG] Annotation Transfer:\n' + transferDebugMsg);
         // ===== END US-001 DEBUG =====
 
         if (cachedAnnotatedImage) {
@@ -3632,14 +3575,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           photoData.localImageId = existing.localImageId;
           photoData.localBlobId = existing.localBlobId;
 
-          // ===== US-002 DEBUG: Preserving local blob URL in loadSinglePhoto =====
-          if (isLocalFirst && isLocalBlobUrl) {
-            console.log(`[US-002 DEBUG] loadSinglePhoto: PRESERVING local blob URL\n` +
-              `  attachId: ${attachId}\n` +
-              `  displayUrl type: ${existing.displayUrl.startsWith('blob:') ? 'BLOB' : 'DATA'}\n` +
-              `  isLocalFirst: ${existing.isLocalFirst}`);
-          }
-          // ===== END US-002 DEBUG =====
         }
         // ===== END US-002 FIX =====
 
@@ -3710,12 +3645,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             if (existingPhoto.isLocalFirst || existingPhoto.isLocalImage) {
               const isLocalBlobUrl = currentUrl?.startsWith('blob:') || currentUrl?.startsWith('data:');
               if (isLocalBlobUrl) {
-                // ===== US-002 DEBUG: Skip loadPhotoFromRemote for local-first photo =====
-                console.log(`[US-002 DEBUG] loadPhotoFromRemote: SKIPPING - local-first photo has blob URL\n` +
-                  `  attachId: ${attachId}\n` +
-                  `  displayUrl type: ${currentUrl.startsWith('blob:') ? 'BLOB' : 'DATA'}\n` +
-                  `  isLocalFirst: ${existingPhoto.isLocalFirst}`);
-                // ===== END US-002 DEBUG =====
                 return; // DEXIE-FIRST: Keep local blob URL
               }
             }
@@ -3772,12 +3701,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const isLocalBlobUrl = existingPhoto.displayUrl.startsWith('blob:') ||
                                existingPhoto.displayUrl.startsWith('data:');
         if (isLocalBlobUrl) {
-          // ===== US-002 DEBUG: Skip preloadAndTransition for local-first photo =====
-          console.log(`[US-002 DEBUG] preloadAndTransition: SKIPPING - photo has local blob URL\n` +
-            `  attachId: ${attachId}\n` +
-            `  displayUrl type: ${existingPhoto.displayUrl.startsWith('blob:') ? 'BLOB' : 'DATA'}\n` +
-            `  isLocalFirst: ${existingPhoto.isLocalFirst}`);
-          // ===== END US-002 DEBUG =====
           return; // DEXIE-FIRST: Keep local blob URL, don't replace with server URL
         }
       }
@@ -3830,7 +3753,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               `cachedAnnotated found: ${!!cachedAnnotated}\n` +
               `cachedAnnotated type: ${cachedAnnotated?.substring(0, 30)}...`;
             this.logDebug('ANNOTATION', annotDebugMsg);
-            alert('[US-001 DEBUG] Annotation Check:\n' + annotDebugMsg);
             // ===== END US-001 DEBUG =====
 
             if (cachedAnnotated) {
@@ -4760,7 +4682,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             `key: ${key}\n` +
             `hasAnnotations: ${!!annotationsData}`;
           this.logDebug('UPLOAD', uploadDebugMsg);
-          alert('[US-001 DEBUG] Photo Upload:\n' + uploadDebugMsg);
           // ===== END US-001 DEBUG =====
 
           // For annotated images, create a separate display URL showing annotations
