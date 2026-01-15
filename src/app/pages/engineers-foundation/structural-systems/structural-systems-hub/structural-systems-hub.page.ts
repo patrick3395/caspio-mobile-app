@@ -22,7 +22,7 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   projectId: string = '';
   serviceId: string = '';
   categories: { name: string; deficiencyCount: number }[] = [];
-  loading: boolean = false; // FIXED: Start with false - only show loading if truly needed
+  loading: boolean = true;
   serviceData: any = {};
   
   // Standardized UI state flags
@@ -49,16 +49,12 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   ) {}
 
   async ngOnInit() {
-    alert('[DEBUG StructuralHub ngOnInit] START');
-
     // Get IDs from parent route snapshot immediately (for offline reliability)
     const parentParams = this.route.parent?.parent?.snapshot?.params;
     if (parentParams) {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
       console.log('[StructuralHub] Got params from snapshot:', this.projectId, this.serviceId);
-
-      alert(`[DEBUG StructuralHub ngOnInit]\nProjectId: ${this.projectId}\nServiceId: ${this.serviceId}`);
 
       if (this.projectId && this.serviceId) {
         this.loadData();
@@ -136,13 +132,10 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
    */
   async ionViewWillEnter() {
     console.log('[StructuralHub] ionViewWillEnter - Reloading categories from cache');
-
-    alert(`[DEBUG StructuralHub ionViewWillEnter]\ninitialLoadComplete: ${this.initialLoadComplete}\nserviceId: ${this.serviceId}\ncategories: ${this.categories.length}`);
-
+    
     // Only reload if initial load is complete and we have IDs
     if (this.initialLoadComplete && this.serviceId) {
       await this.loadCategories();
-      alert(`[DEBUG StructuralHub ionViewWillEnter] After loadCategories:\ncategories: ${this.categories.length}\nnames: ${this.categories.map(c => c.name).join(', ')}`);
     }
   }
 
@@ -160,26 +153,21 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
 
   private async loadData() {
     console.log('[StructuralHub] loadData() starting...');
-
-    alert('[DEBUG StructuralHub loadData] START');
-
+    
     // Update online status
     this.isOnline = this.offlineService.isOnline();
-
+    
     // Read templates ONCE and reuse
     const cachedTemplates = await this.indexedDb.getCachedTemplates('visual');
     const hasCachedTemplates = !!(cachedTemplates && cachedTemplates.length > 0);
-
+    
     // Read service ONCE and reuse
     const cachedService = await this.offlineTemplate.getService(this.serviceId);
-
-    alert(`[DEBUG StructuralHub loadData] Cache check:\n- cachedTemplates: ${cachedTemplates?.length || 0}\n- hasCachedTemplates: ${hasCachedTemplates}\n- cachedService: ${cachedService ? 'YES' : 'NO'}\n- isOnline: ${this.isOnline}`);
-
+    
     // Only show loading spinner if we TRULY need to fetch from network
     if (!hasCachedTemplates || !cachedService) {
       this.loading = true;
       this.changeDetectorRef.detectChanges();
-      alert('[DEBUG StructuralHub loadData] Showing loading spinner - cache MISS');
     }
 
     try {
@@ -187,7 +175,6 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
       if (cachedService) {
         this.serviceData = cachedService;
         console.log('[StructuralHub] ✅ Service loaded from cache (instant)');
-        alert('[DEBUG StructuralHub loadData] Service from CACHE');
       } else {
         // Fallback to API only if not cached
         this.caspioService.getService(this.serviceId).subscribe({
@@ -214,10 +201,8 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
       this.isEmpty = this.categories.length === 0 && hasCachedTemplates;
       
       console.log('[StructuralHub] ✅ loadData() completed');
-      alert(`[DEBUG StructuralHub loadData] COMPLETE:\n- categories: ${this.categories.length}\n- names: ${this.categories.map(c => c.name).join(', ')}\n- hasPendingSync: ${this.hasPendingSync}`);
     } catch (error) {
       console.error('[StructuralHub] Error in loadData:', error);
-      alert(`[DEBUG StructuralHub loadData] ERROR: ${error}`);
     } finally {
       this.loading = false;
       this.initialLoadComplete = true;
@@ -229,22 +214,17 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
    * Load categories directly from provided templates (no extra IndexedDB reads)
    */
   private async loadCategoriesFromTemplates(templates: any[]) {
-    alert(`[DEBUG loadCategoriesFromTemplates] START\n- templates: ${templates?.length || 0}\n- isLoadingCategories: ${this.isLoadingCategories}`);
-
     if (this.isLoadingCategories) {
       console.log('[StructuralHub] Already loading, skipping');
-      alert('[DEBUG loadCategoriesFromTemplates] SKIPPING - already loading');
       return;
     }
-
+    
     this.isLoadingCategories = true;
-
+    
     try {
       // Filter for visual templates (TypeID=1)
       const visualTemplates = templates.filter((t: any) => t.TypeID === 1);
       console.log('[StructuralHub] ✅ Visual templates:', visualTemplates.length);
-
-      alert(`[DEBUG loadCategoriesFromTemplates]\n- totalTemplates: ${templates?.length || 0}\n- visualTemplates (TypeID=1): ${visualTemplates.length}`);
 
       // Extract unique categories - pure CPU operation, instant
       const categoriesSet = new Set<string>();
