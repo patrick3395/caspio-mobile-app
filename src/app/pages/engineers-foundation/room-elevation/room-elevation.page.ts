@@ -1851,11 +1851,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               expanded: false
             })),
             fdfPhotos: {
-              top: field.fdfPhotos?.top || null,
-              bottom: field.fdfPhotos?.bottom || null,
-              topDetails: field.fdfPhotos?.topDetails || null,
-              bottomDetails: field.fdfPhotos?.bottomDetails || null,
-              threshold: field.fdfPhotos?.threshold || null
+              top: field.fdfPhotos?.['top'] || null,
+              bottom: field.fdfPhotos?.['bottom'] || null,
+              topDetails: field.fdfPhotos?.['topDetails'] || null,
+              bottomDetails: field.fdfPhotos?.['bottomDetails'] || null,
+              threshold: field.fdfPhotos?.['threshold'] || null
             }
           };
 
