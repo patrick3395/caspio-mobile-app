@@ -1865,32 +1865,30 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     alert(`[DEBUG 3.5] roomData populated immediately from existingField`);
     this.changeDetectorRef.detectChanges();
 
-    // Subscribe to reactive updates from Dexie (for live updates after initial render)
-    // If this fails, we still have initial data from above
+    // ==========================================================================
+    // CRITICAL FIX: Match Structural Systems pattern - load data BEFORE subscribing
+    // Structural Systems does: LocalImages subscription → data ready → THEN liveQuery
+    // This prevents IndexedDB transaction conflicts on mobile
+    // ==========================================================================
 
-    // DEBUG: Check database state before subscribing
-    try {
-      const dbVersion = db.verno;
-      const tableNames = db.tables.map(t => t.name).join(', ');
-      const efeFieldsTable = db.table('efeFields');
-      const indexNames = efeFieldsTable.schema.indexes.map(i => i.name).join(', ');
-      alert(`[DEBUG 4] DB State:\nVersion: ${dbVersion}\nTables: ${tableNames}\nefeFields indexes: ${indexNames}`);
-    } catch (dbErr: any) {
-      alert(`[DEBUG 4 ERROR] Failed to read DB state: ${dbErr?.message || dbErr}`);
-    }
+    // STEP 1: Load elevation points FIRST (before any subscriptions)
+    // This ensures bulkLocalImagesMap and all data is ready
+    alert(`[DEBUG 4] About to call loadElevationPoints FIRST (before liveQuery)...`);
+    await this.loadElevationPoints();
+    alert(`[DEBUG 5] loadElevationPoints completed!`);
 
-    alert(`[DEBUG 4.5] About to subscribe to liveQuery...`);
+    // STEP 2: Now that data is ready, subscribe to liveQuery for reactive updates ONLY
+    // This matches Structural Systems pattern where subscriptions happen AFTER data is loaded
+    alert(`[DEBUG 6] Now subscribing to liveQuery (data already loaded)...`);
     this.efeFieldSubscription = this.efeFieldRepo
       .getFieldByRoom$(this.serviceId, this.roomName)
       .subscribe({
         next: async (field) => {
-          alert(`[DEBUG 5] Subscription received field: ${field ? field.roomName : 'NULL'}`);
+          console.log(`[RoomElevation] liveQuery update received: ${field ? field.roomName : 'NULL'}`);
           if (!field) {
             console.warn('[RoomElevation] EfeField became undefined');
             return;
           }
-
-          console.log('[RoomElevation] Received EfeField update from Dexie');
 
           // Update roomData from reactive EfeField update
           // Preserve existing photos since they're loaded separately
@@ -1941,25 +1939,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           // Capture detailed error info
           const errName = err?.name || 'Unknown';
           const errMsg = err?.message || String(err);
-          const errStack = err?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack';
-          alert(`[DEBUG 5 ERROR] liveQuery failed:\nName: ${errName}\nMsg: ${errMsg}\nStack: ${errStack}`);
-          // Non-fatal: we already have initial data from existingField above
+          alert(`[DEBUG 6 ERROR] liveQuery subscription error (non-fatal):\nName: ${errName}\nMsg: ${errMsg}`);
+          // Non-fatal: we already have initial data loaded
           this.loading = false;
         }
       });
-
-    // Still need to load elevation points with photos (uses existing logic)
-    // This is a separate step that loads photos from server/LocalImages
-    alert(`[DEBUG 6] About to call loadElevationPoints...`);
-    await this.loadElevationPoints();
-    alert(`[DEBUG 7] loadElevationPoints completed!`);
+    alert(`[DEBUG 7] liveQuery subscription created`);
 
     // Mark initial load complete
     this.initialLoadComplete = true;
     this.loading = false;
     this.changeDetectorRef.detectChanges();
 
-    alert(`[DEBUG 8] initializeFromDexie COMPLETE - roomData populated`);
+    alert(`[DEBUG 8] initializeFromDexie COMPLETE`);
     console.timeEnd('[RoomElevation] initializeFromDexie');
   }
 
