@@ -32,3 +32,21 @@ lCache` invalidation fix at line 604-606 in local-image.service.ts\n   - Prevent
 r cached annotated images by `imageId` after the local blob check fails. This handles the case where:\n- Photo has annotations saved to `cachedPhotos` table with key `annotated_{imageId}`\n- But the `LocalImage.drawings` field was not properly persisted\n- So `hasAnnotations` was false, skipping the initial annotated check\n- Without the fix, the code would fall through to non-annotated fallbacks\n- With the fix, we always check for cached annotated images by `imageId` before other fallbacks\n\n
 
 ---
+## ✓ Iteration 4 - US-004: [MOBILE APP] Add Debug ALERT Statements to Room Elevation Photo Flow
+*2026-01-15T18:55:40.908Z (896s)*
+
+**Status:** Completed
+
+**Notes:**
+edImage found, and hasDrawings\n- Line 2337: FDF Annotation Check - shows photoKey, cacheId, cachedAnnotatedImage found, bulkAnnotatedImagesMap size, and bulkCachedPhotosMap has key\n\n✅ **Alert popups show complete flow from upload to display on MOBILE DEVICE** - All alerts are visible via `alert()` on mobile devices\n\n✅ **Can identify exactly where photos are lost** - The debug alerts trace the complete flow: ionViewWillEnter → photo upload → sync completion → annotation loading on reload\n\n
+
+---
+## ✓ Iteration 5 - US-005: [MOBILE APP] Create Dexie Table and Repository for EFE Data
+*2026-01-15T18:59:23.515Z (222s)*
+
+**Status:** Completed
+
+**Notes:**
+om$()`, `liveDirtyEfeFields$()` |\n| ⬜ Test on MOBILE DEVICE | **Cannot verify** - per instructions, no local testing |\n\n### Supporting Interfaces:\n- `EfePoint` interface at `caspio-db.ts:97-104`\n- `EfeFdfPhoto` interface at `caspio-db.ts:109-114`\n\nThe implementation follows DEXIE-FIRST architecture with:\n- Seed from templates pattern\n- Write-through on every input change  \n- Dirty flag for sync tracking\n- `rev` counter for optimistic UI updates\n- Transaction safety for all writes\n\n
+
+---

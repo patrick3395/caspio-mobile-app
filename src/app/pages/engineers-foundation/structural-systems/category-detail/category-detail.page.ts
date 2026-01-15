@@ -725,6 +725,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.logDebug('DEXIE_LOAD', `LocalImages query:\nTotal: ${allLocalImages.length}\nWith drawings (annotations): ${localImagesWithDrawings.length}`);
     // ===== END US-001 DEBUG =====
 
+    // ===== US-002 DEBUG: Show fields with visualId vs tempVisualId =====
+    const fieldsWithRealId = fields.filter(f => f.visualId);
+    const fieldsWithTempId = fields.filter(f => f.tempVisualId && !f.visualId);
+    alert(`[US-002 DEBUG] VisualFields state:\n` +
+      `Total fields: ${fields.length}\n` +
+      `With realId (visualId): ${fieldsWithRealId.length}\n` +
+      `With tempId only: ${fieldsWithTempId.length}\n` +
+      `tempIds: ${fieldsWithTempId.map(f => f.tempVisualId).slice(0, 3).join(', ')}`);
+    // ===== END US-002 DEBUG =====
+
     // Group by entityId for efficient lookup
     const localImagesMap = new Map<string, LocalImage[]>();
     for (const img of allLocalImages) {
@@ -737,6 +747,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     console.log(`[DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
+
+    // ===== US-002 DEBUG: Show all entityIds in LocalImages =====
+    const allEntityIds = Array.from(localImagesMap.keys());
+    alert(`[US-002 DEBUG] LocalImages available:\n` +
+      `Total images: ${allLocalImages.length}\n` +
+      `Unique entityIds: ${allEntityIds.length}\n` +
+      `entityIds: ${allEntityIds.slice(0, 5).join(', ')}${allEntityIds.length > 5 ? '...' : ''}`);
+    // ===== END US-002 DEBUG =====
 
     let photosAddedCount = 0;
 
