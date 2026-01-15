@@ -93,6 +93,7 @@ export class LocalImageService {
     photoType: string | null = null  // 'Measurement' | 'Location' for EFE, 'Top' | 'Bottom' | 'Threshold' for FDF
   ): Promise<LocalImage> {
     console.log('[LocalImage] Capturing image for', entityType, entityId, 'photoType:', photoType);
+    alert(`[PHOTO DEBUG SVC 1] captureImage called\nentityType: ${entityType}\nentityId: ${entityId}\nserviceId: ${serviceId}\nfileSize: ${file?.size || 0}`);
     
     const image = await this.indexedDb.createLocalImage(
       file,
@@ -107,6 +108,7 @@ export class LocalImageService {
     // Update pending count
     await this.updatePendingCount();
     
+    alert(`[PHOTO DEBUG SVC 2] Image created in Dexie\nimageId: ${image.imageId}\nentityId: ${image.entityId}\nstatus: ${image.status}\nblobId: ${image.localBlobId}`);
     console.log('[LocalImage] ✅ Image captured:', image.imageId, 'status:', image.status, 'photoType:', photoType);
     return image;
   }

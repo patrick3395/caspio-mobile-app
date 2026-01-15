@@ -4407,6 +4407,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Uses stable UUID that NEVER changes
           // ============================================
           
+          alert(`[PHOTO DEBUG 1] Starting photo capture\nvisualId: ${visualId}\nkey: ${key}\nserviceId: ${this.serviceId}`);
           this.logDebug('CAPTURE', `Starting captureImage for visualId: ${visualId}`);
           
           // Create LocalImage with stable UUID (this stores blob + creates outbox item)
@@ -4423,6 +4424,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             
             this.logDebug('CAPTURE', `✅ LocalImage created: ${localImage.imageId} status: ${localImage.status} blobId: ${localImage.localBlobId}`);
             console.log('[CAMERA UPLOAD] ✅ Created LocalImage with stable ID:', localImage.imageId);
+            alert(`[PHOTO DEBUG 2] LocalImage created\nimageId: ${localImage.imageId}\nentityId: ${localImage.entityId}\nentityType: ${localImage.entityType}\nstatus: ${localImage.status}\nblobId: ${localImage.localBlobId}`);
           } catch (captureError: any) {
             this.logDebug('ERROR', `captureImage FAILED: ${captureError?.message || captureError}`);
             console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
@@ -4507,6 +4509,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           console.log(`  AttachID: ${photoEntry.AttachID}`);
           console.log(`  id: ${photoEntry.id}`);
           console.log(`  Total photos in key: ${this.visualPhotos[key].length}`);
+          alert(`[PHOTO DEBUG 3] Photo added to visualPhotos\nkey: ${key}\nimageId: ${localImage.imageId}\nTotal photos: ${this.visualPhotos[key]?.length}\nduplicateFound: ${existingIndex !== -1}`);
 
           // Cache annotated image for thumbnail persistence across navigation
           if (annotatedBlob && annotationsData) {
@@ -5067,18 +5070,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Store the visual ID for photo uploads
       this.visualRecordIds[key] = visualId;
-
-      // DEXIE-FIRST: Persist tempVisualId to VisualField for photo matching after reload
-      // MUST await to prevent race conditions with liveQuery on mobile
-      const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
-      try {
-        await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
-          tempVisualId: visualId  // Always a temp ID at this point (temp_visual_xxx)
-        });
-        console.log('[SAVE VISUAL] Persisted tempVisualId to Dexie:', visualId);
-      } catch (err) {
-        console.error('[SAVE VISUAL] Failed to persist tempVisualId:', err);
-      }
 
       // Clear PDF cache so new PDFs show updated data
       this.clearPdfCache();
