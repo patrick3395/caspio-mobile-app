@@ -614,22 +614,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.subscribeToLocalImagesChanges();
     }
 
-    // DEBUG: Check database state before subscribing (compare with room-elevation)
-    try {
-      const dbVersion = db.verno;
-      const visualFieldsTable = db.table('visualFields');
-      const indexNames = visualFieldsTable.schema.indexes.map(i => i.name).join(', ');
-      alert(`[STRUCTURAL DEBUG] DB State:\nVersion: ${dbVersion}\nvisualFields indexes: ${indexNames}\nAbout to subscribe to liveQuery for [serviceId+category]`);
-    } catch (dbErr: any) {
-      alert(`[STRUCTURAL DEBUG ERROR] Failed to read DB state: ${dbErr?.message || dbErr}`);
-    }
-
     // Subscribe to reactive updates - this will trigger UI render
     this.visualFieldsSubscription = this.visualFieldRepo
       .getFieldsForCategory$(this.serviceId, this.categoryName)
       .subscribe({
         next: async (fields) => {
-          alert(`[STRUCTURAL DEBUG] liveQuery SUCCESS! Received ${fields.length} fields`);
           console.log(`[CategoryDetail] Received ${fields.length} fields from liveQuery`);
           this.convertFieldsToOrganizedData(fields);
 
@@ -640,7 +629,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           this.changeDetectorRef.detectChanges();
         },
         error: (err) => {
-          alert(`[STRUCTURAL DEBUG] liveQuery FAILED!\nName: ${err?.name}\nMsg: ${err?.message || err}`);
           console.error('[CategoryDetail] Error in visualFields subscription:', err);
           this.loading = false;
           this.changeDetectorRef.detectChanges();

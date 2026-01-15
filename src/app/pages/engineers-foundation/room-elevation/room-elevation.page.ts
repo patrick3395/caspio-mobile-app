@@ -4998,16 +4998,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async processPointPhoto(webPath: string, point: any, photoType: 'Measurement' | 'Location') {
-    // DEBUG: Log entry
-    alert(`[DEBUG Photo] processPointPhoto START\npointId: ${point.pointId}\npointName: ${point.name}\nphotoType: ${photoType}`);
-
     try {
       // Convert to File
       const response = await fetch(webPath);
       const blob = await response.blob();
       const file = new File([blob], `point-${photoType.toLowerCase()}-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
-      alert(`[DEBUG Photo] File created\nsize: ${file.size} bytes`);
 
       // Check actual offline status
       const isActuallyOffline = !this.offlineService.isOnline();
@@ -5075,8 +5070,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // online (immediate upload) and offline (IndexedDB queue) scenarios
       // TASK 1 FIX: Pass serviceId so LocalImages can be found by getImagesForService()
       // Without serviceId, photos would be stored with serviceId='' but queried with actual serviceId
-      alert(`[DEBUG Photo] Calling uploadEFEPointPhoto\npointId: ${point.pointId}\nserviceId: ${this.serviceId}`);
-
       const result = await this.foundationData.uploadEFEPointPhoto(
         point.pointId,
         compressedFile,
@@ -5084,8 +5077,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         '', // No drawings initially
         this.serviceId  // CRITICAL: Pass serviceId for LocalImage lookup
       );
-
-      alert(`[DEBUG Photo] uploadEFEPointPhoto returned\nimageId: ${result?.imageId}\nstatus: ${result?.status}`);
 
       console.log(`[Point Photo] Photo ${photoType} processed for point ${point.pointName}:`, result);
 
@@ -5111,18 +5102,23 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           existingPhoto.displayUrl = persistedUrl;
         }
 
-        // If offline (result has _syncing flag), photo is queued - don't clear uploading yet
-        if (result._syncing) {
+        // Check if this is a local-first photo (not yet synced to server)
+        // Local-first photos have status='local_only' or isLocalFirst=true
+        const isLocalFirstPhoto = result.isLocalFirst || result.status === 'local_only' || result._syncing;
+
+        if (isLocalFirstPhoto) {
+          // Local-first: photo is stored locally and queued for background sync
           existingPhoto.uploading = false;
           existingPhoto.queued = true;
-          console.log(`[Point Photo] Photo queued for sync (offline mode), _pendingFileId:`, existingPhoto._pendingFileId);
+          // Display URL is already set from the blob stored in IndexedDB
+          console.log(`[Point Photo] Photo stored locally for background sync, imageId:`, existingPhoto.imageId);
         } else {
-          // Online upload completed
+          // Online upload completed - photo was synced immediately
           existingPhoto.uploading = false;
           existingPhoto.queued = false;
-          
-          // Load the uploaded photo URL
-          if (result.Photo) {
+
+          // Load the uploaded photo URL from server
+          if (result.Photo && !result.Photo.startsWith('blob:')) {
             existingPhoto.path = result.Photo;
             const imageData = await this.foundationData.getImage(result.Photo);
             if (imageData) {
@@ -5141,7 +5137,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
     } catch (error: any) {
       console.error('Error processing point photo:', error);
-      alert(`[DEBUG Photo ERROR]\n${error?.message || error}`);
 
       // Remove uploading/queued state on error
       const existingPhoto = point.photos.find((p: any) => p.photoType === photoType);

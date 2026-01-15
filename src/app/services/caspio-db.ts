@@ -370,9 +370,7 @@ export class CaspioDB extends Dexie {
    * Live query for all pending requests (any status)
    */
   liveAllPendingRequests$(): Observable<PendingRequest[]> {
-    const query = liveQuery(() =>
-      this.pendingRequests.toArray()
-    );
+    const query = liveQuery(() => this.pendingRequests.toArray());
     return this.toRxObservable<PendingRequest[]>(query);
   }
 
