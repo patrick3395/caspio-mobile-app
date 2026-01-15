@@ -1807,9 +1807,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     console.log('[RoomElevation] DEXIE-FIRST: Loading from Dexie only');
     console.log('[RoomElevation] serviceId:', this.serviceId, 'roomName:', this.roomName);
 
-    // DEBUG ALERT: Entry point
-    alert(`[DEBUG 1] initializeFromDexie DEXIE-FIRST\nserviceId: ${this.serviceId}\nroomName: ${this.roomName}`);
-
     // Unsubscribe from previous subscription if exists
     if (this.efeFieldSubscription) {
       this.efeFieldSubscription.unsubscribe();
@@ -1821,25 +1818,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       field = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
     } catch (err: any) {
       console.error('[RoomElevation] Dexie read error:', err);
-      alert(`[DEBUG ERROR] Dexie read failed: ${err?.message || err}`);
       this.loading = false;
       return;
     }
 
     if (!field) {
       // Room not in Dexie - this indicates a bug in the flow
-      // The room should have been added to Dexie when it was created in elevation-plot-hub
       console.error('[RoomElevation] DEXIE-FIRST ERROR: Room not found in Dexie - flow bug');
-      alert(`[DEBUG ERROR] Room "${this.roomName}" NOT in Dexie!\nThis is a bug - room should exist in Dexie.`);
       this.loading = false;
       return;
     }
 
     console.log('[RoomElevation] DEXIE-FIRST: Room found in Dexie');
-    let pointsInfo = field.elevationPoints.map(p =>
-      `${p.pointNumber}:${p.pointId || p.tempPointId || 'NO_ID'}`
-    ).join(', ');
-    alert(`[DEBUG 2] Room found!\nefeId: ${field.efeId || 'null'}\ntempEfeId: ${field.tempEfeId || 'null'}\nPoints: ${pointsInfo}`);
 
     // 2. Set roomId from Dexie (prefer real ID, fallback to temp)
     this.roomId = field.efeId || field.tempEfeId || '';
@@ -1850,7 +1840,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const pointsNeedIds = field.elevationPoints.some(p => !p.pointId && !p.tempPointId);
     if (pointsNeedIds && this.roomId) {
       console.log('[RoomElevation] Points need tempPointIds - creating now');
-      alert(`[DEBUG 2.5] Points need IDs - creating tempPointIds...`);
 
       try {
         // Create tempPointIds and queue points for sync
@@ -1866,14 +1855,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         const updatedField = await this.efeFieldRepo.getFieldByRoom(this.serviceId, this.roomName);
         if (updatedField) {
           field = updatedField;
-          pointsInfo = field.elevationPoints.map(p =>
-            `${p.pointNumber}:${p.pointId || p.tempPointId || 'NO_ID'}`
-          ).join(', ');
-          alert(`[DEBUG 2.6] Points created!\nNew Points: ${pointsInfo}`);
         }
       } catch (err: any) {
         console.error('[RoomElevation] Failed to create tempPointIds:', err);
-        alert(`[DEBUG 2.5 ERROR] Failed to create tempPointIds: ${err?.message || err}`);
       }
     }
 
@@ -1906,8 +1890,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     this.isLoadingPoints = false;
     this.loading = false;
     this.changeDetectorRef.detectChanges();
-
-    alert(`[DEBUG 3] roomData populated!\nroomId: "${this.roomId}"\nPoints: ${this.roomData.elevationPoints.length}`);
 
     // 5. Load photos from LocalImages (separate from point data)
     await this.populatePhotosFromLocalImages();
@@ -1961,10 +1943,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // Mark initial load complete
     this.initialLoadComplete = true;
     this.changeDetectorRef.detectChanges();
-
-    // DEBUG: Check button enable conditions
-    const pointIds = this.roomData?.elevationPoints?.map((p: any) => p.pointId).join(', ') || 'none';
-    alert(`[DEBUG 4] DEXIE-FIRST Complete!\nroomId: "${this.roomId}"\nisRoomReady: ${this.isRoomReady()}\nPoints: ${this.roomData?.elevationPoints?.length}\nPoint IDs: ${pointIds}`);
     console.timeEnd('[RoomElevation] initializeFromDexie');
   }
 
@@ -2138,9 +2116,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     console.log('  - ServiceId:', this.serviceId);
     console.log('  - RoomName:', this.roomName);
 
-    // DEBUG ALERT: loadRoomData entry
-    alert(`[DEBUG loadRoomData] START\nserviceId: ${this.serviceId}\nroomName: ${this.roomName}`);
-
     // OFFLINE-FIRST: Don't show loading spinner if we have cached data
     // Data is already cached by the container's template download
     // Only show loading for first-time fetches (no cache)
@@ -2151,9 +2126,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Load room record from Services_EFE (reads from IndexedDB immediately)
       console.log('[RoomElevation] Calling foundationData.getEFEByService with serviceId:', this.serviceId);
-      alert(`[DEBUG loadRoomData] Calling getEFEByService...`);
       const rooms = await this.foundationData.getEFEByService(this.serviceId, true);
-      alert(`[DEBUG loadRoomData] getEFEByService returned ${rooms?.length || 0} rooms`);
       console.log('[RoomElevation] getEFEByService returned', rooms?.length || 0, 'rooms');
       console.log('[RoomElevation] Rooms:', rooms);
 
@@ -2163,15 +2136,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       if (!room) {
         console.error('[RoomElevation] ERROR: Room not found with name:', this.roomName);
         console.error('[RoomElevation] Available room names:', rooms.map((r: any) => r.RoomName));
-        const availableNames = rooms.map((r: any) => r.RoomName).join(', ');
-        alert(`[DEBUG loadRoomData] Room NOT FOUND!\nLooking for: "${this.roomName}"\nAvailable: ${availableNames}`);
-        // Toast removed per user request
-        // await this.showToast('Room not found', 'danger');
         this.goBack();
         return;
       }
 
-      alert(`[DEBUG loadRoomData] Room FOUND!\nEFEID: ${room.EFEID}\nTemplateID: ${room.TemplateID}`);
       this.roomId = room.EFEID;
       console.log('[RoomElevation] Room ID set to:', this.roomId);
       console.log('[RoomElevation] Room TemplateID from database:', room.TemplateID);
@@ -2281,9 +2249,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       this.changeDetectorRef.detectChanges();
     } catch (error: any) {
       console.error('Error loading room data:', error);
-      alert(`[DEBUG loadRoomData] ERROR!\n${error?.message || error}`);
-      // Toast removed per user request
-      // await this.showToast('Failed to load room data', 'danger');
     }
     
     // Track last loaded room ID to detect context changes on re-entry
@@ -5033,11 +4998,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async processPointPhoto(webPath: string, point: any, photoType: 'Measurement' | 'Location') {
+    // DEBUG: Log entry
+    alert(`[DEBUG Photo] processPointPhoto START\npointId: ${point.pointId}\npointName: ${point.name}\nphotoType: ${photoType}`);
+
     try {
       // Convert to File
       const response = await fetch(webPath);
       const blob = await response.blob();
       const file = new File([blob], `point-${photoType.toLowerCase()}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+      alert(`[DEBUG Photo] File created\nsize: ${file.size} bytes`);
 
       // Check actual offline status
       const isActuallyOffline = !this.offlineService.isOnline();
@@ -5105,6 +5075,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // online (immediate upload) and offline (IndexedDB queue) scenarios
       // TASK 1 FIX: Pass serviceId so LocalImages can be found by getImagesForService()
       // Without serviceId, photos would be stored with serviceId='' but queried with actual serviceId
+      alert(`[DEBUG Photo] Calling uploadEFEPointPhoto\npointId: ${point.pointId}\nserviceId: ${this.serviceId}`);
+
       const result = await this.foundationData.uploadEFEPointPhoto(
         point.pointId,
         compressedFile,
@@ -5112,6 +5084,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         '', // No drawings initially
         this.serviceId  // CRITICAL: Pass serviceId for LocalImage lookup
       );
+
+      alert(`[DEBUG Photo] uploadEFEPointPhoto returned\nimageId: ${result?.imageId}\nstatus: ${result?.status}`);
 
       console.log(`[Point Photo] Photo ${photoType} processed for point ${point.pointName}:`, result);
 
@@ -5165,10 +5139,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       this.changeDetectorRef.detectChanges();
       console.log(`[Point Photo] Photo ${photoType} for point ${point.pointName} processed successfully`);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing point photo:', error);
-      // Toast removed per user request
-      // await this.showToast('Failed to upload photo', 'danger');
+      alert(`[DEBUG Photo ERROR]\n${error?.message || error}`);
 
       // Remove uploading/queued state on error
       const existingPhoto = point.photos.find((p: any) => p.photoType === photoType);
