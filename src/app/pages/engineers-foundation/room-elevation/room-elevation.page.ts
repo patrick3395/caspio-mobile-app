@@ -1953,7 +1953,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     this.loading = false;
     this.changeDetectorRef.detectChanges();
 
-    alert(`[DEBUG 8] initializeFromDexie COMPLETE`);
+    // DEBUG: Check button enable conditions
+    const pointIds = this.roomData?.elevationPoints?.map((p: any) => p.pointId).join(', ') || 'none';
+    alert(`[DEBUG 8] Button state check:\nroomId: "${this.roomId}"\nloading: ${this.loading}\nisRoomReady: ${this.isRoomReady()}\nPoints count: ${this.roomData?.elevationPoints?.length}\nPoint IDs: ${pointIds}`);
     console.timeEnd('[RoomElevation] initializeFromDexie');
   }
 

@@ -12,7 +12,49 @@ This document outlines the step-by-step implementation of Dexie-first architectu
 
 ---
 
-## Phase 1: Room-Elevation Basic Dexie Read (COMPLETED)
+## CRITICAL: Mobile vs Web IndexedDB Differences
+
+**Discovered during Phase 1 implementation - January 2025:**
+
+The liveQuery subscription was failing on **mobile only** with:
+```
+UnknownError: An internal error was encountered in the IndexedDB server
+```
+
+### Root Cause: Race Condition in Operation Order
+
+**Original (broken) order:**
+1. Subscribe to liveQuery
+2. `await loadElevationPoints()` - runs AFTER subscription created
+3. liveQuery fires BEFORE data is ready → IndexedDB conflict on mobile
+
+**Fixed order (matches working Structural Systems pattern):**
+1. `await loadElevationPoints()` - load ALL data first
+2. THEN subscribe to liveQuery - for reactive updates only
+3. No concurrent operations → no conflict
+
+### Key Implementation Rules for Mobile Compatibility
+
+1. **Load data BEFORE subscribing to liveQuery**
+   - Structural Systems: `initializeVisualFields()` loads data, THEN subscribes
+   - Room-Elevation must follow same pattern
+
+2. **Use simple indexes over compound indexes in liveQuery**
+   - Compound index `[serviceId+roomName]` caused issues
+   - Simple `key` index (format: `serviceId:roomName`) is more reliable
+   - Non-reactive queries with compound indexes work fine
+
+3. **Avoid async/await inside liveQuery callback**
+   - Working: `liveQuery(() => this.table.where(...).first())`
+   - Problematic: `liveQuery(async () => { await ... })`
+
+4. **Set loading flags after data operations complete**
+   - `isLoadingPoints = false` must be set in Dexie path
+   - UI waits for this flag before rendering inputs
+
+---
+
+## Phase 1: Room-Elevation Basic Dexie Read (COMPLETED WITH FIXES)
 
 ### Step 1.1: Remove Debug Alerts ✅
 - Remove all existing US-004 debug alerts from room-elevation.page.ts
@@ -23,14 +65,53 @@ This document outlines the step-by-step implementation of Dexie-first architectu
 - Add `efeFieldSeeded` flag
 - **Debugging:** Verify properties exist (no compile errors)
 
-### Step 1.3: Create initializeFromDexie() Method ✅
-- Create method that reads from `efeFieldRepo.getFieldByRoom$()`
+### Step 1.3: Create initializeFromDexie() Method ✅ (WITH CRITICAL FIXES)
+- Create method that reads from `efeFieldRepo.getFieldByRoom()`
 - Falls back to `loadRoomData()` if room not in Dexie
-- **Debugging:** Add `console.log` to trace which path is taken
+- **CRITICAL FIX:** Populate `roomData` immediately from `existingField` before subscribing
+
+**Correct Implementation Pattern:**
+```typescript
+private async initializeFromDexie(): Promise<void> {
+  // 1. Get field from Dexie (non-reactive, one-time read)
+  const existingField = await this.efeFieldRepo.getFieldByRoom(serviceId, roomName);
+
+  if (!existingField) {
+    await this.loadRoomData();  // Fallback
+    return;
+  }
+
+  // 2. Populate roomData IMMEDIATELY (before any subscriptions)
+  this.roomData = {
+    roomName: existingField.roomName,
+    // ... populate from existingField
+  };
+
+  // 3. Load elevation points FIRST (before liveQuery subscription)
+  await this.loadElevationPoints();
+  this.isLoadingPoints = false;  // CRITICAL: UI waits for this
+
+  // 4. THEN subscribe to liveQuery for reactive updates ONLY
+  this.efeFieldSubscription = this.efeFieldRepo
+    .getFieldByRoom$(serviceId, roomName)
+    .subscribe({
+      next: (field) => { /* Update roomData reactively */ },
+      error: (err) => { /* Non-fatal - initial data already loaded */ }
+    });
+}
+```
 
 ### Step 1.4: Wire Up ngOnInit ✅
 - Replace `loadRoomData()` with `initializeFromDexie()` in ngOnInit
 - **Debugging:** Verify room loads (may be slow if fallback is used)
+
+### Issues Fixed in Phase 1:
+
+| Issue | Symptom | Fix |
+|-------|---------|-----|
+| liveQuery fails on mobile | IndexedDB internal error | Load data BEFORE subscribing |
+| Blank screen after liveQuery error | roomData never populated | Populate roomData from existingField immediately |
+| Infinite loading spinner | isLoadingPoints never set false | Set `isLoadingPoints = false` after loadElevationPoints() |
 
 ---
 
@@ -131,7 +212,7 @@ alert(`[WRITE DEBUG] Point ${pointNumber} value saved: ${value}`);
 ```typescript
 private async populatePhotosFromDexie(elevationPoints: any[]): Promise<void> {
   const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
-  
+
   // Group by entityId
   const localImagesMap = new Map<string, LocalImage[]>();
   for (const img of allLocalImages) {
@@ -142,11 +223,11 @@ private async populatePhotosFromDexie(elevationPoints: any[]): Promise<void> {
     }
     localImagesMap.get(entityId)!.push(img);
   }
-  
+
   for (const point of elevationPoints) {
     const realId = point.pointId;
     const tempId = point.tempPointId;
-    
+
     // Try real ID first, then temp ID, then mapped ID
     let localImages = realId ? (localImagesMap.get(realId) || []) : [];
     if (localImages.length === 0 && tempId) {
@@ -158,7 +239,7 @@ private async populatePhotosFromDexie(elevationPoints: any[]): Promise<void> {
         localImages = localImagesMap.get(mappedRealId) || [];
       }
     }
-    
+
     // Populate photos...
   }
 }
@@ -319,7 +400,7 @@ alert(`[FDF UPLOAD DEBUG] entityId: ${localImage.entityId}\n` +
 - [ ] Debug alert shows expected values
 - [ ] No TypeScript compilation errors
 - [ ] App builds successfully
-- [ ] Feature works on mobile device
+- [ ] Feature works on mobile device (CRITICAL - test mobile, not just browser)
 
 ### Photo Persistence Tests:
 - [ ] Photo shows immediately after upload
@@ -350,5 +431,17 @@ If a step causes issues:
 - Always use `alert()` for mobile debugging
 - Remove debug alerts after each phase is verified working
 - Commit after each successful step
-- Test on actual mobile device, not just browser
+- **Test on actual mobile device, not just browser** - IndexedDB behaves differently!
+- Follow Structural Systems pattern for operation order (load data → then subscribe)
+
+---
+
+## Commits Reference (Phase 1 Fixes)
+
+1. `e97116ad` - Add debug alerts for blank screen diagnosis
+2. `236eddba` - Fix blank screen: populate roomData immediately from existingField
+3. `f50afb2c` - Add Dexie debug mode and global error handlers
+4. `5d28755a` - Fix mobile liveQuery: use simple 'key' index
+5. `4bc47189` - Fix race condition: load elevation points BEFORE subscribing to liveQuery
+6. `8608d24a` - Fix infinite loading: set isLoadingPoints=false after loadElevationPoints
 
