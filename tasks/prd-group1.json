@@ -1,141 +1,124 @@
 {
   "name": "Caspio Mobile App - Dexie-First Implementation",
   "branchName": "feature/dexie-first-implementation",
+  "criticalRequirement": "DEXIE-FIRST IS NON-NEGOTIABLE. All data must flow through Dexie (IndexedDB). Do NOT settle for alternative approaches, workarounds, or shortcuts. LocalImages table is the single source of truth for photos. displayUrl must ALWAYS point to local blob storage, NEVER swap to server URLs.",
   "userStories": [
     {
       "id": "US-001",
       "title": "Category Detail - Fix Remaining Dexie-First Photo Issues",
-      "description": "The category-detail page's Dexie-first implementation is almost working perfectly. Two remaining issues need resolution.",
+      "status": "NOT_FIXED",
+      "description": "NOT FIXED IN LAST ITERATION. The category-detail page's Dexie-first implementation is almost working perfectly. Two remaining issues persist despite previous fix attempts.",
       "page": "src/app/pages/engineers-foundation/structural-systems/category-detail",
       "issues": [
         {
           "id": "ISSUE-1A",
           "title": "Photo Disappears After Syncing",
-          "description": "After syncing, the photo disappears from the UI. The implementation should continue to point to local data storage and NOT swap to synced server data. LocalImages should remain the source of truth for display."
+          "description": "After syncing, the photo disappears from the UI. The implementation MUST continue to point to local data storage (Dexie LocalImages table) and NOT swap to synced server data. LocalImages should remain the source of truth for display.",
+          "status": "NOT_FIXED"
         },
         {
           "id": "ISSUE-1B",
           "title": "Photo Thumbnail Missing Annotations on Reload",
-          "description": "On reload of the page, the photo thumbnail does not show annotations. Annotations should persist and display correctly after page reload."
+          "description": "On reload of the page, the photo thumbnail does not show annotations. Annotations should persist and display correctly after page reload.",
+          "status": "NOT_FIXED"
         }
+      ],
+      "nextSteps": [
+        "ADD DEBUG STATEMENTS on category page load to trace photo population flow",
+        "ADD DEBUG STATEMENTS on photo upload to trace LocalImage creation and displayUrl assignment",
+        "ADD DEBUG STATEMENTS on sync completion to trace what happens to displayUrl",
+        "ADD DEBUG STATEMENTS for annotation loading on page reload",
+        "Identify WHY displayUrl is being swapped or lost after sync",
+        "Identify WHY annotations are not loading from cachedAnnotatedImages on reload"
       ],
       "acceptanceCriteria": [
         "Photos remain visible after sync completes (local data reference maintained)",
         "Annotations display correctly on photo thumbnails after page reload",
+        "displayUrl ALWAYS points to local blob (blob: or data:), NEVER server URL",
         "No regression to existing Dexie-first functionality",
         "Visual selections remain stable (no deselection issues)"
       ],
       "technicalContext": [
-        "LocalImages table stores photos with stable imageId",
-        "displayUrl should always point to local blob, never swap to server URL",
-        "Annotations are stored in cachedAnnotatedImages table",
-        "Sync should update metadata only, not displayUrl"
+        "DEXIE-FIRST: LocalImages table stores photos with stable imageId",
+        "DEXIE-FIRST: displayUrl must ALWAYS point to local blob, NEVER swap to server URL",
+        "Annotations are stored in cachedAnnotatedImages table in Dexie",
+        "Sync should update metadata only, NOT displayUrl",
+        "DO NOT abandon Dexie approach for alternative solutions"
       ],
       "priority": 1,
-      "passes": true,
-      "dependsOn": [],
-      "completionNotes": "Completed by agent"
+      "passes": false,
+      "dependsOn": []
     },
     {
       "id": "US-002",
-      "title": "Elevation Plot Hub - Implement Dexie-First for Rooms List",
-      "description": "Implement Dexie-first approach for the elevation-plot-hub page. The elevation plot section has a different data structure than structural systems, so a NEW Dexie table is needed for elevation plot data.",
-      "page": "src/app/pages/engineers-foundation/elevation-plot-hub",
+      "title": "Room Elevation - Implement Dexie-First for Room Details",
+      "status": "NOT_FIXED",
+      "description": "NOT FIXED IN LAST ITERATION. Implement Dexie-first approach for the room-elevation page (individual room detail view with elevation points). The elevation plot section has a DIFFERENT data structure than structural systems, so a NEW Dexie table is needed for elevation plot data.",
+      "page": "src/app/pages/engineers-foundation/room-elevation",
       "issues": [
         {
           "id": "ISSUE-2A",
           "title": "Photo Does Not Show on Original Load",
-          "description": "When adding an image, it is completely gone immediately - does not appear in the UI after capture."
+          "description": "When adding an image to an elevation point, it is completely gone immediately - does not appear in the UI after capture.",
+          "status": "NOT_FIXED"
         },
         {
           "id": "ISSUE-2B",
           "title": "Photo Does Not Persist on Page Reload",
-          "description": "Photos disappear when navigating away and returning to the page, or on hard refresh."
+          "description": "Photos disappear when navigating away and returning to the room, or on hard refresh.",
+          "status": "NOT_FIXED"
         },
         {
           "id": "ISSUE-2C",
           "title": "Photo Disappears After Sync",
-          "description": "After syncing, photos disappear. Implementation should point locally so sync should not change the image display."
+          "description": "After syncing, photos disappear. Implementation MUST point locally so sync should NOT change the image display. We are pointing to Dexie LocalImages, NOT server URLs.",
+          "status": "NOT_FIXED"
         },
         {
           "id": "ISSUE-2D",
           "title": "Annotations and Captions Do Not Persist",
-          "description": "User-added annotations and captions are lost on navigation or reload."
+          "description": "User-added annotations and captions on elevation point photos are lost on navigation or reload.",
+          "status": "NOT_FIXED"
         }
+      ],
+      "nextSteps": [
+        "ADD DEBUG STATEMENTS on room-elevation page load to trace photo population flow",
+        "ADD DEBUG STATEMENTS on photo upload to trace LocalImage creation and displayUrl assignment",
+        "ADD DEBUG STATEMENTS on sync completion to trace what happens to displayUrl",
+        "ADD DEBUG STATEMENTS for annotation/caption loading on page reload",
+        "Create NEW Dexie table for EFE room/point data (similar to VisualFieldRepo but for EFE structure)",
+        "Implement EfeFieldRepo service following same pattern as VisualFieldRepo",
+        "Ensure photos are read from LocalImages table, not server attachments"
       ],
       "acceptanceCriteria": [
         "New Dexie table created for elevation plot data (efeFields or similar)",
-        "Photos display immediately after capture",
-        "Photos persist after page navigation and reload",
-        "Photos remain visible after sync (local data reference maintained)",
-        "Annotations and captions persist across navigation/reload",
-        "Room selection state persists correctly",
-        "No regression to existing room creation/rename/delete functionality"
-      ],
-      "technicalContext": [
-        "Elevation plot uses EFEID, RoomName, Point1-Point20 structure",
-        "Different from structural systems VisualFieldRepo pattern",
-        "Need EFE-specific repository service (e.g., EfeFieldRepo)",
-        "Must integrate with existing EFE room sync process without breaking it"
-      ],
-      "priority": 2,
-      "passes": true,
-      "dependsOn": [],
-      "completionNotes": "Completed by agent"
-    },
-    {
-      "id": "US-003",
-      "title": "Room Elevation - Implement Dexie-First for Room Details",
-      "description": "Implement Dexie-first approach for the room-elevation page (individual room detail view with elevation points). Uses same new Dexie table as elevation-plot-hub.",
-      "page": "src/app/pages/engineers-foundation/room-elevation",
-      "issues": [
-        {
-          "id": "ISSUE-3A",
-          "title": "Photo Does Not Show on Original Load",
-          "description": "When adding an image to an elevation point, it is completely gone immediately - does not appear in the UI after capture."
-        },
-        {
-          "id": "ISSUE-3B",
-          "title": "Photo Does Not Persist on Page Reload",
-          "description": "Photos disappear when navigating away and returning to the room, or on hard refresh."
-        },
-        {
-          "id": "ISSUE-3C",
-          "title": "Photo Disappears After Sync",
-          "description": "After syncing, photos disappear. Implementation should point locally so sync should not change the image display."
-        },
-        {
-          "id": "ISSUE-3D",
-          "title": "Annotations and Captions Do Not Persist",
-          "description": "User-added annotations and captions on elevation point photos are lost on navigation or reload."
-        }
-      ],
-      "acceptanceCriteria": [
-        "Uses same Dexie table as elevation-plot-hub",
         "Elevation point photos display immediately after capture",
         "Photos persist after page navigation and reload",
         "Photos remain visible after sync (local data reference maintained)",
         "Annotations and captions persist across navigation/reload",
+        "displayUrl ALWAYS points to local blob (blob: or data:), NEVER server URL",
         "FDF photos also follow Dexie-first pattern",
         "Point values (elevation readings) persist correctly",
         "Notes, Location, FDF fields persist correctly"
       ],
       "technicalContext": [
+        "DEXIE-FIRST: Must create new Dexie table for EFE data structure",
+        "DEXIE-FIRST: LocalImages table is source of truth for photos",
+        "DEXIE-FIRST: displayUrl must ALWAYS point to local blob, NEVER server URL",
         "Room has multiple elevation points (Point1-Point20)",
         "Each point can have multiple photos",
         "FDF section has separate photo slots (top, bottom, etc.)",
-        "Must integrate with existing EFE point sync process without breaking it"
+        "Must integrate with existing EFE point sync process without breaking it",
+        "DO NOT abandon Dexie approach for alternative solutions"
       ],
-      "priority": 3,
-      "passes": true,
-      "dependsOn": [
-        "US-002"
-      ],
-      "completionNotes": "Completed by agent"
+      "priority": 2,
+      "passes": false,
+      "dependsOn": []
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-15T17:28:57.717Z",
+    "updatedAt": "2026-01-15T18:00:00.000Z",
+    "emphasis": "DEXIE-FIRST IS MANDATORY. No shortcuts, no workarounds, no settling for non-Dexie solutions.",
     "previousStories": [
       {
         "id": "US-001-OLD",
@@ -148,6 +131,12 @@
         "title": "Hard Refreshes - 'Preparing Template' Screen",
         "status": "completed",
         "completionNotes": "Completed by agent"
+      },
+      {
+        "id": "US-003-REMOVED",
+        "title": "Elevation Plot Hub - Implement Dexie-First for Rooms List",
+        "status": "merged_into_US-002",
+        "completionNotes": "Room list functionality merged into room-elevation task as photos are handled there"
       }
     ]
   }
