@@ -46,7 +46,8 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   // - Navigating within the same service (between rooms/categories)
   // - Route params re-firing for any reason (cache invalidation, navigation events)
   // - Any scenario where templateReady might be temporarily false
-  private lastLoadedServiceId: string = '';
+  // MOBILE FIX: Made static so it persists across component recreation (Ionic destroys/recreates pages)
+  private static lastLoadedServiceId: string = '';
 
   // Subscriptions for cleanup
   private syncSubscriptions: Subscription[] = [];
@@ -91,8 +92,8 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       // The previous bug checked both lastLoadedServiceId AND templateReady,
       // which could fail if templateReady was false for any reason during
       // navigation within the same service.
-      const isNewService = this.lastLoadedServiceId !== newServiceId;
-      const isFirstLoad = !this.lastLoadedServiceId;
+      const isNewService = EngineersFoundationContainerPage.lastLoadedServiceId !== newServiceId;
+      const isFirstLoad = !EngineersFoundationContainerPage.lastLoadedServiceId;
 
       this.projectId = newProjectId;
       this.serviceId = newServiceId;
@@ -131,7 +132,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
         // Track that we've loaded this service - BEFORE setting templateReady
         // This ensures any subsequent route param emissions don't trigger reload
-        this.lastLoadedServiceId = newServiceId;
+        EngineersFoundationContainerPage.lastLoadedServiceId = newServiceId;
       } else {
         console.log('[EF Container] Same service (' + newServiceId + '), skipping re-download to prevent hard refresh');
       }
