@@ -251,11 +251,20 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // This handles the case where photos are uploaded via IndexedDB queue (offline -> online)
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
       console.log('[RoomElevation PHOTO SYNC] Photo upload completed:', event.tempFileId);
-      
+
       // Extract data from the result object
       const realAttachId = event.result?.AttachID;
       const photoUrl = event.result?.Photo || event.result?.Attachment;
       const s3Key = event.result?.Attachment;
+
+      // ===== US-004 DEBUG: Sync completion - trace displayUrl changes =====
+      const syncDebugMsg = `SYNC COMPLETE received\n` +
+        `tempFileId: ${event.tempFileId}\n` +
+        `realAttachId: ${realAttachId || 'N/A'}\n` +
+        `photoUrl: ${photoUrl?.substring(0, 50) || 'N/A'}...\n` +
+        `s3Key: ${s3Key || 'N/A'}`;
+      alert('[US-004 DEBUG] Sync Complete:\n' + syncDebugMsg);
+      // ===== END US-004 DEBUG =====
 
       // Find the photo in our elevationPoints by temp file ID
       for (const point of this.roomData?.elevationPoints || []) {
@@ -904,6 +913,23 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const syncStatus = this.backgroundSync.syncStatus$.getValue();
     const syncInProgress = syncStatus.isSyncing;
 
+    // ===== US-004 DEBUG: ionViewWillEnter - trace photo population flow =====
+    const elevPointsCount = this.roomData?.elevationPoints?.length || 0;
+    const elevPointsWithPhotos = this.roomData?.elevationPoints?.filter((p: any) => p.photos?.length > 0).length || 0;
+    const fdfPhotosCount = ['top', 'bottom', 'threshold'].filter(k => this.roomData?.fdfPhotos?.[k]).length;
+    const debugMsg = `roomId: ${this.roomId}\n` +
+      `roomName: ${this.roomName}\n` +
+      `serviceId: ${this.serviceId}\n` +
+      `initialLoadComplete: ${this.initialLoadComplete}\n` +
+      `hasDataInMemory: ${hasDataInMemory}\n` +
+      `isDirty: ${isDirty}\n` +
+      `roomChanged: ${roomChanged}\n` +
+      `syncInProgress: ${syncInProgress}\n` +
+      `elevationPoints: ${elevPointsCount} (${elevPointsWithPhotos} with photos)\n` +
+      `fdfPhotos: ${fdfPhotosCount}`;
+    alert('[US-004 DEBUG] ionViewWillEnter:\n' + debugMsg);
+    // ===== END US-004 DEBUG =====
+
     console.log(`[RoomElevation] ionViewWillEnter - hasData: ${!!hasDataInMemory}, isDirty: ${isDirty}, roomChanged: ${roomChanged}, syncInProgress: ${syncInProgress}`);
 
     // ALWAYS reload if:
@@ -1428,6 +1454,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               const attachLocalImageId = attach.localImageId || attach.imageId;
               const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachIdStr)
                 || (attachLocalImageId ? this.bulkAnnotatedImagesMap.get(String(attachLocalImageId)) : null);
+
+              // ===== US-004 DEBUG: Point photo annotation loading on reload =====
+              const pointAnnotDebugMsg = `POINT ANNOTATION CHECK (reload)\n` +
+                `pointName: ${localPoint.name || 'N/A'}\n` +
+                `attachIdStr: ${attachIdStr}\n` +
+                `attachLocalImageId: ${attachLocalImageId || 'N/A'}\n` +
+                `photoType: ${photoType}\n` +
+                `cachedAnnotatedImage found: ${!!cachedAnnotatedImage}\n` +
+                `hasDrawings: ${!!(attach.Drawings && attach.Drawings !== 'null')}`;
+              alert('[US-004 DEBUG] Point Annotation Check:\n' + pointAnnotDebugMsg);
+              // ===== END US-004 DEBUG =====
+
               if (cachedAnnotatedImage) {
                 cachedDisplayUrl = cachedAnnotatedImage;
                 console.log(`[RoomElevation] ✅ Using cached ANNOTATED image for new photo ${attachIdStr}`);
@@ -2288,6 +2326,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       
       // Check for cached ANNOTATED image first
       const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(cacheId);
+
+      // ===== US-004 DEBUG: Annotation loading on reload (FDF) =====
+      const annotDebugMsg = `FDF ANNOTATION CHECK (reload)\n` +
+        `photoKey: ${photoKey}\n` +
+        `cacheId: ${cacheId}\n` +
+        `cachedAnnotatedImage found: ${!!cachedAnnotatedImage}\n` +
+        `bulkAnnotatedImagesMap size: ${this.bulkAnnotatedImagesMap.size}\n` +
+        `bulkCachedPhotosMap has key: ${this.bulkCachedPhotosMap.has(cacheId)}`;
+      alert('[US-004 DEBUG] FDF Annotation Check:\n' + annotDebugMsg);
+      // ===== END US-004 DEBUG =====
+
       if (cachedAnnotatedImage) {
         console.log(`[FDF Photo] ✅ Using bulk cached ANNOTATED ${photoKey} image`);
         fdfPhotos[`${photoKey}Url`] = cachedAnnotatedImage;
@@ -3881,6 +3930,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       fdfPhotos[`${photoKey}LocalBlobId`] = localImage.localBlobId;
       fdfPhotos[`${photoKey}IsLocalFirst`] = true;
 
+      // ===== US-004 DEBUG: FDF Photo Upload - trace LocalImage creation and displayUrl =====
+      const fdfUploadDebugMsg = `FDF PHOTO UPLOAD\n` +
+        `photoType: ${photoType}\n` +
+        `roomId: ${this.roomId}\n` +
+        `imageId: ${localImage.imageId}\n` +
+        `localBlobId: ${localImage.localBlobId}\n` +
+        `displayUrl: ${displayUrl?.substring(0, 50)}...\n` +
+        `displayUrl type: ${displayUrl?.startsWith('blob:') ? 'BLOB' : displayUrl?.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
+        `status: ${localImage.status}`;
+      alert('[US-004 DEBUG] FDF Photo Upload:\n' + fdfUploadDebugMsg);
+      // ===== END US-004 DEBUG =====
+
       // Trigger change detection to show preview IMMEDIATELY
       this.changeDetectorRef.detectChanges();
       console.log(`[FDF Upload] ✅ Photo captured with LocalImageService:`, localImage.imageId);
@@ -4770,6 +4831,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           existingPhoto.url = persistedUrl;
           existingPhoto.displayUrl = persistedUrl;
         }
+
+        // ===== US-004 DEBUG: Point Photo Upload - trace LocalImage creation and displayUrl =====
+        const uploadDebugMsg = `POINT PHOTO UPLOAD\n` +
+          `pointName: ${point.pointName || point.name}\n` +
+          `pointId: ${point.pointId}\n` +
+          `photoType: ${photoType}\n` +
+          `imageId: ${existingPhoto.imageId}\n` +
+          `tempPhotoId: ${tempPhotoId}\n` +
+          `_tempId: ${existingPhoto._tempId}\n` +
+          `displayUrl: ${existingPhoto.displayUrl?.substring(0, 50)}...\n` +
+          `displayUrl type: ${existingPhoto.displayUrl?.startsWith('blob:') ? 'BLOB' : existingPhoto.displayUrl?.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
+          `isPending: ${existingPhoto.isPending}\n` +
+          `result._syncing: ${!!result._syncing}`;
+        alert('[US-004 DEBUG] Point Photo Upload:\n' + uploadDebugMsg);
+        // ===== END US-004 DEBUG =====
 
         // If offline (result has _syncing flag), photo is queued - don't clear uploading yet
         if (result._syncing) {

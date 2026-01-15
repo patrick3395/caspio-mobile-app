@@ -741,8 +741,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     let photosAddedCount = 0;
 
     for (const field of fields) {
-      // Get visual ID (either synced ID or temp ID)
-      const visualId = field.visualId || field.tempVisualId;
+      // US-002 FIX: Get both real and temp IDs for fallback lookup
+      const realId = field.visualId;
+      const tempId = field.tempVisualId;
+      const visualId = realId || tempId;
       if (!visualId) continue;
 
       const key = `${field.category}_${field.templateId}`;
@@ -750,8 +752,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Store visual record ID for photo operations
       this.visualRecordIds[key] = visualId;
 
-      // Get LocalImages from our direct query (NOT from bulkLocalImagesMap)
-      const localImages = localImagesMap.get(visualId) || [];
+      // US-002 FIX: Lookup by real ID first, fallback to temp ID
+      // After sync, VisualField.visualId gets updated to real ID but LocalImage.entityId
+      // may still have temp ID until updateEntityIdForImages runs
+      let localImages = realId ? (localImagesMap.get(realId) || []) : [];
+      const foundWithRealId = localImages.length;
+      if (localImages.length === 0 && tempId && tempId !== realId) {
+        localImages = localImagesMap.get(tempId) || [];
+      }
+
+      // ===== US-002 DEBUG: Photo lookup ID resolution =====
+      if (realId || tempId) {
+        alert(`[US-002 DEBUG] Photo lookup:\n` +
+          `key: ${key}\n` +
+          `realId: ${realId || 'null'}\n` +
+          `tempId: ${tempId || 'null'}\n` +
+          `found with realId: ${foundWithRealId}\n` +
+          `found with tempId: ${localImages.length - foundWithRealId}\n` +
+          `total found: ${localImages.length}`);
+      }
+      // ===== END US-002 DEBUG =====
 
       if (localImages.length === 0) continue;
 

@@ -1,0 +1,10 @@
+maxIterations = 10
+agent = "claude"
+tracker = "json"
+autoCommit = true
+subagentTracingDetail = "full"
+
+[agentOptions]
+[trackerOptions]
+[notifications]
+sound = "ralph"
