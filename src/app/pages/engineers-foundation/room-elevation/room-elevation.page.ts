@@ -1867,7 +1867,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Subscribe to reactive updates from Dexie (for live updates after initial render)
     // If this fails, we still have initial data from above
-    alert(`[DEBUG 4] Setting up Dexie subscription...`);
+
+    // DEBUG: Check database state before subscribing
+    try {
+      const dbVersion = db.verno;
+      const tableNames = db.tables.map(t => t.name).join(', ');
+      const efeFieldsTable = db.table('efeFields');
+      const indexNames = efeFieldsTable.schema.indexes.map(i => i.name).join(', ');
+      alert(`[DEBUG 4] DB State:\nVersion: ${dbVersion}\nTables: ${tableNames}\nefeFields indexes: ${indexNames}`);
+    } catch (dbErr: any) {
+      alert(`[DEBUG 4 ERROR] Failed to read DB state: ${dbErr?.message || dbErr}`);
+    }
+
+    alert(`[DEBUG 4.5] About to subscribe to liveQuery...`);
     this.efeFieldSubscription = this.efeFieldRepo
       .getFieldByRoom$(this.serviceId, this.roomName)
       .subscribe({
@@ -1926,7 +1938,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         },
         error: (err) => {
           console.error('[RoomElevation] Error in EfeField subscription:', err);
-          alert(`[DEBUG 5 ERROR] Subscription error (non-fatal, initial data already loaded): ${err?.message || err}`);
+          // Capture detailed error info
+          const errName = err?.name || 'Unknown';
+          const errMsg = err?.message || String(err);
+          const errStack = err?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack';
+          alert(`[DEBUG 5 ERROR] liveQuery failed:\nName: ${errName}\nMsg: ${errMsg}\nStack: ${errStack}`);
           // Non-fatal: we already have initial data from existingField above
           this.loading = false;
         }

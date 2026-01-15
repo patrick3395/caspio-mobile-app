@@ -15,6 +15,31 @@ import {
 } from './indexed-db.service';
 
 // ============================================================================
+// DEXIE DEBUG MODE - Enable verbose logging to catch mobile IndexedDB errors
+// ============================================================================
+Dexie.debug = true;
+
+// Global error handlers to catch unhandled IndexedDB errors on mobile
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
+    console.error('[CaspioDB] Unhandled rejection:', e.reason);
+    // Show alert on mobile for debugging
+    if (e.reason?.name === 'UnknownError' || e.reason?.message?.includes('IndexedDB')) {
+      alert(`[DEXIE ERROR] Unhandled rejection:\n${e.reason?.message || e.reason}`);
+    }
+  });
+
+  window.addEventListener('error', (e: ErrorEvent) => {
+    console.error('[CaspioDB] Window error:', e.error || e.message);
+    if (e.message?.includes('IndexedDB')) {
+      alert(`[DEXIE ERROR] Window error:\n${e.message}`);
+    }
+  });
+
+  console.log('[CaspioDB] Dexie debug mode ENABLED, global error handlers installed');
+}
+
+// ============================================================================
 // ADDITIONAL INTERFACES FOR CASPIO DB
 // ============================================================================
 
@@ -568,12 +593,28 @@ export class CaspioDB extends Dexie {
    * Live query for a single EFE field by service and room name
    */
   liveEfeFieldByRoom$(serviceId: string, roomName: string): Observable<EfeField | undefined> {
-    const query = liveQuery(() =>
-      this.efeFields
-        .where('[serviceId+roomName]')
-        .equals([serviceId, roomName])
-        .first()
-    );
+    console.log(`[CaspioDB] liveEfeFieldByRoom$ called: serviceId=${serviceId}, roomName=${roomName}`);
+
+    const query = liveQuery(async () => {
+      try {
+        console.log('[CaspioDB] liveQuery callback executing...');
+        // Check if compound index exists
+        const hasCompoundIndex = this.efeFields.schema.indexes.some(
+          idx => idx.name === '[serviceId+roomName]'
+        );
+        console.log(`[CaspioDB] Compound index exists: ${hasCompoundIndex}`);
+
+        const result = await this.efeFields
+          .where('[serviceId+roomName]')
+          .equals([serviceId, roomName])
+          .first();
+        console.log(`[CaspioDB] liveQuery result: ${result ? result.roomName : 'undefined'}`);
+        return result;
+      } catch (queryErr: any) {
+        console.error('[CaspioDB] Error inside liveQuery callback:', queryErr);
+        throw queryErr;  // Re-throw to propagate to subscriber
+      }
+    });
     return this.toRxObservable<EfeField | undefined>(query);
   }
 
