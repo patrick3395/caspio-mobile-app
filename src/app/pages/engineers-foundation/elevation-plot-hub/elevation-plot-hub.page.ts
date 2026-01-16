@@ -640,7 +640,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       roomData.TemplateID = this.roomElevationData[roomName].templateId;
     }
 
-    // Set Organization to be at the end of the list
+    // Set Organization for ordering (1, 2, 3, etc. in order added)
     const nextOrganization = this.getNextOrganizationNumber();
     roomData.Organization = nextOrganization;
     console.log('[Create Room] Setting Organization to:', nextOrganization);
