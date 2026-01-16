@@ -4894,7 +4894,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   useWebWorker: true
                 }) as File;
                 const compressedSize = compressedFile.size;
-                alert(`[STRUCTURAL GALLERY ${i + 1}/${images.photos.length}]\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(compressedSize / 1024).toFixed(1)} KB\nReduction: ${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`);
 
                 // Create LocalImage with stable UUID
                 const localImage = await this.localImageService.captureImage(
@@ -5081,7 +5080,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       useWebWorker: true
     }) as File;
     const compressedSize = compressedPhoto.size;
-    alert(`[STRUCTURAL COMPRESSION]\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(compressedSize / 1024).toFixed(1)} KB\nReduction: ${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`);
 
     const uploadFile = compressedPhoto || photo;
     const actualVisualId = this.visualRecordIds[key] || visualId;
