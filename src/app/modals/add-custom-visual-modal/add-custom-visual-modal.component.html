@@ -21,8 +21,11 @@
       <ion-label position="stacked">Title/Name <span style="color: red;">*</span></ion-label>
       <ion-input
         [(ngModel)]="name"
+        (ionInput)="onNameInput($event)"
         placeholder="Enter title/name"
-        type="text">
+        type="text"
+        autocapitalize="sentences"
+        autocorrect="on">
       </ion-input>
     </ion-item>
 
@@ -31,8 +34,11 @@
       <ion-label position="stacked">Description (Optional)</ion-label>
       <ion-textarea
         [(ngModel)]="description"
+        (ionInput)="onDescriptionInput($event)"
         placeholder="Enter description"
-        rows="4">
+        rows="4"
+        autocapitalize="sentences"
+        autocorrect="on">
       </ion-textarea>
     </ion-item>
 

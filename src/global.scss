@@ -1532,7 +1532,7 @@ textarea.styled-input {
   --max-width: 100%;
   --max-height: 100%;
   --border-radius: 0;
-  
+
   // Ensure modal is visible on all devices
   ion-header {
     ion-toolbar {
@@ -1540,17 +1540,17 @@ textarea.styled-input {
       --color: var(--ion-color-dark);
     }
   }
-  
+
   ion-content {
     --background: var(--ion-background-color);
   }
-  
+
   ion-footer {
     ion-toolbar {
       --background: var(--ion-color-light);
     }
   }
-  
+
   // On larger screens, use a smaller modal
   @media (min-width: 768px) {
     --width: 500px;
@@ -1558,5 +1558,149 @@ textarea.styled-input {
     --max-width: 500px;
     --max-height: 700px;
     --border-radius: 16px;
+  }
+}
+
+// ============================================================================
+// MOBILE: Disable all hover effects on touch devices
+// This prevents "sticky" hover states that cause confusion on mobile
+// ============================================================================
+@media (hover: none), (pointer: coarse) {
+  // Disable hover on all interactive elements
+  *:hover {
+    // Reset common hover properties
+    background-color: inherit !important;
+    color: inherit !important;
+    border-color: inherit !important;
+    box-shadow: inherit !important;
+    transform: none !important;
+    opacity: inherit !important;
+  }
+
+  // Ionic list items
+  ion-item:hover {
+    --background: var(--ion-item-background, white) !important;
+  }
+
+  ion-list ion-item:hover {
+    --background: var(--noble-white, white) !important;
+  }
+
+  // Buttons - reset to their normal state
+  button:hover,
+  ion-button:hover,
+  .button:hover {
+    background: inherit !important;
+    --background-hover: transparent !important;
+  }
+
+  // Cards
+  ion-card:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    transform: none !important;
+  }
+
+  // Links
+  a:hover {
+    text-decoration: inherit !important;
+  }
+
+  // Form inputs
+  input:hover,
+  select:hover,
+  textarea:hover,
+  ion-input:hover,
+  ion-textarea:hover,
+  ion-select:hover {
+    border-color: inherit !important;
+  }
+
+  // Tool buttons in photo editor and other toolbars
+  .tool-btn:hover,
+  .nav-btn:hover,
+  .camera-button-structural:hover {
+    background: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  // Preset buttons in caption popup
+  .preset-btn:hover {
+    background: #f5f5f5 !important;
+    color: #333 !important;
+    border-color: #ddd !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  // Alert buttons
+  .alert-button:hover {
+    background: inherit !important;
+  }
+
+  // Template cards and items
+  .template-card:hover,
+  .template-item:hover,
+  .template-bar:hover {
+    background: inherit !important;
+    transform: none !important;
+    box-shadow: inherit !important;
+  }
+
+  // Service items
+  .service-item:hover,
+  .performed-service-item:hover {
+    background: inherit !important;
+  }
+
+  // Table rows
+  .table-row:hover {
+    background: inherit !important;
+  }
+
+  // Visual items
+  .visual-item-container:hover,
+  .checkbox-item:hover {
+    background: inherit !important;
+  }
+
+  // Photo previews
+  .image-preview:hover,
+  .structural-photo-preview:hover {
+    transform: none !important;
+    box-shadow: inherit !important;
+  }
+
+  // Delete and action buttons
+  .delete-btn:hover,
+  .add-visual-btn:hover,
+  .add-btn:hover {
+    background: inherit !important;
+    transform: none !important;
+  }
+
+  // Room cards
+  .room-card:hover,
+  .room-item:hover {
+    background: inherit !important;
+    transform: none !important;
+    box-shadow: inherit !important;
+  }
+
+  // Accordion headers
+  .accordion-header:hover,
+  .simple-accordion-header:hover {
+    background: inherit !important;
+  }
+
+  // Dark theme hover overrides
+  body.dark-theme {
+    ion-list ion-item:hover {
+      --background: var(--ion-item-background, #1d1d1d) !important;
+    }
+
+    .services-table .table-row:hover {
+      background: inherit !important;
+    }
   }
 }

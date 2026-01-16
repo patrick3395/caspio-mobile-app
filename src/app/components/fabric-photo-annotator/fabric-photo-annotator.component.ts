@@ -18,9 +18,6 @@ import { FabricService } from '../../services/fabric.service';
         </button>
 
         <div class="tool-buttons-center">
-          <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select/Move">
-            <ion-icon name="hand-left-outline"></ion-icon>
-          </button>
           <button class="tool-btn color-btn" (click)="changeColor()" title="Change Color">
             <ion-icon name="color-palette-outline"></ion-icon>
             <div class="color-indicator" [style.background]="currentColor"></div>
@@ -34,14 +31,14 @@ import { FabricService } from '../../services/fabric.service';
           <button class="tool-btn" [class.active]="currentTool === 'text'" (click)="setTool('text')" title="Add Text">
             <ion-icon name="text-outline"></ion-icon>
           </button>
-          <button class="tool-btn delete-btn" (click)="deleteSelected()" title="Delete Selected">
-            <ion-icon name="trash-outline"></ion-icon>
-          </button>
           <button class="tool-btn" (click)="undo()" title="Undo">
             <ion-icon name="arrow-undo-outline"></ion-icon>
           </button>
-          <button class="tool-btn" (click)="clearAll()" title="Clear All">
-            <ion-icon name="brush-outline"></ion-icon>
+          <button class="tool-btn delete-btn" (click)="deleteSelected()" title="Delete Selected">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+          <button class="tool-btn" [class.active]="currentTool === 'select'" (click)="setTool('select')" title="Select/Move">
+            <ion-icon name="hand-left-outline"></ion-icon>
           </button>
         </div>
 

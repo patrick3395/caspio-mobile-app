@@ -192,6 +192,52 @@ select.styled-input {
       margin: 0;
     }
 
+    .category-counts {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 4px;
+
+      .count-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 14px;
+        font-weight: 600;
+
+        ion-icon {
+          font-size: 18px;
+        }
+
+        // Green for information/comments
+        &.info {
+          color: #28a745;
+
+          ion-icon {
+            color: #28a745;
+          }
+        }
+
+        // Yellow/Orange for limitations
+        &.limitation {
+          color: #f0ad4e;
+
+          ion-icon {
+            color: #f0ad4e;
+          }
+        }
+
+        // Red for deficiencies
+        &.deficiency {
+          color: #dc3545;
+
+          ion-icon {
+            color: #dc3545;
+          }
+        }
+      }
+    }
+
     .deficiency-count {
       margin: 0;
       font-size: 14px;

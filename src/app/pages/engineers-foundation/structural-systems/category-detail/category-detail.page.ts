@@ -4790,7 +4790,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           console.log(`  Total photos in key: ${this.visualPhotos[key].length}`);
 
           // Cache annotated image for thumbnail persistence across navigation
-          if (annotatedBlob && annotationsData) {
+          // STORAGE FIX: Only cache if REAL annotations exist (not just empty canvas data)
+          const annotationStr = typeof annotationsData === 'string' ? annotationsData : JSON.stringify(annotationsData || '');
+          const hasRealAnnotations = annotationsData && annotationStr.length > 100; // Empty canvas is ~50 chars
+
+          if (annotatedBlob && hasRealAnnotations) {
             try {
               const base64 = await this.indexedDb.cacheAnnotatedImage(localImage.imageId, annotatedBlob);
               console.log('[CAMERA UPLOAD] ✅ Annotated image cached for thumbnail persistence');
@@ -4800,6 +4804,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             } catch (cacheErr) {
               console.warn('[CAMERA UPLOAD] Failed to cache annotated image:', cacheErr);
             }
+          } else if (annotatedBlob) {
+            console.log('[CAMERA UPLOAD] Skipping annotation cache - no real drawings detected');
           }
 
           // STORAGE DEBUG: Show storage breakdown after adding photo

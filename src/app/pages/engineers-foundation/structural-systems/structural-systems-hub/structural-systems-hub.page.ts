@@ -21,7 +21,7 @@ import { OfflineService } from '../../../../services/offline.service';
 export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnter {
   projectId: string = '';
   serviceId: string = '';
-  categories: { name: string; deficiencyCount: number }[] = [];
+  categories: { name: string; commentCount: number; limitationCount: number; deficiencyCount: number }[] = [];
   loading: boolean = true;
   serviceData: any = {};
   
@@ -239,12 +239,14 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
 
       console.log('[StructuralHub] ✅ Categories:', categoriesOrder.length);
 
-      // Get deficiency counts - ONE IndexedDB read, no pending requests needed
-      const deficiencyCounts = await this.getDeficiencyCountsFast();
+      // Get all counts - ONE IndexedDB read, no pending requests needed
+      const allCounts = await this.getCategoryCountsFast();
 
       this.categories = categoriesOrder.map(cat => ({
         name: cat,
-        deficiencyCount: deficiencyCounts[cat] || 0
+        commentCount: allCounts[cat]?.comments || 0,
+        limitationCount: allCounts[cat]?.limitations || 0,
+        deficiencyCount: allCounts[cat]?.deficiencies || 0
       }));
 
       this.changeDetectorRef.detectChanges();
@@ -265,36 +267,45 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   }
 
   /**
-   * Fast deficiency count - reads ONLY cached visuals, skips pending requests
-   * For category display, we don't need pending items (they're still syncing)
+   * Fast category counts - reads ONLY cached visuals, skips pending requests
+   * Returns counts for comments, limitations, and deficiencies per category
    */
-  private async getDeficiencyCountsFast(): Promise<{ [category: string]: number }> {
+  private async getCategoryCountsFast(): Promise<{ [category: string]: { comments: number; limitations: number; deficiencies: number } }> {
     try {
       // ONE IndexedDB read - directly get cached visuals, no pending request check
       const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
 
-      const counts: { [category: string]: number } = {};
+      const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
 
       visuals.forEach((visual: any) => {
         const kind = visual.Kind || '';
         const category = visual.Category || '';
 
-        // Only count Deficiency items that are NOT hidden
-        if (kind === 'Deficiency' && category && !String(visual.Notes || '').startsWith('HIDDEN')) {
-          counts[category] = (counts[category] || 0) + 1;
+        // Skip hidden items
+        if (!category || String(visual.Notes || '').startsWith('HIDDEN')) {
+          return;
+        }
+
+        // Initialize category if not exists
+        if (!counts[category]) {
+          counts[category] = { comments: 0, limitations: 0, deficiencies: 0 };
+        }
+
+        // Count by kind
+        if (kind === 'Comment') {
+          counts[category].comments += 1;
+        } else if (kind === 'Limitation') {
+          counts[category].limitations += 1;
+        } else if (kind === 'Deficiency') {
+          counts[category].deficiencies += 1;
         }
       });
 
       return counts;
     } catch (error) {
-      console.error('[StructuralHub] Error counting deficiencies:', error);
+      console.error('[StructuralHub] Error counting categories:', error);
       return {};
     }
-  }
-
-  // Keep old method for compatibility but mark as unused
-  private async getDeficiencyCountsByCategory(): Promise<{ [category: string]: number }> {
-    return this.getDeficiencyCountsFast();
   }
 
   navigateToCategory(categoryName: string) {

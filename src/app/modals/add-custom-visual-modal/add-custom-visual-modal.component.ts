@@ -36,6 +36,67 @@ export class AddCustomVisualModalComponent {
     private alertController: AlertController
   ) {}
 
+  // Apply standard text formatting: capitalize first letter, "i" to "I", capitalize after periods
+  private applyTextFormatting(text: string): string {
+    if (!text) return text;
+
+    let result = text;
+
+    // Capitalize first character if it's a letter
+    if (result.length > 0 && /[a-z]/.test(result[0])) {
+      result = result[0].toUpperCase() + result.slice(1);
+    }
+
+    // Replace standalone "i" with "I" (surrounded by spaces, punctuation, or at start/end)
+    result = result.replace(/(\s|^)i(\s|$|[.,!?;:])/g, '$1I$2');
+    result = result.replace(/(\s)i(')/g, '$1I$2'); // Handle contractions like "i'm" -> "I'm"
+
+    // Capitalize after periods (and other sentence-ending punctuation)
+    result = result.replace(/([.!?]\s+)([a-z])/g, (match, punctuation, letter) => {
+      return punctuation + letter.toUpperCase();
+    });
+
+    return result;
+  }
+
+  // Handle name input changes
+  onNameInput(event: any) {
+    const input = event.target;
+    const cursorPosition = input.selectionStart || 0;
+    const originalLength = this.name?.length || 0;
+
+    // Apply formatting
+    const formatted = this.applyTextFormatting(this.name);
+
+    if (formatted !== this.name) {
+      this.name = formatted;
+      // Restore cursor position, adjusting for any length changes
+      const lengthDiff = formatted.length - originalLength;
+      setTimeout(() => {
+        input.setSelectionRange(cursorPosition + lengthDiff, cursorPosition + lengthDiff);
+      }, 0);
+    }
+  }
+
+  // Handle description input changes
+  onDescriptionInput(event: any) {
+    const input = event.target;
+    const cursorPosition = input.selectionStart || 0;
+    const originalLength = this.description?.length || 0;
+
+    // Apply formatting
+    const formatted = this.applyTextFormatting(this.description);
+
+    if (formatted !== this.description) {
+      this.description = formatted;
+      // Restore cursor position, adjusting for any length changes
+      const lengthDiff = formatted.length - originalLength;
+      setTimeout(() => {
+        input.setSelectionRange(cursorPosition + lengthDiff, cursorPosition + lengthDiff);
+      }, 0);
+    }
+  }
+
   // Select photos from gallery (camera roll) - multi-select without editor
   async addPhotosFromGallery() {
     try {

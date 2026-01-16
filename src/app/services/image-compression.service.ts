@@ -27,14 +27,18 @@ export class ImageCompressionService {
    * @returns Compressed image as Blob
    */
   async compressImage(file: File | Blob, customOptions?: any): Promise<Blob> {
+    const originalSizeKB = (file.size / 1024).toFixed(1);
+    const originalSizeMB = (file.size / 1024 / 1024).toFixed(2);
+
     try {
       // Skip compression for very small files (< 100KB)
       if (file.size < 100000) {
+        console.log(`[Compression] Skipping - file already small: ${originalSizeKB} KB`);
         return file;
       }
 
       const options = { ...this.defaultOptions, ...customOptions };
-      
+
       // Ensure file is a File object for the library
       let fileToCompress: File;
       if (file instanceof File) {
@@ -43,15 +47,29 @@ export class ImageCompressionService {
         // Convert Blob to File
         fileToCompress = new File([file], 'image.jpg', { type: file.type || 'image/jpeg' });
       }
-      
+
       const compressedFile = await imageCompression(fileToCompress, options);
-      
+
+      const compressedSizeKB = (compressedFile.size / 1024).toFixed(1);
       const compressionRatio = ((1 - compressedFile.size / file.size) * 100).toFixed(1);
-      
+
+      console.log(`[Compression] ✅ ${originalSizeKB} KB → ${compressedSizeKB} KB (${compressionRatio}% reduction)`);
+
+      // STORAGE FIX: Warn if compression had minimal effect (possible failure or already compressed)
+      if (compressedFile.size > file.size * 0.9) {
+        console.warn(`[Compression] ⚠️ Minimal reduction - file may already be compressed or format unsupported`);
+      }
+
       return compressedFile;
     } catch (error) {
-      console.error('Error compressing image:', error);
-      // Return original file if compression fails
+      // STORAGE FIX: Alert on compression failure instead of silent fallback
+      console.error('[Compression] ❌ FAILED:', error);
+      console.error(`[Compression] ❌ Storing UNCOMPRESSED: ${originalSizeMB} MB - this will bloat storage!`);
+
+      // Show alert so user/tester knows compression failed
+      alert(`⚠️ Image compression failed!\n\nStoring uncompressed: ${originalSizeMB} MB\n\nThis may cause storage issues.`);
+
+      // Still return original to not break the flow, but user is now aware
       return file;
     }
   }

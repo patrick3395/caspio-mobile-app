@@ -578,12 +578,6 @@ ion-content {
         }
       }
 
-      // Annotated photo indicator on parent container
-      &.annotated img {
-        border-color: #F15A27 !important;
-        border-width: 3px !important;
-      }
-
       img {
         width: 90px !important;
         height: 90px !important;
@@ -594,12 +588,6 @@ ion-content {
         cursor: pointer;
         transition: all 0.3s ease;
         background: #f5f5f5;
-
-        // Annotated photo indicator on img element
-        &.has-annotations {
-          border-color: #F15A27 !important;
-          border-width: 3px !important;
-        }
 
         // Only apply hover effects on devices with hover capability (desktop)
         @media (hover: hover) and (pointer: fine) {
