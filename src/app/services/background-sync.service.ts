@@ -2692,8 +2692,11 @@ export class BackgroundSyncService {
    * - Status state machine: local_only -> queued -> uploading -> uploaded -> verified
    */
   private async processUploadOutbox(): Promise<void> {
+    alert(`[UPLOAD DEBUG] processUploadOutbox called`);
+
     // Check if new system is available
     if (!this.indexedDb.hasNewImageSystem()) {
+      alert(`[UPLOAD DEBUG] New image system not available`);
       console.log('[BackgroundSync] Upload outbox: new image system not available');
       return;
     }
@@ -2711,6 +2714,8 @@ export class BackgroundSyncService {
     const allItems = await this.indexedDb.getAllUploadOutboxItems();
     const readyItems = await this.localImageService.getReadyUploads();
 
+    alert(`[UPLOAD DEBUG] Outbox items: ${allItems.length} total, ${readyItems.length} ready`);
+
     if (allItems.length > 0) {
       console.log(`[BackgroundSync] Upload outbox: ${allItems.length} total, ${readyItems.length} ready`);
       // Log details for items that aren't ready
@@ -2722,6 +2727,7 @@ export class BackgroundSyncService {
     }
 
     if (readyItems.length === 0) {
+      alert(`[UPLOAD DEBUG] No ready items, returning`);
       return;
     }
 
@@ -2745,12 +2751,18 @@ export class BackgroundSyncService {
    * Process a single upload outbox item
    */
   private async processUploadOutboxItem(item: UploadOutboxItem): Promise<void> {
+    // DEBUG: Track upload process
+    alert(`[UPLOAD DEBUG] Starting processUploadOutboxItem\nimageId: ${item.imageId}\nopId: ${item.opId}`);
+
     const image = await this.indexedDb.getLocalImage(item.imageId);
     if (!image) {
+      alert(`[UPLOAD DEBUG] Image not found: ${item.imageId}`);
       console.warn('[BackgroundSync] Image not found for outbox item:', item.imageId);
       await this.indexedDb.removeOutboxItem(item.opId);
       return;
     }
+
+    alert(`[UPLOAD DEBUG] Image found\nentityType: ${image.entityType}\nentityId: ${image.entityId}\nphotoType: ${image.photoType}`);
 
     // Get the blob data
     if (!image.localBlobId) {
@@ -2787,12 +2799,16 @@ export class BackgroundSyncService {
     // This prevents items from getting stuck in 'uploading' status when deferred
     // BUGFIX: Convert entityId to string to handle numeric IDs from database
     let entityId = String(image.entityId);
+    alert(`[UPLOAD DEBUG] entityId before resolution: ${entityId}\nisTempId: ${entityId.startsWith('temp_')}`);
+
     if (entityId.startsWith('temp_')) {
       const realId = await this.indexedDb.getRealId(entityId);
+      alert(`[UPLOAD DEBUG] Temp ID lookup result: ${realId || 'NOT FOUND'}`);
       if (!realId) {
         // Parent entity not synced yet - delay and retry later (don't throw)
         // Track the dependency wait with error message so it's visible in failed tab
         const dependencyError = `Waiting for parent entity sync (entity: ${entityId})`;
+        alert(`[UPLOAD DEBUG] Delaying - parent not synced yet`);
         console.log(`[BackgroundSync] Entity not synced yet, delaying photo: ${item.imageId} (entity: ${entityId})`);
         await this.indexedDb.updateOutboxItem(item.opId, {
           nextRetryAt: Date.now() + 30000,  // Retry in 30 seconds
@@ -2808,6 +2824,8 @@ export class BackgroundSyncService {
       // Update image with resolved entityId
       await this.indexedDb.updateLocalImage(item.imageId, { entityId: realId });
     }
+
+    alert(`[UPLOAD DEBUG] Final entityId for upload: ${entityId}\nparsedInt: ${parseInt(entityId)}`);
 
     // Mark as uploading ONLY after we've confirmed we can proceed
     await this.localImageService.markUploadStarted(item.opId, item.imageId);
