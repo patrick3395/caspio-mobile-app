@@ -4804,7 +4804,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           // STORAGE DEBUG: Show storage breakdown after adding photo
           try {
-            const storage = await (this.indexedDb as any).db.getStorageBreakdown();
+            const storage = await db.getStorageBreakdown();
             const debugMsg = `📸 STORAGE AFTER CAMERA PHOTO\n` +
               `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
               `Original: ${(originalSize / 1024).toFixed(0)} KB\n` +
@@ -5042,7 +5042,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // STORAGE DEBUG: Show storage breakdown after adding gallery photos
         try {
-          const storage = await (this.indexedDb as any).db.getStorageBreakdown();
+          const storage = await db.getStorageBreakdown();
           const debugMsg = `🖼️ STORAGE AFTER GALLERY (${images.photos.length} photos)\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
             `localBlobs: ${storage.localBlobs.count} (${storage.localBlobs.totalMB} MB)\n` +

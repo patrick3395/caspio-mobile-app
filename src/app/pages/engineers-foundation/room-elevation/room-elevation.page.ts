@@ -4221,7 +4221,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // STORAGE DEBUG: Show storage breakdown after FDF photo
       try {
-        const storage = await (this.indexedDb as any).db.getStorageBreakdown();
+        const storage = await db.getStorageBreakdown();
         const debugMsg = `📸 STORAGE AFTER FDF PHOTO (${photoType})\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
           `Original: ${(originalSize / 1024).toFixed(0)} KB\n` +
@@ -5160,7 +5160,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       
       // STORAGE DEBUG: Show storage breakdown after point photo
       try {
-        const storage = await (this.indexedDb as any).db.getStorageBreakdown();
+        const storage = await db.getStorageBreakdown();
         const debugMsg = `📸 STORAGE AFTER POINT PHOTO (${photoType})\n` +
           `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
           `Original: ${(originalSize / 1024).toFixed(0)} KB\n` +
