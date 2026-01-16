@@ -2006,6 +2006,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         // Check for LocalImages by pointId
         let localImagesForPoint = localImagesMap.get(pointIdStr) || [];
 
+        // FIX: If pointId is a temp ID, resolve to real ID and look up by that
+        // This handles the case where point synced (photos have real entityId)
+        // but EfeField wasn't updated with the real pointId yet
+        if (localImagesForPoint.length === 0 && pointIdStr.startsWith('temp_')) {
+          const resolvedRealId = await this.indexedDb.getRealId(pointIdStr);
+          if (resolvedRealId && resolvedRealId !== pointIdStr) {
+            localImagesForPoint = localImagesMap.get(resolvedRealId) || [];
+            if (localImagesForPoint.length > 0) {
+              console.log(`[RoomElevation] Resolved temp ID ${pointIdStr} -> ${resolvedRealId}, found ${localImagesForPoint.length} photos`);
+            }
+          }
+        }
+
         // Also check by temp-to-real mapping (if pointId is real but photos have temp entityId)
         if (localImagesForPoint.length === 0) {
           // Check if there's a temp ID that maps to this real ID
