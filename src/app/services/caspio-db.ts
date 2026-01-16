@@ -14,29 +14,15 @@ import {
   ImageEntityType
 } from './indexed-db.service';
 
-// ============================================================================
-// DEXIE DEBUG MODE - Enable verbose logging to catch mobile IndexedDB errors
-// ============================================================================
-Dexie.debug = true;
-
-// Global error handlers to catch unhandled IndexedDB errors on mobile
+// Global error handlers to catch unhandled IndexedDB errors
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
     console.error('[CaspioDB] Unhandled rejection:', e.reason);
-    // Show alert on mobile for debugging
-    if (e.reason?.name === 'UnknownError' || e.reason?.message?.includes('IndexedDB')) {
-      alert(`[DEXIE ERROR] Unhandled rejection:\n${e.reason?.message || e.reason}`);
-    }
   });
 
   window.addEventListener('error', (e: ErrorEvent) => {
     console.error('[CaspioDB] Window error:', e.error || e.message);
-    if (e.message?.includes('IndexedDB')) {
-      alert(`[DEXIE ERROR] Window error:\n${e.message}`);
-    }
   });
-
-  console.log('[CaspioDB] Dexie debug mode ENABLED, global error handlers installed');
 }
 
 // ============================================================================
@@ -497,8 +483,6 @@ export class CaspioDB extends Dexie {
         return result;
       } catch (err: any) {
         console.error('[LIVEQUERY ERROR]', err?.message || err);
-        // DEBUG: Alert on error so we can see what's happening on mobile
-        alert(`[LIVEQUERY ERROR] liveSyncModalData$:\n${err?.message || err}\ncache: ${this._lastSyncModalData ? 'HAS DATA' : 'EMPTY'}`);
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
