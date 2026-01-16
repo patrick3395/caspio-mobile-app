@@ -438,6 +438,33 @@ export class CaspioDB extends Dexie {
   }
 
   /**
+   * Live query for ALL sync modal data in a single query
+   * This avoids combineLatest issues where separate liveQueries can return inconsistent data
+   */
+  liveSyncModalData$(): Observable<{
+    requests: PendingRequest[];
+    captions: PendingCaptionUpdate[];
+    outboxItems: UploadOutboxItem[];
+    failedImages: LocalImage[];
+  }> {
+    const query = liveQuery(async () => {
+      const [requests, captions, outboxItems, failedImages] = await Promise.all([
+        this.pendingRequests.toArray(),
+        this.pendingCaptions.toArray(),
+        this.uploadOutbox.toArray(),
+        this.localImages.where('status').equals('failed').toArray()
+      ]);
+      return { requests, captions, outboxItems, failedImages };
+    });
+    return this.toRxObservable<{
+      requests: PendingRequest[];
+      captions: PendingCaptionUpdate[];
+      outboxItems: UploadOutboxItem[];
+      failedImages: LocalImage[];
+    }>(query);
+  }
+
+  /**
    * Live query for sync stats (combined counts)
    * Returns counts matching the SyncStatus interface: pending, synced, failed
    */

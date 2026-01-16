@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { BackgroundSyncService, SyncStatus } from '../../services/background-sync.service';
 import { IndexedDbService, PendingCaptionUpdate } from '../../services/indexed-db.service';
-import { Subscription, combineLatest } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { db } from '../../services/caspio-db';
 
@@ -674,17 +674,12 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       }
     );
 
-    // CRITICAL: Use Dexie liveQuery for real-time updates
-    // This provides instant visibility when captions/annotations are queued
-    // FIXED: Added debounceTime to prevent excessive updates and moved heavy work outside NgZone
-    this.liveQuerySub = combineLatest([
-      db.liveAllPendingRequests$(),
-      db.liveAllPendingCaptions$(),
-      db.liveUploadOutbox$(),
-      db.liveFailedLocalImages$()
-    ]).pipe(
+    // CRITICAL: Use SINGLE Dexie liveQuery for all data to avoid combineLatest inconsistency
+    // When separate liveQueries are used with combineLatest, adding a photo to uploadOutbox
+    // can cause pendingRequests liveQuery to return stale/empty data
+    this.liveQuerySub = db.liveSyncModalData$().pipe(
       debounceTime(250) // Debounce rapid-fire updates
-    ).subscribe(async ([requests, captions, outboxItems, failedImages]) => {
+    ).subscribe(async ({ requests, captions, outboxItems, failedImages }) => {
       console.log('[SyncModal] Dexie liveQuery update:', {
         requests: requests.length,
         captions: captions.length,
