@@ -5055,11 +5055,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     const category = key.split('_')[0];
 
     // Compress the photo before upload
+    const originalSize = photo.size;
     const compressedPhoto = await this.imageCompression.compressImage(photo, {
       maxSizeMB: 0.8,
       maxWidthOrHeight: 1280,
       useWebWorker: true
     }) as File;
+    const compressedSize = compressedPhoto.size;
+    alert(`[STRUCTURAL COMPRESSION]\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(compressedSize / 1024).toFixed(1)} KB\nReduction: ${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`);
 
     const uploadFile = compressedPhoto || photo;
     const actualVisualId = this.visualRecordIds[key] || visualId;

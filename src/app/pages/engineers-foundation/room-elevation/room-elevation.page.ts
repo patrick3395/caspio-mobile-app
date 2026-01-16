@@ -5073,11 +5073,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       this.changeDetectorRef.detectChanges();
 
       // Compress image before storing/uploading
+      const originalSize = file.size;
       const compressedFile = await this.imageCompression.compressImage(file, {
         maxSizeMB: 0.4,
         maxWidthOrHeight: 1024,
         useWebWorker: true
       }) as File;
+      const compressedSize = compressedFile.size;
+      alert(`[EFE COMPRESSION]\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(compressedSize / 1024).toFixed(1)} KB\nReduction: ${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`);
 
       // OFFLINE-FIRST: Use foundationData.uploadEFEPointPhoto which handles both
       // online (immediate upload) and offline (IndexedDB queue) scenarios
