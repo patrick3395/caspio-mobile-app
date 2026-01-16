@@ -62,9 +62,11 @@ export class ImageCompressionService {
 
       return compressedFile;
     } catch (error) {
-      // STORAGE FIX: Log compression failure (was previously silent)
+      // STORAGE FIX: Alert on compression failure so user knows storage will bloat
       console.error('[Compression] ❌ FAILED:', error);
       console.error(`[Compression] ❌ Storing UNCOMPRESSED: ${originalSizeMB} MB - this will bloat storage!`);
+
+      alert(`⚠️ Compression failed!\nStoring ${originalSizeMB} MB uncompressed`);
 
       // Still return original to not break the flow
       return file;

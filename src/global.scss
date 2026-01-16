@@ -1674,20 +1674,29 @@ textarea.styled-input {
     --background-focused: transparent !important;
     --ripple-color: transparent !important;
     --highlight-background: transparent !important;
+    transition: none !important;
   }
 
   ion-card {
     --ripple-color: transparent !important;
+    transition: none !important;
   }
 
   ion-checkbox {
     --background-hover: transparent !important;
+    transition: none !important;
   }
 
   ion-fab-button {
-    --background-hover: transparent !important;
-    --background-activated: transparent !important;
-    --background-focused: transparent !important;
+    --background-hover: var(--background) !important;
+    --background-activated: var(--background) !important;
+    --background-focused: var(--background) !important;
+    --ripple-color: transparent !important;
+    transition: none !important;
+
+    &::part(native) {
+      transition: none !important;
+    }
   }
 
   // Disable Ionic ripple effect globally
@@ -1695,56 +1704,33 @@ textarea.styled-input {
     display: none !important;
   }
 
-  // Buttons - no highlighting
-  button,
-  ion-button,
-  .button,
-  [role="button"] {
-    &:hover, &:active, &:focus, &:focus-visible {
-      background-color: unset !important;
-      outline: none !important;
-      box-shadow: none !important;
-      opacity: 1 !important;
-    }
-  }
-
-  // Navigation cards - no highlighting
+  // Navigation cards - no highlighting, static
   .navigation-card,
   ion-card[button="true"],
   ion-card {
-    &:hover, &:active, &:focus {
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
       transform: none !important;
-      background: #f8f9fa !important;
     }
   }
 
   // List items - no highlighting
   ion-item,
   ion-list ion-item {
-    &:hover, &:active, &:focus {
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
       --background: transparent !important;
     }
   }
 
-  // Tool buttons
-  .tool-btn,
-  .nav-btn,
-  .camera-button-structural,
-  .add-visual-btn,
-  .delete-btn,
-  .add-btn {
-    &:hover, &:active, &:focus, &:focus-visible {
-      background: transparent !important;
-      transform: none !important;
-      box-shadow: none !important;
-      outline: none !important;
-    }
-  }
-
-  // Preset buttons in popups
+  // Preset buttons in popups - static
   .preset-btn {
-    &:hover, &:active, &:focus, &:focus-visible {
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus, &:focus-visible {
       background: #f5f5f5 !important;
       color: #333 !important;
       border-color: #ddd !important;
@@ -1754,77 +1740,98 @@ textarea.styled-input {
     }
   }
 
-  // Alert and modal buttons
+  // Alert and modal buttons - static
   .alert-button {
-    &:hover, &:active, &:focus {
-      background: transparent !important;
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
       opacity: 1 !important;
+      transition: none !important;
     }
   }
 
-  // Template and service items
+  // Template and service items - static
   .template-card,
   .template-item,
   .template-bar,
   .service-item,
   .performed-service-item,
   .table-row {
-    &:hover, &:active, &:focus {
-      background: unset !important;
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
       transform: none !important;
       box-shadow: unset !important;
+      transition: none !important;
     }
   }
 
-  // Visual containers and checkboxes
+  // Visual containers and checkboxes - static
   .visual-item-container,
   .checkbox-item,
   .answer-type-1-container,
   .multi-select-container {
-    &:hover, &:active, &:focus {
-      background: transparent !important;
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
+      transition: none !important;
     }
   }
 
-  // Photo previews
+  // Photo previews - static
   .image-preview,
   .structural-photo-preview {
-    &:hover, &:active, &:focus {
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
       transform: none !important;
       box-shadow: unset !important;
+      transition: none !important;
     }
 
-    img:hover, img:active, img:focus {
-      transform: none !important;
-      box-shadow: none !important;
+    img {
+      transition: none !important;
+
+      &, &:hover, &:active, &:focus {
+        transform: none !important;
+        box-shadow: none !important;
+        transition: none !important;
+      }
     }
   }
 
-  // Room cards
+  // Room cards - static
   .room-card,
   .room-item {
-    &:hover, &:active, &:focus {
-      background: unset !important;
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
       transform: none !important;
       box-shadow: unset !important;
+      transition: none !important;
     }
   }
 
-  // Accordion headers
+  // Accordion headers - static
   .accordion-header,
   .simple-accordion-header {
-    &:hover, &:active, &:focus {
-      background: transparent !important;
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
+      transition: none !important;
     }
   }
 
-  // Form inputs - only show focus on actual text input
+  // Form inputs - static (except text inputs need focus for editing)
   input:not([type="text"]):not([type="email"]):not([type="password"]):not([type="number"]):not([type="tel"]),
   select,
   .styled-input:not(input):not(textarea) {
-    &:hover, &:focus {
+    transition: none !important;
+
+    &, &:hover, &:focus {
       border-color: #e8e8e8 !important;
       box-shadow: none !important;
+      transition: none !important;
     }
   }
 
