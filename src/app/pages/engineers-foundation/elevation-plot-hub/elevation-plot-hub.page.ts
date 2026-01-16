@@ -233,16 +233,19 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     // Subscribe to reactive updates - this will trigger UI render
+    alert(`[HUB] Setting up liveQuery subscription for serviceId: ${this.serviceId}`);
     this.efeFieldsSubscription = this.efeFieldRepo
       .getFieldsForService$(this.serviceId)
       .subscribe({
         next: (fields) => {
+          alert(`[HUB liveQuery] Received ${fields.length} fields, setting loading=false`);
           console.log(`[ElevationPlotHub] Received ${fields.length} fields from liveQuery`);
           this.convertFieldsToRoomTemplates(fields);
           this.loading = false;
           this.changeDetectorRef.detectChanges();
         },
         error: (err) => {
+          alert(`[HUB liveQuery ERROR] ${err?.message || err}`);
           console.error('[ElevationPlotHub] Error in efeFields subscription:', err);
           this.loading = false;
           this.changeDetectorRef.detectChanges();
@@ -321,11 +324,15 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
    * The liveQuery subscription automatically updates the UI when data changes
    */
   async ionViewWillEnter() {
+    // DEBUG: Track loading state
+    alert(`[HUB ionViewWillEnter]\nloading: ${this.loading}\ninitialLoadComplete: ${this.initialLoadComplete}\nefeFieldsSeeded: ${this.efeFieldsSeeded}\nhasSubscription: ${!!this.efeFieldsSubscription}`);
+
     // Update online status
     this.isOnline = this.offlineService.isOnline();
 
     // Only process if initial load is complete and we have required IDs
     if (!this.initialLoadComplete || !this.serviceId) {
+      alert(`[HUB] Early return - initialLoadComplete: ${this.initialLoadComplete}, serviceId: ${this.serviceId}`);
       return;
     }
 
@@ -337,6 +344,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // DEXIE-FIRST: If we have a reactive subscription, we don't need to reload
     // The liveQuery will automatically update the UI when Dexie data changes
     if (this.efeFieldsSeeded && this.efeFieldsSubscription) {
+      alert(`[HUB] Has subscription, setting loading=false`);
       // Only resync from cache if section is dirty (backend data changed)
       if (isDirty) {
         console.log('[ElevationPlotHub] Section dirty, merging new data from cache...');
@@ -352,6 +360,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
 
+    alert(`[HUB] No subscription, calling initializeEfeFields`);
     // Fallback: If no subscription, initialize
     await this.initializeEfeFields();
     this.backgroundSync.clearSectionDirty(sectionKey);
