@@ -482,7 +482,13 @@ export class CaspioDB extends Dexie {
           this.localImages.where('status').equals('failed').toArray()
         ]);
 
+        // DEBUG: Log what we got from the database
         console.log(`[LIVEQUERY] liveSyncModalData: requests=${requests.length}, outbox=${outboxItems.length}`);
+
+        // DEBUG: If outbox has items, log their imageIds for debugging
+        if (outboxItems.length > 0) {
+          console.log('[LIVEQUERY] Outbox imageIds:', outboxItems.map(i => i.imageId));
+        }
 
         // Cache the successful result
         const result = { requests, captions, outboxItems, failedImages };
@@ -491,6 +497,8 @@ export class CaspioDB extends Dexie {
         return result;
       } catch (err: any) {
         console.error('[LIVEQUERY ERROR]', err?.message || err);
+        // DEBUG: Alert on error so we can see what's happening on mobile
+        alert(`[LIVEQUERY ERROR] liveSyncModalData$:\n${err?.message || err}\ncache: ${this._lastSyncModalData ? 'HAS DATA' : 'EMPTY'}`);
 
         // MOBILE FIX: On connection lost, try to reopen database
         if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {

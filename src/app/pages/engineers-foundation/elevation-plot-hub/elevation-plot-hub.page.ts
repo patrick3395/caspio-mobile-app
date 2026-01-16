@@ -541,11 +541,17 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         }
       }
 
+      // CRITICAL FIX: Reset loading state after sync reload
+      // Without this, the hub hangs on loading spinner forever after sync completes
+      this.loading = false;
       this.changeDetectorRef.detectChanges();
       console.log('[ElevationPlotHub] Room reload complete');
 
     } catch (error) {
       console.error('[ElevationPlotHub] Error reloading rooms:', error);
+      // CRITICAL: Ensure loading is reset even on error
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
     }
   }
 

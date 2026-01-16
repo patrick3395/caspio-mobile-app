@@ -699,8 +699,16 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
       // FIXED: Batch load pending photos using Promise.all instead of sequential loop
       let photos: any[] = [];
       try {
+        // DEBUG: Log outbox items received
+        console.log('[SyncModal] Processing outbox items:', outboxItems.length, 'items');
+        if (outboxItems.length > 0) {
+          console.log('[SyncModal] Outbox imageIds:', outboxItems.map(i => i.imageId));
+        }
+
         const photoPromises = outboxItems.map(async (item) => {
           const localImage = await this.indexedDb.getLocalImage(item.imageId);
+          // DEBUG: Log each lookup result
+          console.log(`[SyncModal] getLocalImage(${item.imageId}):`, localImage ? 'FOUND' : 'NOT FOUND');
           if (localImage) {
             return {
               ...item,
@@ -712,6 +720,7 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
         });
         const results = await Promise.all(photoPromises);
         photos = results.filter(p => p !== null);
+        console.log('[SyncModal] Final photos count:', photos.length);
       } catch (e) {
         console.warn('[SyncModal] Error loading photo details:', e);
       }
