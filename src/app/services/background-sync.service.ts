@@ -3024,6 +3024,13 @@ export class BackgroundSyncService {
       return;
     }
 
+    // DEXIE-FIRST: Disable blob pruning entirely
+    // LocalBlobs are the source of truth and should NOT be pruned.
+    // This also prevents the cachePhotoFromLocalBlob calls that were
+    // triggering unwanted caching during caption/annotation syncs.
+    console.log('[BackgroundSync] Skipping blob pruning (Dexie-first mode)');
+    return;
+
     try {
       // Get all local images
       const allImages = await this.getAllLocalImages();
@@ -3114,13 +3121,18 @@ export class BackgroundSyncService {
   private async performStorageCleanup(): Promise<void> {
     // First, prune verified local blobs using standard retention policy
     await this.pruneVerifiedBlobs();
-    
+
+    // DEXIE-FIRST: Skip all blob pruning - localBlobs are the source of truth
+    // This prevents caching during caption/annotation syncs
+    console.log('[BackgroundSync] Skipping storage pressure pruning (Dexie-first mode)');
+    return;
+
     try {
       // ============================================================================
       // STORAGE PRESSURE PRUNING (Requirement F)
       // If usage/quota > 75%, prune oldest verified blobs using LRU by updatedAt
       // ============================================================================
-      
+
       let usagePercent = 0;
       
       // Use navigator.storage.estimate() for accurate storage measurement

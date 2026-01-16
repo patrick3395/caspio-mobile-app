@@ -870,7 +870,7 @@ export class IndexedDbService {
     };
 
     await db.cachedPhotos.put(photoData);
-    console.log('[IndexedDB] ✅ Photo cached:', attachId, 'size:', sizeKB.toFixed(1), 'KB', 'caller:', caller);
+    console.log('[IndexedDB] ✅ Photo cached:', attachId, 'size:', sizeKB.toFixed(1), 'KB');
   }
 
   /**
