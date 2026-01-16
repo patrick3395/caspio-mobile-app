@@ -1735,21 +1735,20 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         roomData.TemplateID = template.TemplateID || template.PK_ID;
       }
 
-      // Set Organization to be at the end of the list
-      const nextOrganization = this.getNextOrganizationNumber();
-      roomData.Organization = nextOrganization;
-      console.log('[Add Room] Setting Organization to:', nextOrganization);
+      // Set Organization to 0 so new room appears at the top of the list
+      roomData.Organization = 0;
+      console.log('[Add Room] Setting Organization to: 0 (top of list)');
 
       // OPTIMISTIC UI: Create new room object and add to display list
       const newRoom: RoomDisplayData = {
         ...template,
         RoomName: roomName,
-        Organization: nextOrganization,
+        Organization: 0,
         isSelected: true,
         isSaving: true
       };
-      
-      this.roomTemplates.push(newRoom);
+
+      this.roomTemplates.unshift(newRoom);  // Add to top of list
       this.selectedRooms[roomName] = true;
       const tempEfeId = `temp_efe_${Date.now()}`;
       this.efeRecordIds[roomName] = tempEfeId;
@@ -1775,7 +1774,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.serviceId,
           roomName,
           template.TemplateID || template.PK_ID,
-          nextOrganization,
+          0,  // Organization 0 = top of list
           null,  // efeId not yet known
           tempEfeId,
           efePoints
