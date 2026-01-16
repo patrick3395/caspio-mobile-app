@@ -188,15 +188,19 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   private async initializeEfeFields(): Promise<void> {
     console.time('[ElevationPlotHub] initializeEfeFields');
     console.log('[ElevationPlotHub] Initializing EFE fields (Dexie-first)...');
+    alert('[HUB DEBUG] initializeEfeFields START');
 
     // Unsubscribe from previous subscription if service changed
     if (this.efeFieldsSubscription) {
       this.efeFieldsSubscription.unsubscribe();
       this.efeFieldsSubscription = undefined;
+      alert('[HUB DEBUG] Unsubscribed existing subscription');
     }
 
     // Check if fields exist for this service
+    alert('[HUB DEBUG] Calling hasFieldsForService...');
     const hasFields = await this.efeFieldRepo.hasFieldsForService(this.serviceId);
+    alert(`[HUB DEBUG] hasFieldsForService returned: ${hasFields}`);
 
     if (!hasFields) {
       console.log('[ElevationPlotHub] No fields found, seeding from templates...');
@@ -233,21 +237,25 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     // Subscribe to reactive updates - this will trigger UI render
+    alert('[HUB DEBUG] Creating liveQuery subscription...');
     this.efeFieldsSubscription = this.efeFieldRepo
       .getFieldsForService$(this.serviceId)
       .subscribe({
         next: (fields) => {
+          alert(`[HUB DEBUG] liveQuery EMITTED: ${fields.length} fields`);
           console.log(`[ElevationPlotHub] Received ${fields.length} fields from liveQuery`);
           this.convertFieldsToRoomTemplates(fields);
           this.loading = false;
           this.changeDetectorRef.detectChanges();
         },
         error: (err) => {
+          alert(`[HUB DEBUG] liveQuery ERROR: ${err?.message || err}`);
           console.error('[ElevationPlotHub] Error in efeFields subscription:', err);
           this.loading = false;
           this.changeDetectorRef.detectChanges();
         }
       });
+    alert('[HUB DEBUG] Subscription created, waiting for emission...');
 
     this.efeFieldsSeeded = true;
     console.timeEnd('[ElevationPlotHub] initializeEfeFields');
@@ -321,16 +329,23 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
    * The liveQuery subscription automatically updates the UI when data changes
    */
   async ionViewWillEnter() {
+    // DEBUG: Track navigation entry
+    alert(`[HUB DEBUG] ionViewWillEnter\ninitialLoadComplete: ${this.initialLoadComplete}\nserviceId: ${this.serviceId}\nloading: ${this.loading}`);
+
     // Update online status
     this.isOnline = this.offlineService.isOnline();
 
     // Only process if initial load is complete and we have required IDs
     if (!this.initialLoadComplete || !this.serviceId) {
+      alert('[HUB DEBUG] Early return - not initialized');
       return;
     }
 
     const sectionKey = `${this.serviceId}_elevation`;
     const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
+
+    // DEBUG: Show state before decision
+    alert(`[HUB DEBUG] State check:\nefeFieldsSeeded: ${this.efeFieldsSeeded}\nefeFieldsSubscription: ${this.efeFieldsSubscription ? 'EXISTS' : 'NULL'}\nisDirty: ${isDirty}`);
 
     console.log(`[ElevationPlotHub] ionViewWillEnter - isDirty: ${isDirty}, efeFieldsSeeded: ${this.efeFieldsSeeded}`);
 
@@ -348,13 +363,19 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       // The liveQuery won't emit again if data hasn't changed, so we must clear loading here
       this.loading = false;
       this.changeDetectorRef.detectChanges();
+      alert('[HUB DEBUG] Using existing subscription - loading set to FALSE');
       console.log('[ElevationPlotHub] Using reactive Dexie subscription - no reload needed');
       return;
     }
 
+    // DEBUG: Going to initialize
+    alert('[HUB DEBUG] No subscription - calling initializeEfeFields()');
+
     // Fallback: If no subscription, initialize
     await this.initializeEfeFields();
     this.backgroundSync.clearSectionDirty(sectionKey);
+
+    alert('[HUB DEBUG] initializeEfeFields() completed');
   }
   
   /**
