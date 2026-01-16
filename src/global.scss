@@ -1562,145 +1562,363 @@ textarea.styled-input {
 }
 
 // ============================================================================
-// MOBILE: Disable all hover effects on touch devices
-// This prevents "sticky" hover states that cause confusion on mobile
+// MOBILE: Completely disable ALL touch feedback, hover, active, focus states
+// This prevents any visual highlighting/selection on touch devices
 // ============================================================================
 @media (hover: none), (pointer: coarse) {
-  // Disable hover on all interactive elements
-  *:hover {
-    // Reset common hover properties
-    background-color: inherit !important;
-    color: inherit !important;
-    border-color: inherit !important;
-    box-shadow: inherit !important;
+  // GLOBAL: Remove tap highlight on all elements
+  * {
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+
+  // Allow text selection in inputs and textareas
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+  }
+
+  // GLOBAL: Disable all hover, active, and focus visual states
+  *:hover,
+  *:active,
+  *:focus,
+  *:focus-visible,
+  *:focus-within {
+    background-color: unset;
+    outline: none !important;
+    box-shadow: none !important;
     transform: none !important;
-    opacity: inherit !important;
   }
 
-  // Ionic list items
-  ion-item:hover {
-    --background: var(--ion-item-background, white) !important;
+  // Ionic Components - disable all feedback states
+  ion-button {
+    --background-hover: transparent !important;
+    --background-activated: transparent !important;
+    --background-focused: transparent !important;
+    --ripple-color: transparent !important;
   }
 
-  ion-list ion-item:hover {
-    --background: var(--noble-white, white) !important;
+  ion-item {
+    --background-hover: transparent !important;
+    --background-activated: transparent !important;
+    --background-focused: transparent !important;
+    --ripple-color: transparent !important;
+    --highlight-background: transparent !important;
   }
 
-  // Buttons - reset to their normal state
-  button:hover,
-  ion-button:hover,
-  .button:hover {
-    background: inherit !important;
+  ion-card {
+    --ripple-color: transparent !important;
+  }
+
+  ion-checkbox {
     --background-hover: transparent !important;
   }
 
-  // Cards
-  ion-card:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-    transform: none !important;
+  ion-fab-button {
+    --background-hover: transparent !important;
+    --background-activated: transparent !important;
+    --background-focused: transparent !important;
   }
 
-  // Links
-  a:hover {
-    text-decoration: inherit !important;
+  // Disable Ionic ripple effect globally
+  ion-ripple-effect {
+    display: none !important;
   }
 
-  // Form inputs
-  input:hover,
-  select:hover,
-  textarea:hover,
-  ion-input:hover,
-  ion-textarea:hover,
-  ion-select:hover {
-    border-color: inherit !important;
+  // Buttons - no highlighting
+  button,
+  ion-button,
+  .button,
+  [role="button"] {
+    &:hover, &:active, &:focus, &:focus-visible {
+      background-color: unset !important;
+      outline: none !important;
+      box-shadow: none !important;
+      opacity: 1 !important;
+    }
   }
 
-  // Tool buttons in photo editor and other toolbars
-  .tool-btn:hover,
-  .nav-btn:hover,
-  .camera-button-structural:hover {
-    background: transparent !important;
-    transform: none !important;
-    box-shadow: none !important;
+  // Navigation cards - no highlighting
+  .navigation-card,
+  ion-card[button="true"],
+  ion-card {
+    &:hover, &:active, &:focus {
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+      transform: none !important;
+      background: #f8f9fa !important;
+    }
   }
 
-  // Preset buttons in caption popup
-  .preset-btn:hover {
-    background: #f5f5f5 !important;
-    color: #333 !important;
-    border-color: #ddd !important;
-    transform: none !important;
-    box-shadow: none !important;
+  // List items - no highlighting
+  ion-item,
+  ion-list ion-item {
+    &:hover, &:active, &:focus {
+      --background: transparent !important;
+    }
   }
 
-  // Alert buttons
-  .alert-button:hover {
-    background: inherit !important;
+  // Tool buttons
+  .tool-btn,
+  .nav-btn,
+  .camera-button-structural,
+  .add-visual-btn,
+  .delete-btn,
+  .add-btn {
+    &:hover, &:active, &:focus, &:focus-visible {
+      background: transparent !important;
+      transform: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
   }
 
-  // Template cards and items
-  .template-card:hover,
-  .template-item:hover,
-  .template-bar:hover {
-    background: inherit !important;
-    transform: none !important;
-    box-shadow: inherit !important;
+  // Preset buttons in popups
+  .preset-btn {
+    &:hover, &:active, &:focus, &:focus-visible {
+      background: #f5f5f5 !important;
+      color: #333 !important;
+      border-color: #ddd !important;
+      transform: none !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
   }
 
-  // Service items
-  .service-item:hover,
-  .performed-service-item:hover {
-    background: inherit !important;
+  // Alert and modal buttons
+  .alert-button {
+    &:hover, &:active, &:focus {
+      background: transparent !important;
+      opacity: 1 !important;
+    }
   }
 
-  // Table rows
-  .table-row:hover {
-    background: inherit !important;
+  // Template and service items
+  .template-card,
+  .template-item,
+  .template-bar,
+  .service-item,
+  .performed-service-item,
+  .table-row {
+    &:hover, &:active, &:focus {
+      background: unset !important;
+      transform: none !important;
+      box-shadow: unset !important;
+    }
   }
 
-  // Visual items
-  .visual-item-container:hover,
-  .checkbox-item:hover {
-    background: inherit !important;
+  // Visual containers and checkboxes
+  .visual-item-container,
+  .checkbox-item,
+  .answer-type-1-container,
+  .multi-select-container {
+    &:hover, &:active, &:focus {
+      background: transparent !important;
+    }
   }
 
   // Photo previews
-  .image-preview:hover,
-  .structural-photo-preview:hover {
-    transform: none !important;
-    box-shadow: inherit !important;
-  }
+  .image-preview,
+  .structural-photo-preview {
+    &:hover, &:active, &:focus {
+      transform: none !important;
+      box-shadow: unset !important;
+    }
 
-  // Delete and action buttons
-  .delete-btn:hover,
-  .add-visual-btn:hover,
-  .add-btn:hover {
-    background: inherit !important;
-    transform: none !important;
+    img:hover, img:active, img:focus {
+      transform: none !important;
+      box-shadow: none !important;
+    }
   }
 
   // Room cards
-  .room-card:hover,
-  .room-item:hover {
-    background: inherit !important;
-    transform: none !important;
-    box-shadow: inherit !important;
+  .room-card,
+  .room-item {
+    &:hover, &:active, &:focus {
+      background: unset !important;
+      transform: none !important;
+      box-shadow: unset !important;
+    }
   }
 
   // Accordion headers
-  .accordion-header:hover,
-  .simple-accordion-header:hover {
-    background: inherit !important;
+  .accordion-header,
+  .simple-accordion-header {
+    &:hover, &:active, &:focus {
+      background: transparent !important;
+    }
   }
 
-  // Dark theme hover overrides
-  body.dark-theme {
-    ion-list ion-item:hover {
-      --background: var(--ion-item-background, #1d1d1d) !important;
+  // Form inputs - only show focus on actual text input
+  input:not([type="text"]):not([type="email"]):not([type="password"]):not([type="number"]):not([type="tel"]),
+  select,
+  .styled-input:not(input):not(textarea) {
+    &:hover, &:focus {
+      border-color: #e8e8e8 !important;
+      box-shadow: none !important;
+    }
+  }
+
+  // Dropdown containers
+  .dropdown-with-other-container,
+  .multi-select-container-inline {
+    &:hover, &:active, &:focus {
+      border-color: #e8e8e8 !important;
+      box-shadow: none !important;
+    }
+  }
+
+  // Icon buttons and action buttons
+  .header-icon-button,
+  .icon-button,
+  .action-button {
+    &:hover, &:active, &:focus {
+      background: transparent !important;
+      opacity: 1 !important;
+    }
+  }
+
+  // Segments
+  ion-segment-button {
+    &:hover, &:active, &:focus {
+      --background-hover: transparent !important;
+    }
+  }
+
+  // Tabs
+  ion-tab-button {
+    &:hover, &:active, &:focus {
+      --background-hover: transparent !important;
+      --ripple-color: transparent !important;
+    }
+  }
+}
+
+// ============================================================================
+// Text Editor Modal - Large popup for editing visual descriptions
+// ============================================================================
+.text-editor-modal {
+  --width: 95%;
+  --max-width: 600px;
+  --min-height: 60%;
+
+  .alert-wrapper {
+    width: var(--width) !important;
+    max-width: var(--max-width) !important;
+    min-height: var(--min-height) !important;
+    max-height: 90vh !important;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .alert-head {
+    padding: 20px 24px 16px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e8e8e8;
+
+    .alert-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+    }
+  }
+
+  .alert-input-group {
+    padding: 16px 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+
+    .alert-input-wrapper {
+      margin-bottom: 12px;
+
+      // Title input styling
+      .editor-title-input {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+      }
+
+      // Text area styling - make it larger
+      .editor-text-input,
+      textarea {
+        background: #ffffff;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 14px 16px;
+        font-size: 16px;
+        line-height: 1.5;
+        color: #333;
+        min-height: 200px !important;
+        resize: vertical;
+
+        &:focus {
+          outline: none;
+          border-color: #F15A27;
+          box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+        }
+      }
     }
 
-    .services-table .table-row:hover {
-      background: inherit !important;
+    // Make textarea inputs larger
+    textarea.alert-input {
+      min-height: 200px !important;
+      font-size: 16px !important;
+      line-height: 1.5 !important;
+    }
+  }
+
+  .alert-button-group {
+    padding: 16px 20px 20px;
+    gap: 12px;
+    display: flex;
+    justify-content: stretch;
+    border-top: 1px solid #e8e8e8;
+    background: #f8f9fa;
+
+    .alert-button {
+      flex: 1;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 14px 0;
+      font-size: 15px;
+      text-transform: none;
+
+      &.editor-save-btn {
+        background: var(--noble-orange, #F15A27);
+        color: white;
+      }
+
+      &:not(.editor-save-btn) {
+        background: #e8e8e8;
+        color: #333;
+      }
+    }
+  }
+
+  // Mobile responsive - even larger on mobile
+  @media (max-width: 768px) {
+    --width: 100%;
+    --max-width: 100%;
+    --min-height: 70%;
+
+    .alert-wrapper {
+      border-radius: 16px 16px 0 0;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+
+    .alert-input-group {
+      textarea.alert-input,
+      .editor-text-input {
+        min-height: 250px !important;
+      }
     }
   }
 }

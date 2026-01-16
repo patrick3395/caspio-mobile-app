@@ -4791,8 +4791,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           // Cache annotated image for thumbnail persistence across navigation
           // STORAGE FIX: Only cache if REAL annotations exist (not just empty canvas data)
-          const annotationStr = typeof annotationsData === 'string' ? annotationsData : JSON.stringify(annotationsData || '');
-          const hasRealAnnotations = annotationsData && annotationStr.length > 100; // Empty canvas is ~50 chars
+          // Fabric.js serializes to {"version":"x","objects":[...]} - check if objects array has items
+          let hasRealAnnotations = false;
+          if (annotationsData) {
+            try {
+              const parsed = typeof annotationsData === 'string' ? JSON.parse(annotationsData) : annotationsData;
+              hasRealAnnotations = parsed?.objects && Array.isArray(parsed.objects) && parsed.objects.length > 0;
+              console.log(`[CAMERA UPLOAD] Annotation check: objects=${parsed?.objects?.length || 0}, hasReal=${hasRealAnnotations}`);
+            } catch (e) {
+              // If can't parse, check string length as fallback
+              const annotationStr = typeof annotationsData === 'string' ? annotationsData : JSON.stringify(annotationsData);
+              hasRealAnnotations = annotationStr.length > 500; // Much higher threshold for unparseable data
+              console.log(`[CAMERA UPLOAD] Annotation check (fallback): length=${annotationStr.length}, hasReal=${hasRealAnnotations}`);
+            }
+          }
 
           if (annotatedBlob && hasRealAnnotations) {
             try {
