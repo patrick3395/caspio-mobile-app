@@ -854,11 +854,6 @@ export class IndexedDbService {
     const photoKey = `photo_${attachId}`;
     const sizeKB = (imageDataUrl?.length || 0) / 1024;
 
-    // DEBUG: Show what's being cached and from where
-    const stack = new Error().stack || '';
-    const caller = stack.split('\n')[2]?.trim() || 'unknown';
-    alert(`[CACHE PHOTO]\nattachId: ${attachId}\nsize: ${sizeKB.toFixed(1)} KB\ncaller: ${caller.substring(0, 80)}`);
-
     // Validate input
     if (!imageDataUrl || imageDataUrl.length < 100) {
       console.error('[IndexedDB] ❌ Invalid photo data - too short or empty:', attachId, 'length:', imageDataUrl?.length);

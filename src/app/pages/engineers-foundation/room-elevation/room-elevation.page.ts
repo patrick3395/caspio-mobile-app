@@ -4198,7 +4198,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         useWebWorker: true
       }) as File;
       const compressedSize = compressedFile.size;
-      alert(`[FDF COMPRESSION]\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(compressedSize / 1024).toFixed(1)} KB\nReduction: ${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`);
 
       // OFFLINE-FIRST: Use LocalImageService for local-first handling
       // CRITICAL: Pass photoType as the last parameter, NOT in caption
@@ -4231,9 +4230,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // Trigger change detection to show preview IMMEDIATELY
       this.changeDetectorRef.detectChanges();
       console.log(`[FDF Upload] ✅ Photo captured with LocalImageService:`, localImage.imageId);
-
-      // DEBUG: Show storage after adding FDF photo
-      await db.debugStorageUsage(`AFTER FDF PHOTO: ${photoType}`);
 
     } catch (error: any) {
       console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
@@ -5086,7 +5082,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         useWebWorker: true
       }) as File;
       const compressedSize = compressedFile.size;
-      alert(`[EFE COMPRESSION]\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(compressedSize / 1024).toFixed(1)} KB\nReduction: ${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`);
 
       // OFFLINE-FIRST: Use foundationData.uploadEFEPointPhoto which handles both
       // online (immediate upload) and offline (IndexedDB queue) scenarios
@@ -5101,9 +5096,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       );
 
       console.log(`[Point Photo] Photo ${photoType} processed for point ${point.pointName}:`, result);
-
-      // DEBUG: Show storage after adding photo
-      await db.debugStorageUsage(`AFTER EFE PHOTO: ${photoType}`);
 
       // Update local state with result
       if (result) {

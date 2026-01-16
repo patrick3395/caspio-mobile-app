@@ -140,12 +140,6 @@
       <p>No room templates available</p>
     </div>
 
-    <!-- Data Syncing Indicator -->
-    <div class="sync-indicator" *ngIf="hasPendingSync && !loading">
-      <ion-icon name="sync-outline" class="rotating"></ion-icon>
-      <span>Syncing room data...</span>
-    </div>
-
     <!-- Add Room Button -->
     <div class="add-room-container" *ngIf="!loading" style="margin-top: 20px; margin-bottom: 30px; text-align: center;">
       <button class="add-room-button" (click)="showAddRoomDialog()"

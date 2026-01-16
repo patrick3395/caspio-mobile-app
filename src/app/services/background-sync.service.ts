@@ -604,9 +604,6 @@ export class BackgroundSyncService {
       // Clear pending changes count after successful sync
       this.clearPendingChangesCount();
       console.log('[BackgroundSync] Sync completed successfully, pending changes cleared');
-
-      // DEBUG: Show storage after sync completes
-      await db.debugStorageUsage('AFTER SYNC COMPLETE');
     } catch (error) {
       console.error('[BackgroundSync] Sync failed:', error);
     } finally {
