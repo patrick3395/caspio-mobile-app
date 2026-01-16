@@ -5955,7 +5955,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         // Get the FDF photo's LocalImage ID from fdfPhotos
         const photoKey = photoType.toLowerCase();
         const fdfImageId = this.roomData?.fdfPhotos?.[`${photoKey}ImageId`];
-        if (fdfImageId) {
+        if (fdfImageId && base64) {
           // Also cache under imageId for LocalImage lookup
           await this.indexedDb.cacheAnnotatedImage(fdfImageId, annotatedBlob);
           this.bulkAnnotatedImagesMap.set(fdfImageId, base64);
