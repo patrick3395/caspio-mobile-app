@@ -1835,37 +1835,88 @@ textarea.styled-input {
     }
   }
 
-  // Dropdown containers
+  // Dropdown containers - static
   .dropdown-with-other-container,
   .multi-select-container-inline {
-    &:hover, &:active, &:focus {
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
       border-color: #e8e8e8 !important;
       box-shadow: none !important;
+      transition: none !important;
     }
   }
 
-  // Icon buttons and action buttons
-  .header-icon-button,
-  .icon-button,
-  .action-button {
-    &:hover, &:active, &:focus {
-      background: transparent !important;
+  // Segments - static
+  ion-segment-button {
+    --background-hover: transparent !important;
+    --background-focused: transparent !important;
+    --indicator-transition: none !important;
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
+      --background-hover: transparent !important;
+      transition: none !important;
+    }
+  }
+
+  // Tabs - static
+  ion-tab-button {
+    --background-hover: transparent !important;
+    --ripple-color: transparent !important;
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
+      --background-hover: transparent !important;
+      --ripple-color: transparent !important;
+      transition: none !important;
+    }
+  }
+
+  // Back button - static
+  ion-back-button {
+    transition: none !important;
+
+    &::part(native) {
+      transition: none !important;
+    }
+
+    &, &:hover, &:active, &:focus {
+      transition: none !important;
       opacity: 1 !important;
     }
   }
 
-  // Segments
-  ion-segment-button {
-    &:hover, &:active, &:focus {
-      --background-hover: transparent !important;
+  // Menu button - static
+  ion-menu-button {
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus {
+      transition: none !important;
+      opacity: 1 !important;
     }
   }
 
-  // Tabs
-  ion-tab-button {
-    &:hover, &:active, &:focus {
-      --background-hover: transparent !important;
-      --ripple-color: transparent !important;
+  // Select - static
+  ion-select {
+    transition: none !important;
+
+    &::part(icon) {
+      transition: none !important;
+    }
+  }
+
+  // Toggle - static (except actual toggle action)
+  ion-toggle {
+    transition: none !important;
+  }
+
+  // All links - static
+  a {
+    transition: none !important;
+
+    &, &:hover, &:active, &:focus, &:visited {
+      transition: none !important;
     }
   }
 }
@@ -1875,26 +1926,41 @@ textarea.styled-input {
 // ============================================================================
 ion-alert.text-editor-modal,
 .text-editor-modal {
-  // Force the alert to be larger
-  &.alert-wrapper,
+  // Center the alert on screen
+  --min-width: auto !important;
+  --max-width: 90vw !important;
+  --width: auto !important;
+
+  // Ensure proper centering
+  justify-content: center !important;
+  align-items: center !important;
+
   .alert-wrapper {
-    width: 95vw !important;
-    max-width: 600px !important;
-    min-height: 50vh !important;
-    max-height: 85vh !important;
+    width: 90vw !important;
+    max-width: 500px !important;
+    min-height: 45vh !important;
+    max-height: 80vh !important;
     border-radius: 16px !important;
     overflow: hidden !important;
+    margin: auto !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
   }
 }
 
 // Target the alert wrapper directly with high specificity
 ion-alert.text-editor-modal .alert-wrapper,
 .text-editor-modal .alert-wrapper {
-  width: 95vw !important;
-  max-width: 600px !important;
-  min-height: 50vh !important;
-  max-height: 85vh !important;
+  width: 90vw !important;
+  max-width: 500px !important;
+  min-height: 45vh !important;
+  max-height: 80vh !important;
   border-radius: 16px !important;
+  margin: auto !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
 }
 
 ion-alert.text-editor-modal .alert-head,
@@ -1990,23 +2056,26 @@ ion-alert.text-editor-modal .alert-button.editor-save-btn,
   color: white !important;
 }
 
-// Mobile responsive - even larger on mobile
+// Mobile responsive - centered with padding from sides
 @media (max-width: 768px) {
   ion-alert.text-editor-modal .alert-wrapper,
   .text-editor-modal .alert-wrapper {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    min-height: 70vh !important;
-    border-radius: 16px 16px 0 0 !important;
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
+    width: calc(100vw - 32px) !important;
+    max-width: calc(100vw - 32px) !important;
+    min-height: 50vh !important;
+    max-height: 75vh !important;
+    border-radius: 16px !important;
+    margin: auto !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
   }
 
   ion-alert.text-editor-modal textarea,
   .text-editor-modal textarea {
-    min-height: 300px !important;
-    height: 300px !important;
+    min-height: 200px !important;
+    height: 200px !important;
   }
 }
