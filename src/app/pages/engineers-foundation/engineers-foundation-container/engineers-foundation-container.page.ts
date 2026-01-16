@@ -135,6 +135,9 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         EngineersFoundationContainerPage.lastLoadedServiceId = newServiceId;
       } else {
         console.log('[EF Container] Same service (' + newServiceId + '), skipping re-download to prevent hard refresh');
+        // CRITICAL: Must set templateReady=true when skipping download, otherwise loading screen persists
+        this.templateReady = true;
+        this.changeDetectorRef.detectChanges();
       }
     });
 
