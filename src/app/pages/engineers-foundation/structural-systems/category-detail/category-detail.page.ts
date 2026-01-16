@@ -4802,6 +4802,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             }
           }
 
+          // STORAGE DEBUG: Show storage breakdown after adding photo
+          try {
+            const storage = await (this.indexedDb as any).db.getStorageBreakdown();
+            const debugMsg = `📸 STORAGE AFTER CAMERA PHOTO\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `Original: ${(originalSize / 1024).toFixed(0)} KB\n` +
+              `Compressed: ${(compressedSize / 1024).toFixed(0)} KB\n` +
+              `Compression: ${((1 - compressedSize/originalSize) * 100).toFixed(0)}% saved\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `localBlobs: ${storage.localBlobs.count} (${storage.localBlobs.totalMB} MB)\n` +
+              `cachedPhotos: ${storage.cachedPhotos.count} (${storage.cachedPhotos.totalMB} MB)\n` +
+              `  - Annotated: ${storage.cachedPhotos.annotatedCount}\n` +
+              `  - Regular: ${storage.cachedPhotos.regularCount}\n` +
+              `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+              `TOTAL: ${storage.total.totalMB} MB`;
+            console.log('[StorageDebug]', debugMsg);
+            alert(debugMsg);
+          } catch (e) {
+            console.warn('[StorageDebug] Failed to get storage breakdown:', e);
+          }
+
           // Sync will happen on next 60-second interval via upload outbox
         }
 
@@ -5018,6 +5039,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         console.log(`[GALLERY UPLOAD] ✅ All ${images.photos.length} photos processed with stable IDs`);
         console.log(`[GALLERY UPLOAD] Total photos in key: ${this.visualPhotos[key].length}`);
+
+        // STORAGE DEBUG: Show storage breakdown after adding gallery photos
+        try {
+          const storage = await (this.indexedDb as any).db.getStorageBreakdown();
+          const debugMsg = `🖼️ STORAGE AFTER GALLERY (${images.photos.length} photos)\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `localBlobs: ${storage.localBlobs.count} (${storage.localBlobs.totalMB} MB)\n` +
+            `cachedPhotos: ${storage.cachedPhotos.count} (${storage.cachedPhotos.totalMB} MB)\n` +
+            `  - Annotated: ${storage.cachedPhotos.annotatedCount}\n` +
+            `  - Regular: ${storage.cachedPhotos.regularCount}\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `TOTAL: ${storage.total.totalMB} MB`;
+          console.log('[StorageDebug]', debugMsg);
+          alert(debugMsg);
+        } catch (e) {
+          console.warn('[StorageDebug] Failed to get storage breakdown:', e);
+        }
+
         // Sync will happen on next 60-second interval via upload outbox
       }
     } catch (error) {

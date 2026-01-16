@@ -791,6 +791,104 @@ export class CaspioDB extends Dexie {
     );
     return this.toRxObservable<EfeField[]>(query);
   }
+
+  // ============================================================================
+  // STORAGE DEBUG - Track where storage is expanding
+  // ============================================================================
+
+  /**
+   * Get detailed storage breakdown by table
+   * Shows size in bytes and MB for each table storing binary/large data
+   */
+  async getStorageBreakdown(): Promise<{
+    localBlobs: { count: number; totalBytes: number; totalMB: string };
+    cachedPhotos: { count: number; totalBytes: number; totalMB: string; annotatedCount: number; regularCount: number };
+    localImages: { count: number };
+    uploadOutbox: { count: number };
+    pendingImages: { count: number; totalBytes: number; totalMB: string };
+    total: { totalBytes: number; totalMB: string };
+  }> {
+    console.log('[StorageDebug] ========== STORAGE BREAKDOWN ==========');
+
+    // localBlobs - binary image data
+    const blobs = await this.localBlobs.toArray();
+    const blobsTotal = blobs.reduce((sum, b) => sum + (b.sizeBytes || 0), 0);
+    console.log(`[StorageDebug] localBlobs: ${blobs.length} items, ${(blobsTotal / 1024 / 1024).toFixed(2)} MB`);
+    for (const blob of blobs.slice(0, 5)) {
+      console.log(`  - ${blob.blobId}: ${(blob.sizeBytes / 1024).toFixed(1)} KB`);
+    }
+    if (blobs.length > 5) console.log(`  ... and ${blobs.length - 5} more`);
+
+    // cachedPhotos - base64 images (regular + annotated)
+    const photos = await this.cachedPhotos.toArray();
+    let photosTotal = 0;
+    let annotatedCount = 0;
+    let regularCount = 0;
+    for (const photo of photos) {
+      const size = photo.imageData?.length || 0;
+      photosTotal += size;
+      if (photo.isAnnotated || photo.photoKey.startsWith('annotated_')) {
+        annotatedCount++;
+      } else {
+        regularCount++;
+      }
+    }
+    console.log(`[StorageDebug] cachedPhotos: ${photos.length} items, ${(photosTotal / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`  - Annotated: ${annotatedCount}, Regular: ${regularCount}`);
+    for (const photo of photos.slice(0, 5)) {
+      const size = photo.imageData?.length || 0;
+      console.log(`  - ${photo.photoKey}: ${(size / 1024).toFixed(1)} KB ${photo.isAnnotated ? '(ANNOTATED)' : ''}`);
+    }
+    if (photos.length > 5) console.log(`  ... and ${photos.length - 5} more`);
+
+    // localImages - metadata only
+    const images = await this.localImages.toArray();
+    console.log(`[StorageDebug] localImages: ${images.length} metadata records`);
+
+    // uploadOutbox
+    const outbox = await this.uploadOutbox.toArray();
+    console.log(`[StorageDebug] uploadOutbox: ${outbox.length} pending uploads`);
+
+    // pendingImages - legacy binary storage
+    const pendingImages = await this.pendingImages.toArray();
+    let pendingTotal = 0;
+    for (const img of pendingImages) {
+      pendingTotal += img.fileSize || 0;
+    }
+    console.log(`[StorageDebug] pendingImages: ${pendingImages.length} items, ${(pendingTotal / 1024 / 1024).toFixed(2)} MB`);
+
+    const grandTotal = blobsTotal + photosTotal + pendingTotal;
+    console.log(`[StorageDebug] ========== TOTAL: ${(grandTotal / 1024 / 1024).toFixed(2)} MB ==========`);
+
+    return {
+      localBlobs: { count: blobs.length, totalBytes: blobsTotal, totalMB: (blobsTotal / 1024 / 1024).toFixed(2) },
+      cachedPhotos: { count: photos.length, totalBytes: photosTotal, totalMB: (photosTotal / 1024 / 1024).toFixed(2), annotatedCount, regularCount },
+      localImages: { count: images.length },
+      uploadOutbox: { count: outbox.length },
+      pendingImages: { count: pendingImages.length, totalBytes: pendingTotal, totalMB: (pendingTotal / 1024 / 1024).toFixed(2) },
+      total: { totalBytes: grandTotal, totalMB: (grandTotal / 1024 / 1024).toFixed(2) }
+    };
+  }
+
+  /**
+   * Log storage delta - call before and after an operation to see change
+   */
+  async logStorageDelta(label: string, beforeSnapshot?: any): Promise<any> {
+    const current = await this.getStorageBreakdown();
+
+    if (beforeSnapshot) {
+      const deltaBlobs = current.localBlobs.totalBytes - beforeSnapshot.localBlobs.totalBytes;
+      const deltaPhotos = current.cachedPhotos.totalBytes - beforeSnapshot.cachedPhotos.totalBytes;
+      const deltaTotal = current.total.totalBytes - beforeSnapshot.total.totalBytes;
+
+      console.log(`[StorageDebug] DELTA after "${label}":`);
+      console.log(`  localBlobs: ${deltaBlobs >= 0 ? '+' : ''}${(deltaBlobs / 1024).toFixed(1)} KB`);
+      console.log(`  cachedPhotos: ${deltaPhotos >= 0 ? '+' : ''}${(deltaPhotos / 1024).toFixed(1)} KB`);
+      console.log(`  TOTAL: ${deltaTotal >= 0 ? '+' : ''}${(deltaTotal / 1024).toFixed(1)} KB (${(deltaTotal / 1024 / 1024).toFixed(2)} MB)`);
+    }
+
+    return current;
+  }
 }
 
 // ============================================================================

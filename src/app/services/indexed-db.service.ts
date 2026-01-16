@@ -968,6 +968,19 @@ export class IndexedDbService {
     };
 
     await db.cachedPhotos.put(photoData);
+
+    // STORAGE DEBUG: Log size of annotated image being cached
+    const blobSizeKB = (blob.size / 1024).toFixed(1);
+    const base64SizeKB = (imageDataUrl.length / 1024).toFixed(1);
+    const base64SizeMB = (imageDataUrl.length / 1024 / 1024).toFixed(2);
+    console.log(`[StorageDebug] 🎨 ANNOTATED IMAGE CACHED: ${attachId}`);
+    console.log(`[StorageDebug]   Blob size: ${blobSizeKB} KB`);
+    console.log(`[StorageDebug]   Base64 size: ${base64SizeKB} KB (${base64SizeMB} MB)`);
+    console.log(`[StorageDebug]   Base64 overhead: ~${((imageDataUrl.length / blob.size - 1) * 100).toFixed(0)}%`);
+    if (parseFloat(base64SizeMB) > 2) {
+      console.warn(`[StorageDebug] ⚠️ LARGE ANNOTATED IMAGE: ${base64SizeMB} MB`);
+    }
+
     console.log('[IndexedDB] Annotated image cached:', attachId, 'size:', imageDataUrl.length);
     return imageDataUrl;
   }
@@ -2540,6 +2553,16 @@ export class IndexedDbService {
       await db.uploadOutbox.add(outboxItem);
     });
 
+    // STORAGE DEBUG: Log size of image being stored
+    const fileSizeKB = (file.size / 1024).toFixed(1);
+    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+    console.log(`[StorageDebug] 📸 IMAGE CREATED: ${imageId}`);
+    console.log(`[StorageDebug]   File size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
+    console.log(`[StorageDebug]   Entity: ${entityType} / ${entityId}`);
+    console.log(`[StorageDebug]   Type: ${file.type}, Name: ${file.name}`);
+    if (parseFloat(fileSizeMB) > 1) {
+      console.warn(`[StorageDebug] ⚠️ LARGE IMAGE: ${fileSizeMB} MB - consider compression`);
+    }
     console.log('[IndexedDB] ✅ Local image created:', imageId, 'blob:', blobId);
 
     this.emitChange({
