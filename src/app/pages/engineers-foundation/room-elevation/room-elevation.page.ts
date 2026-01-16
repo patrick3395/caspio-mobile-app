@@ -88,6 +88,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private preservedPhotosByPointId: Map<string, any[]> = new Map();
   private preservedFdfPhotos: any = null;
 
+  // ===== DELETED PHOTO TRACKING (prevents re-adding deleted photos during sync) =====
+  // Track deleted photo IDs so they don't reappear from preservation maps or LocalImages
+  private deletedPointPhotoIds: Set<string> = new Set();
+
   // ===== LIVE QUERY SUPPORT (matches structural-systems pattern) =====
   // This subscription keeps the UI updated when LocalImages change without requiring full reload
   private localImagesSubscription?: Subscription;
@@ -3253,6 +3257,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         if (pointData.photos.length === 0 && pointId) {
           const localImagesForPoint = bulkLocalImagesMap.get(String(pointId)) || [];
           for (const localImg of localImagesForPoint) {
+            // DEXIE-FIRST FIX: Skip deleted photos from LocalImages
+            const localImgAttachId = localImg.attachId ? String(localImg.attachId) : null;
+            if (this.deletedPointPhotoIds.has(localImg.imageId) ||
+                this.deletedPointPhotoIds.has(localImgAttachId || '')) {
+              console.log(`[RoomElevation]   Skipping deleted LocalImage: ${localImg.imageId}`);
+              continue;
+            }
+
             // Check if we already have this photo
             const alreadyHas = pointData.photos.some((p: any) =>
               String(p.imageId) === localImg.imageId ||
@@ -5553,11 +5565,57 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 console.warn('[Point Photo] Could not find photo in array to remove:', photo);
               }
 
+              // DEXIE-FIRST FIX: Track deleted photo IDs to prevent re-adding during sync/reload
+              // Add all possible identifiers for this photo to the tracking set
+              const imageId = photo.imageId || photo.localImageId;
+              if (imageId) {
+                this.deletedPointPhotoIds.add(imageId);
+                console.log('[Point Photo] Added to deletedPointPhotoIds:', imageId);
+              }
+              if (photo.attachId) {
+                this.deletedPointPhotoIds.add(String(photo.attachId));
+                console.log('[Point Photo] Added attachId to deletedPointPhotoIds:', photo.attachId);
+              }
+              if (photo._tempId) {
+                this.deletedPointPhotoIds.add(String(photo._tempId));
+              }
+
+              // DEXIE-FIRST FIX: Remove from preservation maps so photo doesn't reappear
+              // These maps are used during sync/reload to restore photos
+              const pointName = point.name;
+              const pointId = point.pointId;
+              if (pointName && this.preservedPhotosByPointName.has(pointName)) {
+                const preserved = this.preservedPhotosByPointName.get(pointName) || [];
+                const filteredPreserved = preserved.filter((p: any) => {
+                  const pImageId = p.imageId || p.localImageId;
+                  const pAttachId = p.attachId ? String(p.attachId) : null;
+                  const pTempId = p._tempId ? String(p._tempId) : null;
+                  return !this.deletedPointPhotoIds.has(pImageId) &&
+                         !this.deletedPointPhotoIds.has(pAttachId || '') &&
+                         !this.deletedPointPhotoIds.has(pTempId || '');
+                });
+                this.preservedPhotosByPointName.set(pointName, filteredPreserved);
+                console.log(`[Point Photo] Updated preservedPhotosByPointName for "${pointName}": ${preserved.length} -> ${filteredPreserved.length}`);
+              }
+              if (pointId && this.preservedPhotosByPointId.has(String(pointId))) {
+                const preserved = this.preservedPhotosByPointId.get(String(pointId)) || [];
+                const filteredPreserved = preserved.filter((p: any) => {
+                  const pImageId = p.imageId || p.localImageId;
+                  const pAttachId = p.attachId ? String(p.attachId) : null;
+                  const pTempId = p._tempId ? String(p._tempId) : null;
+                  return !this.deletedPointPhotoIds.has(pImageId) &&
+                         !this.deletedPointPhotoIds.has(pAttachId || '') &&
+                         !this.deletedPointPhotoIds.has(pTempId || '');
+                });
+                this.preservedPhotosByPointId.set(String(pointId), filteredPreserved);
+                console.log(`[Point Photo] Updated preservedPhotosByPointId for "${pointId}": ${preserved.length} -> ${filteredPreserved.length}`);
+              }
+
               // Force UI update first
               this.changeDetectorRef.detectChanges();
 
               // DEXIE-FIRST: Delete from LocalImages table (the source of truth)
-              const imageId = photo.imageId || photo.localImageId;
+              // imageId already defined above for tracking deleted photos
               if (imageId) {
                 try {
                   await this.localImageService.deleteLocalImage(imageId);

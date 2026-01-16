@@ -6257,20 +6257,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // Handle LocalImage (new local-first system) deletion
           const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId ||
             (photo.imageId && String(photo.imageId).startsWith('img_'));
-          
+
           if (isLocalFirstPhoto) {
             const localImageId = photo.localImageId || photo.imageId;
             console.log('[Delete Photo] Deleting LocalImage:', localImageId);
-            
-            // Delete from LocalImage system
-            await this.localImageService.deleteLocalImage(localImageId);
-            
-            // If the photo was already synced (has real attachId), also queue delete for server
+
+            // CRITICAL: Get LocalImage data BEFORE deleting to check if server deletion is needed
             const localImage = await this.indexedDb.getLocalImage(localImageId);
+
+            // If the photo was already synced (has real attachId), queue delete for server
             if (localImage?.attachId && !String(localImage.attachId).startsWith('img_')) {
               console.log('[Delete Photo] LocalImage was synced, queueing server delete:', localImage.attachId);
               await this.foundationData.deleteVisualPhoto(localImage.attachId);
             }
+
+            // NOW delete from LocalImage system (after queuing server delete)
+            await this.localImageService.deleteLocalImage(localImageId);
           }
           // Legacy photo deletion
           else if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
@@ -6598,10 +6600,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       console.log('[CREATE CUSTOM] Created visual with ID:', visualId);
 
+      // Generate a unique templateId for custom visuals (negative to avoid collision with real templates)
+      const customTemplateId = -Date.now();
+
       // Add to local data structure (must match loadExistingVisuals structure)
+      // DEXIE-FIRST: Use templateId as the item ID for consistency with convertFieldsToOrganizedData
+      // The liveQuery converts fields using field.visualId || field.tempVisualId || field.templateId
+      // So we use tempVisualId as the id, which will be returned by convertFieldsToOrganizedData
       const customItem: VisualItem = {
-        id: `custom_${visualId}`, // Use consistent ID format with prefix
-        templateId: 0, // No template for custom visuals
+        id: visualId, // Use tempVisualId for consistency with convertFieldsToOrganizedData
+        templateId: customTemplateId, // Use unique negative ID for custom visuals
         name: name,
         text: text,
         originalText: text,
@@ -6613,221 +6621,114 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         photos: []
       };
 
-      // Add to appropriate array based on Kind
-      if (kind === 'Comment') {
-        this.organizedData.comments.push(customItem);
-      } else if (kind === 'Limitation') {
-        this.organizedData.limitations.push(customItem);
-      } else if (kind === 'Deficiency') {
-        this.organizedData.deficiencies.push(customItem);
-      } else {
-        // Default to comments if kind is unknown
-        this.organizedData.comments.push(customItem);
-      }
-
-      // Store the visual ID for photo uploads using consistent key
-      const key = `${category}_${customItem.id}`;
+      // DEXIE-FIRST: Use consistent key format matching convertFieldsToOrganizedData
+      // Key format: ${category}_${templateId} for selection tracking
+      const key = `${category}_${customTemplateId}`;
       this.visualRecordIds[key] = String(visualId);
 
-      // Mark as selected
+      // Mark as selected with the correct key
       this.selectedItems[key] = true;
 
       console.log('[CREATE CUSTOM] Stored visualId in visualRecordIds:', key, '=', visualId);
 
-      // Upload photos if provided
+      // DEXIE-FIRST: Upload photos FIRST before calling setField
+      // This ensures photos exist in LocalImages when the liveQuery triggers populatePhotosFromDexie
+      let photoCount = 0;
       if (files && files.length > 0) {
-        console.log('[CREATE CUSTOM] Uploading', files.length, 'photos for visual:', visualId);
+        console.log('[CREATE CUSTOM] DEXIE-FIRST: Uploading', files.length, 'photos BEFORE setField');
 
-        // Initialize photos array if not exists
+        // Initialize photos array
         if (!this.visualPhotos[key]) {
           this.visualPhotos[key] = [];
         }
 
-        // Add placeholder photos immediately - SILENT SYNC: no uploading indicator
-        const tempPhotos = Array.from(files).map((file, index) => {
+        // Upload ALL photos to LocalImages first (persists to Dexie)
+        const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
           const photoData = processedPhotos[index] || {};
-          const objectUrl = URL.createObjectURL(file);
-          const tempId = `temp_${Date.now()}_${index}`;
+          const annotationData = photoData.annotationData || null;
+          const originalFile = photoData.originalFile || null;
+          const caption = photoData.caption || '';
+          const fileToUpload = originalFile || file;
 
-          return {
-            AttachID: tempId,
-            id: tempId,
-            name: file.name,
-            url: objectUrl,
-            thumbnailUrl: objectUrl,
-            displayUrl: photoData.previewUrl || objectUrl, // Use preview from modal if available
+          // Compress the photo
+          const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+            maxSizeMB: 0.8,
+            maxWidthOrHeight: 1280,
+            useWebWorker: true
+          }) as File;
+
+          // Upload to LocalImages via foundationData (persists to Dexie)
+          const drawings = annotationData ? JSON.stringify(annotationData) : '';
+          const result = await this.foundationData.uploadVisualPhoto(visualId, compressedPhoto, caption, drawings, originalFile || undefined, this.serviceId);
+
+          console.log(`[CREATE CUSTOM] Photo ${index + 1} persisted to LocalImages:`, result.imageId);
+          return result;
+        }));
+
+        photoCount = uploadResults.length;
+
+        // Add photos to in-memory array for immediate display
+        for (const result of uploadResults) {
+          this.visualPhotos[key].push({
+            AttachID: result.imageId,
+            id: result.imageId,
+            imageId: result.imageId,
+            name: result.fileName,
+            url: result.displayUrl,
+            thumbnailUrl: result.displayUrl,
+            displayUrl: result.displayUrl,
             isObjectUrl: true,
-            uploading: false,         // SILENT SYNC: No spinner
-            queued: false,            // SILENT SYNC: No indicator
-            hasAnnotations: !!photoData.annotationData,
-            annotations: photoData.annotationData || null,
-            caption: photoData.caption || '',
-            annotation: photoData.caption || ''
-          };
-        });
+            uploading: false,
+            queued: false,
+            hasAnnotations: !!(result.drawings && result.drawings.length > 10),
+            caption: result.caption || '',
+            annotation: result.caption || '',
+            isLocalFirst: true
+          });
+        }
 
-        // Add all temp photos to the array at once
-        this.visualPhotos[key].push(...tempPhotos);
+        // Update photo count
+        this.photoCountsByKey[key] = photoCount;
 
-        // Trigger change detection so photos show immediately
-        this.changeDetectorRef.detectChanges();
-
-        console.log('[CREATE CUSTOM] Added', tempPhotos.length, 'placeholder photos to UI');
-
-        // Upload photos in background with annotation data
-        const uploadPromises = Array.from(files).map(async (file, index) => {
-          const tempId = tempPhotos[index].AttachID;
-          try {
-            // Get annotation data and caption for this photo from processedPhotos
-            const photoData = processedPhotos[index] || {};
-            const annotationData = photoData.annotationData || null;
-            const originalFile = photoData.originalFile || null;
-            const caption = photoData.caption || '';
-
-            console.log(`[CREATE CUSTOM] Uploading photo ${index + 1}:`, {
-              hasAnnotations: !!annotationData,
-              hasOriginalFile: !!originalFile,
-              caption: caption
-            });
-
-            // Upload the ORIGINAL photo (without annotations baked in)
-            // If we have an originalFile, use that; otherwise use the file as-is
-            const fileToUpload = originalFile || file;
-            
-            // CRITICAL FIX: Handle temp VisualIDs correctly
-            // If visualId is a temp ID (starts with 'temp_'), pass it as string
-            // Otherwise, parse it as integer for API compatibility
-            const isTempVisualId = String(visualId).startsWith('temp_');
-            const visualIdForUpload = isTempVisualId ? visualId! : parseInt(visualId!, 10);
-            
-            console.log(`[CREATE CUSTOM] Uploading photo with VisualID:`, visualIdForUpload, 'isTemp:', isTempVisualId);
-            
-            // CRITICAL: Pass annotations as serialized JSON string (drawings) and original file
-            const drawings = annotationData ? JSON.stringify(annotationData) : '';
-            const result = await this.foundationData.uploadVisualPhoto(visualIdForUpload, fileToUpload, caption, drawings, originalFile || undefined, this.serviceId);
-            const attachId = result?.AttachID || result?.PK_ID || result?.id;
-
-            if (!attachId) {
-              console.error(`[CREATE CUSTOM] No AttachID returned for photo ${index + 1}`);
-              // Mark this photo as failed
-              const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === tempId);
-              if (photoIndex !== -1 && this.visualPhotos[key]) {
-                this.visualPhotos[key][photoIndex].uploading = false;
-                this.visualPhotos[key][photoIndex].uploadFailed = true;
-                this.changeDetectorRef.detectChanges();
-              }
-              return { success: false, error: new Error('No AttachID returned') };
-            }
-
-            console.log(`[CREATE CUSTOM] Photo ${index + 1} uploaded with AttachID:`, attachId);
-
-            // If there are annotations, save them to the LocalImage record
-            // NOTE: For local-first photos, we do NOT call saveAnnotationToDatabase here
-            // because that would create a duplicate entry in pendingCaptions.
-            // The caption/drawings are already stored in the LocalImage record via captureImage().
-            // The annotations will be synced when the photo is uploaded.
-            if (annotationData && attachId && !String(attachId).startsWith('img_')) {
-              // Only save to database if this is a real Caspio AttachID (legacy path)
-              try {
-                console.log(`[CREATE CUSTOM] Saving annotations for photo ${index + 1} (legacy path)`);
-
-                // Use the annotated file as the blob (file contains the annotated version)
-                // The originalFile is what we uploaded, file is the one with annotations baked in
-                const annotatedBlob = file instanceof Blob ? file : new Blob([file]);
-
-                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationData, caption);
-                console.log(`[CREATE CUSTOM] Annotations saved for photo ${index + 1}`);
-              } catch (annotError) {
-                console.error(`[CREATE CUSTOM] Failed to save annotations for photo ${index + 1}:`, annotError);
-                // Don't fail the whole upload if just annotations fail
-              }
-            } else if (annotationData) {
-              // Local-first photo: annotations are already in LocalImage record
-              console.log(`[CREATE CUSTOM] Annotations stored in LocalImage for photo ${index + 1} (local-first path)`);
-            }
-
-            // Mark this specific photo as done uploading
-            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === tempId);
-            if (photoIndex !== -1 && this.visualPhotos[key]) {
-              this.visualPhotos[key][photoIndex].uploading = false;
-              this.visualPhotos[key][photoIndex].AttachID = attachId;
-              this.visualPhotos[key][photoIndex].id = attachId;
-              this.changeDetectorRef.detectChanges();
-              console.log(`[CREATE CUSTOM] Photo ${index + 1} upload complete, UI updated`);
-            }
-
-            return { success: true, error: null };
-          } catch (error: any) {
-            console.error(`Failed to upload file ${index + 1}:`, error);
-            // Mark this photo as failed
-            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === tempId);
-            if (photoIndex !== -1 && this.visualPhotos[key]) {
-              this.visualPhotos[key][photoIndex].uploading = false;
-              this.visualPhotos[key][photoIndex].uploadFailed = true;
-              this.changeDetectorRef.detectChanges();
-            }
-            return { success: false, error };
-          }
-        });
-
-        // Monitor uploads in background
-        Promise.all(uploadPromises).then(results => {
-          const uploadSuccessCount = results.filter((r: { success: boolean }) => r.success).length;
-          const failCount = results.filter((r: { success: boolean }) => !r.success).length;
-
-          if (failCount > 0 && uploadSuccessCount > 0) {
-            this.showToast(
-              `Uploaded ${uploadSuccessCount} of ${files.length} photos. ${failCount} failed.`,
-              'warning'
-            );
-          } else if (failCount > 0 && uploadSuccessCount === 0) {
-            this.showToast('Failed to upload photos', 'danger');
-          }
-
-          // Reload photos from database to get full data with annotations
-          // Small delay to ensure database has processed all uploads
-          setTimeout(() => {
-            console.log('[CREATE CUSTOM] Reloading photos after upload delay');
-
-            // LOCAL-FIRST: Do NOT revoke blob URLs for local-first images
-            // They are managed by LocalImageService and needed for display
-            // Only revoke old-style object URLs that aren't part of the local-first system
-            if (this.visualPhotos[key]) {
-              this.visualPhotos[key].forEach(photo => {
-                // Skip local-first images - their blob URLs are managed by LocalImageService
-                if (photo.isLocalFirst || photo.isLocalImage || photo.localImageId) {
-                  return;
-                }
-                // Only revoke legacy object URLs
-                if (photo.isObjectUrl && photo.url && !photo.imageId) {
-                  URL.revokeObjectURL(photo.url);
-                }
-                if (photo.isObjectUrl && photo.thumbnailUrl && photo.thumbnailUrl !== photo.url && !photo.imageId) {
-                  URL.revokeObjectURL(photo.thumbnailUrl);
-                }
-              });
-            }
-
-            this.loadPhotosForVisual(visualId!, key);
-          }, 500);
-        });
+        console.log('[CREATE CUSTOM] ✅ All', photoCount, 'photos uploaded to LocalImages BEFORE setField');
       }
 
-      // Trigger change detection
-      this.changeDetectorRef.detectChanges();
+      // NOW persist to VisualField - this triggers liveQuery which will find the photos in LocalImages
+      try {
+        await this.visualFieldRepo.setField(this.serviceId, category, customTemplateId, {
+          isSelected: true,
+          tempVisualId: visualId,
+          visualId: null, // Will be set when synced
+          name: name,
+          text: text,
+          kind: kind,
+          isCustom: true, // Flag to identify custom visuals
+          photoCount: photoCount
+        });
+        console.log('[CREATE CUSTOM] ✅ Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
+      } catch (err) {
+        console.error('[CREATE CUSTOM] Failed to persist to Dexie:', err);
 
-      return {
-        itemId: customItem.id,
-        visualId: String(visualId),
-        key: key
-      };
+        // Even if Dexie persist fails, add to organizedData for immediate display
+        if (kind === 'Comment') {
+          this.organizedData.comments.push(customItem);
+        } else if (kind === 'Limitation') {
+          this.organizedData.limitations.push(customItem);
+        } else if (kind === 'Deficiency') {
+          this.organizedData.deficiencies.push(customItem);
+        } else {
+          this.organizedData.comments.push(customItem);
+        }
+        this.changeDetectorRef.detectChanges();
+      }
 
-    } catch (error: any) {
+      // Clear PDF cache so new PDFs show updated data
+      this.clearPdfCache();
+
+      console.log('[CREATE CUSTOM] ✅ Custom visual created with Dexie-first pattern');
+
+    } catch (error) {
       console.error('[CREATE CUSTOM] Error creating custom visual:', error);
-      const errorMsg = error?.error?.Message || error?.message || 'Failed to add visual';
-      // Toast removed per user request
-      // await this.showToast(errorMsg, 'danger');
-      return null;
     }
   }
 

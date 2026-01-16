@@ -629,7 +629,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
           height: 0,
           fill: 'transparent',
           stroke: this.currentColor,
-          strokeWidth: this.strokeWidth
+          strokeWidth: this.strokeWidth,
+          selectable: false,
+          evented: false
         });
         this.canvas.add(rect);
         this.isDrawing = true;
@@ -642,7 +644,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
           radius: 1,
           fill: 'transparent',
           stroke: this.currentColor,
-          strokeWidth: this.strokeWidth
+          strokeWidth: this.strokeWidth,
+          selectable: false,
+          evented: false
         });
         this.canvas.add(circle);
         this.isDrawing = true;
@@ -844,7 +848,10 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       strokeWidth: this.strokeWidth
     });
 
-    return new fabric.Group([line, arrowHead1, arrowHead2]);
+    return new fabric.Group([line, arrowHead1, arrowHead2], {
+      selectable: false,
+      evented: false
+    });
   }
   
   async setTool(tool: string) {
