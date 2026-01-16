@@ -619,6 +619,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         startY = pointer.y;
       } else if (this.currentTool === 'rectangle') {
         const pointer = this.canvas.getPointer(options.e);
+        startX = pointer.x;
+        startY = pointer.y;
         const fabric = await this.getFabric();
         const rect = new fabric.Rect({
           left: pointer.x,
@@ -729,10 +731,12 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         const pointer = this.canvas.getPointer(options.e);
         const rect = this.canvas.getObjects().slice(-1)[0] as any;
         if (rect) {
-          rect.set({
-            width: Math.abs(pointer.x - rect.left!),
-            height: Math.abs(pointer.y - rect.top!)
-          });
+          // Calculate proper left/top/width/height for any drag direction
+          const left = Math.min(startX, pointer.x);
+          const top = Math.min(startY, pointer.y);
+          const width = Math.abs(pointer.x - startX);
+          const height = Math.abs(pointer.y - startY);
+          rect.set({ left, top, width, height });
           this.canvas.renderAll();
         }
       } else if (this.isDrawing && this.currentTool === 'circle') {

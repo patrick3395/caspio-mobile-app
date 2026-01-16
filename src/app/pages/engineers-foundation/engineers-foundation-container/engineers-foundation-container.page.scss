@@ -154,6 +154,11 @@ ion-toolbar {
     --background-hover: transparent !important;
     --background-activated: transparent !important;
     --background-focused: transparent !important;
+    --color: white !important;
+    --color-hover: white !important;
+    --color-activated: white !important;
+    --color-focused: white !important;
+    --opacity: 1 !important;
     height: 56px;
     display: flex;
     align-items: center;
@@ -162,17 +167,30 @@ ion-toolbar {
     visibility: visible !important;
     transition: none !important;
     transform: none !important;
+    color: white !important;
 
     &:hover, &:active, &:focus, &:focus-visible, &.ion-activated {
       opacity: 1 !important;
       visibility: visible !important;
       transform: none !important;
+      --color: white !important;
+      color: white !important;
     }
 
     &::part(native) {
       opacity: 1 !important;
       visibility: visible !important;
       transition: none !important;
+      color: white !important;
+    }
+
+    ion-icon {
+      opacity: 1 !important;
+      visibility: visible !important;
+      color: white !important;
+      transition: none !important;
+      transform: none !important;
+      pointer-events: none;
     }
   }
 }

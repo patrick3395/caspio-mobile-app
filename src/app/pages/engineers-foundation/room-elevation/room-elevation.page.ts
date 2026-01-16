@@ -672,11 +672,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Subscribe to all LocalImages for this service (efe_point entity type)
     this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'efe_point').subscribe(
-      (localImages) => {
+      async (localImages) => {
         console.log('[RoomElevation] LiveQuery - LocalImages updated:', localImages.length, 'images');
 
         // Update bulkLocalImagesMap reactively
         this.updateBulkLocalImagesMap(localImages);
+
+        // ANNOTATION FIX: Reload annotated images cache to ensure annotations persist
+        await this.reloadAnnotatedImagesCache();
 
         // CRITICAL: Update in-memory photos with fresh displayUrls from LocalImages
         // This prevents photos from disappearing when sync status changes
@@ -693,8 +696,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     // FIX: Also subscribe to FDF entity type to keep FDF photos visible during sync
     // This matches the pattern used for elevation points above
     this.fdfLocalImagesSubscription = db.liveLocalImages$(this.serviceId, 'fdf').subscribe(
-      (localImages) => {
+      async (localImages) => {
         console.log('[RoomElevation] LiveQuery - FDF LocalImages updated:', localImages.length, 'images');
+
+        // ANNOTATION FIX: Reload annotated images cache to ensure annotations persist
+        await this.reloadAnnotatedImagesCache();
 
         // CRITICAL: Update FDF photos with fresh displayUrls from LocalImages
         // This prevents FDF photos from disappearing when sync status changes
@@ -758,7 +764,27 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           // CRITICAL: Update the displayUrl from the LocalImage
           // This ensures the photo stays visible even if blob URL was invalidated
           try {
-            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
+            // ANNOTATION FIX: Invalidate display URL cache to force re-evaluation
+            // This ensures annotated images are properly shown after sync
+            this.localImageService.invalidateDisplayUrlCache(localImage.imageId);
+
+            // ANNOTATION FIX: Check bulkAnnotatedImagesMap FIRST for cached annotated images
+            // This handles cases where the LocalImage.drawings field isn't properly set
+            const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+            let freshUrl: string | null = null;
+
+            // Try to get annotated image from in-memory cache first
+            const cachedAnnotated = this.bulkAnnotatedImagesMap.get(localImage.imageId)
+              || (localImage.attachId ? this.bulkAnnotatedImagesMap.get(String(localImage.attachId)) : null);
+
+            if (cachedAnnotated) {
+              freshUrl = cachedAnnotated;
+              console.log('[RoomElevation] Using cached ANNOTATED image for refresh:', localImage.imageId);
+            } else {
+              // Fall back to getDisplayUrl which checks IndexedDB
+              freshUrl = await this.localImageService.getDisplayUrl(localImage);
+            }
+
             if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
               // Only update if we got a valid URL and current one is invalid
               const currentUrl = photo.displayUrl;
@@ -779,6 +805,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               photo.uploading = false;
               photo.queued = false;
               photo.isPending = localImage.status !== 'verified';
+
+              // ANNOTATION FIX: Update hasAnnotations and drawings from LocalImage
+              if (localImage.drawings) {
+                photo.drawings = localImage.drawings;
+                photo.hasAnnotations = hasAnnotations;
+              }
 
               // Update attachId if LocalImage has a real one
               if (localImage.attachId && !String(localImage.attachId).startsWith('img_')) {
@@ -872,7 +904,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // DEXIE-FIRST: Always update the displayUrl from the LocalImage
       // The LocalImage blob is the source of truth - always use it if available
       try {
-        const freshUrl = await this.localImageService.getDisplayUrl(localImage);
+        // ANNOTATION FIX: Invalidate display URL cache to force re-evaluation
+        this.localImageService.invalidateDisplayUrlCache(localImage.imageId);
+
+        // ANNOTATION FIX: Check bulkAnnotatedImagesMap FIRST for cached annotated images
+        let freshUrl: string | null = null;
+        const cachedAnnotated = this.bulkAnnotatedImagesMap.get(localImage.imageId)
+          || (localImage.attachId ? this.bulkAnnotatedImagesMap.get(String(localImage.attachId)) : null);
+
+        if (cachedAnnotated) {
+          freshUrl = cachedAnnotated;
+          console.log('[RoomElevation] Using cached ANNOTATED FDF image for refresh:', photoKey, localImage.imageId);
+        } else {
+          // Fall back to getDisplayUrl which checks IndexedDB
+          freshUrl = await this.localImageService.getDisplayUrl(localImage);
+        }
+
         if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
           // DEXIE-FIRST: Always apply fresh URL from LocalImages (source of truth)
           console.log('[RoomElevation] Refreshing FDF displayUrl for:', photoKey, localImage.imageId);
@@ -2357,14 +2404,28 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         this.indexedDb.getAllCachedPhotosForService(this.serviceId),
         this.indexedDb.getAllCachedAnnotatedImagesForService()
       ]);
-      
+
       this.bulkCachedPhotosMap = cachedPhotos;
       this.bulkAnnotatedImagesMap = annotatedImages;
-      
+
       console.log(`[RoomElevation] Pre-loaded ${cachedPhotos.size} photos, ${annotatedImages.size} annotations in ${Date.now() - cacheLoadStart}ms`);
     } catch (error) {
       console.warn('[RoomElevation] Failed to pre-load caches:', error);
       // Not critical - photos will load on-demand as fallback
+    }
+  }
+
+  /**
+   * ANNOTATION FIX: Reload only the annotated images cache
+   * Called when LocalImages change to ensure fresh annotated images are used
+   */
+  private async reloadAnnotatedImagesCache(): Promise<void> {
+    try {
+      const annotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+      this.bulkAnnotatedImagesMap = annotatedImages;
+      console.log(`[RoomElevation] Reloaded ${annotatedImages.size} annotated images cache`);
+    } catch (error) {
+      console.warn('[RoomElevation] Failed to reload annotated images cache:', error);
     }
   }
 
@@ -5889,6 +5950,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         if (base64) {
           this.bulkAnnotatedImagesMap.set(cacheId, base64);
         }
+
+        // DEXIE-FIRST FIX: Update LocalImages.drawings to trigger liveQuery
+        // Get the FDF photo's LocalImage ID from fdfPhotos
+        const photoKey = photoType.toLowerCase();
+        const fdfImageId = this.roomData?.fdfPhotos?.[`${photoKey}ImageId`];
+        if (fdfImageId) {
+          // Also cache under imageId for LocalImage lookup
+          await this.indexedDb.cacheAnnotatedImage(fdfImageId, annotatedBlob);
+          this.bulkAnnotatedImagesMap.set(fdfImageId, base64);
+
+          await this.localImageService.updateCaptionAndDrawings(fdfImageId, undefined, drawingsData);
+          console.log('[SAVE FDF] ✅ Updated LocalImages.drawings for liveQuery trigger:', fdfImageId);
+        }
       } catch (annotCacheErr) {
         console.warn('[SAVE FDF] Failed to cache annotated image blob:', annotCacheErr);
       }
@@ -6094,6 +6168,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               this.bulkAnnotatedImagesMap.set(localImageId, base64);
             }
             console.log('[SAVE] ✅ Also cached under localImageId:', localImageId);
+          }
+
+          // DEXIE-FIRST FIX: Update LocalImages.drawings to trigger liveQuery
+          // This makes localImages the source of truth and triggers UI refresh
+          if (localImageId) {
+            await this.localImageService.updateCaptionAndDrawings(localImageId, undefined, updateData.Drawings);
+            console.log('[SAVE] ✅ Updated LocalImages.drawings for liveQuery trigger:', localImageId);
           }
         } catch (annotCacheErr) {
           console.warn('[SAVE] Failed to cache EFE annotated image blob:', annotCacheErr);

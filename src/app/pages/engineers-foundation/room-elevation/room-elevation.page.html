@@ -10,7 +10,7 @@
     <div *ngIf="!loading">
       <!-- Flooring Difference Factor Section (hidden for Base Station) -->
       <div class="room-section-delimiter" *ngIf="!isBaseStation()">
-        <span class="delimiter-label">Flooring Difference Factor</span>
+        <span class="delimiter-label">Flooring Difference Factor<span style="color: #F15A27; margin-left: 2px;">*</span></span>
         <button type="button"
                 (click)="openHelp(1, 'FDF')"
                 title="FDF"
@@ -21,9 +21,6 @@
 
       <!-- Flooring Difference Factor dropdown (hidden for Base Station) -->
       <div class="fdf-dropdown-container" *ngIf="!isBaseStation()">
-        <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">
-          FDF:<span style="color: #F15A27; margin-left: 2px;">*</span>
-        </label>
         <select [(ngModel)]="roomData.fdf"
                 (ngModelChange)="onFDFChange()"
                 class="styled-input"
