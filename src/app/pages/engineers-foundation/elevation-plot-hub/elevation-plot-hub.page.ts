@@ -1750,7 +1750,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         if (lastRoomIndex >= 0) {
           // Insert after the last navigated room
           insertIndex = lastRoomIndex + 1;
-          const lastRoomOrg = this.roomTemplates[lastRoomIndex].Organization ?? 0;
+          const lastRoomOrg = this.roomTemplates[lastRoomIndex]['Organization'] ?? 0;
           // Set organization to be just after the last room
           newOrganization = lastRoomOrg + 1;
           console.log(`[Add Room] Inserting after "${this.lastNavigatedRoom}" at index ${insertIndex}, org=${newOrganization}`);
