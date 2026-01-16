@@ -1317,13 +1317,22 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     if (roomId && roomId !== '__pending__' && !roomIdStr.startsWith('temp_')) {
       try {
-        console.log('[ElevationPlotHub] Deleting room from database...');
-        // Delete the room from Services_EFE table using EFEID
-        await this.caspioService.deleteServicesEFEByEFEID(roomId).toPromise();
-        console.log('[ElevationPlotHub] Room deleted from database successfully');
+        console.log('[ElevationPlotHub] Queueing room deletion for sync...');
 
-        // CRITICAL FIX: Update IndexedDB cache to remove the deleted room
-        // This prevents the room from reappearing when cache is reloaded by background refresh
+        // OFFLINE-FIRST: Queue the deletion as a pending request instead of direct API call
+        await this.indexedDb.addPendingRequest({
+          type: 'DELETE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`,
+          method: 'DELETE',
+          data: { EFEID: roomId, RoomName: roomName },
+          dependencies: [],
+          status: 'pending',
+          priority: 'normal',
+          serviceId: this.serviceId
+        });
+        console.log('[ElevationPlotHub] Room deletion queued for sync');
+
+        // Update IndexedDB cache to remove the deleted room immediately
         try {
           const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
           const updatedRooms = cachedRooms.filter((room: any) => {
@@ -1334,12 +1343,14 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           console.log('[ElevationPlotHub] ✅ Updated IndexedDB cache - removed room from efe_rooms');
         } catch (cacheError) {
           console.warn('[ElevationPlotHub] Failed to update IndexedDB cache:', cacheError);
-          // Continue anyway - the API deletion succeeded
         }
 
         // DEXIE-FIRST: Mark room as deleted/unselected in Dexie (liveQuery will update UI)
         await this.efeFieldRepo.deleteRoom(this.serviceId, roomName);
         console.log('[ElevationPlotHub] ✅ Updated Dexie efeFields - room unselected');
+
+        // Refresh sync status to show pending deletion in UI
+        await this.backgroundSync.refreshSyncStatus();
 
         // Update local state - mark as unselected
         delete this.efeRecordIds[roomName];

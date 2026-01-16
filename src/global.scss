@@ -1632,6 +1632,95 @@ textarea.styled-input {
   }
 
   // =========================================================================
+  // HEADER: Completely static - NO changes on click/touch whatsoever
+  // =========================================================================
+  ion-header,
+  ion-toolbar,
+  ion-title,
+  ion-buttons {
+    transition: none !important;
+    transform: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+
+    &,
+    &:hover,
+    &:active,
+    &:focus,
+    &:focus-visible,
+    &:focus-within {
+      transition: none !important;
+      transform: none !important;
+      outline: none !important;
+      box-shadow: none !important;
+    }
+
+    // All children should also be static
+    * {
+      transition: none !important;
+      -webkit-tap-highlight-color: transparent !important;
+    }
+  }
+
+  // Header buttons must stay visible and unchanged
+  ion-header ion-button,
+  ion-toolbar ion-button,
+  ion-buttons ion-button {
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    -webkit-tap-highlight-color: transparent !important;
+
+    &,
+    &:hover,
+    &:active,
+    &:focus,
+    &:focus-visible {
+      transition: none !important;
+      transform: none !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      outline: none !important;
+      box-shadow: none !important;
+    }
+
+    &::part(native) {
+      transition: none !important;
+      transform: none !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+
+      &:hover, &:active, &:focus {
+        transition: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+    }
+
+    ion-icon {
+      transition: none !important;
+      transform: none !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+  }
+
+  // Title must not move
+  ion-title {
+    position: absolute !important;
+    transition: none !important;
+    transform: translateY(-50%) !important;
+
+    &,
+    &:hover,
+    &:active,
+    &:focus {
+      transition: none !important;
+    }
+  }
+
+  // =========================================================================
   // BUTTONS: Complete static state - NO visual feedback whatsoever
   // =========================================================================
 
@@ -1912,43 +2001,34 @@ textarea.styled-input {
     }
   }
 
-  // Back button - static and always visible
+  // Back button - static and always visible (reinforced)
   ion-back-button {
     transition: none !important;
+    transform: none !important;
     visibility: visible !important;
     opacity: 1 !important;
 
     &::part(native) {
       transition: none !important;
+      transform: none !important;
       visibility: visible !important;
       opacity: 1 !important;
       background: var(--noble-orange, #F15A27) !important;
+
+      &:hover, &:active, &:focus {
+        transition: none !important;
+        transform: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        background: var(--noble-orange, #F15A27) !important;
+      }
     }
 
     &, &:hover, &:active, &:focus, &:focus-visible {
       transition: none !important;
+      transform: none !important;
       opacity: 1 !important;
       visibility: visible !important;
-    }
-  }
-
-  // Header buttons - always visible, no disappearing on click
-  ion-header ion-button,
-  ion-toolbar ion-button {
-    transition: none !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-
-    &, &:hover, &:active, &:focus, &:focus-visible {
-      transition: none !important;
-      opacity: 1 !important;
-      visibility: visible !important;
-    }
-
-    &::part(native) {
-      transition: none !important;
-      visibility: visible !important;
-      opacity: 1 !important;
     }
   }
 

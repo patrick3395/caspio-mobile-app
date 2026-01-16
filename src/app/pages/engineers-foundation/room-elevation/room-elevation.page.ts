@@ -1313,17 +1313,28 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                       console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
                     }
 
+                    // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+                    const hasAnnotations = !!(localImg.drawings && localImg.drawings.length > 10);
+                    let thumbnailUrl = displayUrl;
+                    if (hasAnnotations) {
+                      const cachedAnnotated = this.bulkAnnotatedImagesMap.get(localImg.imageId)
+                        || (localImg.attachId ? this.bulkAnnotatedImagesMap.get(localImg.attachId) : null);
+                      if (cachedAnnotated) {
+                        thumbnailUrl = cachedAnnotated;
+                      }
+                    }
+
                     localPoint.photos.push({
                       imageId: localImg.imageId,
                       localImageId: localImg.imageId,
                       attachId: localImg.attachId || localImg.imageId,
                       photoType: localImg.photoType || 'Measurement',
                       url: displayUrl,
-                      displayUrl: displayUrl,
-                      thumbnailUrl: displayUrl,
+                      displayUrl: thumbnailUrl,  // Use annotated if available
+                      thumbnailUrl: thumbnailUrl,
                       caption: localImg.caption || '',
                       drawings: localImg.drawings || null,
-                      hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
+                      hasAnnotations: hasAnnotations,
                       uploading: false,  // SILENT SYNC: Never show spinner
                       queued: false,     // SILENT SYNC: Never show queued indicator
                       isPending: localImg.status !== 'verified',
@@ -1613,6 +1624,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
               }
 
+              // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+              const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+              let thumbnailUrl = displayUrl;
+              if (hasAnnotations) {
+                const cachedAnnotated = this.bulkAnnotatedImagesMap.get(localImage.imageId)
+                  || (localImage.attachId ? this.bulkAnnotatedImagesMap.get(String(localImage.attachId)) : null);
+                if (cachedAnnotated) {
+                  thumbnailUrl = cachedAnnotated;
+                }
+              }
+
               const localPhotoData: any = {
                 imageId: localImage.imageId,
                 AttachID: localImage.attachId || localImage.imageId,
@@ -1622,13 +1644,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 photoType: localImage.photoType || 'Measurement',
                 Type: localImage.photoType || 'Measurement',
                 url: displayUrl,
-                displayUrl: displayUrl,
-                thumbnailUrl: displayUrl,
+                displayUrl: thumbnailUrl,  // Use annotated if available
+                thumbnailUrl: thumbnailUrl,
                 caption: localImage.caption || '',
                 Annotation: localImage.caption || '',
                 drawings: localImage.drawings || null,
                 Drawings: localImage.drawings || null,
-                hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
+                hasAnnotations: hasAnnotations,
                 uploading: false,
                 queued: false,
                 isPending: localImage.status !== 'verified',
@@ -3125,17 +3147,28 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
               }
 
+              // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+              const hasAnnotations = !!(localImg.drawings && localImg.drawings.length > 10);
+              let thumbnailUrl = displayUrl;
+              if (hasAnnotations) {
+                const cachedAnnotated = this.bulkAnnotatedImagesMap.get(localImg.imageId)
+                  || (localImg.attachId ? this.bulkAnnotatedImagesMap.get(String(localImg.attachId)) : null);
+                if (cachedAnnotated) {
+                  thumbnailUrl = cachedAnnotated;
+                }
+              }
+
               const localPhotoData = {
                 imageId: localImg.imageId,
                 localImageId: localImg.imageId,
                 attachId: localImg.attachId || localImg.imageId,
                 photoType: localImg.photoType || 'Measurement',
                 url: displayUrl,
-                displayUrl: displayUrl,
-                thumbnailUrl: displayUrl,
+                displayUrl: thumbnailUrl,  // Use annotated if available
+                thumbnailUrl: thumbnailUrl,
                 caption: localImg.caption || '',
                 drawings: localImg.drawings || null,
-                hasAnnotations: !!(localImg.drawings && localImg.drawings.length > 10),
+                hasAnnotations: hasAnnotations,
                 uploading: false,  // SILENT SYNC: Never show spinner
                 queued: false,     // SILENT SYNC: Never show queued indicator
                 isPending: localImg.status !== 'verified',
@@ -3401,7 +3434,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             } catch (e) {
               console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
             }
-            
+
+            // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+            const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+            let thumbnailUrl = displayUrl;
+            if (hasAnnotations) {
+              const cachedAnnotated = this.bulkAnnotatedImagesMap.get(localImage.imageId)
+                || (localImage.attachId ? this.bulkAnnotatedImagesMap.get(String(localImage.attachId)) : null);
+              if (cachedAnnotated) {
+                thumbnailUrl = cachedAnnotated;
+              }
+            }
+
             const localPhotoData: any = {
               imageId: localImage.imageId,
               AttachID: localImage.attachId || localImage.imageId,
@@ -3411,13 +3455,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               photoType: localImage.photoType || 'Measurement',  // Use stored photoType!
               Type: localImage.photoType || 'Measurement',
               url: displayUrl,
-              displayUrl: displayUrl,
-              thumbnailUrl: displayUrl,
+              displayUrl: thumbnailUrl,  // Use annotated if available
+              thumbnailUrl: thumbnailUrl,
               caption: localImage.caption || '',
               Annotation: localImage.caption || '',
               drawings: localImage.drawings || null,
               Drawings: localImage.drawings || null,
-              hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
+              hasAnnotations: hasAnnotations,
               uploading: false,         // SILENT SYNC
               queued: false,            // SILENT SYNC
               isPending: localImage.status !== 'verified',
@@ -3593,14 +3637,25 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 );
                 
                 if (alreadyExists) continue;
-                
+
                 let displayUrl = 'assets/img/photo-placeholder.png';
                 try {
                   displayUrl = await this.localImageService.getDisplayUrl(localImage);
                 } catch (e) {
                   console.warn('[RoomElevation] Failed to get LocalImage displayUrl:', e);
                 }
-                
+
+                // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+                const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+                let thumbnailUrl = displayUrl;
+                if (hasAnnotations) {
+                  const cachedAnnotated = this.bulkAnnotatedImagesMap.get(localImage.imageId)
+                    || (localImage.attachId ? this.bulkAnnotatedImagesMap.get(String(localImage.attachId)) : null);
+                  if (cachedAnnotated) {
+                    thumbnailUrl = cachedAnnotated;
+                  }
+                }
+
                 customPointData.photos.push({
                   imageId: localImage.imageId,
                   AttachID: localImage.attachId || localImage.imageId,
@@ -3610,11 +3665,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   photoType: localImage.photoType || 'Measurement',
                   Type: localImage.photoType || 'Measurement',
                   url: displayUrl,
-                  displayUrl: displayUrl,
-                  thumbnailUrl: displayUrl,
+                  displayUrl: thumbnailUrl,  // Use annotated if available
+                  thumbnailUrl: thumbnailUrl,
                   caption: localImage.caption || '',
                   drawings: localImage.drawings || null,
-                  hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
+                  hasAnnotations: hasAnnotations,
                   uploading: false,
                   queued: false,
                   isPending: localImage.status !== 'verified',
@@ -5318,6 +5373,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             drawings: savedCompressedDrawings,
             caption: data.caption !== undefined ? data.caption : existingCaption,
             displayUrl: newUrl,
+            thumbnailUrl: newUrl,  // ANNOTATION FIX: Update thumbnail to show annotations
             hasAnnotations: !!annotationsData,
             Drawings: savedCompressedDrawings,
             _localUpdate: true
@@ -5328,6 +5384,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           photo.drawings = savedCompressedDrawings;
           photo.caption = data.caption !== undefined ? data.caption : existingCaption;
           photo.displayUrl = newUrl;
+          photo.thumbnailUrl = newUrl;  // ANNOTATION FIX: Update thumbnail to show annotations
           photo.hasAnnotations = !!annotationsData;
           console.log('[Point SAVE] ⚠️ Photo not found in array, mutated existing object');
         }

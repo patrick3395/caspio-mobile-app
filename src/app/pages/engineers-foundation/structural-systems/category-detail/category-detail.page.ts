@@ -827,19 +827,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           try {
             const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
             if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.png') {
-              // Update displayUrl to fresh local blob
+              // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+              const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10) || existingPhoto.hasAnnotations;
+              let thumbnailUrl = freshDisplayUrl;
+              if (hasAnnotations) {
+                const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
+                if (cachedAnnotatedImage) {
+                  thumbnailUrl = cachedAnnotatedImage;
+                }
+              }
+
+              // Update displayUrl to fresh local blob (or annotated for thumbnail)
               this.visualPhotos[key][existingPhotoIndex] = {
                 ...existingPhoto,
-                displayUrl: freshDisplayUrl,
-                url: freshDisplayUrl,
-                thumbnailUrl: freshDisplayUrl,
+                displayUrl: thumbnailUrl,  // Use annotated if available
+                url: freshDisplayUrl,      // Keep original for re-editing
+                thumbnailUrl: thumbnailUrl,
                 originalUrl: freshDisplayUrl,
                 // Update metadata that may have changed
                 localBlobId: localImage.localBlobId,
                 caption: localImage.caption || existingPhoto.caption || '',
                 Annotation: localImage.caption || existingPhoto.Annotation || '',
                 Drawings: localImage.drawings || existingPhoto.Drawings || null,
-                hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10) || existingPhoto.hasAnnotations,
+                hasAnnotations: hasAnnotations,
                 isLocalImage: true,
                 isLocalFirst: true
               };
@@ -5786,12 +5796,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 displayUrl: newUrl,
                 // Keep url pointing to base image (not the annotated version)
                 url: currentPhoto.url,
-                // Update thumbnailUrl if it was a placeholder or blob URL
-                thumbnailUrl: (currentPhoto.thumbnailUrl &&
-                              !currentPhoto.thumbnailUrl.startsWith('blob:') &&
-                              currentPhoto.thumbnailUrl !== 'assets/img/photo-placeholder.png')
-                              ? currentPhoto.thumbnailUrl
-                              : currentPhoto.url,
+                // ANNOTATION FIX: thumbnailUrl should show annotated image, not original
+                thumbnailUrl: newUrl,
                 // Mark as having annotations
                 hasAnnotations: !!annotationsData,
                 // Store caption
@@ -5885,11 +5891,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
               // Update local photo object with annotated image
               console.log('[SAVE OFFLINE] Updating local photo object, newUrl:', newUrl ? 'created' : 'missing');
-              
+
               this.visualPhotos[key][photoIndex] = {
                 ...currentPhoto,
                 originalUrl: currentPhoto.originalUrl || currentPhoto.url,
                 displayUrl: newUrl,  // CRITICAL: Show annotated image immediately
+                thumbnailUrl: newUrl,  // ANNOTATION FIX: thumbnailUrl should show annotated image
                 hasAnnotations: !!annotationsData,
                 caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
                 annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,

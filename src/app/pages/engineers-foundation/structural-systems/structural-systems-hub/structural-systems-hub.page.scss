@@ -202,29 +202,73 @@ select.styled-input {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        border: 2px solid;
         font-size: 11px;
         font-weight: 700;
 
-        // Green circle for information/comments
+        // Green CIRCLE for information/comments
         &.info {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          border: 2px solid #28a745;
           color: #28a745;
-          border-color: #28a745;
         }
 
-        // Yellow/Orange circle for limitations
+        // Yellow/Orange SQUARE for limitations
         &.limitation {
+          width: 22px;
+          height: 22px;
+          border-radius: 3px;
+          border: 2px solid #f0ad4e;
           color: #f0ad4e;
-          border-color: #f0ad4e;
         }
 
-        // Red circle for deficiencies
+        // Red TRIANGLE for deficiencies
         &.deficiency {
+          width: 0;
+          height: 0;
+          border: none;
+          border-left: 13px solid transparent;
+          border-right: 13px solid transparent;
+          border-bottom: 22px solid transparent;
+          position: relative;
           color: #dc3545;
-          border-color: #dc3545;
+
+          // Triangle outline using pseudo-element
+          &::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: -11px;
+            width: 0;
+            height: 0;
+            border-left: 11px solid transparent;
+            border-right: 11px solid transparent;
+            border-bottom: 18px solid #dc3545;
+          }
+
+          // Inner white triangle to create outline effect
+          &::after {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: -9px;
+            width: 0;
+            height: 0;
+            border-left: 9px solid transparent;
+            border-right: 9px solid transparent;
+            border-bottom: 15px solid white;
+          }
+
+          // Number inside triangle
+          span {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1;
+            font-size: 10px;
+          }
         }
       }
     }
