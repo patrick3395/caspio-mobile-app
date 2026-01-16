@@ -68,6 +68,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   // Dexie-first: Reactive subscription to efeFields for instant page rendering
   private efeFieldsSubscription?: Subscription;
   private efeFieldsSeeded: boolean = false;
+
+  // Track last navigated room for inserting new rooms after it
+  private lastNavigatedRoom: string | null = null;
   
   // Standardized UI state flags
   isOnline: boolean = true;
@@ -593,6 +596,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       event.stopPropagation();
       event.preventDefault();
     }
+
+    // Track last navigated room for new room insertion positioning
+    this.lastNavigatedRoom = room.RoomName;
 
     // If room is not selected, create it first
     if (!room.isSelected) {
@@ -1735,20 +1741,45 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         roomData.TemplateID = template.TemplateID || template.PK_ID;
       }
 
-      // Set Organization to 0 so new room appears at the top of the list
-      roomData.Organization = 0;
-      console.log('[Add Room] Setting Organization to: 0 (top of list)');
+      // Determine insertion position based on last navigated room
+      let insertIndex = 0;
+      let newOrganization = 0;
+
+      if (this.lastNavigatedRoom) {
+        const lastRoomIndex = this.roomTemplates.findIndex(r => r.RoomName === this.lastNavigatedRoom);
+        if (lastRoomIndex >= 0) {
+          // Insert after the last navigated room
+          insertIndex = lastRoomIndex + 1;
+          const lastRoomOrg = this.roomTemplates[lastRoomIndex].Organization ?? 0;
+          // Set organization to be just after the last room
+          newOrganization = lastRoomOrg + 1;
+          console.log(`[Add Room] Inserting after "${this.lastNavigatedRoom}" at index ${insertIndex}, org=${newOrganization}`);
+        }
+      } else {
+        console.log('[Add Room] No last navigated room, inserting at top');
+      }
+
+      roomData.Organization = newOrganization;
 
       // OPTIMISTIC UI: Create new room object and add to display list
       const newRoom: RoomDisplayData = {
         ...template,
         RoomName: roomName,
-        Organization: 0,
+        Organization: newOrganization,
         isSelected: true,
         isSaving: true
       };
 
-      this.roomTemplates.unshift(newRoom);  // Add to top of list
+      // Insert at the calculated position
+      if (insertIndex === 0) {
+        this.roomTemplates.unshift(newRoom);  // Add to top if no last room
+      } else {
+        this.roomTemplates.splice(insertIndex, 0, newRoom);  // Insert after last navigated room
+      }
+
+      // Update lastNavigatedRoom so next added room chains after this one
+      this.lastNavigatedRoom = roomName;
+
       this.selectedRooms[roomName] = true;
       const tempEfeId = `temp_efe_${Date.now()}`;
       this.efeRecordIds[roomName] = tempEfeId;
@@ -1774,7 +1805,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.serviceId,
           roomName,
           template.TemplateID || template.PK_ID,
-          0,  // Organization 0 = top of list
+          newOrganization,  // Insert after last navigated room
           null,  // efeId not yet known
           tempEfeId,
           efePoints
