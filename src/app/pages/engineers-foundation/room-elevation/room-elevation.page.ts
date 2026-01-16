@@ -4942,7 +4942,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           this.roomData.elevationPoints.splice(index, 1);
         }
 
-        // Update local cache
+        // DEXIE-FIRST: Remove point from Dexie so deletion persists across page reloads
+        await this.efeFieldRepo.removePoint(
+          this.serviceId,
+          this.roomName,
+          { pointId: point.pointId, pointNumber: point.pointNumber }
+        );
+
+        // Update local cache (legacy)
         await this.updateLocalEFECache({ elevationPoints: this.roomData.elevationPoints });
 
         // Refresh sync status to show in UI

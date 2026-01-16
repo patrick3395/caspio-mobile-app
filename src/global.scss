@@ -268,6 +268,45 @@ ion-action-sheet {
   }
 }
 
+// Room Selection Action Sheet - No hover/touch highlighting on mobile
+.room-selection-sheet {
+  .action-sheet-group {
+    .action-sheet-button {
+      // Disable all transitions
+      transition: none !important;
+
+      // Remove tap highlight
+      -webkit-tap-highlight-color: transparent !important;
+
+      // Ensure static appearance on all states
+      &,
+      &:hover,
+      &:active,
+      &:focus,
+      &:focus-visible {
+        background: transparent !important;
+        transition: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+        outline: none !important;
+      }
+
+      // Mobile-specific - no hover background on touch
+      @media (hover: none), (pointer: coarse) {
+        &:hover,
+        &:active,
+        &:focus,
+        &.activated,
+        &.ion-activated,
+        &[aria-pressed="true"] {
+          background: transparent !important;
+          color: #000 !important;
+        }
+      }
+    }
+  }
+}
+
 // ============================================================================
 // CRITICAL: Input and Textarea cursor color - BLACK CURSOR EVERYWHERE
 // ============================================================================
@@ -1581,12 +1620,12 @@ textarea.styled-input {
   }
 
   // GLOBAL: Disable all hover, active, and focus visual states
+  // NOTE: Do NOT use background-color: unset here - it breaks header buttons
   *:hover,
   *:active,
   *:focus,
   *:focus-visible,
   *:focus-within {
-    background-color: unset;
     outline: none !important;
     box-shadow: none !important;
     transform: none !important;
@@ -1873,16 +1912,42 @@ textarea.styled-input {
     }
   }
 
-  // Back button - static
+  // Back button - static and always visible
   ion-back-button {
     transition: none !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 
     &::part(native) {
       transition: none !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      background: var(--noble-orange, #F15A27) !important;
     }
 
-    &, &:hover, &:active, &:focus {
+    &, &:hover, &:active, &:focus, &:focus-visible {
       transition: none !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+  }
+
+  // Header buttons - always visible, no disappearing on click
+  ion-header ion-button,
+  ion-toolbar ion-button {
+    transition: none !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+
+    &, &:hover, &:active, &:focus, &:focus-visible {
+      transition: none !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+
+    &::part(native) {
+      transition: none !important;
+      visibility: visible !important;
       opacity: 1 !important;
     }
   }
@@ -1894,6 +1959,36 @@ textarea.styled-input {
     &, &:hover, &:active, &:focus {
       transition: none !important;
       opacity: 1 !important;
+    }
+  }
+
+  // Action sheet buttons - static (no highlighting when scrolling)
+  ion-action-sheet {
+    .action-sheet-group {
+      .action-sheet-button {
+        transition: none !important;
+        -webkit-tap-highlight-color: transparent !important;
+
+        &,
+        &:hover,
+        &:active,
+        &:focus,
+        &:focus-visible,
+        &.activated,
+        &.ion-activated,
+        &[aria-pressed="true"] {
+          background: transparent !important;
+          transition: none !important;
+          transform: none !important;
+          opacity: 1 !important;
+          outline: none !important;
+          box-shadow: none !important;
+        }
+
+        .action-sheet-button-inner {
+          background: transparent !important;
+        }
+      }
     }
   }
 

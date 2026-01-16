@@ -1722,6 +1722,52 @@ export class BackgroundSyncService {
       }
     }
 
+    // Resolve PointID=DEFERRED for point deletion/update with temp IDs
+    if (endpoint.includes('PointID=DEFERRED') && data._tempPointId) {
+      const tempPointId = data._tempPointId;
+
+      // Check if _tempPointId is already a real ID
+      if (typeof tempPointId === 'string' && !tempPointId.startsWith('temp_')) {
+        // Already a real ID - use it directly
+        endpoint = endpoint.replace('PointID=DEFERRED', `PointID=${tempPointId}`);
+        console.log(`[BackgroundSync] Using real PointID directly: ${tempPointId}`);
+        delete data._tempPointId;
+      } else {
+        // Still a temp ID - try to resolve it
+        const realPointId = await this.indexedDb.getRealId(tempPointId);
+        if (realPointId) {
+          endpoint = endpoint.replace('PointID=DEFERRED', `PointID=${realPointId}`);
+          console.log(`[BackgroundSync] Resolved PointID DEFERRED: ${tempPointId} → ${realPointId}`);
+          delete data._tempPointId;
+        } else {
+          // Point not synced yet - throw error to defer
+          console.log(`[BackgroundSync] Point operation deferred - point not synced yet: ${tempPointId}`);
+          throw new Error(`Point not synced yet: ${tempPointId}`);
+        }
+      }
+    }
+
+    // Resolve AttachID=DEFERRED for attachment deletion with temp IDs
+    if (endpoint.includes('AttachID=DEFERRED') && data._tempAttachId) {
+      const tempAttachId = data._tempAttachId;
+
+      if (typeof tempAttachId === 'string' && !tempAttachId.startsWith('temp_')) {
+        endpoint = endpoint.replace('AttachID=DEFERRED', `AttachID=${tempAttachId}`);
+        console.log(`[BackgroundSync] Using real AttachID directly: ${tempAttachId}`);
+        delete data._tempAttachId;
+      } else {
+        const realAttachId = await this.indexedDb.getRealId(tempAttachId);
+        if (realAttachId) {
+          endpoint = endpoint.replace('AttachID=DEFERRED', `AttachID=${realAttachId}`);
+          console.log(`[BackgroundSync] Resolved AttachID DEFERRED: ${tempAttachId} → ${realAttachId}`);
+          delete data._tempAttachId;
+        } else {
+          console.log(`[BackgroundSync] Attachment operation deferred - not synced yet: ${tempAttachId}`);
+          throw new Error(`Attachment not synced yet: ${tempAttachId}`);
+        }
+      }
+    }
+
     return { ...request, endpoint, data };
   }
 

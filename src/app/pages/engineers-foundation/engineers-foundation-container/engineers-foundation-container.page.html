@@ -9,7 +9,7 @@
     <ion-title class="short-title">{{ currentPageShortTitle }}</ion-title>
     <ion-buttons slot="end">
       <app-sync-status-widget></app-sync-status-widget>
-      <ion-button (click)="generatePDF()" [disabled]="isGeneratingPDF">
+      <ion-button *ngIf="!isSubPage" (click)="generatePDF()" [disabled]="isGeneratingPDF">
         <ion-icon slot="icon-only" name="document-text"></ion-icon>
       </ion-button>
     </ion-buttons>

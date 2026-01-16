@@ -673,6 +673,62 @@ export class EfeFieldRepoService {
   }
 
   /**
+   * Remove a point from a room's elevation points (for deletion)
+   * Can match by pointNumber, pointId, or tempPointId
+   */
+  async removePoint(
+    serviceId: string,
+    roomName: string,
+    identifier: { pointNumber?: number; pointId?: string; tempPointId?: string }
+  ): Promise<boolean> {
+    const key = `${serviceId}:${roomName}`;
+    let removed = false;
+
+    await db.transaction('rw', db.efeFields, async () => {
+      const existing = await db.efeFields.where('key').equals(key).first();
+
+      if (existing) {
+        const elevationPoints = [...existing.elevationPoints];
+
+        // Find the point by pointNumber, pointId, or tempPointId
+        const pointIndex = elevationPoints.findIndex(p => {
+          if (identifier.pointNumber !== undefined && p.pointNumber === identifier.pointNumber) {
+            return true;
+          }
+          if (identifier.pointId && (p.pointId === identifier.pointId || p.tempPointId === identifier.pointId)) {
+            return true;
+          }
+          if (identifier.tempPointId && p.tempPointId === identifier.tempPointId) {
+            return true;
+          }
+          return false;
+        });
+
+        if (pointIndex >= 0) {
+          const removedPoint = elevationPoints.splice(pointIndex, 1)[0];
+
+          await db.efeFields.update(existing.id!, {
+            elevationPoints,
+            pointCount: elevationPoints.length,
+            rev: existing.rev + 1,
+            updatedAt: Date.now(),
+            dirty: true
+          });
+
+          console.log(`[EfeFieldRepo] Removed point "${removedPoint.name}" (pointNumber: ${removedPoint.pointNumber})`);
+          removed = true;
+        } else {
+          console.warn(`[EfeFieldRepo] Point not found for removal:`, identifier);
+        }
+      } else {
+        console.warn(`[EfeFieldRepo] Cannot remove point - room not found: ${key}`);
+      }
+    });
+
+    return removed;
+  }
+
+  /**
    * Update FDF photo metadata
    */
   async setFdfPhoto(

@@ -35,6 +35,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   currentPageTitle: string = 'Engineers Foundation Evaluation';
   currentPageShortTitle: string = 'EFE';
   isGeneratingPDF: boolean = false;
+  isSubPage: boolean = false;
 
   // Offline-first: template loading state
   templateReady: boolean = false;
@@ -200,9 +201,9 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     // URL format: /engineers-foundation/{projectId}/{serviceId}/...
 
     // Check if we're on a sub-page (not the main EFE hub)
-    const isSubPage = url.includes('/project-details') ||
-                      url.includes('/structural') ||
-                      url.includes('/elevation');
+    this.isSubPage = url.includes('/project-details') ||
+                     url.includes('/structural') ||
+                     url.includes('/elevation');
 
     // Always add EFE main page breadcrumb (clipboard icon)
     this.breadcrumbs.push({

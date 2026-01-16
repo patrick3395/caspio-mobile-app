@@ -826,47 +826,43 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
           console.log('[Rename Room] Updated Dexie efeFields');
         } else {
-          // REAL ROOM: Update via API
-          console.log('[Rename Room] Verifying room belongs to current service...');
-          const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
-          const roomToRename = existingRooms.find(r => r.EFEID === roomId);
+          // REAL ROOM: Queue rename for background sync (offline-first pattern)
+          console.log('[Rename Room] Real room - queueing rename for sync...');
 
-          if (!roomToRename) {
-            console.error('[Rename Room] Room not found in current service!');
-            console.error('[Rename Room] Looking for EFEID:', roomId, 'in service:', this.serviceId);
-          } else {
-            if (roomToRename.RoomName !== oldRoomName) {
-              console.warn('[Rename Room] Room name mismatch in database');
-              console.warn('[Rename Room] Expected:', oldRoomName, 'Got:', roomToRename.RoomName);
-            }
+          // Queue the rename as a pending request
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`,
+            method: 'PUT',
+            data: { RoomName: newRoomName },
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+          console.log('[Rename Room] Queued rename for sync');
 
-            console.log('[Rename Room] Verified room:', roomToRename.RoomName, 'EFEID:', roomToRename.EFEID, 'ServiceID:', roomToRename.ServiceID);
-
-            // Update database using the verified EFEID
-            console.log('[Rename Room] Updating database for room:', oldRoomName, 'to:', newRoomName);
-            const updateData = { RoomName: newRoomName };
-            await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
-            console.log('[Rename Room] Database update successful for EFEID:', roomId);
-
-            // CRITICAL: Update IndexedDB cache so navigating back doesn't revert the name
-            try {
-              const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
-              const updatedCachedRooms = cachedRooms.map((room: any) => {
-                if (String(room.EFEID) === String(roomId) || room.RoomName === oldRoomName) {
-                  return { ...room, RoomName: newRoomName };
-                }
-                return room;
-              });
-              await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedCachedRooms);
-              console.log('[Rename Room] Updated efe_rooms cache');
-            } catch (cacheError) {
-              console.warn('[Rename Room] Failed to update cache (non-fatal):', cacheError);
-            }
-
-            // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
-            await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
-            console.log('[Rename Room] Updated Dexie efeFields');
+          // Update IndexedDB cache for immediate persistence
+          try {
+            const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+            const updatedCachedRooms = cachedRooms.map((room: any) => {
+              if (String(room.EFEID) === String(roomId) || room.RoomName === oldRoomName) {
+                return { ...room, RoomName: newRoomName };
+              }
+              return room;
+            });
+            await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedCachedRooms);
+            console.log('[Rename Room] Updated efe_rooms cache');
+          } catch (cacheError) {
+            console.warn('[Rename Room] Failed to update cache (non-fatal):', cacheError);
           }
+
+          // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
+          await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
+          console.log('[Rename Room] Updated Dexie efeFields');
+
+          // Refresh sync status to show pending rename in UI
+          await this.backgroundSync.refreshSyncStatus();
         }
 
         // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
