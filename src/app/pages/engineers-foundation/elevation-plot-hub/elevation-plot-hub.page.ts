@@ -726,7 +726,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // Pre-check if room can be renamed (synchronous validation)
     const roomId = this.efeRecordIds[oldRoomName];
     const roomIdStr = String(roomId || '');
-    const canRename = roomId && roomId !== '__pending__' && !roomIdStr.startsWith('temp_');
+    const isTempRoom = roomIdStr.startsWith('temp_');
+    // Allow renaming for both real and temp rooms (temp rooms will update pending request)
+    const canRename = roomId && roomId !== '__pending__';
 
     // Store the validated new name here so we can access it after dismiss
     let validatedNewName: string | null = null;
@@ -791,77 +793,95 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[Rename Room] Detached change detection');
 
       try {
-        console.log('[Rename Room] Verifying room belongs to current service...');
-        const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
-        const roomToRename = existingRooms.find(r => r.EFEID === roomId);
+        if (isTempRoom) {
+          // TEMP ROOM: Update Dexie and pending request data (no API call needed)
+          console.log('[Rename Room] Temp room - updating Dexie and pending request...');
 
-        if (!roomToRename) {
-          console.error('[Rename Room] Room not found in current service!');
-          console.error('[Rename Room] Looking for EFEID:', roomId, 'in service:', this.serviceId);
-        } else {
-          if (roomToRename.RoomName !== oldRoomName) {
-            console.warn('[Rename Room] Room name mismatch in database');
-            console.warn('[Rename Room] Expected:', oldRoomName, 'Got:', roomToRename.RoomName);
-          }
+          // Update pending request data with new room name
+          await this.indexedDb.updatePendingRequestData(roomId, { RoomName: newRoomName });
+          console.log('[Rename Room] Updated pending request data');
 
-          console.log('[Rename Room] Verified room:', roomToRename.RoomName, 'EFEID:', roomToRename.EFEID, 'ServiceID:', roomToRename.ServiceID);
-
-          // Update database using the verified EFEID
-          console.log('[Rename Room] Updating database for room:', oldRoomName, 'to:', newRoomName);
-          const updateData = { RoomName: newRoomName };
-          await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
-          console.log('[Rename Room] Database update successful for EFEID:', roomId);
+          // Update pending EFE data
+          await this.indexedDb.updatePendingEFE(roomId, { RoomName: newRoomName });
+          console.log('[Rename Room] Updated pending EFE data');
 
           // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
           await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
           console.log('[Rename Room] Updated Dexie efeFields');
+        } else {
+          // REAL ROOM: Update via API
+          console.log('[Rename Room] Verifying room belongs to current service...');
+          const existingRooms = await this.foundationData.getEFEByService(this.serviceId, true);
+          const roomToRename = existingRooms.find(r => r.EFEID === roomId);
 
-          // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
-          console.log('[Rename Room] Updating all local state dictionaries atomically...');
+          if (!roomToRename) {
+            console.error('[Rename Room] Room not found in current service!');
+            console.error('[Rename Room] Looking for EFEID:', roomId, 'in service:', this.serviceId);
+          } else {
+            if (roomToRename.RoomName !== oldRoomName) {
+              console.warn('[Rename Room] Room name mismatch in database');
+              console.warn('[Rename Room] Expected:', oldRoomName, 'Got:', roomToRename.RoomName);
+            }
 
-          // CRITICAL: Set rename flag for new name too to block any checkbox events
-          this.renamingRooms[newRoomName] = true;
+            console.log('[Rename Room] Verified room:', roomToRename.RoomName, 'EFEID:', roomToRename.EFEID, 'ServiceID:', roomToRename.ServiceID);
 
-          const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === oldRoomName);
+            // Update database using the verified EFEID
+            console.log('[Rename Room] Updating database for room:', oldRoomName, 'to:', newRoomName);
+            const updateData = { RoomName: newRoomName };
+            await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
+            console.log('[Rename Room] Database update successful for EFEID:', roomId);
 
-          // Step 1: ADD new entries (don't delete old ones yet)
-          if (this.efeRecordIds[oldRoomName]) {
-            this.efeRecordIds[newRoomName] = this.efeRecordIds[oldRoomName];
+            // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
+            await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
+            console.log('[Rename Room] Updated Dexie efeFields');
           }
-          if (this.selectedRooms[oldRoomName]) {
-            this.selectedRooms[newRoomName] = this.selectedRooms[oldRoomName];
-          }
-          if (this.savingRooms[oldRoomName]) {
-            this.savingRooms[newRoomName] = this.savingRooms[oldRoomName];
-          }
-          if (this.roomElevationData[oldRoomName]) {
-            this.roomElevationData[newRoomName] = this.roomElevationData[oldRoomName];
-          }
-
-          console.log('[Rename Room] Created new entries. selectedRooms:', Object.keys(this.selectedRooms));
-
-          // Step 2: UPDATE the roomTemplates array (this is what Angular watches)
-          if (roomIndex >= 0) {
-            this.roomTemplates[roomIndex] = {
-              ...this.roomTemplates[roomIndex],
-              RoomName: newRoomName
-            };
-            console.log('[Rename Room] Updated roomTemplates array with new object reference');
-          }
-
-          // Step 3: NOW delete old entries
-          setTimeout(() => {
-            delete this.efeRecordIds[oldRoomName];
-            delete this.selectedRooms[oldRoomName];
-            delete this.savingRooms[oldRoomName];
-            delete this.roomElevationData[oldRoomName];
-            console.log('[Rename Room] Deleted old entries after timeout');
-          }, 100);
-
-          // Clear rename flag for both old and new names
-          delete this.renamingRooms[oldRoomName];
-          delete this.renamingRooms[newRoomName];
         }
+
+        // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
+        console.log('[Rename Room] Updating all local state dictionaries atomically...');
+
+        // CRITICAL: Set rename flag for new name too to block any checkbox events
+        this.renamingRooms[newRoomName] = true;
+
+        const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === oldRoomName);
+
+        // Step 1: ADD new entries (don't delete old ones yet)
+        if (this.efeRecordIds[oldRoomName]) {
+          this.efeRecordIds[newRoomName] = this.efeRecordIds[oldRoomName];
+        }
+        if (this.selectedRooms[oldRoomName]) {
+          this.selectedRooms[newRoomName] = this.selectedRooms[oldRoomName];
+        }
+        if (this.savingRooms[oldRoomName]) {
+          this.savingRooms[newRoomName] = this.savingRooms[oldRoomName];
+        }
+        if (this.roomElevationData[oldRoomName]) {
+          this.roomElevationData[newRoomName] = this.roomElevationData[oldRoomName];
+        }
+
+        console.log('[Rename Room] Created new entries. selectedRooms:', Object.keys(this.selectedRooms));
+
+        // Step 2: UPDATE the roomTemplates array (this is what Angular watches)
+        if (roomIndex >= 0) {
+          this.roomTemplates[roomIndex] = {
+            ...this.roomTemplates[roomIndex],
+            RoomName: newRoomName
+          };
+          console.log('[Rename Room] Updated roomTemplates array with new object reference');
+        }
+
+        // Step 3: NOW delete old entries
+        setTimeout(() => {
+          delete this.efeRecordIds[oldRoomName];
+          delete this.selectedRooms[oldRoomName];
+          delete this.savingRooms[oldRoomName];
+          delete this.roomElevationData[oldRoomName];
+          console.log('[Rename Room] Deleted old entries after timeout');
+        }, 100);
+
+        // Clear rename flag for both old and new names
+        delete this.renamingRooms[oldRoomName];
+        delete this.renamingRooms[newRoomName];
       } catch (error) {
         console.error('[Rename Room] Database update FAILED:', error);
       }
@@ -960,8 +980,14 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         roomData.TemplateID = templateId;
       }
 
-      console.log('[Duplicate Room] Creating room in database:', roomData);
+      console.log('[Duplicate Room] Creating room via foundationData.createEFERoom (Dexie-first):', roomData);
       console.log('[Duplicate Room] Original Organization:', originalRoomOrg, '→ New Organization:', newOrganization);
+
+      // DEXIE-FIRST: Use foundationData.createEFERoom() to create room via pending request
+      // This creates a pending request record that points can depend on for proper sync
+      const roomResponse = await this.foundationData.createEFERoom(roomData);
+      const tempEfeId = roomResponse._tempId || roomResponse.EFEID;
+      console.log('[Duplicate Room] Room queued with tempEfeId:', tempEfeId);
 
       // OPTIMISTIC UI: Add the new room to the list immediately right after the original
       const newRoom: RoomDisplayData = {
@@ -971,7 +997,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         isSelected: true,
         isSaving: true
       };
-      
+
       // Find the index of the original room and insert the duplicate right after it
       const originalRoomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
       if (originalRoomIndex >= 0) {
@@ -980,9 +1006,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         // Fallback: add to end if original not found
         this.roomTemplates.push(newRoom);
       }
-      
+
       this.selectedRooms[newRoomName] = true;
-      const tempEfeId = `temp_efe_${Date.now()}`;
       this.efeRecordIds[newRoomName] = tempEfeId;
       this.savingRooms[newRoomName] = true;
       this.changeDetectorRef.detectChanges();
@@ -1010,45 +1035,21 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         );
         console.log('[Duplicate Room] Added room to Dexie with tempEfeId:', tempEfeId);
 
-        // Create elevation points in Dexie
+        // Create elevation points in Dexie - points depend on the room's pending request above
         await this.efeFieldRepo.createPointRecordsForRoom(
           this.serviceId,
           newRoomName,
           tempEfeId,
           this.foundationData
         );
+        console.log('[Duplicate Room] Created elevation points with temp IDs');
       } catch (dexieError) {
         console.error('[Duplicate Room] Dexie update error (non-fatal):', dexieError);
       }
 
-      // Create room in database
-      const response = await this.caspioService.createServicesEFE(roomData).toPromise();
-      const roomId = response?.EFEID || response?.PK_ID || response?.id;
-
-      if (roomId) {
-        // Update with real ID
-        this.efeRecordIds[newRoomName] = roomId;
-        this.savingRooms[newRoomName] = false;
-
-        const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === newRoomName);
-        if (roomIndex >= 0) {
-          this.roomTemplates[roomIndex].isSaving = false;
-          this.roomTemplates[roomIndex].efeId = roomId;
-        }
-
-        // DEXIE-FIRST: Update Dexie with real efeId
-        try {
-          await this.efeFieldRepo.updateEfeId(this.serviceId, newRoomName, String(roomId));
-          console.log('[Duplicate Room] Updated Dexie with real efeId:', roomId);
-        } catch (dexieError) {
-          console.error('[Duplicate Room] Failed to update Dexie with real efeId:', dexieError);
-        }
-
-        this.changeDetectorRef.detectChanges();
-        console.log('[Duplicate Room] Room duplicated successfully:', newRoomName, 'EFEID:', roomId);
-      } else {
-        throw new Error('No room ID returned from creation');
-      }
+      // Room and points are now queued for background sync
+      // No direct API call needed - BackgroundSyncService will handle it
+      console.log('[Duplicate Room] Room and points queued for sync:', newRoomName, 'tempEfeId:', tempEfeId);
     } catch (error) {
       console.error('[Duplicate Room] Error duplicating room:', error);
 
@@ -1839,6 +1840,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
       roomData.Organization = newOrganization;
 
+      // DEXIE-FIRST: Use foundationData.createEFERoom() to create room via pending request
+      // This creates a pending request record that points can depend on for proper sync
+      console.log('[Add Room] Creating room via foundationData.createEFERoom (Dexie-first)');
+      const roomResponse = await this.foundationData.createEFERoom(roomData);
+      const tempEfeId = roomResponse._tempId || roomResponse.EFEID;
+      console.log('[Add Room] Room queued with tempEfeId:', tempEfeId);
+
       // OPTIMISTIC UI: Create new room object and add to display list
       const newRoom: RoomDisplayData = {
         ...template,
@@ -1859,7 +1867,6 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       this.lastNavigatedRoom = roomName;
 
       this.selectedRooms[roomName] = true;
-      const tempEfeId = `temp_efe_${Date.now()}`;
       this.efeRecordIds[roomName] = tempEfeId;
       this.savingRooms[roomName] = true;
       this.changeDetectorRef.detectChanges();
@@ -1891,6 +1898,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log('[Add Room] Added room to Dexie with tempEfeId:', tempEfeId);
 
         // DEXIE-FIRST: Create ALL elevation points with tempPointIds NOW
+        // Points depend on the room's pending request, which was just created above
         // This ensures all buttons are enabled when entering room-elevation
         const createdPoints = await this.efeFieldRepo.createPointRecordsForRoom(
           this.serviceId,
@@ -1901,65 +1909,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log('[Add Room] Created', createdPoints.length, 'elevation points with temp IDs');
       } catch (dexieError) {
         console.error('[Add Room] Dexie update error (non-fatal):', dexieError);
-        // Continue - room will still be created in backend
+        // Continue - room and points are queued for sync
       }
 
-      try {
-        // Create room in database
-        const response = await this.caspioService.createServicesEFE(roomData).toPromise();
-        const roomId = response?.EFEID || response?.PK_ID || response?.id;
-
-        if (roomId) {
-          this.efeRecordIds[roomName] = roomId;
-          this.savingRooms[roomName] = false;
-
-          const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
-          if (roomIndex >= 0) {
-            this.roomTemplates[roomIndex].isSaving = false;
-            this.roomTemplates[roomIndex].efeId = roomId;
-          }
-
-          // DEXIE-FIRST: Update Dexie with real efeId
-          try {
-            await this.efeFieldRepo.updateEfeId(this.serviceId, roomName, String(roomId));
-            console.log('[Add Room] Updated Dexie with real efeId:', roomId);
-          } catch (dexieError) {
-            console.error('[Add Room] Failed to update Dexie with real efeId:', dexieError);
-          }
-
-          this.changeDetectorRef.detectChanges();
-          // Toast removed per user request
-          console.log('[Add Room] Room created successfully:', roomName, 'EFEID:', roomId);
-        } else {
-          throw new Error('No room ID returned from creation');
-        }
-      } catch (error) {
-        console.error('[Add Room] Error creating room:', error);
-
-        // Revert optimistic UI
-        this.selectedRooms[roomName] = false;
-        delete this.efeRecordIds[roomName];
-        this.savingRooms[roomName] = false;
-        delete this.roomElevationData[roomName];
-
-        // DEXIE-FIRST: Revert Dexie changes on failure
-        try {
-          await this.efeFieldRepo.deleteRoom(this.serviceId, roomName);
-          console.log('[Add Room] Reverted Dexie room on failure');
-        } catch (dexieError) {
-          console.error('[Add Room] Failed to revert Dexie:', dexieError);
-        }
-
-        // Remove from roomTemplates list
-        const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
-        if (roomIndex >= 0) {
-          this.roomTemplates.splice(roomIndex, 1);
-        }
-
-        this.changeDetectorRef.detectChanges();
-        // Toast removed per user request
-        // await this.showToast(`Failed to create room "${roomName}"`, 'danger');
-      }
+      // Room and points are now queued for background sync
+      // No direct API call needed - BackgroundSyncService will handle it
+      console.log('[Add Room] Room and points queued for sync:', roomName, 'tempEfeId:', tempEfeId);
     } catch (error) {
       console.error('[Add Room] Error in addRoomTemplate:', error);
       // Toast removed per user request

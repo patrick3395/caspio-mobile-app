@@ -835,24 +835,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       const photoType = localImage.photoType || 'Top';
       const photoKey = photoType.toLowerCase();
 
-      // CRITICAL: Update the displayUrl from the LocalImage
-      // This ensures the FDF photo stays visible even if blob URL was invalidated
+      // DEXIE-FIRST: Always update the displayUrl from the LocalImage
+      // The LocalImage blob is the source of truth - always use it if available
       try {
         const freshUrl = await this.localImageService.getDisplayUrl(localImage);
         if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
-          // Only update if we got a valid URL and current one is invalid
-          const currentUrl = fdfPhotos[`${photoKey}DisplayUrl`];
-          const needsUpdate = !currentUrl ||
-            currentUrl === 'assets/img/photo-placeholder.png' ||
-            currentUrl.includes('placeholder') ||
-            (currentUrl.startsWith('blob:') && !await this.isValidBlobUrl(currentUrl));
-
-          if (needsUpdate) {
-            console.log('[RoomElevation] Refreshing FDF displayUrl for:', photoKey, localImage.imageId);
-            fdfPhotos[photoKey] = true;
-            fdfPhotos[`${photoKey}Url`] = freshUrl;
-            fdfPhotos[`${photoKey}DisplayUrl`] = freshUrl;
-          }
+          // DEXIE-FIRST: Always apply fresh URL from LocalImages (source of truth)
+          console.log('[RoomElevation] Refreshing FDF displayUrl for:', photoKey, localImage.imageId);
+          fdfPhotos[photoKey] = true;
+          fdfPhotos[`${photoKey}Url`] = freshUrl;
+          fdfPhotos[`${photoKey}DisplayUrl`] = freshUrl;
 
           // SILENT SYNC: Don't show uploading indicators (matches Structural Systems pattern)
           fdfPhotos[`${photoKey}Loading`] = false;
@@ -2487,17 +2479,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         const photoType = localImage.photoType || 'Top';  // Default to Top if not specified
         const photoKey = photoType.toLowerCase();
 
-        // TASK 1 FIX: ALWAYS apply LocalImage data if the image exists and has local blob
-        // This ensures photos persist through navigation during sync
-        // The local blob URL is the source of truth until the image is fully verified on server
+        // DEXIE-FIRST FIX: ALWAYS apply LocalImage data if the image exists and has local blob
+        // The local blob is the source of truth - we keep it even after sync (verified status)
+        // This ensures FDF photos persist after syncing and on reload
         const hasLocalBlob = !!localImage.localBlobId;
-        const isStillLocal = localImage.status !== 'verified';
-        const currentUrlIsPlaceholder = !fdfPhotos[`${photoKey}DisplayUrl`] ||
-                                         fdfPhotos[`${photoKey}DisplayUrl`] === 'assets/img/photo-placeholder.png' ||
-                                         fdfPhotos[`${photoKey}Loading`];
 
-        // Apply local image if: has local blob AND (still local/syncing OR current URL is placeholder)
-        if (hasLocalBlob && (isStillLocal || currentUrlIsPlaceholder)) {
+        // In Dexie-first mode, always use LocalImage if it has a blob - regardless of sync status
+        if (hasLocalBlob) {
           // Get display URL
           // TASK 1 FIX: Set photo UNCONDITIONALLY even with placeholder URL
           // Matches category-detail pattern - placeholder will be updated via liveQuery
