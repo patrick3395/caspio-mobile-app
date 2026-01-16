@@ -5365,7 +5365,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               const imageId = photo.imageId || photo.localImageId;
               if (imageId) {
                 try {
-                  await this.localImageService.deleteImage(imageId);
+                  await this.localImageService.deleteLocalImage(imageId);
                   console.log('[Point Photo] Deleted from LocalImages:', imageId);
                 } catch (e) {
                   console.warn('[Point Photo] Failed to delete from LocalImages:', e);

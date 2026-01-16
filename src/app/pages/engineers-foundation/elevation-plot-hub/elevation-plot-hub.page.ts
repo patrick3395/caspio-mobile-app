@@ -1002,7 +1002,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         await this.efeFieldRepo.addRoom(
           this.serviceId,
           newRoomName,
-          templateId,
+          templateId || 0,  // Fallback to 0 if no templateId
           newOrganization,
           null,  // efeId not yet known
           tempEfeId,
