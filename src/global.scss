@@ -1592,12 +1592,80 @@ textarea.styled-input {
     transform: none !important;
   }
 
-  // Ionic Components - disable all feedback states
+  // =========================================================================
+  // BUTTONS: Complete static state - NO visual feedback whatsoever
+  // =========================================================================
+
+  // All button types - force static appearance
+  button,
+  ion-button,
+  .button,
+  [role="button"],
+  .tool-btn,
+  .nav-btn,
+  .camera-button-structural,
+  .add-visual-btn,
+  .delete-btn,
+  .add-btn,
+  .preset-btn,
+  .alert-button,
+  .header-icon-button,
+  .icon-button,
+  .action-button,
+  .save-button,
+  .cancel-button,
+  .back-btn,
+  .save-btn {
+    // Disable all transitions and animations
+    transition: none !important;
+    animation: none !important;
+
+    // All states should look identical
+    &,
+    &:hover,
+    &:active,
+    &:focus,
+    &:focus-visible,
+    &:focus-within,
+    &:visited,
+    &::before,
+    &::after {
+      transition: none !important;
+      animation: none !important;
+      transform: none !important;
+      opacity: 1 !important;
+      outline: none !important;
+      box-shadow: none !important;
+      filter: none !important;
+    }
+  }
+
+  // Ionic button - disable ALL internal states
   ion-button {
-    --background-hover: transparent !important;
-    --background-activated: transparent !important;
-    --background-focused: transparent !important;
+    --background-hover: var(--background) !important;
+    --background-activated: var(--background) !important;
+    --background-focused: var(--background) !important;
+    --background-hover-opacity: 1 !important;
+    --background-activated-opacity: 1 !important;
+    --background-focused-opacity: 1 !important;
+    --color-hover: var(--color) !important;
+    --color-activated: var(--color) !important;
+    --color-focused: var(--color) !important;
     --ripple-color: transparent !important;
+    --opacity-hover: 1 !important;
+    --opacity-activated: 1 !important;
+    --opacity-focused: 1 !important;
+    transition: none !important;
+
+    &::part(native) {
+      transition: none !important;
+
+      &:hover, &:active, &:focus {
+        background: inherit !important;
+        color: inherit !important;
+        opacity: 1 !important;
+      }
+    }
   }
 
   ion-item {
@@ -1798,127 +1866,140 @@ textarea.styled-input {
 // ============================================================================
 // Text Editor Modal - Large popup for editing visual descriptions
 // ============================================================================
+ion-alert.text-editor-modal,
 .text-editor-modal {
-  --width: 95%;
-  --max-width: 600px;
-  --min-height: 60%;
-
+  // Force the alert to be larger
+  &.alert-wrapper,
   .alert-wrapper {
-    width: var(--width) !important;
-    max-width: var(--max-width) !important;
-    min-height: var(--min-height) !important;
-    max-height: 90vh !important;
-    border-radius: 16px;
-    overflow: hidden;
+    width: 95vw !important;
+    max-width: 600px !important;
+    min-height: 50vh !important;
+    max-height: 85vh !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+  }
+}
+
+// Target the alert wrapper directly with high specificity
+ion-alert.text-editor-modal .alert-wrapper,
+.text-editor-modal .alert-wrapper {
+  width: 95vw !important;
+  max-width: 600px !important;
+  min-height: 50vh !important;
+  max-height: 85vh !important;
+  border-radius: 16px !important;
+}
+
+ion-alert.text-editor-modal .alert-head,
+.text-editor-modal .alert-head {
+  padding: 20px 24px 16px !important;
+  background: #f8f9fa !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+}
+
+ion-alert.text-editor-modal .alert-title,
+.text-editor-modal .alert-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #333 !important;
+}
+
+ion-alert.text-editor-modal .alert-input-group,
+.text-editor-modal .alert-input-group {
+  padding: 16px 20px !important;
+  max-height: 55vh !important;
+  overflow-y: auto !important;
+}
+
+ion-alert.text-editor-modal .alert-input-wrapper,
+.text-editor-modal .alert-input-wrapper {
+  margin-bottom: 12px !important;
+}
+
+// Title input - read only field
+ion-alert.text-editor-modal .alert-input-wrapper input.editor-title-input,
+ion-alert.text-editor-modal input.editor-title-input,
+.text-editor-modal .editor-title-input {
+  background: #f5f5f5 !important;
+  border: 1px solid #ddd !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #333 !important;
+}
+
+// Textarea - make it much larger
+ion-alert.text-editor-modal .alert-input-wrapper textarea,
+ion-alert.text-editor-modal textarea.alert-input,
+ion-alert.text-editor-modal textarea,
+.text-editor-modal .alert-input-wrapper textarea,
+.text-editor-modal textarea.alert-input,
+.text-editor-modal textarea {
+  background: #ffffff !important;
+  border: 2px solid #e0e0e0 !important;
+  border-radius: 8px !important;
+  padding: 14px 16px !important;
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+  color: #333 !important;
+  min-height: 250px !important;
+  height: 250px !important;
+  resize: vertical !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+ion-alert.text-editor-modal textarea:focus,
+.text-editor-modal textarea:focus {
+  outline: none !important;
+  border-color: #F15A27 !important;
+  box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1) !important;
+}
+
+ion-alert.text-editor-modal .alert-button-group,
+.text-editor-modal .alert-button-group {
+  padding: 16px 20px 20px !important;
+  gap: 12px !important;
+  display: flex !important;
+  justify-content: stretch !important;
+  border-top: 1px solid #e8e8e8 !important;
+  background: #f8f9fa !important;
+}
+
+ion-alert.text-editor-modal .alert-button,
+.text-editor-modal .alert-button {
+  flex: 1 !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  padding: 14px 0 !important;
+  font-size: 15px !important;
+  text-transform: none !important;
+}
+
+ion-alert.text-editor-modal .alert-button.editor-save-btn,
+.text-editor-modal .alert-button.editor-save-btn {
+  background: var(--noble-orange, #F15A27) !important;
+  color: white !important;
+}
+
+// Mobile responsive - even larger on mobile
+@media (max-width: 768px) {
+  ion-alert.text-editor-modal .alert-wrapper,
+  .text-editor-modal .alert-wrapper {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-height: 70vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
   }
 
-  .alert-head {
-    padding: 20px 24px 16px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e8e8e8;
-
-    .alert-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #333;
-    }
-  }
-
-  .alert-input-group {
-    padding: 16px 20px;
-    max-height: 60vh;
-    overflow-y: auto;
-
-    .alert-input-wrapper {
-      margin-bottom: 12px;
-
-      // Title input styling
-      .editor-title-input {
-        background: #f5f5f5;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 12px 14px;
-        font-size: 16px;
-        font-weight: 600;
-        color: #333;
-      }
-
-      // Text area styling - make it larger
-      .editor-text-input,
-      textarea {
-        background: #ffffff;
-        border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 14px 16px;
-        font-size: 16px;
-        line-height: 1.5;
-        color: #333;
-        min-height: 200px !important;
-        resize: vertical;
-
-        &:focus {
-          outline: none;
-          border-color: #F15A27;
-          box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
-        }
-      }
-    }
-
-    // Make textarea inputs larger
-    textarea.alert-input {
-      min-height: 200px !important;
-      font-size: 16px !important;
-      line-height: 1.5 !important;
-    }
-  }
-
-  .alert-button-group {
-    padding: 16px 20px 20px;
-    gap: 12px;
-    display: flex;
-    justify-content: stretch;
-    border-top: 1px solid #e8e8e8;
-    background: #f8f9fa;
-
-    .alert-button {
-      flex: 1;
-      font-weight: 600;
-      border-radius: 8px;
-      padding: 14px 0;
-      font-size: 15px;
-      text-transform: none;
-
-      &.editor-save-btn {
-        background: var(--noble-orange, #F15A27);
-        color: white;
-      }
-
-      &:not(.editor-save-btn) {
-        background: #e8e8e8;
-        color: #333;
-      }
-    }
-  }
-
-  // Mobile responsive - even larger on mobile
-  @media (max-width: 768px) {
-    --width: 100%;
-    --max-width: 100%;
-    --min-height: 70%;
-
-    .alert-wrapper {
-      border-radius: 16px 16px 0 0;
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-    }
-
-    .alert-input-group {
-      textarea.alert-input,
-      .editor-text-input {
-        min-height: 250px !important;
-      }
-    }
+  ion-alert.text-editor-modal textarea,
+  .text-editor-modal textarea {
+    min-height: 300px !important;
+    height: 300px !important;
   }
 }

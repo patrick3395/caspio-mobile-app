@@ -4219,27 +4219,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       this.changeDetectorRef.detectChanges();
       console.log(`[FDF Upload] ✅ Photo captured with LocalImageService:`, localImage.imageId);
 
-      // STORAGE DEBUG: Show storage breakdown after FDF photo
-      try {
-        const storage = await db.getStorageBreakdown();
-        const debugMsg = `📸 STORAGE AFTER FDF PHOTO (${photoType})\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `Original: ${(originalSize / 1024).toFixed(0)} KB\n` +
-          `Compressed: ${(compressedSize / 1024).toFixed(0)} KB\n` +
-          `Compression: ${((1 - compressedSize/originalSize) * 100).toFixed(0)}% saved\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `localBlobs: ${storage.localBlobs.count} (${storage.localBlobs.totalMB} MB)\n` +
-          `cachedPhotos: ${storage.cachedPhotos.count} (${storage.cachedPhotos.totalMB} MB)\n` +
-          `  - Annotated: ${storage.cachedPhotos.annotatedCount}\n` +
-          `  - Regular: ${storage.cachedPhotos.regularCount}\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `TOTAL: ${storage.total.totalMB} MB`;
-        console.log('[StorageDebug]', debugMsg);
-        alert(debugMsg);
-      } catch (e) {
-        console.warn('[StorageDebug] Failed to get storage breakdown:', e);
-      }
-
     } catch (error: any) {
       console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
 
@@ -5156,27 +5135,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // Clear cache to ensure fresh data
         this.foundationData.clearEFEAttachmentsCache();
-      }
-      
-      // STORAGE DEBUG: Show storage breakdown after point photo
-      try {
-        const storage = await db.getStorageBreakdown();
-        const debugMsg = `📸 STORAGE AFTER POINT PHOTO (${photoType})\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `Original: ${(originalSize / 1024).toFixed(0)} KB\n` +
-          `Compressed: ${(compressedSize / 1024).toFixed(0)} KB\n` +
-          `Compression: ${((1 - compressedSize/originalSize) * 100).toFixed(0)}% saved\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `localBlobs: ${storage.localBlobs.count} (${storage.localBlobs.totalMB} MB)\n` +
-          `cachedPhotos: ${storage.cachedPhotos.count} (${storage.cachedPhotos.totalMB} MB)\n` +
-          `  - Annotated: ${storage.cachedPhotos.annotatedCount}\n` +
-          `  - Regular: ${storage.cachedPhotos.regularCount}\n` +
-          `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `TOTAL: ${storage.total.totalMB} MB`;
-        console.log('[StorageDebug]', debugMsg);
-        alert(debugMsg);
-      } catch (e) {
-        console.warn('[StorageDebug] Failed to get storage breakdown:', e);
       }
 
       this.changeDetectorRef.detectChanges();
