@@ -204,14 +204,12 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
                       url.includes('/structural') ||
                       url.includes('/elevation');
 
-    if (isSubPage) {
-      // Add EFE main page as first breadcrumb when on sub-pages
-      this.breadcrumbs.push({
-        label: 'Engineers Foundation Evaluation',
-        path: '',
-        icon: 'clipboard-outline'
-      });
-    }
+    // Always add EFE main page breadcrumb (clipboard icon)
+    this.breadcrumbs.push({
+      label: 'Engineers Foundation Evaluation',
+      path: '',
+      icon: 'clipboard-outline'
+    });
 
     if (url.includes('/project-details')) {
       // Add Project Details breadcrumb

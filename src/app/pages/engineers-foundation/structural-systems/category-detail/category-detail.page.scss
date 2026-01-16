@@ -532,27 +532,25 @@ ion-content {
   }
 
   .image-preview-container {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: flex-start;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+    align-items: start;
     min-height: 0;
     overflow: visible;
-    justify-content: flex-start;
+    width: 100% !important;
 
-    // 3 photos per row - each photo takes ~31% of container width
+    // 3 photos per row using CSS Grid
     .image-preview.structural-photo-preview {
       position: relative !important;
-      width: calc(33.333% - 8px) !important;
-      max-width: 100px !important;
-      min-width: 70px !important;
-      display: inline-block !important;
-      vertical-align: top !important;
+      width: 100% !important;
+      max-width: none !important;
+      min-width: 0 !important;
+      display: block !important;
       overflow: visible !important;
-      margin: 2px !important;
-      padding-bottom: 32px !important;
+      margin: 0 !important;
+      padding-bottom: 30px !important;
       background: transparent !important;
-      flex-shrink: 0;
       box-sizing: border-box !important;
 
       &.uploading img {
@@ -808,8 +806,10 @@ ion-content {
     padding: 8px;
 
     .image-preview-container {
-      gap: 8px;
-      justify-content: center;
+      display: grid !important;
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 6px !important;
+      width: 100% !important;
     }
   }
 }
