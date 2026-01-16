@@ -2909,9 +2909,10 @@ export class BackgroundSyncService {
     // Mark as uploaded (NOT verified yet)
     await this.localImageService.handleUploadSuccess(item.opId, item.imageId, s3Key, attachId);
 
-    // CRITICAL: Cache the photo from local blob BEFORE it can be pruned
-    // This ensures we have a base64 fallback even after the blob is deleted
-    await this.cachePhotoFromLocalBlob(item.imageId, attachId, image.serviceId, s3Key);
+    // DEXIE-FIRST: Disabled cachePhotoFromLocalBlob - localBlobs are NOT pruned
+    // so we don't need to create a cachedPhotos fallback. This saves ~1MB per photo.
+    // The localBlob remains the source of truth until user finalizes the report.
+    // await this.cachePhotoFromLocalBlob(item.imageId, attachId, image.serviceId, s3Key);
 
     // Verify remote is loadable (async, non-blocking)
     this.verifyAndMarkImage(item.imageId).catch(err => {
