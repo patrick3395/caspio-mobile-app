@@ -2,6 +2,7 @@ import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, Subject, interval, Subscription, firstValueFrom } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { IndexedDbService, PendingRequest, LocalImage, UploadOutboxItem } from './indexed-db.service';
+import { db } from './caspio-db';
 import { ApiGatewayService } from './api-gateway.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
 import { CaspioService } from './caspio.service';
@@ -603,6 +604,9 @@ export class BackgroundSyncService {
       // Clear pending changes count after successful sync
       this.clearPendingChangesCount();
       console.log('[BackgroundSync] Sync completed successfully, pending changes cleared');
+
+      // DEBUG: Show storage after sync completes
+      await db.debugStorageUsage('AFTER SYNC COMPLETE');
     } catch (error) {
       console.error('[BackgroundSync] Sync failed:', error);
     } finally {

@@ -4232,6 +4232,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       this.changeDetectorRef.detectChanges();
       console.log(`[FDF Upload] ✅ Photo captured with LocalImageService:`, localImage.imageId);
 
+      // DEBUG: Show storage after adding FDF photo
+      await db.debugStorageUsage(`AFTER FDF PHOTO: ${photoType}`);
+
     } catch (error: any) {
       console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
 
@@ -5098,6 +5101,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       );
 
       console.log(`[Point Photo] Photo ${photoType} processed for point ${point.pointName}:`, result);
+
+      // DEBUG: Show storage after adding photo
+      await db.debugStorageUsage(`AFTER EFE PHOTO: ${photoType}`);
 
       // Update local state with result
       if (result) {

@@ -4672,6 +4672,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             
             this.logDebug('CAPTURE', `✅ LocalImage created: ${localImage.imageId} status: ${localImage.status} blobId: ${localImage.localBlobId}`);
             console.log('[CAMERA UPLOAD] ✅ Created LocalImage with stable ID:', localImage.imageId);
+
+            // DEBUG: Show storage after camera photo
+            await db.debugStorageUsage('AFTER STRUCTURAL CAMERA');
           } catch (captureError: any) {
             this.logDebug('ERROR', `captureImage FAILED: ${captureError?.message || captureError}`);
             console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
@@ -4997,6 +5000,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         console.log(`[GALLERY UPLOAD] ✅ All ${images.photos.length} photos processed with stable IDs`);
         console.log(`[GALLERY UPLOAD] Total photos in key: ${this.visualPhotos[key].length}`);
+
+        // DEBUG: Show storage after gallery batch
+        await db.debugStorageUsage(`AFTER STRUCTURAL GALLERY: ${images.photos.length} photos`);
         // Sync will happen on next 60-second interval via upload outbox
       }
     } catch (error) {

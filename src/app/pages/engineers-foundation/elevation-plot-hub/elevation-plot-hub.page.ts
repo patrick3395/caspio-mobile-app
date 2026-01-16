@@ -14,7 +14,7 @@ import { OfflineService } from '../../../services/offline.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { SmartSyncService } from '../../../services/smart-sync.service';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
-import { EfeField, EfePoint } from '../../../services/caspio-db';
+import { EfeField, EfePoint, db } from '../../../services/caspio-db';
 
 interface RoomTemplate {
   RoomName: string;
@@ -1821,6 +1821,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.foundationData  // Pass foundationData for queueing points
         );
         console.log('[Add Room] Created', createdPoints.length, 'elevation points with temp IDs');
+
+        // DEBUG: Show storage after adding room
+        await db.debugStorageUsage(`AFTER ADD ROOM: ${roomName}`);
       } catch (dexieError) {
         console.error('[Add Room] Dexie update error (non-fatal):', dexieError);
         // Continue - room will still be created in backend

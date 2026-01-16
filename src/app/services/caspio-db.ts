@@ -308,6 +308,92 @@ export class CaspioDB extends Dexie {
   }
 
   // ============================================================================
+  // STORAGE DEBUG - Measure size of each IndexedDB table
+  // ============================================================================
+
+  /**
+   * Debug function to measure and display storage usage per table
+   * Call this after operations to see what's growing
+   */
+  async debugStorageUsage(label: string = 'STORAGE'): Promise<void> {
+    try {
+      const sizes: { table: string; count: number; sizeKB: number; avgKB: number }[] = [];
+
+      // Helper to estimate size of an object
+      const estimateSize = (obj: any): number => {
+        try {
+          return new Blob([JSON.stringify(obj)]).size;
+        } catch {
+          return 0;
+        }
+      };
+
+      // Measure each table
+      const tables = [
+        { name: 'localImages', table: this.localImages },
+        { name: 'localBlobs', table: this.localBlobs },
+        { name: 'uploadOutbox', table: this.uploadOutbox },
+        { name: 'pendingRequests', table: this.pendingRequests },
+        { name: 'tempIdMappings', table: this.tempIdMappings },
+        { name: 'cachedServiceData', table: this.cachedServiceData },
+        { name: 'cachedTemplates', table: this.cachedTemplates },
+        { name: 'cachedPhotos', table: this.cachedPhotos },
+        { name: 'pendingCaptions', table: this.pendingCaptions },
+        { name: 'pendingEFEData', table: this.pendingEFEData },
+        { name: 'pendingImages', table: this.pendingImages },
+        { name: 'operationsQueue', table: this.operationsQueue },
+        { name: 'visualFields', table: this.visualFields },
+        { name: 'efeFields', table: this.efeFields },
+      ];
+
+      for (const { name, table } of tables) {
+        try {
+          const items = await table.toArray();
+          const count = items.length;
+          let totalBytes = 0;
+
+          for (const item of items) {
+            totalBytes += estimateSize(item);
+          }
+
+          const sizeKB = totalBytes / 1024;
+          const avgKB = count > 0 ? sizeKB / count : 0;
+
+          sizes.push({ table: name, count, sizeKB: Math.round(sizeKB * 10) / 10, avgKB: Math.round(avgKB * 10) / 10 });
+        } catch (e) {
+          sizes.push({ table: name, count: -1, sizeKB: 0, avgKB: 0 });
+        }
+      }
+
+      // Sort by size descending
+      sizes.sort((a, b) => b.sizeKB - a.sizeKB);
+
+      // Calculate total
+      const totalKB = sizes.reduce((sum, s) => sum + s.sizeKB, 0);
+      const totalMB = (totalKB / 1024).toFixed(2);
+
+      // Build alert message
+      let msg = `[${label}] Total: ${totalMB} MB\n\n`;
+      for (const s of sizes) {
+        if (s.sizeKB > 0 || s.count > 0) {
+          msg += `${s.table}: ${s.count} rows, ${s.sizeKB} KB`;
+          if (s.avgKB > 1) {
+            msg += ` (avg ${s.avgKB} KB/row)`;
+          }
+          msg += '\n';
+        }
+      }
+
+      // Show alert
+      alert(msg);
+      console.log('[STORAGE DEBUG]', msg);
+    } catch (err) {
+      console.error('[STORAGE DEBUG] Error:', err);
+      alert(`[STORAGE DEBUG ERROR] ${err}`);
+    }
+  }
+
+  // ============================================================================
   // LIVE QUERY OBSERVABLES FOR REACTIVE UI BINDING
   // These methods convert Dexie's liveQuery to proper RxJS Observables
   // that work correctly with Angular's change detection
