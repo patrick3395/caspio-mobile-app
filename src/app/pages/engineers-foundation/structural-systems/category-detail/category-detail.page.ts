@@ -4617,6 +4617,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // CRITICAL: Upload the ORIGINAL photo, not the annotated one
           const originalFile = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
+          // Compress image before storage
+          const originalSize = originalFile.size;
+          const compressedFile = await this.imageCompression.compressImage(originalFile, {
+            maxSizeMB: 0.8,
+            maxWidthOrHeight: 1280,
+            useWebWorker: true
+          }) as File;
+          const compressedSize = compressedFile.size;
+          alert(`[STRUCTURAL CAMERA]\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(compressedSize / 1024).toFixed(1)} KB\nReduction: ${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`);
+
           // Get or create visual ID
           const key = `${category}_${itemId}`;
           let visualId = this.visualRecordIds[key];
@@ -4652,7 +4662,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           let localImage: LocalImage;
           try {
             localImage = await this.localImageService.captureImage(
-              originalFile,
+              compressedFile,  // Use compressed file
               'visual',
               String(visualId),
               this.serviceId,
@@ -4877,9 +4887,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   continue;
                 }
 
+                // Compress image before storage
+                const originalSize = file.size;
+                const compressedFile = await this.imageCompression.compressImage(file, {
+                  maxSizeMB: 0.8,
+                  maxWidthOrHeight: 1280,
+                  useWebWorker: true
+                }) as File;
+                const compressedSize = compressedFile.size;
+                alert(`[STRUCTURAL GALLERY ${i + 1}/${images.photos.length}]\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(compressedSize / 1024).toFixed(1)} KB\nReduction: ${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`);
+
                 // Create LocalImage with stable UUID
                 const localImage = await this.localImageService.captureImage(
-                  file,
+                  compressedFile,  // Use compressed file
                   'visual',
                   String(visualId),
                   this.serviceId,

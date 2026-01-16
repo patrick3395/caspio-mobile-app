@@ -4191,11 +4191,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       // Compress the image
+      const originalSize = file.size;
       const compressedFile = await this.imageCompression.compressImage(file, {
         maxSizeMB: 0.8,
         maxWidthOrHeight: 1280,
         useWebWorker: true
       }) as File;
+      const compressedSize = compressedFile.size;
+      alert(`[FDF COMPRESSION]\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(compressedSize / 1024).toFixed(1)} KB\nReduction: ${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`);
 
       // OFFLINE-FIRST: Use LocalImageService for local-first handling
       // CRITICAL: Pass photoType as the last parameter, NOT in caption
