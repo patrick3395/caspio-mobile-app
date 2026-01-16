@@ -680,6 +680,9 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     this.liveQuerySub = db.liveSyncModalData$().pipe(
       debounceTime(250) // Debounce rapid-fire updates
     ).subscribe(async ({ requests, captions, outboxItems, failedImages }) => {
+      // DEBUG: Alert to see what data the subscription receives
+      alert(`[MODAL SUB] Received data:\nrequests: ${requests.length}\ncaptions: ${captions.length}\noutbox: ${outboxItems.length}\nfailed: ${failedImages.length}`);
+
       console.log('[SyncModal] Dexie liveQuery update:', {
         requests: requests.length,
         captions: captions.length,

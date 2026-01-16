@@ -448,16 +448,20 @@ export class CaspioDB extends Dexie {
     failedImages: LocalImage[];
   }> {
     const query = liveQuery(async () => {
-      // DEBUG: Log each table query separately to identify which returns empty on mobile
-      const requests = await this.pendingRequests.toArray();
-      const captions = await this.pendingCaptions.toArray();
-      const outboxItems = await this.uploadOutbox.toArray();
-      const failedImages = await this.localImages.where('status').equals('failed').toArray();
+      try {
+        // DEBUG: Log each table query separately to identify which returns empty on mobile
+        const requests = await this.pendingRequests.toArray();
+        const captions = await this.pendingCaptions.toArray();
+        const outboxItems = await this.uploadOutbox.toArray();
+        const failedImages = await this.localImages.where('status').equals('failed').toArray();
 
-      // DEBUG: Alert when liveQuery fires to see what data is returned
-      alert(`[LIVEQUERY DEBUG] liveSyncModalData fired:\nrequests: ${requests.length}\ncaptions: ${captions.length}\noutbox: ${outboxItems.length}\nfailed: ${failedImages.length}`);
+        console.log(`[LIVEQUERY] liveSyncModalData fired: requests=${requests.length}, outbox=${outboxItems.length}`);
 
-      return { requests, captions, outboxItems, failedImages };
+        return { requests, captions, outboxItems, failedImages };
+      } catch (err: any) {
+        alert(`[LIVEQUERY ERROR] ${err?.message || err}`);
+        throw err;
+      }
     });
     return this.toRxObservable<{
       requests: PendingRequest[];
