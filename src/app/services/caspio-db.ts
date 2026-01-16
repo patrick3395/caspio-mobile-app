@@ -186,6 +186,22 @@ export class CaspioDB extends Dexie {
   visualFields!: Table<VisualField, number>;
   efeFields!: Table<EfeField, number>;
 
+  // MOBILE FIX: Cache last known good results for liveQueries
+  // When IndexedDB has temporary connection issues during photo transactions,
+  // return cached data instead of empty arrays to prevent UI from clearing/hanging
+  private _lastSyncModalData: {
+    requests: PendingRequest[];
+    captions: PendingCaptionUpdate[];
+    outboxItems: UploadOutboxItem[];
+    failedImages: LocalImage[];
+  } | null = null;
+
+  // Cache for EFE fields by service ID
+  private _lastEfeFieldsCache: Map<string, EfeField[]> = new Map();
+
+  // Cache for single EFE fields by key (serviceId:roomName)
+  private _lastEfeFieldCache: Map<string, EfeField | undefined> = new Map();
+
   constructor() {
     super('CaspioOfflineDB');
 
@@ -440,6 +456,10 @@ export class CaspioDB extends Dexie {
   /**
    * Live query for ALL sync modal data in a single query
    * This avoids combineLatest issues where separate liveQueries can return inconsistent data
+   *
+   * MOBILE FIX: Caches last known good result and returns it on error
+   * This prevents the UI from clearing when IndexedDB has temporary connection issues
+   * during photo upload transactions (common on mobile WebView)
    */
   liveSyncModalData$(): Observable<{
     requests: PendingRequest[];
@@ -449,18 +469,61 @@ export class CaspioDB extends Dexie {
   }> {
     const query = liveQuery(async () => {
       try {
-        // DEBUG: Log each table query separately to identify which returns empty on mobile
-        const requests = await this.pendingRequests.toArray();
-        const captions = await this.pendingCaptions.toArray();
-        const outboxItems = await this.uploadOutbox.toArray();
-        const failedImages = await this.localImages.where('status').equals('failed').toArray();
+        // MOBILE FIX: Check if database connection is open, reopen if needed
+        if (!this.isOpen()) {
+          console.log('[LIVEQUERY] Database not open, reopening...');
+          await this.open();
+        }
 
-        console.log(`[LIVEQUERY] liveSyncModalData fired: requests=${requests.length}, outbox=${outboxItems.length}`);
+        const [requests, captions, outboxItems, failedImages] = await Promise.all([
+          this.pendingRequests.toArray(),
+          this.pendingCaptions.toArray(),
+          this.uploadOutbox.toArray(),
+          this.localImages.where('status').equals('failed').toArray()
+        ]);
 
-        return { requests, captions, outboxItems, failedImages };
+        console.log(`[LIVEQUERY] liveSyncModalData: requests=${requests.length}, outbox=${outboxItems.length}`);
+
+        // Cache the successful result
+        const result = { requests, captions, outboxItems, failedImages };
+        this._lastSyncModalData = result;
+
+        return result;
       } catch (err: any) {
-        alert(`[LIVEQUERY ERROR] ${err?.message || err}`);
-        throw err;
+        console.error('[LIVEQUERY ERROR]', err?.message || err);
+
+        // MOBILE FIX: On connection lost, try to reopen database
+        if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
+          console.log('[LIVEQUERY] Connection lost, attempting to reopen database...');
+          try {
+            await this.close();
+            await this.open();
+            // Retry the query after reopening
+            const [requests, captions, outboxItems, failedImages] = await Promise.all([
+              this.pendingRequests.toArray(),
+              this.pendingCaptions.toArray(),
+              this.uploadOutbox.toArray(),
+              this.localImages.where('status').equals('failed').toArray()
+            ]);
+            console.log('[LIVEQUERY] Reconnected successfully');
+            const result = { requests, captions, outboxItems, failedImages };
+            this._lastSyncModalData = result;
+            return result;
+          } catch (retryErr) {
+            console.error('[LIVEQUERY] Retry failed:', retryErr);
+          }
+        }
+
+        // CRITICAL FIX: Return cached data instead of empty arrays on error
+        // This prevents the sync modal from clearing when IndexedDB has temporary issues
+        // during photo upload transactions (common issue on mobile WebView)
+        if (this._lastSyncModalData) {
+          console.log('[LIVEQUERY] Returning cached data to prevent UI clear');
+          return this._lastSyncModalData;
+        }
+
+        // Only return empty data if we have no cached data (first run)
+        return { requests: [], captions: [], outboxItems: [], failedImages: [] };
       }
     });
     return this.toRxObservable<{
@@ -602,11 +665,58 @@ export class CaspioDB extends Dexie {
    * Live query for all EFE fields (rooms) for a service
    * This is the primary query for rendering elevation-plot-hub page
    * Auto-updates when ANY room in the service changes
+   *
+   * MOBILE FIX: Caches last known good result and returns it on error
+   * This prevents the hub from hanging when IndexedDB has temporary connection issues
+   * during photo upload transactions (common on mobile WebView)
    */
   liveEfeFields$(serviceId: string): Observable<EfeField[]> {
-    const query = liveQuery(() =>
-      this.efeFields.where('serviceId').equals(serviceId).toArray()
-    );
+    const query = liveQuery(async () => {
+      try {
+        // MOBILE FIX: Check if database connection is open, reopen if needed
+        if (!this.isOpen()) {
+          console.log('[LIVEQUERY] liveEfeFields$ - Database not open, reopening...');
+          await this.open();
+        }
+
+        const fields = await this.efeFields.where('serviceId').equals(serviceId).toArray();
+        console.log(`[LIVEQUERY] liveEfeFields$: serviceId=${serviceId}, fields=${fields.length}`);
+
+        // Cache the successful result
+        this._lastEfeFieldsCache.set(serviceId, fields);
+
+        return fields;
+      } catch (err: any) {
+        console.error('[LIVEQUERY ERROR] liveEfeFields$:', err?.message || err);
+
+        // MOBILE FIX: On connection lost, try to reopen database
+        if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
+          console.log('[LIVEQUERY] liveEfeFields$ - Connection lost, attempting to reopen database...');
+          try {
+            await this.close();
+            await this.open();
+            // Retry the query after reopening
+            const fields = await this.efeFields.where('serviceId').equals(serviceId).toArray();
+            console.log('[LIVEQUERY] liveEfeFields$ - Reconnected successfully');
+            this._lastEfeFieldsCache.set(serviceId, fields);
+            return fields;
+          } catch (retryErr) {
+            console.error('[LIVEQUERY] liveEfeFields$ - Retry failed:', retryErr);
+          }
+        }
+
+        // CRITICAL FIX: Return cached data instead of empty array on error
+        // This prevents the hub from hanging when IndexedDB has temporary issues
+        const cached = this._lastEfeFieldsCache.get(serviceId);
+        if (cached) {
+          console.log('[LIVEQUERY] liveEfeFields$ - Returning cached data to prevent hang');
+          return cached;
+        }
+
+        // Only return empty array if we have no cached data (first run)
+        return [];
+      }
+    });
     return this.toRxObservable<EfeField[]>(query);
   }
 
@@ -625,15 +735,58 @@ export class CaspioDB extends Dexie {
    * Live query for a single EFE field by service and room name
    * NOTE: Using simple 'key' index instead of compound index [serviceId+roomName]
    * because compound index was causing IndexedDB internal errors on mobile WebView
+   *
+   * MOBILE FIX: Caches last known good result and returns it on error
+   * This prevents room-elevation from hanging when IndexedDB has temporary connection issues
    */
   liveEfeFieldByRoom$(serviceId: string, roomName: string): Observable<EfeField | undefined> {
     console.log(`[CaspioDB] liveEfeFieldByRoom$ called: serviceId=${serviceId}, roomName=${roomName}`);
     // Use the simple 'key' index (format: serviceId:roomName) instead of compound index
     // This matches the pattern used by liveVisualFields$ which works on mobile
     const key = `${serviceId}:${roomName}`;
-    const query = liveQuery(() =>
-      this.efeFields.where('key').equals(key).first()
-    );
+
+    const query = liveQuery(async () => {
+      try {
+        // MOBILE FIX: Check if database connection is open
+        if (!this.isOpen()) {
+          console.log('[LIVEQUERY] liveEfeFieldByRoom$ - Database not open, reopening...');
+          await this.open();
+        }
+
+        const field = await this.efeFields.where('key').equals(key).first();
+
+        // Cache the successful result
+        this._lastEfeFieldCache.set(key, field);
+
+        return field;
+      } catch (err: any) {
+        console.error('[LIVEQUERY ERROR] liveEfeFieldByRoom$:', err?.message || err);
+
+        // MOBILE FIX: On connection lost, try to reopen database
+        if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
+          console.log('[LIVEQUERY] liveEfeFieldByRoom$ - Connection lost, attempting to reopen database...');
+          try {
+            await this.close();
+            await this.open();
+            const field = await this.efeFields.where('key').equals(key).first();
+            console.log('[LIVEQUERY] liveEfeFieldByRoom$ - Reconnected successfully');
+            this._lastEfeFieldCache.set(key, field);
+            return field;
+          } catch (retryErr) {
+            console.error('[LIVEQUERY] liveEfeFieldByRoom$ - Retry failed:', retryErr);
+          }
+        }
+
+        // CRITICAL FIX: Return cached data instead of undefined on error
+        const cached = this._lastEfeFieldCache.get(key);
+        if (cached !== undefined) {
+          console.log('[LIVEQUERY] liveEfeFieldByRoom$ - Returning cached data to prevent hang');
+          return cached;
+        }
+
+        return undefined;
+      }
+    });
     return this.toRxObservable<EfeField | undefined>(query);
   }
 
