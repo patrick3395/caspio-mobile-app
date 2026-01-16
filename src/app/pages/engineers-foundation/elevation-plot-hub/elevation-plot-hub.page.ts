@@ -831,6 +831,21 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             await this.caspioService.updateServicesEFEByEFEID(roomId, updateData).toPromise();
             console.log('[Rename Room] Database update successful for EFEID:', roomId);
 
+            // CRITICAL: Update IndexedDB cache so navigating back doesn't revert the name
+            try {
+              const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+              const updatedCachedRooms = cachedRooms.map((room: any) => {
+                if (String(room.EFEID) === String(roomId) || room.RoomName === oldRoomName) {
+                  return { ...room, RoomName: newRoomName };
+                }
+                return room;
+              });
+              await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedCachedRooms);
+              console.log('[Rename Room] Updated efe_rooms cache');
+            } catch (cacheError) {
+              console.warn('[Rename Room] Failed to update cache (non-fatal):', cacheError);
+            }
+
             // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
             await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
             console.log('[Rename Room] Updated Dexie efeFields');
