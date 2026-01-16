@@ -6832,10 +6832,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         type: 'text',
         placeholder: 'Title' + (item.required ? ' *' : ''),
         value: item.name || '',
-        cssClass: 'editor-title-input',
-        attributes: {
-          readonly: true  // Name is used for matching - should not be edited
-        }
+        cssClass: 'editor-title-input'
       }
     ];
 
@@ -6924,18 +6921,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           text: 'Save',
           cssClass: 'editor-save-btn',
           handler: async (data) => {
-            // Validate required fields (only check description since title is read-only)
+            // Validate required fields
             if (item.required && !data.description) {
-              // Toast removed per user request
-              // await this.showToast('Please fill in the description field', 'warning');
               return false;
             }
 
-            // Update the item text if changed (name is read-only)
-            if (data.description !== item.text) {
+            // Track what changed
+            const titleChanged = data.title !== item.name;
+            const textChanged = data.description !== item.text;
+
+            if (titleChanged || textChanged) {
+              const oldName = item.name;
               const oldText = item.text;
 
-              item.text = data.description;
+              // Update local item
+              if (titleChanged) {
+                item.name = data.title;
+              }
+              if (textChanged) {
+                item.text = data.description;
+              }
 
               // Save to database if this visual is already created
               const key = `${item.category}_${item.id}`;
@@ -6943,18 +6948,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
               if (visualId && !String(visualId).startsWith('temp_')) {
                 try {
-                  // Only update the Text field (Name must stay constant for matching)
-                  await this.foundationData.updateVisual(visualId, {
-                    Text: data.description
-                  }, this.serviceId);
-                  console.log('[TEXT EDIT] Updated visual text:', visualId);
+                  // Build update object with changed fields
+                  const updateData: any = {};
+                  if (titleChanged) {
+                    updateData.Name = data.title;
+                  }
+                  if (textChanged) {
+                    updateData.Text = data.description;
+                  }
+
+                  await this.foundationData.updateVisual(visualId, updateData, this.serviceId);
+                  console.log('[TEXT EDIT] Updated visual:', visualId, updateData);
                   this.changeDetectorRef.detectChanges();
                 } catch (error) {
                   console.error('[TEXT EDIT] Error updating visual:', error);
                   // Revert changes on error
+                  item.name = oldName;
                   item.text = oldText;
-                  // Toast removed per user request
-                  // await this.showToast('Failed to save changes', 'danger');
                   return false;
                 }
               } else {

@@ -4718,9 +4718,20 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       const pointId = response?.PointID || response?.PK_ID || response?._tempId;
 
       if (pointId) {
-        // Add to local array with offline sync status
+        // DEXIE-FIRST: Save custom point to Dexie for persistence across page reloads
+        // This returns the assigned pointNumber for the new point
+        const assignedPointNumber = await this.efeFieldRepo.addCustomPoint(
+          this.serviceId,
+          this.roomName,
+          pointName,
+          response._tempId || null,
+          response._tempId ? null : pointId  // Real pointId only if not a temp ID
+        );
+
+        // Add to local array with offline sync status and assigned pointNumber
         this.roomData.elevationPoints.push({
           pointId: pointId,
+          pointNumber: assignedPointNumber,
           name: pointName,
           value: '',
           photos: [],
@@ -4729,7 +4740,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         });
 
         this.changeDetectorRef.detectChanges();
-        console.log(`[RoomElevation] Point "${pointName}" created with ID: ${pointId}${response._tempId ? ' (pending sync)' : ''}`);
+        console.log(`[RoomElevation] Point "${pointName}" created with ID: ${pointId}, pointNumber: ${assignedPointNumber}${response._tempId ? ' (pending sync)' : ''}`);
       }
     } catch (error) {
       console.error('Error adding point:', error);

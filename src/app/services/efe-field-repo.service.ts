@@ -617,6 +617,62 @@ export class EfeFieldRepoService {
   }
 
   /**
+   * Add a custom point to a room's elevation points
+   * Returns the assigned pointNumber for the new point
+   */
+  async addCustomPoint(
+    serviceId: string,
+    roomName: string,
+    pointName: string,
+    tempPointId: string | null,
+    pointId: string | null = null
+  ): Promise<number> {
+    const key = `${serviceId}:${roomName}`;
+    let assignedPointNumber = 0;
+
+    await db.transaction('rw', db.efeFields, async () => {
+      const existing = await db.efeFields.where('key').equals(key).first();
+
+      if (existing) {
+        const elevationPoints = [...existing.elevationPoints];
+
+        // Find the highest pointNumber and assign next one
+        const maxPointNumber = elevationPoints.reduce(
+          (max, p) => Math.max(max, p.pointNumber || 0),
+          0
+        );
+        assignedPointNumber = maxPointNumber + 1;
+
+        // Create new point entry
+        const newPoint: EfePoint = {
+          pointNumber: assignedPointNumber,
+          pointId: pointId,
+          tempPointId: tempPointId,
+          name: pointName,
+          value: '',
+          photoCount: 0
+        };
+
+        elevationPoints.push(newPoint);
+
+        await db.efeFields.update(existing.id!, {
+          elevationPoints,
+          pointCount: elevationPoints.length,
+          rev: existing.rev + 1,
+          updatedAt: Date.now(),
+          dirty: true
+        });
+
+        console.log(`[EfeFieldRepo] Added custom point "${pointName}" with pointNumber ${assignedPointNumber}`);
+      } else {
+        console.warn(`[EfeFieldRepo] Cannot add custom point - room not found: ${key}`);
+      }
+    });
+
+    return assignedPointNumber;
+  }
+
+  /**
    * Update FDF photo metadata
    */
   async setFdfPhoto(

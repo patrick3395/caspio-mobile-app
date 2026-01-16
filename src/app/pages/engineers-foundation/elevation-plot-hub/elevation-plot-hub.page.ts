@@ -71,7 +71,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Track last navigated room for inserting new rooms after it
   private lastNavigatedRoom: string | null = null;
-  
+
+  // Flag to suppress liveQuery during room addition (prevents bouncing)
+  private isAddingRoom: boolean = false;
+
   // Standardized UI state flags
   isOnline: boolean = true;
   isEmpty: boolean = false;
@@ -240,6 +243,12 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       .getFieldsForService$(this.serviceId)
       .subscribe({
         next: (fields) => {
+          // CRITICAL: Skip liveQuery updates while adding/creating a room
+          // This prevents bouncing as organization numbers are updated in Dexie
+          if (this.isAddingRoom) {
+            console.log(`[ElevationPlotHub] Skipping liveQuery (isAddingRoom=true) - ${fields.length} fields`);
+            return;
+          }
           console.log(`[ElevationPlotHub] Received ${fields.length} fields from liveQuery`);
           this.convertFieldsToRoomTemplates(fields);
           this.loading = false;
@@ -640,8 +649,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       roomData.TemplateID = this.roomElevationData[roomName].templateId;
     }
 
+    // CRITICAL: Set flag to suppress liveQuery bouncing during room creation
+    this.isAddingRoom = true;
+
     // Set Organization to be at the TOP of the list (shifts existing rooms down)
-    const topOrganization = this.getTopOrganizationNumber();
+    const topOrganization = await this.getTopOrganizationNumber();
     roomData.Organization = topOrganization;
     console.log('[Create Room] Setting Organization to:', topOrganization, '(top of list)');
 
@@ -680,15 +692,18 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       // Update local state for immediate UI feedback
       this.selectedRooms[roomName] = true;
       this.efeRecordIds[roomName] = roomId;
-      this.savingRooms[roomName] = !!response._syncing; // True if pending sync
+      this.savingRooms[roomName] = false; // Data is in Dexie, immediately ready
 
       if (roomIndex >= 0) {
         this.roomTemplates[roomIndex].isSelected = true;
-        this.roomTemplates[roomIndex].isSaving = !!response._syncing;
+        this.roomTemplates[roomIndex].isSaving = false; // No loading needed - Dexie-first
         this.roomTemplates[roomIndex].efeId = roomId;
       }
 
       this.changeDetectorRef.detectChanges();
+
+      // CRITICAL: Clear flag after all updates complete (allows liveQuery to resume)
+      this.isAddingRoom = false;
 
       // Navigate to room detail page (works with temp ID too)
       this.router.navigate(['room', roomName], { relativeTo: this.route });
@@ -705,6 +720,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         this.roomTemplates[roomIndex].isSaving = false;
       }
 
+      // Clear flag even on error
+      this.isAddingRoom = false;
       this.changeDetectorRef.detectChanges();
     }
   }
@@ -980,10 +997,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         };
       }
 
+      // CRITICAL: Set flag to suppress liveQuery bouncing during duplication
+      this.isAddingRoom = true;
+
       // Get the organization number of the original room and set duplicate to be right after it
       const originalRoomOrg = roomToDuplicate['Organization'] || 0;
-      const newOrganization = this.getInsertAfterOrganizationNumber(originalRoomOrg);
-      
+      const newOrganization = await this.getInsertAfterOrganizationNumber(originalRoomOrg);
+
       // Create the new room in database
       const roomData: any = {
         ServiceID: serviceIdNum,
@@ -1010,7 +1030,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         RoomName: newRoomName,
         Organization: newOrganization,
         isSelected: true,
-        isSaving: true
+        isSaving: false  // No loading needed - Dexie-first architecture
       };
 
       // Find the index of the original room and insert the duplicate right after it
@@ -1024,7 +1044,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
       this.selectedRooms[newRoomName] = true;
       this.efeRecordIds[newRoomName] = tempEfeId;
-      this.savingRooms[newRoomName] = true;
+      this.savingRooms[newRoomName] = false;  // No loading needed - Dexie-first
       this.changeDetectorRef.detectChanges();
 
       // DEXIE-FIRST: Add duplicated room to Dexie so it persists on navigation
@@ -1065,6 +1085,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       // Room and points are now queued for background sync
       // No direct API call needed - BackgroundSyncService will handle it
       console.log('[Duplicate Room] Room and points queued for sync:', newRoomName, 'tempEfeId:', tempEfeId);
+
+      // CRITICAL: Clear flag after all updates complete (allows liveQuery to resume)
+      this.isAddingRoom = false;
     } catch (error) {
       console.error('[Duplicate Room] Error duplicating room:', error);
 
@@ -1080,6 +1103,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         this.roomTemplates.splice(roomIndex, 1);
       }
 
+      // Clear flag even on error
+      this.isAddingRoom = false;
       this.changeDetectorRef.detectChanges();
       // Toast removed per user request
       // await this.showToast(`Failed to duplicate room "${roomName}"`, 'danger');
@@ -1162,15 +1187,19 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   /**
    * Get organization number for inserting a new room at the TOP of the list
    * Shifts all existing rooms' organization numbers up by 1
+   * CRITICAL: Async to wait for all Dexie updates (prevents liveQuery bouncing)
    */
-  private getTopOrganizationNumber(): number {
+  private async getTopOrganizationNumber(): Promise<number> {
+    // Collect all Dexie update promises
+    const dexieUpdates: Promise<void>[] = [];
+
     // Shift all existing rooms down (increase their org number by 1)
     for (const room of this.roomTemplates) {
       if (room['Organization'] !== undefined && room['Organization'] !== null) {
         const oldOrg = room['Organization'];
         room['Organization'] = oldOrg + 1;
 
-        // Update in database (fire and forget)
+        // Update in database (fire and forget - API is not reactive)
         const roomId = this.efeRecordIds[room.RoomName];
         if (roomId && !String(roomId).startsWith('temp_')) {
           this.caspioService.updateServicesEFEByEFEID(roomId, { Organization: room['Organization'] })
@@ -1183,9 +1212,18 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             });
         }
 
-        // Update in Dexie
-        this.efeFieldRepo.setRoomOrganization(this.serviceId, room.RoomName, room['Organization']);
+        // Update in Dexie - collect promises to await
+        dexieUpdates.push(
+          this.efeFieldRepo.setRoomOrganization(this.serviceId, room.RoomName, room['Organization'])
+        );
       }
+    }
+
+    // CRITICAL: Wait for ALL Dexie updates to complete before returning
+    // This ensures liveQuery won't fire with partial org updates
+    if (dexieUpdates.length > 0) {
+      await Promise.all(dexieUpdates);
+      console.log(`[Organization] All ${dexieUpdates.length} Dexie org updates complete`);
     }
 
     // New room goes at the top with Organization = 1
@@ -1195,18 +1233,22 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   /**
    * Get the organization number for inserting a room right after a specific organization
    * This shifts all subsequent rooms' organization numbers up by 1
+   * CRITICAL: Async to wait for all Dexie updates (prevents liveQuery bouncing)
    */
-  private getInsertAfterOrganizationNumber(afterOrganization: number): number {
+  private async getInsertAfterOrganizationNumber(afterOrganization: number): Promise<number> {
     const newOrg = afterOrganization + 1;
-    
+
+    // Collect all Dexie update promises
+    const dexieUpdates: Promise<void>[] = [];
+
     // Shift all rooms with organization >= newOrg up by 1
     // This happens in-memory for immediate UI update
     for (const room of this.roomTemplates) {
       if (room['Organization'] && room['Organization'] >= newOrg) {
         const oldOrg = room['Organization'];
         room['Organization'] = room['Organization'] + 1;
-        
-        // Update in database
+
+        // Update in database (fire and forget - API is not reactive)
         const roomId = this.efeRecordIds[room.RoomName];
         if (roomId && !String(roomId).startsWith('temp_')) {
           this.caspioService.updateServicesEFEByEFEID(roomId, { Organization: room['Organization'] })
@@ -1218,9 +1260,20 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
               console.error(`[Organization] Failed to shift room "${room.RoomName}":`, err);
             });
         }
+
+        // Update in Dexie - collect promises to await
+        dexieUpdates.push(
+          this.efeFieldRepo.setRoomOrganization(this.serviceId, room.RoomName, room['Organization'])
+        );
       }
     }
-    
+
+    // CRITICAL: Wait for ALL Dexie updates to complete before returning
+    if (dexieUpdates.length > 0) {
+      await Promise.all(dexieUpdates);
+      console.log(`[Organization] All ${dexieUpdates.length} Dexie org updates complete (insert after ${afterOrganization})`);
+    }
+
     return newOrg;
   }
 
@@ -1855,6 +1908,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
       roomData.Organization = newOrganization;
 
+      // CRITICAL: Set flag to suppress liveQuery bouncing during room addition
+      this.isAddingRoom = true;
+
       // DEXIE-FIRST: Use foundationData.createEFERoom() to create room via pending request
       // This creates a pending request record that points can depend on for proper sync
       console.log('[Add Room] Creating room via foundationData.createEFERoom (Dexie-first)');
@@ -1868,7 +1924,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         RoomName: roomName,
         Organization: newOrganization,
         isSelected: true,
-        isSaving: true
+        isSaving: false  // No loading needed - Dexie-first architecture
       };
 
       // Insert at the calculated position
@@ -1883,7 +1939,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
       this.selectedRooms[roomName] = true;
       this.efeRecordIds[roomName] = tempEfeId;
-      this.savingRooms[roomName] = true;
+      this.savingRooms[roomName] = false;  // No loading needed - Dexie-first
       this.changeDetectorRef.detectChanges();
 
       // DEXIE-FIRST: Add/update room in Dexie with tempEfeId
@@ -1930,8 +1986,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       // Room and points are now queued for background sync
       // No direct API call needed - BackgroundSyncService will handle it
       console.log('[Add Room] Room and points queued for sync:', roomName, 'tempEfeId:', tempEfeId);
+
+      // CRITICAL: Clear flag after all updates complete (allows liveQuery to resume)
+      this.isAddingRoom = false;
     } catch (error) {
       console.error('[Add Room] Error in addRoomTemplate:', error);
+      // Clear flag even on error
+      this.isAddingRoom = false;
       // Toast removed per user request
       // await this.showToast('Failed to add room', 'danger');
     }
