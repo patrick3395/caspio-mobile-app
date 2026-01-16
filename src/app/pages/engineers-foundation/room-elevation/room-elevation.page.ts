@@ -5361,15 +5361,26 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               // Force UI update first
               this.changeDetectorRef.detectChanges();
 
+              // DEXIE-FIRST: Delete from LocalImages table (the source of truth)
+              const imageId = photo.imageId || photo.localImageId;
+              if (imageId) {
+                try {
+                  await this.localImageService.deleteImage(imageId);
+                  console.log('[Point Photo] Deleted from LocalImages:', imageId);
+                } catch (e) {
+                  console.warn('[Point Photo] Failed to delete from LocalImages:', e);
+                }
+              }
+
               if (photo.attachId) {
                 // Clear cached photo IMAGE from IndexedDB
                 await this.indexedDb.deleteCachedPhoto(String(photo.attachId));
-                
+
                 // Remove from cached ATTACHMENTS LIST in IndexedDB
                 await this.indexedDb.removeAttachmentFromCache(String(photo.attachId), 'efe_point_attachments');
 
                 // Delete from database - always queue to ensure reliable sync
-                if (!String(photo.attachId).startsWith('temp_')) {
+                if (!String(photo.attachId).startsWith('temp_') && !String(photo.attachId).startsWith('img_')) {
                   console.log('[Point Photo] Queuing delete for sync:', photo.attachId);
                   await this.indexedDb.addPendingRequest({
                     type: 'DELETE',
@@ -5382,7 +5393,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   });
                   // Sync will happen on next 60-second interval (batched sync)
                 }
-                
+
                 console.log('[Point Photo] Photo removed successfully');
               }
 

@@ -640,10 +640,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       roomData.TemplateID = this.roomElevationData[roomName].templateId;
     }
 
-    // Set Organization for ordering (1, 2, 3, etc. in order added)
-    const nextOrganization = this.getNextOrganizationNumber();
-    roomData.Organization = nextOrganization;
-    console.log('[Create Room] Setting Organization to:', nextOrganization);
+    // Set Organization to be at the TOP of the list (shifts existing rooms down)
+    const topOrganization = this.getTopOrganizationNumber();
+    roomData.Organization = topOrganization;
+    console.log('[Create Room] Setting Organization to:', topOrganization, '(top of list)');
 
     // Update room display data
     const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
@@ -675,7 +675,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       );
 
       // Update organization in Dexie
-      await this.efeFieldRepo.setRoomOrganization(this.serviceId, roomName, nextOrganization);
+      await this.efeFieldRepo.setRoomOrganization(this.serviceId, roomName, topOrganization);
 
       // Update local state for immediate UI feedback
       this.selectedRooms[roomName] = true;
@@ -728,6 +728,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     const roomIdStr = String(roomId || '');
     const canRename = roomId && roomId !== '__pending__' && !roomIdStr.startsWith('temp_');
 
+    // Store the validated new name here so we can access it after dismiss
+    let validatedNewName: string | null = null;
+
     const alert = await this.alertController.create({
       header: 'Rename Room',
       cssClass: 'custom-other-alert',
@@ -750,7 +753,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
             }
 
             if (newRoomName === oldRoomName) {
-              return true; // No change needed
+              return true; // No change needed, just close
             }
 
             // Check if new name already exists
@@ -764,8 +767,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
               return false; // Keep alert open
             }
 
-            // Return the data for processing after dismiss
-            return { values: { newRoomName } };
+            // Store the validated name for processing after dismiss
+            validatedNewName = newRoomName;
+            return true; // Dismiss alert
           }
         },
         {
@@ -778,9 +782,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     await alert.present();
     const result = await alert.onDidDismiss();
 
-    // Process save after alert is dismissed
-    if (result.role !== 'cancel' && result.data?.values?.newRoomName) {
-      const newRoomName = result.data.values.newRoomName;
+    // Process save after alert is dismissed - use the stored validated name
+    if (result.role !== 'cancel' && validatedNewName) {
+      const newRoomName = validatedNewName;
       
       // DETACH change detection to prevent checkbox from firing during rename
       this.changeDetectorRef.detach();
@@ -978,9 +982,44 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       }
       
       this.selectedRooms[newRoomName] = true;
-      this.efeRecordIds[newRoomName] = `temp_${Date.now()}`;
+      const tempEfeId = `temp_efe_${Date.now()}`;
+      this.efeRecordIds[newRoomName] = tempEfeId;
       this.savingRooms[newRoomName] = true;
       this.changeDetectorRef.detectChanges();
+
+      // DEXIE-FIRST: Add duplicated room to Dexie so it persists on navigation
+      try {
+        // Build elevation points from the original room's template
+        const efePoints = this.roomElevationData[newRoomName]?.elevationPoints?.map((ep: any) => ({
+          pointNumber: ep.pointNumber,
+          pointId: null,
+          tempPointId: null,
+          name: ep.name,
+          value: '',
+          photoCount: 0
+        })) || [];
+
+        await this.efeFieldRepo.addRoom(
+          this.serviceId,
+          newRoomName,
+          templateId,
+          newOrganization,
+          null,  // efeId not yet known
+          tempEfeId,
+          efePoints
+        );
+        console.log('[Duplicate Room] Added room to Dexie with tempEfeId:', tempEfeId);
+
+        // Create elevation points in Dexie
+        await this.efeFieldRepo.createPointRecordsForRoom(
+          this.serviceId,
+          newRoomName,
+          tempEfeId,
+          this.foundationData
+        );
+      } catch (dexieError) {
+        console.error('[Duplicate Room] Dexie update error (non-fatal):', dexieError);
+      }
 
       // Create room in database
       const response = await this.caspioService.createServicesEFE(roomData).toPromise();
@@ -997,9 +1036,15 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.roomTemplates[roomIndex].efeId = roomId;
         }
 
+        // DEXIE-FIRST: Update Dexie with real efeId
+        try {
+          await this.efeFieldRepo.updateEfeId(this.serviceId, newRoomName, String(roomId));
+          console.log('[Duplicate Room] Updated Dexie with real efeId:', roomId);
+        } catch (dexieError) {
+          console.error('[Duplicate Room] Failed to update Dexie with real efeId:', dexieError);
+        }
+
         this.changeDetectorRef.detectChanges();
-        // Toast removed per user request
-        // await this.showToast(`Room "${newRoomName}" created successfully`, 'success');
         console.log('[Duplicate Room] Room duplicated successfully:', newRoomName, 'EFEID:', roomId);
       } else {
         throw new Error('No room ID returned from creation');
@@ -1085,7 +1130,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private getNextOrganizationNumber(): number {
     let maxOrg = 0;
-    
+
     // Find the highest organization number currently in use
     for (const room of this.roomTemplates) {
       const org = room['Organization'] || 0;
@@ -1093,9 +1138,42 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         maxOrg = org;
       }
     }
-    
+
     // Return next number
     return maxOrg + 1;
+  }
+
+  /**
+   * Get organization number for inserting a new room at the TOP of the list
+   * Shifts all existing rooms' organization numbers up by 1
+   */
+  private getTopOrganizationNumber(): number {
+    // Shift all existing rooms down (increase their org number by 1)
+    for (const room of this.roomTemplates) {
+      if (room['Organization'] !== undefined && room['Organization'] !== null) {
+        const oldOrg = room['Organization'];
+        room['Organization'] = oldOrg + 1;
+
+        // Update in database (fire and forget)
+        const roomId = this.efeRecordIds[room.RoomName];
+        if (roomId && !String(roomId).startsWith('temp_')) {
+          this.caspioService.updateServicesEFEByEFEID(roomId, { Organization: room['Organization'] })
+            .toPromise()
+            .then(() => {
+              console.log(`[Organization] Shifted room "${room.RoomName}" from ${oldOrg} to ${room['Organization']}`);
+            })
+            .catch(err => {
+              console.error(`[Organization] Failed to shift room "${room.RoomName}":`, err);
+            });
+        }
+
+        // Update in Dexie
+        this.efeFieldRepo.setRoomOrganization(this.serviceId, room.RoomName, room['Organization']);
+      }
+    }
+
+    // New room goes at the top with Organization = 1
+    return 1;
   }
 
   /**

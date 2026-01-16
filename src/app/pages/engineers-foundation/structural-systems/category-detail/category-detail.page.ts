@@ -715,6 +715,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.logDebug('DEXIE_LOAD', `populatePhotosFromDexie START\nfields count: ${fields.length}\nserviceId: ${this.serviceId}`);
     // ===== END US-001 DEBUG =====
 
+    // ANNOTATION FIX: Ensure annotated images cache is loaded for thumbnail display
+    if (this.bulkAnnotatedImagesMap.size === 0) {
+      this.bulkAnnotatedImagesMap = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+    }
+
     // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query
     // This eliminates the race condition - we don't rely on bulkLocalImagesMap being populated
     const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
@@ -854,7 +859,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (loadedPhotoIds.has(imageId)) continue;
         if (localImage.attachId && loadedPhotoIds.has(localImage.attachId)) continue;
 
-        // Get display URL from LocalImageService
+        // Get display URL from LocalImageService (original photo)
         let displayUrl = 'assets/img/photo-placeholder.png';
         try {
           displayUrl = await this.localImageService.getDisplayUrl(localImage);
@@ -862,12 +867,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           console.warn('[DEXIE-FIRST] Failed to get displayUrl:', e);
         }
 
-        // ===== US-003 DEBUG: Check if annotated image is being used =====
-        const isAnnotatedUrl = displayUrl.startsWith('data:') && displayUrl.length > 5000;
-        if (localImage.drawings && localImage.drawings.length > 10) {
-          console.log(`[US-003 DEBUG] Photo has drawings, displayUrl isAnnotated: ${isAnnotatedUrl}`);
+        // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+        // The annotated image is cached separately when user adds annotations
+        // We use it for displayUrl/thumbnailUrl while keeping originalUrl as the base image
+        let thumbnailUrl = displayUrl;
+        const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
+        if (hasAnnotations) {
+          const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
+          if (cachedAnnotatedImage) {
+            thumbnailUrl = cachedAnnotatedImage;
+            console.log(`[DEXIE-FIRST] Using cached annotated image for thumbnail: ${imageId}`);
+          }
         }
-        // ===== END US-003 DEBUG =====
 
         // Add photo to array
         this.visualPhotos[key].unshift({
@@ -877,16 +888,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           imageId: localImage.imageId,
           localImageId: localImage.imageId,
           localBlobId: localImage.localBlobId,
-          displayUrl: displayUrl,
-          url: displayUrl,
-          thumbnailUrl: displayUrl,
-          originalUrl: displayUrl,
+          displayUrl: thumbnailUrl,  // Use annotated thumbnail if available
+          url: displayUrl,           // Original photo URL
+          thumbnailUrl: thumbnailUrl,
+          originalUrl: displayUrl,   // Always keep original for re-editing
           name: localImage.fileName,
           caption: localImage.caption || '',
           annotation: localImage.caption || '',
           Annotation: localImage.caption || '',
           Drawings: localImage.drawings || null,
-          hasAnnotations: !!localImage.drawings && localImage.drawings.length > 10,
+          hasAnnotations: hasAnnotations,
           loading: false,
           uploading: false,
           queued: false,
@@ -4656,7 +4667,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // ============================================
           
           this.logDebug('CAPTURE', `Starting captureImage for visualId: ${visualId}`);
-          
+
+          // RACE CONDITION FIX: Suppress liveQuery during camera capture
+          // Without this, liveQuery fires after Dexie write but BEFORE we push to visualPhotos,
+          // causing populatePhotosFromDexie to add a duplicate entry with the original (non-annotated) URL
+          this.isMultiImageUploadInProgress = true;
+
           // Create LocalImage with stable UUID (this stores blob + creates outbox item)
           let localImage: LocalImage;
           try {
@@ -4763,6 +4779,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             this.visualPhotos[key][existingIndex] = { ...this.visualPhotos[key][existingIndex], ...photoEntry };
             this.changeDetectorRef.detectChanges();
           }
+
+          // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
+          this.isMultiImageUploadInProgress = false;
+
           console.log(`  key: ${key}`);
           console.log(`  imageId: ${localImage.imageId}`);
           console.log(`  AttachID: ${photoEntry.AttachID}`);
@@ -4789,6 +4809,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         URL.revokeObjectURL(imageUrl);
       }
     } catch (error) {
+      // RACE CONDITION FIX: Ensure flag is reset on error
+      this.isMultiImageUploadInProgress = false;
+
       // Check if user cancelled - don't show error for cancellations
       const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
       const isCancelled = errorMessage.includes('cancel') ||
