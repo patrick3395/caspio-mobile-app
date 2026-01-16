@@ -832,45 +832,24 @@ export class EngineersFoundationDataService {
 
   async deleteVisualPhoto(attachId: string): Promise<any> {
     console.log('[Visual Photo] Deleting photo:', attachId);
-    
+
     // Clear all attachment caches first (optimistic update)
     this.visualAttachmentsCache.clear();
 
-    // OFFLINE-FIRST: If offline, queue for background sync
-    if (!this.offlineService.isOnline()) {
-      console.log('[Visual Photo] Offline - queuing delete for sync');
-      await this.indexedDb.addPendingRequest({
-        type: 'DELETE',
-        endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
-        method: 'DELETE',
-        data: { attachId },
-        dependencies: [],
-        status: 'pending',
-        priority: 'high',
-      });
-      // Sync will happen on next 60-second interval (batched sync)
-      return { success: true, queued: true };
-    }
-
-    // Online - try API
-    try {
-      const result = await firstValueFrom(this.caspioService.deleteServiceVisualsAttach(attachId));
-      return result;
-    } catch (error) {
-      // Queue for retry on failure
-      console.warn('[Visual Photo] Delete failed, queuing for retry:', error);
-      await this.indexedDb.addPendingRequest({
-        type: 'DELETE',
-        endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
-        method: 'DELETE',
-        data: { attachId },
-        dependencies: [],
-        status: 'pending',
-        priority: 'high',
-      });
-      // Sync will happen on next 60-second interval (batched sync)
-      return { success: true, queued: true };
-    }
+    // QUEUE-FIRST: Always queue delete for background sync (matches room-elevation pattern)
+    // This ensures consistent behavior online/offline and batches deletes with other sync operations
+    console.log('[Visual Photo] Queuing delete for sync:', attachId);
+    await this.indexedDb.addPendingRequest({
+      type: 'DELETE',
+      endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,
+      method: 'DELETE',
+      data: { attachId },
+      dependencies: [],
+      status: 'pending',
+      priority: 'high',
+    });
+    // Sync will happen on next 60-second interval (batched sync)
+    return { success: true, queued: true };
   }
 
   async updateVisualPhotoCaption(attachId: string, caption: string, visualId?: string): Promise<any> {

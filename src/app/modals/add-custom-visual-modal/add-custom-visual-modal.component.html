@@ -71,12 +71,9 @@
              *ngFor="let photo of processedPhotos; let i = index"
              [class.annotated]="photo.hasAnnotations">
           <img [src]="photo.previewUrl"
-               width="90"
-               height="90"
                [alt]="'Photo ' + (i + 1)"
                (click)="editPhoto(i)"
-               (error)="onImageError($event, i)"
-               [class.has-annotations]="photo.hasAnnotations">
+               (error)="onImageError($event, i)">
 
           <button class="delete-btn"
                   (click)="removePhoto(i); $event.stopPropagation()"

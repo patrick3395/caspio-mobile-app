@@ -78,6 +78,17 @@ ion-toolbar {
   --background: var(--ion-color-primary);
   --color: white;
   --min-height: 56px;
+  transition: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+
+  // Prevent any layout changes on click
+  &, &:hover, &:active, &:focus {
+    transition: none !important;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent !important;
+  }
 
   // Mobile: show short title
   .full-title {
@@ -100,21 +111,32 @@ ion-toolbar {
 
   ion-title {
     // iOS uses absolute positioning - override to vertically center
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    transform: translateY(-50%);
-    padding: 0;
-    margin: 0;
-    text-align: center;
-    height: auto;
-    
-    // Ensure inner text wrapper is also centered
+    position: absolute !important;
+    top: 50% !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: translateY(-50%) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    text-align: center !important;
+    height: auto !important;
+    transition: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+
+    // Prevent ANY movement on click/touch
+    &:hover, &:active, &:focus, &:focus-visible {
+      position: absolute !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      transition: none !important;
+    }
+
+    // Ensure inner text wrapper is also centered and static
     .toolbar-title {
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: none !important;
     }
   }
 
@@ -122,15 +144,36 @@ ion-toolbar {
     display: flex;
     align-items: center;
     height: 100%;
+    transition: none !important;
   }
 
   ion-button {
     --padding-top: 0;
     --padding-bottom: 0;
+    --ripple-color: transparent !important;
+    --background-hover: transparent !important;
+    --background-activated: transparent !important;
+    --background-focused: transparent !important;
     height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: none !important;
+    transform: none !important;
+
+    &:hover, &:active, &:focus, &:focus-visible, &.ion-activated {
+      opacity: 1 !important;
+      visibility: visible !important;
+      transform: none !important;
+    }
+
+    &::part(native) {
+      opacity: 1 !important;
+      visibility: visible !important;
+      transition: none !important;
+    }
   }
 }
 

@@ -71,10 +71,17 @@ ion-header {
   }
 }
 
-// Back Button with Orange Circle
+// Back Button with Orange Circle - STATIC, no state changes
 ion-back-button {
-  --color: white;
-  --background: var(--noble-orange);
+  --color: white !important;
+  --background: var(--noble-orange) !important;
+  --background-hover: var(--noble-orange) !important;
+  --background-focused: var(--noble-orange) !important;
+  --background-activated: var(--noble-orange) !important;
+  --opacity: 1 !important;
+  --opacity-hover: 1 !important;
+  --opacity-focused: 1 !important;
+  --opacity-activated: 1 !important;
   --border-radius: 50%;
   --icon-margin-start: 0;
   --icon-margin-end: 0;
@@ -84,21 +91,94 @@ ion-back-button {
   --padding-end: 0;
   --min-width: 40px;
   --min-height: 40px;
+  --ripple-color: transparent !important;
   margin-left: 8px;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: none !important;
+  transform: none !important;
+
+  &:hover, &:active, &:focus, &:focus-visible, &.ion-activated, &.ion-focused {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    --background: var(--noble-orange) !important;
+  }
 
   &::part(native) {
-    background: var(--noble-orange);
+    background: var(--noble-orange) !important;
     border-radius: 50%;
     width: 40px;
     height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: none !important;
+    transform: none !important;
+
+    &:hover, &:active, &:focus {
+      background: var(--noble-orange) !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      transform: none !important;
+    }
   }
 
   &::part(icon) {
-    color: white;
+    color: white !important;
     font-size: 24px;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+}
+
+// Header buttons - STATIC, no state changes on click
+ion-header ion-button,
+ion-toolbar ion-button,
+ion-buttons ion-button {
+  --background-hover: var(--background) !important;
+  --background-activated: var(--background) !important;
+  --background-focused: var(--background) !important;
+  --opacity: 1 !important;
+  --opacity-hover: 1 !important;
+  --opacity-activated: 1 !important;
+  --opacity-focused: 1 !important;
+  --ripple-color: transparent !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: none !important;
+  transform: none !important;
+
+  &:hover, &:active, &:focus, &:focus-visible, &.ion-activated, &.ion-focused {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+
+  &::part(native) {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: none !important;
+    transform: none !important;
+
+    &:hover, &:active, &:focus {
+      opacity: 1 !important;
+      visibility: visible !important;
+      transform: none !important;
+    }
+  }
+}
+
+// Title - STATIC position, no movement on click
+ion-title {
+  transition: none !important;
+  transform: translateY(-50%) !important;
+  position: absolute !important;
+
+  &:hover, &:active, &:focus {
+    transform: translateY(-50%) !important;
   }
 }
 

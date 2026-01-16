@@ -869,9 +869,20 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       // Disable selection for drawing tools
       this.canvas.isDrawingMode = false;
       this.canvas.selection = false;
-      
+
       // Deselect any active object
       this.canvas.discardActiveObject();
+
+      // Make all objects non-selectable so they don't interfere with drawing
+      const fabric = await this.getFabric();
+      this.canvas.getObjects().forEach((obj: any) => {
+        if (!(obj instanceof fabric.Image)) {
+          obj.set({
+            selectable: false,
+            evented: false
+          });
+        }
+      });
       this.canvas.renderAll();
     }
   }

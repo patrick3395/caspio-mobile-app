@@ -820,20 +820,54 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     for (const localImage of localImages) {
       // Only process FDF images for this room
       const entityId = String(localImage.entityId);
-      if (entityId !== String(this.roomId)) {
-        // Also check temp ID mappings
-        if (!entityId.startsWith('temp_')) continue;
-        try {
-          const realId = await this.indexedDb.getRealId(entityId);
-          if (realId !== this.roomId) continue;
-        } catch {
-          continue;
+      let isMatch = entityId === String(this.roomId);
+
+      // FDF FIX: Handle temp<->real ID mappings in both directions
+      if (!isMatch) {
+        // Case 1: Image has temp entityId, check if it maps to our real roomId
+        if (entityId.startsWith('temp_')) {
+          try {
+            const realId = await this.indexedDb.getRealId(entityId);
+            if (realId === this.roomId) {
+              isMatch = true;
+            }
+          } catch {
+            // Mapping not found
+          }
+        }
+
+        // Case 2: Our roomId is temp, check if it maps to image's real entityId
+        if (!isMatch && String(this.roomId).startsWith('temp_')) {
+          try {
+            const realRoomId = await this.indexedDb.getRealId(this.roomId);
+            if (realRoomId === entityId) {
+              isMatch = true;
+            }
+          } catch {
+            // Mapping not found
+          }
         }
       }
 
+      if (!isMatch) continue;
+
       // Determine which photo slot this belongs to (top, bottom, threshold)
+      // FDF FIX: Use same mapping logic as populateFdfPhotosFromLocalImages
       const photoType = localImage.photoType || 'Top';
-      const photoKey = photoType.toLowerCase();
+      let photoKey = '';
+      if (photoType.includes('Top') && photoType.includes('Details')) {
+        photoKey = 'topDetails';
+      } else if (photoType.includes('Bottom') && photoType.includes('Details')) {
+        photoKey = 'bottomDetails';
+      } else if (photoType.includes('Top')) {
+        photoKey = 'top';
+      } else if (photoType.includes('Bottom')) {
+        photoKey = 'bottom';
+      } else if (photoType.includes('Threshold')) {
+        photoKey = 'threshold';
+      }
+
+      if (!photoKey) continue;  // Skip unknown photo types
 
       // DEXIE-FIRST: Always update the displayUrl from the LocalImage
       // The LocalImage blob is the source of truth - always use it if available
@@ -2093,15 +2127,31 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   private async populateFdfPhotosFromLocalImages(localImagesMap?: Map<string, any[]>): Promise<void> {
     if (!this.roomData?.fdfPhotos || !this.roomId) return;
 
-    // If map not provided, get FDF-specific images
+    // FDF FIX: The localImagesMap only contains efe_point images keyed by pointId
+    // FDF images have a different entityType ('fdf') and are keyed by roomId
+    // So we must ALWAYS fetch FDF images separately - the map doesn't contain them
     let fdfImages: any[] = [];
-    if (localImagesMap) {
-      // FDF photos use roomId as entityId
-      fdfImages = localImagesMap.get(String(this.roomId)) || [];
-    } else {
-      const allFdfImages = await this.localImageService.getImagesForService(this.serviceId, 'fdf');
-      fdfImages = allFdfImages.filter((img: any) => String(img.entityId) === String(this.roomId));
+    const allFdfImages = await this.localImageService.getImagesForService(this.serviceId, 'fdf');
+    fdfImages = allFdfImages.filter((img: any) => String(img.entityId) === String(this.roomId));
+
+    // Also check for FDF photos with temp roomId that maps to current real roomId
+    if (!String(this.roomId).startsWith('temp_')) {
+      for (const img of allFdfImages) {
+        if (String(img.entityId).startsWith('temp_')) {
+          try {
+            const realId = await this.indexedDb.getRealId(img.entityId);
+            if (realId === this.roomId && !fdfImages.some(f => f.imageId === img.imageId)) {
+              fdfImages.push(img);
+              console.log(`[RoomElevation] Found FDF photo via temp->real mapping: ${img.imageId}`);
+            }
+          } catch (e) {
+            // Ignore mapping errors
+          }
+        }
+      }
     }
+
+    console.log(`[RoomElevation] populateFdfPhotosFromLocalImages: Found ${fdfImages.length} FDF images for room ${this.roomId}`);
 
     for (const localImage of fdfImages) {
       const photoType = localImage.photoType as string;
@@ -2130,11 +2180,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         console.warn('[RoomElevation] Failed to get FDF LocalImage displayUrl:', e);
       }
 
-      // Update fdfPhotos
-      (this.roomData.fdfPhotos as any)[fdfKey] = true;
-      (this.roomData.fdfPhotos as any)[`${fdfKey}DisplayUrl`] = displayUrl;
-      (this.roomData.fdfPhotos as any)[`${fdfKey}ImageId`] = localImage.imageId;
-      (this.roomData.fdfPhotos as any)[`${fdfKey}IsLocalFirst`] = true;
+      // Update fdfPhotos - set ALL properties to match loadLocalFDFPhotos pattern
+      const fdfPhotos = this.roomData.fdfPhotos as any;
+      fdfPhotos[fdfKey] = true;
+      fdfPhotos[`${fdfKey}Url`] = displayUrl;
+      fdfPhotos[`${fdfKey}DisplayUrl`] = displayUrl;
+      fdfPhotos[`${fdfKey}Caption`] = localImage.caption || fdfPhotos[`${fdfKey}Caption`] || '';
+      fdfPhotos[`${fdfKey}Drawings`] = localImage.drawings || fdfPhotos[`${fdfKey}Drawings`] || null;
+      fdfPhotos[`${fdfKey}Loading`] = false;
+      fdfPhotos[`${fdfKey}Uploading`] = false;
+      fdfPhotos[`${fdfKey}Queued`] = false;
+      fdfPhotos[`${fdfKey}ImageId`] = localImage.imageId;
+      fdfPhotos[`${fdfKey}LocalBlobId`] = localImage.localBlobId;
+      fdfPhotos[`${fdfKey}IsLocalFirst`] = true;
+      fdfPhotos[`${fdfKey}HasAnnotations`] = !!(localImage.drawings && localImage.drawings.length > 10);
+
+      console.log(`[RoomElevation] ✅ Loaded FDF ${fdfKey} from LocalImages: ${localImage.imageId}`);
     }
   }
 
@@ -5416,9 +5477,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             // OFFLINE-FIRST: Immediate UI update, queue delete for sync if offline
             try {
               // Remove from local array IMMEDIATELY (optimistic update)
-              const index = point.photos.findIndex((p: any) => p.attachId === photo.attachId);
+              // DELETE FIX: Check multiple identifiers - local photos may not have attachId yet
+              const index = point.photos.findIndex((p: any) =>
+                (photo.attachId && p.attachId === photo.attachId) ||
+                (photo.imageId && p.imageId === photo.imageId) ||
+                (photo.localImageId && p.localImageId === photo.localImageId) ||
+                (photo.imageId && p.localImageId === photo.imageId) ||
+                (photo.localImageId && p.imageId === photo.localImageId)
+              );
               if (index >= 0) {
                 point.photos.splice(index, 1);
+                console.log('[Point Photo] Removed from UI array at index:', index);
+              } else {
+                console.warn('[Point Photo] Could not find photo in array to remove:', photo);
               }
 
               // Force UI update first
@@ -5430,14 +5501,28 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 try {
                   await this.localImageService.deleteLocalImage(imageId);
                   console.log('[Point Photo] Deleted from LocalImages:', imageId);
+
+                  // DELETE FIX: Also clear cached photos/annotations by imageId
+                  // Local-first photos may be cached by imageId, not attachId
+                  // deleteCachedPhoto deletes both regular and annotated versions
+                  await this.indexedDb.deleteCachedPhoto(imageId);
+
+                  // Clear from in-memory caches
+                  this.bulkCachedPhotosMap.delete(imageId);
+                  this.bulkAnnotatedImagesMap.delete(imageId);
                 } catch (e) {
                   console.warn('[Point Photo] Failed to delete from LocalImages:', e);
                 }
               }
 
               if (photo.attachId) {
-                // Clear cached photo IMAGE from IndexedDB
+                // Clear cached photo IMAGE from IndexedDB by attachId
+                // deleteCachedPhoto deletes both regular and annotated versions
                 await this.indexedDb.deleteCachedPhoto(String(photo.attachId));
+
+                // Clear from in-memory caches by attachId
+                this.bulkCachedPhotosMap.delete(String(photo.attachId));
+                this.bulkAnnotatedImagesMap.delete(String(photo.attachId));
 
                 // Remove from cached ATTACHMENTS LIST in IndexedDB
                 await this.indexedDb.removeAttachmentFromCache(String(photo.attachId), 'efe_point_attachments');
