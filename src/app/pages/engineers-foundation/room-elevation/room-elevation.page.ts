@@ -4998,11 +4998,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async processPointPhoto(webPath: string, point: any, photoType: 'Measurement' | 'Location') {
+    alert(`[PHOTO DEBUG] processPointPhoto START\npointId: ${point.pointId}\nphotoType: ${photoType}`);
     try {
       // Convert to File
+      alert(`[PHOTO DEBUG] Fetching webPath...`);
       const response = await fetch(webPath);
       const blob = await response.blob();
       const file = new File([blob], `point-${photoType.toLowerCase()}-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      alert(`[PHOTO DEBUG] File created, size: ${file.size}`);
 
       // Check actual offline status
       const isActuallyOffline = !this.offlineService.isOnline();
@@ -5060,16 +5063,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       this.changeDetectorRef.detectChanges();
 
       // Compress image before storing/uploading
+      alert(`[PHOTO DEBUG] Compressing image...`);
       const compressedFile = await this.imageCompression.compressImage(file, {
         maxSizeMB: 0.4,
         maxWidthOrHeight: 1024,
         useWebWorker: true
       }) as File;
+      alert(`[PHOTO DEBUG] Compressed to ${compressedFile.size} bytes`);
 
       // OFFLINE-FIRST: Use foundationData.uploadEFEPointPhoto which handles both
       // online (immediate upload) and offline (IndexedDB queue) scenarios
       // TASK 1 FIX: Pass serviceId so LocalImages can be found by getImagesForService()
       // Without serviceId, photos would be stored with serviceId='' but queried with actual serviceId
+      alert(`[PHOTO DEBUG] Calling uploadEFEPointPhoto...`);
       const result = await this.foundationData.uploadEFEPointPhoto(
         point.pointId,
         compressedFile,
@@ -5077,6 +5083,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         '', // No drawings initially
         this.serviceId  // CRITICAL: Pass serviceId for LocalImage lookup
       );
+      alert(`[PHOTO DEBUG] uploadEFEPointPhoto returned\nimageId: ${result?.imageId}\nstatus: ${result?.status}`);
 
       console.log(`[Point Photo] Photo ${photoType} processed for point ${point.pointName}:`, result);
 
@@ -5133,9 +5140,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       }
       
       this.changeDetectorRef.detectChanges();
+      alert(`[PHOTO DEBUG] processPointPhoto COMPLETED SUCCESSFULLY`);
       console.log(`[Point Photo] Photo ${photoType} for point ${point.pointName} processed successfully`);
 
     } catch (error: any) {
+      alert(`[PHOTO DEBUG] processPointPhoto ERROR:\n${error?.message || error}`);
       console.error('Error processing point photo:', error);
 
       // Remove uploading/queued state on error
