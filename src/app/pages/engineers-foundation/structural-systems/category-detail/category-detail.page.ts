@@ -6699,10 +6699,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           isSelected: true,
           tempVisualId: visualId,
           visualId: null, // Will be set when synced
-          name: name,
-          text: text,
+          templateName: name,
+          templateText: text,
           kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
-          isCustom: true, // Flag to identify custom visuals
           photoCount: photoCount
         });
         console.log('[CREATE CUSTOM] ✅ Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
