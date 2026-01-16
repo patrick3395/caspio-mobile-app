@@ -6701,7 +6701,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           visualId: null, // Will be set when synced
           name: name,
           text: text,
-          kind: kind,
+          kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
           isCustom: true, // Flag to identify custom visuals
           photoCount: photoCount
         });
