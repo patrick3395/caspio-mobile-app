@@ -874,19 +874,64 @@ export class IndexedDbService {
   }
 
   /**
+   * Cache a photo pointer for offline viewing (STORAGE OPTIMIZED)
+   * Instead of storing full base64 (~930KB), stores pointer to localBlobs (~50 bytes)
+   * Both tempId and attachId can point to same blobKey - no duplication
+   */
+  async cachePhotoPointer(attachId: string, serviceId: string, blobKey: string, s3Key?: string): Promise<void> {
+    const photoKey = `photo_${attachId}`;
+
+    // Validate blobKey exists
+    const blob = await this.getLocalBlob(blobKey);
+    if (!blob) {
+      console.error('[IndexedDB] ❌ Cannot cache pointer - blobKey not found:', blobKey);
+      throw new Error('Invalid blobKey - blob not found in localBlobs');
+    }
+
+    const photoData = {
+      photoKey: photoKey,
+      attachId: attachId,
+      serviceId: serviceId,
+      blobKey: blobKey,           // Pointer instead of full data
+      variant: 'original' as const,
+      s3Key: s3Key || '',
+      cachedAt: Date.now()
+    };
+
+    await db.cachedPhotos.put(photoData);
+    console.log('[IndexedDB] ✅ Photo pointer cached:', attachId, '-> blobKey:', blobKey, '(~50 bytes vs ~930KB)');
+  }
+
+  /**
    * Get cached photo image
+   * Supports both legacy imageData and new blobKey pointer storage
    */
   async getCachedPhoto(attachId: string): Promise<string | null> {
     const photoKey = `photo_${attachId}`;
     const result = await db.cachedPhotos.get(photoKey);
 
-    if (result && result.imageData) {
-      console.log('[IndexedDB] Cached photo found:', attachId, '(data length:', result.imageData.length, ')');
-      return result.imageData;
-    } else {
+    if (!result) {
       console.log('[IndexedDB] No cached photo found for:', attachId);
       return null;
     }
+
+    // Legacy: full base64 imageData stored directly
+    if (result.imageData) {
+      console.log('[IndexedDB] Cached photo found (legacy):', attachId, '(data length:', result.imageData.length, ')');
+      return result.imageData;
+    }
+
+    // New: resolve blobKey pointer to localBlobs
+    if (result.blobKey) {
+      const blob = await this.getLocalBlob(result.blobKey);
+      if (blob?.data) {
+        console.log('[IndexedDB] Cached photo found (pointer):', attachId, '-> blobKey:', result.blobKey);
+        return this.arrayBufferToDataUrl(blob.data, blob.contentType || 'image/jpeg');
+      }
+      console.log('[IndexedDB] Cached photo pointer invalid - blob not found:', attachId, 'blobKey:', result.blobKey);
+    }
+
+    return null;
   }
 
   /**
@@ -986,16 +1031,63 @@ export class IndexedDbService {
   }
 
   /**
+   * Cache an annotated image pointer (STORAGE OPTIMIZED)
+   * Instead of storing rendered annotated binary (~930KB), stores pointer to localBlobs (~50 bytes)
+   * The annotations themselves are stored in LocalImage.drawings as vector data
+   */
+  async cacheAnnotatedPointer(attachId: string, blobKey: string): Promise<void> {
+    const photoKey = `annotated_${attachId}`;
+
+    // Validate blobKey exists
+    const blob = await this.getLocalBlob(blobKey);
+    if (!blob) {
+      console.error('[IndexedDB] ❌ Cannot cache annotated pointer - blobKey not found:', blobKey);
+      throw new Error('Invalid blobKey - blob not found in localBlobs');
+    }
+
+    const photoData = {
+      photoKey: photoKey,
+      attachId: attachId,
+      serviceId: 'annotated',
+      blobKey: blobKey,           // Pointer instead of full rendered image
+      variant: 'annotated' as const,
+      s3Key: '',
+      cachedAt: Date.now(),
+      isAnnotated: true
+    };
+
+    await db.cachedPhotos.put(photoData);
+    console.log('[IndexedDB] ✅ Annotated pointer cached:', attachId, '-> blobKey:', blobKey, '(~50 bytes vs ~930KB)');
+  }
+
+  /**
    * Get cached annotated image
+   * Supports both legacy imageData and new blobKey pointer storage
    */
   async getCachedAnnotatedImage(attachId: string): Promise<string | null> {
     const photoKey = `annotated_${attachId}`;
     const result = await db.cachedPhotos.get(photoKey);
 
-    if (result && result.imageData) {
-      console.log('[IndexedDB] Cached annotated image found:', attachId, '(data length:', result.imageData.length, ')');
+    if (!result) {
+      return null;
+    }
+
+    // Legacy: full base64 imageData stored directly
+    if (result.imageData) {
+      console.log('[IndexedDB] Cached annotated image found (legacy):', attachId, '(data length:', result.imageData.length, ')');
       return result.imageData;
     }
+
+    // New: resolve blobKey pointer to localBlobs
+    if (result.blobKey) {
+      const blob = await this.getLocalBlob(result.blobKey);
+      if (blob?.data) {
+        console.log('[IndexedDB] Cached annotated image found (pointer):', attachId, '-> blobKey:', result.blobKey);
+        return this.arrayBufferToDataUrl(blob.data, blob.contentType || 'image/jpeg');
+      }
+      console.log('[IndexedDB] Cached annotated pointer invalid - blob not found:', attachId, 'blobKey:', result.blobKey);
+    }
+
     return null;
   }
 
@@ -1008,6 +1100,24 @@ export class IndexedDbService {
       reader.onloadend = () => resolve(reader.result as string);
       reader.onerror = () => reject(new Error('Failed to convert blob to base64'));
       reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * Convert ArrayBuffer to base64 data URL
+   * Used for resolving blobKey pointers to displayable URLs
+   */
+  private arrayBufferToDataUrl(buffer: ArrayBuffer, contentType: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      try {
+        const blob = new Blob([buffer], { type: contentType });
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to convert ArrayBuffer to data URL'));
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 

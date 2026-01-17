@@ -452,15 +452,24 @@ export class LocalImageService {
 
     // CRITICAL FIX: Transfer annotated image cache from imageId to attachId
     // This ensures annotations persist in thumbnails after local-first photo syncs
+    // STORAGE OPTIMIZED: Use pointer instead of duplicating full image data
     if (attachId && attachId !== imageId) {
       try {
-        const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(imageId);
-        if (cachedAnnotatedImage) {
-          // Re-cache with real attachId
-          const response = await fetch(cachedAnnotatedImage);
-          const blob = await response.blob();
-          await this.indexedDb.cacheAnnotatedImage(attachId, blob);
-          console.log('[LocalImage] ✅ Transferred annotated image cache from imageId to attachId:', imageId, '->', attachId);
+        // Get the LocalImage to find the blobId
+        const image = await this.indexedDb.getLocalImage(imageId);
+        if (image?.localBlobId) {
+          // DEXIE-FIRST: Create pointer for attachId pointing to same blob
+          await this.indexedDb.cacheAnnotatedPointer(attachId, image.localBlobId);
+          console.log('[LocalImage] ✅ Transferred annotated pointer:', imageId, '->', attachId, '(same blobId:', image.localBlobId, ')');
+        } else {
+          // FALLBACK: Legacy path - copy the full data if no local blob
+          const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(imageId);
+          if (cachedAnnotatedImage) {
+            const response = await fetch(cachedAnnotatedImage);
+            const blob = await response.blob();
+            await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+            console.log('[LocalImage] ✅ Transferred annotated image (legacy):', imageId, '->', attachId);
+          }
         }
       } catch (err) {
         console.warn('[LocalImage] Failed to transfer annotated image cache:', err);

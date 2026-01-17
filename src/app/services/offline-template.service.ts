@@ -558,19 +558,28 @@ export class OfflineTemplateService {
         const s3Key = attach.Attachment;
 
         try {
-          // Get pre-signed URL
+          // DEXIE-FIRST: Check if we have a local blob for this attachment
+          const localImages = await this.indexedDb.getLocalImagesForService(serviceId);
+          const matchingImage = localImages.find(img => String(img.attachId) === attachId && img.localBlobId);
+
+          if (matchingImage?.localBlobId) {
+            // Use pointer storage instead of downloading from S3 (saves ~930KB)
+            await this.indexedDb.cachePhotoPointer(attachId, serviceId, matchingImage.localBlobId, s3Key);
+            successCount++;
+            if (isNative) {
+              console.log(`    ✅ [Mobile] Cached pointer ${attachId} (Dexie-first)`);
+            }
+            return;
+          }
+
+          // FALLBACK: Download from S3 for legacy photos without local blobs
           const s3Url = await this.caspioService.getS3FileUrl(s3Key);
-          
-          // Use XMLHttpRequest-based fetch for cross-platform compatibility
-          // Standard fetch() can have CORS issues on native mobile platforms
           const base64 = await this.fetchImageAsBase64(s3Url);
-          
-          // Cache in IndexedDB
           await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
           successCount++;
-          
+
           if (isNative) {
-            console.log(`    ✅ [Mobile] Cached image ${attachId}`);
+            console.log(`    ✅ [Mobile] Cached image ${attachId} (from S3)`);
           }
         } catch (err: any) {
           console.warn(`    ⚠️ Failed to cache image ${attachId}:`, err?.message || err);
@@ -817,18 +826,28 @@ export class OfflineTemplateService {
         const s3Key = attach.Attachment;
 
         try {
-          // Get pre-signed URL
+          // DEXIE-FIRST: Check if we have a local blob for this attachment
+          const localImages = await this.indexedDb.getLocalImagesForService(serviceId);
+          const matchingImage = localImages.find(img => String(img.attachId) === attachId && img.localBlobId);
+
+          if (matchingImage?.localBlobId) {
+            // Use pointer storage instead of downloading from S3 (saves ~930KB)
+            await this.indexedDb.cachePhotoPointer(attachId, serviceId, matchingImage.localBlobId, s3Key);
+            successCount++;
+            if (isNative) {
+              console.log(`    ✅ [Mobile] Cached EFE pointer ${attachId} (Dexie-first)`);
+            }
+            return;
+          }
+
+          // FALLBACK: Download from S3 for legacy photos without local blobs
           const s3Url = await this.caspioService.getS3FileUrl(s3Key);
-          
-          // Use XMLHttpRequest-based fetch for cross-platform compatibility
           const base64 = await this.fetchImageAsBase64(s3Url);
-          
-          // Cache in IndexedDB
           await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
           successCount++;
-          
+
           if (isNative) {
-            console.log(`    ✅ [Mobile] Cached EFE image ${attachId}`);
+            console.log(`    ✅ [Mobile] Cached EFE image ${attachId} (from S3)`);
           }
         } catch (err: any) {
           console.warn(`    ⚠️ Failed to cache EFE image ${attachId}:`, err?.message || err);

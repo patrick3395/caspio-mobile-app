@@ -33,7 +33,11 @@ export interface CachedPhoto {
   photoKey: string;
   attachId: string;
   serviceId: string;
-  imageData: string;
+  // STORAGE OPTIMIZATION: imageData is now optional
+  // New entries use blobKey pointer instead of storing full base64
+  imageData?: string;           // Legacy: full base64 data (~930KB)
+  blobKey?: string;             // New: pointer to localBlobs.blobId (~50 bytes)
+  variant?: 'original' | 'annotated';  // Which version this points to
   s3Key?: string;
   cachedAt: number;
   isAnnotated?: boolean;

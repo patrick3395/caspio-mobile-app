@@ -1345,7 +1345,8 @@ export class BackgroundSyncService {
           await this.cacheUploadedPhoto(
             realAttachId,
             data.serviceId || '',
-            result.s3Key || result.Photo
+            result.s3Key || result.Photo,
+            data.fileId  // Pass imageId for Dexie-first pointer storage
           );
           console.log('[BackgroundSync] ✅ Cached uploaded photo for offline viewing');
           cachingSucceeded = true;
@@ -1552,7 +1553,8 @@ export class BackgroundSyncService {
           await this.cacheUploadedPhoto(
             realAttachId,
             data.serviceId || '',
-            result.s3Key || result.Photo
+            result.s3Key || result.Photo,
+            data.fileId  // Pass imageId for Dexie-first pointer storage
           );
           console.log('[BackgroundSync] ✅ Cached EFE photo for offline viewing');
           cachingSucceeded = true;
@@ -1704,14 +1706,16 @@ export class BackgroundSyncService {
       // This can happen if the loop above already resolved it, or if a real ID was stored
       if (typeof tempEfeId === 'string' && !tempEfeId.startsWith('temp_')) {
         // Already a real ID - use it directly
-        endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID=${tempEfeId}`);
+        // DEXIE-FIRST FIX: Add quotes around EFEID for Caspio query compatibility
+        endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID='${tempEfeId}'`);
         console.log(`[BackgroundSync] Using real EFEID directly: ${tempEfeId}`);
         delete data._tempEfeId;
       } else {
         // Still a temp ID - try to resolve it
         const realEfeId = await this.indexedDb.getRealId(tempEfeId);
         if (realEfeId) {
-          endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID=${realEfeId}`);
+          // DEXIE-FIRST FIX: Add quotes around EFEID for Caspio query compatibility
+          endpoint = endpoint.replace('EFEID=DEFERRED', `EFEID='${realEfeId}'`);
           console.log(`[BackgroundSync] Resolved DEFERRED endpoint: ${tempEfeId} → ${realEfeId}`);
           delete data._tempEfeId;
         } else {
@@ -2451,15 +2455,26 @@ export class BackgroundSyncService {
    * @param attachId - The real attachment ID from the server
    * @param serviceId - Service ID for grouping
    * @param s3Key - S3 key or Photo URL from upload result
+   * @param imageId - Optional LocalImage ID to use pointer storage (Dexie-first)
    */
-  private async cacheUploadedPhoto(attachId: string, serviceId: string, s3Key: string): Promise<void> {
+  private async cacheUploadedPhoto(attachId: string, serviceId: string, s3Key: string, imageId?: string): Promise<void> {
     if (!attachId || !s3Key) {
       console.warn('[BackgroundSync] Cannot cache photo - missing attachId or s3Key');
       return;
     }
 
     try {
-      // Check if it's an S3 key or already a URL
+      // DEXIE-FIRST: If we have imageId, try to use pointer storage (saves ~930KB)
+      if (imageId) {
+        const image = await this.indexedDb.getLocalImage(imageId);
+        if (image?.localBlobId) {
+          await this.indexedDb.cachePhotoPointer(attachId, serviceId, image.localBlobId, s3Key);
+          console.log('[BackgroundSync] ✅ Cached photo pointer (Dexie-first):', attachId, '-> blobId:', image.localBlobId);
+          return;
+        }
+      }
+
+      // FALLBACK: Download from S3 and cache as base64 (for legacy photos without local blob)
       let s3Url: string;
       if (this.caspioService.isS3Key(s3Key)) {
         s3Url = await this.caspioService.getS3FileUrl(s3Key);
@@ -2473,9 +2488,9 @@ export class BackgroundSyncService {
       // Download and convert to base64 using cross-platform XMLHttpRequest
       const base64 = await this.fetchImageAsBase64(s3Url);
 
-      // Cache in IndexedDB
+      // Cache in IndexedDB (legacy path)
       await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
-      console.log('[BackgroundSync] Cached uploaded photo:', attachId);
+      console.log('[BackgroundSync] Cached uploaded photo (legacy):', attachId);
     } catch (err: any) {
       console.warn('[BackgroundSync] Failed to cache uploaded photo:', attachId, err?.message || err);
       // Don't throw - the upload was successful, just caching failed
@@ -2483,45 +2498,37 @@ export class BackgroundSyncService {
   }
 
   /**
-   * Cache photo from local blob BEFORE it gets pruned
-   * This is the CRITICAL step that ensures photos don't disappear after sync
-   * 
+   * Cache photo pointer from local blob
+   * STORAGE OPTIMIZED: Instead of converting blob→base64→store (~930KB),
+   * we just store a pointer to the existing localBlobs entry (~50 bytes)
+   *
    * The flow is:
    * 1. Photo captured -> stored in localBlobs (ArrayBuffer)
    * 2. Photo uploads successfully -> we call this method
-   * 3. This converts the local blob to base64 and stores in cachedPhotos
-   * 4. Later, when blob is pruned, getDisplayUrl() uses cachedPhotos as fallback
+   * 3. This stores a POINTER to localBlobs (not a copy)
+   * 4. Both tempId and attachId resolve to same blob - no duplication
    */
   private async cachePhotoFromLocalBlob(
-    imageId: string, 
-    attachId: string, 
-    serviceId: string, 
+    imageId: string,
+    attachId: string,
+    serviceId: string,
     s3Key: string
   ): Promise<void> {
     try {
       // Get the LocalImage to find the blobId
       const image = await this.indexedDb.getLocalImage(imageId);
       if (!image || !image.localBlobId) {
-        console.warn('[BackgroundSync] Cannot cache from blob - no blobId for image:', imageId);
+        console.warn('[BackgroundSync] Cannot cache pointer - no blobId for image:', imageId);
         return;
       }
 
-      // Get the actual blob data from IndexedDB
-      const blob = await this.indexedDb.getLocalBlob(image.localBlobId);
-      if (!blob || !blob.data) {
-        console.warn('[BackgroundSync] Cannot cache from blob - blob not found:', image.localBlobId);
-        return;
-      }
+      // STORAGE OPTIMIZATION: Use pointer instead of base64 copy
+      // This saves ~930KB per photo by storing ~50 byte pointer
+      await this.indexedDb.cachePhotoPointer(attachId, serviceId, image.localBlobId, s3Key);
 
-      // Convert ArrayBuffer to base64 data URL
-      const base64 = await this.arrayBufferToBase64DataUrl(blob.data, blob.contentType || 'image/jpeg');
-
-      // Cache in IndexedDB using attachId (the real Caspio ID)
-      await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
-      
-      console.log('[BackgroundSync] ✅ Cached photo from local blob:', attachId, 'imageId:', imageId, 'size:', base64.length);
+      console.log('[BackgroundSync] ✅ Cached photo pointer:', attachId, '-> blobId:', image.localBlobId, '(saved ~930KB)');
     } catch (err: any) {
-      console.error('[BackgroundSync] Failed to cache photo from local blob:', imageId, err?.message || err);
+      console.error('[BackgroundSync] Failed to cache photo pointer:', imageId, err?.message || err);
       // Don't throw - we'll fall back to S3 URL if needed
     }
   }
@@ -2553,14 +2560,15 @@ export class BackgroundSyncService {
   /**
    * Download and cache photos for offline viewing
    * Uses XMLHttpRequest for cross-platform compatibility (web + mobile)
+   * DEXIE-FIRST: Prefers pointer storage when local blob exists
    */
   private async downloadAndCachePhotos(attachments: any[], serviceId: string): Promise<void> {
     const isNative = Capacitor.isNativePlatform();
-    
+
     for (const attach of attachments) {
       const attachId = String(attach.AttachID || attach.PK_ID);
       const s3Key = attach.Attachment;
-      
+
       // Skip if no S3 key or already cached
       if (!s3Key || !this.caspioService.isS3Key(s3Key)) {
         continue;
@@ -2572,16 +2580,28 @@ export class BackgroundSyncService {
         continue; // Already cached
       }
 
+      // DEXIE-FIRST: Check if we have a local image with this attachId
+      const localImages = await this.indexedDb.getLocalImagesForService(serviceId);
+      const matchingImage = localImages.find(img => String(img.attachId) === attachId && img.localBlobId);
+
+      if (matchingImage?.localBlobId) {
+        // Use pointer storage instead of downloading from S3
+        try {
+          await this.indexedDb.cachePhotoPointer(attachId, serviceId, matchingImage.localBlobId, s3Key);
+          console.log(`[BackgroundSync] Cached pointer for attachment ${attachId} (Dexie-first)${isNative ? ' [Mobile]' : ''}`);
+          continue;
+        } catch (err: any) {
+          console.warn(`[BackgroundSync] Pointer cache failed, falling back to S3:`, err?.message);
+          // Fall through to S3 download
+        }
+      }
+
+      // FALLBACK: Download from S3 (for legacy photos without local blobs)
       try {
-        // Get pre-signed URL and download image
         const s3Url = await this.caspioService.getS3FileUrl(s3Key);
-        
-        // Use XMLHttpRequest for cross-platform compatibility
         const base64 = await this.fetchImageAsBase64(s3Url);
-        
-        // Cache in IndexedDB
         await this.indexedDb.cachePhoto(attachId, serviceId, base64, s3Key);
-        console.log(`[BackgroundSync] Cached image for attachment ${attachId}${isNative ? ' [Mobile]' : ''}`);
+        console.log(`[BackgroundSync] Cached image from S3 for attachment ${attachId}${isNative ? ' [Mobile]' : ''}`);
       } catch (err: any) {
         console.warn(`[BackgroundSync] Failed to cache image ${attachId}:`, err?.message || err);
       }

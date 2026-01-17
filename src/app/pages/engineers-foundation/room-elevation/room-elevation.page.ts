@@ -299,52 +299,64 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           if (photoUrl) {
             photo.loading = false;
 
-            // Cache the remote image for persistence (used after local blob is pruned)
-            // but do NOT update displayUrl - it stays as local blob
+            // DEXIE-FIRST: Cache photo pointer instead of fetching from S3
+            // The local blob is source of truth - just create pointer for attachId
             try {
-              let imageUrl = photoUrl;
-              if (s3Key && this.caspioService.isS3Key(s3Key)) {
-                imageUrl = await this.caspioService.getS3FileUrl(s3Key);
-              }
-
-              // Fetch and cache for future use (after blob pruning)
-              const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
-              photo.url = dataUrl; // Store for reference, but displayUrl unchanged
-
-              // Cache the photo for persistence
-              if (realAttachId) {
+              const localImage = await this.localImageService.getImage(String(event.tempFileId));
+              if (localImage?.localBlobId && realAttachId) {
+                // Use pointer storage (saves ~930KB by not fetching S3)
+                await this.indexedDb.cachePhotoPointer(String(realAttachId), this.serviceId, localImage.localBlobId, s3Key || '');
+                console.log('[RoomElevation PHOTO SYNC] ✅ Cached photo pointer (Dexie-first):', realAttachId, '-> blobId:', localImage.localBlobId);
+              } else if (photoUrl && realAttachId) {
+                // FALLBACK: Fetch from S3 if no local blob (legacy)
+                let imageUrl = photoUrl;
+                if (s3Key && this.caspioService.isS3Key(s3Key)) {
+                  imageUrl = await this.caspioService.getS3FileUrl(s3Key);
+                }
+                const dataUrl = await this.fetchS3ImageAsDataUrl(imageUrl);
+                photo.url = dataUrl;
                 await this.indexedDb.cachePhoto(String(realAttachId), this.serviceId, dataUrl, s3Key || '');
+                console.log('[RoomElevation PHOTO SYNC] ✅ Server image cached (legacy fallback)');
               }
-
-              console.log('[RoomElevation PHOTO SYNC] ✅ Server image cached (displayUrl unchanged - staying with LocalImages)');
             } catch (err) {
-              console.warn('[RoomElevation PHOTO SYNC] Failed to cache remote image:', err);
+              console.warn('[RoomElevation PHOTO SYNC] Failed to cache photo:', err);
               photo.url = photoUrl;
             }
           }
-          
-          // CRITICAL: Transfer cached annotated image from temp ID to real ID
-          // This ensures annotations are preserved through the sync process
+
+          // CRITICAL: Transfer cached annotated pointer from temp ID to real ID
+          // STORAGE OPTIMIZED: Use pointer instead of duplicating full image data
           if (hasExistingAnnotations && originalTempId && realAttachId) {
-            console.log('[RoomElevation PHOTO SYNC] Transferring cached annotated image from temp ID to real ID:', originalTempId, '->', realAttachId);
+            console.log('[RoomElevation PHOTO SYNC] Transferring annotated pointer from temp ID to real ID:', originalTempId, '->', realAttachId);
             try {
-              const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(String(originalTempId));
-              if (cachedAnnotatedImage) {
-                // Re-cache with real ID
-                const response = await fetch(cachedAnnotatedImage);
-                const blob = await response.blob();
-                const base64 = await this.indexedDb.cacheAnnotatedImage(String(realAttachId), blob);
-                console.log('[RoomElevation PHOTO SYNC] ✅ Annotated image transferred to real AttachID:', realAttachId);
-                
-                // Update in-memory map with the real AttachID so same-session navigation works
-                if (base64) {
-                  this.bulkAnnotatedImagesMap.set(String(realAttachId), base64);
-                  // Remove the temp ID entry
+              const localImage = await this.localImageService.getImage(String(event.tempFileId));
+              if (localImage?.localBlobId) {
+                // DEXIE-FIRST: Create pointer for realAttachId pointing to same blob
+                await this.indexedDb.cacheAnnotatedPointer(String(realAttachId), localImage.localBlobId);
+                console.log('[RoomElevation PHOTO SYNC] ✅ Annotated pointer transferred:', realAttachId, '-> blobId:', localImage.localBlobId);
+
+                // Update in-memory map - get the actual data URL for display
+                const dataUrl = await this.indexedDb.getCachedAnnotatedImage(String(realAttachId));
+                if (dataUrl) {
+                  this.bulkAnnotatedImagesMap.set(String(realAttachId), dataUrl);
                   this.bulkAnnotatedImagesMap.delete(String(originalTempId));
+                }
+              } else {
+                // FALLBACK: Legacy path - copy the full data
+                const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(String(originalTempId));
+                if (cachedAnnotatedImage) {
+                  const response = await fetch(cachedAnnotatedImage);
+                  const blob = await response.blob();
+                  const base64 = await this.indexedDb.cacheAnnotatedImage(String(realAttachId), blob);
+                  if (base64) {
+                    this.bulkAnnotatedImagesMap.set(String(realAttachId), base64);
+                    this.bulkAnnotatedImagesMap.delete(String(originalTempId));
+                  }
+                  console.log('[RoomElevation PHOTO SYNC] ✅ Annotated image transferred (legacy):', realAttachId);
                 }
               }
             } catch (transferErr) {
-              console.warn('[RoomElevation PHOTO SYNC] Failed to transfer annotated image cache:', transferErr);
+              console.warn('[RoomElevation PHOTO SYNC] Failed to transfer annotated cache:', transferErr);
             }
           }
 
@@ -4755,9 +4767,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             updateData[`FDF${photoType}Drawings`] = null;
 
             try {
-              const apiEndpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID='${this.roomId}'`;
+              // DEXIE-FIRST FIX: Handle temp room IDs properly
+              // If roomId is a temp ID, use DEFERRED pattern so background sync can resolve it
+              const isTempRoomId = String(this.roomId).startsWith('temp_');
+              let apiEndpoint: string;
 
-              if (this.offlineService.isOnline()) {
+              if (isTempRoomId) {
+                // Use DEFERRED pattern - background sync will resolve temp ID to real ID
+                apiEndpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`;
+                updateData._tempEfeId = this.roomId;
+                console.log('[FDF Delete] Room has temp ID, using DEFERRED pattern:', this.roomId);
+              } else {
+                apiEndpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID='${this.roomId}'`;
+              }
+
+              if (this.offlineService.isOnline() && !isTempRoomId) {
+                // Only try direct API call if we have a real room ID
                 try {
                   await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
                   console.log('[FDF Delete] ✅ Deleted from backend database');
@@ -4774,7 +4799,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   });
                 }
               } else {
-                console.log('[FDF Delete] Offline - queuing delete for sync');
+                // Offline or temp room ID - queue for background sync
+                console.log('[FDF Delete] Queuing delete for sync (offline or temp roomId)');
                 await this.indexedDb.addPendingRequest({
                   type: 'UPDATE',
                   endpoint: apiEndpoint,
