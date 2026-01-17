@@ -756,6 +756,37 @@ export class EfeFieldRepoService {
   }
 
   /**
+   * Clear FDF photo metadata for a specific photo slot (Dexie-first deletion)
+   * This removes the photo metadata from efeFields.fdfPhotos
+   */
+  async clearFdfPhoto(
+    serviceId: string,
+    roomName: string,
+    photoKey: string  // 'top', 'bottom', 'threshold', 'topDetails', 'bottomDetails'
+  ): Promise<void> {
+    const key = `${serviceId}:${roomName}`;
+
+    await db.transaction('rw', db.efeFields, async () => {
+      const existing = await db.efeFields.where('key').equals(key).first();
+
+      if (existing) {
+        // Create new fdfPhotos object without the specified photo
+        const fdfPhotos = { ...existing.fdfPhotos };
+        delete fdfPhotos[photoKey];
+
+        await db.efeFields.update(existing.id!, {
+          fdfPhotos,
+          rev: existing.rev + 1,
+          updatedAt: Date.now(),
+          dirty: true
+        });
+
+        console.log(`[EfeFieldRepo] Cleared FDF photo: ${photoKey} for room: ${roomName}`);
+      }
+    });
+  }
+
+  /**
    * Rename a room
    */
   async renameRoom(serviceId: string, oldRoomName: string, newRoomName: string): Promise<void> {

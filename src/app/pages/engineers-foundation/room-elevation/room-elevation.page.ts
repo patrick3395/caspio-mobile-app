@@ -3259,9 +3259,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           for (const localImg of localImagesForPoint) {
             // DEXIE-FIRST FIX: Skip deleted photos from LocalImages
             const localImgAttachId = localImg.attachId ? String(localImg.attachId) : null;
+            const compositeKey = `${pointId}:${localImg.photoType || 'Measurement'}`;
             if (this.deletedPointPhotoIds.has(localImg.imageId) ||
-                this.deletedPointPhotoIds.has(localImgAttachId || '')) {
-              console.log(`[RoomElevation]   Skipping deleted LocalImage: ${localImg.imageId}`);
+                this.deletedPointPhotoIds.has(localImgAttachId || '') ||
+                this.deletedPointPhotoIds.has(compositeKey)) {
+              console.log(`[RoomElevation]   Skipping deleted LocalImage: ${localImg.imageId} (compositeKey: ${compositeKey})`);
               continue;
             }
 
@@ -4697,11 +4699,33 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         {
           text: 'Delete',
           handler: async () => {
-            // OFFLINE-FIRST: Immediate UI update, queue delete for sync if offline
+            // DEXIE-FIRST: Delete from Dexie tables first, then queue backend sync
             const photoKey = photoType.toLowerCase();
-            
-            // Clear local state IMMEDIATELY (optimistic update)
             const fdfPhotos = this.roomData.fdfPhotos;
+
+            // 1. DEXIE-FIRST: Get the imageId before clearing local state
+            const imageId = fdfPhotos[`${photoKey}ImageId`];
+            console.log('[FDF Delete] Starting Dexie-first deletion for:', photoKey, 'imageId:', imageId);
+
+            // 2. DEXIE-FIRST: Delete from LocalImages table (source of truth)
+            if (imageId) {
+              try {
+                await this.localImageService.deleteLocalImage(imageId);
+                console.log('[FDF Delete] ✅ Deleted from LocalImages:', imageId);
+              } catch (localErr) {
+                console.warn('[FDF Delete] Error deleting from LocalImages:', localErr);
+              }
+            }
+
+            // 3. DEXIE-FIRST: Clear FDF photo metadata in efeFields via repo
+            try {
+              await this.efeFieldRepo.clearFdfPhoto(this.serviceId, this.roomName, photoKey);
+              console.log('[FDF Delete] ✅ Cleared fdfPhotos metadata in Dexie:', photoKey);
+            } catch (repoErr) {
+              console.warn('[FDF Delete] Error clearing fdfPhotos in repo:', repoErr);
+            }
+
+            // 4. Clear local in-memory state (UI will also update via liveQuery)
             fdfPhotos[`${photoKey}`] = null;
             fdfPhotos[`${photoKey}Url`] = null;
             fdfPhotos[`${photoKey}DisplayUrl`] = null;
@@ -4712,16 +4736,18 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             fdfPhotos[`${photoKey}HasAnnotations`] = false;
             fdfPhotos[`${photoKey}Loading`] = false;
             fdfPhotos[`${photoKey}Uploading`] = false;
+            fdfPhotos[`${photoKey}ImageId`] = null;
+            fdfPhotos[`${photoKey}LocalBlobId`] = null;
 
-            // Force UI update first
+            // Force UI update
             this.changeDetectorRef.detectChanges();
 
-            // Clear cached photo from IndexedDB
+            // 5. Clear cached photo from IndexedDB (legacy cache)
             const cacheId = `fdf_${this.roomId}_${photoKey}`;
             await this.indexedDb.deleteCachedPhoto(cacheId);
             console.log('[FDF Delete] Cleared cached photo from IndexedDB:', cacheId);
 
-            // CRITICAL: Clear all related columns
+            // 6. Queue backend update (clear FDF columns on server)
             const updateData: any = {};
             updateData[`FDFPhoto${photoType}`] = null;
             updateData[`FDFPhoto${photoType}Attachment`] = null;
@@ -4729,13 +4755,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             updateData[`FDF${photoType}Drawings`] = null;
 
             try {
-              // Delete from database (or queue for sync if offline)
               const apiEndpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID='${this.roomId}'`;
-              
+
               if (this.offlineService.isOnline()) {
                 try {
                   await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-                  console.log('[FDF Delete] Deleted from database');
+                  console.log('[FDF Delete] ✅ Deleted from backend database');
                 } catch (apiError) {
                   console.warn('[FDF Delete] API delete failed, queuing for sync:', apiError);
                   await this.indexedDb.addPendingRequest({
@@ -4747,7 +4772,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                     status: 'pending',
                     priority: 'high',
                   });
-                  // Sync will happen on next 60-second interval (batched sync)
                 }
               } else {
                 console.log('[FDF Delete] Offline - queuing delete for sync');
@@ -4760,12 +4784,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   status: 'pending',
                   priority: 'high',
                 });
-                // Sync will happen on next 60-second interval (batched sync)
               }
-              
-              console.log('[FDF Delete] Photo removed successfully');
+
+              console.log('[FDF Delete] ✅ Photo deletion complete (Dexie-first)');
             } catch (error) {
-              console.error('Error deleting photo:', error);
+              console.error('[FDF Delete] Error queuing backend update:', error);
             }
           }
         },
@@ -5547,22 +5570,45 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         {
           text: 'Delete',
           handler: async () => {
-            // OFFLINE-FIRST: Immediate UI update, queue delete for sync if offline
+            // DEXIE-FIRST: Immediate UI update, then delete from Dexie tables
             try {
               // Remove from local array IMMEDIATELY (optimistic update)
               // DELETE FIX: Check multiple identifiers - local photos may not have attachId yet
-              const index = point.photos.findIndex((p: any) =>
+              let index = point.photos.findIndex((p: any) =>
                 (photo.attachId && p.attachId === photo.attachId) ||
                 (photo.imageId && p.imageId === photo.imageId) ||
                 (photo.localImageId && p.localImageId === photo.localImageId) ||
                 (photo.imageId && p.localImageId === photo.imageId) ||
                 (photo.localImageId && p.imageId === photo.localImageId)
               );
+
+              // DEXIE-FIRST FIX: Fallback to photoType match if ID-based search fails
+              // This handles cases where photo IDs aren't populated yet
+              if (index < 0 && photo.photoType) {
+                index = point.photos.findIndex((p: any) => p.photoType === photo.photoType);
+                if (index >= 0) {
+                  console.log('[Point Photo] Found by photoType fallback:', photo.photoType);
+                }
+              }
+
+              // DEXIE-FIRST FIX: Last resort - find by object reference
+              if (index < 0) {
+                index = point.photos.indexOf(photo);
+                if (index >= 0) {
+                  console.log('[Point Photo] Found by object reference');
+                }
+              }
+
               if (index >= 0) {
                 point.photos.splice(index, 1);
-                console.log('[Point Photo] Removed from UI array at index:', index);
+                console.log('[Point Photo] ✅ Removed from UI array at index:', index);
               } else {
                 console.warn('[Point Photo] Could not find photo in array to remove:', photo);
+                // DEXIE-FIRST FIX: Force clear the array for this photoType as last resort
+                if (photo.photoType) {
+                  point.photos = point.photos.filter((p: any) => p.photoType !== photo.photoType);
+                  console.log('[Point Photo] Force-filtered photos by photoType:', photo.photoType);
+                }
               }
 
               // DEXIE-FIRST FIX: Track deleted photo IDs to prevent re-adding during sync/reload
@@ -5579,6 +5625,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               if (photo._tempId) {
                 this.deletedPointPhotoIds.add(String(photo._tempId));
               }
+              // DEXIE-FIRST FIX: Also track by composite key (pointId:photoType) as fallback
+              // This handles cases where photo has no IDs yet
+              const pointIdForTracking = point.pointId || point.tempPointId;
+              if (pointIdForTracking && photo.photoType) {
+                const compositeKey = `${pointIdForTracking}:${photo.photoType}`;
+                this.deletedPointPhotoIds.add(compositeKey);
+                console.log('[Point Photo] Added composite key to deletedPointPhotoIds:', compositeKey);
+              }
 
               // DEXIE-FIRST FIX: Remove from preservation maps so photo doesn't reappear
               // These maps are used during sync/reload to restore photos
@@ -5590,9 +5644,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   const pImageId = p.imageId || p.localImageId;
                   const pAttachId = p.attachId ? String(p.attachId) : null;
                   const pTempId = p._tempId ? String(p._tempId) : null;
+                  const pCompositeKey = pointIdForTracking && p.photoType ? `${pointIdForTracking}:${p.photoType}` : null;
                   return !this.deletedPointPhotoIds.has(pImageId) &&
                          !this.deletedPointPhotoIds.has(pAttachId || '') &&
-                         !this.deletedPointPhotoIds.has(pTempId || '');
+                         !this.deletedPointPhotoIds.has(pTempId || '') &&
+                         !this.deletedPointPhotoIds.has(pCompositeKey || '');
                 });
                 this.preservedPhotosByPointName.set(pointName, filteredPreserved);
                 console.log(`[Point Photo] Updated preservedPhotosByPointName for "${pointName}": ${preserved.length} -> ${filteredPreserved.length}`);
@@ -5603,9 +5659,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                   const pImageId = p.imageId || p.localImageId;
                   const pAttachId = p.attachId ? String(p.attachId) : null;
                   const pTempId = p._tempId ? String(p._tempId) : null;
+                  const pCompositeKey = pointId && p.photoType ? `${pointId}:${p.photoType}` : null;
                   return !this.deletedPointPhotoIds.has(pImageId) &&
                          !this.deletedPointPhotoIds.has(pAttachId || '') &&
-                         !this.deletedPointPhotoIds.has(pTempId || '');
+                         !this.deletedPointPhotoIds.has(pTempId || '') &&
+                         !this.deletedPointPhotoIds.has(pCompositeKey || '');
                 });
                 this.preservedPhotosByPointId.set(String(pointId), filteredPreserved);
                 console.log(`[Point Photo] Updated preservedPhotosByPointId for "${pointId}": ${preserved.length} -> ${filteredPreserved.length}`);
@@ -5619,7 +5677,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
               if (imageId) {
                 try {
                   await this.localImageService.deleteLocalImage(imageId);
-                  console.log('[Point Photo] Deleted from LocalImages:', imageId);
+                  console.log('[Point Photo] ✅ Deleted from LocalImages:', imageId);
 
                   // DELETE FIX: Also clear cached photos/annotations by imageId
                   // Local-first photos may be cached by imageId, not attachId
@@ -5632,6 +5690,21 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
                 } catch (e) {
                   console.warn('[Point Photo] Failed to delete from LocalImages:', e);
                 }
+              }
+
+              // DEXIE-FIRST: Update photoCount in efeFields.elevationPoints
+              // This ensures the Dexie state reflects the deletion
+              try {
+                const newPhotoCount = point.photos?.length || 0;
+                await this.efeFieldRepo.updatePointPhotoCount(
+                  this.serviceId,
+                  this.roomName,
+                  point.pointNumber,
+                  newPhotoCount
+                );
+                console.log('[Point Photo] ✅ Updated Dexie photoCount:', newPhotoCount);
+              } catch (repoErr) {
+                console.warn('[Point Photo] Failed to update Dexie photoCount:', repoErr);
               }
 
               if (photo.attachId) {
@@ -5666,6 +5739,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
 
               // Clear the in-memory attachments cache
               this.foundationData.clearEFEAttachmentsCache();
+
+              // DEXIE-FIRST: Final UI update to ensure photo is visually removed
+              this.changeDetectorRef.detectChanges();
+              console.log('[Point Photo] ✅ Deletion complete (Dexie-first). Photos remaining:', point.photos?.length || 0);
             } catch (error) {
               console.error('Error deleting photo:', error);
             }
