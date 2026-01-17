@@ -1116,6 +1116,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           this.changeDetectorRef.detectChanges();
           console.log('[PHOTO SYNC] Updated photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
+
+          // STORAGE DEBUG: Alert storage AFTER SYNC to see what got added
+          const syncSummary = await this.indexedDb.getStorageSummary();
+          const traceInfo = await this.indexedDb.traceImageStorage(event.tempFileId);
+          alert(`AFTER SYNC:\n${syncSummary}\n\n${traceInfo}`);
           break;
         }
       }
@@ -1888,30 +1893,33 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     if (hasExistingAnnotations && originalTempId) {
       console.log('[UPLOAD UPDATE] Transferring cached annotated image from temp ID to real ID:', originalTempId, '->', result.AttachID);
 
-      // Get the cached annotated image using the temp ID and re-cache with real ID
       try {
-        const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(originalTempId);
+        // DEXIE-FIRST: Try to use pointer storage instead of copying base64
+        const localImage = await this.localImageService.getImage(originalTempId);
+        if (localImage?.localBlobId) {
+          // Use pointer storage (saves ~930KB)
+          await this.indexedDb.cacheAnnotatedPointer(String(result.AttachID), localImage.localBlobId);
+          console.log('[UPLOAD UPDATE] ✅ Annotated POINTER transferred to real AttachID:', result.AttachID);
 
-        // ===== US-001 DEBUG: Annotation transfer after upload =====
-        const transferDebugMsg = `ANNOTATION TRANSFER\n` +
-          `originalTempId: ${originalTempId}\n` +
-          `new AttachID: ${result.AttachID}\n` +
-          `cachedAnnotatedImage found: ${!!cachedAnnotatedImage}`;
-        this.logDebug('ANNOTATION', transferDebugMsg);
-        // ===== END US-001 DEBUG =====
-
-        if (cachedAnnotatedImage) {
-          // Convert base64 back to blob and re-cache with real ID
-          const response = await fetch(cachedAnnotatedImage);
-          const blob = await response.blob();
-          const base64 = await this.indexedDb.cacheAnnotatedImage(String(result.AttachID), blob);
-          console.log('[UPLOAD UPDATE] ✅ Annotated image transferred to real AttachID:', result.AttachID);
-
-          // Update in-memory map with the real AttachID so same-session navigation works
-          if (base64) {
-            this.bulkAnnotatedImagesMap.set(String(result.AttachID), base64);
-            // Remove the temp ID entry
+          // Update in-memory map - get displayable URL
+          const displayUrl = await this.indexedDb.getCachedAnnotatedImage(String(result.AttachID));
+          if (displayUrl) {
+            this.bulkAnnotatedImagesMap.set(String(result.AttachID), displayUrl);
             this.bulkAnnotatedImagesMap.delete(originalTempId);
+          }
+        } else {
+          // FALLBACK: Legacy path - no local blob, use full base64 copy
+          const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(originalTempId);
+          if (cachedAnnotatedImage) {
+            const response = await fetch(cachedAnnotatedImage);
+            const blob = await response.blob();
+            const base64 = await this.indexedDb.cacheAnnotatedImage(String(result.AttachID), blob);
+            console.log('[UPLOAD UPDATE] ✅ Annotated image transferred (legacy) to real AttachID:', result.AttachID);
+
+            if (base64) {
+              this.bulkAnnotatedImagesMap.set(String(result.AttachID), base64);
+              this.bulkAnnotatedImagesMap.delete(originalTempId);
+            }
           }
         }
       } catch (transferErr) {
@@ -4857,6 +4865,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Set cooldown to prevent cache invalidation from causing UI flash
     this.startLocalOperationCooldown();
 
+    // STORAGE DEBUG: Alert storage BEFORE adding photo
+    const beforeSummary = await this.indexedDb.getStorageSummary();
+    alert(`BEFORE UPLOAD:\n${beforeSummary}`);
+
     try {
       // Use pickImages to allow multiple photo selection
       const images = await Camera.pickImages({
@@ -5047,6 +5059,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log(`[GALLERY UPLOAD] ✅ All ${images.photos.length} photos processed with stable IDs`);
         console.log(`[GALLERY UPLOAD] Total photos in key: ${this.visualPhotos[key].length}`);
         // Sync will happen on next 60-second interval via upload outbox
+
+        // STORAGE DEBUG: Alert storage AFTER adding photos
+        const afterSummary = await this.indexedDb.getStorageSummary();
+        alert(`AFTER UPLOAD:\n${afterSummary}`);
       }
     } catch (error) {
       // Check if user cancelled - don't show error for cancellations

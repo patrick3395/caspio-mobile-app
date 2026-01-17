@@ -853,6 +853,11 @@ export class IndexedDbService {
   async cachePhoto(attachId: string, serviceId: string, imageDataUrl: string, s3Key?: string): Promise<void> {
     const photoKey = `photo_${attachId}`;
     const sizeKB = (imageDataUrl?.length || 0) / 1024;
+    const sizeMB = sizeKB / 1024;
+
+    // STORAGE DEBUG: Alert on mobile to trace where bloat is coming from
+    const stackTrace = new Error().stack?.split('\n').slice(1, 5).map(s => s.trim()).join('\n') || 'unknown';
+    alert(`🔴 EXPENSIVE: cachePhoto\nID: ${attachId}\nSize: ${sizeMB.toFixed(2)} MB\n\nStack:\n${stackTrace}`);
 
     // Validate input
     if (!imageDataUrl || imageDataUrl.length < 100) {
@@ -887,6 +892,10 @@ export class IndexedDbService {
       console.error('[IndexedDB] ❌ Cannot cache pointer - blobKey not found:', blobKey);
       throw new Error('Invalid blobKey - blob not found in localBlobs');
     }
+
+    // STORAGE DEBUG: Alert when cheap pointer path is used (good!)
+    const blobSizeKB = (blob.sizeBytes / 1024).toFixed(1);
+    console.log(`[StorageDebug] 🟢 POINTER CACHE: ${attachId} -> ${blobKey} (refs ${blobSizeKB} KB)`);
 
     const photoData = {
       photoKey: photoKey,
@@ -1002,6 +1011,11 @@ export class IndexedDbService {
     const imageDataUrl = await this.blobToBase64(blob);
     const photoKey = `annotated_${attachId}`;
 
+    // STORAGE DEBUG: Alert on mobile to trace where bloat is coming from
+    const stackTrace = new Error().stack?.split('\n').slice(1, 5).map(s => s.trim()).join('\n') || 'unknown';
+    const base64SizeMB = (imageDataUrl.length / 1024 / 1024).toFixed(2);
+    alert(`🔴 EXPENSIVE: cacheAnnotatedImage\nID: ${attachId}\nSize: ${base64SizeMB} MB\n\nStack:\n${stackTrace}`);
+
     const photoData = {
       photoKey: photoKey,
       attachId: attachId,
@@ -1014,14 +1028,6 @@ export class IndexedDbService {
 
     await db.cachedPhotos.put(photoData);
 
-    // STORAGE DEBUG: Log size of annotated image being cached
-    const blobSizeKB = (blob.size / 1024).toFixed(1);
-    const base64SizeKB = (imageDataUrl.length / 1024).toFixed(1);
-    const base64SizeMB = (imageDataUrl.length / 1024 / 1024).toFixed(2);
-    console.log(`[StorageDebug] 🎨 ANNOTATED IMAGE CACHED: ${attachId}`);
-    console.log(`[StorageDebug]   Blob size: ${blobSizeKB} KB`);
-    console.log(`[StorageDebug]   Base64 size: ${base64SizeKB} KB (${base64SizeMB} MB)`);
-    console.log(`[StorageDebug]   Base64 overhead: ~${((imageDataUrl.length / blob.size - 1) * 100).toFixed(0)}%`);
     if (parseFloat(base64SizeMB) > 2) {
       console.warn(`[StorageDebug] ⚠️ LARGE ANNOTATED IMAGE: ${base64SizeMB} MB`);
     }
@@ -1044,6 +1050,10 @@ export class IndexedDbService {
       console.error('[IndexedDB] ❌ Cannot cache annotated pointer - blobKey not found:', blobKey);
       throw new Error('Invalid blobKey - blob not found in localBlobs');
     }
+
+    // STORAGE DEBUG: Alert when cheap pointer path is used (good!)
+    const blobSizeKB = (blob.sizeBytes / 1024).toFixed(1);
+    console.log(`[StorageDebug] 🟢 ANNOTATED POINTER: ${attachId} -> ${blobKey} (refs ${blobSizeKB} KB)`);
 
     const photoData = {
       photoKey: photoKey,
@@ -2663,16 +2673,10 @@ export class IndexedDbService {
       await db.uploadOutbox.add(outboxItem);
     });
 
-    // STORAGE DEBUG: Log size of image being stored
+    // STORAGE DEBUG: Alert on mobile when image is created
     const fileSizeKB = (file.size / 1024).toFixed(1);
     const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-    console.log(`[StorageDebug] 📸 IMAGE CREATED: ${imageId}`);
-    console.log(`[StorageDebug]   File size: ${fileSizeKB} KB (${fileSizeMB} MB)`);
-    console.log(`[StorageDebug]   Entity: ${entityType} / ${entityId}`);
-    console.log(`[StorageDebug]   Type: ${file.type}, Name: ${file.name}`);
-    if (parseFloat(fileSizeMB) > 1) {
-      console.warn(`[StorageDebug] ⚠️ LARGE IMAGE: ${fileSizeMB} MB - consider compression`);
-    }
+    alert(`📸 IMAGE STORED\nID: ${imageId}\nBlob: ${fileSizeKB} KB (${fileSizeMB} MB)\n\nThis should be the ONLY storage added for gallery upload.`);
     console.log('[IndexedDB] ✅ Local image created:', imageId, 'blob:', blobId);
 
     this.emitChange({
@@ -3048,5 +3052,138 @@ export class IndexedDbService {
    */
   hasNewImageSystem(): boolean {
     return db.tables.some(t => t.name === 'localImages');
+  }
+
+  // ============================================================================
+  // STORAGE DEBUG HELPERS
+  // ============================================================================
+
+  /**
+   * Get comprehensive storage breakdown for debugging
+   * Call this to see where storage is being used
+   */
+  async getStorageSummary(): Promise<string> {
+    let totalBytes = 0;
+    let summary = '';
+
+    // 1. LocalBlobs (ArrayBuffer data)
+    const localBlobs = await db.localBlobs.toArray();
+    let localBlobsBytes = 0;
+    for (const blob of localBlobs) {
+      localBlobsBytes += blob.sizeBytes || 0;
+    }
+    totalBytes += localBlobsBytes;
+    summary += `📦 Blobs: ${localBlobs.length} = ${(localBlobsBytes / 1024 / 1024).toFixed(2)} MB\n`;
+
+    // 2. CachedPhotos (base64 or pointers)
+    const cachedPhotos = await db.cachedPhotos.toArray();
+    let cachedPhotosBytes = 0;
+    let base64Count = 0;
+    let pointerCount = 0;
+    for (const photo of cachedPhotos) {
+      if (photo.imageData) {
+        cachedPhotosBytes += photo.imageData.length;
+        base64Count++;
+      } else if (photo.blobKey) {
+        cachedPhotosBytes += 100; // Pointer is ~100 bytes
+        pointerCount++;
+      }
+    }
+    totalBytes += cachedPhotosBytes;
+    summary += `📸 Cache: ${base64Count} base64 + ${pointerCount} ptr = ${(cachedPhotosBytes / 1024 / 1024).toFixed(2)} MB\n`;
+
+    // 3. LocalImages (metadata)
+    const localImages = await db.localImages.toArray();
+    summary += `🖼️ Images: ${localImages.length} records\n`;
+
+    // 4. UploadOutbox
+    const outbox = await db.uploadOutbox.toArray();
+    summary += `📤 Outbox: ${outbox.length} pending\n`;
+
+    // Summary
+    summary += `\n📊 TOTAL: ${(totalBytes / 1024 / 1024).toFixed(2)} MB`;
+
+    // Warning for base64
+    if (base64Count > 0) {
+      summary += `\n\n⚠️ ${base64Count} EXPENSIVE base64 entries!`;
+    }
+
+    console.log('[StorageSummary]', summary);
+    return summary;
+  }
+
+  /**
+   * Log storage for a specific image by tracing all related entries
+   */
+  async traceImageStorage(imageId: string): Promise<string> {
+    let totalBytes = 0;
+    let trace = `TRACE: ${imageId}\n`;
+
+    // 1. Check LocalImage
+    const localImage = await db.localImages.get(imageId);
+    if (localImage) {
+      trace += `status: ${localImage.status}\n`;
+      trace += `attachId: ${localImage.attachId || 'none'}\n`;
+
+      // 2. Check LocalBlob
+      if (localImage.localBlobId) {
+        const blob = await db.localBlobs.get(localImage.localBlobId);
+        if (blob) {
+          totalBytes += blob.sizeBytes;
+          trace += `📦 Blob: ${(blob.sizeBytes / 1024).toFixed(0)} KB\n`;
+        }
+      }
+    }
+
+    // 3. Check CachedPhotos for imageId
+    const cachedByImageId = await db.cachedPhotos.get(`photo_${imageId}`);
+    if (cachedByImageId) {
+      if (cachedByImageId.imageData) {
+        totalBytes += cachedByImageId.imageData.length;
+        trace += `📸 Cache(imgId): ${(cachedByImageId.imageData.length / 1024).toFixed(0)} KB BASE64 ⚠️\n`;
+      } else if (cachedByImageId.blobKey) {
+        trace += `📸 Cache(imgId): ptr ✓\n`;
+      }
+    }
+
+    // 4. Check CachedPhotos for attachId
+    if (localImage?.attachId) {
+      const cachedByAttachId = await db.cachedPhotos.get(`photo_${localImage.attachId}`);
+      if (cachedByAttachId) {
+        if (cachedByAttachId.imageData) {
+          totalBytes += cachedByAttachId.imageData.length;
+          trace += `📸 Cache(attId): ${(cachedByAttachId.imageData.length / 1024).toFixed(0)} KB BASE64 ⚠️\n`;
+        } else if (cachedByAttachId.blobKey) {
+          trace += `📸 Cache(attId): ptr ✓\n`;
+        }
+      }
+    }
+
+    // 5. Check Annotated cache
+    const annotatedByImageId = await db.cachedPhotos.get(`annotated_${imageId}`);
+    if (annotatedByImageId) {
+      if (annotatedByImageId.imageData) {
+        totalBytes += annotatedByImageId.imageData.length;
+        trace += `🎨 Annot(imgId): ${(annotatedByImageId.imageData.length / 1024).toFixed(0)} KB BASE64 ⚠️\n`;
+      } else if (annotatedByImageId.blobKey) {
+        trace += `🎨 Annot(imgId): ptr ✓\n`;
+      }
+    }
+
+    if (localImage?.attachId) {
+      const annotatedByAttachId = await db.cachedPhotos.get(`annotated_${localImage.attachId}`);
+      if (annotatedByAttachId) {
+        if (annotatedByAttachId.imageData) {
+          totalBytes += annotatedByAttachId.imageData.length;
+          trace += `🎨 Annot(attId): ${(annotatedByAttachId.imageData.length / 1024).toFixed(0)} KB BASE64 ⚠️\n`;
+        } else if (annotatedByAttachId.blobKey) {
+          trace += `🎨 Annot(attId): ptr ✓\n`;
+        }
+      }
+    }
+
+    trace += `\n📊 TOTAL: ${(totalBytes / 1024 / 1024).toFixed(2)} MB`;
+    console.log('[TraceStorage]', trace);
+    return trace;
   }
 }
