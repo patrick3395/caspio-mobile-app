@@ -171,6 +171,10 @@
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.templateId) ? 'chevron-up' : 'eye'"></ion-icon>
                 <span>{{ isPhotosExpanded(categoryName, item.templateId) ? 'Hide' : 'View' }} ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
               </button>
+              <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
+                <ion-icon name="arrow-forward"></ion-icon>
+                <span>Details</span>
+              </button>
             </div>
 
             <!-- Image preview section - ONLY shows when expanded -->
@@ -366,6 +370,10 @@
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.templateId) ? 'chevron-up' : 'eye'"></ion-icon>
                 <span>{{ isPhotosExpanded(categoryName, item.templateId) ? 'Hide' : 'View' }} ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
               </button>
+              <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
+                <ion-icon name="arrow-forward"></ion-icon>
+                <span>Details</span>
+              </button>
             </div>
 
             <!-- Image preview section (Limitations) - ONLY shows when expanded -->
@@ -557,6 +565,10 @@
                       (click)="togglePhotoExpansion(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.templateId) ? 'chevron-up' : 'eye'"></ion-icon>
                 <span>{{ isPhotosExpanded(categoryName, item.templateId) ? 'Hide' : 'View' }} ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
+              </button>
+              <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
+                <ion-icon name="arrow-forward"></ion-icon>
+                <span>Details</span>
               </button>
             </div>
 

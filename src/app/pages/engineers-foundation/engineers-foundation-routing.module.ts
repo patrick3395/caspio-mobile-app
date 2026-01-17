@@ -7,6 +7,7 @@ import { EngineersFoundationMainPage } from './engineers-foundation-main/enginee
 import { ProjectDetailsPage } from './project-details/project-details.page';
 import { StructuralSystemsHubPage } from './structural-systems/structural-systems-hub/structural-systems-hub.page';
 import { CategoryDetailPage } from './structural-systems/category-detail/category-detail.page';
+import { VisualDetailPage } from './structural-systems/visual-detail/visual-detail.page';
 import { ElevationPlotHubPage } from './elevation-plot-hub/elevation-plot-hub.page';
 import { RoomElevationPage } from './room-elevation/room-elevation.page';
 
@@ -32,7 +33,10 @@ const routes: Routes = [
           },
           {
             path: 'category/:category',
-            component: CategoryDetailPage
+            children: [
+              { path: '', component: CategoryDetailPage },
+              { path: 'visual/:templateId', component: VisualDetailPage }
+            ]
           }
         ]
       },

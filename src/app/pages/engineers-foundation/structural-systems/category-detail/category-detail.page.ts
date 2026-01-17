@@ -7198,4 +7198,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       photo.loading = false;
     }
   }
+
+  openVisualDetail(categoryName: string, item: VisualItem) {
+    this.router.navigate(['visual', item.templateId], { relativeTo: this.route });
+  }
 }

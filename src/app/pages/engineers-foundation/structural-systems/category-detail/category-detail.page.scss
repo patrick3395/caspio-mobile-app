@@ -519,7 +519,7 @@ ion-content {
   padding: 12px 16px;
   background: #fff8f5;
   border-bottom: 1px solid #e8e8e8;
-  justify-content: flex-start;
+  justify-content: center;
   flex-wrap: wrap;
 
   .action-btn {
@@ -555,10 +555,10 @@ ion-content {
     }
 
     &.secondary {
-      background: #666;
+      background: var(--noble-orange, #F15A27);
 
       &:active {
-        background: #555;
+        background: #d94e1f;
       }
     }
   }
