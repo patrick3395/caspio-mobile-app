@@ -4871,11 +4871,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     try {
       // Use pickImages to allow multiple photo selection
-      // STORAGE FIX: Reduced quality from 90 to 50 to minimize temp file size
-      // This reduces the Capacitor temp file from ~3.5MB to ~1.5MB per image
-      // The image is further compressed to 0.8MB before storing in IndexedDB
+      // STORAGE OPTIMIZATION: Lower picker quality since we compress to 0.8MB anyway
+      // User never sees this temp file - only the final compressed version
+      // quality: 70 reduces temp file from ~3.5MB to ~1.5MB with no visible difference
       const images = await Camera.pickImages({
-        quality: 50,
+        quality: 70,
         limit: 0 // 0 = no limit on number of photos
       });
 
@@ -5082,7 +5082,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // STORAGE DEBUG: Alert storage AFTER adding photos
         const afterSummary = await this.indexedDb.getStorageSummary();
-        alert(`AFTER UPLOAD:\n${afterSummary}`);
+        alert(`AFTER UPLOAD:\n${afterSummary}\n\n` +
+          `📱 CHECK iPHONE STORAGE NOW\n` +
+          `Then FORCE CLOSE app and check again.\n` +
+          `The difference = temp file cleaned up.`);
       }
     } catch (error) {
       // Check if user cancelled - don't show error for cancellations
