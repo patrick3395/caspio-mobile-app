@@ -12,7 +12,6 @@ import { CacheService } from '../../../../services/cache.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Filesystem } from '@capacitor/filesystem';
 import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
 import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
@@ -5047,30 +5046,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 console.log(`  key: ${key}`);
                 console.log(`  imageId: ${localImage.imageId}`);
 
-                // STORAGE FIX: Try to delete Capacitor temp file to free native storage
-                // The webPath points to a temp copy of the photo that persists until cleared
+                // STORAGE DEBUG: The temp file at webPath is causing iOS storage bloat
+                // To fix: npm install @capacitor/filesystem, then delete the temp file after processing
+                // For now, just alert the path so we can confirm this is the issue
                 if (image.webPath) {
-                  try {
-                    // On iOS, the webPath is typically: capacitor://localhost/_capacitor_file_/path/to/file
-                    // or file:///path/to/file - we need to handle both formats
-                    let pathToDelete = image.webPath;
-
-                    // Convert capacitor:// URL to file path
-                    if (pathToDelete.includes('_capacitor_file_')) {
-                      pathToDelete = pathToDelete.split('_capacitor_file_')[1];
-                    } else if (pathToDelete.startsWith('file://')) {
-                      pathToDelete = pathToDelete.replace('file://', '');
-                    }
-
-                    // Try to delete using Capacitor Filesystem
-                    await Filesystem.deleteFile({ path: pathToDelete });
-                    console.log('[GALLERY UPLOAD] 🗑️ Deleted temp file');
-                    alert(`🗑️ DELETED TEMP\n${pathToDelete.substring(pathToDelete.length - 30)}`);
-                  } catch (deleteErr: any) {
-                    // Temp file deletion failed - show what went wrong
-                    console.warn('[GALLERY UPLOAD] Could not delete temp file:', deleteErr?.message || deleteErr);
-                    alert(`⚠️ TEMP DELETE FAILED\n${deleteErr?.message || 'Unknown error'}\n\nThis is why iOS storage is bloating.`);
-                  }
+                  alert(`⚠️ TEMP FILE NOT DELETED\nPath: ${image.webPath.substring(image.webPath.length - 50)}\n\nThis ~3MB temp file is causing iOS storage bloat.\n\nFix: npm install @capacitor/filesystem`);
                 }
 
               } catch (error) {
