@@ -7200,6 +7200,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   openVisualDetail(categoryName: string, item: VisualItem) {
-    this.router.navigate(['visual', item.templateId], { relativeTo: this.route });
+    // Navigate relative to parent route since CategoryDetailPage is at the '' child path
+    this.router.navigate(['visual', item.templateId], { relativeTo: this.route.parent });
   }
 }

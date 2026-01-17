@@ -103,18 +103,40 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   }
 
   private loadRouteParams() {
-    // Get project/service IDs from parent route
-    const parentParams = this.route.parent?.parent?.snapshot.params;
-    this.projectId = parentParams?.['projectId'] || '';
-    this.serviceId = parentParams?.['serviceId'] || '';
+    // Route structure: Container (projectId/serviceId) -> structural -> category/:category -> visual/:templateId
+    // From visual-detail, we need to go up multiple levels
 
-    // Get category from parent route params
-    const parentCategoryParams = this.route.parent?.snapshot.params;
-    this.categoryName = parentCategoryParams?.['category'] || '';
+    // Get category from parent route params (category/:category level)
+    const categoryParams = this.route.parent?.snapshot.params;
+    this.categoryName = categoryParams?.['category'] || '';
+    console.log('[VisualDetail] Category from route:', this.categoryName);
+
+    // Get project/service IDs from container (go up through structural to container)
+    // Try parent?.parent?.parent first (category -> structural -> container)
+    let containerParams = this.route.parent?.parent?.parent?.snapshot?.params;
+    console.log('[VisualDetail] Container params (p.p.p):', containerParams);
+
+    if (containerParams) {
+      this.projectId = containerParams['projectId'] || '';
+      this.serviceId = containerParams['serviceId'] || '';
+    }
+
+    // Fallback: Try one more level up if needed
+    if (!this.projectId || !this.serviceId) {
+      containerParams = this.route.parent?.parent?.parent?.parent?.snapshot?.params;
+      console.log('[VisualDetail] Container params (p.p.p.p):', containerParams);
+      if (containerParams) {
+        this.projectId = this.projectId || containerParams['projectId'] || '';
+        this.serviceId = this.serviceId || containerParams['serviceId'] || '';
+      }
+    }
+
+    console.log('[VisualDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
     // Get templateId from current route
     this.routeSubscription = this.route.params.subscribe(params => {
       this.templateId = parseInt(params['templateId'], 10);
+      console.log('[VisualDetail] TemplateId from route:', this.templateId);
       this.loadVisualData();
     });
   }

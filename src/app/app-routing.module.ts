@@ -14,6 +14,7 @@ import { EngineersFoundationMainPage } from './pages/engineers-foundation/engine
 import { ProjectDetailsPage } from './pages/engineers-foundation/project-details/project-details.page';
 import { StructuralSystemsHubPage } from './pages/engineers-foundation/structural-systems/structural-systems-hub/structural-systems-hub.page';
 import { CategoryDetailPage } from './pages/engineers-foundation/structural-systems/category-detail/category-detail.page';
+import { VisualDetailPage } from './pages/engineers-foundation/structural-systems/visual-detail/visual-detail.page';
 import { ElevationPlotHubPage } from './pages/engineers-foundation/elevation-plot-hub/elevation-plot-hub.page';
 import { RoomElevationPage } from './pages/engineers-foundation/room-elevation/room-elevation.page';
 
@@ -85,7 +86,13 @@ const routes: Routes = [
         path: 'structural',
         children: [
           { path: '', component: StructuralSystemsHubPage },
-          { path: 'category/:category', component: CategoryDetailPage }
+          {
+            path: 'category/:category',
+            children: [
+              { path: '', component: CategoryDetailPage },
+              { path: 'visual/:templateId', component: VisualDetailPage }
+            ]
+          }
         ]
       },
       {
