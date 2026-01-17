@@ -12,6 +12,7 @@ import { CacheService } from '../../../../services/cache.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Filesystem } from '@capacitor/filesystem';
 import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
 import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
@@ -5046,11 +5047,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 console.log(`  key: ${key}`);
                 console.log(`  imageId: ${localImage.imageId}`);
 
-                // STORAGE DEBUG: The temp file at webPath is causing iOS storage bloat
-                // To fix: npm install @capacitor/filesystem, then delete the temp file after processing
-                // For now, just alert the path so we can confirm this is the issue
+                // STORAGE FIX: Delete Capacitor temp file to free native storage
                 if (image.webPath) {
-                  alert(`⚠️ TEMP FILE NOT DELETED\nPath: ${image.webPath.substring(image.webPath.length - 50)}\n\nThis ~3MB temp file is causing iOS storage bloat.\n\nFix: npm install @capacitor/filesystem`);
+                  try {
+                    // Extract file path from the webPath URL
+                    let pathToDelete = image.webPath;
+
+                    // Handle different URL formats from Capacitor
+                    if (pathToDelete.includes('_capacitor_file_')) {
+                      pathToDelete = pathToDelete.split('_capacitor_file_')[1];
+                    } else if (pathToDelete.startsWith('file://')) {
+                      pathToDelete = pathToDelete.replace('file://', '');
+                    } else if (pathToDelete.startsWith('capacitor://')) {
+                      // capacitor://localhost/_capacitor_file_/path format
+                      const match = pathToDelete.match(/_capacitor_file_(.+)/);
+                      if (match) pathToDelete = match[1];
+                    }
+
+                    await Filesystem.deleteFile({ path: pathToDelete });
+                    alert(`🗑️ TEMP DELETED\nFreed ~3MB native storage`);
+                  } catch (deleteErr: any) {
+                    console.warn('[GALLERY UPLOAD] Temp file cleanup failed:', deleteErr);
+                    alert(`⚠️ TEMP DELETE FAILED\n${deleteErr?.message || deleteErr}`);
+                  }
                 }
 
               } catch (error) {
