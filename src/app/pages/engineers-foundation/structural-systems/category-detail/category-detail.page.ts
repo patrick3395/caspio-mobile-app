@@ -12,7 +12,6 @@ import { CacheService } from '../../../../services/cache.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Filesystem } from '@capacitor/filesystem';
 import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
 import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
@@ -4872,8 +4871,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     try {
       // Use pickImages to allow multiple photo selection
+      // STORAGE FIX: Reduced quality from 90 to 50 to minimize temp file size
+      // This reduces the Capacitor temp file from ~3.5MB to ~1.5MB per image
+      // The image is further compressed to 0.8MB before storing in IndexedDB
       const images = await Camera.pickImages({
-        quality: 90,
+        quality: 50,
         limit: 0 // 0 = no limit on number of photos
       });
 
@@ -5047,30 +5049,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 console.log(`  key: ${key}`);
                 console.log(`  imageId: ${localImage.imageId}`);
 
-                // STORAGE FIX: Delete Capacitor temp file to free native storage
-                if (image.webPath) {
-                  try {
-                    // Extract file path from the webPath URL
-                    let pathToDelete = image.webPath;
-
-                    // Handle different URL formats from Capacitor
-                    if (pathToDelete.includes('_capacitor_file_')) {
-                      pathToDelete = pathToDelete.split('_capacitor_file_')[1];
-                    } else if (pathToDelete.startsWith('file://')) {
-                      pathToDelete = pathToDelete.replace('file://', '');
-                    } else if (pathToDelete.startsWith('capacitor://')) {
-                      // capacitor://localhost/_capacitor_file_/path format
-                      const match = pathToDelete.match(/_capacitor_file_(.+)/);
-                      if (match) pathToDelete = match[1];
-                    }
-
-                    await Filesystem.deleteFile({ path: pathToDelete });
-                    alert(`🗑️ TEMP DELETED\nFreed ~3MB native storage`);
-                  } catch (deleteErr: any) {
-                    console.warn('[GALLERY UPLOAD] Temp file cleanup failed:', deleteErr);
-                    alert(`⚠️ TEMP DELETE FAILED\n${deleteErr?.message || deleteErr}`);
-                  }
-                }
+                // NOTE: Capacitor temp files cannot be deleted via JS on iOS
+                // iOS will clean them up automatically when storage pressure occurs
+                // We've reduced quality to 50 to minimize temp file size (~1.5MB vs ~3.5MB)
 
               } catch (error) {
                 console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
