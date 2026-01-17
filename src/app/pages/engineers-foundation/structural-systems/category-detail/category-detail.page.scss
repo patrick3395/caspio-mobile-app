@@ -5,26 +5,49 @@ ion-content {
   --offset-top: auto !important;
 }
 
-// Simple accordion styles (offline-reliable replacement for ion-accordion)
+// ===========================================
+// EDGE-TO-EDGE FULL-SCREEN LAYOUT
+// ===========================================
+
+.page-container {
+  padding: 0;
+  margin: 0;
+  background: #f5f5f5;
+  min-height: 100vh;
+  scroll-behavior: auto !important;
+}
+
+.content-section {
+  background: #f5f5f5;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  min-height: 200px;
+  scroll-behavior: auto !important;
+}
+
+// ===========================================
+// SIMPLE ACCORDION - FULL-WIDTH FLAT DESIGN
+// ===========================================
 .simple-accordion {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  margin-bottom: 12px;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
   overflow: hidden;
-  background: white;
+  background: transparent;
 
   .simple-accordion-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px;
-    background: #f9f9f9;
+    padding: 14px 16px;
+    background: var(--noble-orange, #F15A27);
     cursor: pointer;
     user-select: none;
     transition: background-color 0.2s ease;
 
     &:hover {
-      background: #f0f0f0;
+      background: #d94e1f;
     }
 
     .accordion-header-content {
@@ -33,24 +56,24 @@ ion-content {
       gap: 12px;
 
       .icon-container {
-        width: 32px;
-        height: 32px;
+        width: 36px;
+        height: 36px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: var(--noble-orange, #F15A27);
+        background: rgba(255, 255, 255, 0.2);
         border-radius: 50%;
 
         ion-icon {
-          font-size: 18px;
+          font-size: 20px;
           color: white;
         }
       }
 
       .type-header {
-        font-size: 16px;
+        font-size: 17px;
         font-weight: 600;
-        color: #333;
+        color: white;
         margin: 0;
       }
     }
@@ -58,7 +81,7 @@ ion-content {
     .accordion-header-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
 
       .add-visual-btn {
         background: none;
@@ -67,42 +90,28 @@ ion-content {
         padding: 4px;
 
         ion-icon {
-          font-size: 24px;
-          color: var(--noble-orange, #F15A27);
+          font-size: 28px;
+          color: white;
+        }
+
+        &:active {
+          transform: scale(0.95);
         }
       }
 
       .expand-icon {
-        font-size: 20px;
-        color: #666;
+        font-size: 24px;
+        color: white;
         transition: transform 0.2s ease;
       }
     }
   }
 
   .simple-accordion-content {
-    padding: 16px;
-    border-top: 1px solid #e0e0e0;
-    background: white;
+    padding: 0;
+    border-top: none;
+    background: #f5f5f5;
   }
-}
-
-.page-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  background: #f5f5f5;
-  min-height: 100vh;
-  scroll-behavior: auto !important;
-}
-
-.content-section {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  padding: 24px;
-  min-height: 200px;
-  scroll-behavior: auto !important;
 }
 
 .loading-container {
@@ -110,8 +119,9 @@ ion-content {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  padding: 80px 20px;
   color: #666;
+  background: white;
 
   ion-spinner {
     margin-bottom: 16px;
@@ -134,23 +144,26 @@ ion-content {
     border-radius: 3px;
   }
 
-  // Search container
+  // Search container - full width with background
   .search-container {
-    margin-bottom: 16px;
+    margin-bottom: 0;
+    padding: 12px 16px;
+    background: white;
+    border-bottom: 1px solid #e8e8e8;
 
     .search-input-wrapper {
       position: relative;
       display: flex;
       align-items: center;
-      background: white;
-      border: 2px solid #e8e8e8;
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
       border-radius: 8px;
-      padding: 12px 16px;
-      transition: border-color 0.2s ease;
+      padding: 10px 14px;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
 
       &:focus-within {
         border-color: var(--noble-orange, #F15A27);
-        box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+        background: white;
       }
 
       .search-icon {
@@ -203,35 +216,25 @@ ion-content {
     }
   }
 
-  // White container wrapper matching other pages
+  // White container - now transparent for edge-to-edge design
   .white-container {
-    background: white;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    padding: 12px;
-    margin-bottom: 20px;
-
-    // Adjust accordion margins inside container
-    ion-accordion-group {
-      ion-accordion {
-        &:last-child {
-          margin-bottom: 0;
-        }
-      }
-    }
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 0;
   }
 
   .type-section {
-    margin-bottom: 20px;
+    margin-bottom: 0;
     overflow: visible;
+    background: white;
 
     &:last-child {
       margin-bottom: 0;
     }
 
     .type-header {
-      // Header styling now handled by accordion ion-item
-      // Keeping this for any legacy references
       font-size: 18px;
       font-weight: 600;
       color: #333;
@@ -239,54 +242,58 @@ ion-content {
     }
 
     .no-items-message {
-      padding: 20px;
+      padding: 24px 16px;
       text-align: center;
       color: #999;
       font-size: 14px;
       font-style: italic;
-      background: transparent;
-      margin-bottom: 12px;
+      background: white;
+      margin-bottom: 0;
     }
 
     .template-item {
-      margin-bottom: 12px;
+      margin-bottom: 0;
       overflow: visible;
 
+      // Flat list item with simple bottom border
       .visual-item-container {
         position: relative;
-        border-radius: 12px;
-        transition: all 0.3s ease;
+        border-radius: 0;
+        transition: background-color 0.2s ease;
         display: block;
         width: 100%;
-        margin-bottom: 12px;
+        margin-bottom: 0;
         overflow: visible;
-        border: 1px solid #e0e0e0;
+        border: none;
+        border-bottom: 1px solid #e8e8e8;
+        background: white;
 
         &.selected {
-          border: 2px solid #000000;
-          box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1);
-          background: transparent;
-          border-radius: 12px 12px 0 0;
+          border: none;
+          border-bottom: 1px solid #e8e8e8;
+          box-shadow: none;
+          background: #fff8f5;
+          border-radius: 0;
 
           .checkbox-item {
             border-color: transparent;
-            --background: #f8f8f8;
-            background: #f8f8f8 !important;
+            --background: #fff8f5;
+            background: #fff8f5 !important;
           }
         }
       }
 
       .checkbox-item {
-        --background: white;
+        --background: transparent;
         --inner-border-width: 0;
         --border-width: 0;
         --highlight-height: 0;
-        padding: 12px;
-        border-radius: 11px;
-        transition: all 0.3s ease;
+        padding: 16px;
+        border-radius: 0;
+        transition: background-color 0.2s ease;
         border: none;
         overflow: visible;
-        background: white;
+        background: transparent;
 
         ion-checkbox {
           --size: 22px;
@@ -326,24 +333,24 @@ ion-content {
         }
       }
 
-      // Multi-select container styling
+      // Multi-select container styling - flat design
       .multi-select-container {
-        margin-bottom: 4px;
+        margin-bottom: 0;
         border: none;
-        border-radius: 11px;
-        background: white;
-        transition: all 0.3s ease;
+        border-radius: 0;
+        background: transparent;
+        transition: background-color 0.2s ease;
         overflow: visible;
 
         .checkbox-item {
-          --background: white;
+          --background: transparent;
           --inner-border-width: 0;
           --border-width: 0;
           --highlight-height: 0;
           border: none !important;
-          border-radius: 11px 11px 0 0;
-          padding: 10px 12px 6px 12px !important;
-          background: white;
+          border-radius: 0;
+          padding: 16px 16px 8px 16px !important;
+          background: transparent;
 
           .item-label {
             h3 {
@@ -433,15 +440,15 @@ ion-content {
   }
 }
 
-// Answer type 1 (Yes/No dropdown) container
+// Answer type 1 (Yes/No dropdown) container - flat design
 .answer-type-1-container {
-  padding: 12px;
-  background: #fff;
-  border-radius: 11px;
-  margin-bottom: 12px;
+  padding: 16px;
+  background: transparent;
+  border-radius: 0;
+  margin-bottom: 0;
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 
   .item-header {
     margin-bottom: 8px;
@@ -503,11 +510,68 @@ ion-content {
 // PHOTO STYLES - EXACT COPY FROM ORIGINAL
 // ============================================
 
+// ===========================================
+// LARGE ACTION BUTTON GRID (for selected items)
+// ===========================================
+.action-button-grid {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff8f5;
+  border-bottom: 1px solid #e8e8e8;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+
+  .action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+    height: 56px;
+    padding: 8px 16px;
+    background: var(--noble-orange, #F15A27);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 4px;
+
+    ion-icon {
+      font-size: 22px;
+    }
+
+    span {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    &:active {
+      transform: scale(0.95);
+      background: #d94e1f;
+    }
+
+    &.secondary {
+      background: #666;
+
+      &:active {
+        background: #555;
+      }
+    }
+  }
+}
+
+// ===========================================
+// IMAGE PREVIEW SECTION - FULL-WIDTH FLAT DESIGN
+// ===========================================
 .image-preview-section {
-  padding: 12px;
-  background: #f8f8f8;
-  border-top: 1px solid #e0e0e0;
-  border-radius: 0 0 12px 12px;
+  padding: 16px;
+  background: white;
+  border-top: none;
+  border-radius: 0;
   clear: both;
   display: block;
   width: 100%;
@@ -745,17 +809,17 @@ ion-content {
   }
 }
 
-// Photo count badge - clickable button to expand/collapse photos
+// Photo count badge - right-aligned with chevron
 .photo-count-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 8px;
+  padding: 8px 14px;
   background: var(--noble-orange, #F15A27);
   color: white;
   border: none;
-  border-radius: 16px;
-  font-size: 13px;
+  border-radius: 20px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -763,53 +827,92 @@ ion-content {
   flex-shrink: 0;
 
   ion-icon {
-    font-size: 14px;
+    font-size: 16px;
     transition: transform 0.2s ease;
   }
 
   &:hover {
     background: #d94e1f;
-    transform: scale(1.02);
   }
 
   &:active {
-    transform: scale(0.98);
+    transform: scale(0.95);
+  }
+}
+
+// Right-aligned photo count in item row
+.item-photo-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 12px;
+
+  .photo-count {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--noble-orange, #F15A27);
+    font-size: 14px;
+    font-weight: 600;
+
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+
+  .item-chevron {
+    font-size: 20px;
+    color: #999;
   }
 }
 
 @media (max-width: 768px) {
   .page-container {
-    padding: 12px;
+    padding: 0;
   }
 
   .content-section {
-    padding: 16px;
+    padding: 0;
   }
 
   .search-container {
-    margin-bottom: 12px;
+    margin-bottom: 0;
+    padding: 12px;
+    background: white;
 
     .search-input-wrapper {
       padding: 10px 12px;
 
       .search-input {
-        font-size: 13px;
+        font-size: 14px;
 
         &::placeholder {
-          font-size: 12px;
+          font-size: 13px;
         }
       }
     }
   }
 
   .image-preview-section {
-    padding: 8px;
+    padding: 12px;
 
     .image-preview-container {
       display: grid !important;
       grid-template-columns: repeat(3, 1fr) !important;
-      gap: 6px !important;
+      gap: 8px !important;
       width: 100% !important;
+    }
+  }
+
+  .action-button-grid {
+    padding: 12px;
+    gap: 10px;
+
+    .action-btn {
+      min-width: 70px;
+      height: 52px;
+      padding: 6px 12px;
     }
   }
 }
@@ -978,17 +1081,6 @@ ion-accordion-group {
         scroll-margin: 0 !important;
       }
     }
-  }
-}
-
-// Mobile responsive adjustments matching structural-systems-hub
-@media (max-width: 768px) {
-  .page-container {
-    padding: 12px;
-  }
-
-  .content-section {
-    padding: 16px;
   }
 }
 
