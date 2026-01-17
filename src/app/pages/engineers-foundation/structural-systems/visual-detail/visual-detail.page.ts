@@ -1,19 +1,14 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, LoadingController, AlertController, ModalController, NavController } from '@ionic/angular';
+import { IonicModule, ToastController, AlertController, ModalController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
-import { OfflineService } from '../../../../services/offline.service';
-import { CameraService } from '../../../../services/camera.service';
-import { ImageCompressionService } from '../../../../services/image-compression.service';
-import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
-import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.service';
-import { LocalImageService } from '../../../../services/local-image.service';
+import { IndexedDbService } from '../../../../services/indexed-db.service';
+import { ImageCompressionService } from '../../../../services/image-compression.service';
 import { db, VisualField } from '../../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../../services/visual-field-repo.service';
 import { liveQuery } from 'dexie';
@@ -30,10 +25,15 @@ interface VisualItem {
   required: boolean;
   answer?: string;
   isSelected?: boolean;
-  isSaving?: boolean;
-  photos?: any[];
-  otherValue?: string;
   key?: string;
+}
+
+interface PhotoItem {
+  id: string;
+  displayUrl: string;
+  caption: string;
+  uploading: boolean;
+  isLocal: boolean;
 }
 
 @Component({
@@ -59,17 +59,13 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   editableText: string = '';
 
   // Photos
-  photos: any[] = [];
+  photos: PhotoItem[] = [];
   loadingPhotos: boolean = false;
   uploadingPhotos: boolean = false;
-
-  // Hidden file input for camera/gallery
-  @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
   // Subscriptions
   private routeSubscription?: Subscription;
   private localImagesSubscription?: Subscription;
-  private uploadSubscription?: Subscription;
 
   constructor(
     private router: Router,
@@ -77,29 +73,21 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     private navController: NavController,
     private caspioService: CaspioService,
     private toastController: ToastController,
-    private loadingController: LoadingController,
     private alertController: AlertController,
     private modalController: ModalController,
-    private offlineService: OfflineService,
     private changeDetectorRef: ChangeDetectorRef,
-    private cameraService: CameraService,
-    private imageCompression: ImageCompressionService,
-    private foundationData: EngineersFoundationDataService,
-    private backgroundUploadService: BackgroundPhotoUploadService,
     private indexedDb: IndexedDbService,
-    private localImageService: LocalImageService,
+    private imageCompression: ImageCompressionService,
     private visualFieldRepo: VisualFieldRepoService
   ) {}
 
   ngOnInit() {
     this.loadRouteParams();
-    this.setupSubscriptions();
   }
 
   ngOnDestroy() {
     this.routeSubscription?.unsubscribe();
     this.localImagesSubscription?.unsubscribe();
-    this.uploadSubscription?.unsubscribe();
   }
 
   private loadRouteParams() {
@@ -141,36 +129,6 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     });
   }
 
-  private setupSubscriptions() {
-    // Subscribe to local images for reactive updates
-    const entityId = `${this.serviceId}_${this.categoryName}_${this.templateId}`;
-    this.localImagesSubscription = new Subscription();
-
-    const observable = liveQuery(() =>
-      db.localImages.where('entityId').equals(entityId).toArray()
-    );
-
-    const sub = {
-      subscribe: (callback: (images: LocalImage[]) => void) => {
-        const subscription = observable.subscribe({
-          next: (images) => {
-            this.updatePhotosFromLocalImages(images);
-          }
-        });
-        return subscription;
-      }
-    };
-
-    // Subscribe to upload progress
-    this.uploadSubscription = this.backgroundUploadService.uploadComplete$.subscribe(
-      (result) => {
-        if (result.entityId === entityId) {
-          this.loadPhotos();
-        }
-      }
-    );
-  }
-
   private async loadVisualData() {
     this.loading = true;
 
@@ -187,9 +145,6 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         this.item = this.convertFieldToItem(field);
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
-      } else {
-        // Fallback to loading from API via data service
-        await this.loadFromDataService();
       }
 
       // Load photos
@@ -201,23 +156,6 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     } finally {
       this.loading = false;
       this.changeDetectorRef.detectChanges();
-    }
-  }
-
-  private async loadFromDataService() {
-    // Get all items and find ours
-    const data = await this.foundationData.getStructuralData(this.serviceId, this.categoryName);
-    if (data) {
-      const allItems = [
-        ...(data.comments || []),
-        ...(data.limitations || []),
-        ...(data.deficiencies || [])
-      ];
-      this.item = allItems.find((i: any) => i.templateId === this.templateId) || null;
-      if (this.item) {
-        this.editableTitle = this.item.name;
-        this.editableText = this.item.text;
-      }
     }
   }
 
@@ -249,45 +187,29 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         .equals(entityId)
         .toArray();
 
-      // Load cached attachments
-      const cachedAttachments = await this.indexedDb.getCachedAttachments(entityId);
-
-      // Merge photos
+      // Convert to PhotoItem format
       this.photos = [];
 
-      // Add local images first
       for (const img of localImages) {
+        // Get the blob data if available
+        let displayUrl = 'assets/img/photo-placeholder.png';
+        if (img.localBlobId) {
+          const blob = await db.localBlobs.get(img.localBlobId);
+          if (blob) {
+            const blobObj = new Blob([blob.data], { type: blob.contentType });
+            displayUrl = URL.createObjectURL(blobObj);
+          }
+        } else if (img.remoteUrl) {
+          displayUrl = img.remoteUrl;
+        }
+
         this.photos.push({
           id: img.imageId,
-          localId: img.imageId,
-          displayUrl: img.localDataUrl || img.thumbnailUrl,
-          thumbnailUrl: img.thumbnailUrl,
-          url: img.remoteUrl,
+          displayUrl,
           caption: img.caption || '',
-          name: img.fileName,
-          uploading: img.uploadStatus === 'pending' || img.uploadStatus === 'uploading',
-          hasAnnotations: !!img.annotationData,
-          isLocal: true
+          uploading: img.status === 'queued' || img.status === 'uploading',
+          isLocal: !img.isSynced
         });
-      }
-
-      // Add remote attachments not already in local
-      for (const att of cachedAttachments) {
-        const exists = this.photos.some(p => p.id === att.id || p.remoteId === att.id);
-        if (!exists) {
-          this.photos.push({
-            id: att.id,
-            remoteId: att.id,
-            displayUrl: att.thumbnailUrl || att.url,
-            thumbnailUrl: att.thumbnailUrl,
-            url: att.url,
-            caption: att.caption || '',
-            name: att.name,
-            uploading: false,
-            hasAnnotations: att.hasAnnotations,
-            isLocal: false
-          });
-        }
       }
 
     } catch (error) {
@@ -296,34 +218,6 @@ export class VisualDetailPage implements OnInit, OnDestroy {
       this.loadingPhotos = false;
       this.changeDetectorRef.detectChanges();
     }
-  }
-
-  private updatePhotosFromLocalImages(images: LocalImage[]) {
-    // Update photo list reactively
-    for (const img of images) {
-      const existingIndex = this.photos.findIndex(p => p.localId === img.imageId);
-      if (existingIndex >= 0) {
-        // Update existing
-        this.photos[existingIndex].displayUrl = img.localDataUrl || img.thumbnailUrl;
-        this.photos[existingIndex].uploading = img.uploadStatus === 'pending' || img.uploadStatus === 'uploading';
-        this.photos[existingIndex].caption = img.caption || '';
-      } else {
-        // Add new
-        this.photos.unshift({
-          id: img.imageId,
-          localId: img.imageId,
-          displayUrl: img.localDataUrl || img.thumbnailUrl,
-          thumbnailUrl: img.thumbnailUrl,
-          url: img.remoteUrl,
-          caption: img.caption || '',
-          name: img.fileName,
-          uploading: img.uploadStatus === 'pending' || img.uploadStatus === 'uploading',
-          hasAnnotations: !!img.annotationData,
-          isLocal: true
-        });
-      }
-    }
-    this.changeDetectorRef.detectChanges();
   }
 
   // ===== SAVE METHODS =====
@@ -338,7 +232,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         this.serviceId,
         this.categoryName,
         this.templateId,
-        { name: this.editableTitle, templateName: this.editableTitle }
+        { templateName: this.editableTitle }
       );
 
       this.item.name = this.editableTitle;
@@ -362,7 +256,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         this.serviceId,
         this.categoryName,
         this.templateId,
-        { text: this.editableText, templateText: this.editableText }
+        { templateText: this.editableText }
       );
 
       this.item.text = this.editableText;
@@ -426,53 +320,62 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
     try {
       // Compress the image
-      const compressed = await this.imageCompression.compressImageToDataUrl(dataUrl, {
-        maxWidth: 1920,
-        maxHeight: 1920,
-        quality: 0.7
-      });
+      const compressedBlob = await this.imageCompression.compressBase64Image(dataUrl);
 
-      // Generate unique ID
+      // Generate unique IDs
       const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const blobId = `blob_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const entityId = `${this.serviceId}_${this.categoryName}_${this.templateId}`;
 
-      // Save to local images
-      const localImage: LocalImage = {
-        imageId,
-        entityId,
-        entityType: 'structural_visual',
-        localDataUrl: compressed,
-        thumbnailUrl: compressed,
-        fileName: `photo_${Date.now()}.jpg`,
-        uploadStatus: 'pending',
-        createdAt: new Date().toISOString()
-      };
+      // Convert blob to ArrayBuffer for storage
+      const arrayBuffer = await compressedBlob.arrayBuffer();
 
-      await db.localImages.add(localImage);
+      // Save blob to localBlobs table
+      await db.localBlobs.add({
+        blobId,
+        data: arrayBuffer,
+        sizeBytes: arrayBuffer.byteLength,
+        contentType: compressedBlob.type || 'image/webp',
+        createdAt: Date.now()
+      });
+
+      // Save image metadata to localImages table
+      await db.localImages.add({
+        imageId,
+        entityType: 'visual',
+        entityId,
+        serviceId: this.serviceId,
+        localBlobId: blobId,
+        remoteS3Key: null,
+        status: 'queued',
+        attachId: null,
+        isSynced: false,
+        remoteUrl: null,
+        fileName: `photo_${Date.now()}.webp`,
+        fileSize: arrayBuffer.byteLength,
+        contentType: compressedBlob.type || 'image/webp',
+        caption: '',
+        drawings: '',
+        photoType: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        lastError: null,
+        localVersion: 1,
+        remoteVerifiedAt: null,
+        remoteLoadedInUI: false
+      });
+
+      // Create display URL
+      const displayBlob = new Blob([arrayBuffer], { type: compressedBlob.type });
+      const displayUrl = URL.createObjectURL(displayBlob);
 
       // Add to photos array immediately
       this.photos.unshift({
         id: imageId,
-        localId: imageId,
-        displayUrl: compressed,
-        thumbnailUrl: compressed,
+        displayUrl,
         caption: '',
-        name: localImage.fileName,
         uploading: true,
-        hasAnnotations: false,
         isLocal: true
-      });
-
-      // Queue for background upload
-      await this.backgroundUploadService.queuePhotoUpload({
-        imageId,
-        entityId,
-        entityType: 'structural_visual',
-        localDataUrl: compressed,
-        projectId: this.projectId,
-        serviceId: this.serviceId,
-        category: this.categoryName,
-        templateId: this.templateId
       });
 
       await this.showToast('Photo added', 'success');
@@ -485,7 +388,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  async deletePhoto(photo: any) {
+  async deletePhoto(photo: PhotoItem) {
     const alert = await this.alertController.create({
       header: 'Delete Photo',
       message: 'Are you sure you want to delete this photo?',
@@ -503,7 +406,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     await alert.present();
   }
 
-  private async confirmDeletePhoto(photo: any) {
+  private async confirmDeletePhoto(photo: PhotoItem) {
     try {
       // Remove from local array
       const index = this.photos.findIndex(p => p.id === photo.id);
@@ -511,15 +414,20 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         this.photos.splice(index, 1);
       }
 
-      // Delete from IndexedDB if local
-      if (photo.isLocal && photo.localId) {
-        await db.localImages.where('imageId').equals(photo.localId).delete();
+      // Delete from IndexedDB
+      const localImage = await db.localImages.get(photo.id);
+      if (localImage) {
+        // Delete blob if exists
+        if (localImage.localBlobId) {
+          await db.localBlobs.delete(localImage.localBlobId);
+        }
+        // Delete image record
+        await db.localImages.delete(photo.id);
       }
 
-      // Delete from remote if has remote ID (use firstValueFrom to convert Observable to Promise)
-      if (photo.remoteId || (!photo.isLocal && photo.id)) {
-        const attachmentId = photo.remoteId || photo.id;
-        this.caspioService.deleteAttachment(attachmentId).subscribe({
+      // Delete from remote if synced
+      if (localImage?.attachId) {
+        this.caspioService.deleteAttachment(localImage.attachId).subscribe({
           next: () => console.log('[VisualDetail] Attachment deleted from server'),
           error: (err) => console.error('[VisualDetail] Error deleting from server:', err)
         });
@@ -533,7 +441,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  async openCaptionPopup(photo: any) {
+  async openCaptionPopup(photo: PhotoItem) {
     const alert = await this.alertController.create({
       header: 'Edit Caption',
       inputs: [
@@ -557,27 +465,12 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     await alert.present();
   }
 
-  private async saveCaption(photo: any, caption: string) {
+  private async saveCaption(photo: PhotoItem, caption: string) {
     try {
       photo.caption = caption;
 
-      // Update in local images if local
-      if (photo.isLocal && photo.localId) {
-        await db.localImages.where('imageId').equals(photo.localId).modify({ caption });
-      }
-
-      // For remote photos, add to pending caption updates
-      if (photo.remoteId || (!photo.isLocal && photo.id)) {
-        const attachmentId = photo.remoteId || photo.id;
-        await this.indexedDb.addPendingCaptionUpdate({
-          attachId: attachmentId,
-          caption,
-          serviceId: this.serviceId,
-          entityType: 'structural_visual',
-          createdAt: new Date().toISOString(),
-          status: 'pending'
-        });
-      }
+      // Update in localImages
+      await db.localImages.update(photo.id, { caption, updatedAt: Date.now() });
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {
@@ -586,16 +479,15 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  async viewPhoto(photo: any) {
+  async viewPhoto(photo: PhotoItem) {
     const modal = await this.modalController.create({
       component: FabricPhotoAnnotatorComponent,
       componentProps: {
-        imageUrl: photo.displayUrl || photo.url,
+        imageUrl: photo.displayUrl,
         photoId: photo.id,
         caption: photo.caption,
-        annotations: photo.annotations || null,
         entityId: `${this.serviceId}_${this.categoryName}_${this.templateId}`,
-        entityType: 'structural_visual'
+        entityType: 'visual'
       },
       cssClass: 'fullscreen-modal'
     });
@@ -607,23 +499,6 @@ export class VisualDetailPage implements OnInit, OnDestroy {
       // Refresh photos to get updated annotations
       await this.loadPhotos();
     }
-  }
-
-  // ===== FILE INPUT HANDLER =====
-
-  onFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length > 0) {
-      const file = input.files[0];
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const dataUrl = reader.result as string;
-        await this.processAndSavePhoto(dataUrl);
-      };
-      reader.readAsDataUrl(file);
-    }
-    // Reset input
-    input.value = '';
   }
 
   // ===== NAVIGATION =====
@@ -644,7 +519,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     await toast.present();
   }
 
-  trackByPhotoId(index: number, photo: any): string {
-    return photo.id || photo.localId || index.toString();
+  trackByPhotoId(index: number, photo: PhotoItem): string {
+    return photo.id || index.toString();
   }
 }
