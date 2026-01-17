@@ -12,6 +12,7 @@ import { CacheService } from '../../../../services/cache.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Filesystem } from '@capacitor/filesystem';
 import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
 import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
@@ -4929,9 +4930,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               try {
                 console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
 
+                // STORAGE DEBUG: Show original image size from Capacitor
+                const originalMB = ((image as any).size || 0) / 1024 / 1024;
+                alert(`📷 CAPACITOR IMAGE\nwebPath: ${image.webPath?.substring(0, 50)}...\nFormat: ${image.format}\n\nThis temp file may be causing native storage bloat.`);
+
                 // Fetch the blob
                 const response = await fetch(image.webPath);
                 const blob = await response.blob();
+
+                // STORAGE DEBUG: Show fetched blob size
+                const blobMB = (blob.size / 1024 / 1024).toFixed(2);
+                alert(`📥 FETCHED BLOB\nOriginal size: ${blobMB} MB\n\nThis is BEFORE compression.`);
 
                 // US-001 FIX: Validate blob has content before creating File
                 // On mobile, gallery-selected images (especially the last in a batch)
@@ -4957,6 +4966,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   useWebWorker: true
                 }) as File;
                 const compressedSize = compressedFile.size;
+
+                // STORAGE DEBUG: Show compression result
+                const compressedMB = (compressedSize / 1024 / 1024).toFixed(2);
+                const savedMB = ((originalSize - compressedSize) / 1024 / 1024).toFixed(2);
+                alert(`🗜️ COMPRESSION\nOriginal: ${blobMB} MB\nCompressed: ${compressedMB} MB\nSaved: ${savedMB} MB`);
 
                 // Create LocalImage with stable UUID
                 const localImage = await this.localImageService.captureImage(
@@ -5032,6 +5046,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 }
                 console.log(`  key: ${key}`);
                 console.log(`  imageId: ${localImage.imageId}`);
+
+                // STORAGE FIX: Try to delete Capacitor temp file to free native storage
+                // The webPath points to a temp copy of the photo that persists until cleared
+                if (image.webPath) {
+                  try {
+                    // On iOS, the webPath is typically: capacitor://localhost/_capacitor_file_/path/to/file
+                    // or file:///path/to/file - we need to handle both formats
+                    let pathToDelete = image.webPath;
+
+                    // Convert capacitor:// URL to file path
+                    if (pathToDelete.includes('_capacitor_file_')) {
+                      pathToDelete = pathToDelete.split('_capacitor_file_')[1];
+                    } else if (pathToDelete.startsWith('file://')) {
+                      pathToDelete = pathToDelete.replace('file://', '');
+                    }
+
+                    // Try to delete using Capacitor Filesystem
+                    await Filesystem.deleteFile({ path: pathToDelete });
+                    console.log('[GALLERY UPLOAD] 🗑️ Deleted temp file');
+                    alert(`🗑️ DELETED TEMP\n${pathToDelete.substring(pathToDelete.length - 30)}`);
+                  } catch (deleteErr: any) {
+                    // Temp file deletion failed - show what went wrong
+                    console.warn('[GALLERY UPLOAD] Could not delete temp file:', deleteErr?.message || deleteErr);
+                    alert(`⚠️ TEMP DELETE FAILED\n${deleteErr?.message || 'Unknown error'}\n\nThis is why iOS storage is bloating.`);
+                  }
+                }
 
               } catch (error) {
                 console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
