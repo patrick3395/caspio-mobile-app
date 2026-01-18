@@ -48,6 +48,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   templateId: number = 0;
   projectId: string = '';
   serviceId: string = '';
+  visualId: string = '';  // The actual visualId used to store photos
 
   // Visual item data
   item: VisualItem | null = null;
@@ -178,14 +179,34 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
   private async loadPhotos() {
     this.loadingPhotos = true;
-    const entityId = `${this.serviceId}_${this.categoryName}_${this.templateId}`;
 
     try {
-      // Load local images from IndexedDB
+      // Get the visualId from visualFields - this is how photos are stored
+      const fields = await db.visualFields
+        .where('[serviceId+category]')
+        .equals([this.serviceId, this.categoryName])
+        .toArray();
+
+      const field = fields.find(f => f.templateId === this.templateId);
+
+      // The entityId for photos is the visualId (temp_visual_xxx or real VisualID)
+      this.visualId = field?.tempVisualId || field?.visualId || String(field?.id) || '';
+
+      if (!this.visualId) {
+        console.log('[VisualDetail] No visualId found for templateId:', this.templateId);
+        this.photos = [];
+        return;
+      }
+
+      console.log('[VisualDetail] Loading photos for visualId:', this.visualId);
+
+      // Load local images from IndexedDB using visualId as entityId
       const localImages = await db.localImages
         .where('entityId')
-        .equals(entityId)
+        .equals(this.visualId)
         .toArray();
+
+      console.log('[VisualDetail] Found localImages:', localImages.length);
 
       // Convert to PhotoItem format
       this.photos = [];
@@ -319,13 +340,19 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     this.changeDetectorRef.detectChanges();
 
     try {
+      if (!this.visualId) {
+        console.error('[VisualDetail] Cannot save photo - no visualId found');
+        await this.showToast('Error: Visual not found', 'danger');
+        return;
+      }
+
       // Compress the image
       const compressedBlob = await this.imageCompression.compressBase64Image(dataUrl);
 
       // Generate unique IDs
       const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const blobId = `blob_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const entityId = `${this.serviceId}_${this.categoryName}_${this.templateId}`;
+      const entityId = this.visualId;
 
       // Convert blob to ArrayBuffer for storage
       const arrayBuffer = await compressedBlob.arrayBuffer();
@@ -486,7 +513,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         imageUrl: photo.displayUrl,
         photoId: photo.id,
         caption: photo.caption,
-        entityId: `${this.serviceId}_${this.categoryName}_${this.templateId}`,
+        entityId: this.visualId,
         entityType: 'visual'
       },
       cssClass: 'fullscreen-modal'
