@@ -4306,9 +4306,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         };
 
         const result = await this.foundationData.createVisual(visualData);
-        const visualId = String(result.VisualID || result.PK_ID || result.id);
-        this.visualRecordIds[key] = visualId;
-        console.log('[OPTION] Created visual:', visualId);
+        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = newVisualId;
+
+        // DEXIE-FIRST: Store tempVisualId in Dexie for persistence
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          tempVisualId: newVisualId
+        });
+
+        console.log('[OPTION] Created visual:', newVisualId);
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
         const notesValue = item.otherValue || '';
@@ -4317,6 +4323,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           Notes: notesValue
         }, this.serviceId);
         console.log('[OPTION] Updated visual:', visualId);
+      } else {
+        // Temp ID - update the pending request
+        const notesValue = item.otherValue || '';
+        await this.foundationData.updateVisual(visualId, {
+          Answers: item.answer,
+          Notes: notesValue
+        }, this.serviceId);
+        console.log('[OPTION] Updated temp visual:', visualId);
       }
     } catch (error) {
       console.error('[OPTION] Error saving option:', error);
@@ -4340,10 +4354,23 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.savingItems[key] = true;
 
     try {
+      // DEXIE-FIRST: Save otherValue to Dexie immediately for persistence across reloads
+      await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+        otherValue: item.otherValue || '',
+        isSelected: true  // Selecting "Other" means the item is selected
+      });
+      console.log('[OTHER] Saved otherValue to Dexie:', item.otherValue);
+
       let visualId = this.visualRecordIds[key];
 
       // If "Other" value is empty AND no options selected, hide the visual
       if ((!item.otherValue || item.otherValue === '') && (!item.answer || item.answer === '')) {
+        // Update Dexie to reflect unselected state
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          otherValue: '',
+          isSelected: false
+        });
+
         if (visualId && !String(visualId).startsWith('temp_')) {
           await this.foundationData.updateVisual(visualId, {
             Answers: '',
@@ -4369,9 +4396,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         };
 
         const result = await this.foundationData.createVisual(visualData);
-        const visualId = String(result.VisualID || result.PK_ID || result.id);
-        this.visualRecordIds[key] = visualId;
-        console.log('[OTHER] Created visual:', visualId);
+        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = newVisualId;
+
+        // DEXIE-FIRST: Store tempVisualId in Dexie
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          tempVisualId: newVisualId
+        });
+
+        console.log('[OTHER] Created visual:', newVisualId);
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
         await this.foundationData.updateVisual(visualId, {
@@ -4379,6 +4412,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           Answers: item.answer || ''
         }, this.serviceId);
         console.log('[OTHER] Updated visual:', visualId);
+      } else {
+        // Temp ID - update the pending request
+        await this.foundationData.updateVisual(visualId, {
+          Notes: item.otherValue || '',
+          Answers: item.answer || ''
+        }, this.serviceId);
+        console.log('[OTHER] Updated temp visual:', visualId);
       }
     } catch (error) {
       console.error('[OTHER] Error saving other value:', error);

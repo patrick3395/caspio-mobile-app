@@ -228,26 +228,17 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
       const field = fields.find(f => f.templateId === this.templateId);
 
-      // DEBUG: Log field lookup details
-      console.log('[VisualDetail] Field lookup:', {
-        templateId: this.templateId,
-        foundField: !!field,
-        fieldKey: field?.key,
-        fieldTemplateId: field?.templateId,
-        fieldVisualId: field?.visualId,
-        fieldTempVisualId: field?.tempVisualId,
-        fieldIsSelected: field?.isSelected,
-        allFieldTemplateIds: fields.map(f => f.templateId)
-      });
+      // DEBUG: Alert field lookup details
+      alert(`[LOAD] Field lookup:\ntemplateId from route: ${this.templateId}\nField found: ${!!field}\nfield.templateId: ${field?.templateId}\nfield.visualId: "${field?.visualId}"\nfield.tempVisualId: "${field?.tempVisualId}"\nfield.isSelected: ${field?.isSelected}\nAll field templateIds: ${fields.map(f => f.templateId).join(', ')}`);
 
       // The entityId for photos is the visualId (temp_visual_xxx or real VisualID)
       // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
       this.visualId = field?.tempVisualId || field?.visualId || '';
 
-      console.log('[VisualDetail] Set visualId to:', this.visualId);
+      alert(`[LOAD] Set this.visualId to: "${this.visualId}"`);
 
       if (!this.visualId) {
-        console.log('[VisualDetail] No visualId found for templateId:', this.templateId, '- item may not be selected yet');
+        alert('[LOAD] ⚠️ No visualId found - item may not be selected yet');
         this.photos = [];
         return;
       }
@@ -368,20 +359,14 @@ export class VisualDetailPage implements OnInit, OnDestroy {
       console.log('[VisualDetail] ✅ Updated Dexie field:', dexieUpdate);
 
       // Queue update to Caspio for background sync (only if valid visualId)
-      console.log('[VisualDetail] Checking visualId for sync:', {
-        visualId: this.visualId,
-        isValid: this.isValidVisualId(this.visualId),
-        startsWithTemp: this.visualId?.startsWith('temp_'),
-        length: this.visualId?.length,
-        isNumeric: !isNaN(Number(this.visualId))
-      });
+      alert(`[SAVE] Checking visualId:\nvisualId: "${this.visualId}"\nisValid: ${this.isValidVisualId(this.visualId)}\nstartsWithTemp: ${this.visualId?.startsWith('temp_')}\nlength: ${this.visualId?.length}`);
 
       if (this.isValidVisualId(this.visualId)) {
-        console.log('[VisualDetail] Calling foundationData.updateVisual with:', this.visualId, caspioUpdate, this.serviceId);
+        alert(`[SAVE] Calling updateVisual with:\nvisualId: ${this.visualId}\nupdate: ${JSON.stringify(caspioUpdate)}\nserviceId: ${this.serviceId}`);
         await this.foundationData.updateVisual(this.visualId, caspioUpdate, this.serviceId);
-        console.log('[VisualDetail] ✅ Queued Caspio update:', caspioUpdate);
+        alert('[SAVE] ✅ updateVisual completed');
       } else {
-        console.log('[VisualDetail] ⚠️ No valid visualId - changes saved to Dexie only, will sync when visual is created');
+        alert(`[SAVE] ⚠️ NO VALID VISUAL ID\nvisualId: "${this.visualId}"\nChanges saved to Dexie only!`);
       }
 
       // Update local item state for immediate UI feedback
