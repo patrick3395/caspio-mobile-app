@@ -11,6 +11,8 @@ import { IndexedDbService } from '../../../../services/indexed-db.service';
 import { ImageCompressionService } from '../../../../services/image-compression.service';
 import { db, VisualField } from '../../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../../services/visual-field-repo.service';
+import { LocalImageService } from '../../../../services/local-image.service';
+import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { liveQuery } from 'dexie';
 
 interface VisualItem {
@@ -79,7 +81,9 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     private changeDetectorRef: ChangeDetectorRef,
     private indexedDb: IndexedDbService,
     private imageCompression: ImageCompressionService,
-    private visualFieldRepo: VisualFieldRepoService
+    private visualFieldRepo: VisualFieldRepoService,
+    private localImageService: LocalImageService,
+    private foundationData: EngineersFoundationDataService
   ) {}
 
   ngOnInit() {
@@ -247,26 +251,54 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     const titleChanged = this.item && this.editableTitle !== this.item.name;
     const textChanged = this.item && this.editableText !== this.item.text;
 
-    // Queue changes if any
-    if (titleChanged) {
-      this.visualFieldRepo.setField(
+    if (!titleChanged && !textChanged) {
+      this.goBack();
+      return;
+    }
+
+    this.saving = true;
+    try {
+      // Build update data for both Dexie and Caspio sync
+      const dexieUpdate: any = {};
+      const caspioUpdate: any = {};
+
+      if (titleChanged) {
+        dexieUpdate.templateName = this.editableTitle;
+        caspioUpdate.Name = this.editableTitle;
+      }
+
+      if (textChanged) {
+        dexieUpdate.templateText = this.editableText;
+        caspioUpdate.Text = this.editableText;
+      }
+
+      // DEXIE-FIRST: Update local Dexie field
+      await this.visualFieldRepo.setField(
         this.serviceId,
         this.categoryName,
         this.templateId,
-        { templateName: this.editableTitle }
+        dexieUpdate
       );
+      console.log('[VisualDetail] ✅ Updated Dexie field:', dexieUpdate);
+
+      // Queue update to Caspio for background sync
+      if (this.visualId) {
+        await this.foundationData.updateVisual(this.visualId, caspioUpdate, this.serviceId);
+        console.log('[VisualDetail] ✅ Queued Caspio update:', caspioUpdate);
+      }
+
+      // Update local item state
+      if (titleChanged && this.item) this.item.name = this.editableTitle;
+      if (textChanged && this.item) this.item.text = this.editableText;
+
+    } catch (error) {
+      console.error('[VisualDetail] Error saving:', error);
+      await this.showToast('Error saving changes', 'danger');
+    } finally {
+      this.saving = false;
     }
 
-    if (textChanged) {
-      this.visualFieldRepo.setField(
-        this.serviceId,
-        this.categoryName,
-        this.templateId,
-        { templateText: this.editableText }
-      );
-    }
-
-    // Navigate back immediately
+    // Navigate back
     this.goBack();
   }
 
@@ -275,13 +307,20 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
     this.saving = true;
     try {
-      // Update in Dexie using setField with a patch
+      // DEXIE-FIRST: Update local Dexie field
       await this.visualFieldRepo.setField(
         this.serviceId,
         this.categoryName,
         this.templateId,
         { templateName: this.editableTitle }
       );
+      console.log('[VisualDetail] ✅ Updated title in Dexie');
+
+      // Queue update to Caspio for background sync
+      if (this.visualId) {
+        await this.foundationData.updateVisual(this.visualId, { Name: this.editableTitle }, this.serviceId);
+        console.log('[VisualDetail] ✅ Queued title update to Caspio');
+      }
 
       this.item.name = this.editableTitle;
       await this.showToast('Title saved', 'success');
@@ -299,13 +338,20 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
     this.saving = true;
     try {
-      // Update in Dexie using setField with a patch
+      // DEXIE-FIRST: Update local Dexie field
       await this.visualFieldRepo.setField(
         this.serviceId,
         this.categoryName,
         this.templateId,
         { templateText: this.editableText }
       );
+      console.log('[VisualDetail] ✅ Updated text in Dexie');
+
+      // Queue update to Caspio for background sync
+      if (this.visualId) {
+        await this.foundationData.updateVisual(this.visualId, { Text: this.editableText }, this.serviceId);
+        console.log('[VisualDetail] ✅ Queued text update to Caspio');
+      }
 
       this.item.text = this.editableText;
       await this.showToast('Description saved', 'success');
@@ -373,62 +419,46 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         return;
       }
 
+      // Convert dataUrl to blob then to File
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+
       // Compress the image
-      const compressedBlob = await this.imageCompression.compressBase64Image(dataUrl);
-
-      // Generate unique IDs
-      const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const blobId = `blob_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const entityId = this.visualId;
-
-      // Convert blob to ArrayBuffer for storage
-      const arrayBuffer = await compressedBlob.arrayBuffer();
-
-      // Save blob to localBlobs table
-      await db.localBlobs.add({
-        blobId,
-        data: arrayBuffer,
-        sizeBytes: arrayBuffer.byteLength,
-        contentType: compressedBlob.type || 'image/webp',
-        createdAt: Date.now()
+      const compressedBlob = await this.imageCompression.compressImage(blob as File, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
       });
 
-      // Save image metadata to localImages table
-      await db.localImages.add({
-        imageId,
-        entityType: 'visual',
-        entityId,
-        serviceId: this.serviceId,
-        localBlobId: blobId,
-        remoteS3Key: null,
-        status: 'queued',
-        attachId: null,
-        isSynced: false,
-        remoteUrl: null,
-        fileName: `photo_${Date.now()}.webp`,
-        fileSize: arrayBuffer.byteLength,
-        contentType: compressedBlob.type || 'image/webp',
-        caption: '',
-        drawings: '',
-        photoType: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        lastError: null,
-        localVersion: 1,
-        remoteVerifiedAt: null,
-        remoteLoadedInUI: false
+      // Create File object for LocalImageService
+      const file = new File([compressedBlob], `photo_${Date.now()}.webp`, {
+        type: compressedBlob.type || 'image/webp'
       });
 
-      // Create display URL
-      const displayBlob = new Blob([arrayBuffer], { type: compressedBlob.type });
-      const displayUrl = URL.createObjectURL(displayBlob);
+      // DEXIE-FIRST: Use LocalImageService.captureImage() which:
+      // 1. Stores blob + metadata atomically
+      // 2. Adds to upload outbox for background sync
+      // 3. Returns stable imageId for UI
+      const localImage = await this.localImageService.captureImage(
+        file,
+        'visual',
+        this.visualId,
+        this.serviceId,
+        '', // caption
+        ''  // drawings
+      );
 
-      // Add to photos array immediately
+      console.log('[VisualDetail] ✅ Photo captured via LocalImageService:', localImage.imageId);
+
+      // Get display URL from LocalImageService
+      const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+      // Add to photos array immediately for UI display
       this.photos.unshift({
-        id: imageId,
+        id: localImage.imageId,
         displayUrl,
         caption: '',
-        uploading: true,
+        uploading: false,  // Silent sync - no spinner
         isLocal: true
       });
 
@@ -462,14 +492,16 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
   private async confirmDeletePhoto(photo: PhotoItem) {
     try {
-      // Remove from local array
+      // Remove from local array immediately for UI responsiveness
       const index = this.photos.findIndex(p => p.id === photo.id);
       if (index >= 0) {
         this.photos.splice(index, 1);
       }
 
-      // Delete from IndexedDB
+      // Get localImage data before deletion
       const localImage = await db.localImages.get(photo.id);
+
+      // Delete from IndexedDB (Dexie)
       if (localImage) {
         // Delete blob if exists
         if (localImage.localBlobId) {
@@ -479,12 +511,10 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         await db.localImages.delete(photo.id);
       }
 
-      // Delete from remote if synced
+      // DEXIE-FIRST: Queue deletion for background sync if already synced to Caspio
       if (localImage?.attachId) {
-        this.caspioService.deleteAttachment(localImage.attachId).subscribe({
-          next: () => console.log('[VisualDetail] Attachment deleted from server'),
-          error: (err) => console.error('[VisualDetail] Error deleting from server:', err)
-        });
+        await this.foundationData.deleteVisualPhoto(localImage.attachId);
+        console.log('[VisualDetail] ✅ Queued photo deletion to Caspio:', localImage.attachId);
       }
 
       await this.showToast('Photo deleted', 'success');
@@ -523,8 +553,22 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     try {
       photo.caption = caption;
 
-      // Update in localImages
+      // Update in localImages (Dexie)
       await db.localImages.update(photo.id, { caption, updatedAt: Date.now() });
+
+      // Get the localImage to check if it has an attachId (synced to Caspio)
+      const localImage = await db.localImages.get(photo.id);
+      if (localImage?.attachId) {
+        // Queue caption update to Caspio for background sync
+        await this.foundationData.queueCaptionAndAnnotationUpdate(
+          localImage.attachId,
+          caption,
+          localImage.drawings || '',
+          'visual',
+          { serviceId: this.serviceId, visualId: this.visualId }
+        );
+        console.log('[VisualDetail] ✅ Queued caption update to Caspio:', localImage.attachId);
+      }
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {
@@ -558,7 +602,8 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   // ===== NAVIGATION =====
 
   goBack() {
-    this.navController.back();
+    // Navigate to parent route (category-detail page)
+    this.router.navigate(['..'], { relativeTo: this.route });
   }
 
   // ===== UTILITIES =====
