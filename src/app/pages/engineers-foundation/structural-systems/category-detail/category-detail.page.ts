@@ -2532,7 +2532,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       // Parse dropdown options if AnswerType is 2 (multi-select)
       if (template.AnswerType === 2) {
-        alert(`[TEMPLATE PATH] Multi-select template found:\nName: ${template.Name}\nPK_ID: ${template.PK_ID}\nTemplateID: ${template.TemplateID}\nEffectiveID: ${effectiveTemplateId}\nHas DropdownOptions: ${!!template.DropdownOptions}\nRaw DropdownOptions: ${template.DropdownOptions || 'EMPTY'}`);
+        // DEBUG: Show ALL keys on the template object to find TemplateID field
+        const allKeys = Object.keys(template).join(', ');
+        alert(`[TEMPLATE PATH] Multi-select template found:\nName: ${template.Name}\nALL KEYS: ${allKeys}\nPK_ID: ${template.PK_ID}\nTemplateID: ${template.TemplateID}\nTemplate_ID: ${(template as any).Template_ID}\ntemplate_id: ${(template as any).template_id}\nEffectiveID: ${effectiveTemplateId}\nHas DropdownOptions: ${!!template.DropdownOptions}\nRaw DropdownOptions: ${template.DropdownOptions || 'EMPTY'}`);
 
         if (template.DropdownOptions) {
           try {

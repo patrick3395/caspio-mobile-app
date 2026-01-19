@@ -1945,12 +1945,18 @@ export class OfflineTemplateService {
   async updateVisual(visualId: string, updates: any, serviceId: string): Promise<void> {
     const isTempId = visualId.startsWith('temp_');
 
+    // DEBUG: Alert to trace the update flow
+    alert(`[updateVisual DEBUG] Called with:\nvisualId: "${visualId}"\nisTempId: ${isTempId}\nserviceId: "${serviceId}"\nupdates: ${JSON.stringify(updates)}`);
+
     if (isTempId) {
       // Update the pending request data
+      alert(`[updateVisual DEBUG] Temp ID path - calling updatePendingRequestData`);
       await this.indexedDb.updatePendingRequestData(visualId, updates);
+      alert(`[updateVisual DEBUG] updatePendingRequestData completed`);
     } else {
       // Queue an update for a synced visual
       // CRITICAL: Use the correct API endpoint format with q.where clause
+      alert(`[updateVisual DEBUG] Real ID path - adding pending request`);
       await this.indexedDb.addPendingRequest({
         type: 'UPDATE',
         endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals/records?q.where=VisualID=${visualId}`,
@@ -1960,6 +1966,7 @@ export class OfflineTemplateService {
         status: 'pending',
         priority: 'normal',
       });
+      alert(`[updateVisual DEBUG] Pending request added for VisualID=${visualId}`);
     }
 
     // Update local cache with _localUpdate flag to preserve during background refresh
