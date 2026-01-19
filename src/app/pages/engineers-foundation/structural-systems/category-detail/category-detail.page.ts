@@ -645,7 +645,64 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.lastLoadedCategoryName = this.categoryName;
     this.initialLoadComplete = true;
 
+    // Load dropdown options from LPS_Services_Visuals_Drop table
+    await this.loadDropdownOptionsFromAPI();
+
     console.timeEnd('[CategoryDetail] initializeVisualFields');
+  }
+
+  /**
+   * Load dropdown options from LPS_Services_Visuals_Drop table
+   * These are stored separately from templates and need to be fetched and matched by TemplateID
+   */
+  private async loadDropdownOptionsFromAPI(): Promise<void> {
+    try {
+      console.log('[CategoryDetail] Loading dropdown options from API...');
+      const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
+
+      if (dropdownData && dropdownData.length > 0) {
+        // Group dropdown options by TemplateID
+        dropdownData.forEach((row: any) => {
+          const templateId = row.TemplateID; // Keep as number for consistency with field.templateId
+          const dropdownValue = row.Dropdown;
+
+          if (templateId && dropdownValue) {
+            if (!this.visualDropdownOptions[templateId]) {
+              this.visualDropdownOptions[templateId] = [];
+            }
+            // Add unique dropdown values for this template
+            if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
+              this.visualDropdownOptions[templateId].push(dropdownValue);
+            }
+          }
+        });
+
+        // Add "Other" option to all multi-select dropdowns
+        Object.keys(this.visualDropdownOptions).forEach(templateId => {
+          const options = this.visualDropdownOptions[Number(templateId)];
+          if (options && !options.includes('Other')) {
+            options.push('Other');
+          }
+        });
+
+        console.log('[CategoryDetail] Loaded dropdown options for', Object.keys(this.visualDropdownOptions).length, 'templates');
+
+        // DEBUG: Show loaded dropdown options
+        const optionsSummary = Object.entries(this.visualDropdownOptions)
+          .map(([id, opts]) => `${id}: ${(opts as string[]).length} opts`)
+          .join(', ');
+        alert(`[DROPDOWN API] Loaded options:\n${optionsSummary || 'NONE'}`);
+
+        // Trigger change detection to update UI
+        this.changeDetectorRef.detectChanges();
+      } else {
+        console.warn('[CategoryDetail] No dropdown data received from API');
+        alert('[DROPDOWN API] No dropdown data received from API!');
+      }
+    } catch (error) {
+      console.error('[CategoryDetail] Error loading dropdown options:', error);
+      alert(`[DROPDOWN API] Error: ${error}`);
+    }
   }
 
   /**
