@@ -9,33 +9,6 @@
   min-height: 100vh;
 }
 
-// ===========================================
-// SAVE FOOTER
-// ===========================================
-.save-footer {
-  padding: 16px;
-  background: white;
-  border-top: 1px solid #e8e8e8;
-  margin-top: 8px;
-
-  .save-btn {
-    width: 100%;
-    padding: 14px 24px;
-    background: #bdbdbd;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    min-height: 48px;
-    transition: background-color 0.2s ease;
-
-    &:active {
-      background: #b0b0b0;
-    }
-  }
-}
 
 // ===========================================
 // LOADING STATE

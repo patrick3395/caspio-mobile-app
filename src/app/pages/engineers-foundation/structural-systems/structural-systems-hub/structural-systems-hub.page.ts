@@ -10,6 +10,7 @@ import { OfflineDataCacheService } from '../../../../services/offline-data-cache
 import { OfflineTemplateService } from '../../../../services/offline-template.service';
 import { IndexedDbService } from '../../../../services/indexed-db.service';
 import { OfflineService } from '../../../../services/offline.service';
+import { db } from '../../../../services/caspio-db';
 
 @Component({
   selector: 'app-structural-systems-hub',
@@ -267,22 +268,34 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   }
 
   /**
-   * Fast category counts - reads ONLY cached visuals, skips pending requests
+   * DEXIE-FIRST: Fast category counts from visualFields table
+   * This includes both synced items AND pending items that haven't synced yet
    * Returns counts for comments, limitations, and deficiencies per category
    */
   private async getCategoryCountsFast(): Promise<{ [category: string]: { comments: number; limitations: number; deficiencies: number } }> {
     try {
-      // ONE IndexedDB read - directly get cached visuals, no pending request check
-      const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
-
       const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
 
-      visuals.forEach((visual: any) => {
-        const kind = visual.Kind || '';
-        const category = visual.Category || '';
+      // DEXIE-FIRST: Read from visualFields table which contains all items (synced + pending)
+      // This ensures counts update immediately when items are added, not after sync
+      const visualFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray();
 
-        // Skip hidden items
-        if (!category || String(visual.Notes || '').startsWith('HIDDEN')) {
+      console.log('[StructuralHub] DEXIE-FIRST: Found', visualFields.length, 'visual fields');
+
+      visualFields.forEach((field: any) => {
+        // Only count SELECTED items (isSelected = true)
+        if (!field.isSelected) {
+          return;
+        }
+
+        const kind = field.kind || '';
+        const category = field.category || '';
+
+        // Skip if no category
+        if (!category) {
           return;
         }
 

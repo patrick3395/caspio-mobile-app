@@ -273,9 +273,18 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     // Navigate up one level in the folder tree hierarchy (not browser history)
     const url = this.router.url;
 
-    // Check if we're on a deep sub-page (category detail or room)
-    if (url.includes('/structural/category/')) {
-      // Navigate to structural systems page
+    // Check if we're on a deep sub-page (visual detail, category detail, or room)
+    // IMPORTANT: Check for /visual/ first since it also contains /structural/category/
+    if (url.includes('/structural/category/') && url.includes('/visual/')) {
+      // On visual-detail page - navigate back to category-detail page
+      const categoryMatch = url.match(/\/structural\/category\/([^\/]+)/);
+      if (categoryMatch) {
+        this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, 'structural', 'category', categoryMatch[1]]);
+      } else {
+        this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, 'structural']);
+      }
+    } else if (url.includes('/structural/category/')) {
+      // On category-detail page - navigate to structural systems hub
       this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, 'structural']);
     } else if (url.includes('/elevation/room/') || url.includes('/elevation/base-station')) {
       // Navigate to elevation plot page

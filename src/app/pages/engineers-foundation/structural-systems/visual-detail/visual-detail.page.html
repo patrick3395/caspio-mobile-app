@@ -45,12 +45,6 @@
         </button>
       </div>
 
-      <!-- Upload Status -->
-      <div class="upload-status" *ngIf="uploadingPhotos">
-        <ion-spinner name="dots" color="primary"></ion-spinner>
-        <span>Adding photo...</span>
-      </div>
-
       <!-- Photos Grid -->
       <div class="image-preview-section" *ngIf="photos.length > 0">
         <div class="image-preview-container">
@@ -88,11 +82,6 @@
         <span>Loading photos...</span>
       </div>
     </div>
-  </div>
-
-  <!-- Save Button Footer -->
-  <div class="save-footer" *ngIf="!loading && item">
-    <button class="save-btn" (click)="saveAll()">Save</button>
   </div>
 
   <!-- No Item Found -->

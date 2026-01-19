@@ -409,9 +409,6 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   }
 
   private async processAndSavePhoto(dataUrl: string) {
-    this.uploadingPhotos = true;
-    this.changeDetectorRef.detectChanges();
-
     try {
       if (!this.visualId) {
         console.error('[VisualDetail] Cannot save photo - no visualId found');
@@ -458,17 +455,13 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         id: localImage.imageId,
         displayUrl,
         caption: '',
-        uploading: false,  // Silent sync - no spinner
+        uploading: false,
         isLocal: true
       });
 
-      await this.showToast('Photo added', 'success');
+      this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('[VisualDetail] Error processing photo:', error);
-      await this.showToast('Error adding photo', 'danger');
-    } finally {
-      this.uploadingPhotos = false;
-      this.changeDetectorRef.detectChanges();
     }
   }
 
@@ -525,28 +518,202 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     }
   }
 
+  private isCaptionPopupOpen = false;
+
   async openCaptionPopup(photo: PhotoItem) {
-    const alert = await this.alertController.create({
-      header: 'Edit Caption',
-      inputs: [
-        {
-          name: 'caption',
-          type: 'text',
-          placeholder: 'Enter caption',
-          value: photo.caption || ''
-        }
-      ],
-      buttons: [
-        { text: 'Cancel', role: 'cancel' },
-        {
-          text: 'Save',
-          handler: async (data) => {
-            await this.saveCaption(photo, data.caption);
+    // Prevent multiple simultaneous popups
+    if (this.isCaptionPopupOpen) {
+      return;
+    }
+
+    this.isCaptionPopupOpen = true;
+
+    try {
+      // Escape HTML to prevent injection and errors
+      const escapeHtml = (text: string) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
+
+      // Create a temporary caption value to work with
+      const tempCaption = escapeHtml(photo.caption || '');
+
+      // Define preset location buttons - 3 columns layout
+      const presetButtons = [
+        ['Front', '1st', 'Laundry'],
+        ['Left', '2nd', 'Kitchen'],
+        ['Right', '3rd', 'Living'],
+        ['Back', '4th', 'Dining'],
+        ['Top', '5th', 'Bedroom'],
+        ['Bottom', 'Floor', 'Bathroom'],
+        ['Middle', 'Unit', 'Closet'],
+        ['Primary', 'Attic', 'Entry'],
+        ['Supply', 'Porch', 'Office'],
+        ['Return', 'Deck', 'Garage'],
+        ['Staircase', 'Roof', 'Indoor'],
+        ['Hall', 'Ceiling', 'Outdoor']
+      ];
+
+      // Build custom HTML for the alert with preset buttons
+      let buttonsHtml = '<div class="preset-buttons-container">';
+      presetButtons.forEach(row => {
+        buttonsHtml += '<div class="preset-row">';
+        row.forEach(label => {
+          buttonsHtml += `<button type="button" class="preset-btn" data-text="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+        });
+        buttonsHtml += '</div>';
+      });
+      buttonsHtml += '</div>';
+
+      const alert = await this.alertController.create({
+        header: 'Photo Caption',
+        cssClass: 'caption-popup-alert',
+        message: ' ', // Empty space to prevent Ionic from hiding the message area
+        buttons: [
+          {
+            text: 'Save',
+            handler: () => {
+              // Get caption value
+              const input = document.getElementById('captionInput') as HTMLInputElement;
+              const newCaption = input?.value || '';
+
+              // Update photo caption in UI immediately
+              photo.caption = newCaption;
+              this.changeDetectorRef.detectChanges();
+
+              // Close popup immediately (don't wait for save)
+              this.isCaptionPopupOpen = false;
+
+              // Save caption in background
+              this.saveCaption(photo, newCaption);
+
+              return true; // Close popup immediately
+            }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              this.isCaptionPopupOpen = false;
+              return true;
+            }
           }
+        ]
+      });
+
+      await alert.present();
+
+      // Inject HTML content immediately after presentation
+      setTimeout(() => {
+        try {
+          const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+          if (!alertElement) {
+            this.isCaptionPopupOpen = false;
+            return;
+          }
+
+          // Build the full HTML content
+          const htmlContent = `
+            <div class="caption-popup-content">
+              <div class="caption-input-container">
+                <input type="text" id="captionInput" class="caption-text-input"
+                       placeholder="Enter caption..."
+                       value="${tempCaption}"
+                       maxlength="255" />
+                <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+                  <ion-icon name="backspace-outline"></ion-icon>
+                </button>
+              </div>
+              ${buttonsHtml}
+            </div>
+          `;
+          alertElement.innerHTML = htmlContent;
+
+          const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+          const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
+
+          // Use event delegation for better performance
+          const container = document.querySelector('.caption-popup-alert .preset-buttons-container');
+          if (container && captionInput) {
+            container.addEventListener('click', (e) => {
+              try {
+                const target = e.target as HTMLElement;
+                const btn = target.closest('.preset-btn') as HTMLElement;
+                if (btn) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const text = btn.getAttribute('data-text');
+                  if (text && captionInput) {
+                    // Add text + space to current caption
+                    captionInput.value = (captionInput.value || '') + text + ' ';
+                    // CRITICAL: Remove focus from button immediately to prevent orange highlight on mobile
+                    (btn as HTMLButtonElement).blur();
+                  }
+                }
+              } catch (error) {
+                console.error('Error handling preset button click:', error);
+              }
+            }, { passive: false });
+          }
+
+          // Add click handler for undo button
+          if (undoBtn && captionInput) {
+            undoBtn.addEventListener('click', (e) => {
+              try {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentValue = captionInput.value || '';
+                if (currentValue.trim() === '') {
+                  return;
+                }
+                // Trim trailing spaces and split by spaces
+                const words = currentValue.trim().split(' ');
+                // Remove the last word
+                if (words.length > 0) {
+                  words.pop();
+                }
+                // Join back and update input
+                captionInput.value = words.join(' ');
+                // Add trailing space if there are still words
+                if (captionInput.value.length > 0) {
+                  captionInput.value += ' ';
+                }
+              } catch (error) {
+                console.error('Error handling undo button click:', error);
+              }
+            });
+          }
+
+          // CRITICAL: Add Enter key handler to prevent form submission and provide smooth save
+          if (captionInput) {
+            captionInput.addEventListener('keydown', (e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                // Find and click the Save button to trigger the save handler
+                const saveBtn = document.querySelector('.caption-popup-alert button.alert-button:not([data-role="cancel"])') as HTMLButtonElement;
+                if (saveBtn) {
+                  saveBtn.click();
+                }
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error injecting caption popup content:', error);
+          this.isCaptionPopupOpen = false;
         }
-      ]
-    });
-    await alert.present();
+      }, 0);
+
+      // Reset flag when alert is dismissed
+      alert.onDidDismiss().then(() => {
+        this.isCaptionPopupOpen = false;
+      });
+
+    } catch (error) {
+      console.error('Error opening caption popup:', error);
+      this.isCaptionPopupOpen = false;
+    }
   }
 
   private async saveCaption(photo: PhotoItem, caption: string) {
