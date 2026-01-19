@@ -283,114 +283,108 @@
               </div>
             </div>
 
-            <!-- Measurement and Location Photos -->
-            <div style="margin-top: 10px; display: flex; gap: 8px;">
-              <!-- Measurement Photo Container -->
-              <div style="flex: 1;">
-                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
-                  Measurement
-                  <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
-                </div>
-                <div style="display: flex; gap: 6px; margin-bottom: 2px;">
-                  <button (click)="capturePointPhotoCamera(point, 'Measurement', $event)"
-                          [disabled]="!isPointReady(point)"
-                          class="fdf-photo-button measurement-photo-btn"
-                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
-                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
-                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
-                    <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
-                  </button>
-                  <button (click)="capturePointPhotoGallery(point, 'Measurement', $event)"
-                          [disabled]="!isPointReady(point)"
-                          class="fdf-photo-button measurement-photo-btn"
-                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
-                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
-                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                    <ion-icon name="images" style="font-size: 28px;"></ion-icon>
-                  </button>
-                </div>
-                <!-- Measurement Photo Thumbnail - ALWAYS show if photo exists (matches structural-systems pattern) -->
-                <!-- NO skeleton loader - images should display from cache immediately -->
-                <div *ngIf="getPointPhotoByType(point, 'Measurement')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
-                  <div class="image-preview fdf-photo-preview"
-                       [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading">
-                    <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url || 'assets/img/photo-placeholder.png'"
-                         width="90" height="90"
-                         (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), point)"
-                         alt="Measurement"
-                         [class.has-annotations]="getPointPhotoByType(point, 'Measurement').hasAnnotations">
-                    <!-- Only show spinner when actively uploading - NOT for cached images -->
-                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
-                      <ion-spinner name="crescent" color="light"></ion-spinner>
-                    </div>
-                    <button class="delete-btn"
-                            *ngIf="!getPointPhotoByType(point, 'Measurement').uploading"
-                            (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), point); $event.stopPropagation()"
-                            title="Delete">
-                      <ion-icon name="close"></ion-icon>
-                    </button>
-                  </div>
-                  <!-- Caption text underneath photo -->
-                  <button
-                    class="room-photo-caption"
-                    (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Measurement'), point, $event)">
-                    {{ getPointPhotoByType(point, 'Measurement').caption || 'Caption' }}
-                  </button>
-                </div>
-              </div>
+            <!-- Tab Switcher for Measurement/Location -->
+            <div class="point-tab-bar">
+              <button class="point-tab"
+                      [class.active]="getActiveTab(point) === 'Measurement'"
+                      (click)="setActiveTab(point, 'Measurement')">
+                Measurement
+                <span class="tab-photo-indicator" *ngIf="getPointPhotoByType(point, 'Measurement')"></span>
+              </button>
+              <button class="point-tab"
+                      [class.active]="getActiveTab(point) === 'Location'"
+                      (click)="setActiveTab(point, 'Location')">
+                Location
+                <span class="tab-photo-indicator" *ngIf="getPointPhotoByType(point, 'Location')"></span>
+              </button>
+              <ion-spinner *ngIf="isPointPending(point)" name="dots" class="tab-spinner"></ion-spinner>
+            </div>
 
-              <!-- Location Photo Container -->
-              <div style="flex: 1;">
-                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
-                  Location
-                  <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
-                </div>
-                <div style="display: flex; gap: 6px; margin-bottom: 2px;">
-                  <button (click)="capturePointPhotoCamera(point, 'Location', $event)"
-                          [disabled]="!isPointReady(point)"
-                          class="fdf-photo-button measurement-photo-btn"
-                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
-                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
-                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; position: relative;">
-                    <ion-icon name="camera" style="font-size: 28px;"></ion-icon>
-                  </button>
-                  <button (click)="capturePointPhotoGallery(point, 'Location', $event)"
-                          [disabled]="!isPointReady(point)"
-                          class="fdf-photo-button measurement-photo-btn"
-                          [style.opacity]="isPointReady(point) ? '1' : '0.4'"
-                          [style.cursor]="isPointReady(point) ? 'pointer' : 'not-allowed'"
-                          style="flex: 1; padding: 16px 8px; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                    <ion-icon name="images" style="font-size: 28px;"></ion-icon>
-                  </button>
-                </div>
-                <!-- Location Photo Thumbnail - ALWAYS show if photo exists (matches structural-systems pattern) -->
-                <!-- NO skeleton loader - images should display from cache immediately -->
-                <div *ngIf="getPointPhotoByType(point, 'Location')" style="display: flex; flex-direction: column; align-items: center; margin-top: 0px;">
-                  <div class="image-preview fdf-photo-preview"
-                       [class.uploading]="getPointPhotoByType(point, 'Location').uploading">
-                    <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url || 'assets/img/photo-placeholder.png'"
-                         width="90" height="90"
-                         (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), point)"
-                         alt="Location"
-                         [class.has-annotations]="getPointPhotoByType(point, 'Location').hasAnnotations">
-                    <!-- Only show spinner when actively uploading - NOT for cached images -->
-                    <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
-                      <ion-spinner name="crescent" color="light"></ion-spinner>
-                    </div>
-                    <button class="delete-btn"
-                            *ngIf="!getPointPhotoByType(point, 'Location').uploading"
-                            (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), point); $event.stopPropagation()"
-                            title="Delete">
-                      <ion-icon name="close"></ion-icon>
-                    </button>
+            <!-- Measurement Photo Content -->
+            <div class="point-tab-content" *ngIf="getActiveTab(point) === 'Measurement'">
+              <div class="photo-buttons-row">
+                <button (click)="capturePointPhotoCamera(point, 'Measurement', $event)"
+                        [disabled]="!isPointReady(point)"
+                        class="large-photo-btn"
+                        [class.disabled]="!isPointReady(point)">
+                  <ion-icon name="camera"></ion-icon>
+                  <span>Camera</span>
+                </button>
+                <button (click)="capturePointPhotoGallery(point, 'Measurement', $event)"
+                        [disabled]="!isPointReady(point)"
+                        class="large-photo-btn"
+                        [class.disabled]="!isPointReady(point)">
+                  <ion-icon name="images"></ion-icon>
+                  <span>Gallery</span>
+                </button>
+              </div>
+              <!-- Measurement Photo Thumbnail -->
+              <div *ngIf="getPointPhotoByType(point, 'Measurement')" class="photo-thumbnail-container">
+                <div class="image-preview fdf-photo-preview"
+                     [class.uploading]="getPointPhotoByType(point, 'Measurement').uploading">
+                  <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url || 'assets/img/photo-placeholder.png'"
+                       width="90" height="90"
+                       (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), point)"
+                       alt="Measurement"
+                       [class.has-annotations]="getPointPhotoByType(point, 'Measurement').hasAnnotations">
+                  <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Measurement').uploading">
+                    <ion-spinner name="crescent" color="light"></ion-spinner>
                   </div>
-                  <!-- Caption text underneath photo -->
-                  <button
-                    class="room-photo-caption"
-                    (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Location'), point, $event)">
-                    {{ getPointPhotoByType(point, 'Location').caption || 'Caption' }}
+                  <button class="delete-btn"
+                          *ngIf="!getPointPhotoByType(point, 'Measurement').uploading"
+                          (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Measurement'), point); $event.stopPropagation()"
+                          title="Delete">
+                    <ion-icon name="close"></ion-icon>
                   </button>
                 </div>
+                <button class="room-photo-caption"
+                        (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Measurement'), point, $event)">
+                  {{ getPointPhotoByType(point, 'Measurement').caption || 'Caption' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Location Photo Content -->
+            <div class="point-tab-content" *ngIf="getActiveTab(point) === 'Location'">
+              <div class="photo-buttons-row">
+                <button (click)="capturePointPhotoCamera(point, 'Location', $event)"
+                        [disabled]="!isPointReady(point)"
+                        class="large-photo-btn"
+                        [class.disabled]="!isPointReady(point)">
+                  <ion-icon name="camera"></ion-icon>
+                  <span>Camera</span>
+                </button>
+                <button (click)="capturePointPhotoGallery(point, 'Location', $event)"
+                        [disabled]="!isPointReady(point)"
+                        class="large-photo-btn"
+                        [class.disabled]="!isPointReady(point)">
+                  <ion-icon name="images"></ion-icon>
+                  <span>Gallery</span>
+                </button>
+              </div>
+              <!-- Location Photo Thumbnail -->
+              <div *ngIf="getPointPhotoByType(point, 'Location')" class="photo-thumbnail-container">
+                <div class="image-preview fdf-photo-preview"
+                     [class.uploading]="getPointPhotoByType(point, 'Location').uploading">
+                  <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url || 'assets/img/photo-placeholder.png'"
+                       width="90" height="90"
+                       (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), point)"
+                       alt="Location"
+                       [class.has-annotations]="getPointPhotoByType(point, 'Location').hasAnnotations">
+                  <div class="upload-indicator" *ngIf="getPointPhotoByType(point, 'Location').uploading">
+                    <ion-spinner name="crescent" color="light"></ion-spinner>
+                  </div>
+                  <button class="delete-btn"
+                          *ngIf="!getPointPhotoByType(point, 'Location').uploading"
+                          (click)="deleteRoomPhoto(getPointPhotoByType(point, 'Location'), point); $event.stopPropagation()"
+                          title="Delete">
+                    <ion-icon name="close"></ion-icon>
+                  </button>
+                </div>
+                <button class="room-photo-caption"
+                        (click)="openRoomPointCaptionPopup(getPointPhotoByType(point, 'Location'), point, $event)">
+                  {{ getPointPhotoByType(point, 'Location').caption || 'Caption' }}
+                </button>
               </div>
             </div>
           </div>

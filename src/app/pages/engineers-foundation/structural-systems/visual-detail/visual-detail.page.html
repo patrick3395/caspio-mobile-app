@@ -14,6 +14,7 @@
         type="text"
         class="edit-input title-input"
         [(ngModel)]="editableTitle"
+        (blur)="saveTitle()"
         placeholder="Enter title...">
     </div>
 
@@ -23,6 +24,7 @@
       <textarea
         class="edit-input text-input"
         [(ngModel)]="editableText"
+        (blur)="saveText()"
         placeholder="Enter description..."
         rows="6"></textarea>
     </div>
