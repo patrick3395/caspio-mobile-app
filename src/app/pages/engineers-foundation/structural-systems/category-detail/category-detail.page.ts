@@ -620,6 +620,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       .subscribe({
         next: async (fields) => {
           console.log(`[CategoryDetail] Received ${fields.length} fields from liveQuery`);
+
+          // DEBUG: Show which path and fields with answerType 2
+          const multiSelectFields = fields.filter(f => f.answerType === 2);
+          alert(`[DEXIE SUBSCRIPTION] Received ${fields.length} fields\nMulti-select fields: ${multiSelectFields.length}\nCategory: ${this.categoryName}\nFields with dropdowns: ${multiSelectFields.map(f => `${f.templateName} (ID:${f.templateId}, opts:${f.dropdownOptions?.length || 0})`).join(', ') || 'NONE'}`);
+
           this.convertFieldsToOrganizedData(fields);
 
           // DEXIE-FIRST: Populate photos from Dexie LocalImages
@@ -683,6 +688,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.visualDropdownOptions[field.templateId] = field.dropdownOptions;
       }
 
+      // DEBUG: Alert for multi-select items (answerType 2)
+      if (field.answerType === 2) {
+        alert(`[DEXIE PATH] Multi-select item found:\nName: ${field.templateName}\nTemplateID: ${field.templateId}\nHas dropdownOptions: ${!!field.dropdownOptions}\nOptions count: ${field.dropdownOptions?.length || 0}\nOptions: ${JSON.stringify(field.dropdownOptions || [])}`);
+      }
+
       // Add to appropriate section
       if (field.kind === 'Comment') {
         this.organizedData.comments.push(item);
@@ -701,6 +711,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     console.log(`[CategoryDetail] Organized: ${this.organizedData.comments.length} comments, ${this.organizedData.limitations.length} limitations, ${this.organizedData.deficiencies.length} deficiencies`);
+
+    // DEBUG: Show final state of visualDropdownOptions
+    const dropdownKeys = Object.keys(this.visualDropdownOptions);
+    const dropdownSummary = dropdownKeys.map(k => `${k}: ${this.visualDropdownOptions[k]?.length || 0} opts`).join('\n');
+    alert(`[FINAL STATE] visualDropdownOptions has ${dropdownKeys.length} keys:\n${dropdownSummary || 'EMPTY!'}`);
   }
 
   /**
@@ -2516,12 +2531,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       };
 
       // Parse dropdown options if AnswerType is 2 (multi-select)
-      if (template.AnswerType === 2 && template.DropdownOptions) {
-        try {
-          const optionsArray = JSON.parse(template.DropdownOptions);
-          this.visualDropdownOptions[effectiveTemplateId] = optionsArray;
-        } catch (e) {
-          this.visualDropdownOptions[effectiveTemplateId] = [];
+      if (template.AnswerType === 2) {
+        alert(`[TEMPLATE PATH] Multi-select template found:\nName: ${template.Name}\nPK_ID: ${template.PK_ID}\nTemplateID: ${template.TemplateID}\nEffectiveID: ${effectiveTemplateId}\nHas DropdownOptions: ${!!template.DropdownOptions}\nRaw DropdownOptions: ${template.DropdownOptions || 'EMPTY'}`);
+
+        if (template.DropdownOptions) {
+          try {
+            const optionsArray = JSON.parse(template.DropdownOptions);
+            this.visualDropdownOptions[effectiveTemplateId] = optionsArray;
+            alert(`[TEMPLATE PATH] Parsed options for ${effectiveTemplateId}:\nCount: ${optionsArray.length}\nOptions: ${JSON.stringify(optionsArray)}`);
+          } catch (e) {
+            this.visualDropdownOptions[effectiveTemplateId] = [];
+            alert(`[TEMPLATE PATH] PARSE ERROR for ${effectiveTemplateId}: ${e}`);
+          }
+        } else {
+          alert(`[TEMPLATE PATH] NO DropdownOptions field on template ${effectiveTemplateId}`);
         }
       }
 

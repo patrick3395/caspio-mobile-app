@@ -76,11 +76,18 @@ export class VisualFieldRepoService {
 
       // Parse dropdown options if present
       let dropdownOptions: string[] | undefined;
-      if (template.AnswerType === 2 && template.DropdownOptions) {
-        try {
-          dropdownOptions = JSON.parse(template.DropdownOptions);
-        } catch (e) {
-          dropdownOptions = [];
+      if (template.AnswerType === 2) {
+        console.log(`[VisualFieldRepo SEED] Multi-select template: ${template.Name}, PK_ID: ${template.PK_ID}, TemplateID: ${template.TemplateID}, EffectiveID: ${effectiveTemplateId}, HasDropdownOptions: ${!!template.DropdownOptions}`);
+        if (template.DropdownOptions) {
+          try {
+            dropdownOptions = JSON.parse(template.DropdownOptions);
+            console.log(`[VisualFieldRepo SEED] Parsed ${dropdownOptions?.length} options for ${effectiveTemplateId}:`, dropdownOptions);
+          } catch (e) {
+            dropdownOptions = [];
+            console.error(`[VisualFieldRepo SEED] Parse error for ${effectiveTemplateId}:`, e);
+          }
+        } else {
+          console.warn(`[VisualFieldRepo SEED] NO DropdownOptions on template ${effectiveTemplateId} (${template.Name})`);
         }
       }
 
