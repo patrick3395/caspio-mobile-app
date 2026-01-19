@@ -142,7 +142,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     this.loading = true;
 
     try {
-      // Try to load from Dexie first
+      // Try to load from Dexie visualFields first
       const fields = await db.visualFields
         .where('[serviceId+category]')
         .equals([this.serviceId, this.categoryName])
@@ -154,6 +154,37 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         this.item = this.convertFieldToItem(field);
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
+        console.log('[VisualDetail] Loaded item from Dexie field:', this.item.name);
+      } else {
+        // FALLBACK: Load from cached templates if field doesn't exist yet
+        console.log('[VisualDetail] Field not in Dexie, loading from templates...');
+        const cachedTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
+        // Match by TemplateID first, fallback to PK_ID (consistent with category-detail)
+        const template = cachedTemplates.find((t: any) =>
+          ((t.TemplateID || t.PK_ID) === this.templateId) && t.Category === this.categoryName
+        );
+
+        if (template) {
+          // Create item from template - use effectiveTemplateId for consistency
+          const effectiveTemplateId = template.TemplateID || template.PK_ID;
+          this.item = {
+            id: effectiveTemplateId,
+            templateId: effectiveTemplateId,
+            name: template.Name || '',
+            text: template.Text || '',
+            originalText: template.Text || '',
+            type: template.Kind || 'Comment',
+            category: template.Category || this.categoryName,
+            answerType: template.AnswerType || 0,
+            required: false,
+            isSelected: false
+          };
+          this.editableTitle = this.item.name;
+          this.editableText = this.item.text;
+          console.log('[VisualDetail] Loaded item from template:', this.item.name);
+        } else {
+          console.warn('[VisualDetail] Template not found for ID:', this.templateId);
+        }
       }
 
       // Load photos
@@ -198,10 +229,11 @@ export class VisualDetailPage implements OnInit, OnDestroy {
       const field = fields.find(f => f.templateId === this.templateId);
 
       // The entityId for photos is the visualId (temp_visual_xxx or real VisualID)
-      this.visualId = field?.tempVisualId || field?.visualId || String(field?.id) || '';
+      // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
+      this.visualId = field?.tempVisualId || field?.visualId || '';
 
       if (!this.visualId) {
-        console.log('[VisualDetail] No visualId found for templateId:', this.templateId);
+        console.log('[VisualDetail] No visualId found for templateId:', this.templateId, '- item may not be selected yet');
         this.photos = [];
         return;
       }
@@ -276,9 +308,20 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
   // ===== SAVE METHODS =====
 
+  /**
+   * Check if visualId is a valid Caspio visual ID (not Dexie auto-increment ID)
+   */
+  private isValidVisualId(id: string): boolean {
+    if (!id) return false;
+    // Valid: temp_visual_xxx or numeric Caspio IDs
+    // Invalid: single digit Dexie IDs like "1", "2", etc.
+    return id.startsWith('temp_') || (id.length > 3 && !isNaN(Number(id)));
+  }
+
   async saveAll() {
-    const titleChanged = this.item && this.editableTitle !== this.item.name;
-    const textChanged = this.item && this.editableText !== this.item.text;
+    // Check for changes - allow save even if item doesn't exist yet
+    const titleChanged = this.editableTitle !== (this.item?.name || '');
+    const textChanged = this.editableText !== (this.item?.text || '');
 
     if (!titleChanged && !textChanged) {
       this.goBack();
@@ -301,7 +344,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         caspioUpdate.Text = this.editableText;
       }
 
-      // DEXIE-FIRST: Update local Dexie field
+      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
       await this.visualFieldRepo.setField(
         this.serviceId,
         this.categoryName,
@@ -310,15 +353,21 @@ export class VisualDetailPage implements OnInit, OnDestroy {
       );
       console.log('[VisualDetail] ✅ Updated Dexie field:', dexieUpdate);
 
-      // Queue update to Caspio for background sync
-      if (this.visualId) {
+      // Queue update to Caspio for background sync (only if valid visualId)
+      if (this.isValidVisualId(this.visualId)) {
         await this.foundationData.updateVisual(this.visualId, caspioUpdate, this.serviceId);
         console.log('[VisualDetail] ✅ Queued Caspio update:', caspioUpdate);
+      } else {
+        console.log('[VisualDetail] No valid visualId - changes saved to Dexie only, will sync when visual is created');
       }
 
-      // Update local item state
-      if (titleChanged && this.item) this.item.name = this.editableTitle;
-      if (textChanged && this.item) this.item.text = this.editableText;
+      // Update local item state for immediate UI feedback
+      if (this.item) {
+        if (titleChanged) this.item.name = this.editableTitle;
+        if (textChanged) this.item.text = this.editableText;
+      }
+
+      this.changeDetectorRef.detectChanges();
 
     } catch (error) {
       console.error('[VisualDetail] Error saving:', error);
@@ -332,11 +381,12 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   }
 
   async saveTitle() {
-    if (!this.item || this.editableTitle === this.item.name) return;
+    // Allow save even if item doesn't exist yet
+    if (this.editableTitle === (this.item?.name || '')) return;
 
     this.saving = true;
     try {
-      // DEXIE-FIRST: Update local Dexie field
+      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
       await this.visualFieldRepo.setField(
         this.serviceId,
         this.categoryName,
@@ -345,13 +395,18 @@ export class VisualDetailPage implements OnInit, OnDestroy {
       );
       console.log('[VisualDetail] ✅ Updated title in Dexie');
 
-      // Queue update to Caspio for background sync
-      if (this.visualId) {
+      // Queue update to Caspio for background sync (only if valid visualId)
+      if (this.isValidVisualId(this.visualId)) {
         await this.foundationData.updateVisual(this.visualId, { Name: this.editableTitle }, this.serviceId);
         console.log('[VisualDetail] ✅ Queued title update to Caspio');
+      } else {
+        console.log('[VisualDetail] No valid visualId - title saved to Dexie only');
       }
 
-      this.item.name = this.editableTitle;
+      // Update local item state for immediate UI feedback
+      if (this.item) {
+        this.item.name = this.editableTitle;
+      }
       await this.showToast('Title saved', 'success');
     } catch (error) {
       console.error('[VisualDetail] Error saving title:', error);
@@ -363,11 +418,12 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   }
 
   async saveText() {
-    if (!this.item || this.editableText === this.item.text) return;
+    // Allow save even if item doesn't exist yet
+    if (this.editableText === (this.item?.text || '')) return;
 
     this.saving = true;
     try {
-      // DEXIE-FIRST: Update local Dexie field
+      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
       await this.visualFieldRepo.setField(
         this.serviceId,
         this.categoryName,
@@ -376,13 +432,18 @@ export class VisualDetailPage implements OnInit, OnDestroy {
       );
       console.log('[VisualDetail] ✅ Updated text in Dexie');
 
-      // Queue update to Caspio for background sync
-      if (this.visualId) {
+      // Queue update to Caspio for background sync (only if valid visualId)
+      if (this.isValidVisualId(this.visualId)) {
         await this.foundationData.updateVisual(this.visualId, { Text: this.editableText }, this.serviceId);
         console.log('[VisualDetail] ✅ Queued text update to Caspio');
+      } else {
+        console.log('[VisualDetail] No valid visualId - text saved to Dexie only');
       }
 
-      this.item.text = this.editableText;
+      // Update local item state for immediate UI feedback
+      if (this.item) {
+        this.item.text = this.editableText;
+      }
       await this.showToast('Description saved', 'success');
     } catch (error) {
       console.error('[VisualDetail] Error saving text:', error);

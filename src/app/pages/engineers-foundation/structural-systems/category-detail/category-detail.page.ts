@@ -2496,9 +2496,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
    */
   private organizeTemplatesIntoData(visualTemplates: any[]) {
     visualTemplates.forEach((template: any) => {
+      // CRITICAL: Use TemplateID for consistent key matching with Dexie fields and dropdown lookup
+      // PK_ID is internal record ID, TemplateID is cross-reference for Services_Visuals_Drop
+      const effectiveTemplateId = template.TemplateID || template.PK_ID;
+
       const templateData: VisualItem = {
-        id: template.PK_ID,
-        templateId: template.PK_ID,
+        id: effectiveTemplateId,
+        templateId: effectiveTemplateId,
         name: template.Name || 'Unnamed Item',
         text: template.Text || '',
         originalText: template.Text || '',
@@ -2515,9 +2519,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       if (template.AnswerType === 2 && template.DropdownOptions) {
         try {
           const optionsArray = JSON.parse(template.DropdownOptions);
-          this.visualDropdownOptions[template.PK_ID] = optionsArray;
+          this.visualDropdownOptions[effectiveTemplateId] = optionsArray;
         } catch (e) {
-          this.visualDropdownOptions[template.PK_ID] = [];
+          this.visualDropdownOptions[effectiveTemplateId] = [];
         }
       }
 
@@ -2534,7 +2538,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       // Initialize selected state
-      this.selectedItems[`${this.categoryName}_${template.PK_ID}`] = false;
+      this.selectedItems[`${this.categoryName}_${effectiveTemplateId}`] = false;
     });
   }
 

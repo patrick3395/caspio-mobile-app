@@ -64,7 +64,10 @@ export class VisualFieldRepoService {
     const now = Date.now();
 
     for (const template of categoryTemplates) {
-      const key = `${serviceId}:${category}:${template.PK_ID}`;
+      // CRITICAL: Use TemplateID for key/templateId (matches VisualTemplateID in merge and dropdown lookup)
+      // PK_ID is internal record ID, TemplateID is cross-reference for dropdowns in Services_Visuals_Drop
+      const effectiveTemplateId = template.TemplateID || template.PK_ID;
+      const key = `${serviceId}:${category}:${effectiveTemplateId}`;
 
       // Skip if already exists (preserve user data)
       if (existingKeys.has(key)) {
@@ -85,7 +88,7 @@ export class VisualFieldRepoService {
         key,
         serviceId,
         category,
-        templateId: template.PK_ID,
+        templateId: effectiveTemplateId,
         templateName: template.Name || 'Unnamed Item',
         templateText: template.Text || '',
         kind: (template.Kind || 'Comment') as 'Comment' | 'Limitation' | 'Deficiency',

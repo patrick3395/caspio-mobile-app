@@ -1,19 +1,8 @@
 // Sleek modal styling
-:host {
-  // Ensure safe area is respected at component level
-  ion-header {
-    padding-top: env(safe-area-inset-top, 0);
-  }
-}
-
 ion-header {
-  // Safe area padding for devices with notches (iPhone X+)
-  padding-top: env(safe-area-inset-top, 0);
-
   ion-toolbar {
     --background: #f5f5f5;
     --color: #333;
-    --min-height: 56px;
 
     ion-title {
       font-weight: 600;

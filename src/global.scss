@@ -57,22 +57,6 @@ ion-header {
   }
 }
 
-// =============================================================================
-// MODAL SAFE AREA FIX - Ensures header content is visible below device notch
-// =============================================================================
-ion-modal {
-  // Apply safe area padding to modal headers for devices with notches
-  ion-header {
-    // Add padding for safe area at top (notch area on iPhones)
-    padding-top: env(safe-area-inset-top, 0);
-
-    ion-toolbar {
-      // Ensure toolbar content is not cut off
-      --padding-top: 0;
-      --min-height: 56px;
-    }
-  }
-}
 
 // Mobile-only header styles (max-width: 767px)
 @media (max-width: 767px) {
@@ -191,8 +175,9 @@ ion-buttons ion-button {
 // Title - STATIC position, no movement on click
 ion-title {
   transition: none !important;
-  transform: translateY(-50%) !important;
   position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
 
   &:hover, &:active, &:focus {
     transform: translateY(-50%) !important;
@@ -1806,6 +1791,7 @@ textarea.styled-input {
   // Title must not move
   ion-title {
     position: absolute !important;
+    top: 50% !important;
     transition: none !important;
     transform: translateY(-50%) !important;
 
