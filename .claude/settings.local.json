@@ -58,7 +58,8 @@
       "Bash(ralph --status:*)",
       "Bash(ralph --reset-session:*)",
       "Bash(ralph --circuit-status:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

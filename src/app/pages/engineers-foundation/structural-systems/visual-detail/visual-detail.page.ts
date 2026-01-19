@@ -228,17 +228,11 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
       const field = fields.find(f => f.templateId === this.templateId);
 
-      // DEBUG: Alert field lookup details
-      alert(`[LOAD] Field lookup:\ntemplateId from route: ${this.templateId}\nField found: ${!!field}\nfield.templateId: ${field?.templateId}\nfield.visualId: "${field?.visualId}"\nfield.tempVisualId: "${field?.tempVisualId}"\nfield.isSelected: ${field?.isSelected}\nAll field templateIds: ${fields.map(f => f.templateId).join(', ')}`);
-
       // The entityId for photos is the visualId (temp_visual_xxx or real VisualID)
       // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
       this.visualId = field?.tempVisualId || field?.visualId || '';
 
-      alert(`[LOAD] Set this.visualId to: "${this.visualId}"`);
-
       if (!this.visualId) {
-        alert('[LOAD] ⚠️ No visualId found - item may not be selected yet');
         this.photos = [];
         return;
       }
@@ -359,14 +353,8 @@ export class VisualDetailPage implements OnInit, OnDestroy {
       console.log('[VisualDetail] ✅ Updated Dexie field:', dexieUpdate);
 
       // Queue update to Caspio for background sync (only if valid visualId)
-      alert(`[SAVE] Checking visualId:\nvisualId: "${this.visualId}"\nisValid: ${this.isValidVisualId(this.visualId)}\nstartsWithTemp: ${this.visualId?.startsWith('temp_')}\nlength: ${this.visualId?.length}`);
-
       if (this.isValidVisualId(this.visualId)) {
-        alert(`[SAVE] Calling updateVisual with:\nvisualId: ${this.visualId}\nupdate: ${JSON.stringify(caspioUpdate)}\nserviceId: ${this.serviceId}`);
         await this.foundationData.updateVisual(this.visualId, caspioUpdate, this.serviceId);
-        alert('[SAVE] ✅ updateVisual completed');
-      } else {
-        alert(`[SAVE] ⚠️ NO VALID VISUAL ID\nvisualId: "${this.visualId}"\nChanges saved to Dexie only!`);
       }
 
       // Update local item state for immediate UI feedback
@@ -392,8 +380,6 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     // Allow save even if item doesn't exist yet
     if (this.editableTitle === (this.item?.name || '')) return;
 
-    alert(`[SAVE TITLE] Starting save:\nvisualId: "${this.visualId}"\nisValid: ${this.isValidVisualId(this.visualId)}\nserviceId: "${this.serviceId}"\ncategory: "${this.categoryName}"\ntemplateId: ${this.templateId}`);
-
     this.saving = true;
     try {
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
@@ -407,12 +393,9 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
       // Queue update to Caspio for background sync (only if valid visualId)
       if (this.isValidVisualId(this.visualId)) {
-        alert(`[SAVE TITLE] Calling updateVisual with:\nvisualId: ${this.visualId}\nName: ${this.editableTitle}`);
         await this.foundationData.updateVisual(this.visualId, { Name: this.editableTitle }, this.serviceId);
-        alert('[SAVE TITLE] ✅ updateVisual completed');
         console.log('[VisualDetail] ✅ Queued title update to Caspio');
       } else {
-        alert(`[SAVE TITLE] ⚠️ SKIPPED - No valid visualId\nvisualId: "${this.visualId}"`);
         console.log('[VisualDetail] No valid visualId - title saved to Dexie only');
       }
 

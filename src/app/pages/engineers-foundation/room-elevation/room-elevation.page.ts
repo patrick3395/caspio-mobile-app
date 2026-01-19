@@ -105,9 +105,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   // Lazy image loading - photos only load when user clicks to expand a point
   expandedPoints: { [pointId: string]: boolean } = {};
 
-  // Tab switcher state: tracks which tab (Measurement/Location) is active per point
-  activePointTab: { [pointName: string]: 'Measurement' | 'Location' } = {};
-
   // Convenience getters for template
   get fdfPhotos() {
     return this.roomData?.fdfPhotos || {};
@@ -5995,21 +5992,6 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   collapsePointPhotos(point: any): void {
     const pointId = String(point.pointId || point.id);
     this.expandedPoints[pointId] = false;
-    this.changeDetectorRef.detectChanges();
-  }
-
-  /**
-   * Get active tab for a point (defaults to 'Measurement')
-   */
-  getActiveTab(point: any): 'Measurement' | 'Location' {
-    return this.activePointTab[point.name] || 'Measurement';
-  }
-
-  /**
-   * Set active tab for a point
-   */
-  setActiveTab(point: any, tab: 'Measurement' | 'Location'): void {
-    this.activePointTab[point.name] = tab;
     this.changeDetectorRef.detectChanges();
   }
 
