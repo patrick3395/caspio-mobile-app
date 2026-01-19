@@ -714,7 +714,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // DEBUG: Show final state of visualDropdownOptions
     const dropdownKeys = Object.keys(this.visualDropdownOptions);
-    const dropdownSummary = dropdownKeys.map(k => `${k}: ${this.visualDropdownOptions[k]?.length || 0} opts`).join('\n');
+    const dropdownSummary = dropdownKeys.map(k => `${k}: ${(this.visualDropdownOptions as any)[k]?.length || 0} opts`).join('\n');
     alert(`[FINAL STATE] visualDropdownOptions has ${dropdownKeys.length} keys:\n${dropdownSummary || 'EMPTY!'}`);
   }
 
