@@ -6729,6 +6729,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Update photo count
         this.photoCountsByKey[key] = photoCount;
 
+        // DEXIE-FIRST: Set expansion state BEFORE setField so photos are visible when liveQuery fires
+        this.expandedPhotos[key] = true;
+
         console.log('[CREATE CUSTOM] ✅ All', photoCount, 'photos uploaded to LocalImages BEFORE setField');
       }
 

@@ -253,6 +253,7 @@ export class VisualFieldRepoService {
   /**
    * Update a single field (write-through)
    * Marks field as dirty for sync
+   * Creates new field if it doesn't exist (for custom visuals)
    *
    * @param serviceId - Service ID
    * @param category - Category name
@@ -266,6 +267,7 @@ export class VisualFieldRepoService {
     patch: Partial<VisualField>
   ): Promise<void> {
     const key = `${serviceId}:${category}:${templateId}`;
+    const now = Date.now();
 
     await db.transaction('rw', db.visualFields, async () => {
       const existing = await db.visualFields.where('key').equals(key).first();
@@ -275,11 +277,34 @@ export class VisualFieldRepoService {
         await db.visualFields.update(existing.id!, {
           ...patch,
           rev: existing.rev + 1,
-          updatedAt: Date.now(),
+          updatedAt: now,
           dirty: true
         });
       } else {
-        console.warn(`[VisualFieldRepo] Field not found for key: ${key}`);
+        // DEXIE-FIRST: Create new field for custom visuals
+        // This ensures liveQuery fires and UI updates reactively
+        const newField: VisualField = {
+          key,
+          serviceId,
+          category,
+          templateId,
+          templateName: patch.templateName || 'Custom Item',
+          templateText: patch.templateText || '',
+          kind: patch.kind || 'Comment',
+          answerType: patch.answerType ?? 0,
+          dropdownOptions: patch.dropdownOptions,
+          isSelected: patch.isSelected ?? false,
+          answer: patch.answer || '',
+          otherValue: patch.otherValue || '',
+          visualId: patch.visualId || null,
+          tempVisualId: patch.tempVisualId || null,
+          photoCount: patch.photoCount ?? 0,
+          rev: 0,
+          updatedAt: now,
+          dirty: true
+        };
+        await db.visualFields.add(newField);
+        console.log(`[VisualFieldRepo] Created new field for custom visual: ${key}`);
       }
     });
   }

@@ -41,13 +41,13 @@ ion-content {
     align-items: center;
     justify-content: space-between;
     padding: 14px 16px;
-    background: #9e9e9e;
+    background: #bdbdbd;
     cursor: pointer;
     user-select: none;
     transition: background-color 0.2s ease;
 
     &:hover {
-      background: #8e8e8e;
+      background: #b0b0b0;
     }
 
     .accordion-header-content {
@@ -530,7 +530,7 @@ ion-content {
     min-width: 80px;
     height: 56px;
     padding: 8px 16px;
-    background: #9e9e9e;
+    background: #bdbdbd;
     color: white;
     border: none;
     border-radius: 8px;
@@ -551,14 +551,14 @@ ion-content {
 
     &:active {
       transform: scale(0.95);
-      background: #8e8e8e;
+      background: #b0b0b0;
     }
 
     &.secondary {
-      background: #9e9e9e;
+      background: #bdbdbd;
 
       &:active {
-        background: #8e8e8e;
+        background: #b0b0b0;
       }
     }
   }

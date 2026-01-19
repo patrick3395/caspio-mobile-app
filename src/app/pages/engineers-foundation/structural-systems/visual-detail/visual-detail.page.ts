@@ -243,6 +243,33 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
   // ===== SAVE METHODS =====
 
+  async saveAll() {
+    const titleChanged = this.item && this.editableTitle !== this.item.name;
+    const textChanged = this.item && this.editableText !== this.item.text;
+
+    // Queue changes if any
+    if (titleChanged) {
+      this.visualFieldRepo.setField(
+        this.serviceId,
+        this.categoryName,
+        this.templateId,
+        { templateName: this.editableTitle }
+      );
+    }
+
+    if (textChanged) {
+      this.visualFieldRepo.setField(
+        this.serviceId,
+        this.categoryName,
+        this.templateId,
+        { templateText: this.editableText }
+      );
+    }
+
+    // Navigate back immediately
+    this.goBack();
+  }
+
   async saveTitle() {
     if (!this.item || this.editableTitle === this.item.name) return;
 

@@ -1,13 +1,4 @@
 <div class="page-container">
-  <!-- Header -->
-  <div class="page-header">
-    <button class="back-btn" (click)="goBack()">
-      <ion-icon name="arrow-back"></ion-icon>
-    </button>
-    <h1 class="page-title">Edit Visual</h1>
-    <div class="header-spacer"></div>
-  </div>
-
   <!-- Loading State -->
   <div *ngIf="loading" class="loading-container">
     <ion-spinner name="crescent"></ion-spinner>
@@ -23,13 +14,7 @@
         type="text"
         class="edit-input title-input"
         [(ngModel)]="editableTitle"
-        (blur)="saveTitle()"
-        placeholder="Enter title..."
-        [disabled]="saving">
-      <div class="saving-indicator" *ngIf="saving">
-        <ion-spinner name="dots"></ion-spinner>
-        <span>Saving...</span>
-      </div>
+        placeholder="Enter title...">
     </div>
 
     <!-- Description Section -->
@@ -38,9 +23,7 @@
       <textarea
         class="edit-input text-input"
         [(ngModel)]="editableText"
-        (blur)="saveText()"
         placeholder="Enter description..."
-        [disabled]="saving"
         rows="6"></textarea>
     </div>
 
@@ -105,6 +88,11 @@
         <span>Loading photos...</span>
       </div>
     </div>
+  </div>
+
+  <!-- Save Button Footer -->
+  <div class="save-footer" *ngIf="!loading && item">
+    <button class="save-btn" (click)="saveAll()">Save</button>
   </div>
 
   <!-- No Item Found -->

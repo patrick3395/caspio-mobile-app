@@ -918,6 +918,9 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     
     // Visual attachments
     if (endpoint.includes('Services_Visuals_Attach')) {
+      if (type === 'DELETE') {
+        return `Delete photo: ${data.fileName || 'Visual photo'}`;
+      }
       if (type === 'UPDATE') {
         if (data.Annotation !== undefined && data.Drawings !== undefined) {
           return `Save annotations: Visual photo`;
@@ -957,6 +960,9 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     
     // EFE Point Attachments (annotations/captions)
     if (endpoint.includes('Services_EFE_Points_Attach')) {
+      if (type === 'DELETE') {
+        return `Delete photo: ${data.fileName || 'Elevation photo'}`;
+      }
       if (type === 'UPDATE') {
         if (data.Annotation !== undefined && data.Drawings !== undefined) {
           return `Save annotations: Elevation photo`;
