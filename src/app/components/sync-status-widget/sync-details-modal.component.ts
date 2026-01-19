@@ -856,7 +856,12 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
   getRequestIcon(request: any): string {
     const endpoint = request.endpoint || '';
     const data = request.data || {};
-    
+
+    // FDF photo deletion
+    if (data._displayType === 'FDF_PHOTO_DELETE') {
+      return 'trash-outline';
+    }
+
     // Annotation/drawing updates
     if (endpoint.includes('Attach') && request.type === 'UPDATE' && (data.Drawings !== undefined || data.Annotation !== undefined)) {
       return 'brush-outline';
@@ -889,7 +894,17 @@ export class SyncDetailsModalComponent implements OnInit, OnDestroy {
     const endpoint = request.endpoint || '';
     const type = request.type || '';
     const data = request.data || {};
-    
+
+    // FDF photo deletion (from room-elevation page)
+    if (data._displayType === 'FDF_PHOTO_DELETE') {
+      const photoType = data._photoType || 'FDF';
+      const roomName = data._roomName || '';
+      if (roomName) {
+        return `Delete FDF ${photoType} photo: ${roomName}`.substring(0, 50);
+      }
+      return `Delete FDF ${photoType} photo`;
+    }
+
     // Visual photo uploads
     if (endpoint === 'VISUAL_PHOTO_UPLOAD') {
       const category = data.category || '';

@@ -1989,11 +1989,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
         expanded: false
       })),
       fdfPhotos: {
-        top: field.fdfPhotos?.['top'] || null,
-        bottom: field.fdfPhotos?.['bottom'] || null,
-        topDetails: field.fdfPhotos?.['topDetails'] || null,
-        bottomDetails: field.fdfPhotos?.['bottomDetails'] || null,
-        threshold: field.fdfPhotos?.['threshold'] || null
+        top: field.fdfPhotos?.['top']?.hasPhoto || field.fdfPhotos?.['top'] || null,
+        bottom: field.fdfPhotos?.['bottom']?.hasPhoto || field.fdfPhotos?.['bottom'] || null,
+        topDetails: field.fdfPhotos?.['topDetails']?.hasPhoto || field.fdfPhotos?.['topDetails'] || null,
+        bottomDetails: field.fdfPhotos?.['bottomDetails']?.hasPhoto || field.fdfPhotos?.['bottomDetails'] || null,
+        threshold: field.fdfPhotos?.['threshold']?.hasPhoto || field.fdfPhotos?.['threshold'] || null,
+        // DEXIE-FIRST: Load captions from efeFields.fdfPhotos
+        topCaption: field.fdfPhotos?.['top']?.caption || '',
+        bottomCaption: field.fdfPhotos?.['bottom']?.caption || '',
+        thresholdCaption: field.fdfPhotos?.['threshold']?.caption || '',
+        // Load imageIds for LocalImage lookups
+        topImageId: field.fdfPhotos?.['top']?.imageId || null,
+        bottomImageId: field.fdfPhotos?.['bottom']?.imageId || null,
+        thresholdImageId: field.fdfPhotos?.['threshold']?.imageId || null
       }
     };
 
@@ -2020,12 +2028,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             this.roomData.fdf = updatedField.fdf || this.roomData.fdf;
             this.roomData.location = updatedField.location || this.roomData.location;
 
-            // Update point values and IDs from Dexie
+            // Update point values, names, and IDs from Dexie
             for (const efePoint of updatedField.elevationPoints) {
               const existingPoint = this.roomData.elevationPoints.find(
                 (p: any) => p.pointNumber === efePoint.pointNumber
               );
               if (existingPoint) {
+                // DEXIE-FIRST: Update name from Dexie (for renamed points)
+                if (efePoint.name && existingPoint.name !== efePoint.name) {
+                  console.log(`[RoomElevation] Point ${efePoint.pointNumber} name updated: "${existingPoint.name}" → "${efePoint.name}"`);
+                  existingPoint.name = efePoint.name;
+                }
                 if (efePoint.value) existingPoint.value = efePoint.value;
                 // Update pointId if it changed (temp → real after sync)
                 if (efePoint.pointId && existingPoint.pointId !== efePoint.pointId) {
@@ -2469,8 +2482,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       fdfPhotos.top = true;
       fdfPhotos.topPath = topLegacyPath;
       fdfPhotos.topAttachment = topS3Key;
-      fdfPhotos.topCaption = room.FDFTopAnnotation || '';
-      fdfPhotos.topDrawings = room.FDFTopDrawings || null;
+      // DEXIE-FIRST: Preserve existing caption (from Dexie) over backend data
+      fdfPhotos.topCaption = fdfPhotos.topCaption || room.FDFTopAnnotation || '';
+      fdfPhotos.topDrawings = fdfPhotos.topDrawings || room.FDFTopDrawings || null;
       fdfPhotos.topHasAnnotations = !!(room.FDFTopDrawings && room.FDFTopDrawings !== 'null' && room.FDFTopDrawings !== '' && room.FDFTopDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
       // CRITICAL FIX: If we have a preserved local URL, use it instead of placeholder
@@ -2513,8 +2527,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       fdfPhotos.bottom = true;
       fdfPhotos.bottomPath = bottomLegacyPath;
       fdfPhotos.bottomAttachment = bottomS3Key;
-      fdfPhotos.bottomCaption = room.FDFBottomAnnotation || '';
-      fdfPhotos.bottomDrawings = room.FDFBottomDrawings || null;
+      // DEXIE-FIRST: Preserve existing caption (from Dexie) over backend data
+      fdfPhotos.bottomCaption = fdfPhotos.bottomCaption || room.FDFBottomAnnotation || '';
+      fdfPhotos.bottomDrawings = fdfPhotos.bottomDrawings || room.FDFBottomDrawings || null;
       fdfPhotos.bottomHasAnnotations = !!(room.FDFBottomDrawings && room.FDFBottomDrawings !== 'null' && room.FDFBottomDrawings !== '' && room.FDFBottomDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
       // CRITICAL FIX: If we have a preserved local URL, use it instead of placeholder
@@ -2557,8 +2572,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       fdfPhotos.threshold = true;
       fdfPhotos.thresholdPath = thresholdLegacyPath;
       fdfPhotos.thresholdAttachment = thresholdS3Key;
-      fdfPhotos.thresholdCaption = room.FDFThresholdAnnotation || '';
-      fdfPhotos.thresholdDrawings = room.FDFThresholdDrawings || null;
+      // DEXIE-FIRST: Preserve existing caption (from Dexie) over backend data
+      fdfPhotos.thresholdCaption = fdfPhotos.thresholdCaption || room.FDFThresholdAnnotation || '';
+      fdfPhotos.thresholdDrawings = fdfPhotos.thresholdDrawings || room.FDFThresholdDrawings || null;
       fdfPhotos.thresholdHasAnnotations = !!(room.FDFThresholdDrawings && room.FDFThresholdDrawings !== 'null' && room.FDFThresholdDrawings !== '' && room.FDFThresholdDrawings !== EMPTY_COMPRESSED_ANNOTATIONS);
 
       // CRITICAL FIX: If we have a preserved local URL, use it instead of placeholder
@@ -4765,6 +4781,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
             updateData[`FDFPhoto${photoType}Attachment`] = null;
             updateData[`FDF${photoType}Annotation`] = null;
             updateData[`FDF${photoType}Drawings`] = null;
+            // Metadata for sync modal display - identifies this as FDF photo delete
+            updateData._displayType = 'FDF_PHOTO_DELETE';
+            updateData._photoType = photoType;
+            updateData._roomName = this.roomName;
 
             try {
               // DEXIE-FIRST FIX: Handle temp room IDs properly
@@ -4858,7 +4878,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /**
-   * OFFLINE-FIRST: Save FDF caption locally first, then sync to backend
+   * DEXIE-FIRST: Save FDF caption to Dexie first, then sync to backend
    */
   private async saveFDFCaption(photoType: 'Top' | 'Bottom' | 'Threshold', newCaption: string): Promise<void> {
     const photoKey = photoType.toLowerCase();
@@ -4869,13 +4889,26 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     fdfPhotos[`${photoKey}Caption`] = newCaption;
     this.changeDetectorRef.detectChanges();
 
-    // 2. Update local IndexedDB cache
+    // 2. DEXIE-FIRST: Save caption to Dexie efeFields for persistence across reloads
+    await this.efeFieldRepo.setFdfPhotoCaption(this.serviceId, this.roomName, photoKey, newCaption);
+
+    // 3. Update local IndexedDB cache (for legacy compatibility)
     const updateData: any = {};
     updateData[columnName] = newCaption;
     await this.updateLocalEFECache(updateData);
 
-    // 3. Queue for backend sync using unified caption system
-    // This ensures FDF captions go through the same sync path as annotations
+    // 4. Also update LocalImage caption if we have an imageId
+    const imageId = fdfPhotos[`${photoKey}ImageId`];
+    if (imageId) {
+      try {
+        await this.localImageService.updateCaption(imageId, newCaption);
+        console.log('[FDF Caption] ✅ Updated LocalImage caption for imageId:', imageId);
+      } catch (err) {
+        console.warn('[FDF Caption] Could not update LocalImage caption:', err);
+      }
+    }
+
+    // 5. Queue for backend sync using unified caption system
     try {
       // Get existing drawings (if any) to include in the update
       const existingDrawings = fdfPhotos[`${photoKey}Drawings`] || '';
@@ -5032,8 +5065,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     if (result.role !== 'cancel' && result.data?.values?.newName) {
       const newName = result.data.values.newName;
       try {
-        // TASK 3 FIX: Use sync queue pattern instead of direct API call
-        // This ensures operation works offline and appears in sync queue
+        // 1. Update UI immediately
+        point.name = newName;
+        this.changeDetectorRef.detectChanges();
+
+        // 2. DEXIE-FIRST: Save to Dexie efeFields for persistence across reloads
+        await this.efeFieldRepo.setPointName(this.serviceId, this.roomName, point.pointNumber, newName);
+
+        // 3. Update local cache (for legacy compatibility)
+        await this.updateLocalEFECache({ elevationPoints: this.roomData.elevationPoints });
+
+        // 4. Queue for backend sync
         const isTempId = String(point.pointId).startsWith('temp_');
 
         if (isTempId) {
@@ -5062,17 +5104,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
           });
         }
 
-        // Update local state immediately
-        point.name = newName;
-
-        // Update local cache
-        await this.updateLocalEFECache({ elevationPoints: this.roomData.elevationPoints });
-
         // Refresh sync status to show in UI
         await this.backgroundSync.refreshSyncStatus();
 
-        this.changeDetectorRef.detectChanges();
-        console.log('[RoomElevation] Point name update queued for sync');
+        console.log('[RoomElevation] Point name update saved to Dexie and queued for sync');
       } catch (error) {
         console.error('Error updating point name:', error);
       }

@@ -9,6 +9,9 @@ import { CacheService } from '../../../services/cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
+import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
+import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 
 interface NavigationCard {
   title: string;
@@ -69,7 +72,10 @@ export class EngineersFoundationMainPage implements OnInit {
     private navController: NavController,
     private offlineTemplate: OfflineTemplateService,
     private localImageService: LocalImageService,
-    private backgroundSync: BackgroundSyncService
+    private backgroundSync: BackgroundSyncService,
+    private indexedDb: IndexedDbService,
+    private efeFieldRepo: EfeFieldRepoService,
+    private visualFieldRepo: VisualFieldRepoService
   ) {}
 
   async ngOnInit() {
@@ -282,9 +288,16 @@ export class EngineersFoundationMainPage implements OnInit {
     await loading.present();
 
     try {
-      // Step 1: Check for unsynced images and force sync them
+      // ==========================================
+      // STEP 1: Sync ALL pending images (existing)
+      // ==========================================
       console.log('[EngFoundation Main] Checking for unsynced images...');
       const imageStatus = await this.localImageService.getServiceImageSyncStatus(this.serviceId);
+
+      // DEBUG ALERT
+      await loading.dismiss();
+      await this.showDebugAlert('Step 1: Image Check', `Pending images: ${imageStatus.pending}\nSynced: ${imageStatus.synced}\nFailed: ${imageStatus.failed}`);
+      await loading.present();
 
       if (imageStatus.pending > 0) {
         console.log(`[EngFoundation Main] Found ${imageStatus.pending} unsynced images, forcing sync...`);
@@ -323,14 +336,68 @@ export class EngineersFoundationMainPage implements OnInit {
         }
       }
 
-      // Step 2: Update image pointers to remote URLs
+      // ==========================================
+      // STEP 2: Sync ALL pending requests/captions (NEW)
+      // ==========================================
+      console.log('[EngFoundation Main] Syncing pending requests and captions...');
+      loading.message = 'Syncing data...';
+
+      // DEBUG ALERT - before sync
+      await loading.dismiss();
+      await this.showDebugAlert('Step 2: Data Sync Starting', 'About to sync pending requests and captions...');
+      await loading.present();
+
+      const dataSyncResult = await this.backgroundSync.forceSyncAllPendingForService(
+        this.serviceId,
+        (status, current, total) => {
+          loading.message = status;
+        }
+      );
+
+      console.log('[EngFoundation Main] Data sync result:', dataSyncResult);
+
+      // DEBUG ALERT - after sync
+      await loading.dismiss();
+      await this.showDebugAlert('Step 2: Data Sync Complete',
+        `Success: ${dataSyncResult.success}\n` +
+        `Requests synced: ${dataSyncResult.requestsSynced}\n` +
+        `Requests failed: ${dataSyncResult.requestsFailed}\n` +
+        `Captions synced: ${dataSyncResult.captionsSynced}\n` +
+        `Captions failed: ${dataSyncResult.captionsFailed}`
+      );
+      await loading.present();
+
+      if (!dataSyncResult.success) {
+        const failedTotal = dataSyncResult.requestsFailed + dataSyncResult.captionsFailed;
+        await loading.dismiss();
+        const alert = await this.alertController.create({
+          header: 'Sync Warning',
+          message: `${failedTotal} item(s) could not be synced. Do you want to proceed with finalization anyway? Failed items will be cleared.`,
+          cssClass: 'custom-document-alert',
+          buttons: [
+            { text: 'Cancel', role: 'cancel' },
+            {
+              text: 'Proceed Anyway',
+              handler: () => this.completeFinalization(isUpdate)
+            }
+          ]
+        });
+        await alert.present();
+        return;
+      }
+
+      // ==========================================
+      // STEP 3: Update image pointers (existing)
+      // ==========================================
       console.log('[EngFoundation Main] Updating image pointers to remote URLs...');
       loading.message = 'Updating image references...';
       await this.localImageService.updateImagePointersToRemote(this.serviceId);
 
       await loading.dismiss();
 
-      // Step 3: Complete the finalization
+      // ==========================================
+      // STEP 4: Complete finalization
+      // ==========================================
       await this.completeFinalization(isUpdate);
 
     } catch (error) {
@@ -352,7 +419,7 @@ export class EngineersFoundationMainPage implements OnInit {
     await loading.present();
 
     try {
-      // Update the Services table
+      // Update the Services table (existing code)
       const currentDateTime = new Date().toISOString();
 
       // Get appropriate StatusAdmin value from Status table
@@ -368,26 +435,80 @@ export class EngineersFoundationMainPage implements OnInit {
       const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
       console.log('[EngFoundation Main] Update response:', response);
 
-      // Clear caches
+      // ==========================================
+      // CLEANUP STEP 1: Clear any remaining pending items (NEW)
+      // ==========================================
+      console.log('[EngFoundation Main] Clearing any remaining pending items...');
+      loading.message = 'Cleaning up...';
+      let clearedItems = { requests: 0, captions: 0, outbox: 0 };
+      try {
+        clearedItems = await this.indexedDb.clearPendingForService(this.serviceId);
+        console.log('[EngFoundation Main] Cleared pending items:', clearedItems);
+      } catch (err) {
+        console.warn('[EngFoundation Main] Error clearing pending items:', err);
+      }
+
+      // DEBUG ALERT
+      await loading.dismiss();
+      await this.showDebugAlert('Cleanup Step 1: Cleared Pending',
+        `Requests cleared: ${clearedItems.requests}\n` +
+        `Captions cleared: ${clearedItems.captions}\n` +
+        `Outbox cleared: ${clearedItems.outbox}`
+      );
+      await loading.present();
+
+      // ==========================================
+      // CLEANUP STEP 2: Mark Dexie records as clean (NEW)
+      // ==========================================
+      let markedClean = false;
+      try {
+        await this.efeFieldRepo.markAllCleanForService(this.serviceId);
+        await this.visualFieldRepo.markAllCleanForService(this.serviceId);
+        markedClean = true;
+        console.log('[EngFoundation Main] Marked all Dexie records as clean');
+      } catch (err) {
+        console.warn('[EngFoundation Main] Error marking records clean:', err);
+      }
+
+      // DEBUG ALERT
+      await loading.dismiss();
+      await this.showDebugAlert('Cleanup Step 2: Mark Clean',
+        `EFE fields marked clean: ${markedClean ? 'Yes' : 'No'}\n` +
+        `Visual fields marked clean: ${markedClean ? 'Yes' : 'No'}`
+      );
+      await loading.present();
+
+      // ==========================================
+      // CLEANUP STEP 3: Clear API caches (existing)
+      // ==========================================
       console.log('[EngFoundation Main] Clearing caches for project:', this.projectId);
       this.cache.clearProjectRelatedCaches(this.projectId);
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
 
-      // Clean up local blob data after successful finalization
-      // This frees device storage while preserving metadata (captions, annotations, remoteUrl)
+      // ==========================================
+      // CLEANUP STEP 4: Prune local blobs (existing)
+      // ==========================================
       console.log('[EngFoundation Main] Cleaning up local blob data...');
       loading.message = 'Freeing device storage...';
       const cleanupResult = await this.localImageService.cleanupBlobDataAfterFinalization(this.serviceId);
       console.log('[EngFoundation Main] Blob cleanup complete:', cleanupResult);
 
-      // Reset change tracking
+      // DEBUG ALERT
+      await loading.dismiss();
+      await this.showDebugAlert('Cleanup Step 4: Blob Cleanup',
+        `Blobs pruned: ${cleanupResult?.blobsPruned || 0}\n` +
+        `Images processed: ${cleanupResult?.imagesProcessed || 0}`
+      );
+      await loading.present();
+
+      // Reset change tracking (existing)
       this.hasChangesAfterFinalization = false;
       this.isReportFinalized = true;
 
       await loading.dismiss();
 
-      // Show success message
+      // Show success message (existing)
       const successMessage = isUpdate ? 'Your report has been successfully updated.' : 'Your report has been successfully finalized.';
       const alert = await this.alertController.create({
         header: isUpdate ? 'Report Updated' : 'Report Finalized',
@@ -412,6 +533,25 @@ export class EngineersFoundationMainPage implements OnInit {
       });
       await alert.present();
     }
+  }
+
+  /**
+   * Helper method to show debug alerts during finalization
+   * Returns a promise that resolves when user clicks OK
+   */
+  private showDebugAlert(header: string, message: string): Promise<void> {
+    return new Promise(async (resolve) => {
+      const alert = await this.alertController.create({
+        header: `DEBUG: ${header}`,
+        message: message,
+        cssClass: 'custom-document-alert',
+        buttons: [{
+          text: 'OK',
+          handler: () => resolve()
+        }]
+      });
+      await alert.present();
+    });
   }
 
 }

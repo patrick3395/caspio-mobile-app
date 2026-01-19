@@ -425,6 +425,22 @@ export class VisualFieldRepoService {
   }
 
   /**
+   * Mark all visual fields for a service as clean (not dirty)
+   * Called after finalization to indicate all data is synced
+   */
+  async markAllCleanForService(serviceId: string): Promise<void> {
+    await db.transaction('rw', db.visualFields, async () => {
+      const fields = await db.visualFields.where('serviceId').equals(serviceId).toArray();
+      for (const field of fields) {
+        if (field.dirty) {
+          await db.visualFields.update(field.id!, { dirty: false });
+        }
+      }
+    });
+    console.log(`[VisualFieldRepo] Marked all fields clean for service: ${serviceId}`);
+  }
+
+  /**
    * Clear all visual fields (full reset)
    */
   async clearAll(): Promise<void> {

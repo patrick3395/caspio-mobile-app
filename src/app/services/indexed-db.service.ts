@@ -852,13 +852,6 @@ export class IndexedDbService {
    */
   async cachePhoto(attachId: string, serviceId: string, imageDataUrl: string, s3Key?: string): Promise<void> {
     const photoKey = `photo_${attachId}`;
-    const sizeKB = (imageDataUrl?.length || 0) / 1024;
-    const sizeMB = sizeKB / 1024;
-
-    // STORAGE DEBUG: Alert on mobile to trace where bloat is coming from
-    const stackTrace = new Error().stack?.split('\n').slice(1, 5).map(s => s.trim()).join('\n') || 'unknown';
-    alert(`🔴 EXPENSIVE: cachePhoto\nID: ${attachId}\nSize: ${sizeMB.toFixed(2)} MB\n\nStack:\n${stackTrace}`);
-
     // Validate input
     if (!imageDataUrl || imageDataUrl.length < 100) {
       console.error('[IndexedDB] ❌ Invalid photo data - too short or empty:', attachId, 'length:', imageDataUrl?.length);
@@ -1010,11 +1003,6 @@ export class IndexedDbService {
   async cacheAnnotatedImage(attachId: string, blob: Blob): Promise<string | null> {
     const imageDataUrl = await this.blobToBase64(blob);
     const photoKey = `annotated_${attachId}`;
-
-    // STORAGE DEBUG: Alert on mobile to trace where bloat is coming from
-    const stackTrace = new Error().stack?.split('\n').slice(1, 5).map(s => s.trim()).join('\n') || 'unknown';
-    const base64SizeMB = (imageDataUrl.length / 1024 / 1024).toFixed(2);
-    alert(`🔴 EXPENSIVE: cacheAnnotatedImage\nID: ${attachId}\nSize: ${base64SizeMB} MB\n\nStack:\n${stackTrace}`);
 
     const photoData = {
       photoKey: photoKey,
@@ -2028,6 +2016,61 @@ export class IndexedDbService {
   }
 
   /**
+   * Clear all pending sync items for a specific service
+   * Called after finalization to clean up sync queues
+   */
+  async clearPendingForService(serviceId: string): Promise<{
+    requests: number;
+    captions: number;
+    outbox: number;
+  }> {
+    let requestsCleared = 0;
+    let captionsCleared = 0;
+    let outboxCleared = 0;
+
+    // Clear pending requests for this service
+    const pendingRequests = await db.pendingRequests.toArray();
+    const serviceRequests = pendingRequests.filter(r =>
+      r.data?.serviceId === serviceId || r.data?.ServiceID === serviceId
+    );
+    if (serviceRequests.length > 0) {
+      await db.pendingRequests.bulkDelete(serviceRequests.map(r => r.requestId));
+      requestsCleared = serviceRequests.length;
+    }
+
+    // Clear pending captions for this service
+    const pendingCaptions = await db.pendingCaptions
+      .where('serviceId')
+      .equals(serviceId)
+      .toArray();
+    if (pendingCaptions.length > 0) {
+      await db.pendingCaptions.bulkDelete(pendingCaptions.map(c => c.captionId));
+      captionsCleared = pendingCaptions.length;
+    }
+
+    // Clear upload outbox for this service (via localImages lookup)
+    const serviceImages = await db.localImages
+      .where('serviceId')
+      .equals(serviceId)
+      .toArray();
+    const imageIds = serviceImages.map(img => img.imageId);
+    const outboxItems = await db.uploadOutbox.toArray();
+    const serviceOutbox = outboxItems.filter(o => imageIds.includes(o.imageId));
+    if (serviceOutbox.length > 0) {
+      await db.uploadOutbox.bulkDelete(serviceOutbox.map(o => o.opId));
+      outboxCleared = serviceOutbox.length;
+    }
+
+    console.log(`[IndexedDB] Cleared pending for service ${serviceId}:`, {
+      requests: requestsCleared,
+      captions: captionsCleared,
+      outbox: outboxCleared
+    });
+
+    return { requests: requestsCleared, captions: captionsCleared, outbox: outboxCleared };
+  }
+
+  /**
    * Force retry old requests
    */
   async forceRetryOldRequests(olderThanMinutes: number = 5): Promise<number> {
@@ -2675,10 +2718,6 @@ export class IndexedDbService {
       await db.uploadOutbox.add(outboxItem);
     });
 
-    // STORAGE DEBUG: Alert on mobile when image is created
-    const fileSizeKB = (file.size / 1024).toFixed(1);
-    const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
-    alert(`📸 IMAGE STORED\nID: ${imageId}\nBlob: ${fileSizeKB} KB (${fileSizeMB} MB)\n\nThis should be the ONLY storage added for gallery upload.`);
     console.log('[IndexedDB] ✅ Local image created:', imageId, 'blob:', blobId);
 
     this.emitChange({

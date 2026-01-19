@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { CaspioService } from '../../../services/caspio.service';
 import { EngineersFoundationStateService } from './engineers-foundation-state.service';
+import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
 import { map } from 'rxjs/operators';
 
 export interface IncompleteField {
@@ -21,7 +22,8 @@ export class EngineersFoundationValidationService {
 
   constructor(
     private caspioService: CaspioService,
-    private stateService: EngineersFoundationStateService
+    private stateService: EngineersFoundationStateService,
+    private efeFieldRepo: EfeFieldRepoService
   ) {}
 
   /**
@@ -192,16 +194,30 @@ export class EngineersFoundationValidationService {
 
   /**
    * Validate elevation plot required fields
+   * Uses LOCAL Dexie data (EfeFieldRepoService) instead of remote API
+   * This ensures we validate against user's actual entered data
    */
   private async validateElevationFields(projectId: string, serviceId: string): Promise<IncompleteField[]> {
     const incompleteFields: IncompleteField[] = [];
 
-    try {
-      // Fetch elevation data for this service
-      const elevationData = await this.caspioService.getServicesEFE(serviceId).toPromise();
+    // Helper to check if value is empty
+    const isEmpty = (value: any): boolean => {
+      return value === null || value === undefined || value === '' ||
+             (typeof value === 'string' && value.trim() === '') ||
+             value === '-- Select --';
+    };
 
-      // Check if Base Station exists
-      const baseStation = elevationData?.find((item: any) => item.RoomName === 'Base Station');
+    try {
+      // Fetch elevation data from LOCAL Dexie database (not remote API)
+      const efeFields = await this.efeFieldRepo.getFieldsForService(serviceId);
+
+      // Filter to only selected (active) rooms
+      const selectedRooms = efeFields.filter(field => field.isSelected);
+
+      console.log('[EngFoundation Validation] Found', selectedRooms.length, 'selected rooms in local Dexie');
+
+      // Check if Base Station exists and is selected
+      const baseStation = selectedRooms.find(field => field.roomName === 'Base Station');
       if (!baseStation) {
         incompleteFields.push({
           section: 'Elevation Plot',
@@ -210,20 +226,16 @@ export class EngineersFoundationValidationService {
         });
       }
 
-      // Check all other rooms have FDF
-      const otherRooms = elevationData?.filter((item: any) => item.RoomName !== 'Base Station') || [];
+      // Check all other selected rooms have FDF
+      const otherRooms = selectedRooms.filter(field => field.roomName !== 'Base Station');
       for (const room of otherRooms) {
-        const isEmpty = (value: any): boolean => {
-          return value === null || value === undefined || value === '' || 
-                 (typeof value === 'string' && value.trim() === '') ||
-                 value === '-- Select --';
-        };
+        console.log(`[EngFoundation Validation] Checking room "${room.roomName}" FDF:`, room.fdf);
 
-        if (isEmpty(room.FDF)) {
+        if (isEmpty(room.fdf)) {
           incompleteFields.push({
             section: 'Elevation Plot',
-            label: `${room.RoomName}: FDF (Flooring Difference Factor)`,
-            field: `FDF_${room.RoomName}`
+            label: `${room.roomName}: FDF (Flooring Difference Factor)`,
+            field: `FDF_${room.roomName}`
           });
         }
       }

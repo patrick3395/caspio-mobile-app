@@ -515,6 +515,44 @@ export class EfeFieldRepoService {
   }
 
   /**
+   * Update elevation point name
+   * DEXIE-FIRST: This ensures point names persist across reloads
+   */
+  async setPointName(
+    serviceId: string,
+    roomName: string,
+    pointNumber: number,
+    name: string
+  ): Promise<void> {
+    const key = `${serviceId}:${roomName}`;
+
+    await db.transaction('rw', db.efeFields, async () => {
+      const existing = await db.efeFields.where('key').equals(key).first();
+
+      if (existing) {
+        const elevationPoints = [...existing.elevationPoints];
+        const pointIndex = elevationPoints.findIndex(p => p.pointNumber === pointNumber);
+
+        if (pointIndex >= 0) {
+          elevationPoints[pointIndex] = {
+            ...elevationPoints[pointIndex],
+            name
+          };
+
+          await db.efeFields.update(existing.id!, {
+            elevationPoints,
+            rev: existing.rev + 1,
+            updatedAt: Date.now(),
+            dirty: true
+          });
+
+          console.log(`[EfeFieldRepo] Updated point ${pointNumber} name to: "${name}"`);
+        }
+      }
+    });
+  }
+
+  /**
    * Update elevation point value
    */
   async setPointValue(
@@ -756,6 +794,50 @@ export class EfeFieldRepoService {
   }
 
   /**
+   * Update FDF photo caption in Dexie
+   * DEXIE-FIRST: This ensures captions persist across reloads
+   */
+  async setFdfPhotoCaption(
+    serviceId: string,
+    roomName: string,
+    photoKey: string,  // 'top', 'bottom', 'threshold'
+    caption: string
+  ): Promise<void> {
+    const key = `${serviceId}:${roomName}`;
+
+    await db.transaction('rw', db.efeFields, async () => {
+      const existing = await db.efeFields.where('key').equals(key).first();
+
+      if (existing) {
+        const fdfPhotos = { ...existing.fdfPhotos };
+
+        // Get or create the photo entry
+        const existingPhoto = fdfPhotos[photoKey] || {
+          attachId: null,
+          tempAttachId: null,
+          hasPhoto: false,
+          hasAnnotations: false
+        };
+
+        // Update with caption
+        fdfPhotos[photoKey] = {
+          ...existingPhoto,
+          caption
+        };
+
+        await db.efeFields.update(existing.id!, {
+          fdfPhotos,
+          rev: existing.rev + 1,
+          updatedAt: Date.now(),
+          dirty: true
+        });
+
+        console.log(`[EfeFieldRepo] Updated FDF photo caption for ${photoKey}: "${caption.substring(0, 30)}..."`);
+      }
+    });
+  }
+
+  /**
    * Clear FDF photo metadata for a specific photo slot (Dexie-first deletion)
    * This removes the photo metadata from efeFields.fdfPhotos
    */
@@ -943,6 +1025,22 @@ export class EfeFieldRepoService {
   async clearFieldsForService(serviceId: string): Promise<void> {
     await db.efeFields.where('serviceId').equals(serviceId).delete();
     console.log(`[EfeFieldRepo] Cleared all fields for service: ${serviceId}`);
+  }
+
+  /**
+   * Mark all EFE fields for a service as clean (not dirty)
+   * Called after finalization to indicate all data is synced
+   */
+  async markAllCleanForService(serviceId: string): Promise<void> {
+    await db.transaction('rw', db.efeFields, async () => {
+      const fields = await db.efeFields.where('serviceId').equals(serviceId).toArray();
+      for (const field of fields) {
+        if (field.dirty) {
+          await db.efeFields.update(field.id!, { dirty: false });
+        }
+      }
+    });
+    console.log(`[EfeFieldRepo] Marked all fields clean for service: ${serviceId}`);
   }
 
   /**

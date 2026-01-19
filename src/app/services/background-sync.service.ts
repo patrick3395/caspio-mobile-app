@@ -3385,6 +3385,97 @@ export class BackgroundSyncService {
   }
 
   /**
+   * Force sync all pending data for a service and wait for completion
+   * Called during finalization to ensure all data is synced before cleanup
+   */
+  async forceSyncAllPendingForService(
+    serviceId: string,
+    onProgress?: (status: string, current: number, total: number) => void
+  ): Promise<{
+    success: boolean;
+    requestsSynced: number;
+    requestsFailed: number;
+    captionsSynced: number;
+    captionsFailed: number;
+  }> {
+    console.log(`[BackgroundSync] Force syncing all pending for service: ${serviceId}`);
+
+    // Get initial counts
+    const pendingRequests = await this.indexedDb.getPendingRequests();
+    const serviceRequests = pendingRequests.filter(r =>
+      r.data?.serviceId === serviceId || r.data?.ServiceID === serviceId
+    );
+
+    const pendingCaptions = await this.indexedDb.getPendingCaptions();
+    const serviceCaptions = pendingCaptions.filter(c => c.serviceId === serviceId);
+
+    const totalItems = serviceRequests.length + serviceCaptions.length;
+
+    if (totalItems === 0) {
+      console.log('[BackgroundSync] No pending items to sync');
+      return { success: true, requestsSynced: 0, requestsFailed: 0, captionsSynced: 0, captionsFailed: 0 };
+    }
+
+    onProgress?.('Starting sync...', 0, totalItems);
+
+    // Trigger sync
+    await this.triggerSync();
+
+    // Poll for completion with timeout (30 seconds)
+    const maxWaitMs = 30000;
+    const pollIntervalMs = 1000;
+    let elapsed = 0;
+
+    while (elapsed < maxWaitMs) {
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+      elapsed += pollIntervalMs;
+
+      // Check remaining counts
+      const remainingRequests = await this.indexedDb.getPendingRequests();
+      const remainingServiceRequests = remainingRequests.filter(r =>
+        (r.data?.serviceId === serviceId || r.data?.ServiceID === serviceId) &&
+        r.status !== 'failed'
+      );
+
+      const remainingCaptions = await this.indexedDb.getPendingCaptions();
+      const remainingServiceCaptions = remainingCaptions.filter(c =>
+        c.serviceId === serviceId && c.status !== 'failed'
+      );
+
+      const remaining = remainingServiceRequests.length + remainingServiceCaptions.length;
+      const synced = totalItems - remaining;
+
+      onProgress?.(`Syncing... (${synced}/${totalItems})`, synced, totalItems);
+
+      if (remaining === 0) {
+        break;
+      }
+    }
+
+    // Count final results
+    const finalRequests = await this.indexedDb.getPendingRequests();
+    const finalServiceRequests = finalRequests.filter(r =>
+      r.data?.serviceId === serviceId || r.data?.ServiceID === serviceId
+    );
+    const failedRequests = finalServiceRequests.filter(r => r.status === 'failed');
+
+    const finalCaptions = await this.indexedDb.getPendingCaptions();
+    const finalServiceCaptions = finalCaptions.filter(c => c.serviceId === serviceId);
+    const failedCaptions = finalServiceCaptions.filter(c => c.status === 'failed');
+
+    const result = {
+      success: failedRequests.length === 0 && failedCaptions.length === 0,
+      requestsSynced: serviceRequests.length - finalServiceRequests.length,
+      requestsFailed: failedRequests.length,
+      captionsSynced: serviceCaptions.length - finalServiceCaptions.length,
+      captionsFailed: failedCaptions.length
+    };
+
+    console.log('[BackgroundSync] Force sync complete:', result);
+    return result;
+  }
+
+  /**
    * Clean up on destroy
    */
   ngOnDestroy(): void {

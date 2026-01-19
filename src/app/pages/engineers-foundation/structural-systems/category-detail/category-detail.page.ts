@@ -1165,11 +1165,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
           this.changeDetectorRef.detectChanges();
           console.log('[PHOTO SYNC] Updated photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
-
-          // STORAGE DEBUG: Alert storage AFTER SYNC to see what got added
-          const syncSummary = await this.indexedDb.getStorageSummary();
-          const traceInfo = await this.indexedDb.traceImageStorage(event.tempFileId);
-          alert(`AFTER SYNC:\n${syncSummary}\n\n${traceInfo}`);
           break;
         }
       }
@@ -4959,10 +4954,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     // Set cooldown to prevent cache invalidation from causing UI flash
     this.startLocalOperationCooldown();
 
-    // STORAGE DEBUG: Alert storage BEFORE adding photo
-    const beforeSummary = await this.indexedDb.getStorageSummary();
-    alert(`BEFORE UPLOAD:\n${beforeSummary}`);
-
     try {
       // Use pickImages to allow multiple photo selection
       // STORAGE OPTIMIZATION: Lower picker quality since we compress to 0.8MB anyway
@@ -5026,17 +5017,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               try {
                 console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
 
-                // STORAGE DEBUG: Show original image size from Capacitor
-                const originalMB = ((image as any).size || 0) / 1024 / 1024;
-                alert(`📷 CAPACITOR IMAGE\nwebPath: ${image.webPath?.substring(0, 50)}...\nFormat: ${image.format}\n\nThis temp file may be causing native storage bloat.`);
-
                 // Fetch the blob
                 const response = await fetch(image.webPath);
                 const blob = await response.blob();
-
-                // STORAGE DEBUG: Show fetched blob size
-                const blobMB = (blob.size / 1024 / 1024).toFixed(2);
-                alert(`📥 FETCHED BLOB\nOriginal size: ${blobMB} MB\n\nThis is BEFORE compression.`);
 
                 // US-001 FIX: Validate blob has content before creating File
                 // On mobile, gallery-selected images (especially the last in a batch)
@@ -5055,18 +5038,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 }
 
                 // Compress image before storage
-                const originalSize = file.size;
                 const compressedFile = await this.imageCompression.compressImage(file, {
                   maxSizeMB: 0.8,
                   maxWidthOrHeight: 1280,
                   useWebWorker: true
                 }) as File;
-                const compressedSize = compressedFile.size;
-
-                // STORAGE DEBUG: Show compression result
-                const compressedMB = (compressedSize / 1024 / 1024).toFixed(2);
-                const savedMB = ((originalSize - compressedSize) / 1024 / 1024).toFixed(2);
-                alert(`🗜️ COMPRESSION\nOriginal: ${blobMB} MB\nCompressed: ${compressedMB} MB\nSaved: ${savedMB} MB`);
 
                 // Create LocalImage with stable UUID
                 const localImage = await this.localImageService.captureImage(
@@ -5173,13 +5149,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log(`[GALLERY UPLOAD] ✅ All ${images.photos.length} photos processed with stable IDs`);
         console.log(`[GALLERY UPLOAD] Total photos in key: ${this.visualPhotos[key].length}`);
         // Sync will happen on next 60-second interval via upload outbox
-
-        // STORAGE DEBUG: Alert storage AFTER adding photos
-        const afterSummary = await this.indexedDb.getStorageSummary();
-        alert(`AFTER UPLOAD:\n${afterSummary}\n\n` +
-          `📱 CHECK iPHONE STORAGE NOW\n` +
-          `Then FORCE CLOSE app and check again.\n` +
-          `The difference = temp file cleaned up.`);
       }
     } catch (error) {
       // Check if user cancelled - don't show error for cancellations
@@ -7250,9 +7219,44 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Try fallback chain
     try {
+      // CRITICAL: Check for cached annotated image FIRST to preserve annotations in thumbnails
+      // This prevents annotations from disappearing when blob URLs become invalid
+      const attachId = String(photo.AttachID || photo.attachId || photo.id || '');
+      const localImageId = photo.localImageId || photo.imageId;
+
+      // Try annotated image from in-memory map first (fastest)
+      let annotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
+      if (!annotatedImage && localImageId) {
+        annotatedImage = this.bulkAnnotatedImagesMap.get(localImageId);
+      }
+
+      // If not in memory, try to get from IndexedDB cache
+      if (!annotatedImage && (photo.hasAnnotations || photo.Drawings)) {
+        try {
+          annotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
+          if (!annotatedImage && localImageId) {
+            annotatedImage = await this.indexedDb.getCachedAnnotatedImage(localImageId);
+          }
+          // Store in memory map for future use
+          if (annotatedImage) {
+            this.bulkAnnotatedImagesMap.set(attachId || localImageId, annotatedImage);
+          }
+        } catch (e) {
+          console.warn('[IMAGE ERROR] Failed to get cached annotated image:', e);
+        }
+      }
+
+      if (annotatedImage) {
+        console.log('[IMAGE ERROR] Using cached ANNOTATED image:', attachId || localImageId);
+        img.src = annotatedImage;
+        photo.displayUrl = annotatedImage;
+        photo.thumbnailUrl = annotatedImage;
+        // Don't update photo.url - keep original for re-editing
+        return;
+      }
+
       // Fallback 1: Try LocalImage system
       if (photo.isLocalImage || photo.localImageId || photo.imageId) {
-        const localImageId = photo.localImageId || photo.imageId;
         const localImage = await this.indexedDb.getLocalImage(localImageId);
 
         if (localImage) {
@@ -7269,7 +7273,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       // Fallback 2: Try cached photo by attachId
-      const attachId = String(photo.AttachID || photo.attachId || photo.id);
       if (attachId && !attachId.startsWith('temp_') && !attachId.startsWith('img_')) {
         const cached = await this.indexedDb.getCachedPhoto(attachId);
         if (cached) {

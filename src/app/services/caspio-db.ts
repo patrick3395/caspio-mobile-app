@@ -126,6 +126,9 @@ export interface EfeFdfPhoto {
   tempAttachId: string | null;
   hasPhoto: boolean;
   hasAnnotations: boolean;
+  caption?: string;
+  imageId?: string;
+  localBlobId?: string;
 }
 
 /**
