@@ -392,6 +392,8 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     // Allow save even if item doesn't exist yet
     if (this.editableTitle === (this.item?.name || '')) return;
 
+    alert(`[SAVE TITLE] Starting save:\nvisualId: "${this.visualId}"\nisValid: ${this.isValidVisualId(this.visualId)}\nserviceId: "${this.serviceId}"\ncategory: "${this.categoryName}"\ntemplateId: ${this.templateId}`);
+
     this.saving = true;
     try {
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
@@ -405,9 +407,12 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
       // Queue update to Caspio for background sync (only if valid visualId)
       if (this.isValidVisualId(this.visualId)) {
+        alert(`[SAVE TITLE] Calling updateVisual with:\nvisualId: ${this.visualId}\nName: ${this.editableTitle}`);
         await this.foundationData.updateVisual(this.visualId, { Name: this.editableTitle }, this.serviceId);
+        alert('[SAVE TITLE] ✅ updateVisual completed');
         console.log('[VisualDetail] ✅ Queued title update to Caspio');
       } else {
+        alert(`[SAVE TITLE] ⚠️ SKIPPED - No valid visualId\nvisualId: "${this.visualId}"`);
         console.log('[VisualDetail] No valid visualId - title saved to Dexie only');
       }
 

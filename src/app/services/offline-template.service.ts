@@ -1945,9 +1945,14 @@ export class OfflineTemplateService {
   async updateVisual(visualId: string, updates: any, serviceId: string): Promise<void> {
     const isTempId = visualId.startsWith('temp_');
 
+    // DEBUG
+    alert(`[updateVisual] Called with:\nvisualId: ${visualId}\nisTempId: ${isTempId}\nserviceId: ${serviceId}\nupdates: ${JSON.stringify(updates)}`);
+
     if (isTempId) {
       // Try to update the pending request data
       const updated = await this.indexedDb.updatePendingRequestData(visualId, updates);
+
+      alert(`[updateVisual] updatePendingRequestData returned: ${updated}`);
 
       if (!updated) {
         // No pending request found - visual may have been synced already
@@ -1958,7 +1963,9 @@ export class OfflineTemplateService {
 
         // First, check the cached visuals for _tempId match
         const cachedVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
+        alert(`[updateVisual] Cached visuals count: ${cachedVisuals.length}`);
         const matchingVisual = cachedVisuals.find((v: any) => v._tempId === visualId);
+        alert(`[updateVisual] Matching visual by _tempId: ${matchingVisual ? JSON.stringify({_tempId: matchingVisual._tempId, VisualID: matchingVisual.VisualID, PK_ID: matchingVisual.PK_ID}) : 'NOT FOUND'}`);
 
         if (matchingVisual && matchingVisual.VisualID && !String(matchingVisual.VisualID).startsWith('temp_')) {
           realVisualId = matchingVisual.VisualID;
@@ -1978,15 +1985,20 @@ export class OfflineTemplateService {
               .where('serviceId')
               .equals(serviceId)
               .toArray();
+            alert(`[updateVisual] visualFields count for service: ${allFields.length}`);
             const fieldWithTempId = allFields.find((f: any) => f.tempVisualId === visualId);
+            alert(`[updateVisual] Field with tempVisualId: ${fieldWithTempId ? JSON.stringify({tempVisualId: fieldWithTempId.tempVisualId, visualId: fieldWithTempId.visualId}) : 'NOT FOUND'}`);
             if (fieldWithTempId?.visualId && !String(fieldWithTempId.visualId).startsWith('temp_')) {
               realVisualId = fieldWithTempId.visualId;
               console.log(`[OfflineTemplate] Found real visualId ${realVisualId} from visualFields table`);
             }
           } catch (dbError) {
             console.warn('[OfflineTemplate] Error querying visualFields:', dbError);
+            alert(`[updateVisual] Error querying visualFields: ${dbError}`);
           }
         }
+
+        alert(`[updateVisual] Final realVisualId: ${realVisualId}`);
 
         if (realVisualId) {
           // Queue an UPDATE request with the real ID
@@ -1999,10 +2011,14 @@ export class OfflineTemplateService {
             status: 'pending',
             priority: 'normal',
           });
+          alert(`[updateVisual] ✅ Queued UPDATE for realVisualId: ${realVisualId}`);
           console.log('[OfflineTemplate] Queued visual update for synced VisualID:', realVisualId);
         } else {
+          alert(`[updateVisual] ⚠️ NO REAL ID FOUND - update not queued!`);
           console.warn(`[OfflineTemplate] ⚠️ Could not find real VisualID for temp ID ${visualId} - visual may not have synced yet`);
         }
+      } else {
+        alert(`[updateVisual] ✅ Updated pending CREATE request`);
       }
     } else {
       // Queue an update for a synced visual
