@@ -1987,10 +1987,32 @@ export class OfflineTemplateService {
               .toArray();
             alert(`[updateVisual] visualFields count for service: ${allFields.length}`);
             const fieldWithTempId = allFields.find((f: any) => f.tempVisualId === visualId);
-            alert(`[updateVisual] Field with tempVisualId: ${fieldWithTempId ? JSON.stringify({tempVisualId: fieldWithTempId.tempVisualId, visualId: fieldWithTempId.visualId}) : 'NOT FOUND'}`);
+            alert(`[updateVisual] Field with tempVisualId: ${fieldWithTempId ? JSON.stringify({tempVisualId: fieldWithTempId.tempVisualId, visualId: fieldWithTempId.visualId, templateId: fieldWithTempId.templateId, category: fieldWithTempId.category}) : 'NOT FOUND'}`);
+
             if (fieldWithTempId?.visualId && !String(fieldWithTempId.visualId).startsWith('temp_')) {
               realVisualId = fieldWithTempId.visualId;
               console.log(`[OfflineTemplate] Found real visualId ${realVisualId} from visualFields table`);
+            } else if (fieldWithTempId) {
+              // No real visualId stored - look up by templateId + category in cached visuals
+              alert(`[updateVisual] No real visualId in field, looking up by templateId: ${fieldWithTempId.templateId}, category: ${fieldWithTempId.category}`);
+              const visualByTemplate = cachedVisuals.find((v: any) =>
+                String(v.VisualTemplateID) === String(fieldWithTempId.templateId) &&
+                v.Category === fieldWithTempId.category &&
+                !String(v.VisualID || v.PK_ID).startsWith('temp_')
+              );
+              alert(`[updateVisual] Visual by template match: ${visualByTemplate ? JSON.stringify({VisualID: visualByTemplate.VisualID, PK_ID: visualByTemplate.PK_ID, VisualTemplateID: visualByTemplate.VisualTemplateID}) : 'NOT FOUND'}`);
+
+              if (visualByTemplate) {
+                realVisualId = visualByTemplate.VisualID || visualByTemplate.PK_ID;
+                console.log(`[OfflineTemplate] Found real visualId ${realVisualId} by template match`);
+
+                // Update the visualField with the real ID for future lookups
+                await db.visualFields.update(fieldWithTempId.id, {
+                  visualId: realVisualId,
+                  tempVisualId: null
+                });
+                alert(`[updateVisual] Updated visualField with real visualId: ${realVisualId}`);
+              }
             }
           } catch (dbError) {
             console.warn('[OfflineTemplate] Error querying visualFields:', dbError);
