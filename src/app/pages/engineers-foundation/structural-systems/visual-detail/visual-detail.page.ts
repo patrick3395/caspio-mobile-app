@@ -228,16 +228,26 @@ export class VisualDetailPage implements OnInit, OnDestroy {
 
       const field = fields.find(f => f.templateId === this.templateId);
 
-      // DEBUG: Show field data
-      alert(`[LOAD PHOTOS DEBUG] Field lookup:\ntemplateId: ${this.templateId}\nField found: ${!!field}\nfield.visualId: "${field?.visualId}"\nfield.tempVisualId: "${field?.tempVisualId}"\nfield.isSelected: ${field?.isSelected}\nfield.key: "${field?.key}"`);
+      // DEBUG: Log field lookup details
+      console.log('[VisualDetail] Field lookup:', {
+        templateId: this.templateId,
+        foundField: !!field,
+        fieldKey: field?.key,
+        fieldTemplateId: field?.templateId,
+        fieldVisualId: field?.visualId,
+        fieldTempVisualId: field?.tempVisualId,
+        fieldIsSelected: field?.isSelected,
+        allFieldTemplateIds: fields.map(f => f.templateId)
+      });
 
       // The entityId for photos is the visualId (temp_visual_xxx or real VisualID)
       // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
       this.visualId = field?.tempVisualId || field?.visualId || '';
 
+      console.log('[VisualDetail] Set visualId to:', this.visualId);
+
       if (!this.visualId) {
         console.log('[VisualDetail] No visualId found for templateId:', this.templateId, '- item may not be selected yet');
-        alert(`[LOAD PHOTOS DEBUG] ⚠️ No visualId found!\nThis means the visual hasn't been selected/created yet.\nPhotos array will be empty.`);
         this.photos = [];
         return;
       }
@@ -323,15 +333,11 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   }
 
   async saveAll() {
-    // DEBUG: Show current state
-    alert(`[SAVE DEBUG] saveAll called\nvisualId: "${this.visualId}"\nisValidVisualId: ${this.isValidVisualId(this.visualId)}\nserviceId: "${this.serviceId}"\ncategoryName: "${this.categoryName}"\ntemplateId: ${this.templateId}\neditableTitle: "${this.editableTitle}"\neditableText: "${this.editableText?.substring(0, 50)}..."`);
-
     // Check for changes - allow save even if item doesn't exist yet
     const titleChanged = this.editableTitle !== (this.item?.name || '');
     const textChanged = this.editableText !== (this.item?.text || '');
 
     if (!titleChanged && !textChanged) {
-      alert('[SAVE DEBUG] No changes detected, going back');
       this.goBack();
       return;
     }
@@ -352,8 +358,6 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         caspioUpdate.Text = this.editableText;
       }
 
-      alert(`[SAVE DEBUG] Changes detected:\ntitleChanged: ${titleChanged}\ntextChanged: ${textChanged}\ndexieUpdate: ${JSON.stringify(dexieUpdate)}\ncaspioUpdate: ${JSON.stringify(caspioUpdate)}`);
-
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
       await this.visualFieldRepo.setField(
         this.serviceId,
@@ -362,16 +366,22 @@ export class VisualDetailPage implements OnInit, OnDestroy {
         dexieUpdate
       );
       console.log('[VisualDetail] ✅ Updated Dexie field:', dexieUpdate);
-      alert('[SAVE DEBUG] ✅ Dexie field updated');
 
       // Queue update to Caspio for background sync (only if valid visualId)
+      console.log('[VisualDetail] Checking visualId for sync:', {
+        visualId: this.visualId,
+        isValid: this.isValidVisualId(this.visualId),
+        startsWithTemp: this.visualId?.startsWith('temp_'),
+        length: this.visualId?.length,
+        isNumeric: !isNaN(Number(this.visualId))
+      });
+
       if (this.isValidVisualId(this.visualId)) {
+        console.log('[VisualDetail] Calling foundationData.updateVisual with:', this.visualId, caspioUpdate, this.serviceId);
         await this.foundationData.updateVisual(this.visualId, caspioUpdate, this.serviceId);
         console.log('[VisualDetail] ✅ Queued Caspio update:', caspioUpdate);
-        alert(`[SAVE DEBUG] ✅ Queued Caspio update for visualId: ${this.visualId}`);
       } else {
-        console.log('[VisualDetail] No valid visualId - changes saved to Dexie only, will sync when visual is created');
-        alert(`[SAVE DEBUG] ⚠️ NO VALID VISUAL ID\nvisualId: "${this.visualId}"\nChanges saved to Dexie only!`);
+        console.log('[VisualDetail] ⚠️ No valid visualId - changes saved to Dexie only, will sync when visual is created');
       }
 
       // Update local item state for immediate UI feedback
