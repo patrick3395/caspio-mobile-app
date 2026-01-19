@@ -2007,11 +2007,13 @@ export class OfflineTemplateService {
                 console.log(`[OfflineTemplate] Found real visualId ${realVisualId} by template match`);
 
                 // Update the visualField with the real ID for future lookups
-                await db.visualFields.update(fieldWithTempId.id, {
-                  visualId: realVisualId,
-                  tempVisualId: null
-                });
-                alert(`[updateVisual] Updated visualField with real visualId: ${realVisualId}`);
+                if (fieldWithTempId.id) {
+                  await db.visualFields.update(fieldWithTempId.id, {
+                    visualId: realVisualId,
+                    tempVisualId: null
+                  });
+                  alert(`[updateVisual] Updated visualField with real visualId: ${realVisualId}`);
+                }
               }
             }
           } catch (dbError) {
