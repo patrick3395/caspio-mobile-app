@@ -1894,7 +1894,7 @@ export class IndexedDbService {
   /**
    * Update data in a pending request
    */
-  async updatePendingRequestData(tempId: string, updates: any): Promise<void> {
+  async updatePendingRequestData(tempId: string, updates: any): Promise<boolean> {
     const request = await db.pendingRequests
       .where('tempId')
       .equals(tempId)
@@ -1904,8 +1904,10 @@ export class IndexedDbService {
       request.data = { ...request.data, ...updates };
       await db.pendingRequests.put(request);
       console.log(`[IndexedDB] Updated pending request data for ${tempId}`);
+      return true; // Successfully updated existing request
     } else {
       console.warn(`[IndexedDB] No pending request found with tempId ${tempId}`);
+      return false; // No pending request found
     }
   }
 

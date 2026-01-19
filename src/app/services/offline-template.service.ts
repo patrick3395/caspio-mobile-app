@@ -1946,8 +1946,64 @@ export class OfflineTemplateService {
     const isTempId = visualId.startsWith('temp_');
 
     if (isTempId) {
-      // Update the pending request data
-      await this.indexedDb.updatePendingRequestData(visualId, updates);
+      // Try to update the pending request data
+      const updated = await this.indexedDb.updatePendingRequestData(visualId, updates);
+
+      if (!updated) {
+        // No pending request found - visual may have been synced already
+        // Look up the real VisualID from cached visuals
+        console.log(`[OfflineTemplate] No pending request for temp ID ${visualId}, looking up real VisualID...`);
+
+        let realVisualId: string | null = null;
+
+        // First, check the cached visuals for _tempId match
+        const cachedVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
+        const matchingVisual = cachedVisuals.find((v: any) => v._tempId === visualId);
+
+        if (matchingVisual && matchingVisual.VisualID && !String(matchingVisual.VisualID).startsWith('temp_')) {
+          realVisualId = matchingVisual.VisualID;
+          console.log(`[OfflineTemplate] Found real VisualID ${realVisualId} from cache _tempId match`);
+        } else if (matchingVisual && matchingVisual.PK_ID && !String(matchingVisual.PK_ID).startsWith('temp_')) {
+          realVisualId = matchingVisual.PK_ID;
+          console.log(`[OfflineTemplate] Found real PK_ID ${realVisualId} from cache _tempId match`);
+        }
+
+        // Fallback: Check visualFields table (Dexie) for real visualId
+        if (!realVisualId) {
+          try {
+            // Import db for direct query
+            const { db } = await import('./caspio-db');
+            // Search all fields for this service that have this tempVisualId
+            const allFields = await db.visualFields
+              .where('serviceId')
+              .equals(serviceId)
+              .toArray();
+            const fieldWithTempId = allFields.find((f: any) => f.tempVisualId === visualId);
+            if (fieldWithTempId?.visualId && !String(fieldWithTempId.visualId).startsWith('temp_')) {
+              realVisualId = fieldWithTempId.visualId;
+              console.log(`[OfflineTemplate] Found real visualId ${realVisualId} from visualFields table`);
+            }
+          } catch (dbError) {
+            console.warn('[OfflineTemplate] Error querying visualFields:', dbError);
+          }
+        }
+
+        if (realVisualId) {
+          // Queue an UPDATE request with the real ID
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals/records?q.where=VisualID=${realVisualId}`,
+            method: 'PUT',
+            data: updates,
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+          });
+          console.log('[OfflineTemplate] Queued visual update for synced VisualID:', realVisualId);
+        } else {
+          console.warn(`[OfflineTemplate] ⚠️ Could not find real VisualID for temp ID ${visualId} - visual may not have synced yet`);
+        }
+      }
     } else {
       // Queue an update for a synced visual
       // CRITICAL: Use the correct API endpoint format with q.where clause

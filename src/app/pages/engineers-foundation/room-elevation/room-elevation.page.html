@@ -37,7 +37,7 @@
         <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #666;">FDF Photos:</div>
         <div class="fdf-photos-row" style="display: flex; gap: 8px; flex-wrap: nowrap;">
           <!-- Top Photo Column -->
-          <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+          <div class="fdf-photo-column" style="flex: 1; min-width: 0;">
             <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Top</div>
             <div style="display: flex; gap: 4px; margin-bottom: 2px;">
               <button (click)="takeFDFPhotoCamera('Top')"
@@ -91,7 +91,7 @@
           </div>
 
           <!-- Bottom Photo Column -->
-          <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+          <div class="fdf-photo-column" style="flex: 1; min-width: 0;">
             <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Bottom</div>
             <div style="display: flex; gap: 4px; margin-bottom: 2px;">
               <button (click)="takeFDFPhotoCamera('Bottom')"
@@ -145,7 +145,7 @@
           </div>
 
           <!-- Location Photo Column (Threshold) -->
-          <div class="fdf-photo-column" style="flex: 1; min-width: 0; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+          <div class="fdf-photo-column" style="flex: 1; min-width: 0;">
             <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px; text-align: center;">Location</div>
             <div style="display: flex; gap: 4px; margin-bottom: 2px;">
               <button (click)="takeFDFPhotoCamera('Threshold')"
@@ -286,7 +286,7 @@
             <!-- Measurement and Location Photos -->
             <div style="margin-top: 10px; display: flex; gap: 8px;">
               <!-- Measurement Photo Container -->
-              <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+              <div style="flex: 1;">
                 <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
                   Measurement
                   <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
@@ -340,7 +340,7 @@
               </div>
 
               <!-- Location Photo Container -->
-              <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
+              <div style="flex: 1;">
                 <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
                   Location
                   <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
@@ -400,8 +400,8 @@
       <!-- Add point button at bottom right (hidden for Base Station) -->
       <div style="display: flex; justify-content: flex-end; margin-top: 10px;" *ngIf="!isBaseStation()">
         <button class="add-point-button" (click)="addCustomPoint()"
-                style="background: white; border: 1px solid #ddd; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; color: #000;">
-          <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle; color: #000;"></ion-icon>
+                style="background: #bdbdbd; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; color: white;">
+          <ion-icon name="add-circle-outline" style="margin-right: 3px; vertical-align: middle; color: white;"></ion-icon>
           Add Measurement
         </button>
       </div>
