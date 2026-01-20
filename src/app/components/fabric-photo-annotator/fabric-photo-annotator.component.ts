@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { compressAnnotationData, decompressAnnotationData } from '../../utils/annotation-utils';
 import { FabricService } from '../../services/fabric.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-fabric-photo-annotator',
@@ -466,7 +467,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       
       // CRITICAL FIX: Convert S3 URLs to data URLs to avoid CORS issues
       // S3 presigned URLs don't have proper CORS headers for cross-origin canvas access
-      if (imageUrl.startsWith('https://') && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
+      // WEBAPP MODE: Skip this conversion - we'll load directly without crossOrigin (tainted but viewable)
+      if (!environment.isWeb && imageUrl.startsWith('https://') && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
         console.log('[FabricAnnotator] S3 URL detected, fetching as data URL to avoid CORS...');
         try {
           imageUrl = await this.fetchRemoteImageAsDataUrl(imageUrl);
@@ -475,13 +477,17 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
           console.error('[FabricAnnotator] ❌ Failed to convert S3 URL to data URL:', conversionError);
           // Continue with original URL as fallback (may fail due to CORS)
         }
+      } else if (environment.isWeb && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
+        console.log('[FabricAnnotator] WEBAPP: Loading S3 image directly (tainted mode for viewing)');
       }
 
       // Only use crossOrigin for remote URLs, not for data URLs or blob URLs (offline photos)
       // Data URLs and blob URLs are same-origin by default and crossOrigin can cause them to fail silently
+      // WEBAPP MODE: Skip crossOrigin to avoid CORS issues - image will be tainted but viewable
       const isLocalUrl = imageUrl.startsWith('data:') || imageUrl.startsWith('blob:');
-      const loadOptions = isLocalUrl ? {} : { crossOrigin: 'anonymous' };
-      console.log('[FabricAnnotator] Loading image, isLocalUrl:', isLocalUrl, 'url prefix:', imageUrl.substring(0, 50));
+      const isWebAppS3 = environment.isWeb && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com');
+      const loadOptions = (isLocalUrl || isWebAppS3) ? {} : { crossOrigin: 'anonymous' };
+      console.log('[FabricAnnotator] Loading image, isLocalUrl:', isLocalUrl, 'isWebAppS3:', isWebAppS3, 'url prefix:', imageUrl.substring(0, 50));
 
       fabric.Image.fromURL(imageUrl, loadOptions).then((img: any) => {
         console.log('[FabricAnnotator] Image loaded successfully, dimensions:', img.width, 'x', img.height);
@@ -574,8 +580,43 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
    * Fetch a remote image URL and convert to data URL
    * This is necessary for S3 presigned URLs which don't have CORS headers
    * By fetching the image data directly, we avoid CORS issues when drawing on canvas
+   *
+   * WEBAPP MODE: Uses API Gateway proxy to avoid CORS issues with S3
    */
   private async fetchRemoteImageAsDataUrl(imageUrl: string): Promise<string> {
+    // WEBAPP MODE: Use API Gateway proxy to fetch S3 images (has proper CORS headers)
+    if (environment.isWeb && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
+      console.log('[FabricAnnotator] WEBAPP: Using API Gateway proxy for S3 image');
+      try {
+        // Extract S3 key from the URL
+        const urlObj = new URL(imageUrl);
+        const s3Key = urlObj.pathname.substring(1); // Remove leading '/'
+
+        if (s3Key) {
+          // Use API Gateway proxy endpoint
+          const proxyUrl = `${environment.apiGatewayUrl}/api/s3/proxy?s3Key=${encodeURIComponent(s3Key)}`;
+          console.log('[FabricAnnotator] WEBAPP: Proxy URL:', proxyUrl.substring(0, 80));
+
+          const response = await fetch(proxyUrl);
+          if (!response.ok) {
+            throw new Error(`Proxy fetch failed: ${response.status}`);
+          }
+
+          const blob = await response.blob();
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error('Failed to read blob as data URL'));
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch (proxyError) {
+        console.warn('[FabricAnnotator] WEBAPP: Proxy fetch failed, trying direct fetch:', proxyError);
+        // Fall through to regular XHR fetch
+      }
+    }
+
+    // MOBILE MODE (or webapp fallback): Direct XHR fetch
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.onload = function() {
@@ -1257,13 +1298,30 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     const canvasObjects = this.canvas.getObjects();
     console.log('[Fabric Save] Canvas objects before toJSON():', canvasObjects.length, canvasObjects);
 
-    const dataUrl = this.canvas.toDataURL({
-      format: 'jpeg',
-      quality: 0.9,
-      multiplier: 1
-    });
+    let dataUrl: string;
+    let blob: Blob;
 
-    const blob = await this.dataUrlToBlob(dataUrl);
+    try {
+      dataUrl = this.canvas.toDataURL({
+        format: 'jpeg',
+        quality: 0.9,
+        multiplier: 1
+      });
+      blob = await this.dataUrlToBlob(dataUrl);
+    } catch (e) {
+      // WEBAPP MODE: Canvas is tainted (loaded without crossOrigin), can't export
+      if (environment.isWeb) {
+        console.warn('[Fabric Save] WEBAPP: Cannot export tainted canvas - view only mode');
+        const alert = await this.alertController.create({
+          header: 'View Only Mode',
+          message: 'Photo editing is not available in the web viewer. You can view photos and annotations, but changes cannot be saved.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+      throw e;
+    }
 
     const annotationData = this.canvas.toJSON();
 
