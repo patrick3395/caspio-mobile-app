@@ -141,6 +141,56 @@
   gap: 12px;
 }
 
+// ==============================================
+// G2-RESP-002: Desktop Layout Optimizations (Web Only)
+// ==============================================
+
+// Desktop: Wider container and multi-column layout
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  .projects-container {
+    max-width: 1200px;
+    padding: 20px 24px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
+  .projects-container {
+    max-width: 1400px;
+    padding: 24px 32px;
+  }
+
+  // Multi-column project list
+  .projects-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  // Ensure skeleton cards also use grid
+  .skeleton-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1600px) {
+  .projects-container {
+    max-width: 1600px;
+  }
+
+  // 3 columns on very large screens
+  .projects-list {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .skeleton-container {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
 ion-item-sliding {
   margin-bottom: 12px;
 }

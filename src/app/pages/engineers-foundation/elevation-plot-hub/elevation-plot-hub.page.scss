@@ -318,3 +318,46 @@
     gap: 10px;
   }
 }
+
+// ==============================================
+// G2-RESP-002: Desktop Layout Optimizations (Web Only)
+// ==============================================
+
+// Desktop: Wider container and multi-column layout for room cards
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  .page-container {
+    max-width: 1200px;
+    padding: 24px;
+  }
+
+  // 2-column room list at 1024px+
+  .rooms-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
+  .page-container {
+    max-width: 1400px;
+    padding: 28px 32px;
+  }
+
+  // Keep 2 columns but with more gap
+  .rooms-list {
+    gap: 20px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1600px) {
+  .page-container {
+    max-width: 1600px;
+  }
+
+  // 3 columns on very large screens
+  .rooms-list {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+}

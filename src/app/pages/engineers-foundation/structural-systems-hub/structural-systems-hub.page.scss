@@ -105,3 +105,47 @@
     gap: 10px;
   }
 }
+
+// ==============================================
+// G2-RESP-002: Desktop Layout Optimizations (Web Only)
+// ==============================================
+
+// Desktop: Wider container and multi-column layout for category cards
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  .page-container {
+    max-width: 1200px;
+    padding: 24px;
+  }
+
+  // 2-column category cards at 1024px+
+  .cards-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
+  .page-container {
+    max-width: 1400px;
+    padding: 28px 32px;
+  }
+
+  // 3-column category cards at 1200px+
+  .cards-container {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1600px) {
+  .page-container {
+    max-width: 1600px;
+  }
+
+  // 4-column category cards for very large screens
+  .cards-container {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+}

@@ -4599,3 +4599,96 @@ body.dark-theme {
     max-width: 100%;
   }
 }
+
+/* ============================================================================
+ * G2-RESP-002: Desktop Layout Optimizations (Web Only)
+ * - Side-by-side layouts for larger screens
+ * - Multi-column layouts for lists (1200px+)
+ * - Reasonable max-width constraints (1200-1400px)
+ * - Efficient use of whitespace
+ * ============================================================================ */
+
+/* Desktop breakpoint: 1024px+ for side-by-side layouts */
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  /* Increase max-width for main containers on desktop */
+  .projects-container,
+  .main-container {
+    max-width: 1200px;
+    padding: 20px 24px;
+  }
+
+  /* Side-by-side layout utility classes */
+  .desktop-side-by-side {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  /* Navigation cards in hub pages - 2 columns at 1024px */
+  .cards-container.desktop-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+/* Large desktop breakpoint: 1200px+ for multi-column lists */
+@media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
+  /* Increase max-width for larger screens */
+  .projects-container,
+  .main-container {
+    max-width: 1400px;
+    padding: 24px 32px;
+  }
+
+  /* Multi-column project lists - auto-fit with min 380px */
+  .projects-list.desktop-multi-column {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 16px;
+  }
+
+  /* Section-based project lists with 2 columns */
+  .status-section .projects-list.desktop-multi-column {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  /* Navigation cards - 3 columns on large desktop */
+  .cards-container.desktop-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  /* Hub navigation cards - optimized grid */
+  .hub-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+}
+
+/* Extra large desktop: 1400px+ for maximum efficiency */
+@media (hover: hover) and (pointer: fine) and (min-width: 1400px) {
+  /* Allow slightly wider content on very large screens */
+  .projects-container,
+  .main-container {
+    max-width: 1600px;
+  }
+
+  /* Larger gap between columns for better visual separation */
+  .projects-list.desktop-multi-column {
+    gap: 20px;
+  }
+
+  /* 3-column project lists for very wide screens */
+  .status-section .projects-list.desktop-multi-column {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* 4-column navigation cards on very wide screens */
+  .cards-container.desktop-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
