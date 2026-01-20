@@ -7,6 +7,7 @@ import { PerformanceMonitorService } from './services/performance-monitor.servic
 import { FabricService } from './services/fabric.service';
 import { BackgroundSyncService } from './services/background-sync.service';
 import { NavigationHistoryService } from './services/navigation-history.service';
+import { ScreenReaderAnnouncementService } from './services/screen-reader-announcement.service';
 import { environment } from '../environments/environment';
 import { addIcons } from 'ionicons';
 import {
@@ -114,7 +115,9 @@ export class AppComponent {
     // across all navigation (main page, project switching, app backgrounding)
     private readonly backgroundSync: BackgroundSyncService,
     // G2-NAV-001: Inject NavigationHistoryService at app startup for web browser history support
-    private readonly navigationHistory: NavigationHistoryService
+    private readonly navigationHistory: NavigationHistoryService,
+    // G2-A11Y-003: Inject ScreenReaderAnnouncementService at app startup for web accessibility
+    private readonly screenReaderAnnouncement: ScreenReaderAnnouncementService
   ) {
     // Register icons for offline use
     addIcons({
@@ -231,6 +234,8 @@ export class AppComponent {
       // G2-NAV-001: Log navigation history service initialization (web only)
       if (environment.isWeb) {
         console.log('[App] NavigationHistoryService initialized - browser back/forward buttons enabled');
+        // G2-A11Y-003: Log screen reader announcement service initialization
+        console.log('[App] ScreenReaderAnnouncementService initialized - aria-live regions active');
       }
 
       // Trigger a sync status refresh to show correct state on app load

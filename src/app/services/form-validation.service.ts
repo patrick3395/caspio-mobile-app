@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
+import { ScreenReaderAnnouncementService } from './screen-reader-announcement.service';
 
 /**
  * Form Validation Service (Web Only)
@@ -39,6 +40,8 @@ export class FormValidationService {
   private get isWeb(): boolean {
     return environment.isWeb;
   }
+
+  constructor(private screenReaderAnnouncement: ScreenReaderAnnouncementService) {}
 
   /**
    * Validates a single field value against rules
@@ -238,13 +241,57 @@ export class FormValidationService {
     if (!this.isWeb) return true;
 
     let allValid = true;
+    const errors: string[] = [];
+
     for (const field of Object.keys(rules)) {
       this.markTouched(state, field);
       this.updateFieldState(state, field, values[field], rules[field]);
       if (!state[field]?.valid) {
         allValid = false;
+        if (state[field]?.error) {
+          errors.push(state[field].error!);
+        }
       }
     }
+
+    // G2-A11Y-003: Announce form errors to screen readers (web only)
+    if (!allValid && errors.length > 0) {
+      this.screenReaderAnnouncement.announceFormErrors(errors);
+    }
+
     return allValid;
+  }
+
+  /**
+   * Validates all fields and announces errors to screen readers (web only)
+   * Use this when submitting a form to provide immediate feedback
+   */
+  validateAllWithAnnouncement(
+    state: Record<string, FieldValidationState>,
+    values: Record<string, any>,
+    rules: Record<string, ValidationRules>
+  ): { valid: boolean; errors: string[] } {
+    if (!this.isWeb) return { valid: true, errors: [] };
+
+    const errors: string[] = [];
+    let allValid = true;
+
+    for (const field of Object.keys(rules)) {
+      this.markTouched(state, field);
+      this.updateFieldState(state, field, values[field], rules[field]);
+      if (!state[field]?.valid) {
+        allValid = false;
+        if (state[field]?.error) {
+          errors.push(state[field].error!);
+        }
+      }
+    }
+
+    // G2-A11Y-003: Announce form errors to screen readers
+    if (!allValid && errors.length > 0) {
+      this.screenReaderAnnouncement.announceFormErrors(errors);
+    }
+
+    return { valid: allValid, errors };
   }
 }

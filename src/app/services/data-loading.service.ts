@@ -3,6 +3,8 @@ import { BehaviorSubject, Observable, Subject, Subscription } from 'rxjs';
 import { filter, debounceTime } from 'rxjs/operators';
 import { IndexedDbService } from './indexed-db.service';
 import { OfflineService } from './offline.service';
+import { ScreenReaderAnnouncementService } from './screen-reader-announcement.service';
+import { environment } from '../../environments/environment';
 
 /**
  * Represents the state of data loading with cache-first pattern
@@ -55,7 +57,8 @@ export class DataLoadingService {
 
   constructor(
     private indexedDb: IndexedDbService,
-    private offlineService: OfflineService
+    private offlineService: OfflineService,
+    private screenReaderAnnouncement: ScreenReaderAnnouncementService
   ) {}
 
   /**
@@ -100,10 +103,15 @@ export class DataLoadingService {
       console.log(`[DataLoading] Cache empty for ${dataType}, fetching from API (blocking)...`);
       state.loading = true;
 
+      // G2-A11Y-003: Announce loading state (web only)
+      if (environment.isWeb) {
+        this.screenReaderAnnouncement.announceLoading(true, dataType.replace(/_/g, ' '));
+      }
+
       try {
         const freshData = await fetcher();
         await this.indexedDb.cacheServiceData(serviceId, dataType, freshData || []);
-        
+
         state = {
           data: freshData || [],
           source: 'api',
@@ -115,6 +123,11 @@ export class DataLoadingService {
         };
 
         console.log(`[DataLoading] Fetched ${freshData?.length || 0} items for ${dataType}`);
+
+        // G2-A11Y-003: Announce loading complete (web only)
+        if (environment.isWeb) {
+          this.screenReaderAnnouncement.announceLoading(false, dataType.replace(/_/g, ' '));
+        }
       } catch (error: any) {
         console.error(`[DataLoading] Error fetching ${dataType}:`, error);
         state = {
@@ -123,6 +136,11 @@ export class DataLoadingService {
           error: error.message || 'Failed to load data',
           source: 'none'
         };
+
+        // G2-A11Y-003: Announce error (web only)
+        if (environment.isWeb) {
+          this.screenReaderAnnouncement.announceError(error.message || 'Failed to load data');
+        }
       }
     }
 
@@ -135,10 +153,16 @@ export class DataLoadingService {
     // Step 4: If force refresh requested and online
     if (forceRefresh && isOnline) {
       state.loading = true;
+
+      // G2-A11Y-003: Announce loading state (web only)
+      if (environment.isWeb) {
+        this.screenReaderAnnouncement.announceLoading(true, dataType.replace(/_/g, ' '));
+      }
+
       try {
         const freshData = await fetcher();
         await this.indexedDb.cacheServiceData(serviceId, dataType, freshData || []);
-        
+
         state = {
           data: freshData || [],
           source: 'api',
@@ -150,9 +174,19 @@ export class DataLoadingService {
         };
 
         this.dataRefreshed$.next({ dataType, serviceId });
+
+        // G2-A11Y-003: Announce loading complete (web only)
+        if (environment.isWeb) {
+          this.screenReaderAnnouncement.announceLoading(false, dataType.replace(/_/g, ' '));
+        }
       } catch (error: any) {
         state.error = error.message;
         state.loading = false;
+
+        // G2-A11Y-003: Announce error (web only)
+        if (environment.isWeb) {
+          this.screenReaderAnnouncement.announceError(error.message || 'Failed to load data');
+        }
       }
     }
 

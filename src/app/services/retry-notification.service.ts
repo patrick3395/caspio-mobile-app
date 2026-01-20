@@ -1,6 +1,7 @@
 import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { ScreenReaderAnnouncementService } from './screen-reader-announcement.service';
 
 export interface RetryState {
   isRetrying: boolean;
@@ -37,7 +38,10 @@ export class RetryNotificationService {
   private toastElement: HTMLElement | null = null;
   private dismissTimeout: any = null;
 
-  constructor(private ngZone: NgZone) {}
+  constructor(
+    private ngZone: NgZone,
+    private screenReaderAnnouncement: ScreenReaderAnnouncementService
+  ) {}
 
   /**
    * Get current retry state as observable
@@ -67,8 +71,13 @@ export class RetryNotificationService {
       canManualRetry: false
     });
 
+    const message = `Retrying request (${attempt}/${maxAttempts})...`;
+
+    // G2-A11Y-003: Announce retry attempt to screen readers
+    this.screenReaderAnnouncement.announce(message, 'polite');
+
     this.showRetryToast(
-      `Retrying request (${attempt}/${maxAttempts})...`,
+      message,
       'warning',
       delayMs + 1000 // Show for duration of delay + 1 second
     );
@@ -90,6 +99,9 @@ export class RetryNotificationService {
       lastError: error,
       canManualRetry: !!retryCallback
     });
+
+    // G2-A11Y-003: Announce error to screen readers
+    this.screenReaderAnnouncement.announceError(`Request failed after 3 attempts`);
 
     if (retryCallback) {
       // Emit manual retry request for UI to handle
@@ -128,8 +140,13 @@ export class RetryNotificationService {
     });
 
     if (attempt > 1) {
+      const message = `Request succeeded after ${attempt} attempts`;
+
+      // G2-A11Y-003: Announce success to screen readers
+      this.screenReaderAnnouncement.announceSuccess(message);
+
       this.showRetryToast(
-        `Request succeeded after ${attempt} attempts`,
+        message,
         'success',
         2000
       );
