@@ -1,5 +1,15 @@
-<div class="sync-widget" *ngIf="hasPendingItems()" [class.syncing]="syncStatus.isSyncing" (click)="showSyncDetails()">
-  <ion-icon [name]="getStatusIcon()" [color]="getStatusColor()"></ion-icon>
-  <span class="sync-count">{{ syncStatus.pendingCount }}</span>
+<div
+  class="sync-widget"
+  *ngIf="hasPendingItems()"
+  [class.syncing]="syncStatus.isSyncing"
+  (click)="showSyncDetails()"
+  role="button"
+  tabindex="0"
+  (keydown.enter)="showSyncDetails()"
+  (keydown.space)="showSyncDetails(); $event.preventDefault()"
+  [attr.aria-label]="syncStatus.isSyncing ? 'Syncing ' + syncStatus.pendingCount + ' items, click for details' : syncStatus.pendingCount + ' items pending sync, click for details'"
+  aria-live="polite">
+  <ion-icon [name]="getStatusIcon()" [color]="getStatusColor()" aria-hidden="true"></ion-icon>
+  <span class="sync-count" aria-hidden="true">{{ syncStatus.pendingCount }}</span>
 </div>
 

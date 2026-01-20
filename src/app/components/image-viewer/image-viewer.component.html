@@ -1,39 +1,42 @@
-<div class="image-viewer-wrapper">
+<div class="image-viewer-wrapper" role="dialog" aria-label="Image viewer">
   <!-- Fixed Header with proper positioning -->
   <div class="viewer-header">
     <div class="header-content">
       <!-- Left side navigation -->
       <div class="header-left">
-        <ion-button 
-          fill="clear" 
-          (click)="previousImage()" 
-          [disabled]="!hasPrevious()" 
-          class="nav-btn">
+        <ion-button
+          fill="clear"
+          (click)="previousImage()"
+          [disabled]="!hasPrevious()"
+          class="nav-btn"
+          aria-label="Previous image">
           <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
         </ion-button>
       </div>
-      
+
       <!-- Center title -->
       <div class="header-center">
-        <div class="document-title">{{ getCurrentTitle() }}</div>
-        <div class="image-counter" *ngIf="hasMultipleImages()">
+        <div class="document-title" id="image-viewer-title">{{ getCurrentTitle() }}</div>
+        <div class="image-counter" *ngIf="hasMultipleImages()" aria-live="polite">
           {{ currentIndex + 1 }} / {{ getAllImages().length }}
         </div>
       </div>
-      
+
       <!-- Right side actions -->
       <div class="header-right">
-        <ion-button 
-          fill="clear" 
-          (click)="nextImage()" 
-          [disabled]="!hasNext()" 
-          class="nav-btn">
+        <ion-button
+          fill="clear"
+          (click)="nextImage()"
+          [disabled]="!hasNext()"
+          class="nav-btn"
+          aria-label="Next image">
           <ion-icon name="chevron-forward" slot="icon-only"></ion-icon>
         </ion-button>
-        <ion-button 
-          fill="clear" 
-          (click)="dismiss()" 
-          class="close-btn">
+        <ion-button
+          fill="clear"
+          (click)="dismiss()"
+          class="close-btn"
+          aria-label="Close image viewer">
           <ion-icon name="close" slot="icon-only"></ion-icon>
         </ion-button>
       </div>
@@ -43,73 +46,91 @@
   <!-- Main Content Area -->
   <div class="viewer-content">
     <!-- Annotation Toolbar (only when editing) -->
-    <div class="annotation-bar" *ngIf="isAnnotating">
+    <div class="annotation-bar" *ngIf="isAnnotating" role="toolbar" aria-label="Annotation tools">
       <div class="annotation-tools-wrapper">
-        <div class="tool-group">
-          <button 
+        <div class="tool-group" role="group" aria-label="Drawing tools">
+          <button
             [class.active]="annotationTool === 'pen'"
+            [attr.aria-pressed]="annotationTool === 'pen'"
             (click)="selectTool('pen')"
-            class="tool-btn">
+            class="tool-btn"
+            aria-label="Pen tool">
             <ion-icon name="pencil"></ion-icon>
           </button>
-          <button 
+          <button
             [class.active]="annotationTool === 'arrow'"
+            [attr.aria-pressed]="annotationTool === 'arrow'"
             (click)="selectTool('arrow')"
-            class="tool-btn">
+            class="tool-btn"
+            aria-label="Arrow tool">
             <ion-icon name="arrow-forward"></ion-icon>
           </button>
-          <button 
+          <button
             [class.active]="annotationTool === 'rectangle'"
+            [attr.aria-pressed]="annotationTool === 'rectangle'"
             (click)="selectTool('rectangle')"
-            class="tool-btn">
+            class="tool-btn"
+            aria-label="Rectangle tool">
             <ion-icon name="square-outline"></ion-icon>
           </button>
-          <button 
+          <button
             [class.active]="annotationTool === 'circle'"
+            [attr.aria-pressed]="annotationTool === 'circle'"
             (click)="selectTool('circle')"
-            class="tool-btn">
+            class="tool-btn"
+            aria-label="Circle tool">
             <ion-icon name="ellipse-outline"></ion-icon>
           </button>
-          <button 
+          <button
             [class.active]="annotationTool === 'text'"
+            [attr.aria-pressed]="annotationTool === 'text'"
             (click)="selectTool('text')"
-            class="tool-btn">
+            class="tool-btn"
+            aria-label="Text tool">
             <ion-icon name="text"></ion-icon>
           </button>
         </div>
-        
+
         <div class="tool-divider"></div>
-        
-        <div class="tool-group">
-          <input 
-            type="color" 
-            [(ngModel)]="annotationColor" 
-            class="color-input">
-          <input 
-            type="range" 
-            min="1" 
-            max="10" 
-            [(ngModel)]="lineWidth" 
-            class="width-slider">
+
+        <div class="tool-group" role="group" aria-label="Style options">
+          <input
+            type="color"
+            [(ngModel)]="annotationColor"
+            class="color-input"
+            aria-label="Annotation color">
+          <input
+            type="range"
+            min="1"
+            max="10"
+            [(ngModel)]="lineWidth"
+            class="width-slider"
+            aria-label="Line width"
+            [attr.aria-valuenow]="lineWidth"
+            aria-valuemin="1"
+            aria-valuemax="10">
         </div>
-        
+
         <div class="tool-divider"></div>
-        
-        <div class="tool-group">
-          <button 
+
+        <div class="tool-group" role="group" aria-label="Edit actions">
+          <button
             (click)="undoAnnotation()"
             [disabled]="!canUndo()"
-            class="tool-btn">
+            class="tool-btn"
+            aria-label="Undo last annotation">
             <ion-icon name="arrow-undo"></ion-icon>
           </button>
-          <button 
+          <button
             (click)="clearAnnotations()"
-            class="tool-btn">
+            class="tool-btn"
+            aria-label="Clear all annotations">
             <ion-icon name="trash-outline"></ion-icon>
           </button>
-          <button 
+          <button
             (click)="saveAnnotatedImage()"
-            class="tool-btn save-btn">
+            class="tool-btn save-btn"
+            aria-label="Save annotated image">
             <ion-icon name="checkmark"></ion-icon>
             Save
           </button>
@@ -144,60 +165,71 @@
       </div>
       
       <!-- Loading indicator -->
-      <div class="loading-indicator" *ngIf="imageLoading">
-        <ion-spinner name="crescent"></ion-spinner>
+      <div class="loading-indicator" *ngIf="imageLoading" role="status" aria-live="polite">
+        <ion-spinner name="crescent" aria-hidden="true"></ion-spinner>
         <p>Loading image...</p>
       </div>
-      
+
       <!-- Error state -->
-      <div class="error-state" *ngIf="imageError">
-        <ion-icon name="image-outline" class="error-icon"></ion-icon>
+      <div class="error-state" *ngIf="imageError" role="alert">
+        <ion-icon name="image-outline" class="error-icon" aria-hidden="true"></ion-icon>
         <p>Unable to load image</p>
-        <button (click)="retryImageLoad()" class="retry-btn">
-          <ion-icon name="refresh"></ion-icon>
+        <button (click)="retryImageLoad()" class="retry-btn" aria-label="Retry loading image">
+          <ion-icon name="refresh" aria-hidden="true"></ion-icon>
           Retry
         </button>
       </div>
     </div>
-    
+
     <!-- Thumbnail Strip -->
-    <div class="thumbnail-strip" *ngIf="hasMultipleImages() && !isAnnotating">
+    <div class="thumbnail-strip" *ngIf="hasMultipleImages() && !isAnnotating" role="listbox" aria-label="Image thumbnails">
       <div class="thumbnails-wrapper">
-        <div 
-          *ngFor="let img of getAllImages(); let i = index" 
+        <div
+          *ngFor="let img of getAllImages(); let i = index"
           class="thumbnail"
           [class.active]="i === currentIndex"
-          (click)="selectImage(i)">
-          <img [src]="img.url | safeUrl" [alt]="img.title">
-          <span class="thumb-number">{{ i + 1 }}</span>
+          (click)="selectImage(i)"
+          role="option"
+          [attr.aria-selected]="i === currentIndex"
+          [attr.aria-label]="'Image ' + (i + 1) + ' of ' + getAllImages().length + ': ' + img.title"
+          tabindex="0"
+          (keydown.enter)="selectImage(i)"
+          (keydown.space)="selectImage(i); $event.preventDefault()">
+          <img [src]="img.url | safeUrl" [alt]="img.title" aria-hidden="true">
+          <span class="thumb-number" aria-hidden="true">{{ i + 1 }}</span>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Bottom Action Bar -->
-  <div class="action-bar">
-    <div class="file-info">
-      <ion-icon name="document-outline"></ion-icon>
+  <div class="action-bar" role="toolbar" aria-label="Image actions">
+    <div class="file-info" aria-label="Current file">
+      <ion-icon name="document-outline" aria-hidden="true"></ion-icon>
       <span>{{ getCurrentFilename() }}</span>
     </div>
-    
+
     <div class="action-buttons">
-      <button 
-        (click)="toggleAnnotation()" 
+      <button
+        (click)="toggleAnnotation()"
         class="action-btn"
-        [class.active]="isAnnotating">
-        <ion-icon name="create-outline"></ion-icon>
+        [class.active]="isAnnotating"
+        [attr.aria-pressed]="isAnnotating"
+        [attr.aria-label]="isAnnotating ? 'Exit annotation mode' : 'Annotate image'">
+        <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
       </button>
-      <button 
-        (click)="downloadImage()" 
-        class="action-btn">
-        <ion-icon name="download-outline"></ion-icon>
+      <button
+        (click)="downloadImage()"
+        class="action-btn"
+        aria-label="Download image">
+        <ion-icon name="download-outline" aria-hidden="true"></ion-icon>
       </button>
-      <button 
-        (click)="toggleFullscreen()" 
-        class="action-btn">
-        <ion-icon [name]="isFullscreen ? 'contract-outline' : 'expand-outline'"></ion-icon>
+      <button
+        (click)="toggleFullscreen()"
+        class="action-btn"
+        [attr.aria-pressed]="isFullscreen"
+        [attr.aria-label]="isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'">
+        <ion-icon [name]="isFullscreen ? 'contract-outline' : 'expand-outline'" aria-hidden="true"></ion-icon>
       </button>
     </div>
   </div>

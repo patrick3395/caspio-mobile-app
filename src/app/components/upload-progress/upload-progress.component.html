@@ -1,41 +1,58 @@
 <!-- Upload Progress Overlay (Web Only) - G2-LOADING-003 -->
-<div *ngIf="isWeb && hasActiveUploads" class="upload-progress-container">
+<div
+  *ngIf="isWeb && hasActiveUploads"
+  class="upload-progress-container"
+  role="region"
+  aria-label="Upload progress"
+  aria-live="polite"
+  aria-atomic="false">
   <!-- Individual upload progress items -->
   <div
     *ngFor="let upload of activeUploads; trackBy: trackByUploadId"
     class="upload-progress-item"
     [class.completed]="upload.stage === 'complete'"
     [class.error]="upload.stage === 'error'"
-  >
+    role="progressbar"
+    [attr.aria-valuenow]="upload.progress"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    [attr.aria-label]="upload.fileName + ': ' + upload.progress + '% - ' + getStageLabel(upload.stage)">
     <div class="upload-progress-header">
       <span class="upload-progress-filename">{{ upload.fileName }}</span>
-      <span class="upload-progress-percent">{{ upload.progress }}%</span>
+      <span class="upload-progress-percent" aria-hidden="true">{{ upload.progress }}%</span>
     </div>
-    <div class="upload-progress-bar">
+    <div class="upload-progress-bar" aria-hidden="true">
       <div
         class="upload-progress-bar-fill"
-        [style.width.%]="upload.progress"
-      ></div>
+        [style.width.%]="upload.progress">
+      </div>
     </div>
-    <div class="upload-progress-stage">{{ getStageLabel(upload.stage) }}</div>
+    <div class="upload-progress-stage" aria-hidden="true">{{ getStageLabel(upload.stage) }}</div>
   </div>
 
   <!-- Batch upload queue progress -->
-  <div *ngIf="queueStatus && queueStatus.totalTasks > 0" class="upload-progress-item batch-item">
+  <div
+    *ngIf="queueStatus && queueStatus.totalTasks > 0"
+    class="upload-progress-item batch-item"
+    role="progressbar"
+    [attr.aria-valuenow]="queueStatus.completedTasks"
+    aria-valuemin="0"
+    [attr.aria-valuemax]="queueStatus.totalTasks"
+    [attr.aria-label]="'Photo queue: ' + queueStatus.completedTasks + ' of ' + queueStatus.totalTasks + ' completed'">
     <div class="upload-progress-header">
       <span class="upload-progress-filename">
-        <ion-icon name="images-outline"></ion-icon>
+        <ion-icon name="images-outline" aria-hidden="true"></ion-icon>
         Photo Queue
       </span>
-      <span class="upload-progress-percent">{{ queueStatus.completedTasks }}/{{ queueStatus.totalTasks }}</span>
+      <span class="upload-progress-percent" aria-hidden="true">{{ queueStatus.completedTasks }}/{{ queueStatus.totalTasks }}</span>
     </div>
-    <div class="upload-progress-bar">
+    <div class="upload-progress-bar" aria-hidden="true">
       <div
         class="upload-progress-bar-fill"
-        [style.width.%]="getQueuePercentage()"
-      ></div>
+        [style.width.%]="getQueuePercentage()">
+      </div>
     </div>
-    <div class="upload-progress-stage">
+    <div class="upload-progress-stage" aria-hidden="true">
       <span *ngIf="queueStatus.activeTasks > 0">
         Uploading {{ queueStatus.activeTasks }} photo{{ queueStatus.activeTasks > 1 ? 's' : '' }}...
       </span>

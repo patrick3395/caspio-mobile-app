@@ -1,9 +1,10 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { IonicModule } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
 import { GlobalErrorHandlerService, ErrorInfo } from '../../services/global-error-handler.service';
+import { FocusTrapDirective } from '../../directives/focus-trap.directive';
 
 /**
  * G2-ERRORS-001: Error Boundary Component
@@ -12,20 +13,31 @@ import { GlobalErrorHandlerService, ErrorInfo } from '../../services/global-erro
  * Only rendered on web platform.
  *
  * G2-PERF-003: OnPush change detection for performance optimization (web only)
+ * G2-A11Y-001: Focus trap and proper ARIA attributes for accessibility
  */
 @Component({
   selector: 'app-error-boundary',
   standalone: true,
-  imports: [CommonModule, IonicModule],
+  imports: [CommonModule, IonicModule, FocusTrapDirective],
   changeDetection: environment.isWeb ? ChangeDetectionStrategy.OnPush : ChangeDetectionStrategy.Default,
   template: `
     <div
       class="error-boundary-overlay"
       *ngIf="isWeb && showError"
       (click)="onOverlayClick($event)"
+      role="presentation"
     >
-      <div class="error-boundary-modal" role="alertdialog" aria-labelledby="error-title" aria-describedby="error-message">
-        <div class="error-icon">
+      <div
+        class="error-boundary-modal"
+        role="alertdialog"
+        aria-labelledby="error-title"
+        aria-describedby="error-message"
+        aria-modal="true"
+        appFocusTrap
+        [autoFocus]="true"
+        [restoreFocus]="true"
+      >
+        <div class="error-icon" aria-hidden="true">
           <ion-icon name="alert-circle-outline"></ion-icon>
         </div>
         <h2 id="error-title" class="error-title">Something went wrong</h2>
@@ -39,17 +51,29 @@ import { GlobalErrorHandlerService, ErrorInfo } from '../../services/global-erro
           </details>
         </div>
 
-        <div class="error-actions">
-          <button class="error-btn error-btn-secondary" (click)="dismiss()">
-            <ion-icon name="close-outline"></ion-icon>
+        <div class="error-actions" role="group" aria-label="Error recovery actions">
+          <button
+            class="error-btn error-btn-secondary"
+            (click)="dismiss()"
+            aria-label="Dismiss error message"
+          >
+            <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
             Dismiss
           </button>
-          <button class="error-btn error-btn-secondary" (click)="goBack()">
-            <ion-icon name="arrow-back-outline"></ion-icon>
+          <button
+            class="error-btn error-btn-secondary"
+            (click)="goBack()"
+            aria-label="Go back to previous page"
+          >
+            <ion-icon name="arrow-back-outline" aria-hidden="true"></ion-icon>
             Go Back
           </button>
-          <button class="error-btn error-btn-primary" (click)="retry()">
-            <ion-icon name="refresh-outline"></ion-icon>
+          <button
+            class="error-btn error-btn-primary"
+            (click)="retry()"
+            aria-label="Retry the operation"
+          >
+            <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
             Retry
           </button>
         </div>
@@ -74,6 +98,13 @@ export class ErrorBoundaryComponent implements OnInit, OnDestroy {
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.isWeb && this.showError) {
+      this.dismiss();
+    }
+  }
 
   ngOnInit(): void {
     if (!this.isWeb) {

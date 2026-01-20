@@ -35,13 +35,14 @@
   <div class="projects-container">
     <!-- Search bar -->
     <div class="search-container">
-      <ion-searchbar 
+      <ion-searchbar
         [(ngModel)]="searchTerm"
         (ionInput)="handleSearchTermChange($event.detail.value)"
         placeholder="Search by address..."
         class="enhanced-search-bar"
         showClearButton="focus"
-        animated="true">
+        animated="true"
+        aria-label="Search active projects by address">
       </ion-searchbar>
     </div>
 
@@ -71,9 +72,9 @@
     </div>
 
     <!-- Error state -->
-    <div *ngIf="error && !loading" class="error-container">
+    <div *ngIf="error && !loading" class="error-container" role="alert">
       <p>{{ error }}</p>
-      <ion-button (click)="checkAuthAndLoadProjects()">Retry</ion-button>
+      <ion-button (click)="checkAuthAndLoadProjects()" aria-label="Retry loading projects">Retry</ion-button>
     </div>
 
     <!-- Projects list -->
@@ -169,7 +170,7 @@
       </ng-template>
 
       <!-- Empty state -->
-      <div *ngIf="filteredProjects.length === 0" class="empty-state">
+      <div *ngIf="filteredProjects.length === 0" class="empty-state" role="status" aria-live="polite">
         <p>{{ searchTerm.trim() ? 'No matching projects found' : 'No active projects found' }}</p>
       </div>
     </div>

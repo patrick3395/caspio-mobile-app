@@ -1,64 +1,104 @@
 <ion-header>
   <ion-toolbar color="primary">
-    <ion-title>Annotate Photo</ion-title>
+    <ion-title id="annotation-modal-title">Annotate Photo</ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="cancel()">
+      <ion-button (click)="cancel()" aria-label="Close annotation modal">
         <ion-icon name="close"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content>
+<ion-content role="dialog" aria-labelledby="annotation-modal-title">
   <!-- Toolbar -->
-  <div class="annotation-toolbar">
-    <div class="tool-group">
-      <button class="tool-btn" [class.active]="selectedTool === 'arrow'" (click)="selectTool('arrow')">
-        <ion-icon name="arrow-forward"></ion-icon>
+  <div class="annotation-toolbar" role="toolbar" aria-label="Annotation tools">
+    <div class="tool-group" role="group" aria-label="Drawing tools">
+      <button
+        class="tool-btn"
+        [class.active]="selectedTool === 'arrow'"
+        [attr.aria-pressed]="selectedTool === 'arrow'"
+        (click)="selectTool('arrow')"
+        aria-label="Arrow tool">
+        <ion-icon name="arrow-forward" aria-hidden="true"></ion-icon>
       </button>
-      <button class="tool-btn" [class.active]="selectedTool === 'circle'" (click)="selectTool('circle')">
-        <ion-icon name="ellipse-outline"></ion-icon>
+      <button
+        class="tool-btn"
+        [class.active]="selectedTool === 'circle'"
+        [attr.aria-pressed]="selectedTool === 'circle'"
+        (click)="selectTool('circle')"
+        aria-label="Circle tool">
+        <ion-icon name="ellipse-outline" aria-hidden="true"></ion-icon>
       </button>
-      <button class="tool-btn" [class.active]="selectedTool === 'rectangle'" (click)="selectTool('rectangle')">
-        <ion-icon name="square-outline"></ion-icon>
+      <button
+        class="tool-btn"
+        [class.active]="selectedTool === 'rectangle'"
+        [attr.aria-pressed]="selectedTool === 'rectangle'"
+        (click)="selectTool('rectangle')"
+        aria-label="Rectangle tool">
+        <ion-icon name="square-outline" aria-hidden="true"></ion-icon>
       </button>
-      <button class="tool-btn" [class.active]="selectedTool === 'pen'" (click)="selectTool('pen')">
-        <ion-icon name="pencil"></ion-icon>
+      <button
+        class="tool-btn"
+        [class.active]="selectedTool === 'pen'"
+        [attr.aria-pressed]="selectedTool === 'pen'"
+        (click)="selectTool('pen')"
+        aria-label="Pen tool">
+        <ion-icon name="pencil" aria-hidden="true"></ion-icon>
       </button>
-      <button class="tool-btn" [class.active]="selectedTool === 'text'" (click)="selectTool('text')">
-        <ion-icon name="text"></ion-icon>
+      <button
+        class="tool-btn"
+        [class.active]="selectedTool === 'text'"
+        [attr.aria-pressed]="selectedTool === 'text'"
+        (click)="selectTool('text')"
+        aria-label="Text tool">
+        <ion-icon name="text" aria-hidden="true"></ion-icon>
       </button>
     </div>
-    
-    <div class="tool-group">
-      <input type="color" [(ngModel)]="selectedColor" class="color-picker">
-      <ion-range min="1" max="10" [(ngModel)]="lineWidth" color="primary">
+
+    <div class="tool-group" role="group" aria-label="Style options">
+      <input
+        type="color"
+        [(ngModel)]="selectedColor"
+        class="color-picker"
+        aria-label="Annotation color">
+      <ion-range
+        min="1"
+        max="10"
+        [(ngModel)]="lineWidth"
+        color="primary"
+        aria-label="Line width">
         <ion-label slot="start">1</ion-label>
         <ion-label slot="end">10</ion-label>
       </ion-range>
     </div>
-    
-    <div class="tool-group">
-      <ion-button size="small" (click)="undo()">
-        <ion-icon name="arrow-undo"></ion-icon>
+
+    <div class="tool-group" role="group" aria-label="Edit actions">
+      <ion-button size="small" (click)="undo()" aria-label="Undo last annotation">
+        <ion-icon name="arrow-undo" aria-hidden="true"></ion-icon>
         Undo
       </ion-button>
-      <ion-button size="small" (click)="clear()" color="danger">
-        <ion-icon name="trash"></ion-icon>
+      <ion-button size="small" (click)="clear()" color="danger" aria-label="Clear all annotations">
+        <ion-icon name="trash" aria-hidden="true"></ion-icon>
         Clear
       </ion-button>
     </div>
   </div>
 
   <!-- Canvas container -->
-  <div class="canvas-container">
-    <img #imageElement [src]="imageUrl" style="display: none;">
-    <canvas #canvas class="annotation-canvas"></canvas>
-    
+  <div class="canvas-container" role="img" aria-label="Photo annotation canvas">
+    <img #imageElement [src]="imageUrl" style="display: none;" alt="Photo being annotated">
+    <canvas #canvas class="annotation-canvas" aria-label="Drawing canvas for annotations"></canvas>
+
     <!-- Text input overlay -->
     <div class="text-input-overlay" *ngIf="isAddingText" [style.left.px]="textPosition.x" [style.top.px]="textPosition.y">
-      <input type="text" [(ngModel)]="textInput" (keyup.enter)="addText()" placeholder="Enter text..." autofocus>
-      <button (click)="addText()">Add</button>
+      <input
+        type="text"
+        [(ngModel)]="textInput"
+        (keyup.enter)="addText()"
+        placeholder="Enter text..."
+        autofocus
+        aria-label="Text annotation input">
+      <button (click)="addText()" aria-label="Add text annotation">Add</button>
     </div>
   </div>
 </ion-content>
@@ -69,8 +109,8 @@
       <ion-button (click)="cancel()" color="medium">Cancel</ion-button>
     </ion-buttons>
     <ion-buttons slot="end">
-      <ion-button (click)="save()" color="primary" fill="solid">
-        <ion-icon name="checkmark" slot="start"></ion-icon>
+      <ion-button (click)="save()" color="primary" fill="solid" aria-label="Save annotated photo">
+        <ion-icon name="checkmark" slot="start" aria-hidden="true"></ion-icon>
         Save
       </ion-button>
     </ion-buttons>

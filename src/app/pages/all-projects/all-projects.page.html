@@ -12,13 +12,14 @@
   <div class="projects-container">
     <!-- Enhanced Search bar -->
     <div class="search-container">
-      <ion-searchbar 
-        [(ngModel)]="searchTerm" 
+      <ion-searchbar
+        [(ngModel)]="searchTerm"
         (ionInput)="handleSearchTermChange($event.detail.value)"
         placeholder="Search by address..."
         class="enhanced-search-bar"
         showClearButton="focus"
-        animated="true">
+        animated="true"
+        aria-label="Search completed projects by address">
       </ion-searchbar>
     </div>
 
@@ -47,9 +48,9 @@
     </div>
 
     <!-- Error state -->
-    <div *ngIf="error && !loading" class="error-container">
+    <div *ngIf="error && !loading" class="error-container" role="alert">
       <p>{{ error }}</p>
-      <ion-button (click)="checkAuthAndLoadProjects()">Retry</ion-button>
+      <ion-button (click)="checkAuthAndLoadProjects()" aria-label="Retry loading projects">Retry</ion-button>
     </div>
 
     <!-- Projects sections by status -->
@@ -106,7 +107,7 @@
       <!-- On Hold Projects Section -->
       <div class="status-section" *ngIf="onHoldProjects.length">
         <h3 class="section-title">
-          <ion-icon name="pause-circle" color="warning"></ion-icon>
+          <ion-icon name="pause-circle" color="warning" aria-hidden="true"></ion-icon>
           On Hold ({{ onHoldProjects.length }})
         </h3>
         <div class="projects-list" role="list">
@@ -155,7 +156,7 @@
       <!-- Cancelled Projects Section -->
       <div class="status-section" *ngIf="cancelledProjects.length">
         <h3 class="section-title">
-          <ion-icon name="close-circle" color="danger"></ion-icon>
+          <ion-icon name="close-circle" color="danger" aria-hidden="true"></ion-icon>
           Cancelled ({{ cancelledProjects.length }})
         </h3>
         <div class="projects-list" role="list">
@@ -204,7 +205,7 @@
       <!-- Other/Archived Projects Section -->
       <div class="status-section" *ngIf="archivedProjects.length">
         <h3 class="section-title">
-          <ion-icon name="archive" color="medium"></ion-icon>
+          <ion-icon name="archive" color="medium" aria-hidden="true"></ion-icon>
           Archived ({{ archivedProjects.length }})
         </h3>
         <div class="projects-list" role="list">
@@ -251,8 +252,8 @@
       </div>
 
       <!-- Empty state -->
-      <div class="empty-state" *ngIf="filteredProjects.length === 0">
-        <ion-icon name="folder-open-outline"></ion-icon>
+      <div class="empty-state" *ngIf="filteredProjects.length === 0" role="status" aria-live="polite">
+        <ion-icon name="folder-open-outline" aria-hidden="true"></ion-icon>
         <p>No projects found</p>
       </div>
     </div>
