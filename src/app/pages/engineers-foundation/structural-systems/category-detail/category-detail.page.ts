@@ -821,7 +821,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Convert attachments to photo format
         const photos: any[] = [];
         for (const att of attachments || []) {
-          let displayUrl = att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
+          // Debug: Log attachment fields to identify correct photo field
+          if (attachments.length > 0 && photos.length === 0) {
+            console.log('[CategoryDetail] WEBAPP: Attachment fields:', Object.keys(att));
+            console.log('[CategoryDetail] WEBAPP: Sample attachment:', JSON.stringify(att).substring(0, 500));
+          }
+
+          // Try multiple possible field names for the photo URL/key
+          const rawPhotoValue = att.Photo || att.photo || att.url || att.displayUrl || att.URL || att.S3Key || att.s3Key;
+          console.log('[CategoryDetail] WEBAPP: Raw photo value for attach', att.AttachID || att.PK_ID, ':', rawPhotoValue?.substring(0, 100));
+
+          let displayUrl = rawPhotoValue || 'assets/img/photo-placeholder.png';
 
           // WEBAPP: Get S3 signed URL if needed
           // Check for S3 key (starts with 'uploads/') OR full S3 URL
@@ -831,10 +841,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                                 displayUrl.includes('.s3.') &&
                                 displayUrl.includes('amazonaws.com');
 
+            console.log('[CategoryDetail] WEBAPP: URL analysis - isS3Key:', isS3Key, 'isFullS3Url:', isFullS3Url);
+
             if (isS3Key) {
               // S3 key like 'uploads/path/file.jpg' - get signed URL
               try {
+                console.log('[CategoryDetail] WEBAPP: Getting signed URL for S3 key:', displayUrl);
                 displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+                console.log('[CategoryDetail] WEBAPP: Got signed URL:', displayUrl?.substring(0, 80));
               } catch (e) {
                 console.warn('[CategoryDetail] WEBAPP: Could not get S3 URL for key:', e);
               }
@@ -844,20 +858,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                 // Extract S3 key from URL: https://bucket.s3.region.amazonaws.com/uploads/path/file.jpg
                 const urlObj = new URL(displayUrl);
                 const s3Key = urlObj.pathname.substring(1); // Remove leading '/'
+                console.log('[CategoryDetail] WEBAPP: Extracted S3 key from URL:', s3Key);
                 if (s3Key && s3Key.startsWith('uploads/')) {
                   displayUrl = await this.caspioService.getS3FileUrl(s3Key);
+                  console.log('[CategoryDetail] WEBAPP: Got signed URL:', displayUrl?.substring(0, 80));
                 } else {
                   console.warn('[CategoryDetail] WEBAPP: S3 URL does not have uploads/ key:', s3Key);
                 }
               } catch (e) {
                 console.warn('[CategoryDetail] WEBAPP: Could not get signed URL for S3 URL:', e);
               }
+            } else {
+              console.log('[CategoryDetail] WEBAPP: URL not recognized as S3, using as-is');
             }
           }
 
+          const attachId = att.AttachID || att.attachId || att.PK_ID;
           photos.push({
-            id: att.AttachID || att.attachId || att.PK_ID,
-            attachId: att.AttachID || att.attachId || att.PK_ID,
+            id: attachId,
+            attachId: attachId,
+            AttachID: attachId, // Also set capital version for error handler
             displayUrl,
             url: displayUrl,
             caption: att.Annotation || att.caption || '',
