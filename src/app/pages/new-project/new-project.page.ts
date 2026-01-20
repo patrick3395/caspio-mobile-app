@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController } from '@ionic/angular';
@@ -7,6 +7,7 @@ import { ProjectsService, ProjectCreationData } from '../../services/projects.se
 import { ServiceEfeService } from '../../services/service-efe.service';
 import { GoogleMapsLoaderService } from '../../services/google-maps-loader.service';
 import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
+import { FormAutosaveService } from '../../services/form-autosave.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -16,7 +17,10 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class NewProjectPage implements OnInit {
+export class NewProjectPage implements OnInit, OnDestroy {
+
+  // Autosave form ID
+  private readonly FORM_ID = 'new-project';
 
   formData: ProjectCreationData = {
     company: '1',  // Always Noble Property Inspections (CompanyID = 1)
@@ -67,7 +71,8 @@ export class NewProjectPage implements OnInit {
     private alertController: AlertController,
     private changeDetectorRef: ChangeDetectorRef,
     private googleMapsLoader: GoogleMapsLoaderService,
-    private formValidation: FormValidationService
+    private formValidation: FormValidationService,
+    private formAutosave: FormAutosaveService
   ) {}
 
   async ngOnInit() {
@@ -79,8 +84,29 @@ export class NewProjectPage implements OnInit {
     // Load states from Caspio
     await this.loadStates();
 
+    // Initialize autosave (web only)
+    if (this.isWeb) {
+      const restoredData = await this.formAutosave.initAutosave({
+        formId: this.FORM_ID,
+        debounceMs: 2000
+      });
+
+      if (restoredData) {
+        // Restore form data
+        this.formData = { ...this.formData, ...restoredData };
+        this.changeDetectorRef.detectChanges();
+      }
+    }
+
     // Initialize Google Places for address autocomplete
     this.ensureGooglePlacesAutocomplete();
+  }
+
+  ngOnDestroy() {
+    // Clean up autosave subscription
+    if (this.isWeb) {
+      this.formAutosave.destroyAutosave(this.FORM_ID);
+    }
   }
 
   // Real-time validation methods (web only)
@@ -97,6 +123,8 @@ export class NewProjectPage implements OnInit {
     if (this.validationState[field]?.touched) {
       this.validateField(field);
     }
+    // Trigger autosave
+    this.formAutosave.triggerSave(this.FORM_ID, this.formData);
   }
 
   validateField(field: string): void {
@@ -418,12 +446,16 @@ export class NewProjectPage implements OnInit {
       const result = await this.projectsService.createProject(this.formData).toPromise();
       
       if (result?.success && result.projectId) {
-        
+        // Clear autosave data on successful submit (web only)
+        if (this.isWeb) {
+          this.formAutosave.clearSavedData(this.FORM_ID);
+        }
+
         // Create Service_EFE record for the new project
         // Use ProjectID if available, otherwise use PK_ID (exact same as local server)
         const projectData = result.projectData;
         const projectIdForService = projectData?.ProjectID || projectData?.PK_ID || result.projectId;
-        
+
         if (projectIdForService && projectIdForService !== 'new') {
           try {
             await this.serviceEfeService.createServiceEFE(projectIdForService).toPromise();
@@ -433,16 +465,16 @@ export class NewProjectPage implements OnInit {
           }
         } else {
         }
-        
+
         await loading.dismiss();
-        
+
         // Navigate to the new project's detail page
         if (result.projectId) {
           // Navigate immediately - Caspio API is instantaneous
           // Use replaceUrl to ensure proper navigation history
           await this.router.navigate(['/project', result.projectId], { replaceUrl: true });
         } else {
-          await this.router.navigate(['/tabs/active-projects']);  
+          await this.router.navigate(['/tabs/active-projects']);
         }
       } else {
         throw new Error('Failed to create project');
