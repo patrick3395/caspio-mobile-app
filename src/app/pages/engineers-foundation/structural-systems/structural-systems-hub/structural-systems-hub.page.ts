@@ -229,11 +229,16 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
     this.changeDetectorRef.detectChanges();
 
     try {
-      // Load templates and visuals from API
-      const [templates, visuals] = await Promise.all([
+      // Load service data, templates, and visuals from API
+      const [serviceData, templates, visuals] = await Promise.all([
+        this.caspioService.getService(this.serviceId, false).toPromise(),
         this.foundationData.getVisualsTemplates(),
         this.foundationData.getVisualsByService(this.serviceId)
       ]);
+
+      // Set service data (contains StructStat field for "Where will you provide visuals")
+      this.serviceData = serviceData || {};
+      console.log(`[StructuralHub] WEBAPP: Loaded serviceData, StructStat=${this.serviceData.StructStat}`);
 
       console.log(`[StructuralHub] WEBAPP: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} visuals from API`);
 

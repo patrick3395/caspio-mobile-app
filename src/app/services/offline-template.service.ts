@@ -1086,9 +1086,24 @@ export class OfflineTemplateService {
 
   /**
    * Get visual templates - IndexedDB first, API fallback if empty and online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getVisualTemplates(): Promise<any[]> {
-    // First try IndexedDB cache
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching visual templates directly from API');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesVisualsTemplates());
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} visual templates from server`);
+        return templates || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for visual templates:', error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: First try IndexedDB cache
     const cached = await this.indexedDb.getCachedTemplates('visual');
     if (cached && cached.length > 0) {
       console.log(`[OfflineTemplate] Visual templates from cache: ${cached.length}`);
@@ -1116,9 +1131,24 @@ export class OfflineTemplateService {
 
   /**
    * Get EFE templates - IndexedDB first, API fallback if empty and online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getEFETemplates(): Promise<any[]> {
-    // First try IndexedDB cache
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching EFE templates directly from API');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesEFETemplates());
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} EFE templates from server`);
+        return templates || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for EFE templates:', error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: First try IndexedDB cache
     const cached = await this.indexedDb.getCachedTemplates('efe');
     if (cached && cached.length > 0) {
       console.log(`[OfflineTemplate] EFE templates from cache: ${cached.length}`);
@@ -1485,9 +1515,26 @@ export class OfflineTemplateService {
 
   /**
    * Get service record from IndexedDB
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getService(serviceId: string): Promise<any | null> {
     console.log(`[OfflineTemplate] getService(${serviceId}) called`);
+
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching service ${serviceId} directly from API`);
+      try {
+        const service = await firstValueFrom(this.caspioService.getService(serviceId, false));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded service from server`);
+        return service;
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for service:`, error);
+        return null;
+      }
+    }
+
+    // MOBILE MODE: Read from IndexedDB cache
     const result = await this.indexedDb.getCachedServiceRecord(serviceId);
     console.log(`[OfflineTemplate] getService(${serviceId}) returning:`, result ? JSON.stringify(result).substring(0, 200) : 'null');
     return result;
@@ -2321,8 +2368,24 @@ export class OfflineTemplateService {
 
   /**
    * Get project record from IndexedDB
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getProject(projectId: string): Promise<any | null> {
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching project ${projectId} directly from API`);
+      try {
+        const project = await firstValueFrom(this.caspioService.getProject(projectId, false));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded project from server`);
+        return project;
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for project:`, error);
+        return null;
+      }
+    }
+
+    // MOBILE MODE: Read from IndexedDB cache
     return this.indexedDb.getCachedProjectRecord(projectId);
   }
 
@@ -2333,9 +2396,24 @@ export class OfflineTemplateService {
   /**
    * Get Services_Drop dropdown options from IndexedDB
    * Falls back to API if not cached and online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API
    */
   async getServicesDrop(): Promise<any[]> {
-    // Try IndexedDB first
+    // WEBAPP MODE: Always fetch from API
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching Services_Drop directly from API');
+      try {
+        const data = await firstValueFrom(this.caspioService.getServicesDrop());
+        console.log('[OfflineTemplate] WEBAPP: Loaded Services_Drop from server:', data?.length || 0);
+        return data || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for Services_Drop:', error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Try IndexedDB first
     const cached = await this.indexedDb.getCachedGlobalData('services_drop');
     if (cached && cached.length > 0) {
       console.log('[OfflineTemplate] Loaded Services_Drop from cache:', cached.length);
@@ -2361,9 +2439,24 @@ export class OfflineTemplateService {
   /**
    * Get Projects_Drop dropdown options from IndexedDB
    * Falls back to API if not cached and online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API
    */
   async getProjectsDrop(): Promise<any[]> {
-    // Try IndexedDB first
+    // WEBAPP MODE: Always fetch from API
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching Projects_Drop directly from API');
+      try {
+        const data = await firstValueFrom(this.caspioService.getProjectsDrop());
+        console.log('[OfflineTemplate] WEBAPP: Loaded Projects_Drop from server:', data?.length || 0);
+        return data || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for Projects_Drop:', error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Try IndexedDB first
     const cached = await this.indexedDb.getCachedGlobalData('projects_drop');
     if (cached && cached.length > 0) {
       console.log('[OfflineTemplate] Loaded Projects_Drop from cache:', cached.length);
