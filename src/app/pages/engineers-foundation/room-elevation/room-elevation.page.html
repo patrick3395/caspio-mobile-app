@@ -15,7 +15,7 @@
                 (click)="openHelp(1, 'FDF')"
                 title="FDF"
                 style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
-          <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+          <ion-icon name="information-circle-outline" style="font-size: 22px; color: var(--ion-color-primary);"></ion-icon>
         </button>
       </div>
 
@@ -228,10 +228,9 @@
                 class="styled-input"
                 style="max-width: 100%;">
           <option value="">-- Select Type --</option>
-          <option value="Sunken">Sunken</option>
-          <option value="Raised Edge(s)">Raised Edge(s)</option>
+          <option value="Sunken and Flat">Sunken and Flat</option>
           <option value="Sunken and Sloped">Sunken and Sloped</option>
-          <option value="Flat Across">Flat Across</option>
+          <option value="Level with the Foundation (Flat)">Level with the Foundation (Flat)</option>
         </select>
       </div>
 
@@ -245,7 +244,7 @@
                   [title]="isBaseStation() ? 'Base Station Location' : 'Elevation Measurements'"
                   [attr.aria-label]="isBaseStation() ? 'Base Station Location Help' : 'Elevation Measurements Help'"
                   style="margin-left: 8px; background: transparent; border: none; padding: 2px;">
-            <ion-icon name="information-circle-outline" style="font-size: 18px; color: var(--ion-color-primary);"></ion-icon>
+            <ion-icon name="information-circle-outline" style="font-size: 22px; color: var(--ion-color-primary);"></ion-icon>
           </button>
         </div>
       </div>
@@ -287,7 +286,7 @@
             <div style="margin-top: 10px; display: flex; gap: 8px;">
               <!-- Measurement Photo Container -->
               <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
-                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; text-align: center;">
                   Measurement
                   <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
                 </div>
@@ -343,7 +342,7 @@
 
               <!-- Location Photo Container -->
               <div style="flex: 1; border: 2px solid #ddd; border-radius: 8px; padding: 8px; background: #f9f9f9;">
-                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center;">
+                <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; text-align: center;">
                   Location
                   <ion-spinner *ngIf="isPointPending(point)" name="dots" style="width: 16px; height: 16px; margin-left: 4px; vertical-align: middle;"></ion-spinner>
                 </div>

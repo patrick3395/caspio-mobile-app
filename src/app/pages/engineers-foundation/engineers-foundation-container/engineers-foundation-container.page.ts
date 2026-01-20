@@ -11,8 +11,9 @@ import { OfflineService } from '../../../services/offline.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { NavigationHistoryService } from '../../../services/navigation-history.service';
+import { CaspioService } from '../../../services/caspio.service';
 import { filter } from 'rxjs/operators';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 interface Breadcrumb {
@@ -37,6 +38,10 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   currentPageShortTitle: string = 'EFE';
   isGeneratingPDF: boolean = false;
   isSubPage: boolean = false;
+
+  // Service instance tracking for multiple EFE services on same project
+  serviceInstanceNumber: number = 1;
+  totalEFEServices: number = 1;
 
   // Offline-first: template loading state
   templateReady: boolean = false;
@@ -66,7 +71,8 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     private backgroundSync: BackgroundSyncService,
     private indexedDb: IndexedDbService,
     private changeDetectorRef: ChangeDetectorRef,
-    private navigationHistory: NavigationHistoryService
+    private navigationHistory: NavigationHistoryService,
+    private caspioService: CaspioService
   ) {
     // CRITICAL: Ensure loading screen shows immediately
     this.templateReady = false;
@@ -103,6 +109,11 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
       // Initialize state service with IDs
       this.stateService.initialize(this.projectId, this.serviceId);
+
+      // Load service instance number (for multiple EFE services on same project)
+      if (isNewService || isFirstLoad) {
+        this.loadServiceInstanceNumber();
+      }
 
       // Subscribe to project name updates (only once per service)
       if (isNewService || isFirstLoad) {
@@ -191,13 +202,66 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     this.syncSubscriptions.push(serviceSub);
   }
 
+  /**
+   * Load service instance number for display when multiple EFE services exist on the same project
+   * This allows showing "EFE #1", "EFE #2" etc. in the header
+   */
+  private async loadServiceInstanceNumber(): Promise<void> {
+    try {
+      // First get the current service to find its TypeID
+      const currentService = await this.offlineTemplate.getService(this.serviceId);
+      if (!currentService) {
+        console.log('[EF Container] Could not load current service');
+        return;
+      }
+
+      const currentTypeId = currentService.TypeID;
+
+      // Get all services for this project
+      const allServices = await firstValueFrom(this.caspioService.getServicesByProject(this.projectId));
+
+      // Filter to only services with the same TypeID (same service type)
+      const sameTypeServices = (allServices || [])
+        .filter((s: any) => s.TypeID === currentTypeId)
+        .sort((a: any, b: any) => {
+          // Sort by PK_ID (ServiceID) to get consistent ordering
+          const idA = parseInt(a.PK_ID || a.ServiceID) || 0;
+          const idB = parseInt(b.PK_ID || b.ServiceID) || 0;
+          return idA - idB;
+        });
+
+      this.totalEFEServices = sameTypeServices.length;
+
+      // Find the index of the current service
+      const currentIndex = sameTypeServices.findIndex((s: any) =>
+        String(s.PK_ID || s.ServiceID) === String(this.serviceId)
+      );
+
+      this.serviceInstanceNumber = currentIndex >= 0 ? currentIndex + 1 : 1;
+
+      console.log(`[EF Container] Service instance: ${this.serviceInstanceNumber} of ${this.totalEFEServices} EFE services`);
+
+      // Update breadcrumbs with new instance number
+      this.updateBreadcrumbs();
+      this.changeDetectorRef.detectChanges();
+    } catch (error) {
+      console.warn('[EF Container] Error loading service instance number:', error);
+      // Keep defaults (1 of 1)
+    }
+  }
+
   private updateBreadcrumbs() {
     this.breadcrumbs = [];
     const url = this.router.url;
 
-    // Reset to default title
-    this.currentPageTitle = 'Engineers Foundation Evaluation';
-    this.currentPageShortTitle = 'EFE';
+    // Reset to default title - include instance number if multiple EFE services exist
+    if (this.totalEFEServices > 1) {
+      this.currentPageTitle = `Engineers Foundation Evaluation #${this.serviceInstanceNumber}`;
+      this.currentPageShortTitle = `EFE #${this.serviceInstanceNumber}`;
+    } else {
+      this.currentPageTitle = 'Engineers Foundation Evaluation';
+      this.currentPageShortTitle = 'EFE';
+    }
 
     // Parse URL to build breadcrumbs and set page title
     // URL format: /engineers-foundation/{projectId}/{serviceId}/...
@@ -207,9 +271,12 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
                      url.includes('/structural') ||
                      url.includes('/elevation');
 
-    // Always add EFE main page breadcrumb (clipboard icon)
+    // Always add EFE main page breadcrumb (clipboard icon) - include instance number if multiple
+    const efeLabel = this.totalEFEServices > 1
+      ? `Engineers Foundation Evaluation #${this.serviceInstanceNumber}`
+      : 'Engineers Foundation Evaluation';
     this.breadcrumbs.push({
-      label: 'Engineers Foundation Evaluation',
+      label: efeLabel,
       path: '',
       icon: 'clipboard-outline'
     });

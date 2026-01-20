@@ -1,0 +1,193 @@
+{
+  "name": "WebApp Best Practices Implementation",
+  "description": "Transform the webapp into a polished, professional web application that follows modern web best practices while maintaining full mobile app compatibility. CRITICAL: DO NOT TOUCH MOBILE APP - all changes must use environment.isWeb checks.",
+  "userStories": [
+    {
+      "id": "G2-LOADING-001",
+      "title": "Fix loading spinners that don't clear properly",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Audit all pages and ensure loading spinners clear when navigation completes, when returning to a page, and after errors. Acceptance: All loading states clear when navigation completes; Loading states clear when returning to a page (ionViewWillEnter); No orphaned spinners remain after errors; All changes wrapped in environment.isWeb check.",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-LOADING-002",
+      "title": "Implement skeleton loaders for content",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Replace simple spinners with skeleton loaders for better perceived performance on project cards, service lists, and images. Acceptance: Project cards show skeleton placeholders while loading; Service lists show skeleton placeholders; Images show placeholder shimmer effect.",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-LOADING-003",
+      "title": "Add progress indicators for long operations",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Show progress percentage for PDF generation, file uploads, and batch operations. Acceptance: PDF generation shows progress percentage; File uploads show progress bar; Batch operations show item count progress.",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-NAV-001",
+      "title": "Implement proper browser back/forward support",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Ensure browser navigation buttons work correctly throughout the webapp with proper history management. Acceptance: Back button returns to previous page with correct state; Forward button works after going back; Deep linking works for all routes; No duplicate history entries.",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-NAV-002",
+      "title": "Add breadcrumb navigation for deep pages",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Show users where they are in the app hierarchy on Project Detail, Service pages (EFE, HUD, LBW, DTE), and Category detail pages. Acceptance: Breadcrumbs visible on Project Detail page; Breadcrumbs visible on all service pages; Breadcrumbs are clickable links; Only shown on webapp (environment.isWeb).",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-NAV-003",
+      "title": "Add route guards for unsaved changes",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Warn users before navigating away from pages with unsaved changes. Works with browser back button and in-app navigation. Acceptance: Confirmation dialog shown when leaving with unsaved changes; Works with browser back button; Works with in-app navigation; User can choose to stay or leave.",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-FORMS-001",
+      "title": "Add real-time form validation",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Validate form fields as users type with inline error messages. Acceptance: Required fields show validation on blur; Email/phone fields validate format; Error messages appear inline near the field; Submit button disabled until form is valid.",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-FORMS-002",
+      "title": "Implement autosave for forms",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Automatically save form progress to localStorage to prevent data loss. Acceptance: Form data saved to localStorage periodically; Prompt to restore on page reload; Clear saved data on successful submit.",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-FORMS-003",
+      "title": "Add keyboard navigation support for forms",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Allow full form completion using keyboard only with logical tab order. Acceptance: Tab order is logical; Enter submits forms where appropriate; Escape closes modals/dialogs; Arrow keys work in dropdowns.",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-ERRORS-001",
+      "title": "Implement global error boundary",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Catch and handle unexpected errors gracefully with user-friendly messages and recovery options. Acceptance: Unhandled errors show user-friendly message; Option to retry or go back; Errors logged for debugging; App doesn't crash completely.",
+      "passes": true,
+      "completionNotes": "Completed by agent"
+    },
+    {
+      "id": "G2-ERRORS-002",
+      "title": "Add retry mechanisms for failed API calls",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Automatically retry failed requests with exponential backoff and user feedback. Note: Status options retry already implemented in ensureStatusOptionsLoaded(). Acceptance: Failed requests retry up to 3 times; User informed of retry attempts; Manual retry option after all retries fail.",
+      "passes": false
+    },
+    {
+      "id": "G2-ERRORS-003",
+      "title": "Add offline detection and handling",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Detect when user goes offline, show clear indication, and queue actions for when back online. Acceptance: Clear indication when offline; Actions queued for when back online; Graceful degradation of features.",
+      "passes": false
+    },
+    {
+      "id": "G2-PERF-001",
+      "title": "Implement virtual scrolling for long lists",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Use virtual scrolling for project lists and service lists with 100+ items. Acceptance: Lists with 100+ items scroll smoothly; Memory usage stays constant regardless of list size; Search/filter works with virtual scrolling.",
+      "passes": false
+    },
+    {
+      "id": "G2-PERF-002",
+      "title": "Lazy load images with intersection observer",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Only load images when they enter the viewport with placeholder shown until loaded. Acceptance: Images below the fold don't load initially; Placeholder shown until image loads; No layout shift when images load.",
+      "passes": false
+    },
+    {
+      "id": "G2-PERF-003",
+      "title": "Optimize Angular change detection",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Use OnPush change detection strategy where possible to reduce unnecessary re-renders. Acceptance: Critical components use OnPush; Manual change detection only when needed; No unnecessary re-renders.",
+      "passes": false
+    },
+    {
+      "id": "G2-PERF-004",
+      "title": "Implement request caching and deduplication",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Cache API responses and prevent duplicate simultaneous requests. Acceptance: Identical requests within short window are deduplicated; Cache invalidation on mutations; Stale-while-revalidate strategy for non-critical data.",
+      "passes": false
+    },
+    {
+      "id": "G2-A11Y-001",
+      "title": "Add proper ARIA labels and roles",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Ensure all interactive elements have proper ARIA attributes for screen readers. Acceptance: All buttons have accessible names; Form fields have associated labels; Dynamic content has aria-live regions; Modals have proper focus management.",
+      "passes": false
+    },
+    {
+      "id": "G2-A11Y-002",
+      "title": "Ensure keyboard accessibility",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. All functionality must be available via keyboard with visible focus indicators. Acceptance: Focus visible on all interactive elements; No keyboard traps; Skip links for main content; Logical tab order.",
+      "passes": false
+    },
+    {
+      "id": "G2-A11Y-003",
+      "title": "Add screen reader announcements",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Announce important state changes to screen reader users using aria-live regions. Acceptance: Loading states announced; Form errors announced; Success messages announced; Page changes announced.",
+      "passes": false
+    },
+    {
+      "id": "G2-A11Y-004",
+      "title": "Ensure sufficient color contrast",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. All text must meet WCAG AA contrast requirements (4.5:1 for normal, 3:1 for large text). Acceptance: Normal text has 4.5:1 contrast ratio; Large text has 3:1 contrast ratio; UI components have 3:1 contrast ratio.",
+      "passes": false
+    },
+    {
+      "id": "G2-UX-001",
+      "title": "Add hover states for all interactive elements",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Clear visual feedback on hover for buttons, links, and cards. Acceptance: Buttons change appearance on hover; Links have hover underline or color change; Cards have subtle lift/shadow on hover; Cursor changes appropriately (pointer for clickable).",
+      "passes": false
+    },
+    {
+      "id": "G2-UX-002",
+      "title": "Add smooth transition animations",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Smooth CSS transitions for state changes, page transitions, and expanding/collapsing sections. Acceptance: Page transitions are smooth; Expanding/collapsing sections animate; Modals fade in/out; No janky or abrupt visual changes.",
+      "passes": false
+    },
+    {
+      "id": "G2-UX-003",
+      "title": "Implement toast notifications",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Non-blocking toast notifications for success and info messages that auto-dismiss. Acceptance: Success actions show toast notification; Toasts auto-dismiss after timeout; Can be manually dismissed; Don't block user interaction.",
+      "passes": false
+    },
+    {
+      "id": "G2-UX-004",
+      "title": "Add confirmation dialogs for destructive actions",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Require user confirmation before delete/remove actions with clear description. Acceptance: Delete actions require confirmation; Clear description of what will be deleted; Option to cancel; Keyboard accessible (Enter to confirm, Escape to cancel).",
+      "passes": false
+    },
+    {
+      "id": "G2-RESP-001",
+      "title": "Audit and fix tablet breakpoints",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Ensure layouts work well on tablet-sized screens with no horizontal scrolling. Acceptance: No horizontal scrolling at any breakpoint; Touch targets are at least 44x44px; Text remains readable; Images scale appropriately.",
+      "passes": false
+    },
+    {
+      "id": "G2-RESP-002",
+      "title": "Optimize desktop layouts",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Take advantage of larger screens with side-by-side layouts and multi-column lists. Acceptance: Side-by-side layouts where appropriate; Reasonable max-width for content (1200-1400px); Multi-column layouts for project/service lists; Efficient use of whitespace.",
+      "passes": false
+    },
+    {
+      "id": "G2-SEO-001",
+      "title": "Add dynamic page titles",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Set unique page titles based on current view for better browser tab identification. Acceptance: Each page has unique title; Title reflects current content (e.g., project address); Browser tab shows meaningful text.",
+      "passes": false
+    },
+    {
+      "id": "G2-SEC-001",
+      "title": "Audit and fix XSS vulnerabilities",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Ensure all user input is properly sanitized using Angular's built-in sanitization. Acceptance: No innerHTML with unsanitized user content; All dynamic content properly escaped; Angular's DomSanitizer used where needed.",
+      "passes": false
+    },
+    {
+      "id": "G2-SEC-002",
+      "title": "Audit sensitive data handling",
+      "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Ensure no sensitive data stored insecurely in localStorage or logged to console. Acceptance: No passwords stored client-side; Auth tokens have appropriate expiry; Sensitive data not logged to console in production; Clear data on logout.",
+      "passes": false
+    }
+  ],
+  "metadata": {
+    "updatedAt": "2026-01-20T19:30:30.346Z"
+  }
+}

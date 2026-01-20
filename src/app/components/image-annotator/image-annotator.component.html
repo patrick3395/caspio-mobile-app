@@ -93,23 +93,23 @@
 
     <!-- Actions -->
     <div class="tool-group">
-      <button 
-        class="tool-btn"
-        (click)="deleteSelected()"
-        [disabled]="!selectedAnnotation"
-        title="Delete Selected">
-        <ion-icon name="trash-outline"></ion-icon>
-      </button>
-      
-      <button 
+      <button
         class="tool-btn"
         (click)="undo()"
         [disabled]="annotations.length === 0"
         title="Undo">
         <ion-icon name="arrow-undo-outline"></ion-icon>
       </button>
-      
-      <button 
+
+      <button
+        class="tool-btn"
+        (click)="deleteSelected()"
+        [disabled]="!selectedAnnotation"
+        title="Delete Selected">
+        <ion-icon name="trash-outline"></ion-icon>
+      </button>
+
+      <button
         class="tool-btn"
         (click)="clearAll()"
         [disabled]="annotations.length === 0"

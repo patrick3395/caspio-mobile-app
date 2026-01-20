@@ -41,13 +41,13 @@ ion-content {
     align-items: center;
     justify-content: space-between;
     padding: 14px 16px;
-    background: #bdbdbd;
+    background: #909090;
     cursor: pointer;
     user-select: none;
     transition: background-color 0.2s ease;
 
     &:hover {
-      background: #b0b0b0;
+      background: #838383;
     }
 
     .accordion-header-content {
@@ -61,12 +61,86 @@ ion-content {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
+        background: transparent;
+        border-radius: 0;
 
-        ion-icon {
-          font-size: 20px;
-          color: white;
+        // Count badge styles matching structural-systems-hub
+        .count-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          font-weight: 700;
+
+          // Green CIRCLE for information/comments
+          &.info {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid #28a745;
+            color: #28a745;
+            background: white;
+          }
+
+          // Yellow/Orange SQUARE for limitations
+          &.limitation {
+            width: 28px;
+            height: 28px;
+            border-radius: 3px;
+            border: 2px solid #f0ad4e;
+            color: #f0ad4e;
+            background: white;
+          }
+
+          // Red TRIANGLE for deficiencies - larger size for 2-digit numbers
+          &.deficiency {
+            width: 0;
+            height: 0;
+            border: none;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 34px solid transparent;
+            position: relative;
+            color: #dc3545;
+            background: transparent;
+
+            // Triangle outline using pseudo-element (2px border to match circle/square)
+            &::before {
+              content: '';
+              position: absolute;
+              top: 4px;
+              left: -18px;
+              width: 0;
+              height: 0;
+              border-left: 18px solid transparent;
+              border-right: 18px solid transparent;
+              border-bottom: 30px solid #dc3545;
+            }
+
+            // Inner white triangle to create outline effect (2px inset for consistent border)
+            &::after {
+              content: '';
+              position: absolute;
+              top: 6px;
+              left: -16px;
+              width: 0;
+              height: 0;
+              border-left: 16px solid transparent;
+              border-right: 16px solid transparent;
+              border-bottom: 27px solid white;
+            }
+
+            // Number inside triangle
+            span {
+              position: absolute;
+              top: 14px;
+              left: 50%;
+              transform: translateX(-50%);
+              z-index: 1;
+              font-size: 12px;
+              white-space: nowrap;
+            }
+          }
         }
       }
 

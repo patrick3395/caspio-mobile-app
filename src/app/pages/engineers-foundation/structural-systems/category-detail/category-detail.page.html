@@ -37,9 +37,9 @@
           <div class="simple-accordion-header" (click)="toggleSection('information')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <ion-icon name="information-circle-outline"></ion-icon>
+                <span class="count-badge info">{{ organizedData.comments.length }}</span>
               </div>
-              <span class="type-header">Information ({{ organizedData.comments.length }})</span>
+              <span class="type-header">Information</span>
             </div>
             <div class="accordion-header-actions">
               <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom information">
@@ -239,9 +239,9 @@
           <div class="simple-accordion-header" (click)="toggleSection('limitations')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <ion-icon name="alert-circle-outline"></ion-icon>
+                <span class="count-badge limitation">{{ organizedData.limitations.length }}</span>
               </div>
-              <span class="type-header">Limitations ({{ organizedData.limitations.length }})</span>
+              <span class="type-header">Limitations</span>
             </div>
             <div class="accordion-header-actions">
               <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Limitation'); $event.stopPropagation()" title="Add custom limitation">
@@ -433,9 +433,9 @@
           <div class="simple-accordion-header" (click)="toggleSection('deficiencies')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <ion-icon name="warning-outline"></ion-icon>
+                <span class="count-badge deficiency"><span>{{ organizedData.deficiencies.length }}</span></span>
               </div>
-              <span class="type-header">Deficiencies ({{ organizedData.deficiencies.length }})</span>
+              <span class="type-header">Deficiencies</span>
             </div>
             <div class="accordion-header-actions">
               <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Deficiency'); $event.stopPropagation()" title="Add custom deficiency">
