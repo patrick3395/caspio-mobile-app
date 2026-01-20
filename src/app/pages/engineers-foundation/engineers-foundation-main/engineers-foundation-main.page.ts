@@ -281,21 +281,25 @@ export class EngineersFoundationMainPage implements OnInit {
 
   // Guard against double-click on finalize button
   private isFinalizationInProgress = false;
-  private finalizationCancelled = false;
 
   // Timeout constants for sync operations (in milliseconds)
   private readonly SYNC_TIMEOUT_MS = 45000; // 45 seconds per sync step
 
   /**
    * Helper to run a promise with timeout
+   * Returns { success: false, timedOut: true } on timeout
    */
-  private withTimeout<T>(promise: Promise<T>, timeoutMs: number, operationName: string): Promise<T | 'timeout'> {
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    operationName: string
+  ): Promise<{ result: T; timedOut: false } | { result: null; timedOut: true }> {
     return Promise.race([
-      promise,
-      new Promise<'timeout'>((resolve) => {
+      promise.then(result => ({ result, timedOut: false as const })),
+      new Promise<{ result: null; timedOut: true }>((resolve) => {
         setTimeout(() => {
           console.log(`[EngFoundation Main] ${operationName} timed out after ${timeoutMs/1000}s`);
-          resolve('timeout');
+          resolve({ result: null, timedOut: true });
         }, timeoutMs);
       })
     ]);
@@ -308,23 +312,12 @@ export class EngineersFoundationMainPage implements OnInit {
       return;
     }
     this.isFinalizationInProgress = true;
-    this.finalizationCancelled = false;
 
     const isUpdate = this.isReportFinalized;
 
-    // Create cancellable loading dialog
     const loading = await this.loadingController.create({
       message: isUpdate ? 'Updating report...' : 'Finalizing report...',
-      backdropDismiss: false,
-      buttons: [{
-        text: 'Cancel',
-        role: 'cancel',
-        handler: () => {
-          console.log('[EngFoundation Main] Finalization cancelled by user');
-          this.finalizationCancelled = true;
-          this.isFinalizationInProgress = false;
-        }
-      }]
+      backdropDismiss: false
     });
     await loading.present();
 
@@ -335,35 +328,29 @@ export class EngineersFoundationMainPage implements OnInit {
       console.log('[EngFoundation Main] Checking for unsynced images...');
       const imageStatus = await this.localImageService.getServiceImageSyncStatus(this.serviceId);
 
-      if (this.finalizationCancelled) return;
-
       if (imageStatus.pending > 0) {
         console.log(`[EngFoundation Main] Found ${imageStatus.pending} unsynced images, forcing sync...`);
-        loading.message = `Syncing ${imageStatus.pending} image(s)... (tap Cancel to skip)`;
+        loading.message = `Syncing ${imageStatus.pending} image(s)...`;
 
         // Trigger background sync to process pending uploads
         this.backgroundSync.triggerSync();
 
         // Force sync with timeout
-        const syncResult = await this.withTimeout(
+        const syncOutcome = await this.withTimeout(
           this.localImageService.forceSyncServiceImages(
             this.serviceId,
             (current, total, status) => {
-              if (!this.finalizationCancelled) {
-                loading.message = `${status} (tap Cancel to skip)`;
-              }
+              loading.message = status;
             }
           ),
           this.SYNC_TIMEOUT_MS,
           'Image sync'
         );
 
-        if (this.finalizationCancelled) return;
-
         // Handle timeout or failure
-        if (syncResult === 'timeout' || (syncResult !== 'timeout' && !syncResult.success)) {
-          const failedCount = syncResult === 'timeout' ? imageStatus.pending : syncResult.failedCount;
-          const reason = syncResult === 'timeout' ? 'Sync timed out' : 'Some images failed';
+        if (syncOutcome.timedOut || !syncOutcome.result.success) {
+          const failedCount = syncOutcome.timedOut ? imageStatus.pending : syncOutcome.result.failedCount;
+          const reason = syncOutcome.timedOut ? 'Sync timed out' : 'Some images failed';
 
           await loading.dismiss();
           this.isFinalizationInProgress = false;
@@ -385,36 +372,30 @@ export class EngineersFoundationMainPage implements OnInit {
         }
       }
 
-      if (this.finalizationCancelled) return;
-
       // ==========================================
       // STEP 2: Sync ALL pending requests/captions (with timeout)
       // ==========================================
       console.log('[EngFoundation Main] Syncing pending requests and captions...');
-      loading.message = 'Syncing data... (tap Cancel to skip)';
+      loading.message = 'Syncing data...';
 
-      const dataSyncResult = await this.withTimeout(
+      const dataSyncOutcome = await this.withTimeout(
         this.backgroundSync.forceSyncAllPendingForService(
           this.serviceId,
           (status, current, total) => {
-            if (!this.finalizationCancelled) {
-              loading.message = `${status} (tap Cancel to skip)`;
-            }
+            loading.message = status;
           }
         ),
         this.SYNC_TIMEOUT_MS,
         'Data sync'
       );
 
-      if (this.finalizationCancelled) return;
-
-      console.log('[EngFoundation Main] Data sync result:', dataSyncResult);
+      console.log('[EngFoundation Main] Data sync result:', dataSyncOutcome);
 
       // Handle timeout or failure
-      if (dataSyncResult === 'timeout' || (dataSyncResult !== 'timeout' && !dataSyncResult.success)) {
-        const failedTotal = dataSyncResult === 'timeout' ? '?' :
-          (dataSyncResult.requestsFailed + dataSyncResult.captionsFailed);
-        const reason = dataSyncResult === 'timeout' ? 'Sync timed out' : 'Some items failed';
+      if (dataSyncOutcome.timedOut || !dataSyncOutcome.result.success) {
+        const failedTotal = dataSyncOutcome.timedOut ? '?' :
+          (dataSyncOutcome.result.requestsFailed + dataSyncOutcome.result.captionsFailed);
+        const reason = dataSyncOutcome.timedOut ? 'Sync timed out' : 'Some items failed';
 
         await loading.dismiss();
         this.isFinalizationInProgress = false;
@@ -435,8 +416,6 @@ export class EngineersFoundationMainPage implements OnInit {
         return;
       }
 
-      if (this.finalizationCancelled) return;
-
       // ==========================================
       // STEP 3: Update image pointers
       // ==========================================
@@ -445,8 +424,6 @@ export class EngineersFoundationMainPage implements OnInit {
       await this.localImageService.updateImagePointersToRemote(this.serviceId);
 
       await loading.dismiss();
-
-      if (this.finalizationCancelled) return;
 
       // ==========================================
       // STEP 4: Complete finalization
@@ -492,11 +469,11 @@ export class EngineersFoundationMainPage implements OnInit {
       let statusUpdateSuccess = false;
       try {
         const statusUpdatePromise = this.caspioService.updateService(this.serviceId, updateData).toPromise();
-        const result = await this.withTimeout(statusUpdatePromise, 15000, 'Status update');
+        const outcome = await this.withTimeout(statusUpdatePromise, 15000, 'Status update');
 
-        if (result !== 'timeout') {
+        if (!outcome.timedOut) {
           statusUpdateSuccess = true;
-          console.log('[EngFoundation Main] Update response:', result);
+          console.log('[EngFoundation Main] Update response:', outcome.result);
         } else {
           console.warn('[EngFoundation Main] Status update timed out - will sync later');
         }

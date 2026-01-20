@@ -21,7 +21,6 @@ import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNO
 import { environment } from '../../../../environments/environment';
 import { db, EfeField, EfePoint } from '../../../services/caspio-db';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
-import { OfflineTemplateService } from '../../../services/offline-template.service';
 
 @Component({
   selector: 'app-room-elevation',
