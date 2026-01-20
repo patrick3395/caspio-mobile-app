@@ -13,11 +13,12 @@ import { ThemeToggleComponent } from './components/theme-toggle/theme-toggle.com
 import { SyncToggleComponent } from './components/sync-toggle/sync-toggle.component';
 import { UploadProgressComponent } from './components/upload-progress/upload-progress.component';
 import { ErrorBoundaryComponent } from './components/error-boundary/error-boundary.component';
+import { OfflineIndicatorComponent } from './components/offline-indicator/offline-indicator.component';
 import { GlobalErrorHandlerService } from './services/global-error-handler.service';
 
 @NgModule({
   declarations: [AppComponent],
-  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent, UploadProgressComponent, ErrorBoundaryComponent],
+  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent, UploadProgressComponent, ErrorBoundaryComponent, OfflineIndicatorComponent],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: HTTP_INTERCEPTORS, useClass: CaspioInterceptor, multi: true },

@@ -1,14 +1,22 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, throwError, timer } from 'rxjs';
-import { tap, retryWhen, mergeMap } from 'rxjs/operators';
+import { Observable, throwError, timer, of } from 'rxjs';
+import { tap, retryWhen, mergeMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { RetryNotificationService } from './retry-notification.service';
+import { OfflineService } from './offline.service';
+
+export interface QueuedActionResult {
+  queued: boolean;
+  requestId?: string;
+  message: string;
+}
 
 /**
  * Service for making requests to the Express.js backend on AWS
  * This replaces direct Caspio API calls
  * Includes automatic retry with exponential backoff for failed requests (web only)
+ * G2-ERRORS-003: Added offline detection and action queueing
  */
 @Injectable({
   providedIn: 'root'
@@ -18,7 +26,8 @@ export class ApiGatewayService {
 
   constructor(
     private http: HttpClient,
-    private retryNotification: RetryNotificationService
+    private retryNotification: RetryNotificationService,
+    private offlineService: OfflineService
   ) {
     this.baseUrl = environment.apiGatewayUrl || '';
   }
@@ -128,6 +137,160 @@ export class ApiGatewayService {
    */
   healthCheck(): Observable<any> {
     return this.get('/api/health');
+  }
+
+  // ==========================================
+  // G2-ERRORS-003: Offline-aware operations
+  // ==========================================
+
+  /**
+   * Check if the app is currently online (web only)
+   */
+  isOnline(): boolean {
+    if (!environment.isWeb) {
+      return true; // Mobile handles offline differently
+    }
+    return this.offlineService.isOnline();
+  }
+
+  /**
+   * Queue a POST request for later when offline (web only)
+   * Returns immediately with a queued status
+   */
+  queuePostWhenOffline(endpoint: string, body: any): QueuedActionResult {
+    if (!environment.isWeb) {
+      return { queued: false, message: 'Queueing not available on mobile' };
+    }
+
+    const requestId = this.offlineService.queueRequest('POST', endpoint, body);
+    console.log(`[ApiGateway] Queued POST request for ${endpoint} (ID: ${requestId})`);
+
+    return {
+      queued: true,
+      requestId,
+      message: 'Your action has been queued and will be synced when you\'re back online.'
+    };
+  }
+
+  /**
+   * Queue a PUT request for later when offline (web only)
+   */
+  queuePutWhenOffline(endpoint: string, body: any): QueuedActionResult {
+    if (!environment.isWeb) {
+      return { queued: false, message: 'Queueing not available on mobile' };
+    }
+
+    const requestId = this.offlineService.queueRequest('PUT', endpoint, body);
+    console.log(`[ApiGateway] Queued PUT request for ${endpoint} (ID: ${requestId})`);
+
+    return {
+      queued: true,
+      requestId,
+      message: 'Your changes have been saved locally and will be synced when you\'re back online.'
+    };
+  }
+
+  /**
+   * Queue a DELETE request for later when offline (web only)
+   */
+  queueDeleteWhenOffline(endpoint: string): QueuedActionResult {
+    if (!environment.isWeb) {
+      return { queued: false, message: 'Queueing not available on mobile' };
+    }
+
+    const requestId = this.offlineService.queueRequest('DELETE', endpoint, null);
+    console.log(`[ApiGateway] Queued DELETE request for ${endpoint} (ID: ${requestId})`);
+
+    return {
+      queued: true,
+      requestId,
+      message: 'Your delete request has been queued and will be processed when you\'re back online.'
+    };
+  }
+
+  /**
+   * Make a POST request with offline fallback (web only)
+   * If offline, queues the request and returns a success-like response
+   */
+  postWithOfflineFallback<T>(
+    endpoint: string,
+    body: any,
+    options?: { headers?: HttpHeaders, idempotencyKey?: string }
+  ): Observable<T | QueuedActionResult> {
+    if (!environment.isWeb) {
+      return this.post<T>(endpoint, body, options);
+    }
+
+    if (!this.isOnline()) {
+      const result = this.queuePostWhenOffline(endpoint, body);
+      return of(result as T | QueuedActionResult);
+    }
+
+    return this.post<T>(endpoint, body, options).pipe(
+      catchError(error => {
+        // If the error is due to network issues, queue the request
+        if (error.status === 0 || error.status === 504 || !navigator.onLine) {
+          const result = this.queuePostWhenOffline(endpoint, body);
+          return of(result as T | QueuedActionResult);
+        }
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Make a PUT request with offline fallback (web only)
+   */
+  putWithOfflineFallback<T>(
+    endpoint: string,
+    body: any,
+    options?: { headers?: HttpHeaders }
+  ): Observable<T | QueuedActionResult> {
+    if (!environment.isWeb) {
+      return this.put<T>(endpoint, body, options);
+    }
+
+    if (!this.isOnline()) {
+      const result = this.queuePutWhenOffline(endpoint, body);
+      return of(result as T | QueuedActionResult);
+    }
+
+    return this.put<T>(endpoint, body, options).pipe(
+      catchError(error => {
+        if (error.status === 0 || error.status === 504 || !navigator.onLine) {
+          const result = this.queuePutWhenOffline(endpoint, body);
+          return of(result as T | QueuedActionResult);
+        }
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /**
+   * Make a DELETE request with offline fallback (web only)
+   */
+  deleteWithOfflineFallback<T>(
+    endpoint: string,
+    options?: { headers?: HttpHeaders }
+  ): Observable<T | QueuedActionResult> {
+    if (!environment.isWeb) {
+      return this.delete<T>(endpoint, options);
+    }
+
+    if (!this.isOnline()) {
+      const result = this.queueDeleteWhenOffline(endpoint);
+      return of(result as T | QueuedActionResult);
+    }
+
+    return this.delete<T>(endpoint, options).pipe(
+      catchError(error => {
+        if (error.status === 0 || error.status === 504 || !navigator.onLine) {
+          const result = this.queueDeleteWhenOffline(endpoint);
+          return of(result as T | QueuedActionResult);
+        }
+        return throwError(() => error);
+      })
+    );
   }
 }
 

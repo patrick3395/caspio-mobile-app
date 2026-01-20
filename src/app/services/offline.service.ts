@@ -18,6 +18,7 @@ export class OfflineService {
   private online$ = new BehaviorSubject<boolean>(navigator.onLine);
   private networkOnline$ = new BehaviorSubject<boolean>(navigator.onLine);
   private manualOffline$ = new BehaviorSubject<boolean>(false);
+  private queueCount$ = new BehaviorSubject<number>(0);
   private requestQueue: QueuedRequest[] = [];
   private localStorage = window.localStorage;
   private QUEUE_KEY = 'offline_queue';
@@ -73,6 +74,13 @@ export class OfflineService {
 
   isManualOffline(): boolean {
     return this.manualOffline$.value;
+  }
+
+  /**
+   * Get queue count as observable (G2-ERRORS-003)
+   */
+  getQueueCount(): Observable<number> {
+    return this.queueCount$.asObservable();
   }
 
   setManualOffline(enabled: boolean): void {
@@ -184,6 +192,8 @@ export class OfflineService {
   private saveQueue(): void {
     try {
       this.localStorage.setItem(this.QUEUE_KEY, JSON.stringify(this.requestQueue));
+      // G2-ERRORS-003: Emit queue count change for offline indicator
+      this.queueCount$.next(this.requestQueue.length);
     } catch (e) {
       console.error('Failed to save queue to localStorage:', e);
     }
@@ -197,15 +207,18 @@ export class OfflineService {
       const stored = this.localStorage.getItem(this.QUEUE_KEY);
       if (stored) {
         this.requestQueue = JSON.parse(stored);
-        
+
         // Clean up old requests (older than 7 days)
         const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
         this.requestQueue = this.requestQueue.filter(r => r.timestamp > weekAgo);
         this.saveQueue();
       }
+      // G2-ERRORS-003: Emit initial queue count
+      this.queueCount$.next(this.requestQueue.length);
     } catch (e) {
       console.error('Failed to load queue from localStorage:', e);
       this.requestQueue = [];
+      this.queueCount$.next(0);
     }
   }
 
