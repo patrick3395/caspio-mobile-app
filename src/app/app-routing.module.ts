@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth.guard';
+import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
 import { SelectivePreloadingStrategy } from './routing/selective-preloading-strategy.service';
 
 // Eager load standalone pages for offline support
@@ -81,7 +82,7 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       { path: '', component: EngineersFoundationMainPage },
-      { path: 'project-details', component: ProjectDetailsPage },
+      { path: 'project-details', component: ProjectDetailsPage, canDeactivate: [UnsavedChangesGuard] },
       {
         path: 'structural',
         children: [
@@ -89,8 +90,8 @@ const routes: Routes = [
           {
             path: 'category/:category',
             children: [
-              { path: '', component: CategoryDetailPage },
-              { path: 'visual/:templateId', component: VisualDetailPage }
+              { path: '', component: CategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
+              { path: 'visual/:templateId', component: VisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
             ]
           }
         ]
@@ -99,8 +100,8 @@ const routes: Routes = [
         path: 'elevation',
         children: [
           { path: '', component: ElevationPlotHubPage },
-          { path: 'base-station', component: RoomElevationPage },
-          { path: 'room/:roomName', component: RoomElevationPage }
+          { path: 'base-station', component: RoomElevationPage, canDeactivate: [UnsavedChangesGuard] },
+          { path: 'room/:roomName', component: RoomElevationPage, canDeactivate: [UnsavedChangesGuard] }
         ]
       }
     ]
@@ -112,8 +113,8 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       { path: '', component: HudMainPage },
-      { path: 'project-details', component: HudProjectDetailsPage },
-      { path: 'category/:category', component: HudCategoryDetailPage }
+      { path: 'project-details', component: HudProjectDetailsPage, canDeactivate: [UnsavedChangesGuard] },
+      { path: 'category/:category', component: HudCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] }
     ]
   },
   // LBW routes - eager loaded for offline support
@@ -123,9 +124,9 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       { path: '', component: LbwMainPage },
-      { path: 'project-details', component: LbwProjectDetailsPage },
+      { path: 'project-details', component: LbwProjectDetailsPage, canDeactivate: [UnsavedChangesGuard] },
       { path: 'categories', component: LbwCategoriesPage },
-      { path: 'category/:category', component: LbwCategoryDetailPage }
+      { path: 'category/:category', component: LbwCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] }
     ]
   },
   // DTE routes - eager loaded for offline support
@@ -135,9 +136,9 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       { path: '', component: DteMainPage },
-      { path: 'project-details', component: DteProjectDetailsPage },
+      { path: 'project-details', component: DteProjectDetailsPage, canDeactivate: [UnsavedChangesGuard] },
       { path: 'categories', component: DteCategoriesPage },
-      { path: 'category/:category', component: DteCategoryDetailPage }
+      { path: 'category/:category', component: DteCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] }
     ]
   },
   {

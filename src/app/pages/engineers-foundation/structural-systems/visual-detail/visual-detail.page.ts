@@ -16,6 +16,7 @@ import { EngineersFoundationDataService } from '../../engineers-foundation-data.
 import { compressAnnotationData } from '../../../../utils/annotation-utils';
 import { liveQuery } from 'dexie';
 import { environment } from '../../../../../environments/environment';
+import { HasUnsavedChanges } from '../../../../services/unsaved-changes.service';
 
 interface VisualItem {
   id: string | number;
@@ -50,7 +51,7 @@ interface PhotoItem {
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class VisualDetailPage implements OnInit, OnDestroy {
+export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
   categoryName: string = '';
   templateId: number = 0;
   projectId: string = '';
@@ -107,6 +108,20 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.routeSubscription?.unsubscribe();
     this.localImagesSubscription?.unsubscribe();
+  }
+
+  /**
+   * Check if there are unsaved changes (for route guard)
+   * Only checks on web platform
+   */
+  hasUnsavedChanges(): boolean {
+    if (!environment.isWeb) return false;
+
+    // Check if title or text has been modified from the original values
+    const titleChanged = this.editableTitle !== (this.item?.name || '');
+    const textChanged = this.editableText !== (this.item?.text || '');
+
+    return titleChanged || textChanged;
   }
 
   private loadRouteParams() {

@@ -22,6 +22,7 @@ import { AddCustomVisualModalComponent } from '../../../../modals/add-custom-vis
 import { db, VisualField } from '../../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../../services/visual-field-repo.service';
 import { environment } from '../../../../../environments/environment';
+import { HasUnsavedChanges } from '../../../../services/unsaved-changes.service';
 
 interface VisualItem {
   id: string | number;
@@ -48,7 +49,7 @@ interface VisualItem {
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
+export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, HasUnsavedChanges {
   // Debug flag - set to true for verbose logging
   private readonly DEBUG = false;
   
@@ -435,6 +436,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     await this.loadData();
     this.backgroundSync.clearSectionDirty(sectionKey);
     console.timeEnd('[CategoryDetail] ionViewWillEnter');
+  }
+
+  /**
+   * Check if there are unsaved changes (for route guard)
+   * Only checks on web platform - returns true if any items are currently being saved
+   */
+  hasUnsavedChanges(): boolean {
+    if (!environment.isWeb) return false;
+
+    // Check if any items are currently being saved
+    return Object.values(this.savingItems).some(saving => saving === true);
   }
 
   /**

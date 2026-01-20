@@ -21,6 +21,7 @@ import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNO
 import { environment } from '../../../../environments/environment';
 import { db, EfeField, EfePoint } from '../../../services/caspio-db';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
+import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
 
 @Component({
   selector: 'app-room-elevation',
@@ -29,7 +30,7 @@ import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
+export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasUnsavedChanges {
   // Debug flag - set to true for verbose logging
   private readonly DEBUG = false;
   
@@ -1033,6 +1034,17 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       await this.refreshLocalState();
     }
     console.timeEnd('[RoomElevation] ionViewWillEnter');
+  }
+
+  /**
+   * Check if there are unsaved changes (for route guard)
+   * Only checks on web platform - returns true if notes are pending save (debounce timer active)
+   */
+  hasUnsavedChanges(): boolean {
+    if (!environment.isWeb) return false;
+
+    // Check if there's a pending notes save (debounce timer is active)
+    return this.notesDebounceTimer !== null;
   }
 
   /**
