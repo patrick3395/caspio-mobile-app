@@ -32,6 +32,10 @@ import {
   close,
   alertCircleOutline,
   warningOutline,
+  // G2-ERRORS-001: Error boundary icons
+  closeOutline,
+  arrowBackOutline,
+  refreshOutline,
   // Structural Systems Hub category icons
   reorderFourOutline,
   waterOutline,
@@ -136,6 +140,10 @@ export class AppComponent {
       'close': close,
       'alert-circle-outline': alertCircleOutline,
       'warning-outline': warningOutline,
+      // G2-ERRORS-001: Error boundary icons
+      'close-outline': closeOutline,
+      'arrow-back-outline': arrowBackOutline,
+      'refresh-outline': refreshOutline,
       // Structural Systems Hub category icons
       'reorder-four-outline': reorderFourOutline,
       'water-outline': waterOutline,

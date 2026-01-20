@@ -2718,3 +2718,228 @@ ion-input.input-valid {
     color: #28a745;
   }
 }
+
+/* ============================================
+   Global Error Boundary Styles (Web Only)
+   G2-ERRORS-001
+   ============================================ */
+
+.error-boundary-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 16px;
+  animation: errorOverlayFadeIn 0.2s ease-out;
+}
+
+@keyframes errorOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.error-boundary-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: errorModalSlideIn 0.3s ease-out;
+}
+
+@keyframes errorModalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.error-boundary-modal .error-icon {
+  margin-bottom: 16px;
+
+  ion-icon {
+    font-size: 64px;
+    color: #dc3545;
+  }
+}
+
+.error-boundary-modal .error-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 12px 0;
+}
+
+.error-boundary-modal .error-message {
+  font-size: 16px;
+  color: #666;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.error-boundary-modal .error-debug {
+  text-align: left;
+  margin-bottom: 24px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+
+  details {
+    cursor: pointer;
+
+    summary {
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    pre {
+      font-size: 11px;
+      color: #333;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+  }
+}
+
+.error-boundary-modal .error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.error-boundary-modal .error-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.error-boundary-modal .error-btn-primary {
+  background: var(--noble-orange, #F15A27);
+  color: #fff;
+
+  &:hover {
+    background: #d94d1f;
+  }
+}
+
+.error-boundary-modal .error-btn-secondary {
+  background: #e9ecef;
+  color: #495057;
+
+  &:hover {
+    background: #dee2e6;
+  }
+}
+
+.error-boundary-modal .error-help {
+  font-size: 13px;
+  color: #999;
+  margin: 0;
+}
+
+/* Mobile adjustments for error boundary */
+@media (max-width: 480px) {
+  .error-boundary-modal {
+    padding: 24px;
+  }
+
+  .error-boundary-modal .error-icon ion-icon {
+    font-size: 48px;
+  }
+
+  .error-boundary-modal .error-title {
+    font-size: 20px;
+  }
+
+  .error-boundary-modal .error-message {
+    font-size: 14px;
+  }
+
+  .error-boundary-modal .error-actions {
+    flex-direction: column;
+  }
+
+  .error-boundary-modal .error-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Dark theme support for error boundary */
+body.dark-theme {
+  .error-boundary-modal {
+    background: #1e1e1e;
+  }
+
+  .error-boundary-modal .error-title {
+    color: #fff;
+  }
+
+  .error-boundary-modal .error-message {
+    color: #aaa;
+  }
+
+  .error-boundary-modal .error-debug {
+    background: #2a2a2a;
+
+    details summary {
+      color: #aaa;
+    }
+
+    pre {
+      color: #ddd;
+    }
+  }
+
+  .error-boundary-modal .error-btn-secondary {
+    background: #333;
+    color: #ddd;
+
+    &:hover {
+      background: #444;
+    }
+  }
+
+  .error-boundary-modal .error-help {
+    color: #777;
+  }
+}
