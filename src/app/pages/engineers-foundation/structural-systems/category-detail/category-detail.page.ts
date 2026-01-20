@@ -156,6 +156,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // The liveQuery subscription fires on each IndexedDB write, which can cause duplicate entries
   // when processing multiple photos in a loop. This flag suppresses change detection during batch ops.
   private isMultiImageUploadInProgress = false;
+  // Separate flag for camera captures - suppresses liveQuery to prevent duplicates with annotated photos
+  // Gallery uploads use liveQuery for UI updates, but camera needs manual push for annotated URLs
+  private isCameraCaptureInProgress = false;
   // Track imageIds in current batch to prevent duplicates even if liveQuery fires
   private batchUploadImageIds = new Set<string>();
 
@@ -1607,6 +1610,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'visual').subscribe(
       async (localImages) => {
         console.log('[LIVEQUERY] LocalImages updated:', localImages.length, 'images');
+
+        // Suppress during camera capture to prevent duplicate photos with annotations
+        // Camera code manually pushes with annotated URL; liveQuery would add with original URL
+        // Gallery uploads do NOT suppress - they rely on liveQuery for UI updates
+        if (this.isCameraCaptureInProgress) {
+          console.log('[LIVEQUERY] Suppressing - camera capture in progress');
+          return;
+        }
 
         // Update bulkLocalImagesMap reactively (always update data immediately)
         this.updateBulkLocalImagesMap(localImages);
@@ -5027,7 +5038,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // RACE CONDITION FIX: Suppress liveQuery during camera capture
           // Without this, liveQuery fires after Dexie write but BEFORE we push to visualPhotos,
           // causing populatePhotosFromDexie to add a duplicate entry with the original (non-annotated) URL
-          this.isMultiImageUploadInProgress = true;
+          this.isCameraCaptureInProgress = true;
 
           // Create LocalImage with stable UUID (this stores blob + creates outbox item)
           let localImage: LocalImage;
@@ -5137,7 +5148,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
 
           // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
-          this.isMultiImageUploadInProgress = false;
+          this.isCameraCaptureInProgress = false;
 
           console.log(`  key: ${key}`);
           console.log(`  imageId: ${localImage.imageId}`);
