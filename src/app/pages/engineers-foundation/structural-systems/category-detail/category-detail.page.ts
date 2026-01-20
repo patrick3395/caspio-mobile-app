@@ -678,6 +678,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       console.log(`[CategoryDetail] WEBAPP: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} visuals from API`);
 
+      // Debug: Log first visual's field names to verify structure
+      if (visuals && visuals.length > 0) {
+        const sampleVisual = visuals[0];
+        console.log('[CategoryDetail] WEBAPP: Sample visual fields:', Object.keys(sampleVisual));
+        console.log('[CategoryDetail] WEBAPP: Sample visual:', {
+          VisualID: sampleVisual.VisualID,
+          VisualTemplateID: sampleVisual.VisualTemplateID,
+          TemplateID: sampleVisual.TemplateID,
+          Name: sampleVisual.Name,
+          Category: sampleVisual.Category,
+          Kind: sampleVisual.Kind
+        });
+      }
+
+      // Filter visuals for this category to get accurate count
+      const categoryVisuals = (visuals || []).filter((v: any) => v.Category === this.categoryName);
+      console.log(`[CategoryDetail] WEBAPP: ${categoryVisuals.length} visuals for category "${this.categoryName}"`);
+
       // Filter templates for this category
       const categoryTemplates = (templates || []).filter((t: any) => t.Category === this.categoryName);
       console.log(`[CategoryDetail] WEBAPP: ${categoryTemplates.length} templates for category "${this.categoryName}"`);
@@ -692,12 +710,26 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       for (const template of categoryTemplates) {
         const templateId = template.TemplateID || template.PK_ID;
         const kind = (template.Kind || 'Comment').toLowerCase();
+        const templateName = template.Name || '';
 
         // Find matching visual (user selection) from server
-        const visual = (visuals || []).find((v: any) =>
-          (v.VisualTemplateID === templateId || v.templateId === templateId) &&
-          v.Category === this.categoryName
-        );
+        // CRITICAL: Match by TemplateID first (most reliable), with type coercion for number/string mismatches
+        // Then fall back to name+category matching
+        let visual = (visuals || []).find((v: any) => {
+          const vTemplateId = v.VisualTemplateID || v.TemplateID;
+          // Use == for type coercion (templateId may be number or string)
+          return vTemplateId == templateId && v.Category === this.categoryName;
+        });
+
+        // Fallback: match by name + category if templateId didn't match
+        if (!visual && templateName) {
+          visual = (visuals || []).find((v: any) =>
+            v.Name === templateName && v.Category === this.categoryName
+          );
+          if (visual) {
+            console.log(`[CategoryDetail] WEBAPP: Matched visual by name fallback: "${templateName}"`);
+          }
+        }
 
         const item: VisualItem = {
           id: visual ? (visual.VisualID || visual.PK_ID) : templateId,
@@ -731,7 +763,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
 
       this.organizedData = organizedData;
+
+      // Count how many items are selected (matched to visuals)
+      const selectedCount = [...organizedData.comments, ...organizedData.limitations, ...organizedData.deficiencies]
+        .filter(item => item.isSelected).length;
       console.log(`[CategoryDetail] WEBAPP: Organized data - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
+      console.log(`[CategoryDetail] WEBAPP: ${selectedCount} items matched to visuals (should match ${categoryVisuals.length} visuals for this category)`);
 
       // Load photos for selected visuals from API
       await this.loadPhotosFromAPI();
@@ -5281,8 +5318,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   // IMMEDIATE UI UPDATE: Add photo to UI right away so user can view it
                   // Track in batchUploadImageIds to prevent liveQuery from adding duplicates
                   this.batchUploadImageIds.add(localImage.imageId);
-                  this.visualPhotos[key].push(photoEntry);
-                  this.changeDetectorRef.detectChanges();
+                  // Must run inside Angular zone - Camera.pickImages() runs outside zone
+                  this.ngZone.run(() => {
+                    this.visualPhotos[key].push(photoEntry);
+                    this.changeDetectorRef.detectChanges();
+                  });
                   console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} added to UI immediately:`, localImage.imageId);
                 } else {
                   // Duplicate found - skip or update existing

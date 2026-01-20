@@ -147,10 +147,28 @@ export class VisualDetailPage implements OnInit, OnDestroy {
       if (environment.isWeb) {
         console.log('[VisualDetail] WEBAPP MODE: Loading visual data from server');
         const visuals = await this.foundationData.getVisualsByService(this.serviceId);
-        const visual = visuals.find((v: any) =>
-          (v.VisualTemplateID === this.templateId || v.templateId === this.templateId) &&
-          v.Category === this.categoryName
-        );
+
+        // Match by TemplateID first with type coercion (number/string mismatch)
+        let visual = visuals.find((v: any) => {
+          const vTemplateId = v.VisualTemplateID || v.TemplateID;
+          return vTemplateId == this.templateId && v.Category === this.categoryName;
+        });
+
+        // Fallback: load template name and match by name+category if templateId didn't match
+        if (!visual) {
+          const templates = await this.foundationData.getVisualsTemplates();
+          const template = templates.find((t: any) =>
+            ((t.TemplateID || t.PK_ID) == this.templateId) && t.Category === this.categoryName
+          );
+          if (template && template.Name) {
+            visual = visuals.find((v: any) =>
+              v.Name === template.Name && v.Category === this.categoryName
+            );
+            if (visual) {
+              console.log('[VisualDetail] WEBAPP: Matched visual by name fallback:', template.Name);
+            }
+          }
+        }
 
         if (visual) {
           this.item = {
@@ -175,7 +193,7 @@ export class VisualDetailPage implements OnInit, OnDestroy {
           console.log('[VisualDetail] WEBAPP: Visual not found, loading template...');
           const templates = await this.foundationData.getVisualsTemplates();
           const template = templates.find((t: any) =>
-            ((t.TemplateID || t.PK_ID) === this.templateId) && t.Category === this.categoryName
+            ((t.TemplateID || t.PK_ID) == this.templateId) && t.Category === this.categoryName
           );
 
           if (template) {
