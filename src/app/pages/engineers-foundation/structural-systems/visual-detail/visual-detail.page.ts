@@ -1049,8 +1049,9 @@ export class VisualDetailPage implements OnInit, OnDestroy {
   // ===== NAVIGATION =====
 
   goBack() {
-    // Navigate to parent route (category-detail page)
-    this.router.navigate(['..'], { relativeTo: this.route });
+    // Use NavController for proper Ionic page stack navigation
+    // This ensures proper lifecycle events (ionViewWillEnter) fire on the previous page
+    this.navController.back();
   }
 
   // ===== UTILITIES =====

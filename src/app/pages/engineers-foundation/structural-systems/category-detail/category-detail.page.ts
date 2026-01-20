@@ -4990,17 +4990,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
 
         // ============================================
-        // US-003 FIX: BATCH UPLOAD COORDINATION
-        // Suppresses liveQuery during batch to prevent race condition duplicates.
-        // Collects all photo entries, then adds to UI once at end.
+        // US-003 FIX: IMMEDIATE UPLOAD WITH DUPLICATE PREVENTION
+        // Photos are added to UI immediately so user can view them right away.
+        // batchUploadImageIds tracks added photos to prevent liveQuery duplicates.
         // ============================================
 
         // Set batch flag to suppress liveQuery change detection during processing
+        // batchUploadImageIds tracks added photos to prevent liveQuery duplicates
         this.isMultiImageUploadInProgress = true;
         this.batchUploadImageIds.clear();
-
-        // Collect all photo entries during loop, add to UI once at end
-        const batchPhotoEntries: any[] = [];
 
         try {
           // Process each photo with LocalImageService
@@ -5099,19 +5097,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
                   progress: 0
                 };
 
-                // US-003 FIX: Check for duplicates in BOTH existing photos AND current batch
-                // This prevents duplicates from: (1) liveQuery mid-loop, (2) same image selected twice
+                // US-003 FIX: Check for duplicates in existing photos
+                // batchUploadImageIds tracks what we've added to prevent liveQuery duplicates
                 const existingIndex = this.visualPhotos[key].findIndex((p: any) =>
                   p.imageId === localImage.imageId ||
                   p.AttachID === localImage.imageId ||
                   p.id === localImage.imageId
                 );
-                const alreadyInBatch = batchPhotoEntries.some((p: any) => p.imageId === localImage.imageId);
+                const alreadyTracked = this.batchUploadImageIds.has(localImage.imageId);
 
-                if (existingIndex === -1 && !alreadyInBatch) {
-                  // Collect for batch insert (no duplicate found)
-                  batchPhotoEntries.push(photoEntry);
-                  console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} collected for batch:`, localImage.imageId);
+                if (existingIndex === -1 && !alreadyTracked) {
+                  // IMMEDIATE UI UPDATE: Add photo to UI right away so user can view it
+                  // Track in batchUploadImageIds to prevent liveQuery from adding duplicates
+                  this.batchUploadImageIds.add(localImage.imageId);
+                  this.visualPhotos[key].push(photoEntry);
+                  this.changeDetectorRef.detectChanges();
+                  console.log(`[GALLERY UPLOAD] ✅ Photo ${i + 1} added to UI immediately:`, localImage.imageId);
                 } else {
                   // Duplicate found - skip or update existing
                   console.log(`[GALLERY UPLOAD] ⚠️ Photo ${i + 1} duplicate detected, skipping:`, localImage.imageId);
@@ -5129,13 +5130,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             }
           }
 
-          // US-003 FIX: Batch insert all photos at once after loop completes
-          // This prevents the race condition where per-iteration pushes + liveQuery updates
-          // both add the same photo to visualPhotos
-          if (batchPhotoEntries.length > 0) {
-            this.visualPhotos[key].push(...batchPhotoEntries);
-            console.log(`[GALLERY UPLOAD] ✅ Batch inserted ${batchPhotoEntries.length} photos to UI`);
-          }
+          // Photos are now added immediately in the loop above
+          // batchUploadImageIds prevents duplicates from liveQuery
 
         } finally {
           // US-003 FIX: Always reset batch flag, even if error occurs
