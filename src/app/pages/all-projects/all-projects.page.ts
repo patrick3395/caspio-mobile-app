@@ -268,6 +268,9 @@ export class AllProjectsPage implements OnInit {
   private readonly PROJECT_IMAGE_CACHE_PREFIX = 'project_img_';
   private readonly CACHE_EXPIRY_HOURS = 24;
   private savingPrimaryPhoto: Set<string> = new Set(); // Track which projects are currently being saved
+
+  // WEBAPP: Track image loading state for shimmer effect
+  private imageLoadedSet: Set<string> = new Set();
   
   /**
    * Save the Google Street View image URL to the database as PrimaryPhoto
@@ -439,8 +442,35 @@ export class AllProjectsPage implements OnInit {
     }
   }
 
+  /**
+   * WEBAPP: Check if an image is still loading (for shimmer effect)
+   */
+  isImageLoading(project: Project): boolean {
+    if (!environment.isWeb) return false;
+    const projectId = project.PK_ID || project.ProjectID;
+    return projectId ? !this.imageLoadedSet.has(projectId) : false;
+  }
+
+  /**
+   * WEBAPP: Called when project image finishes loading
+   */
+  onProjectImageLoad(project: Project): void {
+    if (!environment.isWeb) return;
+    const projectId = project.PK_ID || project.ProjectID;
+    if (projectId) {
+      this.imageLoadedSet.add(projectId);
+    }
+  }
+
   // Handle image loading errors
-  handleImageError(event: any) {
+  handleImageError(event: any, project?: Project) {
+    // WEBAPP: Mark as loaded even on error (to stop shimmer)
+    if (environment.isWeb && project) {
+      const projectId = project.PK_ID || project.ProjectID;
+      if (projectId) {
+        this.imageLoadedSet.add(projectId);
+      }
+    }
     event.target.src = 'assets/img/project-placeholder.svg';
   }
 

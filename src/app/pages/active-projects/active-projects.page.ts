@@ -107,6 +107,11 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   // Users can also pull-to-refresh or click refresh button for instant updates
 
   ionViewWillEnter() {
+    // WEBAPP: Clear any loading state from previous navigation
+    if (environment.isWeb) {
+      this.selectingProjectId = null;
+    }
+
     // OPTIMIZATION: Smart caching - only reload if data is stale or user made changes
     const timeSinceLoad = Date.now() - this.lastLoadTime;
     const hasData = this.projects && this.projects.length > 0;
@@ -392,6 +397,9 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   private readonly PROJECT_IMAGE_CACHE_PREFIX = 'project_img_';
   private readonly CACHE_EXPIRY_HOURS = 24;
   private savingPrimaryPhoto: Set<string> = new Set(); // Track which projects are currently being saved
+
+  // WEBAPP: Track image loading state for shimmer effect
+  private imageLoadedSet: Set<string> = new Set();
   
   /**
    * Save the Google Street View image URL to the database as PrimaryPhoto
@@ -602,7 +610,35 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * WEBAPP: Check if an image is still loading (for shimmer effect)
+   */
+  isImageLoading(project: Project): boolean {
+    if (!environment.isWeb) return false;
+    const projectId = project.PK_ID || project.ProjectID;
+    return projectId ? !this.imageLoadedSet.has(projectId) : false;
+  }
+
+  /**
+   * WEBAPP: Called when project image finishes loading
+   */
+  onProjectImageLoad(project: Project): void {
+    if (!environment.isWeb) return;
+    const projectId = project.PK_ID || project.ProjectID;
+    if (projectId) {
+      this.imageLoadedSet.add(projectId);
+    }
+  }
+
   async onProjectImageError(event: any, project: Project) {
+    // WEBAPP: Mark as loaded even on error (to stop shimmer)
+    if (environment.isWeb) {
+      const projectId = project.PK_ID || project.ProjectID;
+      if (projectId) {
+        this.imageLoadedSet.add(projectId);
+      }
+    }
+
     const imgUrl = event.target?.src || '';
     
     // Don't show error for placeholder images - these are expected

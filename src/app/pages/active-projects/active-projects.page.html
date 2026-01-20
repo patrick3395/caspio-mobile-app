@@ -45,10 +45,29 @@
       </ion-searchbar>
     </div>
 
-    <!-- Loading state -->
-    <div *ngIf="loading" class="loading-container" role="status" aria-live="polite">
+    <!-- Loading state - WEBAPP: Skeleton loaders for better perceived performance -->
+    <!-- Mobile: Simple spinner -->
+    <div *ngIf="loading && !platform.isWeb()" class="loading-container" role="status" aria-live="polite">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Loading projects…</p>
+    </div>
+
+    <!-- Web: Skeleton loader cards -->
+    <div *ngIf="loading && platform.isWeb()" class="skeleton-container" role="status" aria-live="polite">
+      <div class="skeleton-card" *ngFor="let i of [1,2,3,4,5]">
+        <div class="skeleton-image"></div>
+        <div class="skeleton-details">
+          <div class="skeleton-line address"></div>
+          <div class="skeleton-line city"></div>
+          <div class="skeleton-line service"></div>
+          <div class="skeleton-line service-2"></div>
+          <div class="skeleton-line date"></div>
+        </div>
+        <div class="skeleton-meta">
+          <div class="skeleton-id"></div>
+          <div class="skeleton-arrow"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Error state -->
@@ -68,8 +87,11 @@
 
         <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
           <div class="project-content">
-            <div class="project-image">
-              <img [src]="getProjectImage(project)" alt="Project thumbnail" width="80" height="80" (error)="onProjectImageError($event, project)">
+            <div class="project-image" [class.loading]="platform.isWeb() && isImageLoading(project)">
+              <img [src]="getProjectImage(project)" alt="Project thumbnail" width="80" height="80"
+                   (error)="onProjectImageError($event, project)"
+                   (load)="onProjectImageLoad(project)"
+                   [class.loaded]="platform.isWeb() && !isImageLoading(project)">
             </div>
             <div class="project-details">
               <div class="project-address">{{ project.Address }}</div>

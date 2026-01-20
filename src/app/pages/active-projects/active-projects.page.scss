@@ -353,3 +353,151 @@ ion-item-option {
   top: 50%;
   transform: translateY(-50%);
 }
+
+// ==============================================
+// WEBAPP: Skeleton Loader Styles
+// ==============================================
+
+// Shimmer animation keyframes
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+// Skeleton container - matches loading-container layout
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+// Individual skeleton card - matches project-item styling
+.skeleton-card {
+  --padding-start: 0;
+  --padding-end: 8px;
+  --inner-padding-end: 16px;
+  --background: var(--noble-white);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(105, 99, 93, 0.1);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+// Skeleton image placeholder with shimmer
+.skeleton-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite ease-in-out;
+}
+
+// Skeleton details container
+.skeleton-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// Skeleton text lines with varying widths
+.skeleton-line {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite ease-in-out;
+
+  &.address {
+    width: 70%;
+    height: 16px;
+  }
+
+  &.city {
+    width: 50%;
+  }
+
+  &.service {
+    width: 40%;
+    height: 12px;
+    margin-top: 4px;
+  }
+
+  &.service-2 {
+    width: 35%;
+    height: 12px;
+    animation-delay: 0.1s;
+  }
+
+  &.date {
+    width: 30%;
+    height: 11px;
+    margin-top: 2px;
+  }
+}
+
+// Skeleton meta section (project ID and arrow)
+.skeleton-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 48px;
+
+  .skeleton-id {
+    width: 40px;
+    height: 12px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite ease-in-out;
+  }
+
+  .skeleton-arrow {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite ease-in-out;
+    animation-delay: 0.2s;
+  }
+}
+
+// Image shimmer placeholder for project cards (while image loads)
+.project-image {
+  &.loading {
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s infinite ease-in-out;
+      border-radius: 8px;
+    }
+
+    img {
+      opacity: 0;
+    }
+  }
+
+  img.loaded {
+    opacity: 1;
+    transition: opacity 0.3s ease-in-out;
+  }
+}
