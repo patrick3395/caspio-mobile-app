@@ -1485,3 +1485,96 @@ ion-button{--padding-start:8px;--padding-end:8px;font-size:12px;text-transform:n
   }
 }
 
+// G2-NAV-002: Breadcrumb Navigation (web only)
+.breadcrumb-footer {
+  ion-toolbar {
+    --background: white;
+    --color: #333;
+    --border-width: 1px 0 0 0;
+    --border-color: #e0e0e0;
+    --padding-top: 8px;
+    --padding-bottom: 8px;
+    --min-height: 48px;
+  }
+}
+
+.breadcrumb-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  overflow-x: auto;
+  white-space: nowrap;
+
+  // Hide scrollbar
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--ion-color-primary);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+
+  // Only apply hover effects on devices with hover capability (desktop)
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background-color: rgba(var(--ion-color-primary-rgb), 0.1);
+    }
+  }
+
+  &.active {
+    color: #666;
+    cursor: default;
+    font-weight: 600;
+
+    // Only apply hover effects on devices with hover capability (desktop)
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        background-color: transparent;
+      }
+    }
+  }
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  // Mobile: show icons only
+  .breadcrumb-icon-mobile {
+    display: block;
+    font-size: 20px;
+  }
+
+  .breadcrumb-text-desktop {
+    display: none;
+  }
+}
+
+.breadcrumb-arrow {
+  color: #999;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+// Desktop breadcrumbs: show text instead of icons
+@media (min-width: 768px) {
+  .breadcrumb-item {
+    .breadcrumb-icon-mobile {
+      display: none !important;
+    }
+
+    .breadcrumb-text-desktop {
+      display: inline !important;
+    }
+  }
+}

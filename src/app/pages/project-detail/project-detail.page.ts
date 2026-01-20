@@ -20,6 +20,12 @@ import { NavigationHistoryService } from '../../services/navigation-history.serv
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 
+interface Breadcrumb {
+  label: string;
+  path: string;
+  icon?: string;
+}
+
 interface ServiceSelection {
   instanceId: string;
   serviceId?: string; // PK_ID from Services table
@@ -144,6 +150,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   
   // Navigation flag to prevent double-clicks
   isNavigating = false;
+
+  // Breadcrumbs (web only)
+  breadcrumbs: Breadcrumb[] = [];
+  isWeb = environment.isWeb;
 
   private documentViewerComponent?: DocumentViewerCtor;
   private pdfPreviewComponent?: PdfPreviewCtor;
@@ -304,6 +314,38 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private navigationHistory: NavigationHistoryService
   ) {}
 
+  /**
+   * Update breadcrumbs for web navigation (G2-NAV-002)
+   */
+  private updateBreadcrumbs() {
+    if (!environment.isWeb) return;
+
+    this.breadcrumbs = [];
+
+    // Add the project breadcrumb (current page)
+    const projectName = this.project?.Address || 'Project';
+    this.breadcrumbs.push({
+      label: projectName,
+      path: '',
+      icon: 'document-text-outline'
+    });
+  }
+
+  /**
+   * Navigate to home (projects list) from breadcrumb
+   */
+  navigateToBreadcrumbHome() {
+    this.router.navigate(['/active-projects']);
+  }
+
+  /**
+   * Navigate to a breadcrumb item (for future extensibility)
+   */
+  navigateToCrumb(crumb: Breadcrumb) {
+    // Currently only one level, so no navigation needed
+    // This can be extended for deeper navigation if needed
+  }
+
   ngOnInit() {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
 
@@ -326,6 +368,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.loading = false;
         this.loadingServices = false;
         this.loadingDocuments = false;
+        // G2-NAV-002: Update breadcrumbs from cached state (web only)
+        this.updateBreadcrumbs();
       }
     } else {
       console.error('❌ DEBUG: No projectId provided!');
@@ -660,6 +704,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       this.loading = false;
       this.loadingServices = false;
+
+      // G2-NAV-002: Update breadcrumbs now that project is loaded (web only)
+      this.updateBreadcrumbs();
 
       const totalElapsed = performance.now() - startTime;
       this.cacheCurrentState();
