@@ -12,36 +12,52 @@
     <div class="form-section">
       <div class="section-title">Sign On</div>
       
-      <ion-item lines="none" class="input-item">
-        <ion-icon name="mail-outline" slot="start"></ion-icon>
-        <ion-input 
-          [(ngModel)]="credentials.email" 
-          type="email" 
-          placeholder="Email Address"
-          autocomplete="username email"
-          autocapitalize="off"
-          inputmode="email"
-          required>
-        </ion-input>
-      </ion-item>
+      <div class="input-wrapper">
+        <ion-item lines="none" class="input-item" [class.input-error]="isWeb && shouldShowError('email')">
+          <ion-icon name="mail-outline" slot="start"></ion-icon>
+          <ion-input
+            [(ngModel)]="credentials.email"
+            type="email"
+            placeholder="Email Address"
+            autocomplete="username email"
+            autocapitalize="off"
+            inputmode="email"
+            (ionBlur)="onFieldBlur('email')"
+            (ionInput)="onFieldInput('email')"
+            required>
+          </ion-input>
+        </ion-item>
+        <div class="validation-error" *ngIf="isWeb && shouldShowError('email')">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          {{ getFieldError('email') }}
+        </div>
+      </div>
 
-      <ion-item lines="none" class="input-item">
-        <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
-        <ion-input 
-          [(ngModel)]="credentials.password" 
-          [type]="showPassword ? 'text' : 'password'" 
-          placeholder="Password"
-          autocomplete="current-password"
-          required>
-        </ion-input>
-        <ion-button 
-          fill="clear" 
-          slot="end" 
-          class="visibility-toggle"
-          (click)="togglePasswordVisibility()">
-          <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
-        </ion-button>
-      </ion-item>
+      <div class="input-wrapper">
+        <ion-item lines="none" class="input-item" [class.input-error]="isWeb && shouldShowError('password')">
+          <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
+          <ion-input
+            [(ngModel)]="credentials.password"
+            [type]="showPassword ? 'text' : 'password'"
+            placeholder="Password"
+            autocomplete="current-password"
+            (ionBlur)="onFieldBlur('password')"
+            (ionInput)="onFieldInput('password')"
+            required>
+          </ion-input>
+          <ion-button
+            fill="clear"
+            slot="end"
+            class="visibility-toggle"
+            (click)="togglePasswordVisibility()">
+            <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+          </ion-button>
+        </ion-item>
+        <div class="validation-error" *ngIf="isWeb && shouldShowError('password')">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          {{ getFieldError('password') }}
+        </div>
+      </div>
 
       <ion-item lines="none" class="remember-item">
         <ion-checkbox 
@@ -56,7 +72,7 @@
         expand="block"
         class="login-button"
         (click)="login()"
-        [disabled]="!credentials.email || !credentials.password">
+        [disabled]="!isFormValid()">
         <ion-icon name="log-in-outline" slot="start"></ion-icon>
         Sign In
       </ion-button>

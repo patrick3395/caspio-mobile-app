@@ -6,6 +6,8 @@ import { Router } from '@angular/router';
 import { ProjectsService, ProjectCreationData } from '../../services/projects.service';
 import { ServiceEfeService } from '../../services/service-efe.service';
 import { GoogleMapsLoaderService } from '../../services/google-maps-loader.service';
+import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-new-project',
@@ -15,7 +17,7 @@ import { GoogleMapsLoaderService } from '../../services/google-maps-loader.servi
   imports: [CommonModule, FormsModule, IonicModule]
 })
 export class NewProjectPage implements OnInit {
-  
+
   formData: ProjectCreationData = {
     company: '1',  // Always Noble Property Inspections (CompanyID = 1)
     inspectionDate: new Date().toISOString().split('T')[0], // Default to today
@@ -44,8 +46,18 @@ export class NewProjectPage implements OnInit {
     'SC': 'South Carolina',
     'TN': 'Tennessee'
   };
-  
+
   private autocompleteInstance: any = null;
+
+  // Form validation state (web only)
+  isWeb = environment.isWeb;
+  validationState: Record<string, FieldValidationState> = {};
+  validationRules: Record<string, ValidationRules> = {
+    address: { required: true },
+    city: { required: true },
+    state: { required: true, custom: (v) => (!v || v === 'null') ? 'Please select a state' : null },
+    zip: { required: true, zipCode: true }
+  };
 
   constructor(
     private router: Router,
@@ -54,16 +66,68 @@ export class NewProjectPage implements OnInit {
     private loadingController: LoadingController,
     private alertController: AlertController,
     private changeDetectorRef: ChangeDetectorRef,
-    private googleMapsLoader: GoogleMapsLoaderService
+    private googleMapsLoader: GoogleMapsLoaderService,
+    private formValidation: FormValidationService
   ) {}
 
   async ngOnInit() {
-    
+    // Initialize validation state (web only)
+    if (this.isWeb) {
+      this.validationState = this.formValidation.createFormState(['address', 'city', 'state', 'zip']);
+    }
+
     // Load states from Caspio
     await this.loadStates();
 
     // Initialize Google Places for address autocomplete
     this.ensureGooglePlacesAutocomplete();
+  }
+
+  // Real-time validation methods (web only)
+  onFieldBlur(field: string): void {
+    if (!this.isWeb) return;
+    this.formValidation.markTouched(this.validationState, field);
+    this.validateField(field);
+  }
+
+  onFieldInput(field: string): void {
+    if (!this.isWeb) return;
+    this.formValidation.markDirty(this.validationState, field);
+    // Validate on input if field has been touched
+    if (this.validationState[field]?.touched) {
+      this.validateField(field);
+    }
+  }
+
+  validateField(field: string): void {
+    if (!this.isWeb) return;
+    const value = (this.formData as any)[field];
+    this.formValidation.updateFieldState(
+      this.validationState,
+      field,
+      value,
+      this.validationRules[field]
+    );
+  }
+
+  shouldShowError(field: string): boolean {
+    return this.formValidation.shouldShowError(this.validationState, field);
+  }
+
+  getFieldError(field: string): string | null {
+    return this.formValidation.getError(this.validationState, field);
+  }
+
+  isFormValid(): boolean {
+    if (!this.isWeb) {
+      // Basic validation for mobile
+      return !!this.formData.address && !!this.formData.city &&
+             !!this.formData.state && !!this.formData.zip;
+    }
+    // Web validation includes format checks
+    return !!this.formData.address && !!this.formData.city &&
+           !!this.formData.state && !!this.formData.zip &&
+           !this.formValidation.hasErrors(this.validationState);
   }
 
   async loadStates() {

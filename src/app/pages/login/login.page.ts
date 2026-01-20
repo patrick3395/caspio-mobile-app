@@ -6,6 +6,8 @@ import { Router } from '@angular/router';
 import { AlertController, LoadingController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
+import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -24,25 +26,39 @@ export class LoginPage implements OnInit {
   showPassword = false;
   rememberMe = false;
 
+  // Form validation state (web only)
+  isWeb = environment.isWeb;
+  validationState: Record<string, FieldValidationState> = {};
+  validationRules: Record<string, ValidationRules> = {
+    email: { required: true, email: true },
+    password: { required: true, minLength: 1 }
+  };
+
   constructor(
     private router: Router,
     private caspioService: CaspioService,
     private alertController: AlertController,
     private loadingController: LoadingController,
-    public platform: PlatformDetectionService
+    public platform: PlatformDetectionService,
+    private formValidation: FormValidationService
   ) { }
 
   ngOnInit() {
+    // Initialize validation state (web only)
+    if (this.isWeb) {
+      this.validationState = this.formValidation.createFormState(['email', 'password']);
+    }
+
     // Check if user is already logged in
     const token = localStorage.getItem('authToken');
     const user = localStorage.getItem('currentUser');
-    
+
     if (token && user) {
       // User is already logged in, redirect to active projects
       this.router.navigate(['/tabs/active-projects']);
       return;
     }
-    
+
     // Check for saved credentials
     const savedCredentials = localStorage.getItem('savedCredentials');
     if (savedCredentials) {
@@ -52,7 +68,7 @@ export class LoginPage implements OnInit {
         this.credentials.password = creds.password || '';
         this.credentials.companyId = creds.companyId || 1;
         this.rememberMe = true;
-        
+
         // If we have both email and password saved, they can just click login
         if (this.credentials.email && this.credentials.password) {
           // Optionally auto-login after a short delay
@@ -62,6 +78,51 @@ export class LoginPage implements OnInit {
         console.error('Error loading saved credentials:', e);
       }
     }
+  }
+
+  // Real-time validation methods (web only)
+  onFieldBlur(field: string): void {
+    if (!this.isWeb) return;
+    this.formValidation.markTouched(this.validationState, field);
+    this.validateField(field);
+  }
+
+  onFieldInput(field: string): void {
+    if (!this.isWeb) return;
+    this.formValidation.markDirty(this.validationState, field);
+    // Validate on input if field has been touched
+    if (this.validationState[field]?.touched) {
+      this.validateField(field);
+    }
+  }
+
+  validateField(field: string): void {
+    if (!this.isWeb) return;
+    const value = field === 'email' ? this.credentials.email : this.credentials.password;
+    this.formValidation.updateFieldState(
+      this.validationState,
+      field,
+      value,
+      this.validationRules[field]
+    );
+  }
+
+  shouldShowError(field: string): boolean {
+    return this.formValidation.shouldShowError(this.validationState, field);
+  }
+
+  getFieldError(field: string): string | null {
+    return this.formValidation.getError(this.validationState, field);
+  }
+
+  isFormValid(): boolean {
+    if (!this.isWeb) {
+      return !!this.credentials.email && !!this.credentials.password;
+    }
+    // Check basic requirements and validation state
+    return !!this.credentials.email &&
+           !!this.credentials.password &&
+           !this.formValidation.hasErrors(this.validationState);
   }
 
   togglePasswordVisibility() {

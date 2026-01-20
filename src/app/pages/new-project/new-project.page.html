@@ -20,65 +20,99 @@
     <!-- PROPERTY ADDRESS Section -->
     <div class="form-section">
       <h3 class="section-title">PROPERTY ADDRESS</h3>
-      
-      <ion-item lines="full">
-        <ion-label position="stacked">Street Address</ion-label>
-        <input 
-          id="address-input"
-          type="text" 
-          [(ngModel)]="formData.address" 
-          name="address"
-          placeholder="Start typing an address..."
-          class="native-input"
-          style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; margin-top: 4px;"
-          required>
-      </ion-item>
 
-      <ion-item lines="full">
-        <ion-label position="stacked">City</ion-label>
-        <ion-input 
-          type="text" 
-          [(ngModel)]="formData.city" 
-          name="city"
-          placeholder="City"
-          required>
-        </ion-input>
-      </ion-item>
+      <div class="field-wrapper">
+        <ion-item lines="full" [class.item-error]="isWeb && shouldShowError('address')">
+          <ion-label position="stacked">Street Address</ion-label>
+          <input
+            id="address-input"
+            type="text"
+            [(ngModel)]="formData.address"
+            name="address"
+            placeholder="Start typing an address..."
+            class="native-input"
+            [class.input-error]="isWeb && shouldShowError('address')"
+            (blur)="onFieldBlur('address')"
+            (input)="onFieldInput('address')"
+            style="width: 100%; padding: 10px; border-radius: 4px; font-size: 16px; margin-top: 4px;"
+            required>
+        </ion-item>
+        <div class="validation-error" *ngIf="isWeb && shouldShowError('address')">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          {{ getFieldError('address') }}
+        </div>
+      </div>
 
-      <ion-item lines="full">
-        <ion-label position="stacked">State</ion-label>
-        <select
-          [(ngModel)]="formData.state"
-          name="state"
-          required
-          class="styled-input">
-          <option [value]="null">-- Select --</option>
-          <option *ngFor="let state of states" [value]="state.StateID">
-            {{ state.State }}
-          </option>
-        </select>
-      </ion-item>
+      <div class="field-wrapper">
+        <ion-item lines="full" [class.item-error]="isWeb && shouldShowError('city')">
+          <ion-label position="stacked">City</ion-label>
+          <ion-input
+            type="text"
+            [(ngModel)]="formData.city"
+            name="city"
+            placeholder="City"
+            (ionBlur)="onFieldBlur('city')"
+            (ionInput)="onFieldInput('city')"
+            required>
+          </ion-input>
+        </ion-item>
+        <div class="validation-error" *ngIf="isWeb && shouldShowError('city')">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          {{ getFieldError('city') }}
+        </div>
+      </div>
 
-      <ion-item lines="full">
-        <ion-label position="stacked">Zip Code</ion-label>
-        <ion-input 
-          type="text" 
-          [(ngModel)]="formData.zip" 
-          name="zip"
-          placeholder="Zip Code"
-          pattern="[0-9]{5}"
-          required>
-        </ion-input>
-      </ion-item>
+      <div class="field-wrapper">
+        <ion-item lines="full" [class.item-error]="isWeb && shouldShowError('state')">
+          <ion-label position="stacked">State</ion-label>
+          <select
+            [(ngModel)]="formData.state"
+            name="state"
+            required
+            class="styled-input"
+            [class.select-error]="isWeb && shouldShowError('state')"
+            (blur)="onFieldBlur('state')"
+            (change)="onFieldInput('state')">
+            <option [value]="null">-- Select --</option>
+            <option *ngFor="let state of states" [value]="state.StateID">
+              {{ state.State }}
+            </option>
+          </select>
+        </ion-item>
+        <div class="validation-error" *ngIf="isWeb && shouldShowError('state')">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          {{ getFieldError('state') }}
+        </div>
+      </div>
+
+      <div class="field-wrapper">
+        <ion-item lines="full" [class.item-error]="isWeb && shouldShowError('zip')">
+          <ion-label position="stacked">Zip Code</ion-label>
+          <ion-input
+            type="text"
+            [(ngModel)]="formData.zip"
+            name="zip"
+            placeholder="Zip Code"
+            pattern="[0-9]{5}"
+            (ionBlur)="onFieldBlur('zip')"
+            (ionInput)="onFieldInput('zip')"
+            required>
+          </ion-input>
+        </ion-item>
+        <div class="validation-error" *ngIf="isWeb && shouldShowError('zip')">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          {{ getFieldError('zip') }}
+        </div>
+      </div>
     </div>
 
     <!-- Submit Button -->
     <div class="button-container">
-      <ion-button 
-        expand="block" 
-        type="submit" 
+      <ion-button
+        expand="block"
+        type="submit"
         color="primary"
-        [disabled]="!projectForm.form.valid">
+        [disabled]="!isFormValid()">
         Create Project
       </ion-button>
     </div>

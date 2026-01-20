@@ -2620,3 +2620,101 @@ ion-alert.text-editor-modal .alert-button.editor-save-btn,
     opacity: 0.7;
   }
 }
+
+/* ============================================
+   Real-Time Form Validation Styles (Web Only)
+   G2-FORMS-001
+   ============================================ */
+
+/* Validation error message - inline display near field */
+.validation-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
+  padding-left: 2px;
+  animation: validationFadeIn 0.2s ease-out;
+
+  ion-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    color: #dc3545;
+  }
+}
+
+@keyframes validationFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Input error state styling */
+.input-error,
+input.input-error,
+ion-input.input-error,
+ion-textarea.input-error {
+  --border-color: #dc3545 !important;
+  border-color: #dc3545 !important;
+
+  &:focus,
+  &:focus-within {
+    --border-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+  }
+}
+
+/* Select error state */
+select.select-error,
+.select-error {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+}
+
+/* Ion-item error state */
+ion-item.item-error {
+  --border-color: #dc3545;
+  --highlight-color-focused: #dc3545;
+  --highlight-color-valid: #dc3545;
+  --highlight-color-invalid: #dc3545;
+}
+
+/* Field wrapper for validation layout */
+.field-wrapper,
+.input-wrapper {
+  margin-bottom: 12px;
+  position: relative;
+}
+
+/* Valid field success indicator (optional - shown after validation passes) */
+.input-valid,
+input.input-valid,
+ion-input.input-valid {
+  --border-color: #28a745 !important;
+  border-color: #28a745 !important;
+}
+
+/* Validation success message (optional) */
+.validation-success {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #28a745;
+  font-size: 12px;
+  margin-top: 4px;
+  padding-left: 2px;
+  animation: validationFadeIn 0.2s ease-out;
+
+  ion-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    color: #28a745;
+  }
+}
