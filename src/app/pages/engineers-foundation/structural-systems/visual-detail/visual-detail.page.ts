@@ -95,6 +95,15 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     this.loadRouteParams();
   }
 
+  ionViewWillEnter() {
+    // WEBAPP: Clear loading state when returning to this page
+    if (environment.isWeb) {
+      this.loading = false;
+      this.saving = false;
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
   ngOnDestroy() {
     this.routeSubscription?.unsubscribe();
     this.localImagesSubscription?.unsubscribe();

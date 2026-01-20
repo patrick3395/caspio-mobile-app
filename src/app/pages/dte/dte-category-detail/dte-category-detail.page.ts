@@ -15,6 +15,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { environment } from '../../../../environments/environment';
 
 interface VisualItem {
   id: string | number;
@@ -136,6 +137,14 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         }
       });
     });
+  }
+
+  ionViewWillEnter() {
+    // WEBAPP: Clear loading state when returning to this page
+    if (environment.isWeb) {
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   ngOnDestroy() {

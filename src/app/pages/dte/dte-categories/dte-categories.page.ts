@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../../services/caspio.service';
+import { environment } from '../../../../environments/environment';
 
 interface CategoryCard {
   title: string;
@@ -41,10 +42,17 @@ export class DteCategoriesPage implements OnInit {
         this.loading = false;
         return;
       }
-      
+
       await this.loadCategories();
       this.loading = false;
     });
+  }
+
+  ionViewWillEnter() {
+    // WEBAPP: Clear loading state when returning to this page
+    if (environment.isWeb) {
+      this.loading = false;
+    }
   }
 
   async loadCategories() {

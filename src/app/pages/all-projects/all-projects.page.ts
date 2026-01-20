@@ -66,7 +66,9 @@ export class AllProjectsPage implements OnInit {
 
   ionViewWillEnter() {
     // WEBAPP: Reset selection state when returning to this page
-    this.selectingProjectId = null;
+    if (environment.isWeb) {
+      this.selectingProjectId = null;
+    }
     this.checkAuthAndLoadProjects();
   }
 
