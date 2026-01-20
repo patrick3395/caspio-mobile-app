@@ -3102,3 +3102,288 @@ body.dark-theme {
     }
   }
 }
+
+/* ============================================================================
+ * G2-A11Y-004: WCAG AA Color Contrast Compliance (Web Only)
+ * Ensures sufficient color contrast for text and UI elements.
+ * - Normal text: 4.5:1 minimum contrast ratio
+ * - Large text (18pt+ or 14pt bold): 3:1 minimum contrast ratio
+ * - UI components & graphical objects: 3:1 minimum contrast ratio
+ * ============================================================================ */
+@media (hover: hover) and (pointer: fine) {
+  /* Secondary text - use accessible gray instead of noble-gray (#69635D -> #595959) */
+  .text-gray,
+  .text-secondary,
+  .text-muted,
+  .info-label,
+  .field-label,
+  .form-label,
+  .section-subtitle,
+  .helper-text {
+    color: var(--a11y-text-secondary, #595959) !important;
+  }
+
+  /* Placeholder text - WCAG AA compliant placeholder color (#767676 has 4.52:1 ratio) */
+  input::placeholder,
+  textarea::placeholder,
+  ion-input::placeholder,
+  ion-textarea::placeholder,
+  .placeholder {
+    color: var(--a11y-placeholder, #767676) !important;
+    opacity: 1 !important;
+  }
+
+  /* Ionic placeholder color override */
+  ion-input {
+    --placeholder-color: var(--a11y-placeholder, #767676);
+    --placeholder-opacity: 1;
+  }
+
+  ion-textarea {
+    --placeholder-color: var(--a11y-placeholder, #767676);
+    --placeholder-opacity: 1;
+  }
+
+  /* Styled input placeholder */
+  .styled-input::placeholder {
+    color: var(--a11y-placeholder, #767676) !important;
+  }
+
+  /* Alert message text - ensure proper contrast */
+  .alert-message,
+  .custom-other-alert .alert-message,
+  .template-loading-alert .alert-message,
+  .custom-document-alert .alert-message,
+  .zelle-info-alert .alert-message {
+    color: var(--a11y-text-secondary, #595959) !important;
+  }
+
+  /* Tab bar - unselected tabs need better contrast */
+  ion-tab-bar ion-tab-button {
+    --color: var(--a11y-text-secondary, #595959);
+  }
+
+  /* Segment buttons - unselected state */
+  ion-segment ion-segment-button {
+    --color: var(--a11y-text-secondary, #595959);
+  }
+
+  /* Card subtitles and secondary info */
+  ion-card-subtitle,
+  .card-subtitle,
+  .subtitle {
+    color: var(--a11y-text-secondary, #595959) !important;
+  }
+
+  /* List item secondary text */
+  ion-item ion-note,
+  ion-item .item-note,
+  .item-detail,
+  .item-secondary {
+    color: var(--a11y-text-secondary, #595959) !important;
+  }
+
+  /* Disabled state - still needs to be readable */
+  .disabled,
+  [disabled],
+  :disabled {
+    color: var(--a11y-text-disabled, #757575) !important;
+    opacity: 1 !important;
+  }
+
+  /* Badge secondary - ensure contrast */
+  ion-badge.badge-secondary,
+  .badge-secondary {
+    --background: var(--a11y-text-secondary, #595959) !important;
+    --color: #FFFFFF !important;
+  }
+
+  /* Chip text color - ensure contrast */
+  ion-chip {
+    --color: var(--noble-dark-gray, #333333);
+  }
+
+  /* Form validation messages - ensure contrast for error/success states */
+  .validation-error {
+    color: #B91C1C !important; /* Darker red with 5.91:1 contrast ratio */
+  }
+
+  .validation-success {
+    color: #15803D !important; /* Darker green with 4.53:1 contrast ratio */
+  }
+
+  /* Info sections - secondary labels */
+  .info-section .info-label,
+  .detail-label,
+  .field-name {
+    color: var(--a11y-text-secondary, #595959) !important;
+  }
+
+  /* Table headers - ensure sufficient contrast */
+  .services-table .table-header,
+  .table-header,
+  th {
+    color: var(--a11y-text-secondary, #595959) !important;
+    background-color: #EAEAEA !important;
+  }
+
+  /* Muted/hint text */
+  .hint,
+  .caption,
+  .small-text,
+  .meta-text {
+    color: var(--a11y-text-muted, #6B6B6B) !important;
+  }
+
+  /* UI component borders - 3:1 contrast minimum */
+  .styled-input:not(:focus),
+  select.styled-input:not(:focus) {
+    border-color: var(--a11y-ui-border, #949494);
+  }
+
+  /* Progress steps and counts */
+  .progress-step {
+    color: var(--a11y-text-muted, #6B6B6B) !important;
+  }
+
+  .progress-step-count {
+    color: var(--a11y-text-secondary, #595959) !important;
+  }
+
+  /* Upload progress stage text */
+  .upload-progress-stage {
+    color: var(--a11y-text-muted, #6B6B6B) !important;
+  }
+
+  /* Error help text */
+  .error-boundary-modal .error-help {
+    color: var(--a11y-text-muted, #6B6B6B) !important;
+  }
+}
+
+/* Dark theme WCAG AA color contrast overrides (Web Only) */
+@media (hover: hover) and (pointer: fine) {
+  body.dark-theme {
+    /* Secondary text for dark theme */
+    .text-gray,
+    .text-secondary,
+    .text-muted,
+    .info-label,
+    .field-label,
+    .form-label,
+    .section-subtitle,
+    .helper-text {
+      color: var(--a11y-text-secondary, #B0B0B0) !important;
+    }
+
+    /* Placeholder text for dark theme */
+    input::placeholder,
+    textarea::placeholder,
+    ion-input::placeholder,
+    ion-textarea::placeholder,
+    .placeholder {
+      color: var(--a11y-placeholder, #A0A0A0) !important;
+    }
+
+    ion-input {
+      --placeholder-color: var(--a11y-placeholder, #A0A0A0);
+    }
+
+    ion-textarea {
+      --placeholder-color: var(--a11y-placeholder, #A0A0A0);
+    }
+
+    /* Alert message text */
+    .alert-message,
+    .custom-other-alert .alert-message,
+    .template-loading-alert .alert-message,
+    .custom-document-alert .alert-message {
+      color: var(--a11y-text-secondary, #B0B0B0) !important;
+    }
+
+    /* Tab bar - unselected tabs */
+    ion-tab-bar ion-tab-button {
+      --color: var(--a11y-text-secondary, #B0B0B0);
+    }
+
+    /* Segment buttons */
+    ion-segment ion-segment-button {
+      --color: var(--a11y-text-secondary, #B0B0B0);
+    }
+
+    /* Card subtitles */
+    ion-card-subtitle,
+    .card-subtitle,
+    .subtitle {
+      color: var(--a11y-text-secondary, #B0B0B0) !important;
+    }
+
+    /* List item notes */
+    ion-item ion-note,
+    ion-item .item-note,
+    .item-detail,
+    .item-secondary {
+      color: var(--a11y-text-secondary, #B0B0B0) !important;
+    }
+
+    /* Disabled state */
+    .disabled,
+    [disabled],
+    :disabled {
+      color: var(--a11y-text-disabled, #8A8A8A) !important;
+    }
+
+    /* Form validation - dark theme accessible colors */
+    .validation-error {
+      color: #FCA5A5 !important; /* Light red for dark backgrounds */
+    }
+
+    .validation-success {
+      color: #86EFAC !important; /* Light green for dark backgrounds */
+    }
+
+    /* Info section labels */
+    .info-section .info-label,
+    .detail-label,
+    .field-name {
+      color: var(--a11y-text-secondary, #B0B0B0) !important;
+    }
+
+    /* Table headers - dark theme */
+    .services-table .table-header,
+    .table-header,
+    th {
+      color: var(--a11y-text-secondary, #B0B0B0) !important;
+      background-color: #252525 !important;
+    }
+
+    /* Muted text */
+    .hint,
+    .caption,
+    .small-text,
+    .meta-text {
+      color: var(--a11y-text-muted, #9A9A9A) !important;
+    }
+
+    /* UI borders */
+    .styled-input:not(:focus),
+    select.styled-input:not(:focus) {
+      border-color: var(--a11y-ui-border, #6E6E6E);
+    }
+
+    /* Progress and upload text */
+    .progress-step,
+    .upload-progress-stage {
+      color: var(--a11y-text-muted, #9A9A9A) !important;
+    }
+
+    .progress-step-count {
+      color: var(--a11y-text-secondary, #B0B0B0) !important;
+    }
+
+    /* Error help text */
+    .error-boundary-modal .error-help {
+      color: var(--a11y-text-muted, #9A9A9A) !important;
+    }
+  }
+}
