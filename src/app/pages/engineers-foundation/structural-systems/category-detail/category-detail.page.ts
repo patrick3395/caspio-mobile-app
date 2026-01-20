@@ -731,6 +731,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
 
+        // WEBAPP: Use key format that matches isItemSelected() and getPhotosForVisual()
+        // These methods use `${category}_${itemId}` format (no serviceId)
+        const itemKey = `${this.categoryName}_${templateId}`;
+
         const item: VisualItem = {
           id: visual ? (visual.VisualID || visual.PK_ID) : templateId,
           templateId: templateId,
@@ -743,7 +747,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           required: false,
           answer: visual?.Answer || '',
           isSelected: !!visual,
-          key: `${this.serviceId}_${this.categoryName}_${templateId}`
+          key: itemKey
         };
 
         // Add to appropriate section
@@ -755,10 +759,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           organizedData.comments.push(item);
         }
 
-        // Track visual record IDs for photo loading
+        // Track visual record IDs and selection state for photo loading
         if (visual) {
           const visualId = visual.VisualID || visual.PK_ID;
-          this.visualRecordIds[item.key!] = String(visualId);
+          this.visualRecordIds[itemKey] = String(visualId);
+          // WEBAPP: Populate selectedItems so isItemSelected() returns true
+          this.selectedItems[itemKey] = true;
         }
       }
 
