@@ -11,6 +11,7 @@ import { OfflineTemplateService } from '../../../../services/offline-template.se
 import { IndexedDbService } from '../../../../services/indexed-db.service';
 import { OfflineService } from '../../../../services/offline.service';
 import { db } from '../../../../services/caspio-db';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-structural-systems-hub',
@@ -154,17 +155,25 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
 
   private async loadData() {
     console.log('[StructuralHub] loadData() starting...');
-    
+
+    // WEBAPP MODE: Load from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log('[StructuralHub] WEBAPP MODE: Loading data from API');
+      await this.loadDataFromAPI();
+      return;
+    }
+
+    // MOBILE MODE: Use cache-first pattern
     // Update online status
     this.isOnline = this.offlineService.isOnline();
-    
+
     // Read templates ONCE and reuse
     const cachedTemplates = await this.indexedDb.getCachedTemplates('visual');
     const hasCachedTemplates = !!(cachedTemplates && cachedTemplates.length > 0);
-    
+
     // Read service ONCE and reuse
     const cachedService = await this.offlineTemplate.getService(this.serviceId);
-    
+
     // Only show loading spinner if we TRULY need to fetch from network
     if (!hasCachedTemplates || !cachedService) {
       this.loading = true;
@@ -191,19 +200,92 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
 
       // Load categories - pass templates to avoid re-reading
       await this.loadCategoriesFromTemplates(cachedTemplates || []);
-      
+
       // Check for pending sync items
       const pendingRequests = await this.indexedDb.getPendingRequests();
-      this.hasPendingSync = pendingRequests.some(r => 
+      this.hasPendingSync = pendingRequests.some(r =>
         r.endpoint.includes('Services_Visuals') && r.status === 'pending'
       );
-      
+
       // Update isEmpty status
       this.isEmpty = this.categories.length === 0 && hasCachedTemplates;
-      
+
       console.log('[StructuralHub] ✅ loadData() completed');
     } catch (error) {
       console.error('[StructuralHub] Error in loadData:', error);
+    } finally {
+      this.loading = false;
+      this.initialLoadComplete = true;
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  /**
+   * WEBAPP MODE: Load data directly from API to see synced data from mobile
+   */
+  private async loadDataFromAPI() {
+    this.loading = true;
+    this.isOnline = true;
+    this.changeDetectorRef.detectChanges();
+
+    try {
+      // Load templates and visuals from API
+      const [templates, visuals] = await Promise.all([
+        this.foundationData.getVisualsTemplates(),
+        this.foundationData.getVisualsByService(this.serviceId)
+      ]);
+
+      console.log(`[StructuralHub] WEBAPP: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} visuals from API`);
+
+      // Filter for visual templates (TypeID=1)
+      const visualTemplates = (templates || []).filter((t: any) => t.TypeID === 1);
+
+      // Extract unique categories
+      const categoriesSet = new Set<string>();
+      const categoriesOrder: string[] = [];
+
+      visualTemplates.forEach((template: any) => {
+        if (template.Category && !categoriesSet.has(template.Category)) {
+          categoriesSet.add(template.Category);
+          categoriesOrder.push(template.Category);
+        }
+      });
+
+      // Count visuals by category and kind from server data
+      const counts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
+
+      (visuals || []).forEach((visual: any) => {
+        const category = visual.Category || '';
+        const kind = visual.Kind || '';
+
+        if (!category) return;
+
+        if (!counts[category]) {
+          counts[category] = { comments: 0, limitations: 0, deficiencies: 0 };
+        }
+
+        if (kind === 'Comment') {
+          counts[category].comments += 1;
+        } else if (kind === 'Limitation') {
+          counts[category].limitations += 1;
+        } else if (kind === 'Deficiency') {
+          counts[category].deficiencies += 1;
+        }
+      });
+
+      this.categories = categoriesOrder.map(cat => ({
+        name: cat,
+        commentCount: counts[cat]?.comments || 0,
+        limitationCount: counts[cat]?.limitations || 0,
+        deficiencyCount: counts[cat]?.deficiencies || 0
+      }));
+
+      this.isEmpty = this.categories.length === 0;
+      this.hasPendingSync = false;
+
+      console.log(`[StructuralHub] WEBAPP: ${this.categories.length} categories loaded`);
+    } catch (error) {
+      console.error('[StructuralHub] WEBAPP: Error loading data:', error);
     } finally {
       this.loading = false;
       this.initialLoadComplete = true;

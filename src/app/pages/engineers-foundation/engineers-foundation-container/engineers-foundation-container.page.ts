@@ -357,6 +357,16 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     console.log(`[EF Container] ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`);
     console.log(`[EF Container] Online: ${this.offlineService.isOnline()}`);
 
+    // WEBAPP MODE: Skip template download - pages will fetch directly from API
+    if (environment.isWeb) {
+      console.log('[EF Container] WEBAPP MODE: Skipping template download - pages fetch from API directly');
+      this.templateReady = true;
+      this.downloadProgress = 'Ready';
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
+
+    // MOBILE MODE: Download template for offline use
     // ALWAYS show loading screen first
     this.templateReady = false;
     this.downloadProgress = 'Loading template data...';

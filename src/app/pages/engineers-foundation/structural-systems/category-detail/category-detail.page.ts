@@ -21,6 +21,7 @@ import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNO
 import { AddCustomVisualModalComponent } from '../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 import { db, VisualField } from '../../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../../services/visual-field-repo.service';
+import { environment } from '../../../../../environments/environment';
 
 interface VisualItem {
   id: string | number;
@@ -560,6 +561,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     console.time('[CategoryDetail] initializeVisualFields');
     console.log('[CategoryDetail] Initializing visual fields (Dexie-first)...');
 
+    // WEBAPP MODE: Load directly from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log('[CategoryDetail] WEBAPP MODE: Loading data directly from API');
+      await this.loadDataFromAPI();
+      console.timeEnd('[CategoryDetail] initializeVisualFields');
+      return;
+    }
+
+    // MOBILE MODE: Use Dexie-first pattern
     // Unsubscribe from previous subscription if category changed
     if (this.visualFieldsSubscription) {
       this.visualFieldsSubscription.unsubscribe();
@@ -622,11 +632,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           console.log(`[CategoryDetail] Received ${fields.length} fields from liveQuery`);
           this.convertFieldsToOrganizedData(fields);
 
-          // DEXIE-FIRST: Populate photos from Dexie LocalImages
-          await this.populatePhotosFromDexie(fields);
-
+          // DEXIE-FIRST: Show UI immediately - no loading screen
           this.loading = false;
           this.changeDetectorRef.detectChanges();
+
+          // DEXIE-FIRST: Populate photos in background (non-blocking)
+          // Photos will appear as they load, no need to wait
+          this.populatePhotosFromDexie(fields).then(() => {
+            this.changeDetectorRef.detectChanges();
+          });
         },
         error: (err) => {
           console.error('[CategoryDetail] Error in visualFields subscription:', err);
@@ -644,6 +658,158 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     await this.loadDropdownOptionsFromAPI();
 
     console.timeEnd('[CategoryDetail] initializeVisualFields');
+  }
+
+  /**
+   * WEBAPP MODE: Load data directly from API to see synced data from mobile
+   * This bypasses all local Dexie caching and reads fresh from the server
+   */
+  private async loadDataFromAPI(): Promise<void> {
+    console.log('[CategoryDetail] WEBAPP MODE: loadDataFromAPI() starting...');
+    this.loading = true;
+    this.changeDetectorRef.detectChanges();
+
+    try {
+      // Load templates and visuals from API (via foundationData which now fetches from server in webapp mode)
+      const [templates, visuals] = await Promise.all([
+        this.foundationData.getVisualsTemplates(),
+        this.foundationData.getVisualsByService(this.serviceId)
+      ]);
+
+      console.log(`[CategoryDetail] WEBAPP: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} visuals from API`);
+
+      // Filter templates for this category
+      const categoryTemplates = (templates || []).filter((t: any) => t.Category === this.categoryName);
+      console.log(`[CategoryDetail] WEBAPP: ${categoryTemplates.length} templates for category "${this.categoryName}"`);
+
+      // Build organized data from templates and visuals
+      const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
+        comments: [],
+        limitations: [],
+        deficiencies: []
+      };
+
+      for (const template of categoryTemplates) {
+        const templateId = template.TemplateID || template.PK_ID;
+        const kind = (template.Kind || 'Comment').toLowerCase();
+
+        // Find matching visual (user selection) from server
+        const visual = (visuals || []).find((v: any) =>
+          (v.VisualTemplateID === templateId || v.templateId === templateId) &&
+          v.Category === this.categoryName
+        );
+
+        const item: VisualItem = {
+          id: visual ? (visual.VisualID || visual.PK_ID) : templateId,
+          templateId: templateId,
+          name: template.Name || '',
+          text: visual?.VisualText || visual?.Text || template.Text || '',
+          originalText: template.Text || '',
+          type: template.Kind || 'Comment',
+          category: template.Category || this.categoryName,
+          answerType: template.AnswerType || 0,
+          required: false,
+          answer: visual?.Answer || '',
+          isSelected: !!visual,
+          key: `${this.serviceId}_${this.categoryName}_${templateId}`
+        };
+
+        // Add to appropriate section
+        if (kind === 'limitation') {
+          organizedData.limitations.push(item);
+        } else if (kind === 'deficiency') {
+          organizedData.deficiencies.push(item);
+        } else {
+          organizedData.comments.push(item);
+        }
+
+        // Track visual record IDs for photo loading
+        if (visual) {
+          const visualId = visual.VisualID || visual.PK_ID;
+          this.visualRecordIds[item.key!] = String(visualId);
+        }
+      }
+
+      this.organizedData = organizedData;
+      console.log(`[CategoryDetail] WEBAPP: Organized data - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
+
+      // Load photos for selected visuals from API
+      await this.loadPhotosFromAPI();
+
+      // Load dropdown options
+      await this.loadDropdownOptionsFromAPI();
+
+      // Update tracking variables
+      this.lastLoadedServiceId = this.serviceId;
+      this.lastLoadedCategoryName = this.categoryName;
+      this.initialLoadComplete = true;
+
+    } catch (error) {
+      console.error('[CategoryDetail] WEBAPP: Error loading data from API:', error);
+    } finally {
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  /**
+   * WEBAPP MODE: Load photos from API for all selected visuals
+   */
+  private async loadPhotosFromAPI(): Promise<void> {
+    console.log('[CategoryDetail] WEBAPP MODE: Loading photos from API...');
+
+    // Get all visual IDs that have been selected
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+
+    for (const item of allItems) {
+      if (!item.isSelected || !item.key) continue;
+
+      const visualId = this.visualRecordIds[item.key];
+      if (!visualId) continue;
+
+      try {
+        const attachments = await this.foundationData.getVisualAttachments(visualId);
+        console.log(`[CategoryDetail] WEBAPP: Loaded ${attachments?.length || 0} photos for visual ${visualId}`);
+
+        // Convert attachments to photo format
+        const photos: any[] = [];
+        for (const att of attachments || []) {
+          let displayUrl = att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
+
+          // Get S3 signed URL if needed
+          if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
+            try {
+              displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+            } catch (e) {
+              console.warn('[CategoryDetail] WEBAPP: Could not get S3 URL:', e);
+            }
+          }
+
+          photos.push({
+            id: att.AttachID || att.attachId || att.PK_ID,
+            attachId: att.AttachID || att.attachId || att.PK_ID,
+            displayUrl,
+            url: displayUrl,
+            caption: att.Annotation || att.caption || '',
+            uploading: false,
+            isLocal: false,
+            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            drawings: att.Drawings || ''
+          });
+        }
+
+        this.visualPhotos[item.key] = photos;
+        this.photoCountsByKey[item.key] = photos.length;
+      } catch (error) {
+        console.error(`[CategoryDetail] WEBAPP: Error loading photos for visual ${visualId}:`, error);
+      }
+    }
+
+    this.changeDetectorRef.detectChanges();
   }
 
   /**
@@ -764,9 +930,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.logDebug('DEXIE_LOAD', `populatePhotosFromDexie START\nfields count: ${fields.length}\nserviceId: ${this.serviceId}`);
     // ===== END US-001 DEBUG =====
 
-    // ANNOTATION FIX: Ensure annotated images cache is loaded for thumbnail display
+    // DEXIE-FIRST: Load annotated images in background (non-blocking)
+    // Don't await - let photos render immediately, annotations will update when ready
     if (this.bulkAnnotatedImagesMap.size === 0) {
-      this.bulkAnnotatedImagesMap = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+      this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
+        this.bulkAnnotatedImagesMap = annotatedImages;
+        // Trigger change detection to update any thumbnails that now have annotations
+        this.changeDetectorRef.detectChanges();
+      });
     }
 
     // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query

@@ -15,6 +15,7 @@ import { IndexedDbService } from '../../../services/indexed-db.service';
 import { SmartSyncService } from '../../../services/smart-sync.service';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
 import { EfeField, EfePoint, db } from '../../../services/caspio-db';
+import { environment } from '../../../../environments/environment';
 
 interface RoomTemplate {
   RoomName: string;
@@ -195,6 +196,15 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     console.time('[ElevationPlotHub] initializeEfeFields');
     console.log('[ElevationPlotHub] Initializing EFE fields (Dexie-first)...');
 
+    // WEBAPP MODE: Load from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log('[ElevationPlotHub] WEBAPP MODE: Loading data from API');
+      await this.loadDataFromAPI();
+      console.timeEnd('[ElevationPlotHub] initializeEfeFields');
+      return;
+    }
+
+    // MOBILE MODE: Use Dexie-first pattern
     // Unsubscribe from previous subscription if service changed
     if (this.efeFieldsSubscription) {
       this.efeFieldsSubscription.unsubscribe();
@@ -263,6 +273,89 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     this.efeFieldsSeeded = true;
     console.timeEnd('[ElevationPlotHub] initializeEfeFields');
+  }
+
+  /**
+   * WEBAPP MODE: Load data directly from API to see synced data from mobile
+   */
+  private async loadDataFromAPI(): Promise<void> {
+    this.loading = true;
+    this.isOnline = true;
+    this.changeDetectorRef.detectChanges();
+
+    try {
+      // Load templates and rooms from API
+      const [templates, rooms] = await Promise.all([
+        this.foundationData.getEFETemplates(),
+        this.foundationData.getEFEByService(this.serviceId)
+      ]);
+
+      console.log(`[ElevationPlotHub] WEBAPP: Loaded ${templates?.length || 0} templates, ${rooms?.length || 0} rooms from API`);
+
+      // Store templates for add room dialog
+      this.allRoomTemplates = (templates || []).map((t: any) => ({ ...t }));
+
+      // Reset dictionaries
+      this.selectedRooms = {};
+      this.efeRecordIds = {};
+      this.roomTemplates = [];
+
+      // Build room display data from server rooms
+      for (const room of rooms || []) {
+        const roomName = room.RoomName;
+        const templateId = room.TemplateID;
+        const efeId = room.EFEID || room.PK_ID;
+
+        // Find matching template for point count
+        const template = this.allRoomTemplates.find((t: any) =>
+          t.TemplateID === templateId || t.PK_ID === templateId
+        );
+
+        this.selectedRooms[roomName] = true;
+        this.efeRecordIds[roomName] = String(efeId);
+
+        // Store elevation data for navigation
+        this.roomElevationData[roomName] = {
+          roomName: roomName,
+          templateId: templateId,
+          elevationPoints: [],
+          pointCount: template?.PointCount || 0,
+          notes: room.Notes || '',
+          fdf: room.FDF || '',
+          location: room.Location || ''
+        };
+
+        this.roomTemplates.push({
+          RoomName: roomName,
+          TemplateID: templateId,
+          PK_ID: templateId,
+          PointCount: template?.PointCount || 0,
+          Organization: room.Organization,
+          isSelected: true,
+          isSaving: false,
+          efeId: String(efeId)
+        } as RoomDisplayData);
+      }
+
+      // Sort by organization
+      this.roomTemplates.sort((a, b) => {
+        const orgA = (a as any).Organization ?? 999999;
+        const orgB = (b as any).Organization ?? 999999;
+        return orgA - orgB;
+      });
+
+      // Update UI state flags
+      this.isEmpty = this.roomTemplates.length === 0;
+      this.hasPendingSync = false;
+
+      console.log(`[ElevationPlotHub] WEBAPP: ${this.roomTemplates.length} rooms loaded`);
+    } catch (error) {
+      console.error('[ElevationPlotHub] WEBAPP: Error loading data:', error);
+    } finally {
+      this.loading = false;
+      this.initialLoadComplete = true;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   /**

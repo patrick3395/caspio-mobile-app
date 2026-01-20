@@ -165,7 +165,6 @@
                 <span>Gallery</span>
               </button>
               <button class="action-btn secondary"
-                      *ngIf="getTotalPhotoCount(categoryName, item.templateId) > 0"
                       (click)="togglePhotoExpansion(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.templateId) ? 'chevron-up' : 'eye'"></ion-icon>
                 <span>{{ isPhotosExpanded(categoryName, item.templateId) ? 'Hide' : 'View' }} ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
@@ -363,7 +362,6 @@
                 <span>Gallery</span>
               </button>
               <button class="action-btn secondary"
-                      *ngIf="getTotalPhotoCount(categoryName, item.templateId) > 0"
                       (click)="togglePhotoExpansion(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.templateId) ? 'chevron-up' : 'eye'"></ion-icon>
                 <span>{{ isPhotosExpanded(categoryName, item.templateId) ? 'Hide' : 'View' }} ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
@@ -558,7 +556,6 @@
                 <span>Gallery</span>
               </button>
               <button class="action-btn secondary"
-                      *ngIf="getTotalPhotoCount(categoryName, item.templateId) > 0"
                       (click)="togglePhotoExpansion(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.templateId) ? 'chevron-up' : 'eye'"></ion-icon>
                 <span>{{ isPhotosExpanded(categoryName, item.templateId) ? 'Hide' : 'View' }} ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
