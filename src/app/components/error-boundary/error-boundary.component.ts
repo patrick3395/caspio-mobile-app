@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { IonicModule } from '@ionic/angular';
@@ -10,11 +10,14 @@ import { GlobalErrorHandlerService, ErrorInfo } from '../../services/global-erro
  *
  * Displays user-friendly error messages with recovery options.
  * Only rendered on web platform.
+ *
+ * G2-PERF-003: OnPush change detection for performance optimization (web only)
  */
 @Component({
   selector: 'app-error-boundary',
   standalone: true,
   imports: [CommonModule, IonicModule],
+  changeDetection: environment.isWeb ? ChangeDetectionStrategy.OnPush : ChangeDetectionStrategy.Default,
   template: `
     <div
       class="error-boundary-overlay"
@@ -68,7 +71,8 @@ export class ErrorBoundaryComponent implements OnInit, OnDestroy {
 
   constructor(
     private errorHandler: GlobalErrorHandlerService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -92,6 +96,9 @@ export class ErrorBoundaryComponent implements OnInit, OnDestroy {
     this.errorMessage = error.message;
     this.errorStack = error.stack;
     this.showError = true;
+
+    // G2-PERF-003: Use markForCheck() for OnPush compatibility
+    this.cdr.markForCheck();
 
     // Log for debugging
     console.log('[ErrorBoundary] Showing error modal:', error.type, error.message);

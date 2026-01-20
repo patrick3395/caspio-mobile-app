@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
@@ -9,11 +9,17 @@ import { PlatformDetectionService } from '../../services/platform-detection.serv
 import { MutationTrackingService, EntityType, Mutation } from '../../services/mutation-tracking.service';
 import { forkJoin, Subscription } from 'rxjs';
 
+/**
+ * G2-PERF-003: OnPush change detection for performance optimization (web only)
+ * This page uses OnPush strategy to reduce unnecessary re-renders.
+ * Manual change detection (markForCheck) is used when async operations complete.
+ */
 @Component({
   selector: 'app-active-projects',
   templateUrl: './active-projects.page.html',
   styleUrls: ['./active-projects.page.scss'],
-  standalone: false
+  standalone: false,
+  changeDetection: environment.isWeb ? ChangeDetectionStrategy.OnPush : ChangeDetectionStrategy.Default
 })
 export class ActiveProjectsPage implements OnInit, OnDestroy {
   projects: Project[] = [];
@@ -297,7 +303,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
         console.log(`🎯 Services cache populated for ${Object.keys(this.servicesCache).length} projects`);
 
         // Trigger change detection to update UI
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
       error: (error) => {
         console.error('❌ Error batch loading services:', error);
@@ -465,7 +471,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
           // Use cached image
           this.projectImageCache[projectId] = cacheEntry.imageData;
           this.projectImageCache[cacheKey] = cacheEntry.imageData;
-          this.cdr.detectChanges();
+          this.cdr.markForCheck();
           return;
         } else {
           // Cache expired, remove it
@@ -497,7 +503,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
         }
         
         // Trigger change detection to update the view
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       } else {
         // Use fallback
         const address = this.formatAddress(project);
@@ -999,7 +1005,7 @@ URL Attempted: ${imgUrl}`;
       // WEBAPP: Show immediate loading feedback
       if (environment.isWeb) {
         this.selectingProjectId = projectId;
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       }
       this.router.navigate(['/project', projectId], { state: { project } });
     }

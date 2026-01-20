@@ -3,7 +3,8 @@
  * Provides smooth image loading with placeholders and blur effects
  */
 
-import { Component, Input, OnInit, OnDestroy, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, ElementRef, ViewChild, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { environment } from '../../../environments/environment';
 import { CommonModule } from '@angular/common';
 import { ThumbnailService } from '../services/thumbnail.service';
 
@@ -16,10 +17,16 @@ export interface ProgressiveImageData {
   height?: number;
 }
 
+/**
+ * G2-PERF-003: OnPush change detection for performance optimization (web only)
+ * This component uses OnPush strategy to reduce unnecessary re-renders when displayed in lists.
+ * Manual change detection (markForCheck) is used when async operations complete.
+ */
 @Component({
   selector: 'app-progressive-image',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: environment.isWeb ? ChangeDetectionStrategy.OnPush : ChangeDetectionStrategy.Default,
   template: `
     <div class="progressive-image-container" [style.width.px]="width" [style.height.px]="height">
       <!-- Placeholder/Skeleton -->
@@ -302,7 +309,7 @@ export class ProgressiveImageComponent implements OnInit, OnDestroy {
         quality: 0.7
       });
       this.thumbnailUrl = result.thumbnail;
-      this.cdr.detectChanges();
+      this.cdr.markForCheck();
     } catch (error) {
       console.warn('Failed to generate thumbnail:', error);
     }
@@ -328,18 +335,18 @@ export class ProgressiveImageComponent implements OnInit, OnDestroy {
       const elapsed = Date.now() - this.loadStartTime;
       const progress = Math.min(90, (elapsed / 2000) * 100); // Max 90% until loaded
       this.loadingProgress = progress;
-      this.cdr.detectChanges();
+      this.cdr.markForCheck();
     }, 100);
   }
 
   onThumbnailLoad(): void {
     this.thumbnailLoaded = true;
-    this.cdr.detectChanges();
+    this.cdr.markForCheck();
   }
 
   onThumbnailError(): void {
     this.thumbnailError = true;
-    this.cdr.detectChanges();
+    this.cdr.markForCheck();
   }
 
   onImageLoad(): void {
@@ -352,7 +359,7 @@ export class ProgressiveImageComponent implements OnInit, OnDestroy {
       clearInterval(this.progressInterval);
     }
     
-    this.cdr.detectChanges();
+    this.cdr.markForCheck();
   }
 
   onImageError(): void {
@@ -364,7 +371,7 @@ export class ProgressiveImageComponent implements OnInit, OnDestroy {
       clearInterval(this.progressInterval);
     }
     
-    this.cdr.detectChanges();
+    this.cdr.markForCheck();
   }
 
   retryLoad(): void {

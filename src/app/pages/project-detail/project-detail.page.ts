@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { ProjectsService, Project } from '../../services/projects.service';
@@ -98,11 +98,17 @@ interface ProjectDetailCacheState {
   timestamp: number;
 }
 
+/**
+ * G2-PERF-003: OnPush change detection for performance optimization (web only)
+ * This page uses OnPush strategy to reduce unnecessary re-renders.
+ * Manual change detection (markForCheck) is used when async operations complete.
+ */
 @Component({
   selector: 'app-project-detail',
   templateUrl: './project-detail.page.html',
   styleUrls: ['./project-detail.page.scss'],
-  standalone: false
+  standalone: false,
+  changeDetection: environment.isWeb ? ChangeDetectionStrategy.OnPush : ChangeDetectionStrategy.Default
 })
 export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   @ViewChild('optionalDocsModal') optionalDocsModal!: IonModal;
@@ -208,7 +214,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         const service = this.selectedServices.find(s => s.serviceId === this.pendingFinalizedServiceId);
         if (service) {
           service.ReportFinalized = true;
-          this.changeDetectorRef.detectChanges();
+          this.changeDetectorRef.markForCheck();
         }
         this.pendingFinalizedServiceId = null;
       }
@@ -442,13 +448,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // WEB FIX: Force multiple change detections for web browsers
           if (this.platform.isWeb()) {
             console.log('[ProjectDetail] Web platform detected, forcing change detection...');
-            this.changeDetectorRef.detectChanges();
+            this.changeDetectorRef.markForCheck();
             setTimeout(() => {
-              this.changeDetectorRef.detectChanges();
+              this.changeDetectorRef.markForCheck();
               console.log('[ProjectDetail] Second change detection complete');
             }, 100);
             setTimeout(() => {
-              this.changeDetectorRef.detectChanges();
+              this.changeDetectorRef.markForCheck();
               console.log('[ProjectDetail] Third change detection complete');
             }, 500);
           }
@@ -667,7 +673,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
 
           console.log('[ProjectDetail] Service AFTER:', { ReportFinalized: service.ReportFinalized, Status: service.Status });
-          this.changeDetectorRef.detectChanges();
+          this.changeDetectorRef.markForCheck();
         } else {
           console.warn('[ProjectDetail] Service not found with serviceId:', this.pendingFinalizedServiceId);
         }
@@ -935,7 +941,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             console.log('[ProjectDetail] Report finalized - marked changes for re-submit');
           }
           
-          this.changeDetectorRef.detectChanges();
+          this.changeDetectorRef.markForCheck();
         } else {
           console.warn('[ProjectDetail] Service not found with serviceId:', this.pendingFinalizedServiceId);
         }
@@ -956,7 +962,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               timestamp: Date.now()
             };
             // Trigger change detection to update the view
-            this.changeDetectorRef.detectChanges();
+            this.changeDetectorRef.markForCheck();
           }).catch(error => {
             // Error handling - could log to console if needed
           });
@@ -1366,14 +1372,14 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.caspioService.clearServicesCache(actualProjectId);
 
         this.updatingServices = false;
-        this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.markForCheck();
       },
       (error) => {
         // On error (item already rolled back by OptimisticUpdateService)
         console.error('❌ Error deleting service:', error);
         this.showToast('Failed to remove service', 'danger');
         this.updatingServices = false;
-        this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.markForCheck();
       }
     ).subscribe();
 
@@ -3295,7 +3301,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.updateDocumentsList();
 
       // Force Angular to detect changes immediately
-      this.changeDetectorRef.detectChanges();
+      this.changeDetectorRef.markForCheck();
 
       // Invalidate cache to ensure fresh data on reload
       ProjectDetailPage.detailStateCache.delete(this.projectId);
@@ -3689,7 +3695,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (cacheAge < maxAge && cacheEntry.imageData) {
           // Use cached image
           this.projectImageData = cacheEntry.imageData;
-          this.changeDetectorRef.detectChanges();
+          this.changeDetectorRef.markForCheck();
           return;
         } else {
           // Cache expired, remove it
@@ -3721,7 +3727,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         }
         
         // Trigger change detection to update the view
-        this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.markForCheck();
       } else {
         // Use fallback
         const address = this.formatAddress();
@@ -4054,7 +4060,7 @@ Troubleshooting:
     await Promise.all(iconPromises);
 
     // Trigger change detection after icons load so they appear in the UI
-    this.changeDetectorRef.detectChanges();
+    this.changeDetectorRef.markForCheck();
   }
 
   getIconUrl(iconPath: string): string {
@@ -4078,7 +4084,7 @@ Troubleshooting:
       this.calculateEngineersFoundationProgress(service).then(progress => {
         this.templateProgressCache[cacheKey] = { progress, timestamp: now };
         // Trigger change detection to update the view
-        this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.markForCheck();
       }).catch(error => {
         console.error('Error calculating template progress:', error);
       });
@@ -4626,7 +4632,7 @@ Troubleshooting:
         this.imageLoadInProgress = false;
         
         // Trigger change detection to refresh the image immediately
-        this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.markForCheck();
         
         // Optionally load the actual file from Caspio in the background for persistence
         // but don't block the UI or wait for it
@@ -4637,7 +4643,7 @@ Troubleshooting:
                 // Replace blob URL with base64 for permanent storage
                 URL.revokeObjectURL(blobUrl); // Clean up blob URL
                 this.projectImageData = imageData;
-                this.changeDetectorRef.detectChanges();
+                this.changeDetectorRef.markForCheck();
               }
             }).catch(err => {
               console.error('Background image load failed:', err);

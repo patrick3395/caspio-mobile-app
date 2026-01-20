@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ProjectsService, Project } from '../../services/projects.service';
 import { CaspioService } from '../../services/caspio.service';
@@ -6,11 +6,17 @@ import { AlertController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 
+/**
+ * G2-PERF-003: OnPush change detection for performance optimization (web only)
+ * This page uses OnPush strategy to reduce unnecessary re-renders.
+ * Manual change detection (markForCheck) is used when async operations complete.
+ */
 @Component({
   selector: 'app-all-projects',
   templateUrl: './all-projects.page.html',
   styleUrls: ['./all-projects.page.scss'],
-  standalone: false
+  standalone: false,
+  changeDetection: environment.isWeb ? ChangeDetectionStrategy.OnPush : ChangeDetectionStrategy.Default
 })
 export class AllProjectsPage implements OnInit {
   projects: Project[] = [];
@@ -386,7 +392,7 @@ export class AllProjectsPage implements OnInit {
           // Use cached image
           this.projectImageCache[projectId] = cacheEntry.imageData;
           this.projectImageCache[cacheKey] = cacheEntry.imageData;
-          this.changeDetectorRef.detectChanges();
+          this.changeDetectorRef.markForCheck();
           return;
         } else {
           // Cache expired, remove it
@@ -418,7 +424,7 @@ export class AllProjectsPage implements OnInit {
         }
         
         // Trigger change detection to update the view
-        this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.markForCheck();
       } else {
         // Use fallback
         const address = this.formatAddress(project);
@@ -481,7 +487,7 @@ export class AllProjectsPage implements OnInit {
       // WEBAPP: Show immediate loading feedback per web design guidelines
       if (environment.isWeb) {
         this.selectingProjectId = projectId;
-        this.changeDetectorRef.detectChanges();
+        this.changeDetectorRef.markForCheck();
       }
 
       this.router.navigate(['/project', projectId], {

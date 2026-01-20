@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Subscription } from 'rxjs';
@@ -14,11 +14,14 @@ import { OfflineIndicatorService, OfflineIndicatorState } from '../../services/o
  * This component serves as the Angular integration point for the
  * OfflineIndicatorService which handles the actual DOM manipulation
  * of the banner and toast elements.
+ *
+ * G2-PERF-003: OnPush change detection for performance optimization (web only)
  */
 @Component({
   selector: 'app-offline-indicator',
   standalone: true,
   imports: [CommonModule, IonicModule],
+  changeDetection: environment.isWeb ? ChangeDetectionStrategy.OnPush : ChangeDetectionStrategy.Default,
   template: `
     <!-- The actual banner and toasts are rendered via DOM manipulation by OfflineIndicatorService -->
     <!-- This component just ensures the service is initialized and provides Angular lifecycle hooks -->
@@ -34,7 +37,10 @@ export class OfflineIndicatorComponent implements OnInit, OnDestroy {
   state: OfflineIndicatorState | null = null;
   private subscription: Subscription | null = null;
 
-  constructor(private offlineIndicatorService: OfflineIndicatorService) {}
+  constructor(
+    private offlineIndicatorService: OfflineIndicatorService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     if (!this.isWeb) {
@@ -42,8 +48,10 @@ export class OfflineIndicatorComponent implements OnInit, OnDestroy {
     }
 
     // Subscribe to state changes
+    // G2-PERF-003: Use markForCheck() for OnPush compatibility
     this.subscription = this.offlineIndicatorService.getState().subscribe(state => {
       this.state = state;
+      this.cdr.markForCheck();
     });
 
     console.log('[OfflineIndicator] Component initialized for web platform');
