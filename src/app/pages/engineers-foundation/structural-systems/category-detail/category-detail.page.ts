@@ -823,12 +823,35 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         for (const att of attachments || []) {
           let displayUrl = att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
 
-          // Get S3 signed URL if needed
-          if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
-            try {
-              displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
-            } catch (e) {
-              console.warn('[CategoryDetail] WEBAPP: Could not get S3 URL:', e);
+          // WEBAPP: Get S3 signed URL if needed
+          // Check for S3 key (starts with 'uploads/') OR full S3 URL
+          if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.png') {
+            const isS3Key = this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl);
+            const isFullS3Url = displayUrl.startsWith('https://') &&
+                                displayUrl.includes('.s3.') &&
+                                displayUrl.includes('amazonaws.com');
+
+            if (isS3Key) {
+              // S3 key like 'uploads/path/file.jpg' - get signed URL
+              try {
+                displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+              } catch (e) {
+                console.warn('[CategoryDetail] WEBAPP: Could not get S3 URL for key:', e);
+              }
+            } else if (isFullS3Url) {
+              // Full S3 URL - extract key and get signed URL
+              try {
+                // Extract S3 key from URL: https://bucket.s3.region.amazonaws.com/uploads/path/file.jpg
+                const urlObj = new URL(displayUrl);
+                const s3Key = urlObj.pathname.substring(1); // Remove leading '/'
+                if (s3Key && s3Key.startsWith('uploads/')) {
+                  displayUrl = await this.caspioService.getS3FileUrl(s3Key);
+                } else {
+                  console.warn('[CategoryDetail] WEBAPP: S3 URL does not have uploads/ key:', s3Key);
+                }
+              } catch (e) {
+                console.warn('[CategoryDetail] WEBAPP: Could not get signed URL for S3 URL:', e);
+              }
             }
           }
 
