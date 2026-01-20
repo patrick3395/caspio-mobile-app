@@ -4973,38 +4973,47 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
   // Point Management Methods
   async addElevationPoint() {
-    const alert = await this.alertController.create({
-      header: 'Add Measurement',
-      inputs: [
-        {
-          name: 'pointName',
-          type: 'text',
-          placeholder: 'Enter measurement name'
-        }
-      ],
-      buttons: [
-        {
-          text: 'Add',
-          handler: (data) => {
-            if (!data.pointName || !data.pointName.trim()) {
-              this.showToast('Please enter a measurement name', 'warning');
-              return false;
-            }
+    let showError = false;
 
-            // Close the alert immediately and handle the operation in background
-            this.handleAddPoint(data.pointName.trim());
-            return true;
+    const createAlert = async () => {
+      const alert = await this.alertController.create({
+        header: 'Add Measurement',
+        message: showError ? '<span class="validation-error">Name is required to save the point</span>' : undefined,
+        inputs: [
+          {
+            name: 'pointName',
+            type: 'text',
+            placeholder: 'Enter measurement name'
           }
-        },
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        }
-      ],
-      cssClass: 'custom-document-alert'
-    });
+        ],
+        buttons: [
+          {
+            text: 'Add',
+            handler: (data) => {
+              if (!data.pointName || !data.pointName.trim()) {
+                // Show error message by recreating the alert
+                showError = true;
+                alert.dismiss().then(() => createAlert());
+                return false;
+              }
 
-    await alert.present();
+              // Close the alert immediately and handle the operation in background
+              this.handleAddPoint(data.pointName.trim());
+              return true;
+            }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          }
+        ],
+        cssClass: showError ? 'custom-document-alert add-point-error' : 'custom-document-alert'
+      });
+
+      await alert.present();
+    };
+
+    await createAlert();
   }
 
   private async handleAddPoint(pointName: string) {

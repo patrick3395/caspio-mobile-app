@@ -165,30 +165,43 @@ ion-item {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
   }
 
-  // Delete button - matching category-detail styling
+  // Delete button - standardized across all photo thumbnails
   .delete-btn {
     position: absolute !important;
     top: 4px !important;
     right: 4px !important;
-    width: 22px !important;
-    height: 22px !important;
-    border-radius: 50% !important;
-    background: white !important;
-    border: 2px solid #333333 !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 6px !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid #ccc !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     cursor: pointer !important;
     z-index: 1000 !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+    transition: all 0.15s ease !important;
     padding: 0 !important;
 
     ion-icon {
-      font-size: 12px !important;
-      color: #333333 !important;
-      font-weight: 600 !important;
+      font-size: 14px !important;
+      color: #666 !important;
       margin: 0 !important;
       padding: 0 !important;
+    }
+
+    &:hover {
+      background: #dc3545 !important;
+      border-color: #dc3545 !important;
+
+      ion-icon {
+        color: white !important;
+      }
+    }
+
+    &:active {
+      transform: scale(0.95) !important;
     }
   }
 

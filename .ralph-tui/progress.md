@@ -5,93 +5,75 @@ after each iteration and included in agent prompts for context.
 
 ---
 
-## ✓ Iteration 1 - G2-LOADING-001: Fix loading spinners that don't clear properly
-*2026-01-20T16:16:15.057Z (1001s)*
+## ✓ Iteration 1 - G2-ERRORS-002: Add retry mechanisms for failed API calls
+*2026-01-20T20:06:47.265Z (1306s)*
 
 **Status:** Completed
 
 **Notes:**
-\n\n6. **dte-categories.page.ts** - Added environment import and `ionViewWillEnter` to clear `loading` state (web only)\n\n7. **lbw-categories.page.ts** - Added environment import and `ionViewWillEnter` to clear `loading` state (web only)\n\n### Acceptance Criteria Met:\n- ✅ All loading states clear when navigation completes\n- ✅ Loading states clear when returning to a page (ionViewWillEnter)\n- ✅ No orphaned spinners remain after errors\n- ✅ All changes wrapped in `environment.isWeb` check\n\n
+`withRetry()` helper method for consistent retry logic\n   - Applied retry mechanism to GET, POST, PUT, DELETE, and file upload methods (web only)\n   - Same exponential backoff pattern as CaspioService\n\n### Acceptance Criteria Met:\n- ✅ Failed requests retry up to 3 times\n- ✅ User informed of retry attempts (toast notifications)\n- ✅ Manual retry option after all retries fail (clickable toast with Retry button)\n- ✅ All changes wrapped in `environment.isWeb` checks (mobile app unchanged)\n\n
 
 ---
-## ✓ Iteration 2 - G2-LOADING-002: Implement skeleton loaders for content
-*2026-01-20T16:35:04.284Z (1128s)*
+## ✓ Iteration 2 - G2-ERRORS-003: Add offline detection and handling
+*2026-01-20T20:24:11.066Z (1042s)*
 
 **Status:** Completed
 
 **Notes:**
-e with skeleton loaders (web only)\n   - Updated all 4 project sections (Completed, On Hold, Cancelled, Archived) with image shimmer support\n\n6. **all-projects.page.ts** - Added image loading tracking methods\n\n### Acceptance Criteria Met:\n- ✅ Project cards show skeleton placeholders while loading\n- ✅ Service lists show skeleton placeholders (included in skeleton cards)\n- ✅ Images show placeholder shimmer effect\n- ✅ All changes wrapped in `environment.isWeb` / `platform.isWeb()` check\n\n
+leteWithOfflineFallback()` - Auto-queue on failure\n\n### Acceptance Criteria Met:\n- ✅ **Clear indication when offline** - Persistent banner with \"You're offline\" message and queued action count\n- ✅ **Actions queued for when back online** - OfflineService queues POST/PUT/DELETE requests, processes when online\n- ✅ **Graceful degradation of features** - OfflineCapabilitiesService provides feature status info\n- ✅ **All changes wrapped in `environment.isWeb` checks** - Mobile app unchanged\n\n
 
 ---
-## ✓ Iteration 3 - G2-LOADING-003: Add progress indicators for long operations
-*2026-01-20T16:59:03.508Z (1438s)*
+## ✓ Iteration 3 - G2-PERF-001: Implement virtual scrolling for long lists
+*2026-01-20T20:41:16.210Z (1024s)*
 
 **Status:** Completed
 
 **Notes:**
-lity\n\n3. **CSS Styles (global.scss)**:\n   - Progress bar styles with animated shimmer effect\n   - Upload progress toast/indicator styles\n   - Batch operation progress styles with dot indicators\n   - All styled consistently with the app's Noble orange theme\n\n### Acceptance Criteria Met:\n- ✅ PDF generation shows progress percentage\n- ✅ File uploads show progress bar\n- ✅ Batch operations show item count progress (via queue status)\n- ✅ All changes wrapped in `environment.isWeb` check\n\n
+s (Completed, On Hold, Cancelled, Archived)\n   - SCSS: Added virtual scroll section styles\n   - Created shared project item template for DRY code\n\n### Acceptance Criteria Met:\n- ✅ Lists with 100+ items scroll smoothly (via CDK virtual scrolling)\n- ✅ Memory usage stays constant regardless of list size (only visible items rendered)\n- ✅ Search/filter works with virtual scrolling (filters update the items array)\n- ✅ All changes wrapped in `environment.isWeb` checks (mobile app unchanged)\n\n
 
 ---
-## ✓ Iteration 4 - G2-NAV-001: Implement proper browser back/forward support
-*2026-01-20T17:30:08.879Z (1864s)*
+## ✓ Iteration 4 - G2-PERF-002: Lazy load images with intersection observer
+*2026-01-20T20:56:03.310Z (886s)*
 
 **Status:** Completed
 
 **Notes:**
-ted Standalone Pages**:\n   - `project-detail.page.ts` - Uses browser history on web\n   - `dte.page.ts` - Uses browser history on web\n\n### Acceptance Criteria Met:\n- ✅ Back button returns to previous page with correct state\n- ✅ Forward button works after going back\n- ✅ Deep linking works for all routes (Angular Router handles this)\n- ✅ No duplicate history entries (NavigationHistoryService tracks navigation)\n- ✅ All changes wrapped in `environment.isWeb` check - mobile app unaffected\n\n
+ey approach the viewport\n2. **Placeholder shown until image loads** - Placeholder image shown with shimmer animation during loading\n3. **No layout shift when images load** - Explicit width/height dimensions (90px) preserve space, smooth fade-in transition\n\n### Web-Only Implementation\nAll changes respect `environment.isWeb` check:\n- The directive checks `environment.isWeb` and only activates lazy loading on web\n- On mobile, images load directly without the IntersectionObserver overhead\n\n
 
 ---
-## ✓ Iteration 5 - G2-NAV-002: Add breadcrumb navigation for deep pages
-*2026-01-20T17:52:49.269Z (1362s)*
+## ✓ Iteration 5 - G2-PERF-003: Optimize Angular change detection
+*2026-01-20T21:14:18.303Z (1093s)*
 
 **Status:** Completed
 
 **Notes:**
-the existing service container pages\n   - Responsive design: icons-only on mobile, full text on desktop (768px breakpoint)\n   - Hover effects only on devices with pointer capability\n\n### Acceptance Criteria Met:\n- ✅ Breadcrumbs visible on Project Detail page\n- ✅ Breadcrumbs visible on all service pages (EFE, HUD, LBW, DTE) - already existed via container pages\n- ✅ Breadcrumbs are clickable links (home navigates to active-projects)\n- ✅ Only shown on webapp (`environment.isWeb` check)\n\n
+**Manual change detection only when needed** - All `detectChanges()` calls replaced with `markForCheck()` which is more appropriate for OnPush\n- ✅ **No unnecessary re-renders** - OnPush prevents re-renders unless inputs change, events occur, or `markForCheck()` is called\n- ✅ **All changes wrapped in `environment.isWeb` checks** - The change detection strategy is conditionally set: `environment.isWeb ? ChangeDetectionStrategy.OnPush : ChangeDetectionStrategy.Default` (mobile app unchanged)\n\n
 
 ---
-## ✓ Iteration 6 - G2-NAV-003: Add route guards for unsaved changes
-*2026-01-20T18:17:45.883Z (1495s)*
+## ✓ Iteration 6 - G2-PERF-004: Implement request caching and deduplication
+*2026-01-20T21:28:05.653Z (826s)*
 
 **Status:** Completed
 
 **Notes:**
-n modified\n   - `CategoryDetailPage` - checks if any items are currently saving\n   - `RoomElevationPage` - checks if notes debounce timer is active\n\n### Acceptance Criteria Met\n- ✅ Confirmation dialog shown when leaving with unsaved changes\n- ✅ Works with browser back button (CanDeactivate guards intercept all navigation)\n- ✅ Works with in-app navigation (same mechanism)\n- ✅ User can choose to stay or leave\n- ✅ All changes wrapped in `environment.isWeb` check - mobile app unaffected\n\n
+`invalidateCacheForEntity(entityType, entityId?)`**: Entity-specific invalidation\n- **`clearAllCache()`**: Clear all cached data\n- **`getCacheStats()`**: Cache hit/miss statistics\n\n### Acceptance Criteria Met\n- ✅ Identical requests within short window are deduplicated (100ms window)\n- ✅ Cache invalidation on mutations (POST/PUT/DELETE auto-invalidate)\n- ✅ Stale-while-revalidate strategy for non-critical data\n- ✅ All changes wrapped in `environment.isWeb` checks (mobile app unchanged)\n\n
 
 ---
-## ✓ Iteration 7 - G2-FORMS-001: Add real-time form validation
-*2026-01-20T18:38:32.313Z (1245s)*
+## ✓ Iteration 7 - G2-A11Y-001: Add proper ARIA labels and roles
+*2026-01-20T21:46:44.354Z (1117s)*
 
 **Status:** Completed
 
 **Notes:**
-\n   - `.validation-error` - inline error message styling\n   - `.input-error`, `.select-error` - error state for inputs\n   - `.item-error` - error state for Ionic items\n   - Smooth fade-in animation for error messages\n\n### Acceptance Criteria Met:\n- Required fields show validation on blur\n- Email fields validate format\n- Submit button disabled until form is valid\n- Error messages appear inline near the field\n- All changes wrapped in `environment.isWeb` check - mobile app unaffected\n\n
+scape key handler\n\n### 6. Additional Accessibility Improvements\n- Added `aria-pressed` to toggle buttons (annotation tools, fullscreen, etc.)\n- Added `aria-hidden=\"true\"` to decorative icons throughout\n- Added keyboard support (Enter/Space) to clickable elements\n- Added `aria-selected` for thumbnail selection in image viewer\n- Added `role=\"alert\"` for error states\n\nAll changes are wrapped in `environment.isWeb` checks where appropriate, ensuring the mobile app remains unchanged.\n\n
 
 ---
-## ✓ Iteration 8 - G2-FORMS-002: Implement autosave for forms
-*2026-01-20T19:02:45.686Z (1452s)*
+## ✓ Iteration 8 - G2-A11Y-002: Ensure keyboard accessibility
+*2026-01-20T22:03:27.463Z (1005s)*
 
 **Status:** Completed
 
 **Notes:**
-cessful submit\n   - `destroyAutosave()` - Clean up subscriptions on destroy\n   - Automatic prompt to restore on page reload\n   - 7-day expiration for stale data\n   - `environment.isWeb` check - all changes are web-only\n\n2. **Acceptance Criteria Met**:\n   - ✅ Form data saved to localStorage periodically (every 2 seconds)\n   - ✅ Prompt to restore on page reload\n   - ✅ Clear saved data on successful submit\n   - ✅ All changes wrapped in `environment.isWeb` check - mobile app unaffected\n\n
-
----
-## ✓ Iteration 9 - G2-FORMS-003: Add keyboard navigation support for forms
-*2026-01-20T19:17:23.884Z (877s)*
-
-**Status:** Completed
-
-**Notes:**
-ert is showing)\n- Clean up of keyboard handlers on destroy\n\n**Annotation Modal (`annotation-modal.component.ts`):**\n- Escape key dismisses the modal\n- Proper cleanup on destroy\n\n### Acceptance Criteria Met\n- ✅ Tab order is logical (sequential numeric tabindex on web)\n- ✅ Enter submits forms where appropriate\n- ✅ Escape closes modals/dialogs\n- ✅ Arrow keys work in dropdowns (native browser/Ionic behavior)\n- ✅ All changes wrapped in `environment.isWeb` check - mobile app unaffected\n\n
-
----
-## ✓ Iteration 10 - G2-ERRORS-001: Implement global error boundary
-*2026-01-20T19:30:30.426Z (785s)*
-
-**Status:** Completed
-
-**Notes:**
-sage styling\n   - Action buttons (Dismiss, Go Back, Retry)\n   - Dark theme support\n   - Mobile responsive design\n\n### Acceptance Criteria Met:\n- ✅ Unhandled errors show user-friendly message\n- ✅ Option to retry (refreshes page) or go back (navigates back in history)\n- ✅ Errors logged for debugging (console.error with full error info)\n- ✅ App doesn't crash completely (errors caught and displayed gracefully)\n- ✅ All changes wrapped in `environment.isWeb` check - mobile app unaffected\n\n
+ced-colors: active)`\n\n### Acceptance Criteria Met:\n- ✅ **Focus visible on all interactive elements** - 3px orange outline on :focus-visible\n- ✅ **No keyboard traps** - Existing FocusTrapDirective prevents traps in modals\n- ✅ **Skip links for main content** - Skip link component with proper focus handling\n- ✅ **Logical tab order** - Uses semantic HTML, existing FormKeyboardService supports custom tab order\n- ✅ **All changes wrapped in `environment.isWeb` checks** - Mobile app unchanged\n\n
 
 ---

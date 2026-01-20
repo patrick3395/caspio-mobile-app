@@ -1196,6 +1196,21 @@ textarea.styled-input {
       }
     }
   }
+
+  // Validation error styling for add point dialog
+  &.add-point-error {
+    .alert-message {
+      padding: 0 24px 12px;
+      text-align: left;
+
+      .validation-error {
+        color: #dc3545;
+        font-size: 13px;
+        font-weight: 500;
+        display: block;
+      }
+    }
+  }
 }
 
 // Zelle Information Alert - matches app popup style

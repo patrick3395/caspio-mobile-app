@@ -357,29 +357,28 @@ select.styled-input {
     position: absolute !important;
     top: 4px !important;
     right: 4px !important;
-    width: 22px !important;
-    height: 22px !important;
-    background: white !important;
-    border: 1px solid #000 !important;
-    border-radius: 50% !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 6px !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid #ccc !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     padding: 0 !important;
     cursor: pointer !important;
-    transition: all 0.2s ease !important;
+    transition: all 0.15s ease !important;
     z-index: 10 !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
 
     ion-icon {
       font-size: 14px !important;
-      color: #000 !important;
+      color: #666 !important;
     }
 
     &:hover {
-      background: #ff4444 !important;
-      border-color: #ff4444 !important;
-      transform: scale(1.1) !important;
+      background: #dc3545 !important;
+      border-color: #dc3545 !important;
 
       ion-icon {
         color: white !important;
@@ -387,7 +386,7 @@ select.styled-input {
     }
 
     &:active {
-      transform: scale(1.0) !important;
+      transform: scale(0.95) !important;
     }
   }
 }
@@ -536,13 +535,14 @@ select.styled-input {
     }
 
     .delete-btn {
-      width: 18px !important;
-      height: 18px !important;
+      width: 22px !important;
+      height: 22px !important;
       top: 4px !important;
       right: 4px !important;
+      border-radius: 5px !important;
 
       ion-icon {
-        font-size: 13px !important;
+        font-size: 12px !important;
       }
     }
   }
@@ -593,10 +593,11 @@ select.styled-input {
     }
 
     .delete-btn {
-      width: 16px !important;
-      height: 16px !important;
+      width: 20px !important;
+      height: 20px !important;
       top: 3px !important;
       right: 3px !important;
+      border-radius: 4px !important;
 
       ion-icon {
         font-size: 11px !important;

@@ -745,13 +745,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // CRITICAL: Set flag to suppress liveQuery bouncing during room creation
     this.isAddingRoom = true;
 
-    // Set Organization to be at the TOP of the list (shifts existing rooms down)
-    const topOrganization = await this.getTopOrganizationNumber();
-    roomData.Organization = topOrganization;
-    console.log('[Create Room] Setting Organization to:', topOrganization, '(top of list)');
-
-    // Update room display data
+    // Keep room in its original position - use existing Organization from template
     const roomIndex = this.roomTemplates.findIndex(r => r.RoomName === roomName);
+    const existingOrganization = roomIndex >= 0 ? (this.roomTemplates[roomIndex]['Organization'] ?? 999999) : 999999;
+    roomData.Organization = existingOrganization;
+    console.log('[Create Room] Keeping original Organization:', existingOrganization, '(no reordering)');
 
     try {
       // OFFLINE-FIRST: Use foundationData.createEFERoom() which handles IndexedDB queuing
@@ -779,8 +777,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         response?._tempId ? roomId : null   // tempEfeId if temp
       );
 
-      // Update organization in Dexie
-      await this.efeFieldRepo.setRoomOrganization(this.serviceId, roomName, topOrganization);
+      // Keep existing organization in Dexie (no reordering)
+      await this.efeFieldRepo.setRoomOrganization(this.serviceId, roomName, existingOrganization);
 
       // Update local state for immediate UI feedback
       this.selectedRooms[roomName] = true;
