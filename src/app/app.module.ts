@@ -11,10 +11,11 @@ import { CaspioInterceptor } from './interceptors/caspio.interceptor';
 import { AuthInterceptor } from './interceptors/auth.interceptor';
 import { ThemeToggleComponent } from './components/theme-toggle/theme-toggle.component';
 import { SyncToggleComponent } from './components/sync-toggle/sync-toggle.component';
+import { UploadProgressComponent } from './components/upload-progress/upload-progress.component';
 
 @NgModule({
   declarations: [AppComponent],
-  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent],
+  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent, UploadProgressComponent],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: HTTP_INTERCEPTORS, useClass: CaspioInterceptor, multi: true },

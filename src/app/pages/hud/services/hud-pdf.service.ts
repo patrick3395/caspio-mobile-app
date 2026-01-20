@@ -7,6 +7,7 @@ import { HudStateService } from './hud-state.service';
 import { CacheService } from '../../../services/cache.service';
 import { FabricService } from '../../../services/fabric.service';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
+import { environment } from '../../../../environments/environment';
 
 /**
  * PDF Generation Service for HUD
@@ -55,11 +56,37 @@ export class HudPdfService {
     let loading: HTMLIonAlertElement | null = null;
     let cancelRequested = false;
 
+    // Helper to update progress (web only)
+    const updateProgress = (percent: number, step: string) => {
+      if (loading && environment.isWeb) {
+        const percentEl = document.querySelector('.progress-percentage');
+        const barEl = document.querySelector('.progress-bar-fill') as HTMLElement;
+        const stepEl = document.querySelector('.progress-step');
+        if (percentEl) percentEl.textContent = `${percent}%`;
+        if (barEl) barEl.style.width = `${percent}%`;
+        if (stepEl) stepEl.textContent = step;
+      } else if (loading) {
+        loading.message = step;
+      }
+    };
+
     try {
       // Show loading indicator with cancel button
+      // Web: Show progress bar with percentage
+      // Mobile: Show simple loading message
+      const alertMessage = environment.isWeb
+        ? `<div class="progress-container">
+            <div class="progress-percentage">0%</div>
+            <div class="progress-bar-wrapper">
+              <div class="progress-bar-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-step">Initializing...</div>
+          </div>`
+        : 'Initializing...';
+
       loading = await this.alertController.create({
         header: 'Loading Report',
-        message: 'Initializing...',
+        message: alertMessage,
         buttons: [
           {
             text: 'Cancel',
@@ -73,7 +100,7 @@ export class HudPdfService {
           }
         ],
         backdropDismiss: false,
-        cssClass: 'template-loading-alert'
+        cssClass: environment.isWeb ? 'progress-loading-alert' : 'template-loading-alert'
       });
       await loading.present();
 
@@ -90,15 +117,11 @@ export class HudPdfService {
 
       if (cachedData) {
         console.log('[HUD PDF Service] ⚡ Using cached PDF data - fast path!');
-        if (loading) {
-          loading.message = 'Loading from cache...';
-        }
+        updateProgress(50, 'Loading from cache...');
         ({ hudData, projectInfo } = cachedData);
       } else {
         console.log('[HUD PDF Service] Loading fresh PDF data...');
-        if (loading) {
-          loading.message = 'Loading project data...';
-        }
+        updateProgress(5, 'Loading project data...');
         const startTime = Date.now();
 
         // Check if user cancelled
@@ -109,9 +132,9 @@ export class HudPdfService {
 
         try {
           // Execute all data fetching in parallel with individual error handling
+          updateProgress(10, 'Loading project information...');
           const [projectData, structuralData] = await Promise.all([
             (async () => {
-              if (loading) loading.message = 'Loading project information...';
               return this.prepareProjectInfo(projectId, serviceId).catch(err => {
                 console.error('[HUD PDF Service] Error in prepareProjectInfo:', err);
                 return {
@@ -125,7 +148,6 @@ export class HudPdfService {
               });
             })(),
             (async () => {
-              if (loading) loading.message = 'Loading HUD data...';
               return this.prepareHUDData(serviceId).catch(err => {
                 console.error('[HUD PDF Service] Error in prepareHUDData:', err);
                 return [];
@@ -133,6 +155,7 @@ export class HudPdfService {
             })()
           ]);
 
+          updateProgress(45, 'Processing data...');
           projectInfo = projectData;
           hudData = structuralData;
 
@@ -141,7 +164,7 @@ export class HudPdfService {
             hudData,
             projectInfo
           }, this.cache.CACHE_TIMES.MEDIUM);
-          
+
           const loadTime = Date.now() - startTime;
           console.log(`[HUD PDF Service] Cached PDF data for reuse (5 min expiry) - loaded in ${loadTime}ms`);
         } catch (dataError) {
@@ -166,9 +189,7 @@ export class HudPdfService {
       }
 
       console.log('[HUD PDF Service] Data loaded, now loading PDF preview component...');
-      if (loading) {
-        loading.message = 'Loading PDF preview...';
-      }
+      updateProgress(55, 'Loading PDF preview...');
 
       // Load PDF preview component
       const PdfPreviewComponent = await this.loadPdfPreview();
@@ -176,11 +197,9 @@ export class HudPdfService {
       console.log('[HUD PDF Service] PDF preview component loaded:', !!PdfPreviewComponent);
 
       // Load primary photo after component is loaded
-      if (loading) {
-        loading.message = 'Processing cover photo...';
-      }
+      updateProgress(70, 'Processing cover photo...');
       await this.loadPrimaryPhoto(projectInfo);
-      
+
       console.log('[HUD PDF Service] Primary photo processed:', {
         hasPrimaryPhoto: !!projectInfo.primaryPhoto,
         hasPrimaryPhotoBase64: !!projectInfo.primaryPhotoBase64,
@@ -200,9 +219,7 @@ export class HudPdfService {
         throw new Error('PdfPreviewComponent not available');
       }
 
-      if (loading) {
-        loading.message = 'Preparing PDF document...';
-      }
+      updateProgress(85, 'Preparing PDF document...');
 
       console.log('[HUD PDF Service] Creating PDF modal with data:', {
         projectInfo: !!projectInfo,
@@ -232,9 +249,7 @@ export class HudPdfService {
         return;
       }
 
-      if (loading) {
-        loading.message = 'Opening PDF...';
-      }
+      updateProgress(95, 'Opening PDF...');
 
       console.log('[HUD PDF Service] Presenting PDF modal...');
       await modal.present();

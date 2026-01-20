@@ -1,0 +1,33 @@
+/**
+ * Upload Progress Component Styles
+ * G2-LOADING-003: Progress indicators for file uploads
+ *
+ * Note: Most styles are in global.scss for consistency.
+ * This file contains component-specific overrides only.
+ */
+
+:host {
+  display: block;
+}
+
+.upload-progress-container {
+  // Positioning is handled in global.scss
+}
+
+.batch-item {
+  .upload-progress-filename {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    ion-icon {
+      font-size: 16px;
+      color: var(--noble-orange, #F15A27);
+    }
+  }
+}
+
+.error-text {
+  color: #f44336;
+  font-weight: 500;
+}
