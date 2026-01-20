@@ -831,7 +831,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
 
           // Try multiple possible field names for the photo URL/key
-          const rawPhotoValue = att.Photo || att.photo || att.url || att.displayUrl || att.URL || att.S3Key || att.s3Key;
+          // Note: S3 key is stored in 'Attachment' field, not 'Photo'
+          const rawPhotoValue = att.Attachment || att.Photo || att.photo || att.url || att.displayUrl || att.URL || att.S3Key || att.s3Key;
           console.log('[CategoryDetail] WEBAPP: Raw photo value for attach', att.AttachID || att.PK_ID, ':', rawPhotoValue?.substring(0, 100));
 
           let displayUrl = rawPhotoValue || 'assets/img/photo-placeholder.png';
