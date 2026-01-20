@@ -8,6 +8,7 @@ import { CacheService } from './cache.service';
 import { OfflineService, QueuedRequest } from './offline.service';
 import { ConnectionMonitorService } from './connection-monitor.service';
 import { ApiGatewayService } from './api-gateway.service';
+import { RetryNotificationService } from './retry-notification.service';
 import { compressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../utils/annotation-utils';
 
 export interface CaspioToken {
@@ -50,7 +51,8 @@ export class CaspioService {
     private cache: CacheService,
     private offline: OfflineService,
     private connectionMonitor: ConnectionMonitorService,
-    private apiGateway: ApiGatewayService
+    private apiGateway: ApiGatewayService,
+    private retryNotification: RetryNotificationService
   ) {
     this.loadStoredToken();
     this.offline.registerProcessor(this.processQueuedRequest.bind(this));
@@ -425,6 +427,7 @@ export class CaspioService {
         const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
         const startTime = Date.now();
 
+        let currentAttempt = 0;
         return this.http.get<T>(url, { headers }).pipe(
           // Retry with exponential backoff for network errors
           retryWhen(errors =>
@@ -446,14 +449,24 @@ export class CaspioService {
                   if (this.debugMode) {
                     console.error(`❌ Max retries (${maxRetries}) exceeded for ${endpoint}`);
                   }
+                  // Notify user that all retries exhausted (web only)
+                  if (environment.isWeb) {
+                    this.retryNotification.notifyRetryExhausted(endpoint, error.message || 'Request failed');
+                  }
                   return throwError(() => error);
                 }
 
                 // Calculate exponential backoff: 1s, 2s, 4s
                 const delayMs = Math.pow(2, retryAttempt - 1) * 1000;
+                currentAttempt = retryAttempt;
 
                 if (this.debugMode) {
                   console.log(`⏳ Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
+                }
+
+                // Notify user of retry attempt (web only)
+                if (environment.isWeb) {
+                  this.retryNotification.notifyRetryAttempt(endpoint, retryAttempt, maxRetries, delayMs);
                 }
 
                 return timer(delayMs);
@@ -464,6 +477,11 @@ export class CaspioService {
             // Record successful request
             const responseTime = Date.now() - startTime;
             this.connectionMonitor.recordSuccess(endpoint, responseTime);
+
+            // Notify success after retries (web only)
+            if (environment.isWeb && currentAttempt > 0) {
+              this.retryNotification.notifyRetrySuccess(endpoint, currentAttempt + 1);
+            }
 
             // Cache the response
             if (useCache) {
@@ -554,9 +572,52 @@ export class CaspioService {
         });
 
         const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
+        let currentAttempt = 0;
 
-        return this.http.post<T>(url, data, { headers }).pipe(
+        let request$ = this.http.post<T>(url, data, { headers });
+
+        // Add retry with exponential backoff for network errors (web only)
+        if (environment.isWeb) {
+          request$ = request$.pipe(
+            retryWhen(errors =>
+              errors.pipe(
+                mergeMap((error, index) => {
+                  const retryAttempt = index + 1;
+                  const maxRetries = 3;
+
+                  // Don't retry on auth errors (401, 403) or client errors (400)
+                  if (error.status === 401 || error.status === 403 || error.status === 400) {
+                    return throwError(() => error);
+                  }
+
+                  // Don't retry if we've exceeded max attempts
+                  if (retryAttempt > maxRetries) {
+                    this.retryNotification.notifyRetryExhausted(endpoint, error.message || 'Request failed');
+                    return throwError(() => error);
+                  }
+
+                  // Calculate exponential backoff: 1s, 2s, 4s
+                  const delayMs = Math.pow(2, retryAttempt - 1) * 1000;
+                  currentAttempt = retryAttempt;
+
+                  if (this.debugMode) {
+                    console.log(`⏳ POST Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
+                  }
+
+                  this.retryNotification.notifyRetryAttempt(endpoint, retryAttempt, maxRetries, delayMs);
+                  return timer(delayMs);
+                })
+              )
+            )
+          );
+        }
+
+        return request$.pipe(
           tap(response => {
+            // Notify success after retries (web only)
+            if (environment.isWeb && currentAttempt > 0) {
+              this.retryNotification.notifyRetrySuccess(endpoint, currentAttempt + 1);
+            }
             // Automatically clear cache after successful POST (create) operations
             this.invalidateCacheForEndpoint(endpoint, 'POST');
           }),
@@ -609,8 +670,53 @@ export class CaspioService {
           ...(isFormData ? {} : { 'Content-Type': 'application/json' })
         });
 
-        return this.http.put<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, data, { headers }).pipe(
+        const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
+        let currentAttempt = 0;
+
+        let request$ = this.http.put<T>(url, data, { headers });
+
+        // Add retry with exponential backoff for network errors (web only)
+        if (environment.isWeb) {
+          request$ = request$.pipe(
+            retryWhen(errors =>
+              errors.pipe(
+                mergeMap((error, index) => {
+                  const retryAttempt = index + 1;
+                  const maxRetries = 3;
+
+                  // Don't retry on auth errors (401, 403) or client errors (400)
+                  if (error.status === 401 || error.status === 403 || error.status === 400) {
+                    return throwError(() => error);
+                  }
+
+                  // Don't retry if we've exceeded max attempts
+                  if (retryAttempt > maxRetries) {
+                    this.retryNotification.notifyRetryExhausted(endpoint, error.message || 'Request failed');
+                    return throwError(() => error);
+                  }
+
+                  // Calculate exponential backoff: 1s, 2s, 4s
+                  const delayMs = Math.pow(2, retryAttempt - 1) * 1000;
+                  currentAttempt = retryAttempt;
+
+                  if (this.debugMode) {
+                    console.log(`⏳ PUT Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
+                  }
+
+                  this.retryNotification.notifyRetryAttempt(endpoint, retryAttempt, maxRetries, delayMs);
+                  return timer(delayMs);
+                })
+              )
+            )
+          );
+        }
+
+        return request$.pipe(
           tap(response => {
+            // Notify success after retries (web only)
+            if (environment.isWeb && currentAttempt > 0) {
+              this.retryNotification.notifyRetrySuccess(endpoint, currentAttempt + 1);
+            }
             // Automatically clear cache after successful PUT (update) operations
             this.invalidateCacheForEndpoint(endpoint, 'PUT');
           }),
@@ -655,8 +761,53 @@ export class CaspioService {
           'Content-Type': 'application/json'
         });
 
-        return this.http.delete<T>(`${environment.caspio.apiBaseUrl}${endpoint}`, { headers }).pipe(
+        const url = `${environment.caspio.apiBaseUrl}${endpoint}`;
+        let currentAttempt = 0;
+
+        let request$ = this.http.delete<T>(url, { headers });
+
+        // Add retry with exponential backoff for network errors (web only)
+        if (environment.isWeb) {
+          request$ = request$.pipe(
+            retryWhen(errors =>
+              errors.pipe(
+                mergeMap((error, index) => {
+                  const retryAttempt = index + 1;
+                  const maxRetries = 3;
+
+                  // Don't retry on auth errors (401, 403) or client errors (400)
+                  if (error.status === 401 || error.status === 403 || error.status === 400) {
+                    return throwError(() => error);
+                  }
+
+                  // Don't retry if we've exceeded max attempts
+                  if (retryAttempt > maxRetries) {
+                    this.retryNotification.notifyRetryExhausted(endpoint, error.message || 'Request failed');
+                    return throwError(() => error);
+                  }
+
+                  // Calculate exponential backoff: 1s, 2s, 4s
+                  const delayMs = Math.pow(2, retryAttempt - 1) * 1000;
+                  currentAttempt = retryAttempt;
+
+                  if (this.debugMode) {
+                    console.log(`⏳ DELETE Retry ${retryAttempt}/${maxRetries} for ${endpoint} after ${delayMs}ms`);
+                  }
+
+                  this.retryNotification.notifyRetryAttempt(endpoint, retryAttempt, maxRetries, delayMs);
+                  return timer(delayMs);
+                })
+              )
+            )
+          );
+        }
+
+        return request$.pipe(
           tap(response => {
+            // Notify success after retries (web only)
+            if (environment.isWeb && currentAttempt > 0) {
+              this.retryNotification.notifyRetrySuccess(endpoint, currentAttempt + 1);
+            }
             // Automatically clear cache after successful DELETE operations
             this.invalidateCacheForEndpoint(endpoint, 'DELETE');
           }),
