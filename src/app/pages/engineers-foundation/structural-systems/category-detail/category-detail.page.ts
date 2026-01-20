@@ -23,6 +23,7 @@ import { db, VisualField } from '../../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../../services/visual-field-repo.service';
 import { environment } from '../../../../../environments/environment';
 import { HasUnsavedChanges } from '../../../../services/unsaved-changes.service';
+import { LazyImageDirective } from '../../../../directives/lazy-image.directive';
 
 interface VisualItem {
   id: string | number;
@@ -47,7 +48,7 @@ interface VisualItem {
   templateUrl: './category-detail.page.html',
   styleUrls: ['./category-detail.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule]
+  imports: [CommonModule, IonicModule, FormsModule, LazyImageDirective]
 })
 export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, HasUnsavedChanges {
   // Debug flag - set to true for verbose logging
@@ -5151,14 +5152,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           if (existingIndex === -1) {
             // Add photo to UI immediately (no duplicate found)
             this.visualPhotos[key].push(photoEntry);
-            this.changeDetectorRef.detectChanges();
             console.log('[CAMERA UPLOAD] ✅ Photo added (silent sync):', localImage.imageId);
           } else {
             // Duplicate found - update existing entry instead of adding
             console.log('[CAMERA UPLOAD] ⚠️ Photo already exists, updating:', localImage.imageId);
             this.visualPhotos[key][existingIndex] = { ...this.visualPhotos[key][existingIndex], ...photoEntry };
-            this.changeDetectorRef.detectChanges();
           }
+
+          // Expand photos section so user can see the newly added photo
+          this.expandPhotos(category, itemId);
+          this.changeDetectorRef.detectChanges();
 
           // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
           this.isCameraCaptureInProgress = false;
@@ -5413,6 +5416,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           // US-003 FIX: Always reset batch flag, even if error occurs
           this.isMultiImageUploadInProgress = false;
           this.batchUploadImageIds.clear();
+
+          // Expand photos section so user can see the newly added photos
+          this.expandPhotos(category, itemId);
 
           // Trigger single change detection after batch completes
           this.changeDetectorRef.detectChanges();

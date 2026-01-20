@@ -61,13 +61,13 @@
 
             <!-- Yes/No questions - vertical layout with dropdown below -->
             <div class="answer-type-1-container" *ngIf="item.answerType === 1">
-              <div class="item-header" (click)="showFullText(item)">
+              <div class="item-header" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
                 <h3 class="item-name">
                   <span [innerHTML]="highlightText(item.name)"></span>
                   <span class="required-indicator" *ngIf="item.required">*</span>
                 </h3>
               </div>
-              <div class="item-text-wrapper" (click)="showFullText(item)">
+              <div class="item-text-wrapper" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
                 <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
               </div>
               <div class="dropdown-container" (click)="$event.stopPropagation()">
@@ -88,7 +88,7 @@
             <!-- Multi-select questions - show checkboxes for each option -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
               <ion-item lines="none" class="checkbox-item">
-                <ion-label class="item-label" (click)="showFullText(item)">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -136,7 +136,7 @@
                 (ionChange)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
               </ion-checkbox>
               <div style="flex: 1; display: flex; align-items: center;">
-                <ion-label class="item-label" (click)="showFullText(item)" style="flex: 1;">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()" style="flex: 1;">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -167,7 +167,7 @@
               <button class="action-btn secondary"
                       (click)="togglePhotoExpansion(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.templateId) ? 'chevron-up' : 'eye'"></ion-icon>
-                <span>{{ isPhotosExpanded(categoryName, item.templateId) ? 'Hide' : 'View' }} ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
+                <span>View ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
               </button>
               <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
                 <ion-icon name="arrow-forward"></ion-icon>
@@ -203,7 +203,9 @@
                     </ng-container>
                     <!-- Normal photo state -->
                     <ng-container *ngIf="!photo.isSkeleton">
-                      <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                      <img [appLazyImage]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                           [lazyPlaceholder]="'assets/img/photo-placeholder.png'"
+                           lazyWidth="90px" lazyHeight="90px"
                            width="90" height="90"
                            [alt]="photo.name"
                            (mousedown)="saveScrollBeforePhotoClick($event)"
@@ -263,13 +265,13 @@
 
             <!-- Yes/No questions -->
             <div class="answer-type-1-container" *ngIf="item.answerType === 1">
-              <div class="item-header" (click)="showFullText(item)">
+              <div class="item-header" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
                 <h3 class="item-name">
                   <span [innerHTML]="highlightText(item.name)"></span>
                   <span class="required-indicator" *ngIf="item.required">*</span>
                 </h3>
               </div>
-              <div class="item-text-wrapper" (click)="showFullText(item)">
+              <div class="item-text-wrapper" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
                 <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
               </div>
               <div class="dropdown-container" (click)="$event.stopPropagation()">
@@ -290,7 +292,7 @@
             <!-- Multi-select questions -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
               <ion-item lines="none" class="checkbox-item">
-                <ion-label class="item-label" (click)="showFullText(item)">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -333,7 +335,7 @@
                 (ionChange)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
               </ion-checkbox>
               <div style="flex: 1; display: flex; align-items: center;">
-                <ion-label class="item-label" (click)="showFullText(item)" style="flex: 1;">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()" style="flex: 1;">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -364,7 +366,7 @@
               <button class="action-btn secondary"
                       (click)="togglePhotoExpansion(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.templateId) ? 'chevron-up' : 'eye'"></ion-icon>
-                <span>{{ isPhotosExpanded(categoryName, item.templateId) ? 'Hide' : 'View' }} ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
+                <span>View ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
               </button>
               <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
                 <ion-icon name="arrow-forward"></ion-icon>
@@ -397,7 +399,9 @@
                     </ng-container>
                     <!-- Normal photo state -->
                     <ng-container *ngIf="!photo.isSkeleton">
-                      <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                      <img [appLazyImage]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                           [lazyPlaceholder]="'assets/img/photo-placeholder.png'"
+                           lazyWidth="90px" lazyHeight="90px"
                            width="90" height="90"
                            [alt]="photo.name"
                            (mousedown)="saveScrollBeforePhotoClick($event)"
@@ -457,13 +461,13 @@
 
             <!-- Yes/No questions -->
             <div class="answer-type-1-container" *ngIf="item.answerType === 1">
-              <div class="item-header" (click)="showFullText(item)">
+              <div class="item-header" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
                 <h3 class="item-name">
                   <span [innerHTML]="highlightText(item.name)"></span>
                   <span class="required-indicator" *ngIf="item.required">*</span>
                 </h3>
               </div>
-              <div class="item-text-wrapper" (click)="showFullText(item)">
+              <div class="item-text-wrapper" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
                 <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
               </div>
               <div class="dropdown-container" (click)="$event.stopPropagation()">
@@ -484,7 +488,7 @@
             <!-- Multi-select questions -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
               <ion-item lines="none" class="checkbox-item">
-                <ion-label class="item-label" (click)="showFullText(item)">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -527,7 +531,7 @@
                 (ionChange)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
               </ion-checkbox>
               <div style="flex: 1; display: flex; align-items: center;">
-                <ion-label class="item-label" (click)="showFullText(item)" style="flex: 1;">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()" style="flex: 1;">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -558,7 +562,7 @@
               <button class="action-btn secondary"
                       (click)="togglePhotoExpansion(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.templateId) ? 'chevron-up' : 'eye'"></ion-icon>
-                <span>{{ isPhotosExpanded(categoryName, item.templateId) ? 'Hide' : 'View' }} ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
+                <span>View ({{ getTotalPhotoCount(categoryName, item.templateId) }})</span>
               </button>
               <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
                 <ion-icon name="arrow-forward"></ion-icon>
@@ -591,7 +595,9 @@
                     </ng-container>
                     <!-- Normal photo state -->
                     <ng-container *ngIf="!photo.isSkeleton">
-                      <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                      <img [appLazyImage]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                           [lazyPlaceholder]="'assets/img/photo-placeholder.png'"
+                           lazyWidth="90px" lazyHeight="90px"
                            width="90" height="90"
                            [alt]="photo.name"
                            (mousedown)="saveScrollBeforePhotoClick($event)"

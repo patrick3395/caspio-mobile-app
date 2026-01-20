@@ -17,6 +17,7 @@ import { compressAnnotationData } from '../../../../utils/annotation-utils';
 import { liveQuery } from 'dexie';
 import { environment } from '../../../../../environments/environment';
 import { HasUnsavedChanges } from '../../../../services/unsaved-changes.service';
+import { LazyImageDirective } from '../../../../directives/lazy-image.directive';
 
 interface VisualItem {
   id: string | number;
@@ -49,7 +50,7 @@ interface PhotoItem {
   templateUrl: './visual-detail.page.html',
   styleUrls: ['./visual-detail.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule]
+  imports: [CommonModule, IonicModule, FormsModule, LazyImageDirective]
 })
 export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
   categoryName: string = '';

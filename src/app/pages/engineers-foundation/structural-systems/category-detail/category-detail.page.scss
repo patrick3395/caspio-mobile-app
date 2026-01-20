@@ -104,7 +104,7 @@ ion-content {
             color: #dc3545;
             background: transparent;
 
-            // Triangle outline using pseudo-element (2px border to match circle/square)
+            // Triangle outline using pseudo-element (thicker border to match circle/square)
             &::before {
               content: '';
               position: absolute;
@@ -117,17 +117,17 @@ ion-content {
               border-bottom: 30px solid #dc3545;
             }
 
-            // Inner white triangle to create outline effect (2px inset for consistent border)
+            // Inner white triangle to create outline effect (larger inset for thicker border)
             &::after {
               content: '';
               position: absolute;
-              top: 6px;
-              left: -16px;
+              top: 8px;
+              left: -14px;
               width: 0;
               height: 0;
-              border-left: 16px solid transparent;
-              border-right: 16px solid transparent;
-              border-bottom: 27px solid white;
+              border-left: 14px solid transparent;
+              border-right: 14px solid transparent;
+              border-bottom: 23px solid white;
             }
 
             // Number inside triangle
@@ -875,6 +875,47 @@ ion-content {
   }
   100% {
     transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+// ===========================================
+// LAZY IMAGE LOADING STYLES (Web only)
+// ===========================================
+// These styles support the lazy image directive that uses
+// IntersectionObserver to load images only when they enter viewport
+
+.lazy-image {
+  // Base styles for all lazy images
+  transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out;
+
+  // Loading state - show placeholder with shimmer
+  &.lazy-loading {
+    opacity: 0.6;
+    filter: blur(2px);
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: lazy-shimmer 1.5s ease-in-out infinite;
+  }
+
+  // Loaded state - fade in smoothly
+  &.lazy-loaded {
+    opacity: 1;
+    filter: none;
+  }
+
+  // Error state - show subtle error indicator
+  &.lazy-error {
+    opacity: 0.8;
+    filter: grayscale(50%);
+  }
+}
+
+@keyframes lazy-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }
 

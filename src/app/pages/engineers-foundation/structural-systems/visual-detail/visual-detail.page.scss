@@ -416,3 +416,44 @@
     }
   }
 }
+
+// ===========================================
+// LAZY IMAGE LOADING STYLES (Web only)
+// ===========================================
+// These styles support the lazy image directive that uses
+// IntersectionObserver to load images only when they enter viewport
+
+.lazy-image {
+  // Base styles for all lazy images
+  transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out;
+
+  // Loading state - show placeholder with shimmer
+  &.lazy-loading {
+    opacity: 0.6;
+    filter: blur(2px);
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: lazy-shimmer 1.5s ease-in-out infinite;
+  }
+
+  // Loaded state - fade in smoothly
+  &.lazy-loaded {
+    opacity: 1;
+    filter: none;
+  }
+
+  // Error state - show subtle error indicator
+  &.lazy-error {
+    opacity: 0.8;
+    filter: grayscale(50%);
+  }
+}
+
+@keyframes lazy-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
