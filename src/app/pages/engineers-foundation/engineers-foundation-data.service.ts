@@ -8,6 +8,7 @@ import { OfflineDataCacheService } from '../../services/offline-data-cache.servi
 import { OfflineTemplateService } from '../../services/offline-template.service';
 import { OfflineService } from '../../services/offline.service';
 import { LocalImageService } from '../../services/local-image.service';
+import { environment } from '../../../environments/environment';
 
 interface CacheEntry<T> {
   value: Promise<T>;
@@ -416,15 +417,24 @@ export class EngineersFoundationDataService {
     const visualIdStr = String(visualId);
     console.log('[Visual Data] Loading attachments for VisualID:', visualIdStr);
 
-    // OFFLINE-FIRST: Get legacy attachments from OfflineTemplateService (cached/synced photos)
+    // WEBAPP MODE: Return only server data (no local images)
+    if (environment.isWeb) {
+      console.log('[Visual Data] WEBAPP MODE: Loading attachments from server only');
+      const serverAttachments = await this.offlineTemplate.getVisualAttachments(visualId);
+      console.log(`[Visual Data] WEBAPP: Loaded ${serverAttachments?.length || 0} attachments from server`);
+      return serverAttachments || [];
+    }
+
+    // MOBILE MODE: OFFLINE-FIRST pattern
+    // Get legacy attachments from OfflineTemplateService (cached/synced photos)
     const legacyAttachments = await this.offlineTemplate.getVisualAttachments(visualId);
-    
+
     // NEW LOCAL-FIRST: Get local images for this visual from LocalImageService
     const localImages = await this.localImageService.getImagesForEntity('visual', visualIdStr);
-    
+
     // Build a set of imageIds we already have from the new system
     const localImageIds = new Set(localImages.map(img => img.imageId));
-    
+
     // Convert local images to attachment format for UI compatibility
     const localAttachments = await Promise.all(localImages.map(async (img) => {
       const displayUrl = await this.localImageService.getDisplayUrl(img);
@@ -435,26 +445,26 @@ export class EngineersFoundationDataService {
         attachId: img.attachId || img.imageId,
         _tempId: img.imageId,
         _pendingFileId: img.imageId,
-        
+
         // Entity references
         VisualID: img.entityId,
         entityId: img.entityId,
         entityType: img.entityType,
         serviceId: img.serviceId,
-        
+
         // Content
         Annotation: img.caption,
         caption: img.caption,
         drawings: img.drawings,
         fileName: img.fileName,
-        
+
         // Display URLs
         Photo: displayUrl,
         url: displayUrl,
         thumbnailUrl: displayUrl,
         displayUrl: displayUrl,
         _thumbnailUrl: displayUrl,
-        
+
         // Status flags - SILENT SYNC: No uploading/queued indicators
         status: img.status,
         localVersion: img.localVersion,
@@ -467,7 +477,7 @@ export class EngineersFoundationDataService {
         localBlobId: img.localBlobId,
       };
     }));
-    
+
     // Filter legacy attachments to exclude any that have been migrated to new system
     // (match by AttachID to imageId or attachId)
     const filteredLegacy = legacyAttachments.filter((att: any) => {
@@ -475,11 +485,11 @@ export class EngineersFoundationDataService {
       // Keep if not in local images (by attachId match)
       return !localImages.some(img => img.attachId === attId);
     });
-    
+
     // Merge: local-first images first (most recent), then legacy
     const merged = [...localAttachments, ...filteredLegacy];
-    
-    console.log('[Visual Data] Loaded attachments (silent sync):', merged.length, 
+
+    console.log('[Visual Data] Loaded attachments (silent sync):', merged.length,
       `(${localAttachments.length} local-first + ${filteredLegacy.length} legacy)`);
 
     return merged;
@@ -505,21 +515,34 @@ export class EngineersFoundationDataService {
     }
 
     const ids = Array.isArray(pointIds) ? pointIds : [pointIds];
-    
-    // OFFLINE-FIRST: Get legacy attachments from OfflineTemplateService
+
+    // WEBAPP MODE: Return only server data (no local images)
+    if (environment.isWeb) {
+      console.log('[EFE Data] WEBAPP MODE: Loading attachments from server only for', ids.length, 'points');
+      const serverAttachments: any[] = [];
+      for (const pointId of ids) {
+        const attachments = await this.offlineTemplate.getEFEPointAttachments(pointId);
+        serverAttachments.push(...attachments);
+      }
+      console.log(`[EFE Data] WEBAPP: Loaded ${serverAttachments.length} attachments from server`);
+      return serverAttachments;
+    }
+
+    // MOBILE MODE: OFFLINE-FIRST pattern
+    // Get legacy attachments from OfflineTemplateService
     const legacyAttachments: any[] = [];
     for (const pointId of ids) {
       const attachments = await this.offlineTemplate.getEFEPointAttachments(pointId);
       legacyAttachments.push(...attachments);
     }
-    
+
     // NEW LOCAL-FIRST: Get local images for all points from LocalImageService
     const localImages: any[] = [];
     for (const pointId of ids) {
       const images = await this.localImageService.getImagesForEntity('efe_point', pointId);
       localImages.push(...images);
     }
-    
+
     // Convert local images to attachment format for UI compatibility
     const localAttachments = await Promise.all(localImages.map(async (img) => {
       const displayUrl = await this.localImageService.getDisplayUrl(img);
@@ -530,26 +553,26 @@ export class EngineersFoundationDataService {
         attachId: img.attachId || img.imageId,
         _tempId: img.imageId,
         _pendingFileId: img.imageId,
-        
+
         // Entity references
         PointID: img.entityId,
         entityId: img.entityId,
         entityType: img.entityType,
         serviceId: img.serviceId,
-        
+
         // Content
         Type: img.photoType || 'Measurement',  // Use stored photoType (Measurement/Location)
         photoType: img.photoType || 'Measurement',  // Also include lowercase for consistency
         drawings: img.drawings,
         fileName: img.fileName,
-        
+
         // Display URLs
         Photo: displayUrl,
         url: displayUrl,
         thumbnailUrl: displayUrl,
         displayUrl: displayUrl,
         _thumbnailUrl: displayUrl,
-        
+
         // Status flags - SILENT SYNC: No uploading/queued indicators
         status: img.status,
         localVersion: img.localVersion,
@@ -563,13 +586,13 @@ export class EngineersFoundationDataService {
         localBlobId: img.localBlobId,
       };
     }));
-    
+
     // Filter legacy attachments to exclude any that have been migrated to new system
     const filteredLegacy = legacyAttachments.filter((att: any) => {
       const attId = String(att.AttachID || att.attachId || '');
       return !localImages.some(img => img.attachId === attId);
     });
-    
+
     // Merge: local-first images first, then legacy
     const merged = [...localAttachments, ...filteredLegacy];
 

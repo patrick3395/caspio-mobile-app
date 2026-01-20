@@ -21,6 +21,7 @@ import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNO
 import { environment } from '../../../../environments/environment';
 import { db, EfeField, EfePoint } from '../../../services/caspio-db';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 
 @Component({
   selector: 'app-room-elevation',
@@ -134,6 +135,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     private ngZone: NgZone,
     private efeFieldRepo: EfeFieldRepoService
   ) {}
+
+  // WEBAPP MODE flag for easy checking
+  private get isWebappMode(): boolean {
+    return environment.isWeb;
+  }
 
   async ngOnInit() {
     console.time('[RoomElevation] ngOnInit total');
@@ -2609,15 +2615,26 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       console.log('[RoomElevation] ✅ Restored local-only FDF threshold photo');
     }
     
-    // Also restore any pending FDF photo uploads from IndexedDB (legacy system)
-    await this.restorePendingFDFPhotos();
-    
-    // CRITICAL: Also load FDF photos from LocalImageService (new local-first system)
-    await this.loadLocalFDFPhotos();
+    // WEBAPP MODE: Skip local photo loading - only use server data
+    if (!this.isWebappMode) {
+      // Also restore any pending FDF photo uploads from IndexedDB (legacy system)
+      await this.restorePendingFDFPhotos();
+
+      // CRITICAL: Also load FDF photos from LocalImageService (new local-first system)
+      await this.loadLocalFDFPhotos();
+    } else {
+      console.log('[RoomElevation] WEBAPP MODE: Skipping local FDF photo loading - using server data only');
+    }
   }
-  
+
   // Load FDF photos from LocalImageService (new local-first system)
   private async loadLocalFDFPhotos() {
+    // WEBAPP MODE: Skip local photo loading
+    if (this.isWebappMode) {
+      console.log('[RoomElevation] WEBAPP MODE: Skipping loadLocalFDFPhotos');
+      return;
+    }
+
     try {
       const fdfPhotos = this.roomData.fdfPhotos;
 
@@ -3122,51 +3139,59 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       // STEP 4: Load all attachments for existing points
       console.log('\n[RoomElevation] STEP 4: Loading attachments...');
       let attachments: any[] = [];
-      
-      // CRITICAL: Get ALL pending photos grouped by point in ONE IndexedDB call
-      // This avoids N+1 reads when processing each point (matches structural systems pattern)
-      const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByPoint();
-      console.log('[RoomElevation] Pending photos map has', pendingPhotosMap.size, 'points with pending photos');
 
-      // NEW: Load LocalImages for EFE points (new local-first image system)
-      // This ensures photos persist through navigation before sync completes
-      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_point');
+      // WEBAPP MODE: Skip local data loading - only use server data
+      let pendingPhotosMap = new Map<string, any[]>();
+      let bulkLocalImagesMap = new Map<string, LocalImage[]>();
 
-      // Group LocalImages by entityId (pointId) for fast lookup
-      // Also resolve temp IDs to real IDs for photos captured before point synced
-      const bulkLocalImagesMap = new Map<string, LocalImage[]>();
-      for (const img of allLocalImages) {
-        // BUGFIX: Convert entityId to string to handle numeric IDs from database
-        const entityId = String(img.entityId);
+      if (!this.isWebappMode) {
+        // MOBILE MODE: Load local data
+        // CRITICAL: Get ALL pending photos grouped by point in ONE IndexedDB call
+        // This avoids N+1 reads when processing each point (matches structural systems pattern)
+        pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByPoint();
+        console.log('[RoomElevation] Pending photos map has', pendingPhotosMap.size, 'points with pending photos');
 
-        // Add by original entityId
-        if (!bulkLocalImagesMap.has(entityId)) {
-          bulkLocalImagesMap.set(entityId, []);
-        }
-        bulkLocalImagesMap.get(entityId)!.push(img);
+        // NEW: Load LocalImages for EFE points (new local-first image system)
+        // This ensures photos persist through navigation before sync completes
+        const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, 'efe_point');
 
-        // CRITICAL: Also add by resolved real ID if entityId is a temp ID
-        // This ensures photos show after the parent point syncs but before the photo syncs
-        if (entityId.startsWith('temp_')) {
-          const realId = await this.indexedDb.getRealId(entityId);
-          if (realId && realId !== entityId) {
-            if (!bulkLocalImagesMap.has(realId)) {
-              bulkLocalImagesMap.set(realId, []);
-            }
-            // Avoid duplicates
-            const existing = bulkLocalImagesMap.get(realId)!;
-            if (!existing.some(e => e.imageId === img.imageId)) {
-              existing.push(img);
+        // Group LocalImages by entityId (pointId) for fast lookup
+        // Also resolve temp IDs to real IDs for photos captured before point synced
+        for (const img of allLocalImages) {
+          // BUGFIX: Convert entityId to string to handle numeric IDs from database
+          const entityId = String(img.entityId);
+
+          // Add by original entityId
+          if (!bulkLocalImagesMap.has(entityId)) {
+            bulkLocalImagesMap.set(entityId, []);
+          }
+          bulkLocalImagesMap.get(entityId)!.push(img);
+
+          // CRITICAL: Also add by resolved real ID if entityId is a temp ID
+          // This ensures photos show after the parent point syncs but before the photo syncs
+          if (entityId.startsWith('temp_')) {
+            const realId = await this.indexedDb.getRealId(entityId);
+            if (realId && realId !== entityId) {
+              if (!bulkLocalImagesMap.has(realId)) {
+                bulkLocalImagesMap.set(realId, []);
+              }
+              // Avoid duplicates
+              const existing = bulkLocalImagesMap.get(realId)!;
+              if (!existing.some(e => e.imageId === img.imageId)) {
+                existing.push(img);
+              }
             }
           }
         }
-      }
-      console.log(`[RoomElevation] Loaded ${allLocalImages.length} LocalImages for ${bulkLocalImagesMap.size} points (with temp ID resolution)`);
+        console.log(`[RoomElevation] Loaded ${allLocalImages.length} LocalImages for ${bulkLocalImagesMap.size} points (with temp ID resolution)`);
 
-      // TASK 1 FIX: Update class-level bulkLocalImagesMap so liveQuery updates work correctly
-      // The local variable is used during initial load, but the class property is needed
-      // for refreshPhotosFromLocalImages() to find the right photos when status changes
-      this.bulkLocalImagesMap = bulkLocalImagesMap;
+        // TASK 1 FIX: Update class-level bulkLocalImagesMap so liveQuery updates work correctly
+        // The local variable is used during initial load, but the class property is needed
+        // for refreshPhotosFromLocalImages() to find the right photos when status changes
+        this.bulkLocalImagesMap = bulkLocalImagesMap;
+      } else {
+        console.log('[RoomElevation] WEBAPP MODE: Skipping local image loading - using server data only');
+      }
 
       if (existingPoints && existingPoints.length > 0) {
         const pointIds = existingPoints.map((p: any) => p.PointID || p.PK_ID).filter(id => id);

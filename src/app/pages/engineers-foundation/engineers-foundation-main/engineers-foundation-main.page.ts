@@ -279,49 +279,98 @@ export class EngineersFoundationMainPage implements OnInit {
   }
 
 
+  // Guard against double-click on finalize button
+  private isFinalizationInProgress = false;
+  private finalizationCancelled = false;
+
+  // Timeout constants for sync operations (in milliseconds)
+  private readonly SYNC_TIMEOUT_MS = 45000; // 45 seconds per sync step
+
+  /**
+   * Helper to run a promise with timeout
+   */
+  private withTimeout<T>(promise: Promise<T>, timeoutMs: number, operationName: string): Promise<T | 'timeout'> {
+    return Promise.race([
+      promise,
+      new Promise<'timeout'>((resolve) => {
+        setTimeout(() => {
+          console.log(`[EngFoundation Main] ${operationName} timed out after ${timeoutMs/1000}s`);
+          resolve('timeout');
+        }, timeoutMs);
+      })
+    ]);
+  }
+
   async markReportAsFinalized() {
+    // Prevent double-click
+    if (this.isFinalizationInProgress) {
+      console.log('[EngFoundation Main] Finalization already in progress, ignoring');
+      return;
+    }
+    this.isFinalizationInProgress = true;
+    this.finalizationCancelled = false;
+
     const isUpdate = this.isReportFinalized;
 
+    // Create cancellable loading dialog
     const loading = await this.loadingController.create({
-      message: isUpdate ? 'Updating report...' : 'Finalizing report...'
+      message: isUpdate ? 'Updating report...' : 'Finalizing report...',
+      backdropDismiss: false,
+      buttons: [{
+        text: 'Cancel',
+        role: 'cancel',
+        handler: () => {
+          console.log('[EngFoundation Main] Finalization cancelled by user');
+          this.finalizationCancelled = true;
+          this.isFinalizationInProgress = false;
+        }
+      }]
     });
     await loading.present();
 
     try {
       // ==========================================
-      // STEP 1: Sync ALL pending images (existing)
+      // STEP 1: Sync ALL pending images (with timeout)
       // ==========================================
       console.log('[EngFoundation Main] Checking for unsynced images...');
       const imageStatus = await this.localImageService.getServiceImageSyncStatus(this.serviceId);
 
-      // DEBUG ALERT
-      await loading.dismiss();
-      await this.showDebugAlert('Step 1: Image Check', `Pending images: ${imageStatus.pending}\nSynced: ${imageStatus.synced}\nFailed: ${imageStatus.failed}`);
-      await loading.present();
+      if (this.finalizationCancelled) return;
 
       if (imageStatus.pending > 0) {
         console.log(`[EngFoundation Main] Found ${imageStatus.pending} unsynced images, forcing sync...`);
-        loading.message = `Syncing ${imageStatus.pending} image(s)...`;
+        loading.message = `Syncing ${imageStatus.pending} image(s)... (tap Cancel to skip)`;
 
         // Trigger background sync to process pending uploads
         this.backgroundSync.triggerSync();
 
-        // Force sync and wait for completion
-        const syncResult = await this.localImageService.forceSyncServiceImages(
-          this.serviceId,
-          (current, total, status) => {
-            loading.message = status;
-          }
+        // Force sync with timeout
+        const syncResult = await this.withTimeout(
+          this.localImageService.forceSyncServiceImages(
+            this.serviceId,
+            (current, total, status) => {
+              if (!this.finalizationCancelled) {
+                loading.message = `${status} (tap Cancel to skip)`;
+              }
+            }
+          ),
+          this.SYNC_TIMEOUT_MS,
+          'Image sync'
         );
 
-        if (!syncResult.success) {
-          await loading.dismiss();
+        if (this.finalizationCancelled) return;
 
-          // Show warning about failed images but allow proceeding
-          const failedCount = syncResult.failedCount;
+        // Handle timeout or failure
+        if (syncResult === 'timeout' || (syncResult !== 'timeout' && !syncResult.success)) {
+          const failedCount = syncResult === 'timeout' ? imageStatus.pending : syncResult.failedCount;
+          const reason = syncResult === 'timeout' ? 'Sync timed out' : 'Some images failed';
+
+          await loading.dismiss();
+          this.isFinalizationInProgress = false;
+
           const alert = await this.alertController.create({
             header: 'Image Sync Warning',
-            message: `${failedCount} image(s) could not be synced. These images may not be available remotely. Do you want to proceed with finalization anyway?`,
+            message: `${reason}. ${failedCount} image(s) may not be synced. Do you want to proceed with finalization anyway?`,
             cssClass: 'custom-document-alert',
             buttons: [
               { text: 'Cancel', role: 'cancel' },
@@ -336,43 +385,43 @@ export class EngineersFoundationMainPage implements OnInit {
         }
       }
 
+      if (this.finalizationCancelled) return;
+
       // ==========================================
-      // STEP 2: Sync ALL pending requests/captions (NEW)
+      // STEP 2: Sync ALL pending requests/captions (with timeout)
       // ==========================================
       console.log('[EngFoundation Main] Syncing pending requests and captions...');
-      loading.message = 'Syncing data...';
+      loading.message = 'Syncing data... (tap Cancel to skip)';
 
-      // DEBUG ALERT - before sync
-      await loading.dismiss();
-      await this.showDebugAlert('Step 2: Data Sync Starting', 'About to sync pending requests and captions...');
-      await loading.present();
-
-      const dataSyncResult = await this.backgroundSync.forceSyncAllPendingForService(
-        this.serviceId,
-        (status, current, total) => {
-          loading.message = status;
-        }
+      const dataSyncResult = await this.withTimeout(
+        this.backgroundSync.forceSyncAllPendingForService(
+          this.serviceId,
+          (status, current, total) => {
+            if (!this.finalizationCancelled) {
+              loading.message = `${status} (tap Cancel to skip)`;
+            }
+          }
+        ),
+        this.SYNC_TIMEOUT_MS,
+        'Data sync'
       );
+
+      if (this.finalizationCancelled) return;
 
       console.log('[EngFoundation Main] Data sync result:', dataSyncResult);
 
-      // DEBUG ALERT - after sync
-      await loading.dismiss();
-      await this.showDebugAlert('Step 2: Data Sync Complete',
-        `Success: ${dataSyncResult.success}\n` +
-        `Requests synced: ${dataSyncResult.requestsSynced}\n` +
-        `Requests failed: ${dataSyncResult.requestsFailed}\n` +
-        `Captions synced: ${dataSyncResult.captionsSynced}\n` +
-        `Captions failed: ${dataSyncResult.captionsFailed}`
-      );
-      await loading.present();
+      // Handle timeout or failure
+      if (dataSyncResult === 'timeout' || (dataSyncResult !== 'timeout' && !dataSyncResult.success)) {
+        const failedTotal = dataSyncResult === 'timeout' ? '?' :
+          (dataSyncResult.requestsFailed + dataSyncResult.captionsFailed);
+        const reason = dataSyncResult === 'timeout' ? 'Sync timed out' : 'Some items failed';
 
-      if (!dataSyncResult.success) {
-        const failedTotal = dataSyncResult.requestsFailed + dataSyncResult.captionsFailed;
         await loading.dismiss();
+        this.isFinalizationInProgress = false;
+
         const alert = await this.alertController.create({
           header: 'Sync Warning',
-          message: `${failedTotal} item(s) could not be synced. Do you want to proceed with finalization anyway? Failed items will be cleared.`,
+          message: `${reason}. ${failedTotal} item(s) may not be synced. Do you want to proceed with finalization anyway?`,
           cssClass: 'custom-document-alert',
           buttons: [
             { text: 'Cancel', role: 'cancel' },
@@ -386,14 +435,18 @@ export class EngineersFoundationMainPage implements OnInit {
         return;
       }
 
+      if (this.finalizationCancelled) return;
+
       // ==========================================
-      // STEP 3: Update image pointers (existing)
+      // STEP 3: Update image pointers
       // ==========================================
       console.log('[EngFoundation Main] Updating image pointers to remote URLs...');
       loading.message = 'Updating image references...';
       await this.localImageService.updateImagePointersToRemote(this.serviceId);
 
       await loading.dismiss();
+
+      if (this.finalizationCancelled) return;
 
       // ==========================================
       // STEP 4: Complete finalization
@@ -402,6 +455,7 @@ export class EngineersFoundationMainPage implements OnInit {
 
     } catch (error) {
       await loading.dismiss();
+      this.isFinalizationInProgress = false;
       console.error('[EngFoundation Main] Error finalizing report:', error);
       const alert = await this.alertController.create({
         header: 'Error',
@@ -414,105 +468,68 @@ export class EngineersFoundationMainPage implements OnInit {
 
   private async completeFinalization(isUpdate: boolean) {
     const loading = await this.loadingController.create({
-      message: isUpdate ? 'Updating report status...' : 'Finalizing report status...'
+      message: isUpdate ? 'Updating report status...' : 'Finalizing report status...',
+      backdropDismiss: false
     });
     await loading.present();
 
     try {
-      // Update the Services table (existing code)
+      // Update the Services table
       const currentDateTime = new Date().toISOString();
 
       // Get appropriate StatusAdmin value from Status table
       const statusClientValue = isUpdate ? 'Updated' : 'Finalized';
       const statusAdminValue = this.getStatusAdminByClient(statusClientValue);
 
-      // DEBUG ALERT - Status mapping
-      await loading.dismiss();
-      await this.showDebugAlert('Status Update',
-        `Status Options loaded: ${this.statusOptions.length}\n` +
-        `Client value: "${statusClientValue}"\n` +
-        `Mapped Admin value: "${statusAdminValue}"\n` +
-        `Service ID: ${this.serviceId}`
-      );
-      await loading.present();
-
       const updateData = {
         StatusDateTime: currentDateTime,
-        Status: statusAdminValue  // Use StatusAdmin value from Status table
+        Status: statusAdminValue
       };
 
       console.log('[EngFoundation Main] Updating service status:', updateData);
-      const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
-      console.log('[EngFoundation Main] Update response:', response);
 
-      // DEBUG ALERT - Update response
-      await loading.dismiss();
-      await this.showDebugAlert('Status Update Response',
-        `Response: ${JSON.stringify(response)}`
-      );
-      await loading.present();
+      // Try to update with timeout - if it fails, we still complete locally
+      let statusUpdateSuccess = false;
+      try {
+        const statusUpdatePromise = this.caspioService.updateService(this.serviceId, updateData).toPromise();
+        const result = await this.withTimeout(statusUpdatePromise, 15000, 'Status update');
+
+        if (result !== 'timeout') {
+          statusUpdateSuccess = true;
+          console.log('[EngFoundation Main] Update response:', result);
+        } else {
+          console.warn('[EngFoundation Main] Status update timed out - will sync later');
+        }
+      } catch (statusErr) {
+        console.warn('[EngFoundation Main] Status update failed - will sync later:', statusErr);
+      }
 
       // ==========================================
-      // CLEANUP STEP 1: Clear any remaining pending items (NEW)
+      // CLEANUP STEP 1: Clear any remaining pending items
       // ==========================================
       console.log('[EngFoundation Main] Clearing any remaining pending items...');
       loading.message = 'Cleaning up...';
 
-      // DEBUG: Get sync stats BEFORE clearing
-      const statsBefore = await this.indexedDb.getSyncStats();
-      await loading.dismiss();
-      await this.showDebugAlert('Before Clearing - Sync Stats',
-        `Pending: ${statsBefore.pending}\n` +
-        `Syncing: ${statsBefore.syncing}\n` +
-        `Synced: ${statsBefore.synced}\n` +
-        `Failed: ${statsBefore.failed}`
-      );
-      await loading.present();
-
-      let clearedItems = { requests: 0, captions: 0, outbox: 0, images: 0 };
       try {
-        clearedItems = await this.indexedDb.clearPendingForService(this.serviceId);
+        const clearedItems = await this.indexedDb.clearPendingForService(this.serviceId);
         console.log('[EngFoundation Main] Cleared pending items:', clearedItems);
       } catch (err) {
         console.warn('[EngFoundation Main] Error clearing pending items:', err);
       }
 
-      // DEBUG: Get sync stats AFTER clearing
-      const statsAfter = await this.indexedDb.getSyncStats();
-      await loading.dismiss();
-      await this.showDebugAlert('After Clearing - Sync Stats',
-        `Cleared: req=${clearedItems.requests}, cap=${clearedItems.captions}, out=${clearedItems.outbox}, img=${clearedItems.images}\n\n` +
-        `Remaining:\n` +
-        `Pending: ${statsAfter.pending}\n` +
-        `Syncing: ${statsAfter.syncing}\n` +
-        `Synced: ${statsAfter.synced}\n` +
-        `Failed: ${statsAfter.failed}`
-      );
-      await loading.present();
-
       // ==========================================
-      // CLEANUP STEP 2: Mark Dexie records as clean (NEW)
+      // CLEANUP STEP 2: Mark Dexie records as clean
       // ==========================================
-      let markedClean = false;
       try {
         await this.efeFieldRepo.markAllCleanForService(this.serviceId);
         await this.visualFieldRepo.markAllCleanForService(this.serviceId);
-        markedClean = true;
         console.log('[EngFoundation Main] Marked all Dexie records as clean');
       } catch (err) {
         console.warn('[EngFoundation Main] Error marking records clean:', err);
       }
 
-      // DEBUG ALERT
-      await loading.dismiss();
-      await this.showDebugAlert('Cleanup Step 2: Mark Clean',
-        `EFE fields marked clean: ${markedClean ? 'Yes' : 'No'}\n` +
-        `Visual fields marked clean: ${markedClean ? 'Yes' : 'No'}`
-      );
-      await loading.present();
-
       // ==========================================
-      // CLEANUP STEP 3: Clear API caches (existing)
+      // CLEANUP STEP 3: Clear API caches
       // ==========================================
       console.log('[EngFoundation Main] Clearing caches for project:', this.projectId);
       this.cache.clearProjectRelatedCaches(this.projectId);
@@ -520,31 +537,29 @@ export class EngineersFoundationMainPage implements OnInit {
       this.cache.clearByPattern('projects_all');
 
       // ==========================================
-      // CLEANUP STEP 4: Prune local blobs (existing)
+      // CLEANUP STEP 4: Prune local blobs
       // ==========================================
       console.log('[EngFoundation Main] Cleaning up local blob data...');
       loading.message = 'Freeing device storage...';
       const cleanupResult = await this.localImageService.cleanupBlobDataAfterFinalization(this.serviceId);
       console.log('[EngFoundation Main] Blob cleanup complete:', cleanupResult);
 
-      // DEBUG ALERT
-      await loading.dismiss();
-      await this.showDebugAlert('Cleanup Step 4: Blob Cleanup',
-        `Cleaned: ${cleanupResult?.cleaned || 0}\n` +
-        `Skipped: ${cleanupResult?.skipped || 0}\n` +
-        `Errors: ${cleanupResult?.errors || 0}\n` +
-        `Freed: ${((cleanupResult?.freedBytes || 0) / 1024 / 1024).toFixed(2)} MB`
-      );
-      await loading.present();
-
-      // Reset change tracking (existing)
+      // Reset change tracking
       this.hasChangesAfterFinalization = false;
       this.isReportFinalized = true;
+      this.isFinalizationInProgress = false;
 
       await loading.dismiss();
 
-      // Show success message (existing)
-      const successMessage = isUpdate ? 'Your report has been successfully updated.' : 'Your report has been successfully finalized.';
+      // Show success message (with note if status update failed)
+      let successMessage = isUpdate
+        ? 'Your report has been successfully updated.'
+        : 'Your report has been successfully finalized.';
+
+      if (!statusUpdateSuccess) {
+        successMessage += '\n\nNote: Status update will sync when you have better connectivity.';
+      }
+
       const alert = await this.alertController.create({
         header: isUpdate ? 'Report Updated' : 'Report Finalized',
         message: successMessage,
@@ -560,6 +575,7 @@ export class EngineersFoundationMainPage implements OnInit {
       await alert.present();
     } catch (error) {
       await loading.dismiss();
+      this.isFinalizationInProgress = false;
       console.error('[EngFoundation Main] Error completing finalization:', error);
       const alert = await this.alertController.create({
         header: 'Error',
@@ -568,25 +584,6 @@ export class EngineersFoundationMainPage implements OnInit {
       });
       await alert.present();
     }
-  }
-
-  /**
-   * Helper method to show debug alerts during finalization
-   * Returns a promise that resolves when user clicks OK
-   */
-  private showDebugAlert(header: string, message: string): Promise<void> {
-    return new Promise(async (resolve) => {
-      const alert = await this.alertController.create({
-        header: `DEBUG: ${header}`,
-        message: message,
-        cssClass: 'custom-document-alert',
-        buttons: [{
-          text: 'OK',
-          handler: () => resolve()
-        }]
-      });
-      await alert.present();
-    });
   }
 
 }

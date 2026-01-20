@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { IndexedDbService } from './indexed-db.service';
 import { CaspioService } from './caspio.service';
 import { OfflineService } from './offline.service';
+import { environment } from '../../environments/environment';
 
 /**
  * Offline-First Template Service
@@ -1146,26 +1147,42 @@ export class OfflineTemplateService {
   /**
    * Get visuals for a service - CACHE-FIRST for instant loading
    * Returns cached data immediately, refreshes in background when online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getVisualsByService(serviceId: string): Promise<any[]> {
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching visuals directly from API for ${serviceId}`);
+      try {
+        const freshVisuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshVisuals?.length || 0} visuals from server`);
+        return freshVisuals || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for visuals:`, error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
     // 1. Read from cache IMMEDIATELY
     const cached = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
-    
+
     // 2. Merge with pending offline visuals
     const pending = await this.getPendingVisuals(serviceId);
     const merged = [...cached, ...pending];
-    
+
     // 3. Return immediately if we have data
     if (merged.length > 0) {
       console.log(`[OfflineTemplate] Visuals: ${cached.length} cached + ${pending.length} pending (instant)`);
-      
+
       // 4. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
         this.refreshVisualsInBackground(serviceId);
       }
       return merged;
     }
-    
+
     // 5. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
@@ -1177,7 +1194,7 @@ export class OfflineTemplateService {
         console.warn(`[OfflineTemplate] API fetch failed:`, error);
       }
     }
-    
+
     console.log(`[OfflineTemplate] No visuals available (offline, no cache)`);
     return pending; // Return any pending items at least
   }
@@ -1186,30 +1203,46 @@ export class OfflineTemplateService {
    * Get visual attachments - CACHE-FIRST for instant loading
    * Returns cached data immediately, refreshes in background when online
    * CRITICAL: Preserves local updates (annotations) when merging with server data
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getVisualAttachments(visualId: string | number): Promise<any[]> {
     const key = String(visualId);
-    
+
     // Skip for temp IDs - they won't have server data
     if (key.startsWith('temp_')) {
       console.log(`[OfflineTemplate] Skipping for temp visual ${key}`);
       return [];
     }
 
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching attachments directly from API for visual ${key}`);
+      try {
+        const attachments = await firstValueFrom(this.caspioService.getServiceVisualsAttachByVisualId(key));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${attachments?.length || 0} attachments for visual ${key}`);
+        return attachments || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for attachments:`, error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
     // 1. Read from cache IMMEDIATELY
     const cached = await this.indexedDb.getCachedServiceData(key, 'visual_attachments');
-    
+
     // 2. Return immediately if we have data
     if (cached && cached.length > 0) {
       console.log(`[OfflineTemplate] Attachments for ${key}: ${cached.length} (instant from cache)`);
-      
+
       // 3. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
         this.refreshAttachmentsInBackground(key);
       }
       return cached;
     }
-    
+
     // 4. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
@@ -1221,14 +1254,16 @@ export class OfflineTemplateService {
         console.warn(`[OfflineTemplate] API fetch failed for ${key}:`, error);
       }
     }
-    
+
     return [];
   }
 
   /**
    * Get EFE rooms for a service - CACHE-FIRST for instant loading
    * Returns cached data immediately, refreshes in background when online
-   * 
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
+   *
    * STANDARDIZED PATTERN:
    * 1. Read from cache IMMEDIATELY (instant UI)
    * 2. Merge with pending offline rooms
@@ -1239,6 +1274,20 @@ export class OfflineTemplateService {
   async getEFERooms(serviceId: string): Promise<any[]> {
     console.log(`[OfflineTemplate] getEFERooms(${serviceId}) called`);
 
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching EFE rooms directly from API for ${serviceId}`);
+      try {
+        const freshRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshRooms?.length || 0} EFE rooms from server`);
+        return freshRooms || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for EFE rooms:`, error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
     // 1. Read from cache IMMEDIATELY
     const cached = await this.indexedDb.getCachedServiceData(serviceId, 'efe_rooms') || [];
     console.log(`[OfflineTemplate] getEFERooms: ${cached.length} rooms in cache`);
@@ -1274,28 +1323,28 @@ export class OfflineTemplateService {
     }
 
     const merged = Array.from(roomMap.values());
-    
+
     // 3. Return immediately if we have data
     if (merged.length > 0) {
       console.log(`[OfflineTemplate] ✅ EFE Rooms: ${cached.length} cached + ${pendingRooms.length} pending (instant)`);
-      
+
       // Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
         this.refreshEFERoomsInBackground(serviceId);
       }
       return merged;
     }
-    
+
     // 4. CRITICAL: Cache AND pending both empty - fetch synchronously if online
     // This is the first-load scenario where we MUST block until data is available
     if (this.offlineService.isOnline()) {
       try {
         console.log(`[OfflineTemplate] ⏳ No cached EFE rooms, fetching from API (BLOCKING)...`);
         const freshRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
-        
+
         // Cache the fetched data
         await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', freshRooms || []);
-        
+
         console.log(`[OfflineTemplate] ✅ Fetched and cached ${freshRooms?.length || 0} EFE rooms from API`);
         return [...(freshRooms || []), ...pendingRooms];
       } catch (error) {
@@ -1304,7 +1353,7 @@ export class OfflineTemplateService {
     } else {
       console.log(`[OfflineTemplate] ⚠️ Offline and no cached EFE rooms - returning empty`);
     }
-    
+
     // 5. Return pending rooms only (may be empty)
     return pendingRooms;
   }
@@ -1312,13 +1361,29 @@ export class OfflineTemplateService {
   /**
    * Get EFE points for a room - CACHE-FIRST for instant loading
    * Returns cached data immediately, refreshes in background when online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getEFEPoints(roomId: string): Promise<any[]> {
     const isTemp = roomId.startsWith('temp_');
-    
+
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb && !isTemp) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching EFE points directly from API for room ${roomId}`);
+      try {
+        const freshPoints = await firstValueFrom(this.caspioService.getServicesEFEPoints(roomId));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshPoints?.length || 0} EFE points from server`);
+        return freshPoints || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for EFE points:`, error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
     // 1. Read from cache IMMEDIATELY
     const cached = await this.indexedDb.getCachedServiceData(roomId, 'efe_points') || [];
-    
+
     // 2. Merge with pending offline points
     const pending = await this.indexedDb.getPendingEFEPoints(roomId);
     const pendingPoints = pending.map(p => ({
@@ -1330,18 +1395,18 @@ export class OfflineTemplateService {
       _syncing: true,
     }));
     const merged = [...cached, ...pendingPoints];
-    
+
     // 3. Return immediately if we have data
     if (merged.length > 0) {
       console.log(`[OfflineTemplate] EFE Points for ${roomId}: ${cached.length} cached + ${pendingPoints.length} pending (instant)`);
-      
+
       // 4. Background refresh (non-blocking) when online - skip for temp rooms
       if (!isTemp && this.offlineService.isOnline()) {
         this.refreshEFEPointsInBackground(roomId);
       }
       return merged;
     }
-    
+
     // 5. Cache empty - fetch from API if online and not temp (blocking only when no cache)
     if (!isTemp && this.offlineService.isOnline()) {
       try {
@@ -1353,7 +1418,7 @@ export class OfflineTemplateService {
         console.warn(`[OfflineTemplate] API fetch failed:`, error);
       }
     }
-    
+
     return pendingPoints;
   }
 
@@ -1363,30 +1428,46 @@ export class OfflineTemplateService {
    * CRITICAL: Preserves local updates (annotations) when merging with server data
    * NOTE: Pending photos are merged at page level using getAllPendingPhotosGroupedByPoint()
    * to avoid N+1 IndexedDB reads (matches getVisualAttachments pattern)
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getEFEPointAttachments(pointId: string | number): Promise<any[]> {
     const key = String(pointId);
-    
+
     // Skip for temp point IDs - they won't have server data
     if (key.startsWith('temp_')) {
       console.log(`[OfflineTemplate] Skipping for temp point ${key}`);
       return [];
     }
 
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching EFE attachments directly from API for point ${key}`);
+      try {
+        const attachments = await firstValueFrom(this.caspioService.getServicesEFEAttachments(key));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${attachments?.length || 0} EFE attachments for point ${key}`);
+        return attachments || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for EFE attachments:`, error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
     // 1. Read from cache IMMEDIATELY
     const cached = await this.indexedDb.getCachedServiceData(key, 'efe_point_attachments');
-    
+
     // 2. Return immediately if we have data
     if (cached && cached.length > 0) {
       console.log(`[OfflineTemplate] EFE attachments for ${key}: ${cached.length} (instant from cache)`);
-      
+
       // 3. Background refresh (non-blocking) when online
       if (this.offlineService.isOnline()) {
         this.refreshEFEAttachmentsInBackground(key);
       }
       return cached;
     }
-    
+
     // 4. Cache empty - fetch from API if online (blocking only when no cache)
     if (this.offlineService.isOnline()) {
       try {
@@ -1398,7 +1479,7 @@ export class OfflineTemplateService {
         console.warn(`[OfflineTemplate] API fetch failed for ${key}:`, error);
       }
     }
-    
+
     return [];
   }
 

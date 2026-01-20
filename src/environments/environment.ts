@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  isWeb: false, // Set to true when running in browser
+  isWeb: true, // Set to true when running in browser - reads from synced server data instead of local Dexie
   
   // NEW: API Gateway backend configuration
   apiGatewayUrl: 'https://45qxu5joc6.execute-api.us-east-1.amazonaws.com',

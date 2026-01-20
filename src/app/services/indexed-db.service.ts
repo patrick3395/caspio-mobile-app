@@ -2990,10 +2990,23 @@ export class IndexedDbService {
    */
   async getReadyUploadOutboxItems(): Promise<UploadOutboxItem[]> {
     const now = Date.now();
-    return await db.uploadOutbox
+    const outboxItems = await db.uploadOutbox
       .where('nextRetryAt')
       .belowOrEqual(now)
       .toArray();
+
+    // Filter out items where image is already uploading (prevents double-sync race condition)
+    const readyItems: UploadOutboxItem[] = [];
+    for (const item of outboxItems) {
+      const image = await db.localImages.get(item.imageId);
+      if (image && image.status !== 'uploading') {
+        readyItems.push(item);
+      } else if (image && image.status === 'uploading') {
+        console.log(`[IndexedDB] Skipping outbox item ${item.opId} - image already uploading`);
+      }
+    }
+
+    return readyItems;
   }
 
   /**

@@ -15,6 +15,7 @@ import { LocalImageService } from '../../../../services/local-image.service';
 import { EngineersFoundationDataService } from '../../engineers-foundation-data.service';
 import { compressAnnotationData } from '../../../../utils/annotation-utils';
 import { liveQuery } from 'dexie';
+import { environment } from '../../../../../environments/environment';
 
 interface VisualItem {
   id: string | number;
@@ -142,7 +143,67 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     this.loading = true;
 
     try {
-      // Try to load from Dexie visualFields first
+      // WEBAPP MODE: Load from server API to see synced data from mobile
+      if (environment.isWeb) {
+        console.log('[VisualDetail] WEBAPP MODE: Loading visual data from server');
+        const visuals = await this.foundationData.getVisualsByService(this.serviceId);
+        const visual = visuals.find((v: any) =>
+          (v.VisualTemplateID === this.templateId || v.templateId === this.templateId) &&
+          v.Category === this.categoryName
+        );
+
+        if (visual) {
+          this.item = {
+            id: visual.VisualID || visual.PK_ID,
+            templateId: visual.VisualTemplateID || visual.templateId || this.templateId,
+            name: visual.Name || '',
+            text: visual.VisualText || visual.Text || '',
+            originalText: visual.VisualText || visual.Text || '',
+            type: visual.Kind || 'Comment',
+            category: visual.Category || this.categoryName,
+            answerType: visual.AnswerType || 0,
+            required: false,
+            answer: visual.Answer || '',
+            isSelected: true
+          };
+          this.visualId = String(visual.VisualID || visual.PK_ID);
+          this.editableTitle = this.item.name;
+          this.editableText = this.item.text;
+          console.log('[VisualDetail] WEBAPP: Loaded visual from server:', this.item.name);
+        } else {
+          // No visual found - may be a template that hasn't been selected yet
+          console.log('[VisualDetail] WEBAPP: Visual not found, loading template...');
+          const templates = await this.foundationData.getVisualsTemplates();
+          const template = templates.find((t: any) =>
+            ((t.TemplateID || t.PK_ID) === this.templateId) && t.Category === this.categoryName
+          );
+
+          if (template) {
+            const effectiveTemplateId = template.TemplateID || template.PK_ID;
+            this.item = {
+              id: effectiveTemplateId,
+              templateId: effectiveTemplateId,
+              name: template.Name || '',
+              text: template.Text || '',
+              originalText: template.Text || '',
+              type: template.Kind || 'Comment',
+              category: template.Category || this.categoryName,
+              answerType: template.AnswerType || 0,
+              required: false,
+              isSelected: false
+            };
+            this.editableTitle = this.item.name;
+            this.editableText = this.item.text;
+            console.log('[VisualDetail] WEBAPP: Loaded from template:', this.item.name);
+          }
+        }
+
+        // Load photos from server
+        await this.loadPhotos();
+        return;
+      }
+
+      // MOBILE MODE: Try to load from Dexie visualFields first
       const fields = await db.visualFields
         .where('[serviceId+category]')
         .equals([this.serviceId, this.categoryName])
@@ -220,6 +281,47 @@ export class VisualDetailPage implements OnInit, OnDestroy {
     this.loadingPhotos = true;
 
     try {
+      // WEBAPP MODE: Load photos from server API
+      if (environment.isWeb) {
+        if (!this.visualId) {
+          this.photos = [];
+          return;
+        }
+
+        console.log('[VisualDetail] WEBAPP MODE: Loading photos for visualId:', this.visualId);
+        const attachments = await this.foundationData.getVisualAttachments(this.visualId);
+        console.log('[VisualDetail] WEBAPP: Found', attachments?.length || 0, 'attachments from server');
+
+        this.photos = [];
+        for (const att of attachments || []) {
+          // Get display URL from server - use S3 signed URL or Photo field
+          let displayUrl = att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
+
+          // If it's an S3 key, get signed URL
+          if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
+            try {
+              displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+            } catch (e) {
+              console.warn('[VisualDetail] WEBAPP: Could not get S3 URL:', e);
+            }
+          }
+
+          this.photos.push({
+            id: att.AttachID || att.attachId || att.PK_ID,
+            displayUrl,
+            originalUrl: displayUrl,
+            caption: att.Annotation || att.caption || '',
+            uploading: false,
+            isLocal: false,
+            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            drawings: att.Drawings || ''
+          });
+        }
+
+        return;
+      }
+
+      // MOBILE MODE: Load from local Dexie
       // Get the visualId from visualFields - this is how photos are stored
       const fields = await db.visualFields
         .where('[serviceId+category]')
