@@ -77,3 +77,30 @@ scape key handler\n\n### 6. Additional Accessibility Improvements\n- Added `aria
 ced-colors: active)`\n\n### Acceptance Criteria Met:\n- ✅ **Focus visible on all interactive elements** - 3px orange outline on :focus-visible\n- ✅ **No keyboard traps** - Existing FocusTrapDirective prevents traps in modals\n- ✅ **Skip links for main content** - Skip link component with proper focus handling\n- ✅ **Logical tab order** - Uses semantic HTML, existing FormKeyboardService supports custom tab order\n- ✅ **All changes wrapped in `environment.isWeb` checks** - Mobile app unchanged\n\n
 
 ---
+## ✓ Iteration 9 - G2-A11Y-003: Add screen reader announcements
+*2026-01-20T22:19:29.456Z (960s)*
+
+**Status:** Completed
+
+**Notes:**
+.ts:257-296`) - Announces form validation errors\n4. **RetryNotificationService** (`retry-notification.service.ts:74-146`) - Announces retry attempts, failures, and successes\n5. **Automatic Page Navigation** - Service listens to router events to announce page changes\n\n### Acceptance Criteria Met\n- ✅ Loading states announced\n- ✅ Form errors announced  \n- ✅ Success messages announced\n- ✅ Page changes announced\n- ✅ All changes wrapped in `environment.isWeb` checks (mobile app unchanged)\n\n
+
+---
+## ✓ Iteration 10 - G2-A11Y-004: Ensure sufficient color contrast
+*2026-01-20T22:31:17.378Z (706s)*
+
+**Status:** Completed
+
+**Notes:**
+tation |\n|----------|--------|----------------|\n| Normal text has 4.5:1 contrast ratio | ✅ | Secondary text uses #595959 (4.65:1) |\n| Large text has 3:1 contrast ratio | ✅ | Large text inherits from normal or uses darker primary colors |\n| UI components have 3:1 contrast ratio | ✅ | Borders use #949494 (3.04:1), icons use accessible colors |\n| All changes wrapped in `environment.isWeb` checks | ✅ | Used CSS media query `@media (hover: hover) and (pointer: fine)` - mobile app unchanged |\n\n
+
+---
+## ✓ Iteration 11 - G2-UX-001: Add hover states for all interactive elements
+*2026-01-20T22:41:18.697Z (600s)*
+
+**Status:** Completed
+
+**Notes:**
+dow (0 4px 12px); Service/template items get subtle background tint |\n| Cursor changes appropriately (pointer for clickable) | ✅ | Added `cursor: pointer` to all interactive elements: buttons, links, cards, checkboxes, toggles, selects, chips, role attributes |\n\n### Additional hover states added\n- Tab buttons and segment buttons\n- Table rows\n- Chips\n- Checkboxes and toggles (subtle scale effect)\n- Image previews (scale effect)\n- Modal close buttons\n- Back button\n- Select dropdowns\n\n
+
+---

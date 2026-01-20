@@ -111,8 +111,9 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
       this.stateService.initialize(this.projectId, this.serviceId);
 
       // Load service instance number (for multiple EFE services on same project)
+      // MUST await this to ensure instance number is loaded before UI renders
       if (isNewService || isFirstLoad) {
-        this.loadServiceInstanceNumber();
+        await this.loadServiceInstanceNumber();
       }
 
       // Subscribe to project name updates (only once per service)

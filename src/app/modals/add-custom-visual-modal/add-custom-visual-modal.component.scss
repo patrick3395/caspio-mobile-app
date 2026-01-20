@@ -205,7 +205,7 @@ ion-item {
     }
   }
 
-  // Caption button - full width of thumbnail
+  // Caption button - full width of thumbnail, expands with text
   .room-photo-caption {
     width: 100% !important;
     padding: 4px 6px !important;
@@ -220,9 +220,11 @@ ion-item {
     position: relative !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.3 !important;
   }
 }
 
