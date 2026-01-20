@@ -400,10 +400,6 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
         message: ' ', // Empty space to prevent Ionic from hiding the message area
         buttons: [
           {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
             text: 'Save',
             handler: () => {
               try {
@@ -416,6 +412,10 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
                 return true;
               }
             }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel'
           }
         ]
       });

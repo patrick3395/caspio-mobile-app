@@ -104,3 +104,21 @@ tation |\n|----------|--------|----------------|\n| Normal text has 4.5:1 contra
 dow (0 4px 12px); Service/template items get subtle background tint |\n| Cursor changes appropriately (pointer for clickable) | ✅ | Added `cursor: pointer` to all interactive elements: buttons, links, cards, checkboxes, toggles, selects, chips, role attributes |\n\n### Additional hover states added\n- Tab buttons and segment buttons\n- Table rows\n- Chips\n- Checkboxes and toggles (subtle scale effect)\n- Image previews (scale effect)\n- Modal close buttons\n- Back button\n- Select dropdowns\n\n
 
 ---
+## ✓ Iteration 12 - G2-UX-002: Add smooth transition animations
+*2026-01-20T23:00:37.742Z (1158s)*
+
+**Status:** Completed
+
+**Notes:**
+esktop - mobile app unchanged |\n\n### Key animations added:\n- **Page transitions**: Smooth 0.3s slide-in from right with fade\n- **Modal animations**: 0.3s fade + scale + slide from bottom\n- **Accordion/expandable sections**: 0.3s expand/collapse with opacity fade and header icon rotation\n- **State transitions**: Form inputs, toggles, checkboxes, cards, badges all have 0.2s ease transitions\n- **Utility classes**: `.fade-in`, `.slide-in-up`, `.slide-in-down`, etc. for reusable animations\n\n
+
+---
+## ✓ Iteration 13 - G2-UX-003: Implement toast notifications
+*2026-01-20T23:08:00.358Z (441s)*
+
+**Status:** Completed
+
+**Notes:**
+user interaction** - Non-blocking with `pointer-events: auto`, toasts stack vertically without overlapping\n- ✅ **All changes wrapped in `environment.isWeb` checks** - Mobile app unchanged\n\n### Additional Features:\n- Screen reader accessibility via `ScreenReaderAnnouncementService` integration\n- HTML escaping to prevent XSS\n- Smooth slide-in/out animations\n- Responsive design for mobile screens\n- Multiple toasts stack with automatic position updates\n- `dismissAll()` method available\n\n
+
+---

@@ -153,13 +153,15 @@
       "id": "G2-UX-002",
       "title": "Add smooth transition animations",
       "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Smooth CSS transitions for state changes, page transitions, and expanding/collapsing sections. Acceptance: Page transitions are smooth; Expanding/collapsing sections animate; Modals fade in/out; No janky or abrupt visual changes.",
-      "passes": false
+      "passes": true,
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "G2-UX-003",
       "title": "Implement toast notifications",
       "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Non-blocking toast notifications for success and info messages that auto-dismiss. Acceptance: Success actions show toast notification; Toasts auto-dismiss after timeout; Can be manually dismissed; Don't block user interaction.",
-      "passes": false
+      "passes": true,
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "G2-UX-004",
@@ -199,6 +201,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-20T22:41:19.933Z"
+    "updatedAt": "2026-01-20T23:08:01.530Z"
   }
 }

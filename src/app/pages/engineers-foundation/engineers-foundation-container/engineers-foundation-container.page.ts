@@ -210,16 +210,26 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   private async loadServiceInstanceNumber(): Promise<void> {
     try {
       // First get the current service to find its TypeID
-      const currentService = await this.offlineTemplate.getService(this.serviceId);
+      // Try offline cache first, then fall back to API (needed for web mode)
+      let currentService = await this.offlineTemplate.getService(this.serviceId);
+
       if (!currentService) {
-        console.log('[EF Container] Could not load current service');
+        // Fallback to API (especially needed in web mode where template download is skipped)
+        console.log('[EF Container] No cached service, fetching from API...');
+        currentService = await firstValueFrom(this.caspioService.getService(this.serviceId, false));
+      }
+
+      if (!currentService) {
+        console.log('[EF Container] Could not load current service from cache or API');
         return;
       }
 
       const currentTypeId = currentService.TypeID;
+      console.log(`[EF Container] Current service TypeID: ${currentTypeId}`);
 
       // Get all services for this project
       const allServices = await firstValueFrom(this.caspioService.getServicesByProject(this.projectId));
+      console.log(`[EF Container] Found ${allServices?.length || 0} total services for project`);
 
       // Filter to only services with the same TypeID (same service type)
       const sameTypeServices = (allServices || [])

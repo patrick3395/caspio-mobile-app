@@ -19,6 +19,7 @@ import { LocalImageService } from '../../../services/local-image.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../utils/annotation-utils';
 import { environment } from '../../../../environments/environment';
+import { HelpModalComponent } from '../../../components/help-modal/help-modal.component';
 import { db, EfeField, EfePoint } from '../../../services/caspio-db';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
 import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
@@ -4978,7 +4979,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     const createAlert = async () => {
       const alert = await this.alertController.create({
         header: 'Add Measurement',
-        message: showError ? '<span class="validation-error">Name is required to save the point</span>' : undefined,
+        message: showError ? 'Name is required to save the point' : undefined,
         inputs: [
           {
             name: 'pointName',
@@ -6505,9 +6506,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     this.onNotesChange();
   }
 
-  openHelp(helpId: number, helpTitle: string) {
-    // Help system - can be implemented later
-    console.log(`Help requested for ${helpTitle}`);
+  async openHelp(helpId: number, helpTitle: string) {
+    const modal = await this.modalController.create({
+      component: HelpModalComponent,
+      componentProps: {
+        helpId: helpId,
+        title: helpTitle
+      },
+      cssClass: 'help-modal'
+    });
+    await modal.present();
   }
 
   /**
