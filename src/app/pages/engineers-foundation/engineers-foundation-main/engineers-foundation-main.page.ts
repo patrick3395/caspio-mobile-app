@@ -497,8 +497,10 @@ export class EngineersFoundationMainPage implements OnInit {
       // DEBUG ALERT
       await loading.dismiss();
       await this.showDebugAlert('Cleanup Step 4: Blob Cleanup',
-        `Blobs pruned: ${cleanupResult?.blobsPruned || 0}\n` +
-        `Images processed: ${cleanupResult?.imagesProcessed || 0}`
+        `Cleaned: ${cleanupResult?.cleaned || 0}\n` +
+        `Skipped: ${cleanupResult?.skipped || 0}\n` +
+        `Errors: ${cleanupResult?.errors || 0}\n` +
+        `Freed: ${((cleanupResult?.freedBytes || 0) / 1024 / 1024).toFixed(2)} MB`
       );
       await loading.present();
 

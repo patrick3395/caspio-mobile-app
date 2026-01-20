@@ -868,6 +868,7 @@ export class IndexedDbService {
     };
 
     await db.cachedPhotos.put(photoData);
+    const sizeKB = imageDataUrl.length / 1024;
     console.log('[IndexedDB] ✅ Photo cached:', attachId, 'size:', sizeKB.toFixed(1), 'KB');
   }
 
@@ -1016,6 +1017,7 @@ export class IndexedDbService {
 
     await db.cachedPhotos.put(photoData);
 
+    const base64SizeMB = (imageDataUrl.length / 1024 / 1024).toFixed(2);
     if (parseFloat(base64SizeMB) > 2) {
       console.warn(`[StorageDebug] ⚠️ LARGE ANNOTATED IMAGE: ${base64SizeMB} MB`);
     }

@@ -7233,9 +7233,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // If not in memory, try to get from IndexedDB cache
       if (!annotatedImage && (photo.hasAnnotations || photo.Drawings)) {
         try {
-          annotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId);
+          annotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId) || undefined;
           if (!annotatedImage && localImageId) {
-            annotatedImage = await this.indexedDb.getCachedAnnotatedImage(localImageId);
+            annotatedImage = await this.indexedDb.getCachedAnnotatedImage(localImageId) || undefined;
           }
           // Store in memory map for future use
           if (annotatedImage) {

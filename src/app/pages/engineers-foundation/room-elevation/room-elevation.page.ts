@@ -4901,7 +4901,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
     const imageId = fdfPhotos[`${photoKey}ImageId`];
     if (imageId) {
       try {
-        await this.localImageService.updateCaption(imageId, newCaption);
+        await this.localImageService.updateCaptionAndDrawings(imageId, newCaption);
         console.log('[FDF Caption] ✅ Updated LocalImage caption for imageId:', imageId);
       } catch (err) {
         console.warn('[FDF Caption] Could not update LocalImage caption:', err);
