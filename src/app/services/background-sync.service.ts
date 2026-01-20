@@ -1236,13 +1236,23 @@ export class BackgroundSyncService {
       return this.syncFileUpload(request);
     }
 
+    // CRITICAL: Strip underscore-prefixed metadata fields from data before sending to API
+    // These fields (like _displayType, _photoType, _roomName, _tempEfeId) are for internal use only
+    // Caspio will reject requests with unknown fields
+    let cleanedData = request.data;
+    if (request.data && typeof request.data === 'object') {
+      cleanedData = Object.fromEntries(
+        Object.entries(request.data).filter(([key]) => !key.startsWith('_'))
+      );
+    }
+
     switch (request.method) {
       case 'GET':
         return this.apiGateway.get(request.endpoint).toPromise();
       case 'POST':
-        return this.apiGateway.post(request.endpoint, request.data).toPromise();
+        return this.apiGateway.post(request.endpoint, cleanedData).toPromise();
       case 'PUT':
-        return this.apiGateway.put(request.endpoint, request.data).toPromise();
+        return this.apiGateway.put(request.endpoint, cleanedData).toPromise();
       case 'DELETE':
         return this.apiGateway.delete(request.endpoint).toPromise();
       default:

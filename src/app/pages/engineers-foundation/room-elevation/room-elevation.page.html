@@ -317,6 +317,8 @@
                     <img [src]="getPointPhotoByType(point, 'Measurement').displayUrl || getPointPhotoByType(point, 'Measurement').thumbnailUrl || getPointPhotoByType(point, 'Measurement').url || 'assets/img/photo-placeholder.png'"
                          width="90" height="90"
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Measurement'), point)"
+                         (load)="handleImageLoad($event, getPointPhotoByType(point, 'Measurement'))"
+                         (error)="handleImageError($event, getPointPhotoByType(point, 'Measurement'))"
                          alt="Measurement"
                          [class.has-annotations]="getPointPhotoByType(point, 'Measurement').hasAnnotations">
                     <!-- Only show spinner when actively uploading - NOT for cached images -->
@@ -371,6 +373,8 @@
                     <img [src]="getPointPhotoByType(point, 'Location').displayUrl || getPointPhotoByType(point, 'Location').thumbnailUrl || getPointPhotoByType(point, 'Location').url || 'assets/img/photo-placeholder.png'"
                          width="90" height="90"
                          (click)="viewRoomPhoto(getPointPhotoByType(point, 'Location'), point)"
+                         (load)="handleImageLoad($event, getPointPhotoByType(point, 'Location'))"
+                         (error)="handleImageError($event, getPointPhotoByType(point, 'Location'))"
                          alt="Location"
                          [class.has-annotations]="getPointPhotoByType(point, 'Location').hasAnnotations">
                     <!-- Only show spinner when actively uploading - NOT for cached images -->

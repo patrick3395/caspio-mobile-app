@@ -6677,4 +6677,125 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter {
       xhr.send();
     });
   }
+
+  /**
+   * Handle image load success
+   */
+  handleImageLoad(event: Event, photo: any): void {
+    const img = event.target as HTMLImageElement;
+    if (!img) return;
+
+    // Mark as successfully loaded
+    photo.loading = false;
+    photo.displayState = 'loaded';
+  }
+
+  /**
+   * Handle image load error - recover using cached annotated image
+   * CRITICAL: This prevents annotations from disappearing when blob URLs become invalid
+   */
+  async handleImageError(event: Event, photo: any): Promise<void> {
+    const img = event.target as HTMLImageElement;
+    if (!img) return;
+
+    console.warn('[IMAGE ERROR] Failed to load:', photo.attachId || photo.imageId, 'url:', img.src?.substring(0, 50));
+
+    // Don't retry if already showing placeholder
+    if (img.src === 'assets/img/photo-placeholder.png' || img.src.endsWith('photo-placeholder.png')) {
+      return;
+    }
+
+    // Track retry attempts to prevent infinite loops
+    if (!photo._retryCount) {
+      photo._retryCount = 0;
+    }
+    photo._retryCount++;
+
+    if (photo._retryCount > 2) {
+      console.warn('[IMAGE ERROR] Max retries reached, showing placeholder');
+      img.src = 'assets/img/photo-placeholder.png';
+      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      photo.loading = false;
+      return;
+    }
+
+    // Try fallback chain
+    try {
+      // CRITICAL: Check for cached annotated image FIRST to preserve annotations in thumbnails
+      const attachId = String(photo.attachId || photo.AttachID || photo.id || '');
+      const localImageId = photo.localImageId || photo.imageId;
+
+      // Try annotated image from in-memory map first (fastest)
+      let annotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
+      if (!annotatedImage && localImageId) {
+        annotatedImage = this.bulkAnnotatedImagesMap.get(localImageId);
+      }
+
+      // If not in memory, try to get from IndexedDB cache
+      if (!annotatedImage && (photo.hasAnnotations || photo.Drawings || photo.drawings)) {
+        try {
+          annotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId) || undefined;
+          if (!annotatedImage && localImageId) {
+            annotatedImage = await this.indexedDb.getCachedAnnotatedImage(localImageId) || undefined;
+          }
+          // Store in memory map for future use
+          if (annotatedImage) {
+            this.bulkAnnotatedImagesMap.set(attachId || localImageId, annotatedImage);
+          }
+        } catch (e) {
+          console.warn('[IMAGE ERROR] Failed to get cached annotated image:', e);
+        }
+      }
+
+      if (annotatedImage) {
+        console.log('[IMAGE ERROR] Using cached ANNOTATED image:', attachId || localImageId);
+        img.src = annotatedImage;
+        photo.displayUrl = annotatedImage;
+        photo.thumbnailUrl = annotatedImage;
+        return;
+      }
+
+      // Fallback 1: Try LocalImage system
+      if (photo.isLocalImage || photo.localImageId || photo.imageId) {
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+
+        if (localImage) {
+          const fallbackUrl = await this.localImageService.getDisplayUrl(localImage);
+          if (fallbackUrl && fallbackUrl !== 'assets/img/photo-placeholder.png') {
+            console.log('[IMAGE ERROR] Using LocalImage fallback:', localImageId);
+            img.src = fallbackUrl;
+            photo.displayUrl = fallbackUrl;
+            photo.url = fallbackUrl;
+            photo.thumbnailUrl = fallbackUrl;
+            return;
+          }
+        }
+      }
+
+      // Fallback 2: Try cached photo by attachId
+      if (attachId && !attachId.startsWith('temp_') && !attachId.startsWith('img_')) {
+        const cached = await this.indexedDb.getCachedPhoto(attachId);
+        if (cached) {
+          console.log('[IMAGE ERROR] Using cached photo fallback:', attachId);
+          img.src = cached;
+          photo.displayUrl = cached;
+          photo.url = cached;
+          photo.thumbnailUrl = cached;
+          return;
+        }
+      }
+
+      // Fallback 3: Placeholder
+      console.log('[IMAGE ERROR] No fallback available, showing placeholder');
+      img.src = 'assets/img/photo-placeholder.png';
+      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      photo.loading = false;
+
+    } catch (err) {
+      console.error('[IMAGE ERROR] Fallback failed:', err);
+      img.src = 'assets/img/photo-placeholder.png';
+      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      photo.loading = false;
+    }
+  }
 }

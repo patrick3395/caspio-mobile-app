@@ -2025,10 +2025,12 @@ export class IndexedDbService {
     requests: number;
     captions: number;
     outbox: number;
+    images: number;
   }> {
     let requestsCleared = 0;
     let captionsCleared = 0;
     let outboxCleared = 0;
+    let imagesCleared = 0;
 
     // Clear pending requests for this service
     const pendingRequests = await db.pendingRequests.toArray();
@@ -2050,6 +2052,16 @@ export class IndexedDbService {
       captionsCleared = pendingCaptions.length;
     }
 
+    // Clear pending images for this service (legacy table)
+    const pendingImages = await db.pendingImages.toArray();
+    const servicePendingImages = pendingImages.filter(img =>
+      img.serviceId === serviceId
+    );
+    if (servicePendingImages.length > 0) {
+      await db.pendingImages.bulkDelete(servicePendingImages.map(img => img.imageId));
+      imagesCleared = servicePendingImages.length;
+    }
+
     // Clear upload outbox for this service (via localImages lookup)
     const serviceImages = await db.localImages
       .where('serviceId')
@@ -2066,10 +2078,11 @@ export class IndexedDbService {
     console.log(`[IndexedDB] Cleared pending for service ${serviceId}:`, {
       requests: requestsCleared,
       captions: captionsCleared,
-      outbox: outboxCleared
+      outbox: outboxCleared,
+      images: imagesCleared
     });
 
-    return { requests: requestsCleared, captions: captionsCleared, outbox: outboxCleared };
+    return { requests: requestsCleared, captions: captionsCleared, outbox: outboxCleared, images: imagesCleared };
   }
 
   /**

@@ -426,6 +426,16 @@ export class EngineersFoundationMainPage implements OnInit {
       const statusClientValue = isUpdate ? 'Updated' : 'Finalized';
       const statusAdminValue = this.getStatusAdminByClient(statusClientValue);
 
+      // DEBUG ALERT - Status mapping
+      await loading.dismiss();
+      await this.showDebugAlert('Status Update',
+        `Status Options loaded: ${this.statusOptions.length}\n` +
+        `Client value: "${statusClientValue}"\n` +
+        `Mapped Admin value: "${statusAdminValue}"\n` +
+        `Service ID: ${this.serviceId}`
+      );
+      await loading.present();
+
       const updateData = {
         StatusDateTime: currentDateTime,
         Status: statusAdminValue  // Use StatusAdmin value from Status table
@@ -435,12 +445,33 @@ export class EngineersFoundationMainPage implements OnInit {
       const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
       console.log('[EngFoundation Main] Update response:', response);
 
+      // DEBUG ALERT - Update response
+      await loading.dismiss();
+      await this.showDebugAlert('Status Update Response',
+        `Response: ${JSON.stringify(response)}`
+      );
+      await loading.present();
+
       // ==========================================
       // CLEANUP STEP 1: Clear any remaining pending items (NEW)
       // ==========================================
       console.log('[EngFoundation Main] Clearing any remaining pending items...');
       loading.message = 'Cleaning up...';
-      let clearedItems = { requests: 0, captions: 0, outbox: 0 };
+
+      // DEBUG: Get sync stats BEFORE clearing
+      const statsBefore = await this.indexedDb.getSyncStats();
+      await loading.dismiss();
+      await this.showDebugAlert('Before Clearing - Sync Stats',
+        `Pending requests: ${statsBefore.pendingRequests}\n` +
+        `Pending captions: ${statsBefore.pendingCaptions}\n` +
+        `Pending images: ${statsBefore.pendingImages}\n` +
+        `Upload outbox: ${statsBefore.uploadOutbox}\n` +
+        `Failed requests: ${statsBefore.failedRequests}\n` +
+        `Failed captions: ${statsBefore.failedCaptions}`
+      );
+      await loading.present();
+
+      let clearedItems = { requests: 0, captions: 0, outbox: 0, images: 0 };
       try {
         clearedItems = await this.indexedDb.clearPendingForService(this.serviceId);
         console.log('[EngFoundation Main] Cleared pending items:', clearedItems);
@@ -448,12 +479,16 @@ export class EngineersFoundationMainPage implements OnInit {
         console.warn('[EngFoundation Main] Error clearing pending items:', err);
       }
 
-      // DEBUG ALERT
+      // DEBUG: Get sync stats AFTER clearing
+      const statsAfter = await this.indexedDb.getSyncStats();
       await loading.dismiss();
-      await this.showDebugAlert('Cleanup Step 1: Cleared Pending',
-        `Requests cleared: ${clearedItems.requests}\n` +
-        `Captions cleared: ${clearedItems.captions}\n` +
-        `Outbox cleared: ${clearedItems.outbox}`
+      await this.showDebugAlert('After Clearing - Sync Stats',
+        `Cleared: req=${clearedItems.requests}, cap=${clearedItems.captions}, out=${clearedItems.outbox}, img=${clearedItems.images}\n\n` +
+        `Remaining:\n` +
+        `Pending requests: ${statsAfter.pendingRequests}\n` +
+        `Pending captions: ${statsAfter.pendingCaptions}\n` +
+        `Pending images: ${statsAfter.pendingImages}\n` +
+        `Upload outbox: ${statsAfter.uploadOutbox}`
       );
       await loading.present();
 
