@@ -1202,13 +1202,9 @@ textarea.styled-input {
     .alert-message {
       padding: 0 24px 12px;
       text-align: left;
-
-      .validation-error {
-        color: #dc3545;
-        font-size: 13px;
-        font-weight: 500;
-        display: block;
-      }
+      color: #dc3545;
+      font-size: 13px;
+      font-weight: 500;
     }
   }
 }
@@ -3708,6 +3704,500 @@ body.dark-theme {
       background-color: rgba(0, 0, 0, 0.08);
       color: var(--noble-orange, #F15A27);
       transform: scale(1.1);
+    }
+  }
+}
+
+/* ============================================================================
+ * G2-UX-002: Smooth Transition Animations (Web Only)
+ * Provides smooth CSS transitions for state changes, page transitions,
+ * expanding/collapsing sections, and modal fade in/out.
+ * Only applies on web - mobile app is not affected.
+ * ============================================================================ */
+@media (hover: hover) and (pointer: fine) {
+  /* =========================================================================
+   * PAGE TRANSITIONS: Smooth fade-in for page content
+   * ========================================================================= */
+
+  /* Main page content fade-in on navigation */
+  ion-router-outlet > .ion-page {
+    animation: pageSlideIn 0.3s ease-out;
+  }
+
+  /* Page content containers */
+  ion-content {
+    --background: var(--ion-background-color, #fff);
+
+    .ion-page-invisible {
+      opacity: 0;
+    }
+
+    .ion-page-hidden {
+      display: none !important;
+    }
+  }
+
+  /* Smooth page content appearance */
+  .page-content,
+  .content-wrapper,
+  ion-content > *:first-child {
+    animation: contentFadeIn 0.25s ease-out;
+  }
+
+  /* =========================================================================
+   * MODAL ANIMATIONS: Fade and slide for modals
+   * ========================================================================= */
+
+  /* Modal backdrop fade */
+  ion-modal {
+    --backdrop-opacity: 0;
+
+    &.show-modal {
+      --backdrop-opacity: 0.4;
+    }
+
+    ion-backdrop {
+      transition: opacity 0.25s ease-out;
+    }
+  }
+
+  /* Modal content slide and fade */
+  ion-modal .modal-wrapper,
+  ion-modal::part(content) {
+    animation: modalSlideIn 0.3s ease-out;
+  }
+
+  /* Modal dismiss animation */
+  ion-modal.modal-interactive-dismiss .modal-wrapper {
+    animation: modalSlideOut 0.2s ease-in forwards;
+  }
+
+  /* Action sheet slide up */
+  ion-action-sheet .action-sheet-wrapper {
+    animation: actionSheetSlideIn 0.25s ease-out;
+  }
+
+  /* Alert fade in */
+  ion-alert .alert-wrapper {
+    animation: alertFadeIn 0.2s ease-out;
+  }
+
+  /* Popover fade and scale */
+  ion-popover .popover-content {
+    animation: popoverFadeIn 0.2s ease-out;
+  }
+
+  /* Toast slide in */
+  ion-toast {
+    animation: toastSlideIn 0.3s ease-out;
+  }
+
+  /* =========================================================================
+   * ACCORDION/EXPANDING SECTIONS: Smooth expand/collapse
+   * ========================================================================= */
+
+  /* Ionic accordion group animations */
+  ion-accordion-group ion-accordion {
+    /* Accordion content container */
+    .ion-accordion-content {
+      transition: max-height 0.3s ease-out, opacity 0.25s ease-out;
+      overflow: hidden;
+    }
+
+    /* Header icon rotation */
+    [slot="header"] ion-icon,
+    .accordion-header ion-icon,
+    .accordion-toggle-icon {
+      transition: transform 0.3s ease-out;
+    }
+
+    /* Expanded state */
+    &.accordion-expanded,
+    &.accordion-expanding {
+      [slot="header"] ion-icon,
+      .accordion-header ion-icon,
+      .accordion-toggle-icon {
+        transform: rotate(180deg);
+      }
+    }
+  }
+
+  /* Custom accordion/expandable section animations */
+  .expandable-section,
+  .collapsible-section,
+  .accordion-content,
+  .expand-collapse-content {
+    transition: max-height 0.3s ease-out, opacity 0.25s ease-out, padding 0.25s ease-out;
+    overflow: hidden;
+
+    &.collapsed,
+    &.hidden,
+    &[hidden] {
+      max-height: 0;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    &.expanded,
+    &.visible,
+    &:not(.collapsed):not(.hidden):not([hidden]) {
+      opacity: 1;
+    }
+  }
+
+  /* Accordion header hover feedback */
+  ion-accordion [slot="header"],
+  .accordion-header,
+  .expandable-header,
+  .collapsible-header {
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.04);
+    }
+  }
+
+  /* =========================================================================
+   * STATE CHANGE TRANSITIONS: Smooth visual state changes
+   * ========================================================================= */
+
+  /* Show/hide transitions for elements using *ngIf with animations */
+  .fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .fade-out {
+    animation: fadeOut 0.2s ease-in;
+  }
+
+  .slide-in-up {
+    animation: slideInUp 0.3s ease-out;
+  }
+
+  .slide-in-down {
+    animation: slideInDown 0.3s ease-out;
+  }
+
+  .slide-in-left {
+    animation: slideInLeft 0.3s ease-out;
+  }
+
+  .slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+  }
+
+  /* Loading state transitions */
+  .loading-overlay,
+  .loading-spinner,
+  .skeleton-loader {
+    transition: opacity 0.2s ease-out;
+  }
+
+  /* Content appearing after load */
+  .content-loaded {
+    animation: contentFadeIn 0.3s ease-out;
+  }
+
+  /* Tab/segment content transitions */
+  .tab-content,
+  .segment-content,
+  [role="tabpanel"] {
+    animation: tabContentFadeIn 0.25s ease-out;
+  }
+
+  /* Form validation state transitions */
+  .validation-message,
+  .error-message,
+  .success-message,
+  .warning-message {
+    animation: validationSlideIn 0.2s ease-out;
+  }
+
+  /* Badge/chip count updates */
+  ion-badge,
+  .badge,
+  .count-badge {
+    transition: transform 0.15s ease-out, background-color 0.2s ease;
+  }
+
+  /* Progress bar transitions */
+  .progress-bar,
+  .progress-fill,
+  ion-progress-bar {
+    transition: width 0.3s ease-out, --progress 0.3s ease-out;
+  }
+
+  /* Toggle/switch state transitions */
+  ion-toggle::part(track),
+  ion-toggle::part(handle) {
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+
+  /* Checkbox state transitions */
+  ion-checkbox::part(container) {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* Radio button state transitions */
+  ion-radio::part(container) {
+    transition: border-color 0.2s ease;
+  }
+
+  ion-radio::part(mark) {
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+
+  /* Input focus transitions */
+  ion-input,
+  ion-textarea,
+  ion-select,
+  .styled-input,
+  input,
+  textarea,
+  select {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  /* Button state transitions (loading, disabled) */
+  ion-button {
+    transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+
+    &.button-disabled,
+    &[disabled] {
+      transition: opacity 0.2s ease;
+    }
+  }
+
+  /* List item reorder animations */
+  ion-reorder-group ion-item {
+    transition: transform 0.2s ease;
+  }
+
+  /* Card selection states */
+  ion-card,
+  .card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+    &.selected,
+    &.active,
+    &[aria-selected="true"] {
+      border-color: var(--noble-orange, #F15A27);
+      box-shadow: 0 0 0 2px rgba(241, 90, 39, 0.2);
+    }
+  }
+
+  /* Notification/alert appearance */
+  .notification,
+  .alert-banner,
+  .toast-message {
+    animation: notificationSlideIn 0.3s ease-out;
+  }
+
+  /* Dropdown/select option animations */
+  ion-select-popover ion-item,
+  .dropdown-option,
+  .select-option {
+    transition: background-color 0.15s ease;
+  }
+
+  /* Image load transitions */
+  img {
+    transition: opacity 0.3s ease-in-out;
+
+    &[loading="lazy"] {
+      opacity: 0;
+
+      &.loaded {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+/* ============================================================================
+ * G2-UX-002: Keyframe Animations for Smooth Transitions (Web Only)
+ * ============================================================================ */
+@media (hover: hover) and (pointer: fine) {
+  /* Page transition keyframes */
+  @keyframes pageSlideIn {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes contentFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Modal keyframes */
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(30px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes modalSlideOut {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(30px) scale(0.95);
+    }
+  }
+
+  @keyframes actionSheetSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes alertFadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes popoverFadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes toastSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* General utility keyframes */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes tabContentFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes validationSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes notificationSlideIn {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
     }
   }
 }
