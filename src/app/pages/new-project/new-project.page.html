@@ -32,6 +32,7 @@
             placeholder="Start typing an address..."
             class="native-input"
             [class.input-error]="isWeb && shouldShowError('address')"
+            [attr.tabindex]="isWeb ? 1 : null"
             (blur)="onFieldBlur('address')"
             (input)="onFieldInput('address')"
             style="width: 100%; padding: 10px; border-radius: 4px; font-size: 16px; margin-top: 4px;"
@@ -51,6 +52,7 @@
             [(ngModel)]="formData.city"
             name="city"
             placeholder="City"
+            [tabindex]="isWeb ? 2 : undefined"
             (ionBlur)="onFieldBlur('city')"
             (ionInput)="onFieldInput('city')"
             required>
@@ -71,6 +73,7 @@
             required
             class="styled-input"
             [class.select-error]="isWeb && shouldShowError('state')"
+            [attr.tabindex]="isWeb ? 3 : null"
             (blur)="onFieldBlur('state')"
             (change)="onFieldInput('state')">
             <option [value]="null">-- Select --</option>
@@ -94,6 +97,7 @@
             name="zip"
             placeholder="Zip Code"
             pattern="[0-9]{5}"
+            [tabindex]="isWeb ? 4 : undefined"
             (ionBlur)="onFieldBlur('zip')"
             (ionInput)="onFieldInput('zip')"
             required>
@@ -112,7 +116,8 @@
         expand="block"
         type="submit"
         color="primary"
-        [disabled]="!isFormValid()">
+        [disabled]="!isFormValid()"
+        [tabindex]="isWeb ? 5 : undefined">
         Create Project
       </ion-button>
     </div>

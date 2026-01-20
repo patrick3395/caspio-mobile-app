@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
@@ -7,6 +7,7 @@ import { AlertController, LoadingController } from '@ionic/angular';
 import { CaspioService } from '../../services/caspio.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
+import { FormKeyboardService } from '../../services/form-keyboard.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -16,7 +17,7 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class LoginPage implements OnInit {
+export class LoginPage implements OnInit, OnDestroy {
   credentials = {
     email: '',
     password: '',
@@ -40,13 +41,21 @@ export class LoginPage implements OnInit {
     private alertController: AlertController,
     private loadingController: LoadingController,
     public platform: PlatformDetectionService,
-    private formValidation: FormValidationService
+    private formValidation: FormValidationService,
+    private formKeyboard: FormKeyboardService
   ) { }
 
   ngOnInit() {
     // Initialize validation state (web only)
     if (this.isWeb) {
       this.validationState = this.formValidation.createFormState(['email', 'password']);
+
+      // Initialize keyboard navigation (web only) - G2-FORMS-003
+      this.formKeyboard.addSubmitShortcut(
+        'login-page',
+        () => this.login(),
+        () => this.isFormValid()
+      );
     }
 
     // Check if user is already logged in
@@ -77,6 +86,13 @@ export class LoginPage implements OnInit {
       } catch (e) {
         console.error('Error loading saved credentials:', e);
       }
+    }
+  }
+
+  ngOnDestroy() {
+    // Clean up keyboard navigation (web only)
+    if (this.isWeb) {
+      this.formKeyboard.destroyKeyboardNavigation('login-page');
     }
   }
 

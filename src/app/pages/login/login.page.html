@@ -22,6 +22,7 @@
             autocomplete="username email"
             autocapitalize="off"
             inputmode="email"
+            [tabindex]="isWeb ? 1 : undefined"
             (ionBlur)="onFieldBlur('email')"
             (ionInput)="onFieldInput('email')"
             required>
@@ -41,6 +42,7 @@
             [type]="showPassword ? 'text' : 'password'"
             placeholder="Password"
             autocomplete="current-password"
+            [tabindex]="isWeb ? 2 : undefined"
             (ionBlur)="onFieldBlur('password')"
             (ionInput)="onFieldInput('password')"
             required>
@@ -60,10 +62,11 @@
       </div>
 
       <ion-item lines="none" class="remember-item">
-        <ion-checkbox 
-          slot="start" 
+        <ion-checkbox
+          slot="start"
           [(ngModel)]="rememberMe"
-          color="primary">
+          color="primary"
+          [tabindex]="isWeb ? 3 : undefined">
         </ion-checkbox>
         <ion-label>Remember me</ion-label>
       </ion-item>
@@ -72,7 +75,8 @@
         expand="block"
         class="login-button"
         (click)="login()"
-        [disabled]="!isFormValid()">
+        [disabled]="!isFormValid()"
+        [tabindex]="isWeb ? 4 : undefined">
         <ion-icon name="log-in-outline" slot="start"></ion-icon>
         Sign In
       </ion-button>

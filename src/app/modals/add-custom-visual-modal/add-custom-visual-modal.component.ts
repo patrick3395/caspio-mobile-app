@@ -1,9 +1,10 @@
-import { Component, Input, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, ViewChild, ElementRef, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { ModalController, AlertController, IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
+import { environment } from '../../../environments/environment';
 
 // Processed photo data structure matching the main page
 interface ProcessedPhoto {
@@ -22,7 +23,7 @@ interface ProcessedPhoto {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class AddCustomVisualModalComponent {
+export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
   @Input() kind: string = 'Comment'; // Comment, Limitation, or Deficiency
   @Input() category: string = '';
   @ViewChild('fileInput', { static: false }) fileInput?: ElementRef<HTMLInputElement>;
@@ -31,10 +32,40 @@ export class AddCustomVisualModalComponent {
   description: string = '';
   processedPhotos: ProcessedPhoto[] = [];
 
+  // Keyboard navigation support (web only) - G2-FORMS-003
+  private isWeb = environment.isWeb;
+  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+
   constructor(
     private modalController: ModalController,
     private alertController: AlertController
   ) {}
+
+  ngOnInit() {
+    // Initialize keyboard navigation (web only) - G2-FORMS-003
+    if (this.isWeb) {
+      this.keydownHandler = (event: KeyboardEvent) => {
+        // Escape key closes modal
+        if (event.key === 'Escape') {
+          // Don't close if we're in an alert or nested modal
+          const topAlert = document.querySelector('ion-alert');
+          if (topAlert) return;
+
+          event.preventDefault();
+          this.dismiss();
+        }
+      };
+      document.addEventListener('keydown', this.keydownHandler);
+    }
+  }
+
+  ngOnDestroy() {
+    // Clean up keyboard handler
+    if (this.keydownHandler) {
+      document.removeEventListener('keydown', this.keydownHandler);
+      this.keydownHandler = null;
+    }
+  }
 
   // Apply standard text formatting: capitalize first letter, "i" to "I", capitalize after periods
   private applyTextFormatting(text: string): string {

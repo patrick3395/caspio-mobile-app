@@ -1,8 +1,9 @@
-import { Component, Input, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-annotation-modal',
@@ -11,35 +12,58 @@ import { FormsModule } from '@angular/forms';
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class AnnotationModalComponent implements OnInit, AfterViewInit {
+export class AnnotationModalComponent implements OnInit, OnDestroy, AfterViewInit {
   @Input() imageUrl: string = '';
   @Input() photoName: string = '';
-  
+
   @ViewChild('canvas', { static: false }) canvasElement!: ElementRef<HTMLCanvasElement>;
   @ViewChild('imageElement', { static: false }) imageElement!: ElementRef<HTMLImageElement>;
-  
+
   private canvas!: HTMLCanvasElement;
   private ctx!: CanvasRenderingContext2D;
   private isDrawing = false;
   private startX = 0;
   private startY = 0;
-  
+
   selectedTool: 'arrow' | 'circle' | 'rectangle' | 'pen' | 'text' = 'arrow';
   selectedColor = '#FF0000';
   lineWidth = 3;
-  
+
   // Store all annotations
   private annotations: any[] = [];
   private currentAnnotation: any = null;
-  
+
   // Text annotation
   isAddingText = false;
   textInput = '';
   textPosition = { x: 0, y: 0 };
 
+  // Keyboard navigation support (web only) - G2-FORMS-003
+  private isWeb = environment.isWeb;
+  private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+
   constructor(private modalController: ModalController) {}
 
   ngOnInit() {
+    // Initialize keyboard navigation (web only) - G2-FORMS-003
+    if (this.isWeb) {
+      this.keydownHandler = (event: KeyboardEvent) => {
+        // Escape key closes modal
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          this.cancel();
+        }
+      };
+      document.addEventListener('keydown', this.keydownHandler);
+    }
+  }
+
+  ngOnDestroy() {
+    // Clean up keyboard handler
+    if (this.keydownHandler) {
+      document.removeEventListener('keydown', this.keydownHandler);
+      this.keydownHandler = null;
+    }
   }
 
   ngAfterViewInit() {

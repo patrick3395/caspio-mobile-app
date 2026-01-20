@@ -8,6 +8,7 @@ import { ServiceEfeService } from '../../services/service-efe.service';
 import { GoogleMapsLoaderService } from '../../services/google-maps-loader.service';
 import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
 import { FormAutosaveService } from '../../services/form-autosave.service';
+import { FormKeyboardService } from '../../services/form-keyboard.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -72,7 +73,8 @@ export class NewProjectPage implements OnInit, OnDestroy {
     private changeDetectorRef: ChangeDetectorRef,
     private googleMapsLoader: GoogleMapsLoaderService,
     private formValidation: FormValidationService,
-    private formAutosave: FormAutosaveService
+    private formAutosave: FormAutosaveService,
+    private formKeyboard: FormKeyboardService
   ) {}
 
   async ngOnInit() {
@@ -100,12 +102,22 @@ export class NewProjectPage implements OnInit, OnDestroy {
 
     // Initialize Google Places for address autocomplete
     this.ensureGooglePlacesAutocomplete();
+
+    // Initialize keyboard navigation (web only) - G2-FORMS-003
+    // Note: form already has native form submission, but we add Escape key support
+    if (this.isWeb) {
+      this.formKeyboard.initKeyboardNavigation('new-project-page', {
+        submitOnEnter: false,  // Form has native submit, don't double-handle
+        escapeCloses: true
+      });
+    }
   }
 
   ngOnDestroy() {
-    // Clean up autosave subscription
+    // Clean up autosave and keyboard subscriptions (web only)
     if (this.isWeb) {
       this.formAutosave.destroyAutosave(this.FORM_ID);
+      this.formKeyboard.destroyKeyboardNavigation('new-project-page');
     }
   }
 
