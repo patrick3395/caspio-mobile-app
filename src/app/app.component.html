@@ -1,5 +1,7 @@
+<!-- G2-A11Y-002: Skip link for keyboard accessibility (Web only) -->
+<app-skip-link></app-skip-link>
 <ion-app>
-  <ion-router-outlet></ion-router-outlet>
+  <ion-router-outlet id="main-content" tabindex="-1" role="main" aria-label="Main content"></ion-router-outlet>
   <!-- Upload Progress Overlay (Web Only) - G2-LOADING-003 -->
   <app-upload-progress></app-upload-progress>
   <!-- Global Error Boundary (Web Only) - G2-ERRORS-001 -->

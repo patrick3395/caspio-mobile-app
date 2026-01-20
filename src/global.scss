@@ -2943,3 +2943,147 @@ body.dark-theme {
     color: #777;
   }
 }
+
+/* ============================================================================
+ * G2-A11Y-002: Web-only Keyboard Accessibility Focus Styles
+ * Provides visible focus indicators for keyboard navigation.
+ * Uses :focus-visible to only show focus on keyboard interaction (not mouse clicks).
+ * Only applies on web (hover: hover) - mobile devices are not affected.
+ * ============================================================================ */
+@media (hover: hover) and (pointer: fine) {
+  /* Skip link styles are in the component itself */
+
+  /* Global focus-visible outline for all interactive elements */
+  a:focus-visible,
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Ionic-specific focus-visible styles */
+  ion-button:focus-visible,
+  ion-back-button:focus-visible,
+  ion-tab-button:focus-visible,
+  ion-fab-button:focus-visible,
+  ion-item:focus-visible,
+  ion-checkbox:focus-visible,
+  ion-toggle:focus-visible,
+  ion-select:focus-visible,
+  ion-searchbar:focus-visible,
+  ion-segment-button:focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Focus styles for Ionic native parts */
+  ion-button::part(native):focus-visible,
+  ion-back-button::part(native):focus-visible,
+  ion-fab-button::part(native):focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Input fields - enhanced focus with box-shadow for better visibility */
+  ion-input:focus-within,
+  ion-textarea:focus-within,
+  ion-searchbar:focus-within {
+    --highlight-color: var(--noble-orange, #F15A27);
+  }
+
+  ion-input.has-focus,
+  ion-textarea.has-focus {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 0 !important;
+  }
+
+  /* Card and list items that are interactive */
+  ion-card[button]:focus-visible,
+  ion-item[button]:focus-visible,
+  ion-item.item-interactive:focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Modal and popover close buttons */
+  .modal-close-btn:focus-visible,
+  .close-btn:focus-visible,
+  [aria-label*="Close"]:focus-visible,
+  [aria-label*="close"]:focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Toolbar buttons */
+  .toolbar-btn:focus-visible,
+  ion-toolbar ion-button:focus-visible,
+  ion-header ion-button:focus-visible {
+    outline: 3px solid white !important;
+    outline-offset: 2px !important;
+    border-radius: 4px;
+  }
+
+  /* Tab bar focus styles */
+  ion-tab-bar ion-tab-button:focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: -3px !important;
+    background: rgba(241, 90, 39, 0.1);
+  }
+
+  /* Project cards and list items */
+  .project-card:focus-visible,
+  .project-item:focus-visible,
+  .list-item:focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Image viewer and gallery items */
+  .thumbnail:focus-visible,
+  .gallery-item:focus-visible,
+  .image-item:focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Annotation tools */
+  .annotation-tool:focus-visible,
+  .tool-btn:focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Virtual scroll items */
+  .cdk-virtual-scroll-content-wrapper [tabindex]:focus-visible {
+    outline: 3px solid var(--noble-orange, #F15A27) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* Ensure main content area can receive focus for skip link */
+  #main-content:focus {
+    outline: none;
+  }
+
+  /* High contrast mode support */
+  @media (forced-colors: active) {
+    a:focus-visible,
+    button:focus-visible,
+    [role="button"]:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    [tabindex]:not([tabindex="-1"]):focus-visible,
+    ion-button:focus-visible,
+    ion-back-button:focus-visible,
+    ion-tab-button:focus-visible,
+    ion-fab-button:focus-visible,
+    ion-item:focus-visible {
+      outline: 3px solid CanvasText !important;
+      outline-offset: 2px !important;
+    }
+  }
+}
