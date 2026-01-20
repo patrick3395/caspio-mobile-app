@@ -3387,3 +3387,327 @@ body.dark-theme {
     }
   }
 }
+
+/* ============================================================================
+ * G2-UX-001: Hover States for Interactive Elements (Web Only)
+ * Provides clear visual feedback on hover for buttons, links, and cards.
+ * Only applies on web (hover: hover) - mobile/touch devices are not affected.
+ * ============================================================================ */
+@media (hover: hover) and (pointer: fine) {
+  /* =========================================================================
+   * CURSOR: Pointer for all clickable elements
+   * ========================================================================= */
+  a,
+  button,
+  [role="button"],
+  [role="link"],
+  [role="menuitem"],
+  [role="option"],
+  [role="tab"],
+  [tabindex]:not([tabindex="-1"]),
+  ion-button,
+  ion-back-button,
+  ion-fab-button,
+  ion-tab-button,
+  ion-segment-button,
+  ion-item[button],
+  ion-item.item-interactive,
+  ion-card[button],
+  ion-checkbox,
+  ion-toggle,
+  ion-select,
+  ion-chip,
+  .clickable,
+  .navigation-card,
+  .template-card,
+  .service-item,
+  .tool-btn,
+  .nav-btn,
+  .add-btn,
+  .delete-btn,
+  .preset-btn,
+  .action-button,
+  .icon-button,
+  .header-icon-button {
+    cursor: pointer;
+  }
+
+  /* =========================================================================
+   * BUTTONS: Hover state with background/color change
+   * ========================================================================= */
+
+  /* Ionic solid buttons */
+  ion-button.button-solid {
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      --background: var(--ion-color-primary-shade, #D44E22);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(241, 90, 39, 0.25);
+    }
+  }
+
+  /* Ionic outline buttons */
+  ion-button.button-outline {
+    transition: all 0.2s ease;
+
+    &:hover {
+      --background: var(--noble-orange, #F15A27);
+      --color: var(--noble-white, #FFFFFF);
+      transform: translateY(-1px);
+    }
+  }
+
+  /* Ionic clear buttons */
+  ion-button.button-clear {
+    transition: color 0.2s ease, background-color 0.2s ease;
+
+    &:hover {
+      --color: var(--ion-color-primary-shade, #D44E22);
+      --background: rgba(241, 90, 39, 0.08);
+    }
+  }
+
+  /* FAB buttons */
+  ion-fab-button {
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      --background: var(--ion-color-primary-shade, #D44E22);
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(241, 90, 39, 0.3);
+    }
+  }
+
+  /* Tab buttons */
+  ion-tab-button {
+    transition: color 0.2s ease, background-color 0.2s ease;
+
+    &:hover:not(.tab-selected) {
+      --color: var(--noble-orange, #F15A27);
+      background-color: rgba(241, 90, 39, 0.05);
+    }
+  }
+
+  /* Segment buttons */
+  ion-segment-button {
+    transition: all 0.2s ease;
+
+    &:hover:not(.segment-button-checked) {
+      --color: var(--noble-orange, #F15A27);
+      background-color: rgba(241, 90, 39, 0.08);
+    }
+  }
+
+  /* Generic button hover */
+  button:not(ion-button):not([disabled]),
+  .button:not([disabled]),
+  [role="button"]:not([disabled]) {
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      filter: brightness(0.95);
+    }
+  }
+
+  /* Tool buttons (annotation tools, etc.) */
+  .tool-btn,
+  .nav-btn,
+  .icon-button,
+  .header-icon-button {
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+
+    &:hover:not([disabled]):not(.active) {
+      background-color: rgba(241, 90, 39, 0.1);
+      color: var(--noble-orange, #F15A27);
+    }
+  }
+
+  /* Action buttons */
+  .action-button,
+  .add-btn,
+  .save-btn {
+    transition: all 0.2s ease;
+
+    &:hover:not([disabled]) {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  /* Delete buttons - red hover */
+  .delete-btn {
+    transition: all 0.2s ease;
+
+    &:hover:not([disabled]) {
+      background-color: rgba(220, 38, 38, 0.1);
+      color: #DC2626;
+    }
+  }
+
+  /* =========================================================================
+   * LINKS: Hover underline and color change
+   * ========================================================================= */
+  a:not(ion-item):not(ion-button):not(.no-hover) {
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--ion-color-primary-shade, #D44E22);
+      text-decoration: underline;
+    }
+  }
+
+  /* Breadcrumb links */
+  ion-breadcrumb {
+    transition: color 0.2s ease, background-color 0.2s ease;
+
+    &:hover:not(.breadcrumb-active) {
+      color: var(--noble-orange, #F15A27);
+      background-color: rgba(241, 90, 39, 0.08);
+    }
+  }
+
+  /* =========================================================================
+   * CARDS: Subtle lift and shadow on hover
+   * ========================================================================= */
+  ion-card[button],
+  ion-card.clickable,
+  .navigation-card,
+  .template-card,
+  .card-clickable {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+  }
+
+  /* Service and template items */
+  .service-item,
+  .template-item,
+  .performed-service-item {
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      background-color: rgba(241, 90, 39, 0.04);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+  }
+
+  /* =========================================================================
+   * LIST ITEMS: Background change on hover
+   * ========================================================================= */
+  ion-item[button],
+  ion-item.item-interactive {
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      --background: var(--noble-light-gray, #F5F5F5);
+    }
+  }
+
+  /* Table rows */
+  .table-row:not(.table-header) {
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: rgba(241, 90, 39, 0.04);
+    }
+  }
+
+  /* =========================================================================
+   * CHIPS: Hover state for interactive chips
+   * ========================================================================= */
+  ion-chip[button],
+  ion-chip.clickable {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      background-color: rgba(241, 90, 39, 0.1);
+      border-color: var(--noble-orange, #F15A27);
+    }
+  }
+
+  /* =========================================================================
+   * CHECKBOXES & TOGGLES: Visual feedback on hover
+   * ========================================================================= */
+  ion-checkbox:not([disabled]) {
+    transition: transform 0.2s ease;
+
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+
+  ion-toggle:not([disabled]) {
+    transition: transform 0.2s ease;
+
+    &:hover {
+      transform: scale(1.02);
+    }
+  }
+
+  /* =========================================================================
+   * IMAGE PREVIEWS: Subtle hover effect
+   * ========================================================================= */
+  .image-preview,
+  .structural-photo-preview,
+  .photo-thumbnail {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      transform: scale(1.02);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  /* =========================================================================
+   * VISUAL ITEMS: Background highlight on hover
+   * ========================================================================= */
+  .visual-item-container,
+  .answer-type-1-container {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+      background-color: rgba(241, 90, 39, 0.03);
+      border-color: rgba(241, 90, 39, 0.2);
+    }
+  }
+
+  /* =========================================================================
+   * BACK BUTTON: Hover state
+   * ========================================================================= */
+  ion-back-button {
+    transition: color 0.2s ease;
+
+    &:hover {
+      --color: var(--ion-color-primary-shade, #D44E22);
+    }
+  }
+
+  /* =========================================================================
+   * SELECT DROPDOWNS: Hover highlight
+   * ========================================================================= */
+  ion-select {
+    transition: border-color 0.2s ease;
+
+    &:hover:not([disabled]) {
+      --border-color: var(--noble-orange, #F15A27);
+    }
+  }
+
+  /* =========================================================================
+   * MODAL CLOSE BUTTONS: Hover effect
+   * ========================================================================= */
+  .modal-close-btn,
+  .close-btn {
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.08);
+      color: var(--noble-orange, #F15A27);
+      transform: scale(1.1);
+    }
+  }
+}
