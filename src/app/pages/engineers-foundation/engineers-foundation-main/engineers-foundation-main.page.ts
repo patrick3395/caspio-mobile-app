@@ -462,12 +462,10 @@ export class EngineersFoundationMainPage implements OnInit {
       const statsBefore = await this.indexedDb.getSyncStats();
       await loading.dismiss();
       await this.showDebugAlert('Before Clearing - Sync Stats',
-        `Pending requests: ${statsBefore.pendingRequests}\n` +
-        `Pending captions: ${statsBefore.pendingCaptions}\n` +
-        `Pending images: ${statsBefore.pendingImages}\n` +
-        `Upload outbox: ${statsBefore.uploadOutbox}\n` +
-        `Failed requests: ${statsBefore.failedRequests}\n` +
-        `Failed captions: ${statsBefore.failedCaptions}`
+        `Pending: ${statsBefore.pending}\n` +
+        `Syncing: ${statsBefore.syncing}\n` +
+        `Synced: ${statsBefore.synced}\n` +
+        `Failed: ${statsBefore.failed}`
       );
       await loading.present();
 
@@ -485,10 +483,10 @@ export class EngineersFoundationMainPage implements OnInit {
       await this.showDebugAlert('After Clearing - Sync Stats',
         `Cleared: req=${clearedItems.requests}, cap=${clearedItems.captions}, out=${clearedItems.outbox}, img=${clearedItems.images}\n\n` +
         `Remaining:\n` +
-        `Pending requests: ${statsAfter.pendingRequests}\n` +
-        `Pending captions: ${statsAfter.pendingCaptions}\n` +
-        `Pending images: ${statsAfter.pendingImages}\n` +
-        `Upload outbox: ${statsAfter.uploadOutbox}`
+        `Pending: ${statsAfter.pending}\n` +
+        `Syncing: ${statsAfter.syncing}\n` +
+        `Synced: ${statsAfter.synced}\n` +
+        `Failed: ${statsAfter.failed}`
       );
       await loading.present();
 
