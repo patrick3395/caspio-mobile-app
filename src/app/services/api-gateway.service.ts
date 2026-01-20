@@ -5,6 +5,7 @@ import { tap, retryWhen, mergeMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { RetryNotificationService } from './retry-notification.service';
 import { OfflineService } from './offline.service';
+import { ApiCacheService, CacheOptions, CACHE_STRATEGIES } from './api-cache.service';
 
 export interface QueuedActionResult {
   queued: boolean;
@@ -13,10 +14,21 @@ export interface QueuedActionResult {
 }
 
 /**
+ * Options for cached GET requests
+ */
+export interface CachedGetOptions {
+  headers?: HttpHeaders;
+  cache?: CacheOptions;
+  /** Patterns to invalidate this cache (e.g., 'projects' invalidates when projects change) */
+  invalidateOn?: string[];
+}
+
+/**
  * Service for making requests to the Express.js backend on AWS
  * This replaces direct Caspio API calls
  * Includes automatic retry with exponential backoff for failed requests (web only)
  * G2-ERRORS-003: Added offline detection and action queueing
+ * G2-PERF-004: Added request caching and deduplication (web only)
  */
 @Injectable({
   providedIn: 'root'
@@ -24,10 +36,14 @@ export interface QueuedActionResult {
 export class ApiGatewayService {
   private readonly baseUrl: string;
 
+  // Re-export cache strategies for consumers
+  static readonly CACHE_STRATEGIES = CACHE_STRATEGIES;
+
   constructor(
     private http: HttpClient,
     private retryNotification: RetryNotificationService,
-    private offlineService: OfflineService
+    private offlineService: OfflineService,
+    private apiCache: ApiCacheService
   ) {
     this.baseUrl = environment.apiGatewayUrl || '';
   }
@@ -88,10 +104,57 @@ export class ApiGatewayService {
     return this.withRetry(this.http.get<T>(url, options), endpoint);
   }
 
+  // ==========================================
+  // G2-PERF-004: Cached GET with deduplication
+  // ==========================================
+
+  /**
+   * Make GET request with caching and request deduplication (web only)
+   *
+   * Features:
+   * - Returns cached data immediately if available and fresh
+   * - Stale-while-revalidate: Returns stale data while fetching fresh in background
+   * - Request deduplication: Multiple simultaneous identical requests share one HTTP call
+   * - On mobile: Falls back to regular non-cached GET
+   *
+   * @param endpoint The API endpoint
+   * @param params Query parameters (used for cache key generation)
+   * @param options Cache and request options
+   *
+   * @example
+   * // Basic usage with default DYNAMIC strategy (30s stale, 2min max)
+   * this.api.getCached('/api/projects', null)
+   *
+   * // With cache strategy
+   * this.api.getCached('/api/templates', null, { cache: CACHE_STRATEGIES.STATIC })
+   *
+   * // With entity tracking for auto-invalidation
+   * this.api.getCached('/api/projects/123', null, {
+   *   cache: { ...CACHE_STRATEGIES.DYNAMIC, entityType: 'project', entityId: '123' }
+   * })
+   */
+  getCached<T>(endpoint: string, params?: any, options?: CachedGetOptions): Observable<T> {
+    // On mobile, bypass caching and use regular GET
+    if (!environment.isWeb) {
+      return this.get<T>(endpoint, { headers: options?.headers });
+    }
+
+    const url = `${this.baseUrl}${endpoint}`;
+    const cacheOptions = options?.cache || CACHE_STRATEGIES.DYNAMIC;
+
+    return this.apiCache.get<T>(
+      endpoint,
+      params,
+      () => this.withRetry(this.http.get<T>(url, { headers: options?.headers }), endpoint),
+      cacheOptions
+    );
+  }
+
   /**
    * Make POST request to API Gateway
+   * Automatically invalidates related cache entries on success (web only)
    */
-  post<T>(endpoint: string, body: any, options?: { headers?: HttpHeaders, idempotencyKey?: string }): Observable<T> {
+  post<T>(endpoint: string, body: any, options?: { headers?: HttpHeaders, idempotencyKey?: string, invalidatePatterns?: string[] }): Observable<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
     // Ensure Content-Type is set for JSON requests
@@ -105,23 +168,46 @@ export class ApiGatewayService {
       headers = headers.set('Idempotency-Key', options.idempotencyKey);
     }
 
-    return this.withRetry(this.http.post<T>(url, body, { ...options, headers }), endpoint);
+    return this.withRetry(this.http.post<T>(url, body, { ...options, headers }), endpoint).pipe(
+      tap(() => {
+        // G2-PERF-004: Invalidate cache on mutation (web only)
+        if (environment.isWeb) {
+          this.invalidateCacheForEndpoint(endpoint, options?.invalidatePatterns);
+        }
+      })
+    );
   }
 
   /**
    * Make PUT request to API Gateway
+   * Automatically invalidates related cache entries on success (web only)
    */
-  put<T>(endpoint: string, body: any, options?: { headers?: HttpHeaders }): Observable<T> {
+  put<T>(endpoint: string, body: any, options?: { headers?: HttpHeaders, invalidatePatterns?: string[] }): Observable<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    return this.withRetry(this.http.put<T>(url, body, options), endpoint);
+    return this.withRetry(this.http.put<T>(url, body, options), endpoint).pipe(
+      tap(() => {
+        // G2-PERF-004: Invalidate cache on mutation (web only)
+        if (environment.isWeb) {
+          this.invalidateCacheForEndpoint(endpoint, options?.invalidatePatterns);
+        }
+      })
+    );
   }
 
   /**
    * Make DELETE request to API Gateway
+   * Automatically invalidates related cache entries on success (web only)
    */
-  delete<T>(endpoint: string, options?: { headers?: HttpHeaders }): Observable<T> {
+  delete<T>(endpoint: string, options?: { headers?: HttpHeaders, invalidatePatterns?: string[] }): Observable<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    return this.withRetry(this.http.delete<T>(url, options), endpoint);
+    return this.withRetry(this.http.delete<T>(url, options), endpoint).pipe(
+      tap(() => {
+        // G2-PERF-004: Invalidate cache on mutation (web only)
+        if (environment.isWeb) {
+          this.invalidateCacheForEndpoint(endpoint, options?.invalidatePatterns);
+        }
+      })
+    );
   }
 
   /**
@@ -291,6 +377,79 @@ export class ApiGatewayService {
         return throwError(() => error);
       })
     );
+  }
+
+  // ==========================================
+  // G2-PERF-004: Cache Management Methods
+  // ==========================================
+
+  /**
+   * Invalidate cache entries related to an endpoint
+   * Extracts resource type from endpoint and invalidates matching patterns
+   */
+  private invalidateCacheForEndpoint(endpoint: string, additionalPatterns?: string[]): void {
+    // Extract resource pattern from endpoint (e.g., /api/projects/123 -> projects)
+    const resourcePattern = this.extractResourcePattern(endpoint);
+    if (resourcePattern) {
+      console.log(`[ApiGateway] 🗑️ Invalidating cache for: ${resourcePattern}`);
+      this.apiCache.invalidatePattern(resourcePattern);
+    }
+
+    // Invalidate additional patterns if provided
+    if (additionalPatterns?.length) {
+      additionalPatterns.forEach(pattern => {
+        console.log(`[ApiGateway] 🗑️ Invalidating additional pattern: ${pattern}`);
+        this.apiCache.invalidatePattern(pattern);
+      });
+    }
+  }
+
+  /**
+   * Extract resource pattern from endpoint for cache invalidation
+   * e.g., /api/projects/123 -> projects
+   * e.g., /api/services/456/visuals -> services, visuals
+   */
+  private extractResourcePattern(endpoint: string): string | null {
+    const match = endpoint.match(/\/api\/([^/]+)/);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * Manually invalidate cache by pattern (web only)
+   * Useful for custom cache invalidation scenarios
+   */
+  invalidateCache(pattern: string): void {
+    if (environment.isWeb) {
+      this.apiCache.invalidatePattern(pattern);
+    }
+  }
+
+  /**
+   * Invalidate cache for a specific entity (web only)
+   */
+  invalidateCacheForEntity(entityType: string, entityId?: string): void {
+    if (environment.isWeb) {
+      this.apiCache.invalidateEntity(entityType, entityId);
+    }
+  }
+
+  /**
+   * Clear all cached data (web only)
+   */
+  clearAllCache(): void {
+    if (environment.isWeb) {
+      this.apiCache.clearAll();
+    }
+  }
+
+  /**
+   * Get cache statistics (web only)
+   */
+  getCacheStats(): { cacheSize: number; inFlightCount: number; hits: number; misses: number; revalidations: number; hitRate: number } | null {
+    if (environment.isWeb) {
+      return this.apiCache.getStats();
+    }
+    return null;
   }
 }
 
