@@ -59,7 +59,8 @@
       "Bash(ralph --reset-session:*)",
       "Bash(ralph --circuit-status:*)",
       "Bash(dir:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": [],
     "ask": []

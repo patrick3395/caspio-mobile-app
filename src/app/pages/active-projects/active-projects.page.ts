@@ -35,6 +35,9 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   private serviceTypes: any[] = [];
   private mutationSubscription?: Subscription;
 
+  // WEBAPP: Track which project is being navigated to for loading feedback
+  selectingProjectId: string | number | null = null;
+
   // Force update timestamp
   getCurrentTimestamp(): string {
     return new Date().toLocaleString();
@@ -949,5 +952,29 @@ URL Attempted: ${imgUrl}`;
    */
   trackByServiceCode(index: number, service: {shortCode: string, status: string}): string {
     return service.shortCode + '-' + service.status;
+  }
+
+  /**
+   * WEBAPP: Navigate to project with immediate loading feedback
+   */
+  selectProject(project: Project): void {
+    const projectId = project.PK_ID || project.ProjectID;
+    if (projectId) {
+      // WEBAPP: Show immediate loading feedback
+      if (environment.isWeb) {
+        this.selectingProjectId = projectId;
+        this.cdr.detectChanges();
+      }
+      this.router.navigate(['/project', projectId], { state: { project } });
+    }
+  }
+
+  /**
+   * WEBAPP: Check if a project is currently being selected/navigated to
+   */
+  isSelectingProject(project: Project): boolean {
+    if (!environment.isWeb) return false;
+    const projectId = project.PK_ID || project.ProjectID;
+    return this.selectingProjectId === projectId;
   }
 }

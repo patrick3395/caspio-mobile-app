@@ -23,9 +23,9 @@
     </div>
 
     <!-- Loading state -->
-    <div *ngIf="loading" class="loading-container">
+    <div *ngIf="loading" class="loading-container" role="status" aria-live="polite">
       <ion-spinner name="crescent"></ion-spinner>
-      <p>Loading projects...</p>
+      <p>Loading projects…</p>
     </div>
 
     <!-- Error state -->
@@ -42,12 +42,12 @@
         <h3 class="section-title">
           Completed ({{ completedProjects.length }})
         </h3>
-        <div class="projects-list">
+        <div class="projects-list" role="list">
           <ion-item-sliding *ngFor="let project of completedProjects; trackBy: trackByProject">
-            <ion-item class="project-item" button (click)="selectProject(project)" lines="none" detail="false">
+            <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
               <div class="project-content">
                 <div class="project-image">
-                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+                  <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60" (error)="handleImageError($event)">
                 </div>
                 <div class="project-details">
                   <div class="project-address">{{ project.Address }}</div>
@@ -58,7 +58,8 @@
               </div>
               <div class="project-meta" slot="end">
                 <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
-                <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
+                <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+                <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
               </div>
             </ion-item>
           </ion-item-sliding>
@@ -71,12 +72,12 @@
           <ion-icon name="pause-circle" color="warning"></ion-icon>
           On Hold ({{ onHoldProjects.length }})
         </h3>
-        <div class="projects-list">
+        <div class="projects-list" role="list">
           <ion-item-sliding *ngFor="let project of onHoldProjects; trackBy: trackByProject">
-            <ion-item class="project-item" button (click)="selectProject(project)" lines="none" detail="false">
+            <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
               <div class="project-content">
                 <div class="project-image">
-                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+                  <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60" (error)="handleImageError($event)">
                 </div>
                 <div class="project-details">
                   <div class="project-address">{{ project.Address }}</div>
@@ -87,7 +88,8 @@
               </div>
               <div class="project-meta" slot="end">
                 <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
-                <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
+                <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+                <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
               </div>
             </ion-item>
           </ion-item-sliding>
@@ -100,12 +102,12 @@
           <ion-icon name="close-circle" color="danger"></ion-icon>
           Cancelled ({{ cancelledProjects.length }})
         </h3>
-        <div class="projects-list">
+        <div class="projects-list" role="list">
           <ion-item-sliding *ngFor="let project of cancelledProjects; trackBy: trackByProject">
-            <ion-item class="project-item" button (click)="selectProject(project)" lines="none" detail="false">
+            <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
               <div class="project-content">
                 <div class="project-image">
-                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+                  <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60" (error)="handleImageError($event)">
                 </div>
                 <div class="project-details">
                   <div class="project-address">{{ project.Address }}</div>
@@ -116,7 +118,8 @@
               </div>
               <div class="project-meta" slot="end">
                 <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
-                <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
+                <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+                <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
               </div>
             </ion-item>
           </ion-item-sliding>
@@ -129,12 +132,12 @@
           <ion-icon name="archive" color="medium"></ion-icon>
           Archived ({{ archivedProjects.length }})
         </h3>
-        <div class="projects-list">
+        <div class="projects-list" role="list">
           <ion-item-sliding *ngFor="let project of archivedProjects; trackBy: trackByProject">
-            <ion-item class="project-item" button (click)="selectProject(project)" lines="none" detail="false">
+            <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
               <div class="project-content">
                 <div class="project-image">
-                  <img [src]="getProjectImage(project)" alt="Project" (error)="handleImageError($event)">
+                  <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60" (error)="handleImageError($event)">
                 </div>
                 <div class="project-details">
                   <div class="project-address">{{ project.Address }}</div>
@@ -145,7 +148,8 @@
               </div>
               <div class="project-meta" slot="end">
                 <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
-                <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
+                <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+                <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
               </div>
             </ion-item>
           </ion-item-sliding>

@@ -1145,10 +1145,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         })}`);
       }
 
+      // Ensure status options are loaded before creating service (fixes first-project-after-login issue)
+      await this.ensureStatusOptionsLoaded();
+
       // Get StatusAdmin values from Status table
       const inProgressStatus = this.getStatusAdminByClient("In Progress");
       const createdStatus = this.getStatusAdminByClient("Created");
-      
+
       const serviceData = {
         ProjectID: projectIdToUse, // Use actual ProjectID from project (the numeric ProjectID field)
         TypeID: offer.TypeID,
@@ -1664,11 +1667,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.statusOptions = response.Result;
         console.log('[Status Table] Loaded status options:', this.statusOptions);
         console.log('[Status Table] Sample record structure:', this.statusOptions[0]);
-        
+
         // Verify "Created" exists
         const createdRecord = this.statusOptions.find((s: any) => s.Status_Client === 'Created');
         console.log('[Status Table] "Created" record found:', createdRecord);
-        
+
         // Verify "In Progress" exists
         const inProgressRecord = this.statusOptions.find((s: any) => s.Status_Client === 'In Progress');
         console.log('[Status Table] "In Progress" record found:', inProgressRecord);
@@ -1676,6 +1679,40 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     } catch (error) {
       console.error('Error loading status options:', error);
     }
+  }
+
+  // Ensure status options are loaded before using them (fixes first-project-after-login issue)
+  async ensureStatusOptionsLoaded(): Promise<void> {
+    // If already loaded with valid data, return immediately
+    if (this.statusOptions && this.statusOptions.length > 0) {
+      return;
+    }
+
+    console.log('[Status] Status options not loaded, loading now...');
+
+    // Try loading up to 3 times with small delays
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await this.loadStatusOptions();
+
+        if (this.statusOptions && this.statusOptions.length > 0) {
+          console.log(`[Status] Successfully loaded status options on attempt ${attempt}`);
+          return;
+        }
+
+        // Wait a bit before retrying
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error(`[Status] Attempt ${attempt} failed:`, error);
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    }
+
+    console.warn('[Status] Could not load status options after 3 attempts, proceeding with fallback values');
   }
 
   // Helper method to get Status_Admin value by Status_Client lookup

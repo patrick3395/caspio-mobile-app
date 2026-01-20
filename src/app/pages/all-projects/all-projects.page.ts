@@ -24,6 +24,9 @@ export class AllProjectsPage implements OnInit {
   currentUser: any = null;
   searchTerm = '';
   private readonly googleMapsApiKey = environment.googleMapsApiKey;
+
+  // WEBAPP: Track which project is being navigated to (for loading feedback)
+  selectingProjectId: string | number | null = null;
   
   // Services cache
   private servicesCache: { [projectId: string]: string } = {};
@@ -62,6 +65,8 @@ export class AllProjectsPage implements OnInit {
   }
 
   ionViewWillEnter() {
+    // WEBAPP: Reset selection state when returning to this page
+    this.selectingProjectId = null;
     this.checkAuthAndLoadProjects();
   }
 
@@ -438,10 +443,15 @@ export class AllProjectsPage implements OnInit {
   }
 
   selectProject(project: Project) {
-    
     // Navigate to project detail page with project ID
     const projectId = project.PK_ID || project.ProjectID;
     if (projectId) {
+      // WEBAPP: Show immediate loading feedback per web design guidelines
+      if (environment.isWeb) {
+        this.selectingProjectId = projectId;
+        this.changeDetectorRef.detectChanges();
+      }
+
       this.router.navigate(['/project', projectId], {
         state: { project }
       });
@@ -449,6 +459,13 @@ export class AllProjectsPage implements OnInit {
       console.error('No project ID found:', project);
       this.showErrorAlert('Cannot open project - no ID found');
     }
+  }
+
+  // WEBAPP: Check if a project is currently being selected/navigated to
+  isSelectingProject(project: Project): boolean {
+    if (!environment.isWeb) return false;
+    const projectId = project.PK_ID || project.ProjectID;
+    return this.selectingProjectId === projectId;
   }
   
   private async showErrorAlert(message: string) {

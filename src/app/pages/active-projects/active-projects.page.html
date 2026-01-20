@@ -27,8 +27,8 @@
   <!-- Pull to refresh -->
   <ion-refresher slot="fixed" (ionRefresh)="handlePullRefresh($event)">
     <ion-refresher-content
-      pullingText="Pull to refresh projects..."
-      refreshingText="Refreshing...">
+      pullingText="Pull to refresh projects…"
+      refreshingText="Refreshing…">
     </ion-refresher-content>
   </ion-refresher>
 
@@ -46,9 +46,9 @@
     </div>
 
     <!-- Loading state -->
-    <div *ngIf="loading" class="loading-container">
+    <div *ngIf="loading" class="loading-container" role="status" aria-live="polite">
       <ion-spinner name="crescent"></ion-spinner>
-      <p>Loading projects...</p>
+      <p>Loading projects…</p>
     </div>
 
     <!-- Error state -->
@@ -66,10 +66,10 @@
           </ion-item-option>
         </ion-item-options>
 
-        <ion-item class="project-item" button [routerLink]="['/project', project.PK_ID]" lines="none" detail="false">
+        <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
           <div class="project-content">
             <div class="project-image">
-              <img [src]="getProjectImage(project)" alt="Project" (error)="onProjectImageError($event, project)">
+              <img [src]="getProjectImage(project)" alt="Project thumbnail" width="80" height="80" (error)="onProjectImageError($event, project)">
             </div>
             <div class="project-details">
               <div class="project-address">{{ project.Address }}</div>
@@ -87,7 +87,8 @@
           </div>
           <div class="project-meta" slot="end">
             <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
-            <ion-icon class="project-arrow" name="chevron-forward-outline"></ion-icon>
+            <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+            <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
           </div>
         </ion-item>
       </ion-item-sliding>
@@ -103,7 +104,7 @@
   <ion-infinite-scroll threshold="100px" (ionInfinite)="loadMoreProjects($event)" *ngIf="hasMoreProjects()">
     <ion-infinite-scroll-content
       loadingSpinner="bubbles"
-      loadingText="Loading more projects...">
+      loadingText="Loading more projects…">
     </ion-infinite-scroll-content>
   </ion-infinite-scroll>
 </ion-content>
