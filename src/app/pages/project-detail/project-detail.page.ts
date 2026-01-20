@@ -15,6 +15,7 @@ import { environment } from '../../../environments/environment';
 import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
 import { MutationTrackingService, MutationType } from '../../services/mutation-tracking.service';
 import { OptimisticUpdateService } from '../../services/optimistic-update.service';
+import { NavigationHistoryService } from '../../services/navigation-history.service';
 
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
@@ -299,7 +300,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private foundationData: EngineersFoundationDataService,
     public platform: PlatformDetectionService,
     private mutationTracker: MutationTrackingService,
-    private optimisticUpdate: OptimisticUpdateService
+    private optimisticUpdate: OptimisticUpdateService,
+    private navigationHistory: NavigationHistoryService
   ) {}
 
   ngOnInit() {
@@ -3938,8 +3940,14 @@ Troubleshooting:
   }
 
   goBack() {
-    // Force refresh of active projects by using query params to trigger reload
-    this.router.navigate(['/tabs/active-projects'], { 
+    // G2-NAV-001: On web, use browser history for proper back/forward support
+    if (environment.isWeb && this.navigationHistory.canGoBack()) {
+      this.navigationHistory.navigateBack();
+      return;
+    }
+
+    // Fallback: Force refresh of active projects by using query params to trigger reload
+    this.router.navigate(['/tabs/active-projects'], {
       queryParams: { refresh: new Date().getTime() },
       queryParamsHandling: 'merge'
     });

@@ -6,7 +6,9 @@ import { HudStateService } from '../services/hud-state.service';
 import { HudPdfService } from '../services/hud-pdf.service';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { NavigationHistoryService } from '../../../services/navigation-history.service';
 import { filter } from 'rxjs/operators';
+import { environment } from '../../../../environments/environment';
 
 interface Breadcrumb {
   label: string;
@@ -37,7 +39,8 @@ export class HudContainerPage implements OnInit {
     private pdfService: HudPdfService,
     private location: Location,
     private offlineCache: OfflineDataCacheService,
-    private offlineTemplate: OfflineTemplateService
+    private offlineTemplate: OfflineTemplateService,
+    private navigationHistory: NavigationHistoryService
   ) {}
 
   ngOnInit() {
@@ -135,7 +138,13 @@ export class HudContainerPage implements OnInit {
   }
 
   goBack() {
-    // Navigate up one level in the folder tree hierarchy
+    // G2-NAV-001: On web, use browser history for proper back/forward support
+    if (environment.isWeb && this.navigationHistory.canGoBack()) {
+      this.navigationHistory.navigateBack();
+      return;
+    }
+
+    // Mobile fallback: Navigate up one level in the folder tree hierarchy
     const url = this.router.url;
 
     // Check if we're on a category detail page

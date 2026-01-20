@@ -10,6 +10,7 @@ import { OfflineTemplateService } from '../../../services/offline-template.servi
 import { OfflineService } from '../../../services/offline.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
+import { NavigationHistoryService } from '../../../services/navigation-history.service';
 import { filter } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { environment } from '../../../../environments/environment';
@@ -64,7 +65,8 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     private offlineService: OfflineService,
     private backgroundSync: BackgroundSyncService,
     private indexedDb: IndexedDbService,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private navigationHistory: NavigationHistoryService
   ) {
     // CRITICAL: Ensure loading screen shows immediately
     this.templateReady = false;
@@ -270,7 +272,13 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   }
 
   goBack() {
-    // Navigate up one level in the folder tree hierarchy (not browser history)
+    // G2-NAV-001: On web, use browser history for proper back/forward support
+    if (environment.isWeb && this.navigationHistory.canGoBack()) {
+      this.navigationHistory.navigateBack();
+      return;
+    }
+
+    // Mobile fallback: Navigate up one level in the folder tree hierarchy
     const url = this.router.url;
 
     // Check if we're on a deep sub-page (visual detail, category detail, or room)

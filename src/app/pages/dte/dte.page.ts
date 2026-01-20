@@ -22,6 +22,8 @@ import { HelpModalComponent } from '../../components/help-modal/help-modal.compo
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { DteDataService } from './dte-data.service';
+import { NavigationHistoryService } from '../../services/navigation-history.service';
+import { environment } from '../../../environments/environment';
 
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -414,7 +416,8 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     private offlineService: OfflineService,
     private hudData: DteDataService,
     public operationsQueue: OperationsQueueService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private navigationHistory: NavigationHistoryService
   ) {
     // CRITICAL FIX: Setup scroll lock mechanism on webapp only
     if (typeof window !== 'undefined') {
@@ -1060,14 +1063,20 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     console.log('[goBack] ProjectId:', this.projectId);
     console.log('[goBack] ServiceId:', this.serviceId);
     console.log('='.repeat(50));
-    
+
     // Prevent default and stop propagation
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
-    
-    // Method 1: Use Location.back() - this is the simplest and most reliable way
+
+    // G2-NAV-001: On web, use NavigationHistoryService for proper back/forward support
+    if (environment.isWeb && this.navigationHistory.canGoBack()) {
+      this.navigationHistory.navigateBack();
+      return;
+    }
+
+    // Fallback: Use Location.back() for mobile or when no history available
     try {
       this.location.back();
       return;
@@ -1075,7 +1084,7 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
       console.error('[goBack] Location.back() failed:', error);
     }
 
-    // Fallback to manual navigation if location.back() fails
+    // Final fallback to manual navigation
     if (this.projectId) {
       void this.router.navigate(['/project', this.projectId], { replaceUrl: true });
     } else {
