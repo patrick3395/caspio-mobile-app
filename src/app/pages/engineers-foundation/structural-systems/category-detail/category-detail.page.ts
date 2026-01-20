@@ -1565,14 +1565,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       async (localImages) => {
         console.log('[LIVEQUERY] LocalImages updated:', localImages.length, 'images');
 
-        // US-003 FIX: Skip UI updates during batch multi-image upload
-        // This prevents the race condition where liveQuery triggers UI updates mid-loop,
-        // causing duplicate entries when the loop's per-iteration push also adds the same photo.
-        if (this.isMultiImageUploadInProgress) {
-          console.log('[LIVEQUERY] Suppressing UI update - batch upload in progress');
-          return;
-        }
-
         // Update bulkLocalImagesMap reactively (always update data immediately)
         this.updateBulkLocalImagesMap(localImages);
 
