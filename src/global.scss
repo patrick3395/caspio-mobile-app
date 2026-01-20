@@ -4251,3 +4251,351 @@ body.dark-theme {
     }
   }
 }
+
+/* ============================================================================
+ * G2-RESP-001: Tablet Breakpoint Optimizations (Web Only)
+ * Ensures layouts work well on tablet-sized screens (768px-1024px) with:
+ * - No horizontal scrolling at any breakpoint
+ * - Touch targets at least 44x44px
+ * - Readable text
+ * - Properly scaled images
+ * Only applies on web - mobile app is not affected.
+ * ============================================================================ */
+@media (hover: hover) and (pointer: fine) {
+  /* =========================================================================
+   * TABLET RANGE (768px - 1024px): Specific optimizations
+   * ========================================================================= */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    /* Prevent horizontal scrolling globally */
+    html, body {
+      overflow-x: hidden !important;
+      max-width: 100vw !important;
+    }
+
+    ion-app,
+    ion-content,
+    .ion-page {
+      overflow-x: hidden !important;
+      max-width: 100% !important;
+    }
+
+    /* =========================================================================
+     * GRID LAYOUTS: Reduce minmax values to prevent overflow
+     * ========================================================================= */
+
+    /* Form grids - use smaller minmax for tablet */
+    .form-grid,
+    .form-row,
+    .instance-fields,
+    .field-grid {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+      gap: 12px !important;
+    }
+
+    /* Card/item grids - adjust for tablet viewport */
+    .card-grid,
+    .item-grid,
+    .photo-grid,
+    .visual-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+      gap: 12px !important;
+    }
+
+    /* Service/template grids */
+    .services-grid,
+    .templates-grid,
+    .template-bar-grid {
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+    }
+
+    /* Navigation cards grid */
+    .navigation-grid,
+    .nav-card-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 12px !important;
+    }
+
+    /* PDF preview grids */
+    .pdf-grid,
+    .pdf-preview-grid,
+    .page-thumbnails {
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+    }
+
+    /* =========================================================================
+     * TOUCH TARGETS: Ensure minimum 44x44px for all interactive elements
+     * ========================================================================= */
+
+    /* Buttons - ensure minimum touch target */
+    ion-button,
+    button,
+    .button,
+    [role="button"] {
+      min-height: 44px !important;
+      min-width: 44px !important;
+    }
+
+    /* Icon-only buttons */
+    ion-button[fill="clear"],
+    .icon-button,
+    .icon-btn,
+    .tool-btn,
+    .nav-btn,
+    .action-btn,
+    .close-btn,
+    .back-btn {
+      min-height: 44px !important;
+      min-width: 44px !important;
+      padding: 10px !important;
+    }
+
+    /* Tab buttons */
+    ion-tab-button {
+      min-height: 48px !important;
+    }
+
+    /* Segment buttons */
+    ion-segment-button {
+      min-height: 44px !important;
+      --padding-start: 12px;
+      --padding-end: 12px;
+    }
+
+    /* List items */
+    ion-item {
+      --min-height: 48px !important;
+    }
+
+    /* Checkboxes and toggles - larger touch area */
+    ion-checkbox {
+      --size: 24px !important;
+      min-height: 44px !important;
+      min-width: 44px !important;
+    }
+
+    ion-toggle {
+      min-height: 44px !important;
+      min-width: 44px !important;
+    }
+
+    /* Form controls */
+    ion-select,
+    ion-input,
+    ion-textarea,
+    input,
+    textarea,
+    select,
+    .styled-input {
+      min-height: 44px !important;
+    }
+
+    /* Chip buttons */
+    ion-chip,
+    .chip {
+      min-height: 36px !important;
+      --padding-start: 14px;
+      --padding-end: 14px;
+    }
+
+    /* Breadcrumb items */
+    .breadcrumb-item {
+      min-height: 44px !important;
+      padding: 8px 12px !important;
+    }
+
+    /* Image preview touch targets */
+    .image-preview,
+    .photo-thumbnail,
+    .thumbnail {
+      min-height: 44px !important;
+      min-width: 44px !important;
+    }
+
+    /* Action icons in tables/lists */
+    .doc-actions-cell ion-button,
+    .action-cell ion-button,
+    .row-actions ion-button {
+      min-height: 44px !important;
+      min-width: 44px !important;
+      --padding-start: 8px !important;
+      --padding-end: 8px !important;
+    }
+
+    /* =========================================================================
+     * TYPOGRAPHY: Ensure readable text sizes
+     * ========================================================================= */
+
+    /* Minimum body text size */
+    body,
+    p,
+    span,
+    div,
+    ion-label,
+    ion-note {
+      font-size: max(14px, 1rem) !important;
+    }
+
+    /* Form labels */
+    label,
+    .form-label,
+    .field-label,
+    .info-label {
+      font-size: max(13px, 0.9rem) !important;
+    }
+
+    /* Section titles */
+    h1, .h1 {
+      font-size: max(24px, 1.5rem) !important;
+    }
+
+    h2, .h2, .section-title {
+      font-size: max(20px, 1.25rem) !important;
+    }
+
+    h3, .h3, .subsection-title {
+      font-size: max(18px, 1.125rem) !important;
+    }
+
+    /* =========================================================================
+     * CONTAINER WIDTHS: Prevent overflow
+     * ========================================================================= */
+
+    /* Modal widths for tablet */
+    ion-modal {
+      --width: min(90vw, 600px) !important;
+      --max-width: 90vw !important;
+    }
+
+    ion-modal.fullscreen-modal {
+      --width: 100% !important;
+      --max-width: 100% !important;
+    }
+
+    /* Alert dialogs */
+    ion-alert .alert-wrapper {
+      max-width: min(90vw, 450px) !important;
+    }
+
+    /* Content containers */
+    .content-container,
+    .page-container,
+    .main-content {
+      max-width: 100% !important;
+      padding-left: 16px !important;
+      padding-right: 16px !important;
+    }
+
+    /* Info sections */
+    .info-section {
+      padding: 16px !important;
+    }
+
+    /* =========================================================================
+     * TABLES: Responsive table handling
+     * ========================================================================= */
+
+    /* Tables should not cause horizontal scroll */
+    table,
+    .table,
+    .documents-table,
+    .deliverables-table,
+    .services-table {
+      table-layout: fixed !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+
+    /* Table cells - allow text wrap */
+    td, th {
+      word-wrap: break-word !important;
+      word-break: break-word !important;
+      white-space: normal !important;
+    }
+
+    /* Adjust cell widths for tablet */
+    .doc-info-cell,
+    .field-label-cell {
+      width: 35% !important;
+    }
+
+    .doc-actions-cell,
+    .field-value-cell {
+      width: 65% !important;
+    }
+
+    /* =========================================================================
+     * IMAGES: Proper scaling
+     * ========================================================================= */
+
+    /* Responsive images */
+    img {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+
+    /* Image containers */
+    .image-container,
+    .photo-container,
+    .preview-container {
+      max-width: 100% !important;
+      overflow: hidden !important;
+    }
+
+    /* Street view header */
+    .street-view-header {
+      height: 180px !important;
+    }
+
+    /* =========================================================================
+     * SPACING ADJUSTMENTS
+     * ========================================================================= */
+
+    /* Reduce aggressive padding on tablet */
+    .info-section,
+    .card-content,
+    ion-card-content {
+      padding: 16px !important;
+    }
+
+    /* Service list items */
+    .service-header-row {
+      padding: 14px !important;
+    }
+
+    /* Template bars */
+    .template-content {
+      padding: 14px 16px !important;
+    }
+  }
+}
+
+/* ============================================================================
+ * UNIVERSAL: Additional responsive safeguards (applies to all viewports)
+ * Wrapped in web-only media query to not affect mobile app
+ * ============================================================================ */
+@media (hover: hover) and (pointer: fine) {
+  /* Prevent any element from causing horizontal scroll */
+  * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Allow flex items to shrink to prevent overflow */
+  .flex-container,
+  .flex-row,
+  [class*="flex"] {
+    flex-wrap: wrap;
+  }
+
+  /* Ensure images never overflow */
+  img, video, iframe, embed, object {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Pre/code blocks should scroll instead of overflow page */
+  pre, code {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+}

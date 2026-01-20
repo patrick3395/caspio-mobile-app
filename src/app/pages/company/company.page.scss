@@ -2304,6 +2304,11 @@ ion-alert.custom-alert {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
   padding: 0;
+
+  // G2-RESP-001: Tablet breakpoint fix - reduce minmax to prevent horizontal scroll
+  @media (min-width: 768px) and (max-width: 1024px) {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
 }
 
 .user-card {
