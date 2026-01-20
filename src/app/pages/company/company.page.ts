@@ -7,6 +7,7 @@ import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http'
 import { Router } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
+import { ConfirmationDialogService } from '../../services/confirmation-dialog.service';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
@@ -503,6 +504,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     private toastController: ToastController,
     private alertController: AlertController,
     private modalController: ModalController,
+    private confirmationDialog: ConfirmationDialogService,
     private http: HttpClient,
     private router: Router
   ) {}
@@ -971,29 +973,16 @@ export class CompanyPage implements OnInit, OnDestroy {
       event.stopPropagation();
     }
 
-    // Confirm deletion
-    const alert = await this.alertController.create({
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDelete({
       header: 'Delete Contact',
       message: `Are you sure you want to delete contact "${contact.Name}"? This action cannot be undone.`,
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
-          text: 'Delete',
-          role: 'confirm',
-          cssClass: 'alert-button-confirm',
-          handler: async () => {
-            await this.performDeleteContact(contact);
-          }
-        }
-      ],
-      cssClass: 'custom-document-alert'
+      itemName: contact.Name
     });
 
-    await alert.present();
+    if (result.confirmed) {
+      await this.performDeleteContact(contact);
+    }
   }
 
   private async performDeleteContact(contact: any) {
@@ -1109,28 +1098,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       event.stopPropagation();
     }
 
-    const alert = await this.alertController.create({
-      header: 'Delete Invoice',
-      message: 'Are you sure you want to delete this invoice? This action cannot be undone.',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
-          text: 'Delete',
-          role: 'confirm',
-          cssClass: 'alert-button-confirm',
-          handler: async () => {
-            await this.performDeleteInvoice(invoice);
-          }
-        }
-      ],
-      cssClass: 'custom-document-alert'
-    });
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDeleteItem('Invoice');
 
-    await alert.present();
+    if (result.confirmed) {
+      await this.performDeleteInvoice(invoice);
+    }
   }
 
   private async performDeleteInvoice(invoice: any) {
@@ -2132,29 +2105,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       event.stopPropagation();
     }
 
-    // Confirm deletion
-    const alert = await this.alertController.create({
-      header: 'Delete Communication',
-      message: 'Are you sure you want to delete this communication? This action cannot be undone.',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
-          text: 'Delete',
-          role: 'confirm',
-          cssClass: 'alert-button-confirm',
-          handler: async () => {
-            await this.performDeleteCommunication(communication);
-          }
-        }
-      ],
-      cssClass: 'custom-document-alert'
-    });
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDeleteItem('Communication');
 
-    await alert.present();
+    if (result.confirmed) {
+      await this.performDeleteCommunication(communication);
+    }
   }
 
   private async performDeleteCommunication(communication: any) {
@@ -2362,29 +2318,12 @@ export class CompanyPage implements OnInit, OnDestroy {
       event.stopPropagation();
     }
 
-    // Confirm deletion
-    const alert = await this.alertController.create({
-      header: 'Delete Meeting',
-      message: 'Are you sure you want to delete this meeting? This action cannot be undone.',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
-          text: 'Delete',
-          role: 'confirm',
-          cssClass: 'alert-button-confirm',
-          handler: async () => {
-            await this.performDeleteMeeting(meeting);
-          }
-        }
-      ],
-      cssClass: 'custom-document-alert'
-    });
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDeleteItem('Meeting');
 
-    await alert.present();
+    if (result.confirmed) {
+      await this.performDeleteMeeting(meeting);
+    }
   }
 
   private async performDeleteMeeting(meeting: any) {
@@ -2703,29 +2642,16 @@ export class CompanyPage implements OnInit, OnDestroy {
       event.stopPropagation();
     }
 
-    // Confirm deletion
-    const alert = await this.alertController.create({
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDelete({
       header: 'Delete Task',
-      message: `Are you sure you want to delete this task: "${task.assignmentShort}"?`,
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
-          text: 'Delete',
-          role: 'confirm',
-          cssClass: 'alert-button-confirm',
-          handler: async () => {
-            await this.performDeleteTask(task);
-          }
-        }
-      ],
-      cssClass: 'custom-document-alert'
+      message: `Are you sure you want to delete this task: "${task.assignmentShort}"? This action cannot be undone.`,
+      itemName: task.assignmentShort
     });
 
-    await alert.present();
+    if (result.confirmed) {
+      await this.performDeleteTask(task);
+    }
   }
 
   private async performDeleteTask(task: TaskViewModel) {
@@ -2783,29 +2709,16 @@ export class CompanyPage implements OnInit, OnDestroy {
       event.stopPropagation();
     }
 
-    // Confirm deletion
-    const alert = await this.alertController.create({
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDelete({
       header: 'Delete Company',
       message: `Are you sure you want to delete the company "${company.CompanyName}"? This action cannot be undone.`,
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
-          text: 'Delete',
-          role: 'confirm',
-          cssClass: 'alert-button-confirm',
-          handler: async () => {
-            await this.performDeleteCompany(company);
-          }
-        }
-      ],
-      cssClass: 'custom-document-alert'
+      itemName: company.CompanyName
     });
 
-    await alert.present();
+    if (result.confirmed) {
+      await this.performDeleteCompany(company);
+    }
   }
 
   private async performDeleteCompany(company: any) {
@@ -4194,28 +4107,16 @@ export class CompanyPage implements OnInit, OnDestroy {
       event.stopPropagation();
     }
 
-    const alert = await this.alertController.create({
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDelete({
       header: 'Delete User',
       message: `Are you sure you want to delete user "${user.Name}"? This action cannot be undone.`,
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
-          text: 'Delete',
-          role: 'confirm',
-          cssClass: 'alert-button-confirm',
-          handler: async () => {
-            await this.performDeleteUser(user);
-          }
-        }
-      ],
-      cssClass: 'custom-document-alert'
+      itemName: user.Name
     });
 
-    await alert.present();
+    if (result.confirmed) {
+      await this.performDeleteUser(user);
+    }
   }
 
   private async performDeleteUser(user: any) {

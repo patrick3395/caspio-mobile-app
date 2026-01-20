@@ -1207,6 +1207,56 @@ textarea.styled-input {
       font-weight: 500;
     }
   }
+
+  // G2-UX-004: Confirmation dialog enhancements (web only)
+  &.confirmation-dialog {
+    // Web-only: Keyboard hints and enhanced focus states
+    @media (hover: hover) and (pointer: fine) {
+      .alert-button-group {
+        position: relative;
+
+        // Keyboard hint text shown below buttons
+        &::after {
+          content: 'Press Enter to confirm, Escape to cancel';
+          display: block;
+          width: 100%;
+          text-align: center;
+          font-size: 12px;
+          color: #888;
+          margin-top: 12px;
+          padding-top: 8px;
+          border-top: 1px solid #eee;
+        }
+      }
+
+      .alert-button {
+        // Enhanced focus state for keyboard navigation
+        &:focus,
+        &:focus-visible {
+          outline: 2px solid var(--noble-orange, #F15A27) !important;
+          outline-offset: 2px !important;
+          box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.2) !important;
+        }
+
+        // Destructive button styling
+        &.alert-button-destructive {
+          color: #d32f2f !important;
+          border-color: #d32f2f !important;
+
+          &:hover {
+            background: #ffebee !important;
+            border-color: #c62828 !important;
+          }
+
+          &:focus,
+          &:focus-visible {
+            outline-color: #d32f2f !important;
+            box-shadow: 0 0 0 4px rgba(211, 47, 47, 0.2) !important;
+          }
+        }
+      }
+    }
+  }
 }
 
 // Zelle Information Alert - matches app popup style

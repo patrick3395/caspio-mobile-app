@@ -16,6 +16,7 @@ import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/p
 import { MutationTrackingService, MutationType } from '../../services/mutation-tracking.service';
 import { OptimisticUpdateService } from '../../services/optimistic-update.service';
 import { NavigationHistoryService } from '../../services/navigation-history.service';
+import { ConfirmationDialogService } from '../../services/confirmation-dialog.service';
 
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
@@ -317,7 +318,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     public platform: PlatformDetectionService,
     private mutationTracker: MutationTrackingService,
     private optimisticUpdate: OptimisticUpdateService,
-    private navigationHistory: NavigationHistoryService
+    private navigationHistory: NavigationHistoryService,
+    private confirmationDialog: ConfirmationDialogService
   ) {}
 
   /**
@@ -2049,43 +2051,31 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
 
-    const confirm = await this.alertController.create({
-      header: 'Delete Deliverable',
-      message: 'Are you sure you want to delete this deliverable file?',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Delete',
-          role: 'destructive',
-          handler: async () => {
-            try {
-              const loading = await this.loadingController.create({
-                message: 'Deleting deliverable...'
-              });
-              await loading.present();
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDeleteItem('Deliverable File');
 
-              // Clear the Deliverable field in the Services table
-              await this.caspioService.updateService(service.serviceId!, {
-                Deliverable: ''
-              }).toPromise();
+    if (result.confirmed) {
+      try {
+        const loading = await this.loadingController.create({
+          message: 'Deleting deliverable...'
+        });
+        await loading.present();
 
-              // Update local service object
-              service.Deliverable = '';
+        // Clear the Deliverable field in the Services table
+        await this.caspioService.updateService(service.serviceId!, {
+          Deliverable: ''
+        }).toPromise();
 
-              await loading.dismiss();
-              await this.showToast('Deliverable deleted successfully', 'success');
-            } catch (error) {
-              console.error('Error deleting deliverable:', error);
-              await this.showToast('Failed to delete deliverable', 'danger');
-            }
-          }
-        }
-      ]
-    });
-    await confirm.present();
+        // Update local service object
+        service.Deliverable = '';
+
+        await loading.dismiss();
+        await this.showToast('Deliverable deleted successfully', 'success');
+      } catch (error) {
+        console.error('Error deleting deliverable:', error);
+        await this.showToast('Failed to delete deliverable', 'danger');
+      }
+    }
   }
 
   async downloadDeliverableFile(service: ServiceSelection) {
@@ -2670,63 +2660,52 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async deleteRequiredDocument(serviceId: string, doc: DocumentItem) {
-    // Show confirmation
-    const confirm = await this.alertController.create({
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDelete({
       header: 'Delete Document',
-      message: `Are you sure you want to delete "${doc.linkName || doc.filename}"?`,
-      cssClass: 'custom-document-alert',
-      buttons: [
-        {
-          text: 'CANCEL',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
-          text: 'DELETE',
-          cssClass: 'alert-button-save',
-          handler: async () => {
-            const loading = await this.loadingController.create({
-              message: 'Deleting document...'
-            });
-            await loading.present();
+      message: `Are you sure you want to delete "${doc.linkName || doc.filename}"? This action cannot be undone.`,
+      itemName: doc.linkName || doc.filename
+    });
 
-            try {
-              // Delete the attachment record
-              if (doc.attachId) {
-                await this.caspioService.deleteAttachment(doc.attachId).toPromise();
-              }
-              
-              // Remove the attachment from our local list
-              const attachIndex = this.existingAttachments.findIndex(a => a.AttachID === doc.attachId);
-              if (attachIndex > -1) {
-                this.existingAttachments.splice(attachIndex, 1);
-              }
+    if (result.confirmed) {
+      const loading = await this.loadingController.create({
+        message: 'Deleting document...'
+      });
+      await loading.present();
 
-              // Remove the document from the serviceDocuments array
-              const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === serviceId);
-              if (serviceDoc) {
-                const docIndex = serviceDoc.documents.findIndex(d => d === doc);
-                if (docIndex > -1) {
-                  serviceDoc.documents.splice(docIndex, 1);
-                }
-              }
+      try {
+        // Delete the attachment record
+        if (doc.attachId) {
+          await this.caspioService.deleteAttachment(doc.attachId).toPromise();
+        }
 
-              await loading.dismiss();
+        // Remove the attachment from our local list
+        const attachIndex = this.existingAttachments.findIndex(a => a.AttachID === doc.attachId);
+        if (attachIndex > -1) {
+          this.existingAttachments.splice(attachIndex, 1);
+        }
 
-              // Reload attachments from database to ensure UI matches server state
-              // Cache was automatically cleared by CaspioService, so this gets fresh data
-              await this.loadExistingAttachments();
-
-            } catch (error) {
-              console.error('Error deleting document:', error);
-              await loading.dismiss();
-              await this.showToast('Failed to delete document', 'danger');
-            }
+        // Remove the document from the serviceDocuments array
+        const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === serviceId);
+        if (serviceDoc) {
+          const docIndex = serviceDoc.documents.findIndex(d => d === doc);
+          if (docIndex > -1) {
+            serviceDoc.documents.splice(docIndex, 1);
           }
         }
-      ]
-    });
-    await confirm.present();
+
+        await loading.dismiss();
+
+        // Reload attachments from database to ensure UI matches server state
+        // Cache was automatically cleared by CaspioService, so this gets fresh data
+        await this.loadExistingAttachments();
+
+      } catch (error) {
+        console.error('Error deleting document:', error);
+        await loading.dismiss();
+        await this.showToast('Failed to delete document', 'danger');
+      }
+    }
   }
 
   async removePendingDocument(serviceId: string, doc: DocumentItem) {
@@ -2741,59 +2720,48 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async deleteAdditionalFile(serviceId: string, additionalFile: any) {
-    // Show confirmation
-    const confirm = await this.alertController.create({
+    // G2-UX-004: Confirmation dialog with keyboard accessibility (web only)
+    const result = await this.confirmationDialog.confirmDelete({
       header: 'Delete Document',
-      message: `Are you sure you want to delete "${additionalFile.linkName}"?`,
-      cssClass: 'custom-document-alert',
-      buttons: [
-        {
-          text: 'CANCEL',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
-          text: 'DELETE',
-          cssClass: 'alert-button-save',
-          handler: async () => {
-            const loading = await this.loadingController.create({
-              message: 'Deleting document...'
-            });
-            await loading.present();
+      message: `Are you sure you want to delete "${additionalFile.linkName}"? This action cannot be undone.`,
+      itemName: additionalFile.linkName
+    });
 
-            try {
-              // Delete the attachment record
-              await this.caspioService.deleteAttachment(additionalFile.attachId).toPromise();
-              
-              // Remove from local data
-              for (const serviceDoc of this.serviceDocuments) {
-                for (const doc of serviceDoc.documents) {
-                  if (doc.additionalFiles) {
-                    const index = doc.additionalFiles.findIndex(af => af.attachId === additionalFile.attachId);
-                    if (index !== -1) {
-                      doc.additionalFiles.splice(index, 1);
-                      break;
-                    }
-                  }
-                }
+    if (result.confirmed) {
+      const loading = await this.loadingController.create({
+        message: 'Deleting document...'
+      });
+      await loading.present();
+
+      try {
+        // Delete the attachment record
+        await this.caspioService.deleteAttachment(additionalFile.attachId).toPromise();
+
+        // Remove from local data
+        for (const serviceDoc of this.serviceDocuments) {
+          for (const doc of serviceDoc.documents) {
+            if (doc.additionalFiles) {
+              const index = doc.additionalFiles.findIndex(af => af.attachId === additionalFile.attachId);
+              if (index !== -1) {
+                doc.additionalFiles.splice(index, 1);
+                break;
               }
-              
-              await loading.dismiss();
-
-              // Reload attachments from database to ensure UI matches server state
-              // Cache was automatically cleared by CaspioService, so this gets fresh data
-              await this.loadExistingAttachments();
-
-            } catch (error) {
-              console.error('Error deleting document:', error);
-              await loading.dismiss();
-              await this.showToast('Failed to delete document', 'danger');
             }
           }
         }
-      ]
-    });
-    await confirm.present();
+
+        await loading.dismiss();
+
+        // Reload attachments from database to ensure UI matches server state
+        // Cache was automatically cleared by CaspioService, so this gets fresh data
+        await this.loadExistingAttachments();
+
+      } catch (error) {
+        console.error('Error deleting document:', error);
+        await loading.dismiss();
+        await this.showToast('Failed to delete document', 'danger');
+      }
+    }
   }
 
   async viewDocument(doc: DocumentItem) {
@@ -3982,13 +3950,112 @@ Troubleshooting:
     if (!date) return 'Not specified';
     try {
       const d = new Date(date);
-      return d.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
+      return d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
       });
     } catch {
       return 'Invalid date';
+    }
+  }
+
+  /**
+   * Open modal to edit the project address
+   */
+  async openEditAddressModal() {
+    const alert = await this.alertController.create({
+      header: 'Edit Address',
+      cssClass: 'edit-address-alert',
+      inputs: [
+        {
+          name: 'address',
+          type: 'text',
+          placeholder: 'Street Address',
+          value: this.project?.Address || ''
+        },
+        {
+          name: 'city',
+          type: 'text',
+          placeholder: 'City',
+          value: this.project?.City || ''
+        },
+        {
+          name: 'state',
+          type: 'text',
+          placeholder: 'State',
+          value: this.project?.State || ''
+        },
+        {
+          name: 'zip',
+          type: 'text',
+          placeholder: 'Zip Code',
+          value: this.project?.Zip || ''
+        }
+      ],
+      buttons: [
+        {
+          text: 'Save',
+          handler: async (data) => {
+            await this.saveAddressChanges(data);
+          }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  /**
+   * Save address changes to the project
+   */
+  private async saveAddressChanges(data: { address: string; city: string; state: string; zip: string }) {
+    if (!this.project || !this.projectId) return;
+
+    const loading = await this.loadingController.create({
+      message: 'Saving address...'
+    });
+    await loading.present();
+
+    try {
+      const updateData: any = {
+        Address: data.address,
+        City: data.city,
+        State: data.state,
+        Zip: data.zip
+      };
+
+      // Update via API
+      await this.caspioService.updateProject(this.projectId, updateData).toPromise();
+
+      // Update local project object
+      this.project.Address = data.address;
+      this.project.City = data.city;
+      this.project.State = data.state;
+      this.project.Zip = data.zip;
+
+      await loading.dismiss();
+
+      const toast = await this.toastController.create({
+        message: 'Address updated successfully',
+        duration: 2000,
+        color: 'success'
+      });
+      await toast.present();
+    } catch (error) {
+      await loading.dismiss();
+      console.error('Error saving address:', error);
+
+      const toast = await this.toastController.create({
+        message: 'Failed to save address. Please try again.',
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
     }
   }
 
