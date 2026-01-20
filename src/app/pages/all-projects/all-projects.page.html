@@ -54,36 +54,52 @@
 
     <!-- Projects sections by status -->
     <div *ngIf="!loading && !error">
-      
+
       <!-- Completed Projects Section -->
       <div class="status-section" *ngIf="completedProjects.length">
         <h3 class="section-title">
           Completed ({{ completedProjects.length }})
         </h3>
         <div class="projects-list" role="list">
-          <ion-item-sliding *ngFor="let project of completedProjects; trackBy: trackByProject">
-            <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
-              <div class="project-content">
-                <div class="project-image" [class.loading]="platform.isWeb() && isImageLoading(project)">
-                  <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60"
-                       (error)="handleImageError($event, project)"
-                       (load)="onProjectImageLoad(project)"
-                       [class.loaded]="platform.isWeb() && !isImageLoading(project)">
+          <!-- WEBAPP: Virtual scrolling for 100+ items -->
+          <ng-container *ngIf="platform.isWeb() && completedProjects.length >= 100; else completedStandardList">
+            <app-virtual-scroll
+              [items]="completedProjects"
+              [itemSize]="100"
+              [minBuffer]="400"
+              [maxBuffer]="800"
+              [trackByFn]="trackByProject"
+              class="virtual-scroll-section">
+              <ng-template let-project>
+                <ng-container *ngTemplateOutlet="projectItem; context: { $implicit: project, dateField: 'DateCompleted' }"></ng-container>
+              </ng-template>
+            </app-virtual-scroll>
+          </ng-container>
+          <ng-template #completedStandardList>
+            <ion-item-sliding *ngFor="let project of completedProjects; trackBy: trackByProject">
+              <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
+                <div class="project-content">
+                  <div class="project-image" [class.loading]="platform.isWeb() && isImageLoading(project)">
+                    <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60"
+                         (error)="handleImageError($event, project)"
+                         (load)="onProjectImageLoad(project)"
+                         [class.loaded]="platform.isWeb() && !isImageLoading(project)">
+                  </div>
+                  <div class="project-details">
+                    <div class="project-address">{{ project.Address }}</div>
+                    <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                    <div class="project-services">{{ getProjectServices(project) }}</div>
+                    <div class="project-date" *ngIf="project.Date || project['DateCompleted']">{{ formatCreatedDate(project['DateCompleted'] || project.Date) }}</div>
+                  </div>
                 </div>
-                <div class="project-details">
-                  <div class="project-address">{{ project.Address }}</div>
-                  <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
-                  <div class="project-services">{{ getProjectServices(project) }}</div>
-                  <div class="project-date" *ngIf="project.Date || project['DateCompleted']">{{ formatCreatedDate(project['DateCompleted'] || project.Date) }}</div>
+                <div class="project-meta" slot="end">
+                  <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
+                  <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+                  <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
                 </div>
-              </div>
-              <div class="project-meta" slot="end">
-                <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
-                <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
-                <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
-              </div>
-            </ion-item>
-          </ion-item-sliding>
+              </ion-item>
+            </ion-item-sliding>
+          </ng-template>
         </div>
       </div>
 
@@ -94,29 +110,45 @@
           On Hold ({{ onHoldProjects.length }})
         </h3>
         <div class="projects-list" role="list">
-          <ion-item-sliding *ngFor="let project of onHoldProjects; trackBy: trackByProject">
-            <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
-              <div class="project-content">
-                <div class="project-image" [class.loading]="platform.isWeb() && isImageLoading(project)">
-                  <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60"
-                       (error)="handleImageError($event, project)"
-                       (load)="onProjectImageLoad(project)"
-                       [class.loaded]="platform.isWeb() && !isImageLoading(project)">
+          <!-- WEBAPP: Virtual scrolling for 100+ items -->
+          <ng-container *ngIf="platform.isWeb() && onHoldProjects.length >= 100; else onHoldStandardList">
+            <app-virtual-scroll
+              [items]="onHoldProjects"
+              [itemSize]="100"
+              [minBuffer]="400"
+              [maxBuffer]="800"
+              [trackByFn]="trackByProject"
+              class="virtual-scroll-section">
+              <ng-template let-project>
+                <ng-container *ngTemplateOutlet="projectItem; context: { $implicit: project, dateField: 'DateCreated' }"></ng-container>
+              </ng-template>
+            </app-virtual-scroll>
+          </ng-container>
+          <ng-template #onHoldStandardList>
+            <ion-item-sliding *ngFor="let project of onHoldProjects; trackBy: trackByProject">
+              <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
+                <div class="project-content">
+                  <div class="project-image" [class.loading]="platform.isWeb() && isImageLoading(project)">
+                    <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60"
+                         (error)="handleImageError($event, project)"
+                         (load)="onProjectImageLoad(project)"
+                         [class.loaded]="platform.isWeb() && !isImageLoading(project)">
+                  </div>
+                  <div class="project-details">
+                    <div class="project-address">{{ project.Address }}</div>
+                    <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                    <div class="project-services">{{ getProjectServices(project) }}</div>
+                    <div class="project-date" *ngIf="project.Date || project['DateCreated']">{{ formatCreatedDate(project['DateCreated'] || project.Date) }}</div>
+                  </div>
                 </div>
-                <div class="project-details">
-                  <div class="project-address">{{ project.Address }}</div>
-                  <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
-                  <div class="project-services">{{ getProjectServices(project) }}</div>
-                  <div class="project-date" *ngIf="project.Date || project['DateCreated']">{{ formatCreatedDate(project['DateCreated'] || project.Date) }}</div>
+                <div class="project-meta" slot="end">
+                  <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
+                  <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+                  <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
                 </div>
-              </div>
-              <div class="project-meta" slot="end">
-                <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
-                <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
-                <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
-              </div>
-            </ion-item>
-          </ion-item-sliding>
+              </ion-item>
+            </ion-item-sliding>
+          </ng-template>
         </div>
       </div>
 
@@ -127,29 +159,45 @@
           Cancelled ({{ cancelledProjects.length }})
         </h3>
         <div class="projects-list" role="list">
-          <ion-item-sliding *ngFor="let project of cancelledProjects; trackBy: trackByProject">
-            <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
-              <div class="project-content">
-                <div class="project-image" [class.loading]="platform.isWeb() && isImageLoading(project)">
-                  <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60"
-                       (error)="handleImageError($event, project)"
-                       (load)="onProjectImageLoad(project)"
-                       [class.loaded]="platform.isWeb() && !isImageLoading(project)">
+          <!-- WEBAPP: Virtual scrolling for 100+ items -->
+          <ng-container *ngIf="platform.isWeb() && cancelledProjects.length >= 100; else cancelledStandardList">
+            <app-virtual-scroll
+              [items]="cancelledProjects"
+              [itemSize]="100"
+              [minBuffer]="400"
+              [maxBuffer]="800"
+              [trackByFn]="trackByProject"
+              class="virtual-scroll-section">
+              <ng-template let-project>
+                <ng-container *ngTemplateOutlet="projectItem; context: { $implicit: project, dateField: 'DateCreated' }"></ng-container>
+              </ng-template>
+            </app-virtual-scroll>
+          </ng-container>
+          <ng-template #cancelledStandardList>
+            <ion-item-sliding *ngFor="let project of cancelledProjects; trackBy: trackByProject">
+              <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
+                <div class="project-content">
+                  <div class="project-image" [class.loading]="platform.isWeb() && isImageLoading(project)">
+                    <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60"
+                         (error)="handleImageError($event, project)"
+                         (load)="onProjectImageLoad(project)"
+                         [class.loaded]="platform.isWeb() && !isImageLoading(project)">
+                  </div>
+                  <div class="project-details">
+                    <div class="project-address">{{ project.Address }}</div>
+                    <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                    <div class="project-services">{{ getProjectServices(project) }}</div>
+                    <div class="project-date" *ngIf="project.Date || project['DateCreated']">{{ formatCreatedDate(project['DateCreated'] || project.Date) }}</div>
+                  </div>
                 </div>
-                <div class="project-details">
-                  <div class="project-address">{{ project.Address }}</div>
-                  <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
-                  <div class="project-services">{{ getProjectServices(project) }}</div>
-                  <div class="project-date" *ngIf="project.Date || project['DateCreated']">{{ formatCreatedDate(project['DateCreated'] || project.Date) }}</div>
+                <div class="project-meta" slot="end">
+                  <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
+                  <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+                  <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
                 </div>
-              </div>
-              <div class="project-meta" slot="end">
-                <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
-                <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
-                <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
-              </div>
-            </ion-item>
-          </ion-item-sliding>
+              </ion-item>
+            </ion-item-sliding>
+          </ng-template>
         </div>
       </div>
 
@@ -160,29 +208,45 @@
           Archived ({{ archivedProjects.length }})
         </h3>
         <div class="projects-list" role="list">
-          <ion-item-sliding *ngFor="let project of archivedProjects; trackBy: trackByProject">
-            <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
-              <div class="project-content">
-                <div class="project-image" [class.loading]="platform.isWeb() && isImageLoading(project)">
-                  <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60"
-                       (error)="handleImageError($event, project)"
-                       (load)="onProjectImageLoad(project)"
-                       [class.loaded]="platform.isWeb() && !isImageLoading(project)">
+          <!-- WEBAPP: Virtual scrolling for 100+ items -->
+          <ng-container *ngIf="platform.isWeb() && archivedProjects.length >= 100; else archivedStandardList">
+            <app-virtual-scroll
+              [items]="archivedProjects"
+              [itemSize]="100"
+              [minBuffer]="400"
+              [maxBuffer]="800"
+              [trackByFn]="trackByProject"
+              class="virtual-scroll-section">
+              <ng-template let-project>
+                <ng-container *ngTemplateOutlet="projectItem; context: { $implicit: project, dateField: 'DateCreated' }"></ng-container>
+              </ng-template>
+            </app-virtual-scroll>
+          </ng-container>
+          <ng-template #archivedStandardList>
+            <ion-item-sliding *ngFor="let project of archivedProjects; trackBy: trackByProject">
+              <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
+                <div class="project-content">
+                  <div class="project-image" [class.loading]="platform.isWeb() && isImageLoading(project)">
+                    <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60"
+                         (error)="handleImageError($event, project)"
+                         (load)="onProjectImageLoad(project)"
+                         [class.loaded]="platform.isWeb() && !isImageLoading(project)">
+                  </div>
+                  <div class="project-details">
+                    <div class="project-address">{{ project.Address }}</div>
+                    <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+                    <div class="project-services">{{ getProjectServices(project) }}</div>
+                    <div class="project-date" *ngIf="project.Date || project['DateCreated']">{{ formatCreatedDate(project['DateCreated'] || project.Date) }}</div>
+                  </div>
                 </div>
-                <div class="project-details">
-                  <div class="project-address">{{ project.Address }}</div>
-                  <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
-                  <div class="project-services">{{ getProjectServices(project) }}</div>
-                  <div class="project-date" *ngIf="project.Date || project['DateCreated']">{{ formatCreatedDate(project['DateCreated'] || project.Date) }}</div>
+                <div class="project-meta" slot="end">
+                  <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
+                  <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+                  <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
                 </div>
-              </div>
-              <div class="project-meta" slot="end">
-                <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
-                <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
-                <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
-              </div>
-            </ion-item>
-          </ion-item-sliding>
+              </ion-item>
+            </ion-item-sliding>
+          </ng-template>
         </div>
       </div>
 
@@ -193,4 +257,31 @@
       </div>
     </div>
   </div>
+
+  <!-- Shared project item template for virtual scroll -->
+  <ng-template #projectItem let-project let-dateField="dateField">
+    <ion-item-sliding>
+      <ion-item class="project-item" [class.selecting]="isSelectingProject(project)" button (click)="selectProject(project)" lines="none" detail="false" role="listitem">
+        <div class="project-content">
+          <div class="project-image" [class.loading]="isImageLoading(project)">
+            <img [src]="getProjectImage(project)" alt="Project thumbnail" width="60" height="60"
+                 (error)="handleImageError($event, project)"
+                 (load)="onProjectImageLoad(project)"
+                 [class.loaded]="!isImageLoading(project)">
+          </div>
+          <div class="project-details">
+            <div class="project-address">{{ project.Address }}</div>
+            <div class="project-city-state">{{ formatCityStateZip(project) }}</div>
+            <div class="project-services">{{ getProjectServices(project) }}</div>
+            <div class="project-date" *ngIf="project.Date || project[dateField]">{{ formatCreatedDate(project[dateField] || project.Date) }}</div>
+          </div>
+        </div>
+        <div class="project-meta" slot="end">
+          <div class="project-id">#{{ project.ProjectID || project.PK_ID }}</div>
+          <ion-spinner *ngIf="isSelectingProject(project)" name="crescent" class="selecting-spinner"></ion-spinner>
+          <ion-icon *ngIf="!isSelectingProject(project)" class="project-arrow" name="chevron-forward-outline"></ion-icon>
+        </div>
+      </ion-item>
+    </ion-item-sliding>
+  </ng-template>
 </ion-content>

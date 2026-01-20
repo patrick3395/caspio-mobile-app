@@ -501,3 +501,31 @@ ion-item-option {
     transition: opacity 0.3s ease-in-out;
   }
 }
+
+// ==============================================
+// WEBAPP: Virtual Scroll Styles
+// ==============================================
+
+.virtual-scroll-projects {
+  height: calc(100vh - 200px); // Account for header, search bar, and padding
+  display: block;
+
+  // Ensure items have proper styling within virtual scroll
+  ion-item-sliding {
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  // Override CDK viewport styles for proper display
+  ::ng-deep {
+    .cdk-virtual-scroll-content-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 0; // Gap handled by ion-item-sliding margin
+    }
+
+    .cdk-virtual-scroll-spacer {
+      background: transparent;
+    }
+  }
+}
