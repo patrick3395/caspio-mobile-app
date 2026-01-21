@@ -268,11 +268,37 @@ export class ServiceMetadataService {
    * Update purge state for a service
    */
   async setPurgeState(serviceId: string, state: PurgeState): Promise<void> {
-    await db.serviceMetadata.update(serviceId, {
-      purgeState: state,
-      updatedAt: Date.now()
-    });
-    console.log('[ServiceMetadata] Purge state updated:', serviceId, 'state:', state);
+    const existing = await db.serviceMetadata.get(serviceId);
+    const now = Date.now();
+
+    // DEBUG ALERT for mobile testing
+    alert(`[setPurgeState] serviceId: ${serviceId}\nstate: ${state}\nexisting record: ${existing ? 'YES' : 'NO'}`);
+
+    if (existing) {
+      // Update existing record
+      await db.serviceMetadata.update(serviceId, {
+        purgeState: state,
+        updatedAt: now
+      });
+    } else {
+      // Create record if it doesn't exist (service accessed before v10 migration)
+      const metadata: ServiceMetadata = {
+        serviceId,
+        templateVersion: 1,
+        isOpen: false,
+        lastTouchedAt: now,
+        lastLocalRevision: 0,
+        lastServerAckRevision: 0,
+        purgeState: state,
+        createdAt: now,
+        updatedAt: now
+      };
+      await db.serviceMetadata.add(metadata);
+    }
+
+    // Verify it was saved
+    const verify = await db.serviceMetadata.get(serviceId);
+    alert(`[setPurgeState] SAVED. Verify purgeState: ${verify?.purgeState}`);
   }
 
   /**

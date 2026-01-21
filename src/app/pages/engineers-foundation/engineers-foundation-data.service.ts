@@ -2065,9 +2065,19 @@ export class EngineersFoundationDataService {
    */
   async needsRehydration(serviceId: string): Promise<boolean> {
     const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
+
+    // DEBUG ALERT for mobile testing
+    if (metadata) {
+      alert(`[needsRehydration] serviceId: ${serviceId}\npurgeState: ${metadata.purgeState}`);
+    } else {
+      alert(`[needsRehydration] serviceId: ${serviceId}\nNO METADATA FOUND`);
+    }
+
     if (!metadata) {
       return false; // New service, doesn't need rehydration
     }
-    return metadata.purgeState === 'PURGED' || metadata.purgeState === 'ARCHIVED';
+    const needs = metadata.purgeState === 'PURGED' || metadata.purgeState === 'ARCHIVED';
+    alert(`[needsRehydration] Result: ${needs}`);
+    return needs;
   }
 }

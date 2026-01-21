@@ -209,10 +209,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     if (environment.isWeb) return;
 
     try {
+      alert(`[ElevationPlotHub] Checking rehydration for: ${this.serviceId}`);
       const needsRehydration = await this.foundationData.needsRehydration(this.serviceId);
 
       if (needsRehydration) {
-        console.log('[ElevationPlotHub] Service was purged - auto-rehydrating...');
+        alert('[ElevationPlotHub] NEEDS REHYDRATION - starting...');
 
         // Must be online to rehydrate
         if (!this.offlineService.isOnline()) {

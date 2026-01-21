@@ -158,10 +158,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     if (environment.isWeb) return;
 
     try {
+      alert(`[RoomElevation] Checking rehydration for: ${this.serviceId}`);
       const needsRehydration = await this.foundationData.needsRehydration(this.serviceId);
 
       if (needsRehydration) {
-        console.log('[RoomElevation] Service was purged - auto-rehydrating...');
+        alert('[RoomElevation] NEEDS REHYDRATION - starting...');
 
         // Must be online to rehydrate
         if (!this.offlineService.isOnline()) {
