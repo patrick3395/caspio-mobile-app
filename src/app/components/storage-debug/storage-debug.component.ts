@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, AlertController } from '@ionic/angular';
 import { BackgroundSyncService } from '../../services/background-sync.service';
@@ -70,9 +70,14 @@ interface ServiceSnapshot {
                 <p>State: <strong>{{ svc.purgeState }}</strong> | Safe: {{ svc.isPurgeSafe ? 'Yes' : 'No' }}</p>
                 <p class="timestamp">Last touched: {{ formatTime(svc.lastTouchedAt) }}</p>
               </ion-label>
-              <ion-button slot="end" size="small" (click)="makeServiceOld(svc.serviceId)">
-                Age 4d
-              </ion-button>
+              <div slot="end" class="service-actions">
+                <ion-button size="small" fill="outline" (click)="makeServiceOld(svc.serviceId)">
+                  Age 4d
+                </ion-button>
+                <ion-button size="small" color="danger" (click)="forceHardPurge(svc.serviceId)">
+                  FORCE PURGE
+                </ion-button>
+              </div>
             </ion-item>
           </ion-list>
         </div>
@@ -111,6 +116,14 @@ interface ServiceSnapshot {
                 {{ formatBytes(afterSnapshot.totalBlobBytes - beforeSnapshot.totalBlobBytes) }}
               </ion-col>
             </ion-row>
+            <ion-row>
+              <ion-col>Cached</ion-col>
+              <ion-col>{{ beforeSnapshot.cachedPhotos }}</ion-col>
+              <ion-col>{{ afterSnapshot.cachedPhotos }}</ion-col>
+              <ion-col [class.positive]="afterSnapshot.cachedPhotos < beforeSnapshot.cachedPhotos">
+                {{ afterSnapshot.cachedPhotos - beforeSnapshot.cachedPhotos }}
+              </ion-col>
+            </ion-row>
           </ion-grid>
         </div>
 
@@ -145,6 +158,11 @@ interface ServiceSnapshot {
             <ion-icon name="trash" slot="start"></ion-icon>
             Clear Log
           </ion-button>
+
+          <ion-button expand="block" [color]="syncPaused ? 'success' : 'medium'" (click)="toggleSync()">
+            <ion-icon [name]="syncPaused ? 'play' : 'pause'" slot="start"></ion-icon>
+            {{ syncPaused ? 'Resume Auto-Sync' : 'Pause Auto-Sync' }}
+          </ion-button>
         </div>
       </ion-card-content>
     </ion-card>
@@ -172,6 +190,18 @@ interface ServiceSnapshot {
     .timestamp {
       font-size: 11px;
       color: var(--ion-color-medium);
+    }
+
+    .service-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .service-actions ion-button {
+      font-size: 10px;
+      --padding-start: 6px;
+      --padding-end: 6px;
     }
 
     .comparison-section ion-grid {
@@ -221,6 +251,7 @@ export class StorageDebugComponent implements OnInit {
   afterSnapshot: StorageSnapshot | null = null;
   testLog: { time: string; message: string; type: string }[] = [];
   isRunning = false;
+  syncPaused = false;
 
   get hasPurgedService(): boolean {
     return this.currentSnapshot?.services?.some(s => s.purgeState === 'PURGED') ?? false;
@@ -230,7 +261,8 @@ export class StorageDebugComponent implements OnInit {
     private backgroundSync: BackgroundSyncService,
     private serviceMetadata: ServiceMetadataService,
     private dataService: EngineersFoundationDataService,
-    private alertCtrl: AlertController
+    private alertCtrl: AlertController,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -241,6 +273,7 @@ export class StorageDebugComponent implements OnInit {
     this.log('Capturing storage snapshot...', 'info');
     this.currentSnapshot = await this.captureSnapshot();
     this.log(`Snapshot complete: ${this.currentSnapshot.localImages} images, ${this.formatBytes(this.currentSnapshot.totalBlobBytes)}`, 'success');
+    this.cdr.detectChanges();
   }
 
   async captureSnapshot(): Promise<StorageSnapshot> {
@@ -294,6 +327,96 @@ export class StorageDebugComponent implements OnInit {
     await db.serviceMetadata.update(serviceId, { lastTouchedAt: fourDaysAgo });
     this.log(`Set ${serviceId.slice(0, 8)}... lastTouchedAt to 4 days ago`, 'warning');
     await this.refreshSnapshot();
+    this.cdr.detectChanges();
+  }
+
+  async forceHardPurge(serviceId: string) {
+    const alert = await this.alertCtrl.create({
+      header: 'Force Hard Purge?',
+      message: `This will DELETE ALL local data for service ${serviceId.slice(0, 8)}...\n\nThis bypasses ALL safety checks!\n\nData includes:\n- Local images\n- Local blobs\n- Cached photos\n- Visual/EFE fields`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'DELETE ALL',
+          cssClass: 'danger',
+          handler: () => this.executeForceHardPurge(serviceId)
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async executeForceHardPurge(serviceId: string) {
+    this.isRunning = true;
+    this.beforeSnapshot = await this.captureSnapshot();
+
+    this.log(`=== FORCE HARD PURGE ===`, 'warning');
+    this.log(`Service: ${serviceId.slice(0, 8)}...`, 'info');
+    this.log(`BEFORE: ${this.beforeSnapshot.localImages} images, ${this.beforeSnapshot.cachedPhotos} cached, ${this.formatBytes(this.beforeSnapshot.totalBlobBytes)}`, 'info');
+
+    try {
+      // Count before
+      const imagesBefore = await db.localImages.where('serviceId').equals(serviceId).count();
+      const cachedBefore = await db.cachedPhotos.where('serviceId').equals(serviceId).count();
+
+      this.log(`Service has: ${imagesBefore} localImages, ${cachedBefore} cachedPhotos`, 'info');
+
+      // Get all blobs for this service's images
+      const images = await db.localImages.where('serviceId').equals(serviceId).toArray();
+      const blobIds = new Set<string>();
+      for (const img of images) {
+        if (img.localBlobId) blobIds.add(img.localBlobId);
+        if (img.thumbBlobId) blobIds.add(img.thumbBlobId);
+      }
+
+      // Delete blobs
+      this.log(`Deleting ${blobIds.size} blobs...`, 'info');
+      for (const blobId of blobIds) {
+        await db.localBlobs.delete(blobId);
+      }
+
+      // Delete local images
+      this.log(`Deleting localImages...`, 'info');
+      await db.localImages.where('serviceId').equals(serviceId).delete();
+
+      // Delete cached photos - THIS IS THE BIG ONE
+      this.log(`Deleting cachedPhotos...`, 'info');
+      const cachedDeleted = await db.cachedPhotos.where('serviceId').equals(serviceId).delete();
+      this.log(`Deleted ${cachedDeleted} cachedPhotos`, 'success');
+
+      // Delete visual fields
+      await db.visualFields.where('serviceId').equals(serviceId).delete();
+
+      // Delete EFE fields
+      await db.efeFields.where('serviceId').equals(serviceId).delete();
+
+      // Delete pending captions
+      await db.pendingCaptions.where('serviceId').equals(serviceId).delete();
+
+      // Update metadata
+      await this.serviceMetadata.setPurgeState(serviceId, 'PURGED');
+
+      // Capture after
+      this.afterSnapshot = await this.captureSnapshot();
+
+      const freedBytes = this.beforeSnapshot.totalBlobBytes - this.afterSnapshot.totalBlobBytes;
+      const freedCached = this.beforeSnapshot.cachedPhotos - this.afterSnapshot.cachedPhotos;
+
+      this.log(`=== PURGE COMPLETE ===`, 'success');
+      this.log(`AFTER: ${this.afterSnapshot.localImages} images, ${this.afterSnapshot.cachedPhotos} cached, ${this.formatBytes(this.afterSnapshot.totalBlobBytes)}`, 'info');
+      this.log(`Freed: ${this.formatBytes(freedBytes)} | CachedPhotos: -${freedCached}`, 'success');
+      this.log(`NOTE: iOS may not show reduced storage until app restart`, 'warning');
+
+      this.currentSnapshot = this.afterSnapshot;
+      this.cdr.detectChanges();
+
+    } catch (err) {
+      this.log(`ERROR: ${err}`, 'error');
+      console.error('Force purge failed:', err);
+    } finally {
+      this.isRunning = false;
+      this.cdr.detectChanges();
+    }
   }
 
   async runFullPurgeTest() {
@@ -355,16 +478,22 @@ export class StorageDebugComponent implements OnInit {
       // Summary
       const freedBytes = this.beforeSnapshot.totalBlobBytes - this.afterSnapshot.totalBlobBytes;
       const freedImages = this.beforeSnapshot.localImages - this.afterSnapshot.localImages;
+      const freedBlobs = this.beforeSnapshot.localBlobs - this.afterSnapshot.localBlobs;
       this.log('=== TEST COMPLETE ===', 'success');
-      this.log(`Freed: ${this.formatBytes(freedBytes)} | Removed: ${freedImages} images`, 'success');
+      this.log(`Freed: ${this.formatBytes(freedBytes)} | Blobs: -${freedBlobs} | Images: -${freedImages}`, 'success');
+      this.log('NOTE: iOS may not show reduced storage until app restart', 'warning');
 
       this.currentSnapshot = this.afterSnapshot;
+
+      // Force Angular change detection
+      this.cdr.detectChanges();
 
     } catch (err) {
       this.log(`ERROR: ${err}`, 'error');
       console.error('Purge test failed:', err);
     } finally {
       this.isRunning = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -408,6 +537,7 @@ export class StorageDebugComponent implements OnInit {
       this.log(`ERROR: ${err}`, 'error');
     } finally {
       this.isRunning = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -415,12 +545,29 @@ export class StorageDebugComponent implements OnInit {
     this.testLog = [];
     this.beforeSnapshot = null;
     this.afterSnapshot = null;
+    this.cdr.detectChanges();
   }
 
   log(message: string, type: 'info' | 'success' | 'warning' | 'error') {
     const time = new Date().toLocaleTimeString();
     this.testLog.push({ time, message, type });
     console.log(`[StorageDebug] ${message}`);
+    this.cdr.detectChanges();
+  }
+
+  toggleSync() {
+    if (this.syncPaused) {
+      // Resume sync
+      this.backgroundSync.resumeSync();
+      this.syncPaused = false;
+      this.log('Auto-sync RESUMED', 'success');
+    } else {
+      // Pause sync
+      this.backgroundSync.pauseSync();
+      this.syncPaused = true;
+      this.log('Auto-sync PAUSED - no automatic purging will occur', 'warning');
+    }
+    this.cdr.detectChanges();
   }
 
   formatBytes(bytes: number): string {
