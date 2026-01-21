@@ -9,6 +9,7 @@ import { GoogleMapsLoaderService } from '../../services/google-maps-loader.servi
 import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
 import { FormAutosaveService } from '../../services/form-autosave.service';
 import { FormKeyboardService } from '../../services/form-keyboard.service';
+import { PageTitleService } from '../../services/page-title.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -74,10 +75,14 @@ export class NewProjectPage implements OnInit, OnDestroy {
     private googleMapsLoader: GoogleMapsLoaderService,
     private formValidation: FormValidationService,
     private formAutosave: FormAutosaveService,
-    private formKeyboard: FormKeyboardService
+    private formKeyboard: FormKeyboardService,
+    private pageTitleService: PageTitleService
   ) {}
 
   async ngOnInit() {
+    // G2-SEO-001: Set page title for new project
+    this.pageTitleService.setTitle('New Project');
+
     // Initialize validation state (web only)
     if (this.isWeb) {
       this.validationState = this.formValidation.createFormState(['address', 'city', 'state', 'zip']);

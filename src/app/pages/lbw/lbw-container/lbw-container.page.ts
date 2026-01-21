@@ -7,6 +7,7 @@ import { LbwPdfService } from '../services/lbw-pdf.service';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { NavigationHistoryService } from '../../../services/navigation-history.service';
+import { PageTitleService } from '../../../services/page-title.service';
 import { filter } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 
@@ -40,7 +41,8 @@ export class LbwContainerPage implements OnInit {
     private location: Location,
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,
-    private navigationHistory: NavigationHistoryService
+    private navigationHistory: NavigationHistoryService,
+    private pageTitleService: PageTitleService
   ) {}
 
   ngOnInit() {
@@ -156,14 +158,27 @@ export class LbwContainerPage implements OnInit {
       
       const categoryName = decodeURIComponent(categoryMatch[1]);
       const categoryIcon = this.getCategoryIcon(categoryName);
-      this.breadcrumbs.push({ 
-        label: categoryName, 
-        path: `category/${categoryMatch[1]}`, 
-        icon: categoryIcon 
+      this.breadcrumbs.push({
+        label: categoryName,
+        path: `category/${categoryMatch[1]}`,
+        icon: categoryIcon
       });
       this.currentPageTitle = categoryName;
       this.currentPageShortTitle = categoryName;
     }
+
+    // G2-SEO-001: Update page title with project address and current section
+    this.updatePageTitle();
+  }
+
+  /**
+   * G2-SEO-001: Update browser tab title based on current page
+   */
+  private updatePageTitle() {
+    if (!environment.isWeb) return;
+
+    const projectAddress = this.projectName || 'Project';
+    this.pageTitleService.setCategoryTitle(this.currentPageShortTitle, projectAddress + ' - LBW');
   }
 
   navigateToHome() {

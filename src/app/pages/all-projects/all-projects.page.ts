@@ -5,6 +5,7 @@ import { CaspioService } from '../../services/caspio.service';
 import { AlertController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
+import { PageTitleService } from '../../services/page-title.service';
 
 /**
  * G2-PERF-003: OnPush change detection for performance optimization (web only)
@@ -53,10 +54,14 @@ export class AllProjectsPage implements OnInit {
     private route: ActivatedRoute,
     private alertController: AlertController,
     public platform: PlatformDetectionService,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private pageTitleService: PageTitleService
   ) {}
 
   ngOnInit() {
+    // G2-SEO-001: Set page title for all projects
+    this.pageTitleService.setListTitle('All Projects');
+
     // Load current user info
     const userStr = localStorage.getItem('currentUser');
     if (userStr) {

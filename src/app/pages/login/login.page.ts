@@ -8,6 +8,7 @@ import { CaspioService } from '../../services/caspio.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { FormValidationService, FieldValidationState, ValidationRules } from '../../services/form-validation.service';
 import { FormKeyboardService } from '../../services/form-keyboard.service';
+import { PageTitleService } from '../../services/page-title.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -42,10 +43,14 @@ export class LoginPage implements OnInit, OnDestroy {
     private loadingController: LoadingController,
     public platform: PlatformDetectionService,
     private formValidation: FormValidationService,
-    private formKeyboard: FormKeyboardService
+    private formKeyboard: FormKeyboardService,
+    private pageTitleService: PageTitleService
   ) { }
 
   ngOnInit() {
+    // G2-SEO-001: Set page title for login
+    this.pageTitleService.setTitle('Login');
+
     // Initialize validation state (web only)
     if (this.isWeb) {
       this.validationState = this.formValidation.createFormState(['email', 'password']);

@@ -7,6 +7,7 @@ import { AlertController } from '@ionic/angular';
 import { environment } from '../../../environments/environment';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { MutationTrackingService, EntityType, Mutation } from '../../services/mutation-tracking.service';
+import { PageTitleService } from '../../services/page-title.service';
 import { forkJoin, Subscription } from 'rxjs';
 
 /**
@@ -67,10 +68,14 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     private alertController: AlertController,
     public platform: PlatformDetectionService,
     private cdr: ChangeDetectorRef,
-    private mutationTracker: MutationTrackingService
+    private mutationTracker: MutationTrackingService,
+    private pageTitleService: PageTitleService
   ) {}
 
   ngOnInit() {
+    // G2-SEO-001: Set page title for active projects
+    this.pageTitleService.setListTitle('Active Projects');
+
     // Load current user info
     const userStr = localStorage.getItem('currentUser');
     if (userStr) {

@@ -8,6 +8,7 @@ import { Router } from '@angular/router';
 import { CaspioService } from '../../services/caspio.service';
 import { PaypalPaymentModalComponent } from '../../modals/paypal-payment-modal/paypal-payment-modal.component';
 import { ConfirmationDialogService } from '../../services/confirmation-dialog.service';
+import { PageTitleService } from '../../services/page-title.service';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
@@ -506,10 +507,14 @@ export class CompanyPage implements OnInit, OnDestroy {
     private modalController: ModalController,
     private confirmationDialog: ConfirmationDialogService,
     private http: HttpClient,
-    private router: Router
+    private router: Router,
+    private pageTitleService: PageTitleService
   ) {}
 
   ngOnInit() {
+    // G2-SEO-001: Set page title for company page
+    this.pageTitleService.setTitle('Company');
+
     // Register Chart.js components
     Chart.register(...registerables);
 
