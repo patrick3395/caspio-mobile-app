@@ -4748,12 +4748,16 @@ export class CaspioService {
         }
       }
       
+      // CRITICAL: Clear attachments cache so UI shows new document immediately
+      this.clearAttachmentsCache(projectId);
+      console.log('[Upload] Cleared attachments cache for project:', projectId);
+
       return {
         ...createResult,
         Attachment: filePath,  // Include the file path
         success: true
       };
-      
+
     } catch (error) {
       console.error('? Two-step upload failed:', error);
       throw error;
@@ -4834,8 +4838,13 @@ export class CaspioService {
         const errorText = await updateResponse.text();
         throw new Error('Failed to update attachment record: ' + errorText);
       }
+
+      // CRITICAL: Clear attachments cache so UI shows updated document immediately
+      this.clearAttachmentsCache();
+      console.log('[Upload] Cleared attachments cache after file replacement for attachId:', attachId);
+
       return { success: true, attachId, fileName: file.name, filePath };
-      
+
     } catch (error) {
       console.error('Failed to replace attachment:', error);
       throw error;

@@ -322,17 +322,23 @@ ion-loading {
 
 ion-toast {
   --button-color: var(--noble-orange);
-  
-  &.toast-success {
-    --background: #28a745;
+
+  // Success toast uses app theme color (orange) instead of green
+  &[color="success"] {
+    --background: var(--noble-orange, #F15A27);
     --color: white;
   }
-  
+
+  &.toast-success {
+    --background: var(--noble-orange, #F15A27);
+    --color: white;
+  }
+
   &.toast-warning {
     --background: var(--noble-orange);
     --color: white;
   }
-  
+
   &.toast-danger {
     --background: #dc3545;
     --color: white;
@@ -1314,6 +1320,231 @@ textarea.styled-input {
           &:focus-visible {
             outline-color: #d32f2f !important;
             box-shadow: 0 0 0 4px rgba(211, 47, 47, 0.2) !important;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Edit Address Alert - styled to match confirmation dialog theme
+.edit-address-alert {
+  --backdrop-opacity: 0.55;
+
+  .alert-wrapper {
+    background: #ffffff !important;
+    border-radius: 18px;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+    padding: 24px 0 12px;
+    min-width: min(420px, 90vw);
+    max-width: 480px;
+  }
+
+  .alert-head {
+    padding: 8px 24px 20px;
+    border-bottom: 1px solid #eee;
+
+    .alert-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #333333 !important;
+      text-align: center;
+      letter-spacing: 0.01em;
+    }
+  }
+
+  .alert-message {
+    padding: 20px 24px 16px;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .edit-address-form {
+    .form-field {
+      margin-bottom: 16px;
+
+      &:last-child {
+        margin-bottom: 8px;
+      }
+
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #555 !important;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      input, select {
+        width: 100%;
+        padding: 12px 14px;
+        border: 2px solid #e0e0e0 !important;
+        border-radius: 10px;
+        font-size: 16px;
+        color: #333 !important;
+        background: #fafafa !important;
+        background-color: #fafafa !important;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        transition: all 0.2s ease;
+        box-sizing: border-box;
+
+        &:focus {
+          outline: none;
+          border-color: var(--noble-orange, #F15A27) !important;
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
+        }
+
+        &::placeholder {
+          color: #999;
+        }
+      }
+
+      select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E") !important;
+        background-repeat: no-repeat !important;
+        background-position: right 14px center !important;
+        background-color: #fafafa !important;
+        padding-right: 36px;
+        cursor: pointer;
+
+        &:focus {
+          background-color: #ffffff !important;
+        }
+      }
+    }
+  }
+
+  .alert-button-group {
+    padding: 16px 24px 20px;
+    gap: 12px;
+    justify-content: stretch;
+    display: flex;
+    border-top: 1px solid #eee;
+
+    .alert-button {
+      flex: 1 1 0;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      border-radius: 999px;
+      border: none;
+      padding: 14px 0;
+      text-transform: uppercase;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+
+      .alert-button-inner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      // Cancel button styling - subtle gray
+      &[role="cancel"] {
+        color: #555 !important;
+        background: #f0f0f0 !important;
+        border: 2px solid #ddd;
+
+        &:hover {
+          background: #e5e5e5 !important;
+          border-color: #ccc;
+        }
+
+        &:active {
+          transform: scale(0.98);
+        }
+      }
+
+      // Save button styling - prominent orange (matches confirmation dialogs)
+      &:not([role="cancel"]) {
+        color: #ffffff !important;
+        background: var(--noble-orange, #F15A27) !important;
+        border: 2px solid var(--noble-orange, #F15A27);
+        box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
+
+        &:hover {
+          background: #e04d1f !important;
+          border-color: #e04d1f;
+          box-shadow: 0 4px 12px rgba(241, 90, 39, 0.4);
+        }
+
+        &:active {
+          transform: scale(0.98);
+        }
+      }
+    }
+  }
+
+  // Dark mode support
+  body.dark-theme & {
+    .alert-wrapper {
+      background: #2a2a2a !important;
+    }
+
+    .alert-head {
+      border-bottom-color: #444;
+
+      .alert-title {
+        color: #ffffff !important;
+      }
+    }
+
+    .alert-message {
+      .edit-address-form {
+        .form-field {
+          label {
+            color: #aaa !important;
+          }
+
+          input, select {
+            background: #333 !important;
+            background-color: #333 !important;
+            border-color: #555 !important;
+            color: #fff !important;
+
+            &:focus {
+              background: #3a3a3a !important;
+              background-color: #3a3a3a !important;
+            }
+
+            &::placeholder {
+              color: #888;
+            }
+          }
+
+          select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M6 9L1 4h10z'/%3E%3C/svg%3E") !important;
+            background-color: #333 !important;
+
+            &:focus {
+              background-color: #3a3a3a !important;
+            }
+          }
+        }
+      }
+    }
+
+    .alert-button-group {
+      border-top-color: #444;
+
+      .alert-button {
+        &[role="cancel"] {
+          color: #ddd !important;
+          background: #444 !important;
+          border-color: #555;
+
+          &:hover {
+            background: #555 !important;
+            border-color: #666;
           }
         }
       }

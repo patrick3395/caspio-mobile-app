@@ -1297,6 +1297,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Clear the CaspioService cache for Services table
       this.caspioService.clearServicesCache(actualProjectId);
 
+      // CRITICAL: Trigger change detection for OnPush strategy (webapp)
+      this.changeDetectorRef.markForCheck();
+
       // Success toast removed per user request
     } catch (error) {
       console.error('❌ Error adding service - Full details:', error);

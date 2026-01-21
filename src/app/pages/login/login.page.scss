@@ -125,6 +125,11 @@
   --inner-padding-end: 0;
   border: 1px solid #e0e0e0;
   transition: border-color 0.2s ease;
+  // Remove all Ionic item lines
+  --border-width: 0;
+  --inner-border-width: 0;
+  --highlight-background: transparent;
+  --highlight-color-focused: transparent;
 
   &:focus-within {
     border-color: #F15A27;
@@ -151,6 +156,13 @@
     font-size: 15px;
     --placeholder-color: #999;
     --placeholder-opacity: 1;
+    // Remove Ionic's native highlight/underline bars
+    --highlight-color: transparent;
+    --highlight-color-focused: transparent;
+    --highlight-color-valid: transparent;
+    --highlight-color-invalid: transparent;
+    --border-width: 0;
+    --border-color: transparent;
   }
 
   // Override browser autofill styling - must be outside ion-input for proper specificity

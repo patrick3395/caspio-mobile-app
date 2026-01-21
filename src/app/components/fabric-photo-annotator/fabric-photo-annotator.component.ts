@@ -240,21 +240,30 @@ import { environment } from '../../../environments/environment';
         text-overflow: ellipsis;
         pointer-events: none; // Allow clicks to pass through to button
       }
-      
-      &:hover {
-        background: white;
-        border-color: #F15A27;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+
+      // Desktop only: hover/active transforms
+      @media (hover: hover) and (pointer: fine) {
+        &:hover {
+          background: white;
+          border-color: #F15A27;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
       }
-      
-      &:active {
-        transform: translateY(0);
-      }
-      
+
+      // Mobile: no transform effects to prevent jumping
       @media (max-width: 768px) {
         padding: 14px 18px;
         font-size: 15px;
+
+        &:active {
+          background: white;
+          border-color: #F15A27;
+        }
       }
     }
 
