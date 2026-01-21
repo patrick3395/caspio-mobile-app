@@ -1678,10 +1678,126 @@ export class EngineersFoundationDataService {
    * @param serviceId - Service ID for grouping (required for proper sync)
    */
   async uploadEFEPointPhoto(pointId: number | string, file: File, photoType: string = 'Measurement', drawings?: string, serviceId?: string): Promise<any> {
-    console.log('[EFE Photo] LOCAL-FIRST upload via LocalImageService for PointID:', pointId, 'photoType:', photoType, 'ServiceID:', serviceId);
-
     const pointIdStr = String(pointId);
     const effectiveServiceId = serviceId || '';
+    const isTempPointId = pointIdStr.startsWith('temp_');
+
+    // WEBAPP MODE: Upload directly to S3 and create database record immediately
+    if (environment.isWeb && !isTempPointId) {
+      console.log('[EFE Photo] WEBAPP: Direct upload to S3 for PointID:', pointId, 'photoType:', photoType);
+
+      try {
+        // Generate unique filename for S3
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const uniqueFilename = `efe_point_${pointIdStr}_${photoType.toLowerCase()}_${timestamp}_${randomId}.${fileExt}`;
+
+        // Upload to S3 via API Gateway
+        const formData = new FormData();
+        formData.append('file', file, uniqueFilename);
+        formData.append('tableName', 'LPS_Services_EFE_Points_Attach');
+        formData.append('attachId', pointIdStr);
+
+        const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
+        console.log('[EFE Photo] WEBAPP: Uploading to S3:', uploadUrl);
+
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          throw new Error('Failed to upload to S3: ' + errorText);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        const s3Key = uploadResult.s3Key;
+        console.log('[EFE Photo] WEBAPP: ✅ Uploaded to S3 with key:', s3Key);
+
+        // Create attachment record in database
+        const attachmentData = {
+          PointID: parseInt(pointIdStr, 10),
+          Type: photoType,
+          Attachment: s3Key,
+          Annotation: '',
+          Drawings: drawings || ''
+        };
+
+        const createResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?response=rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(attachmentData)
+        });
+
+        if (!createResponse.ok) {
+          const errorText = await createResponse.text();
+          throw new Error('Failed to create attachment record: ' + errorText);
+        }
+
+        const createResult = await createResponse.json();
+        const createdRecord = createResult.Result?.[0] || createResult;
+        const attachId = createdRecord.AttachID || createdRecord.PK_ID;
+
+        console.log('[EFE Photo] WEBAPP: ✅ Attachment record created with ID:', attachId);
+
+        // Get pre-signed URL for display
+        let displayUrl = '';
+        try {
+          const urlResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/url?key=${encodeURIComponent(s3Key)}`);
+          if (urlResponse.ok) {
+            const urlResult = await urlResponse.json();
+            displayUrl = urlResult.url || '';
+          }
+        } catch (urlError) {
+          console.warn('[EFE Photo] WEBAPP: Could not get display URL:', urlError);
+        }
+
+        // Fallback to blob URL if S3 URL not available
+        if (!displayUrl) {
+          displayUrl = URL.createObjectURL(file);
+        }
+
+        return {
+          imageId: String(attachId),
+          AttachID: attachId,
+          attachId: String(attachId),
+          _tempId: String(attachId),
+          _pendingFileId: String(attachId),
+          PointID: pointIdStr,
+          entityId: pointIdStr,
+          entityType: 'efe_point',
+          serviceId: effectiveServiceId,
+          Type: photoType,
+          photoType: photoType,
+          drawings: drawings || '',
+          fileName: uniqueFilename,
+          fileSize: file.size,
+          Photo: s3Key,
+          Attachment: s3Key,
+          url: displayUrl,
+          thumbnailUrl: displayUrl,
+          displayUrl: displayUrl,
+          _thumbnailUrl: displayUrl,
+          status: 'verified',
+          _syncing: false,
+          uploading: false,
+          queued: false,
+          isPending: false,
+          isObjectUrl: displayUrl.startsWith('blob:'),
+          isEFE: true,
+          isLocalFirst: false,
+          ...createdRecord
+        };
+      } catch (error: any) {
+        console.error('[EFE Photo] WEBAPP: ❌ Upload failed:', error?.message || error);
+        // Fall through to local-first approach as fallback
+      }
+    }
+
+    // MOBILE MODE (or webapp fallback): Local-first upload via LocalImageService
+    console.log('[EFE Photo] LOCAL-FIRST upload via LocalImageService for PointID:', pointId, 'photoType:', photoType, 'ServiceID:', serviceId);
 
     // Use LocalImageService for proper local-first handling with stable UUIDs
     // This stores blob + metadata + outbox item in a single atomic transaction
@@ -1710,27 +1826,27 @@ export class EngineersFoundationDataService {
       attachId: localImage.imageId,          // Lowercase version for caption/annotation updates
       _tempId: localImage.imageId,           // For backward compatibility with existing code
       _pendingFileId: localImage.imageId,    // For IndexedDB lookups when updating caption/drawings
-      
+
       // Entity references
       PointID: pointIdStr,
       entityId: pointIdStr,
       entityType: 'efe_point',
       serviceId: effectiveServiceId,
-      
+
       // Content
       Type: photoType,
       photoType: photoType,
       drawings: drawings || '',
       fileName: localImage.fileName,
       fileSize: localImage.fileSize,
-      
+
       // Display URLs (local blob - stable during sync)
       Photo: displayUrl,
       url: displayUrl,
       thumbnailUrl: displayUrl,
       displayUrl: displayUrl,
       _thumbnailUrl: displayUrl,
-      
+
       // Status flags - SILENT SYNC: Don't show uploading/queued indicators
       // Photos appear as normal, sync happens silently in background
       status: localImage.status,
