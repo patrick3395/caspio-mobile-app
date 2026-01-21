@@ -3967,43 +3967,83 @@ Troubleshooting:
   }
 
   /**
+   * State options for the address edit dropdown
+   */
+  private stateOptions = [
+    { StateID: 7, State: 'Arizona', Abbr: 'AZ' },
+    { StateID: 6, State: 'California', Abbr: 'CA' },
+    { StateID: 4, State: 'Colorado', Abbr: 'CO' },
+    { StateID: 3, State: 'Florida', Abbr: 'FL' },
+    { StateID: 2, State: 'Georgia', Abbr: 'GA' },
+    { StateID: 8, State: 'South Carolina', Abbr: 'SC' },
+    { StateID: 9, State: 'Tennessee', Abbr: 'TN' },
+    { StateID: 1, State: 'Texas', Abbr: 'TX' }
+  ].sort((a, b) => a.State.localeCompare(b.State));
+
+  /**
+   * Get current state ID from project (handles both State abbr and StateID)
+   */
+  private getCurrentStateId(): number | null {
+    if (!this.project) return null;
+
+    // If StateID exists, use it
+    if (this.project.StateID) {
+      return this.project.StateID;
+    }
+
+    // If State abbreviation exists, find matching StateID
+    if (this.project.State) {
+      const match = this.stateOptions.find(s =>
+        s.Abbr === this.project.State || s.State === this.project.State
+      );
+      return match?.StateID || null;
+    }
+
+    return null;
+  }
+
+  /**
+   * Escape HTML to prevent XSS attacks (web only)
+   */
+  private escapeHtml(text: string): string {
+    if (!environment.isWeb) return text;
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  /**
    * Open modal to edit the project address
    */
   async openEditAddressModal() {
+    const currentStateId = this.getCurrentStateId();
+
+    // Build state options HTML with proper escaping to prevent XSS
+    let stateOptionsHtml = '<option value="">-- Select State --</option>';
+    this.stateOptions.forEach(state => {
+      const selected = state.StateID === currentStateId ? 'selected' : '';
+      stateOptionsHtml += `<option value="${this.escapeHtml(String(state.StateID))}" ${selected}>${this.escapeHtml(state.State)}</option>`;
+    });
+
     const alert = await this.alertController.create({
       header: 'Edit Address',
       cssClass: 'edit-address-alert',
-      inputs: [
-        {
-          name: 'address',
-          type: 'text',
-          placeholder: 'Street Address',
-          value: this.project?.Address || ''
-        },
-        {
-          name: 'city',
-          type: 'text',
-          placeholder: 'City',
-          value: this.project?.City || ''
-        },
-        {
-          name: 'state',
-          type: 'text',
-          placeholder: 'State',
-          value: this.project?.State || ''
-        },
-        {
-          name: 'zip',
-          type: 'text',
-          placeholder: 'Zip Code',
-          value: this.project?.Zip || ''
-        }
-      ],
+      message: ' ',
       buttons: [
         {
           text: 'Save',
-          handler: async (data) => {
-            await this.saveAddressChanges(data);
+          handler: () => {
+            const addressInput = document.getElementById('edit-address-input') as HTMLInputElement;
+            const cityInput = document.getElementById('edit-city-input') as HTMLInputElement;
+            const stateSelect = document.getElementById('edit-state-select') as HTMLSelectElement;
+            const zipInput = document.getElementById('edit-zip-input') as HTMLInputElement;
+
+            this.saveAddressChanges({
+              address: addressInput?.value || '',
+              city: cityInput?.value || '',
+              stateId: stateSelect?.value ? parseInt(stateSelect.value) : null,
+              zip: zipInput?.value || ''
+            });
           }
         },
         {
@@ -4014,12 +4054,46 @@ Troubleshooting:
     });
 
     await alert.present();
+
+    // Inject custom HTML form after alert is presented (web only with XSS protection)
+    if (environment.isWeb) {
+      setTimeout(() => {
+        const alertMessage = document.querySelector('.edit-address-alert .alert-message');
+        if (alertMessage) {
+          // Escape user-provided values to prevent XSS
+          const escapedAddress = this.escapeHtml(this.project?.Address || '');
+          const escapedCity = this.escapeHtml(this.project?.City || '');
+          const escapedZip = this.escapeHtml(this.project?.Zip || '');
+
+          alertMessage.innerHTML = `
+            <div class="edit-address-form">
+              <div class="form-field">
+                <label>Street Address</label>
+                <input type="text" id="edit-address-input" value="${escapedAddress}" placeholder="Enter street address">
+              </div>
+              <div class="form-field">
+                <label>City</label>
+                <input type="text" id="edit-city-input" value="${escapedCity}" placeholder="Enter city">
+              </div>
+              <div class="form-field">
+                <label>State</label>
+                <select id="edit-state-select">${stateOptionsHtml}</select>
+              </div>
+              <div class="form-field">
+                <label>Zip Code</label>
+                <input type="text" id="edit-zip-input" value="${escapedZip}" placeholder="Enter zip code">
+              </div>
+            </div>
+          `;
+        }
+      }, 100);
+    }
   }
 
   /**
    * Save address changes to the project
    */
-  private async saveAddressChanges(data: { address: string; city: string; state: string; zip: string }) {
+  private async saveAddressChanges(data: { address: string; city: string; stateId: number | null; zip: string }) {
     if (!this.project || !this.projectId) return;
 
     const loading = await this.loadingController.create({
@@ -4028,10 +4102,15 @@ Troubleshooting:
     await loading.present();
 
     try {
+      // Find state abbreviation from StateID
+      const stateOption = this.stateOptions.find(s => s.StateID === data.stateId);
+      const stateAbbr = stateOption?.Abbr || '';
+
       const updateData: any = {
         Address: data.address,
         City: data.city,
-        State: data.state,
+        StateID: data.stateId,
+        State: stateAbbr,
         Zip: data.zip
       };
 
@@ -4041,7 +4120,8 @@ Troubleshooting:
       // Update local project object
       this.project.Address = data.address;
       this.project.City = data.city;
-      this.project.State = data.state;
+      this.project.StateID = data.stateId;
+      this.project.State = stateAbbr;
       this.project.Zip = data.zip;
 
       await loading.dismiss();

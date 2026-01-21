@@ -1208,6 +1208,61 @@ textarea.styled-input {
     }
   }
 
+  // Edit address modal styling
+  &.edit-address-alert {
+    .alert-wrapper {
+      min-width: min(400px, 90vw);
+    }
+
+    .alert-message {
+      padding: 0 24px 16px;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .edit-address-form {
+      .form-field {
+        margin-bottom: 12px;
+
+        label {
+          display: block;
+          font-size: 12px;
+          font-weight: 600;
+          color: #666;
+          margin-bottom: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        input, select {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          font-size: 14px;
+          color: #333;
+          background: #fafafa;
+          transition: border-color 0.2s, background-color 0.2s;
+
+          &:focus {
+            outline: none;
+            border-color: #F15A27;
+            background: white;
+          }
+        }
+
+        select {
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          padding-right: 32px;
+          cursor: pointer;
+        }
+      }
+    }
+  }
+
   // G2-UX-004: Confirmation dialog enhancements (web only)
   &.confirmation-dialog {
     // Web-only: Keyboard hints and enhanced focus states

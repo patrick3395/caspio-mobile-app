@@ -149,3 +149,12 @@ user interaction** - Non-blocking with `pointer-events: auto`, toasts stack vert
 ------|\n| Side-by-side layouts where appropriate | ✅ Grid layouts with 2-4 columns based on screen width |\n| Reasonable max-width for content (1200-1400px) | ✅ Progressive max-width: 1200px → 1400px → 1600px |\n| Multi-column layouts for project/service lists | ✅ 2-3 column grids for project lists |\n| Efficient use of whitespace | ✅ Increased padding and gaps on larger screens |\n| All changes wrapped in `environment.isWeb` check | ✅ Using CSS `@media (hover: hover) and (pointer: fine)` |\n\n
 
 ---
+## ✓ Iteration 17 - G2-SEO-001: Add dynamic page titles
+*2026-01-21T00:30:17.811Z (2172s)*
+
+**Status:** Completed
+
+**Notes:**
+\| Partnership` |\n| All Projects | `All Projects \\| Partnership` |\n| Login | `Login \\| Partnership` |\n| New Project | `New Project \\| Partnership` |\n| Company | `Company \\| Partnership` |\n\n### Acceptance Criteria Met\n\n| Criteria | Status |\n|----------|--------|\n| Each page has unique title | ✅ |\n| Title reflects current content (e.g., project address) | ✅ |\n| Browser tab shows meaningful text | ✅ |\n| All changes wrapped in `environment.isWeb` check | ✅ Mobile app unchanged |\n\n
+
+---

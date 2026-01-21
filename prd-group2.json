@@ -188,7 +188,8 @@
       "id": "G2-SEO-001",
       "title": "Add dynamic page titles",
       "description": "IMPORTANT: DO NOT TOUCH MOBILE APP - wrap all changes in environment.isWeb check. Set unique page titles based on current view for better browser tab identification. Acceptance: Each page has unique title; Title reflects current content (e.g., project address); Browser tab shows meaningful text.",
-      "passes": false
+      "passes": true,
+      "completionNotes": "Completed by agent"
     },
     {
       "id": "G2-SEC-001",
@@ -204,6 +205,6 @@
     }
   ],
   "metadata": {
-    "updatedAt": "2026-01-20T23:54:05.234Z"
+    "updatedAt": "2026-01-21T00:30:18.960Z"
   }
 }
