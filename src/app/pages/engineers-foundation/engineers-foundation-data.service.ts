@@ -1742,22 +1742,8 @@ export class EngineersFoundationDataService {
 
         console.log('[EFE Photo] WEBAPP: ✅ Attachment record created with ID:', attachId);
 
-        // Get pre-signed URL for display
-        let displayUrl = '';
-        try {
-          const urlResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/url?key=${encodeURIComponent(s3Key)}`);
-          if (urlResponse.ok) {
-            const urlResult = await urlResponse.json();
-            displayUrl = urlResult.url || '';
-          }
-        } catch (urlError) {
-          console.warn('[EFE Photo] WEBAPP: Could not get display URL:', urlError);
-        }
-
-        // Fallback to blob URL if S3 URL not available
-        if (!displayUrl) {
-          displayUrl = URL.createObjectURL(file);
-        }
+        // Create blob URL for immediate display (most reliable)
+        const displayUrl = URL.createObjectURL(file);
 
         return {
           imageId: String(attachId),

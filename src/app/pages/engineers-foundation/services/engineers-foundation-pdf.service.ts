@@ -8,6 +8,7 @@ import { CacheService } from '../../../services/cache.service';
 import { FabricService } from '../../../services/fabric.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { LocalImageService } from '../../../services/local-image.service';
+import { RetryNotificationService } from '../../../services/retry-notification.service';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { environment } from '../../../../environments/environment';
 
@@ -41,7 +42,8 @@ export class EngineersFoundationPdfService {
     private cache: CacheService,
     private fabricService: FabricService,
     private indexedDb: IndexedDbService,
-    private localImageService: LocalImageService
+    private localImageService: LocalImageService,
+    private retryNotification: RetryNotificationService
   ) {}
 
   /**
@@ -78,6 +80,11 @@ export class EngineersFoundationPdfService {
     };
 
     try {
+      // WEBAPP: Suppress retry notification toasts during PDF generation
+      if (environment.isWeb) {
+        this.retryNotification.suppressNotifications();
+      }
+
       // Show loading indicator with cancel button
       // Web: Show progress bar with percentage (injected after present to avoid HTML escaping)
       // Mobile: Show simple loading message
@@ -91,6 +98,10 @@ export class EngineersFoundationPdfService {
             handler: () => {
               cancelRequested = true;
               this.isPDFGenerating = false;
+              // WEBAPP: Resume retry notifications after cancel
+              if (environment.isWeb) {
+                this.retryNotification.resumeNotifications();
+              }
               console.log('[PDF Service] User cancelled PDF generation');
               return true;
             }
@@ -292,11 +303,20 @@ export class EngineersFoundationPdfService {
       // Wait for modal to be dismissed before resetting flag
       modal.onDidDismiss().then(() => {
         this.isPDFGenerating = false;
+        // WEBAPP: Resume retry notifications after PDF preview is closed
+        if (environment.isWeb) {
+          this.retryNotification.resumeNotifications();
+        }
       });
 
     } catch (error) {
       console.error('[PDF Service] Error generating PDF:', error);
       this.isPDFGenerating = false;
+
+      // WEBAPP: Resume retry notifications after error
+      if (environment.isWeb) {
+        this.retryNotification.resumeNotifications();
+      }
 
       // Dismiss loading if still showing
       try {

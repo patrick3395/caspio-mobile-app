@@ -6,6 +6,7 @@ import { HudDataService } from '../hud-data.service';
 import { HudStateService } from './hud-state.service';
 import { CacheService } from '../../../services/cache.service';
 import { FabricService } from '../../../services/fabric.service';
+import { RetryNotificationService } from '../../../services/retry-notification.service';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { environment } from '../../../../environments/environment';
 
@@ -36,7 +37,8 @@ export class HudPdfService {
     private hudData: HudDataService,
     private stateService: HudStateService,
     private cache: CacheService,
-    private fabricService: FabricService
+    private fabricService: FabricService,
+    private retryNotification: RetryNotificationService
   ) {}
 
   /**
@@ -71,6 +73,11 @@ export class HudPdfService {
     };
 
     try {
+      // WEBAPP: Suppress retry notification toasts during PDF generation
+      if (environment.isWeb) {
+        this.retryNotification.suppressNotifications();
+      }
+
       // Show loading indicator with cancel button
       // Web: Show progress bar with percentage (injected after present to avoid HTML escaping)
       // Mobile: Show simple loading message
@@ -84,6 +91,10 @@ export class HudPdfService {
             handler: () => {
               cancelRequested = true;
               this.isPDFGenerating = false;
+              // WEBAPP: Resume retry notifications after cancel
+              if (environment.isWeb) {
+                this.retryNotification.resumeNotifications();
+              }
               console.log('[HUD PDF Service] User cancelled PDF generation');
               return true;
             }
@@ -275,11 +286,20 @@ export class HudPdfService {
       // Wait for modal to be dismissed before resetting flag
       modal.onDidDismiss().then(() => {
         this.isPDFGenerating = false;
+        // WEBAPP: Resume retry notifications after PDF preview is closed
+        if (environment.isWeb) {
+          this.retryNotification.resumeNotifications();
+        }
       });
 
     } catch (error) {
       console.error('[HUD PDF Service] Error generating PDF:', error);
       this.isPDFGenerating = false;
+
+      // WEBAPP: Resume retry notifications after error
+      if (environment.isWeb) {
+        this.retryNotification.resumeNotifications();
+      }
 
       // Dismiss loading if still showing
       try {

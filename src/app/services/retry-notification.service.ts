@@ -38,6 +38,9 @@ export class RetryNotificationService {
   private toastElement: HTMLElement | null = null;
   private dismissTimeout: any = null;
 
+  // Flag to suppress notifications during PDF generation
+  private notificationsSuppressed = false;
+
   constructor(
     private ngZone: NgZone,
     private screenReaderAnnouncement: ScreenReaderAnnouncementService
@@ -58,10 +61,26 @@ export class RetryNotificationService {
   }
 
   /**
+   * Suppress notifications (e.g., during PDF generation)
+   * Webapp only - prevents retry toasts from interrupting PDF preview
+   */
+  suppressNotifications(): void {
+    this.notificationsSuppressed = true;
+    this.dismissToast(); // Clear any existing toast
+  }
+
+  /**
+   * Resume notifications after suppression period ends
+   */
+  resumeNotifications(): void {
+    this.notificationsSuppressed = false;
+  }
+
+  /**
    * Notify user of retry attempt (web only)
    */
   notifyRetryAttempt(endpoint: string, attempt: number, maxAttempts: number, delayMs: number): void {
-    if (!environment.isWeb) return;
+    if (!environment.isWeb || this.notificationsSuppressed) return;
 
     this.retryState$.next({
       isRetrying: true,
@@ -87,7 +106,7 @@ export class RetryNotificationService {
    * Notify user that all retries have been exhausted (web only)
    */
   notifyRetryExhausted(endpoint: string, error: string, retryCallback?: () => void): void {
-    if (!environment.isWeb) return;
+    if (!environment.isWeb || this.notificationsSuppressed) return;
 
     const endpointName = this.getEndpointName(endpoint);
 
@@ -129,7 +148,7 @@ export class RetryNotificationService {
    * Notify user that retry was successful (web only)
    */
   notifyRetrySuccess(endpoint: string, attempt: number): void {
-    if (!environment.isWeb) return;
+    if (!environment.isWeb || this.notificationsSuppressed) return;
 
     this.retryState$.next({
       isRetrying: false,
