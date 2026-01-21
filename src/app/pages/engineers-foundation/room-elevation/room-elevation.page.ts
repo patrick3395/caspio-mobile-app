@@ -1933,6 +1933,127 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
    */
   private async initializeFromDexie(): Promise<void> {
     console.time('[RoomElevation] initializeFromDexie');
+
+    // WEBAPP MODE: Load directly from API (no Dexie)
+    if (environment.isWeb) {
+      console.log('[RoomElevation] WEBAPP: Loading room data directly from API');
+      console.log('[RoomElevation] serviceId:', this.serviceId, 'roomName:', this.roomName);
+      this.loading = true;
+      this.changeDetectorRef.detectChanges();
+
+      try {
+        // 1. Load all EFE rooms for this service and find matching room
+        const allRooms = await firstValueFrom(this.caspioService.getServicesEFE(this.serviceId));
+        const room = allRooms.find((r: any) => r.RoomName === this.roomName);
+
+        if (!room) {
+          // Room doesn't exist in database yet - it's a template room that needs to be created
+          console.log('[RoomElevation] WEBAPP: Room not found in database, loading from templates');
+
+          // Load templates to get room info
+          const templates = await this.foundationData.getEFETemplates();
+          const template = templates.find((t: any) => t.RoomName === this.roomName);
+
+          if (!template) {
+            console.error('[RoomElevation] WEBAPP: Room not found in database or templates');
+            this.loading = false;
+            return;
+          }
+
+          // Initialize empty room data from template
+          this.roomId = '';  // No ID yet - will be created on first save
+          this.roomData = {
+            roomName: this.roomName,
+            templateId: template.TemplateID || template.PK_ID,
+            notes: '',
+            fdf: '',
+            location: '',
+            elevationPoints: this.generatePointsFromTemplate(template),
+            fdfPhotos: {
+              top: null, bottom: null, topDetails: null, bottomDetails: null, threshold: null,
+              topCaption: '', bottomCaption: '', thresholdCaption: '',
+              topImageId: null, bottomImageId: null, thresholdImageId: null
+            }
+          };
+
+          this.isLoadingPoints = false;
+          this.loading = false;
+          this.initialLoadComplete = true;
+          this.changeDetectorRef.detectChanges();
+          console.timeEnd('[RoomElevation] initializeFromDexie');
+          return;
+        }
+
+        // 2. Room exists - load its data
+        this.roomId = String(room.EFEID || room.PK_ID);
+        this.lastLoadedRoomId = this.roomId;
+        console.log('[RoomElevation] WEBAPP: Found room with ID:', this.roomId);
+
+        // 3. Load points for this room
+        const points = await firstValueFrom(this.caspioService.getServicesEFEPoints(this.roomId));
+        console.log('[RoomElevation] WEBAPP: Loaded', points.length, 'points');
+
+        // 4. Load point attachments (photos)
+        let attachments: any[] = [];
+        if (points.length > 0) {
+          const pointIds = points.map((p: any) => String(p.PointID || p.PK_ID));
+          attachments = await firstValueFrom(this.caspioService.getServicesEFEAttachments(pointIds));
+          console.log('[RoomElevation] WEBAPP: Loaded', attachments.length, 'attachments');
+        }
+
+        // 5. Build roomData from API response
+        this.roomData = {
+          roomName: room.RoomName,
+          templateId: room.TemplateID,
+          notes: room.Notes || '',
+          fdf: room.FDF || '',
+          location: room.Location || '',
+          elevationPoints: points.map((p: any) => {
+            const pointId = String(p.PointID || p.PK_ID);
+            const pointPhotos = attachments
+              .filter((a: any) => String(a.PointID) === pointId)
+              .map((a: any) => ({
+                attachId: String(a.AttachID || a.PK_ID),
+                url: a.Attachment || a.Photo || '',
+                caption: a.Caption || '',
+                drawings: a.Drawings || '',
+                hasAnnotations: !!a.Drawings
+              }));
+
+            return {
+              name: p.PointName,
+              pointId: pointId,
+              pointNumber: p.PointNumber,
+              value: p.Reading || '',
+              photos: pointPhotos,
+              expanded: false
+            };
+          }),
+          fdfPhotos: {
+            top: null, bottom: null, topDetails: null, bottomDetails: null, threshold: null,
+            topCaption: '', bottomCaption: '', thresholdCaption: '',
+            topImageId: null, bottomImageId: null, thresholdImageId: null
+          }
+        };
+
+        // 6. Resolve S3 URLs for photos
+        await this.resolveS3UrlsForWebapp();
+
+        this.isLoadingPoints = false;
+        this.loading = false;
+        this.initialLoadComplete = true;
+        this.changeDetectorRef.detectChanges();
+        console.log('[RoomElevation] WEBAPP: Room loaded successfully');
+        console.timeEnd('[RoomElevation] initializeFromDexie');
+        return;
+      } catch (err: any) {
+        console.error('[RoomElevation] WEBAPP: Error loading room:', err);
+        this.loading = false;
+        return;
+      }
+    }
+
+    // MOBILE MODE: Use Dexie-first pattern
     console.log('[RoomElevation] DEXIE-FIRST: Loading from Dexie only');
     console.log('[RoomElevation] serviceId:', this.serviceId, 'roomName:', this.roomName);
 
@@ -6849,6 +6970,52 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       img.src = 'assets/img/photo-placeholder.png';
       photo.displayUrl = 'assets/img/photo-placeholder.png';
       photo.loading = false;
+    }
+  }
+
+  // ========== WEBAPP HELPER METHODS ==========
+
+  /**
+   * WEBAPP: Generate elevation points from template (for rooms not yet created in DB)
+   */
+  private generatePointsFromTemplate(template: any): any[] {
+    const pointCount = template.PointCount || 0;
+    const points: any[] = [];
+
+    for (let i = 1; i <= pointCount; i++) {
+      points.push({
+        name: `Point ${i}`,
+        pointId: '',  // No ID yet - will be created on first save
+        pointNumber: i,
+        value: '',
+        photos: [],
+        expanded: false
+      });
+    }
+
+    return points;
+  }
+
+  /**
+   * WEBAPP: Resolve S3 keys to signed URLs for all photos
+   */
+  private async resolveS3UrlsForWebapp(): Promise<void> {
+    if (!this.roomData?.elevationPoints) return;
+
+    for (const point of this.roomData.elevationPoints) {
+      for (const photo of point.photos || []) {
+        if (photo.url && this.caspioService.isS3Key(photo.url)) {
+          try {
+            const signedUrl = await this.caspioService.getS3FileUrl(photo.url);
+            photo.displayUrl = signedUrl;
+          } catch (err) {
+            console.warn('[RoomElevation] WEBAPP: Failed to resolve S3 URL:', err);
+            photo.displayUrl = photo.url;
+          }
+        } else {
+          photo.displayUrl = photo.url;
+        }
+      }
     }
   }
 }

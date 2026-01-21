@@ -3371,16 +3371,46 @@ body.dark-theme {
   }
 
   /* Input fields - enhanced focus with box-shadow for better visibility */
+  /* EXCLUDE login page - it uses border focus instead of highlight bars */
   ion-input:focus-within,
   ion-textarea:focus-within,
   ion-searchbar:focus-within {
     --highlight-color: var(--noble-orange, #F15A27);
   }
 
+  /* Login page: Remove all highlight bars - uses border-color change instead */
+  .login-content ion-input:focus-within,
+  .login-content ion-input {
+    --highlight-color: transparent !important;
+    --highlight-color-focused: transparent !important;
+    --highlight-color-valid: transparent !important;
+    --highlight-color-invalid: transparent !important;
+    --highlight-height: 0 !important;
+  }
+
   ion-input.has-focus,
   ion-textarea.has-focus {
     outline: 3px solid var(--noble-orange, #F15A27) !important;
     outline-offset: 0 !important;
+  }
+
+  /* Login page: No outline on inputs - uses container border instead */
+  .login-content ion-input.has-focus {
+    outline: none !important;
+  }
+
+  /* Login page: Hide the actual highlight bar DOM elements */
+  .login-content .input-highlight,
+  .login-content .input-bottom,
+  .login-content ion-input .input-highlight,
+  .login-content ion-input .input-bottom,
+  .login-content .native-wrapper::after,
+  .login-content .native-wrapper::before {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
   }
 
   /* Card and list items that are interactive */

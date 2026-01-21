@@ -1072,9 +1072,45 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         key: field.key
       };
 
-      // Store dropdown options (from Dexie if available)
-      if (field.dropdownOptions) {
-        this.visualDropdownOptions[field.templateId] = field.dropdownOptions;
+      // DEXIE-FIRST: Merge dropdown options from Dexie with cached options
+      // This preserves custom options added via "Other" while keeping base options from cache
+      if (field.answerType === 2) {
+        const existingOptions = this.visualDropdownOptions[field.templateId] || [];
+        const mergedOptions = new Set<string>();
+
+        // Add all existing options (from cache) except None/Other
+        existingOptions.forEach(opt => {
+          if (opt !== 'None' && opt !== 'Other') {
+            mergedOptions.add(opt);
+          }
+        });
+
+        // Add all options from Dexie (includes custom options) except None/Other
+        if (field.dropdownOptions && field.dropdownOptions.length > 0) {
+          field.dropdownOptions.forEach(opt => {
+            if (opt !== 'None' && opt !== 'Other') {
+              mergedOptions.add(opt);
+            }
+          });
+        }
+
+        // Also add any values from the answer that aren't in options (custom values)
+        // This handles backward compatibility when loading saved data
+        if (field.answer) {
+          const answerValues = field.answer.split(',').map(v => v.trim()).filter(v => v);
+          answerValues.forEach(val => {
+            if (val !== 'None' && val !== 'Other') {
+              mergedOptions.add(val);
+            }
+          });
+        }
+
+        // Convert to sorted array and add None/Other at end
+        const sortedOptions = Array.from(mergedOptions).sort((a, b) => a.localeCompare(b));
+        sortedOptions.push('None');
+        sortedOptions.push('Other');
+
+        this.visualDropdownOptions[field.templateId] = sortedOptions;
       }
 
       // Add to appropriate section
@@ -4788,6 +4824,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
   /**
    * Add a custom value from "Other" input to the options list
    * Allows adding multiple custom values to multi-select dropdowns
+   * DEXIE-FIRST: Custom options are persisted to Dexie for instant UI updates
    */
   async addMultiSelectOther(category: string, item: VisualItem) {
     const customValue = item.otherValue?.trim();
@@ -4846,12 +4883,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     // Clear the input field for the next entry
     item.otherValue = '';
 
-    // DEXIE-FIRST: Write-through to visualFields
+    // DEXIE-FIRST: Write-through to visualFields including updated dropdownOptions
+    // This ensures custom options persist across page loads and liveQuery updates
     await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
       answer: item.answer,
       otherValue: '',
-      isSelected: true
+      isSelected: true,
+      dropdownOptions: [...options]  // Save the updated options array to Dexie
     });
+
+    console.log('[OTHER] Saved dropdownOptions to Dexie:', options);
 
     // Save to database
     this.savingItems[key] = true;

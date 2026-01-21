@@ -300,7 +300,10 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       this.efeRecordIds = {};
       this.roomTemplates = [];
 
-      // Build room display data from server rooms
+      // Track which room names we've already added from API
+      const addedRoomNames = new Set<string>();
+
+      // Build room display data from server rooms (existing records)
       for (const room of rooms || []) {
         const roomName = room.RoomName;
         const templateId = room.TemplateID;
@@ -313,6 +316,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
         this.selectedRooms[roomName] = true;
         this.efeRecordIds[roomName] = String(efeId);
+        addedRoomNames.add(roomName);
 
         // Store elevation data for navigation
         this.roomElevationData[roomName] = {
@@ -330,10 +334,50 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           TemplateID: templateId,
           PK_ID: templateId,
           PointCount: template?.PointCount || 0,
-          Organization: room.Organization,
+          Organization: room.Organization ?? template?.Organization,
           isSelected: true,
           isSaving: false,
           efeId: String(efeId)
+        } as RoomDisplayData);
+      }
+
+      // Add template rooms with Auto='Yes' that don't have records yet
+      for (const template of this.allRoomTemplates) {
+        const roomName = template.RoomName;
+        const isAutoInclude = template.Auto === 'Yes' || template.Auto === true || template.Auto === 1;
+
+        // Skip if already added from API or not auto-include
+        if (addedRoomNames.has(roomName) || !isAutoInclude) {
+          continue;
+        }
+
+        const templateId = template.TemplateID || template.PK_ID;
+
+        // Mark as selected (will be created when user navigates to room)
+        this.selectedRooms[roomName] = true;
+        // No efeId yet - will be created on first save
+        this.efeRecordIds[roomName] = '';
+
+        // Store elevation data for navigation
+        this.roomElevationData[roomName] = {
+          roomName: roomName,
+          templateId: templateId,
+          elevationPoints: [],
+          pointCount: template.PointCount || 0,
+          notes: '',
+          fdf: '',
+          location: ''
+        };
+
+        this.roomTemplates.push({
+          RoomName: roomName,
+          TemplateID: templateId,
+          PK_ID: templateId,
+          PointCount: template.PointCount || 0,
+          Organization: template.Organization,
+          isSelected: true,
+          isSaving: false,
+          efeId: ''
         } as RoomDisplayData);
       }
 
@@ -348,7 +392,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       this.isEmpty = this.roomTemplates.length === 0;
       this.hasPendingSync = false;
 
-      console.log(`[ElevationPlotHub] WEBAPP: ${this.roomTemplates.length} rooms loaded`);
+      console.log(`[ElevationPlotHub] WEBAPP: ${this.roomTemplates.length} rooms loaded (including Auto=Yes templates)`);
     } catch (error) {
       console.error('[ElevationPlotHub] WEBAPP: Error loading data:', error);
     } finally {

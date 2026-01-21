@@ -4464,10 +4464,18 @@ export class CaspioService {
     );
   }
 
-  updateProject(projectId: string, updateData: any): Observable<any> {
-    // URL-encode the WHERE clause to handle the = sign properly
-    const whereClause = encodeURIComponent(`PK_ID=${projectId}`);
-    return this.put<any>(`/tables/LPS_Projects/records?q.where=${whereClause}`, updateData);
+  updateProject(projectId: string | number, updateData: any): Observable<any> {
+    // Note: Other PUT requests in this service use the same format without URL encoding
+    // and work correctly (e.g., updateEfeData, updateService, etc.)
+    const endpoint = `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
+    console.log('[CaspioService] updateProject called with:', { projectId, updateData, endpoint });
+    return this.put<any>(endpoint, updateData).pipe(
+      tap(response => console.log('[CaspioService] updateProject success:', response)),
+      catchError(error => {
+        console.error('[CaspioService] updateProject failed:', { projectId, endpoint, error });
+        throw error;
+      })
+    );
   }
   
   // Service methods
