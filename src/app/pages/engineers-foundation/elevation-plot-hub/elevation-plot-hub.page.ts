@@ -2031,15 +2031,24 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       }
       
       console.log('[Add Room] Final room name:', roomName);
-      
+
+      // DEBUG: Log template keys to verify Point*Name fields exist
+      console.log('[Add Room] Template keys:', Object.keys(template));
+      console.log('[Add Room] Template Point fields:', {
+        Point1Name: template.Point1Name,
+        Point2Name: template.Point2Name,
+        Point3Name: template.Point3Name,
+        PointCount: template.PointCount
+      });
+
       // Create room elevation data
       const elevationPoints: any[] = [];
-      
+
       // Extract elevation points from Point1Name, Point2Name, etc.
       for (let i = 1; i <= 20; i++) {
         const pointColumnName = `Point${i}Name`;
         const pointName = template[pointColumnName];
-        
+
         if (pointName && pointName.trim() !== '') {
           elevationPoints.push({
             pointNumber: i,
@@ -2051,6 +2060,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           });
         }
       }
+
+      console.log('[Add Room] Extracted elevation points:', elevationPoints.length, elevationPoints.map(ep => ep.name));
       
       this.roomElevationData[roomName] = {
         roomName: roomName,
@@ -2186,7 +2197,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         console.log('[Add Room] Room and points queued for sync:', roomName, 'tempEfeId:', tempEfeId);
       } else {
         // WEBAPP: Room created directly via API - now create points
-        console.log('[Add Room] WEBAPP: Creating elevation points via API for room EFEID:', tempEfeId);
+        console.log('[Add Room] WEBAPP: === STARTING POINT CREATION ===');
+        console.log('[Add Room] WEBAPP: tempEfeId value:', tempEfeId, 'type:', typeof tempEfeId);
+        console.log('[Add Room] WEBAPP: roomResponse:', JSON.stringify(roomResponse));
         console.log('[Add Room] WEBAPP: Points to create:', elevationPoints.length, elevationPoints.map(ep => ep.name));
 
         if (elevationPoints.length === 0) {

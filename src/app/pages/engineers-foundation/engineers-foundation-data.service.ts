@@ -1358,11 +1358,15 @@ export class EngineersFoundationDataService {
    * Create an EFE point (offline-first pattern with room dependency)
    */
   async createEFEPoint(pointData: any, roomTempId?: string): Promise<any> {
+    console.log('[EFE Data] createEFEPoint called with:', { pointData, roomTempId, isWeb: environment.isWeb });
+
     // Determine parent ID (room's temp or real ID)
     const parentId = roomTempId || String(pointData.EFEID);
+    console.log('[EFE Data] parentId resolved to:', parentId, 'type:', typeof parentId);
 
     // WEBAPP MODE: Create directly via API (if room has real ID, not temp)
     if (environment.isWeb && !String(parentId).startsWith('temp_')) {
+      console.log('[EFE Data] WEBAPP: Entering webapp branch for point creation');
       // Ensure EFEID is numeric (database expects integer)
       const numericEfeId = parseInt(String(parentId), 10);
       if (isNaN(numericEfeId)) {
