@@ -178,10 +178,10 @@ export class AllProjectsPage implements OnInit {
       return;
     }
 
-    // Collect all unique ProjectIDs
-    const projectIds = this.projects
+    // Collect all unique ProjectIDs (filter out undefined/null/empty)
+    const projectIds: string[] = this.projects
       .map(p => p.ProjectID)
-      .filter(id => id != null && id !== '');
+      .filter((id): id is string => id != null && id !== '');
 
     if (projectIds.length === 0) {
       return;

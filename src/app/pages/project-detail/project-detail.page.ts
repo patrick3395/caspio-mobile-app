@@ -2549,15 +2549,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           Attachment: `[File: ${file.name}]`
         };
         
-        // Remove popup - proceed directly with upload
-        // await this.showAttachmentDataPopup(attachData, file, serviceId);
-        
+        // WEBAPP: Show confirmation popup before upload (allows cancel)
+        if (environment.isWeb) {
+          await this.showAttachmentDataPopup(attachData, file, serviceId);
+        }
+
         // Show loading immediately
         loading = await this.loadingController.create({
           message: 'Uploading file...'
         });
         await loading.present();
-        
+
         // Create attachment WITH file in ONE request (using Observable converted to Promise)
         // Pass serviceId to tie document to specific service instance
         const response = await this.caspioService.createAttachmentWithFile(
@@ -2568,12 +2570,18 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           file,
           serviceId // Pass serviceId to differentiate between multiple instances
         ).toPromise();
-        
+
         // Attachment created - update UI immediately without waiting
         if (response) {
           // Reload attachments from database to ensure UI matches server state
           // Cache was automatically cleared by CaspioService, so this gets fresh data
           await this.loadExistingAttachments();
+
+          // WEBAPP: Trigger change detection to update UI with OnPush strategy
+          this.changeDetectorRef.markForCheck();
+
+          // Show success toast
+          await this.showToast('Document uploaded successfully', 'success');
 
           // Mark that changes have been made (for Re-Submit button)
           if (serviceId) {
@@ -2593,6 +2601,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
         await this.loadExistingAttachments();
+
+        // WEBAPP: Trigger change detection to update UI with OnPush strategy
+        this.changeDetectorRef.markForCheck();
+
+        // Show success toast
+        await this.showToast('Document replaced successfully', 'success');
 
         // Mark that changes have been made (for Re-Submit button)
         if (serviceId) {
@@ -4056,39 +4070,37 @@ Troubleshooting:
 
     await alert.present();
 
-    // Inject custom HTML form after alert is presented (web only with XSS protection)
-    if (environment.isWeb) {
-      setTimeout(() => {
-        const alertMessage = document.querySelector('.edit-address-alert .alert-message');
-        if (alertMessage) {
-          // Escape user-provided values to prevent XSS
-          const escapedAddress = this.escapeHtml(this.project?.Address || '');
-          const escapedCity = this.escapeHtml(this.project?.City || '');
-          const escapedZip = this.escapeHtml(this.project?.Zip || '');
+    // Inject custom HTML form after alert is presented (with XSS protection)
+    setTimeout(() => {
+      const alertMessage = document.querySelector('.edit-address-alert .alert-message');
+      if (alertMessage) {
+        // Escape user-provided values to prevent XSS
+        const escapedAddress = this.escapeHtml(this.project?.Address || '');
+        const escapedCity = this.escapeHtml(this.project?.City || '');
+        const escapedZip = this.escapeHtml(this.project?.Zip || '');
 
-          alertMessage.innerHTML = `
-            <div class="edit-address-form">
-              <div class="form-field">
-                <label>Street Address</label>
-                <input type="text" id="edit-address-input" value="${escapedAddress}" placeholder="Enter street address">
-              </div>
-              <div class="form-field">
-                <label>City</label>
-                <input type="text" id="edit-city-input" value="${escapedCity}" placeholder="Enter city">
-              </div>
-              <div class="form-field">
-                <label>State</label>
-                <select id="edit-state-select">${stateOptionsHtml}</select>
-              </div>
-              <div class="form-field">
-                <label>Zip Code</label>
-                <input type="text" id="edit-zip-input" value="${escapedZip}" placeholder="Enter zip code">
-              </div>
+        alertMessage.innerHTML = `
+          <div class="edit-address-form">
+            <div class="form-field">
+              <label>Street Address</label>
+              <input type="text" id="edit-address-input" value="${escapedAddress}" placeholder="Enter street address">
             </div>
-          `;
-        }
-      }, 100);
-    }
+            <div class="form-field">
+              <label>City</label>
+              <input type="text" id="edit-city-input" value="${escapedCity}" placeholder="Enter city">
+            </div>
+            <div class="form-field">
+              <label>State</label>
+              <select id="edit-state-select">${stateOptionsHtml}</select>
+            </div>
+            <div class="form-field">
+              <label>Zip Code</label>
+              <input type="text" id="edit-zip-input" value="${escapedZip}" placeholder="Enter zip code">
+            </div>
+          </div>
+        `;
+      }
+    }, 100);
   }
 
   /**
