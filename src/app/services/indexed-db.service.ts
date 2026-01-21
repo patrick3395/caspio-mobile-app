@@ -2699,6 +2699,7 @@ export class IndexedDbService {
       entityId,
       serviceId,
       localBlobId: blobId,
+      thumbBlobId: null,  // Will be populated in Phase 2 when thumbnail generation is added
       remoteS3Key: null,
       status: 'local_only',
       attachId: null,
