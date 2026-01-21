@@ -163,6 +163,11 @@ interface ServiceSnapshot {
             <ion-icon [name]="syncPaused ? 'play' : 'pause'" slot="start"></ion-icon>
             {{ syncPaused ? 'Resume Auto-Sync' : 'Pause Auto-Sync' }}
           </ion-button>
+
+          <ion-button expand="block" color="danger" (click)="nukeAllCache()">
+            <ion-icon name="nuclear" slot="start"></ion-icon>
+            NUKE ALL CACHED PHOTOS
+          </ion-button>
         </div>
       </ion-card-content>
     </ion-card>
@@ -568,6 +573,72 @@ export class StorageDebugComponent implements OnInit {
       this.log('Auto-sync PAUSED - no automatic purging will occur', 'warning');
     }
     this.cdr.detectChanges();
+  }
+
+  async nukeAllCache() {
+    const alert = await this.alertCtrl.create({
+      header: 'NUKE ALL CACHED PHOTOS?',
+      message: 'This will DELETE ALL entries in cachedPhotos table regardless of serviceId.\n\nThis is a diagnostic tool to see if cachedPhotos is where your storage is hiding.',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'NUKE IT',
+          cssClass: 'danger',
+          handler: () => this.executeNukeAllCache()
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async executeNukeAllCache() {
+    this.isRunning = true;
+    this.beforeSnapshot = await this.captureSnapshot();
+
+    this.log(`=== NUKING ALL CACHED PHOTOS ===`, 'warning');
+    this.log(`BEFORE: ${this.beforeSnapshot.cachedPhotos} cached photos`, 'info');
+
+    try {
+      // First, let's analyze what's in cachedPhotos
+      const allCached = await db.cachedPhotos.toArray();
+      const withServiceId = allCached.filter(p => p.serviceId && p.serviceId.length > 0);
+      const withoutServiceId = allCached.filter(p => !p.serviceId || p.serviceId.length === 0);
+      const withImageData = allCached.filter(p => (p as any).imageData);
+      const withBlobKey = allCached.filter(p => (p as any).blobKey);
+
+      this.log(`Analysis: ${withServiceId.length} with serviceId, ${withoutServiceId.length} without`, 'info');
+      this.log(`Storage type: ${withImageData.length} base64, ${withBlobKey.length} pointer`, 'info');
+
+      // Estimate size of base64 data
+      let base64Size = 0;
+      for (const cached of allCached) {
+        if ((cached as any).imageData) {
+          base64Size += (cached as any).imageData.length;
+        }
+      }
+      this.log(`Estimated base64 data: ${this.formatBytes(base64Size)}`, 'info');
+
+      // Delete ALL
+      const deleted = await db.cachedPhotos.clear();
+      this.log(`Deleted ALL cachedPhotos entries`, 'success');
+
+      // Capture after
+      this.afterSnapshot = await this.captureSnapshot();
+
+      this.log(`=== NUKE COMPLETE ===`, 'success');
+      this.log(`AFTER: ${this.afterSnapshot.cachedPhotos} cached photos`, 'info');
+      this.log(`Freed: ${this.beforeSnapshot.cachedPhotos - this.afterSnapshot.cachedPhotos} entries`, 'success');
+      this.log(`NOTE: Restart app to see iOS storage change`, 'warning');
+
+      this.currentSnapshot = this.afterSnapshot;
+      this.cdr.detectChanges();
+
+    } catch (err) {
+      this.log(`ERROR: ${err}`, 'error');
+    } finally {
+      this.isRunning = false;
+      this.cdr.detectChanges();
+    }
   }
 
   formatBytes(bytes: number): string {
