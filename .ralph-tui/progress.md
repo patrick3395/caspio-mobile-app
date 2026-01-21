@@ -122,3 +122,30 @@ esktop - mobile app unchanged |\n\n### Key animations added:\n- **Page transitio
 user interaction** - Non-blocking with `pointer-events: auto`, toasts stack vertically without overlapping\n- ✅ **All changes wrapped in `environment.isWeb` checks** - Mobile app unchanged\n\n### Additional Features:\n- Screen reader accessibility via `ScreenReaderAnnouncementService` integration\n- HTML escaping to prevent XSS\n- Smooth slide-in/out animations\n- Responsive design for mobile screens\n- Multiple toasts stack with automatic position updates\n- `dismissAll()` method available\n\n
 
 ---
+## ✓ Iteration 14 - G2-UX-004: Add confirmation dialogs for destructive actions
+*2026-01-20T23:23:18.368Z (916s)*
+
+**Status:** Completed
+
+**Notes:**
+# Acceptance Criteria Met\n| Criteria | Status |\n|----------|--------|\n| Delete actions require confirmation | ✅ All delete methods show confirmation dialog |\n| Clear description of what will be deleted | ✅ Messages specify item name/type being deleted |\n| Option to cancel | ✅ Cancel button and Escape key for web |\n| Keyboard accessible (Enter to confirm, Escape to cancel) | ✅ Web only via document event listener |\n| All changes wrapped in `environment.isWeb` | ✅ Mobile app unchanged |\n\n
+
+---
+## ✓ Iteration 15 - G2-RESP-001: Audit and fix tablet breakpoints
+*2026-01-20T23:39:46.950Z (987s)*
+
+**Status:** Completed
+
+**Notes:**
+|----------|--------|\n| No horizontal scrolling at any breakpoint | ✅ `overflow-x: hidden` globally + reduced grid minmax values |\n| Touch targets are at least 44x44px | ✅ All interactive elements have minimum dimensions |\n| Text remains readable | ✅ CSS `max()` ensures minimum font sizes |\n| Images scale appropriately | ✅ `max-width: 100%` + `height: auto` |\n| All changes wrapped in `environment.isWeb` checks | ✅ Uses `@media (hover: hover) and (pointer: fine)` - mobile app unchanged |\n\n
+
+---
+## ✓ Iteration 16 - G2-RESP-002: Optimize desktop layouts
+*2026-01-20T23:54:04.114Z (856s)*
+
+**Status:** Completed
+
+**Notes:**
+------|\n| Side-by-side layouts where appropriate | ✅ Grid layouts with 2-4 columns based on screen width |\n| Reasonable max-width for content (1200-1400px) | ✅ Progressive max-width: 1200px → 1400px → 1600px |\n| Multi-column layouts for project/service lists | ✅ 2-3 column grids for project lists |\n| Efficient use of whitespace | ✅ Increased padding and gaps on larger screens |\n| All changes wrapped in `environment.isWeb` check | ✅ Using CSS `@media (hover: hover) and (pointer: fine)` |\n\n
+
+---

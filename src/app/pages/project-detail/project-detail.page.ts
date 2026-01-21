@@ -17,6 +17,7 @@ import { MutationTrackingService, MutationType } from '../../services/mutation-t
 import { OptimisticUpdateService } from '../../services/optimistic-update.service';
 import { NavigationHistoryService } from '../../services/navigation-history.service';
 import { ConfirmationDialogService } from '../../services/confirmation-dialog.service';
+import { PageTitleService } from '../../services/page-title.service';
 
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
@@ -319,11 +320,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private mutationTracker: MutationTrackingService,
     private optimisticUpdate: OptimisticUpdateService,
     private navigationHistory: NavigationHistoryService,
-    private confirmationDialog: ConfirmationDialogService
+    private confirmationDialog: ConfirmationDialogService,
+    private pageTitleService: PageTitleService
   ) {}
 
   /**
    * Update breadcrumbs for web navigation (G2-NAV-002)
+   * Also updates page title (G2-SEO-001)
    */
   private updateBreadcrumbs() {
     if (!environment.isWeb) return;
@@ -337,6 +340,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       path: '',
       icon: 'document-text-outline'
     });
+
+    // G2-SEO-001: Update page title with project address
+    this.pageTitleService.setProjectTitle(projectName);
   }
 
   /**

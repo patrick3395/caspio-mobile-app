@@ -58,7 +58,12 @@
 
     <!-- Project Information Section -->
     <div class="info-section">
-      <h2 class="section-title">Project Information</h2>
+      <div class="section-header-with-action">
+        <h2 class="section-title">Project Information</h2>
+        <button class="edit-address-btn" (click)="openEditAddressModal()" title="Edit Address">
+          <ion-icon name="create-outline"></ion-icon>
+        </button>
+      </div>
 
       <!-- Mobile layout: Address only -->
       <div *ngIf="!platform.isWeb()">

@@ -12,6 +12,7 @@ import { BackgroundSyncService } from '../../../services/background-sync.service
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { NavigationHistoryService } from '../../../services/navigation-history.service';
 import { CaspioService } from '../../../services/caspio.service';
+import { PageTitleService } from '../../../services/page-title.service';
 import { filter } from 'rxjs/operators';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
@@ -72,7 +73,8 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     private indexedDb: IndexedDbService,
     private changeDetectorRef: ChangeDetectorRef,
     private navigationHistory: NavigationHistoryService,
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private pageTitleService: PageTitleService
   ) {
     // CRITICAL: Ensure loading screen shows immediately
     this.templateReady = false;
@@ -333,6 +335,19 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         }
       }
     }
+
+    // G2-SEO-001: Update page title with project address and current section
+    this.updatePageTitle();
+  }
+
+  /**
+   * G2-SEO-001: Update browser tab title based on current page
+   */
+  private updatePageTitle() {
+    if (!environment.isWeb) return;
+
+    const projectAddress = this.projectName || 'Project';
+    this.pageTitleService.setCategoryTitle(this.currentPageShortTitle, projectAddress + ' - EFE');
   }
 
   navigateToHome() {
