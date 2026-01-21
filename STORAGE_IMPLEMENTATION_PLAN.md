@@ -303,3 +303,69 @@ async rehydrateService(serviceId: string): Promise<void> {
 2. **Backwards compatibility:** Schema migration preserves existing data
 3. **Gradual rollout:** Can enable soft purge first, then hard purge later
 4. **Fallback:** Remote S3 URLs always available if local data missing
+
+---
+
+## Implementation Progress
+
+### Phase 1: Schema Changes (v10)
+
+| Task | Status | Date | Notes |
+|------|--------|------|-------|
+| 1.1 Add ServiceMetadata interface | ✅ DONE | 2026-01-21 | Added to `caspio-db.ts` lines 46-64. Includes PurgeState type. |
+| 1.2 Add thumbBlobId to LocalImage | ✅ DONE | 2026-01-21 | Added to `indexed-db.service.ts` line 105. |
+| 1.3 Schema v10 migration | ✅ DONE | 2026-01-21 | Added to `caspio-db.ts` lines 331-375. Adds serviceMetadata table + thumbBlobId migration. |
+
+### Phase 2: Thumbnail Infrastructure
+
+| Task | Status | Date | Notes |
+|------|--------|------|-------|
+| 2.1 persistThumbnail() in ThumbnailService | ⬜ TODO | | |
+| 2.2 Modify captureImage() for thumbnails | ⬜ TODO | | |
+| 2.3 Add thumbnail fallback to getDisplayUrl() | ⬜ TODO | | |
+
+### Phase 3: Service Metadata Tracking
+
+| Task | Status | Date | Notes |
+|------|--------|------|-------|
+| 3.1 Create ServiceMetadataService | ⬜ TODO | | |
+| 3.2 Add touchService() to pages | ⬜ TODO | | |
+| 3.3 Add setOpen() to page lifecycle | ⬜ TODO | | |
+| 3.4 Wire incrementLocalRevision | ⬜ TODO | | |
+| 3.5 Wire setServerAckRevision | ⬜ TODO | | |
+
+### Phase 4: Two-Stage Purge
+
+| Task | Status | Date | Notes |
+|------|--------|------|-------|
+| 4.1 Implement isPurgeSafe() | ⬜ TODO | | |
+| 4.2 Implement softPurgeImage() | ⬜ TODO | | |
+| 4.3 Implement hardPurgeInactiveServices() | ⬜ TODO | | |
+
+### Phase 5: Storage Pressure Handling
+
+| Task | Status | Date | Notes |
+|------|--------|------|-------|
+| 5.1 Modify performStorageCleanup() | ⬜ TODO | | |
+| 5.2 Re-enable pruneVerifiedBlobs() | ⬜ TODO | | |
+
+### Phase 6: Warning UI
+
+| Task | Status | Date | Notes |
+|------|--------|------|-------|
+| 6.1 Create sync-warning-banner | ⬜ TODO | | |
+| 6.2 Add manual purge option | ⬜ TODO | | |
+
+### Phase 7: Rehydration
+
+| Task | Status | Date | Notes |
+|------|--------|------|-------|
+| 7.1 Implement rehydrateService() | ⬜ TODO | | |
+
+### Decision Log
+
+| Decision | Rationale |
+|----------|-----------|
+| Thumbnail size: 200px (longest edge) | Matches existing ThumbnailService default (200x200 max, aspect ratio preserved) |
+| Pre-v10 photos: Leave alone | Photos captured before v10 won't have thumbnails; will use cachedPhoto fallback or S3 |
+| Inactivity threshold: 3 days | As specified in original plan |

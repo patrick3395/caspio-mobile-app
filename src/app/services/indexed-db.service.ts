@@ -101,7 +101,8 @@ export interface LocalImage {
   serviceId: string;
 
   // Local blob reference
-  localBlobId: string | null;   // FK to localBlobs table (null after pruning)
+  localBlobId: string | null;   // FK to localBlobs table (null after soft purge)
+  thumbBlobId: string | null;   // FK to localBlobs for 200px thumbnail (survives soft purge)
 
   // Remote reference (S3)
   remoteS3Key: string | null;   // S3 key (NOT signed URL - generate at runtime)

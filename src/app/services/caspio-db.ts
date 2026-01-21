@@ -43,6 +43,26 @@ export interface CachedPhoto {
   isAnnotated?: boolean;
 }
 
+/**
+ * ServiceMetadata - Service-level tracking for storage bloat prevention
+ * Tracks activity, sync state, and purge eligibility per inspection service
+ * Used by two-stage purge system to safely clean up inactive service data
+ */
+export type PurgeState = 'ACTIVE' | 'ARCHIVED' | 'PURGED';
+
+export interface ServiceMetadata {
+  serviceId: string;              // Primary key - the inspection service ID
+  templateVersion: number;        // Version of templates used for seeding
+  isOpen: boolean;                // Currently being viewed/edited by user
+  lastTouchedAt: number;          // Epoch ms when user last interacted
+  lastLocalRevision: number;      // Monotonic counter incremented on local changes
+  lastServerAckRevision: number;  // Last revision server confirmed synced
+  purgeState: PurgeState;         // Current purge state
+  estimatedLocalBytes?: number;   // Approximate storage used (for debugging)
+  createdAt: number;              // When service was first accessed
+  updatedAt: number;              // Last metadata update
+}
+
 export type OperationType = 'CREATE_ROOM' | 'CREATE_POINT' | 'UPLOAD_PHOTO' | 'UPDATE_ROOM' | 'DELETE_ROOM' |
                             'CREATE_VISUAL' | 'UPDATE_VISUAL' | 'DELETE_VISUAL' | 'UPLOAD_VISUAL_PHOTO' |
                             'UPLOAD_VISUAL_PHOTO_UPDATE' | 'UPLOAD_ROOM_POINT_PHOTO_UPDATE' | 'UPLOAD_FDF_PHOTO';
@@ -178,6 +198,7 @@ export class CaspioDB extends Dexie {
   operationsQueue!: Table<QueuedOperation, string>;
   visualFields!: Table<VisualField, number>;
   efeFields!: Table<EfeField, number>;
+  serviceMetadata!: Table<ServiceMetadata, string>;
 
   // MOBILE FIX: Cache last known good results for liveQueries
   // When IndexedDB has temporary connection issues during photo transactions,
@@ -306,6 +327,52 @@ export class CaspioDB extends Dexie {
       // EFE fields (v9) - normalized room-level storage for elevation plot
       // Compound indexes enable fast queries by serviceId for page rendering
       efeFields: '++id, key, serviceId, roomName, [serviceId+roomName], efeId, tempEfeId, dirty, updatedAt'
+    });
+
+    // Version 10: Add serviceMetadata table for storage bloat prevention
+    // Tracks service activity, sync state, and purge eligibility
+    // Also adds thumbBlobId to existing localImages for thumbnail fallback after soft purge
+    this.version(10).stores({
+      // Local-first image system
+      localImages: 'imageId, entityType, entityId, serviceId, status, attachId, createdAt, [entityType+entityId], [serviceId+entityType]',
+      localBlobs: 'blobId, createdAt',
+      uploadOutbox: 'opId, imageId, nextRetryAt, createdAt',
+
+      // Core sync system
+      pendingRequests: 'requestId, timestamp, status, priority, tempId',
+      tempIdMappings: 'tempId, realId, type',
+
+      // Caching
+      cachedServiceData: 'cacheKey, serviceId, dataType, lastUpdated',
+      cachedTemplates: 'cacheKey, type, lastUpdated',
+      cachedPhotos: 'photoKey, attachId, serviceId, cachedAt',
+
+      // Pending data
+      pendingCaptions: 'captionId, attachId, attachType, status, serviceId, createdAt',
+      pendingEFEData: 'tempId, serviceId, type, parentId',
+      pendingImages: 'imageId, requestId, status, serviceId, visualId',
+
+      // Operations queue
+      operationsQueue: 'id, type, status, createdAt, dedupeKey',
+
+      // Visual fields - normalized field-level storage for reactive UI
+      visualFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // EFE fields - normalized room-level storage for elevation plot
+      efeFields: '++id, key, serviceId, roomName, [serviceId+roomName], efeId, tempEfeId, dirty, updatedAt',
+
+      // Service metadata (v10) - tracks service activity for storage bloat prevention
+      // Compound index [purgeState+lastTouchedAt] enables efficient queries for inactive services
+      serviceMetadata: 'serviceId, lastTouchedAt, purgeState, [purgeState+lastTouchedAt]'
+    }).upgrade(tx => {
+      // Migrate existing localImages to have thumbBlobId: null
+      // This ensures the field exists for all images, new ones will get thumbnails on capture
+      console.log('[CaspioDB] v10 migration: Adding thumbBlobId to existing localImages');
+      return tx.table('localImages').toCollection().modify(img => {
+        if (img.thumbBlobId === undefined) {
+          img.thumbBlobId = null;
+        }
+      });
     });
 
     // Log successful database open
