@@ -115,7 +115,10 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
       // Load service instance number (for multiple EFE services on same project)
       // MUST await this to ensure instance number is loaded before UI renders
-      if (isNewService || isFirstLoad) {
+      // FIX: Also check !serviceInstanceLoaded because the component may be recreated
+      // (instance variables reset to defaults) while lastLoadedServiceId is static (persists).
+      // Without this check, returning to the same service would skip loading and show "EFE" not "EFE #1"
+      if (isNewService || isFirstLoad || !this.serviceInstanceLoaded) {
         await this.loadServiceInstanceNumber();
       }
 

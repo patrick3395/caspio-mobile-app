@@ -165,39 +165,102 @@ export class AllProjectsPage implements OnInit {
   }
   
   /**
-   * Load services for all projects
+   * Load services for all projects using batch API calls
+   * OPTIMIZED: Uses single API call per batch instead of N separate calls
+   * This prevents 503 errors from API rate limiting
    */
   loadServicesSimple() {
     if (!this.projects || !this.serviceTypes) {
       return;
     }
-    
-    // For each project, query Services table directly
-    this.projects.forEach(project => {
-      const projectId = project.ProjectID;
-      
-      if (projectId) {
-        this.caspioService.get(`/tables/LPS_Services/records?q.where=ProjectID='${projectId}'`).subscribe({
-          next: (response: any) => {
-            const services = response?.Result || [];
-            
-            if (services.length > 0) {
-              // Convert TypeIDs to service short codes (HUD, EFE, etc.)
-              const serviceNames = services.map((service: any) => {
-                const serviceType = this.serviceTypes.find(t => t.TypeID === service.TypeID);
-                return serviceType?.TypeShort || serviceType?.TypeName || 'Unknown';
-              }).filter((name: string) => name && name !== 'Unknown').join(', ');
-              
-              this.servicesCache[projectId] = serviceNames || '(No Services Selected)';
-            } else {
-              this.servicesCache[projectId] = '(No Services Selected)';
-            }
-          },
-          error: (error) => {
-            console.error(`Error loading services for ProjectID ${projectId}:`, error);
+
+    if (this.projects.length === 0) {
+      return;
+    }
+
+    // Collect all unique ProjectIDs
+    const projectIds = this.projects
+      .map(p => p.ProjectID)
+      .filter(id => id != null && id !== '');
+
+    if (projectIds.length === 0) {
+      return;
+    }
+
+    // WEBAPP: Batch in chunks of 20 to avoid URL length limits and API rate limiting
+    const BATCH_SIZE = 20;
+    const batches: string[][] = [];
+
+    for (let i = 0; i < projectIds.length; i += BATCH_SIZE) {
+      batches.push(projectIds.slice(i, i + BATCH_SIZE));
+    }
+
+    // Process batches sequentially to avoid overwhelming the API
+    this.processBatchSequentially(batches, 0);
+  }
+
+  /**
+   * Process service batches sequentially to prevent API overload
+   */
+  private processBatchSequentially(batches: string[][], index: number) {
+    if (index >= batches.length) {
+      // All batches processed, trigger change detection
+      this.changeDetectorRef.markForCheck();
+      return;
+    }
+
+    const batch = batches[index];
+    const whereClause = batch.map(id => `ProjectID='${id}'`).join(' OR ');
+
+    this.caspioService.get(`/tables/LPS_Services/records?q.where=${encodeURIComponent(whereClause)}`).subscribe({
+      next: (response: any) => {
+        const allServices = response?.Result || [];
+
+        // Group services by ProjectID client-side
+        const servicesByProject: { [projectId: string]: any[] } = {};
+        allServices.forEach((service: any) => {
+          const projectId = service.ProjectID;
+          if (!servicesByProject[projectId]) {
+            servicesByProject[projectId] = [];
+          }
+          servicesByProject[projectId].push(service);
+        });
+
+        // Map services to display format for each project in this batch
+        batch.forEach(projectId => {
+          const projectServices = servicesByProject[projectId] || [];
+
+          if (projectServices.length > 0) {
+            const serviceNames = projectServices.map((service: any) => {
+              const serviceType = this.serviceTypes.find((t: any) => t.TypeID === service.TypeID);
+              return serviceType?.TypeShort || serviceType?.TypeName || 'Unknown';
+            }).filter((name: string) => name && name !== 'Unknown').join(', ');
+
+            this.servicesCache[projectId] = serviceNames || '(No Services Selected)';
+          } else {
             this.servicesCache[projectId] = '(No Services Selected)';
           }
         });
+
+        // Trigger UI update after each batch
+        this.changeDetectorRef.markForCheck();
+
+        // Process next batch after a small delay to prevent API overload
+        setTimeout(() => {
+          this.processBatchSequentially(batches, index + 1);
+        }, 100);
+      },
+      error: (error) => {
+        console.error(`Error batch loading services:`, error);
+        // Set fallback for all projects in this batch
+        batch.forEach(projectId => {
+          this.servicesCache[projectId] = '(No Services Selected)';
+        });
+
+        // Continue with next batch even on error
+        setTimeout(() => {
+          this.processBatchSequentially(batches, index + 1);
+        }, 500);
       }
     });
   }

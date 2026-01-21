@@ -121,6 +121,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     // WEBAPP: Clear any loading state from previous navigation
     if (environment.isWeb) {
       this.selectingProjectId = null;
+      // G2-LOADING-001: Must trigger change detection to clear spinner with OnPush strategy
+      this.cdr.markForCheck();
     }
 
     // OPTIMIZATION: Smart caching - only reload if data is stale or user made changes
