@@ -43,7 +43,7 @@ export interface TempIdMapping {
 
 export interface CachedTemplate {
   cacheKey: string;
-  type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown';
+  type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown';
   templates: any[];
   lastUpdated: number;
 }
