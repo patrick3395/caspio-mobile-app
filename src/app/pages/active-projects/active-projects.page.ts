@@ -197,8 +197,8 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
       next: (projects) => {
         // Sort by DateOfRequest, newest to oldest
         this.projects = (projects || []).sort((a, b) => {
-          const dateA = a.DateOfRequest ? new Date(a.DateOfRequest).getTime() : 0;
-          const dateB = b.DateOfRequest ? new Date(b.DateOfRequest).getTime() : 0;
+          const dateA = a['DateOfRequest'] ? new Date(a['DateOfRequest']).getTime() : 0;
+          const dateB = b['DateOfRequest'] ? new Date(b['DateOfRequest']).getTime() : 0;
           return dateB - dateA; // Descending order (newest first)
         });
         console.log('📦 Loaded projects:', this.projects.length);

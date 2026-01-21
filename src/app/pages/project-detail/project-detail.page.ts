@@ -2559,21 +2559,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // ServiceID is NOT needed for Attach table - only ProjectID, TypeID, Title, Notes, Link, Attachment
         
-        // WEBAPP: Show cancellable upload popup
+        // WEBAPP: Show cancellable upload popup (tap backdrop to cancel)
         let uploadCancelled = false;
         if (environment.isWeb) {
           loading = await this.loadingController.create({
-            message: `Uploading ${file.name}...`,
-            backdropDismiss: false,
-            buttons: [
-              {
-                text: 'Cancel',
-                role: 'cancel',
-                handler: () => {
-                  uploadCancelled = true;
-                }
-              }
-            ]
+            message: `Uploading ${file.name}...<br><small>Tap outside to cancel</small>`,
+            backdropDismiss: true
+          });
+          loading.onDidDismiss().then((result: any) => {
+            if (result.role === 'backdrop') {
+              uploadCancelled = true;
+            }
           });
           await loading.present();
         } else {
@@ -2617,21 +2613,17 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
       } else if (action === 'replace' && doc.attachId) {
-        // WEBAPP: Show cancellable upload popup for replace
+        // WEBAPP: Show cancellable upload popup for replace (tap backdrop to cancel)
         let replaceCancelled = false;
         if (environment.isWeb) {
           loading = await this.loadingController.create({
-            message: `Replacing with ${file.name}...`,
-            backdropDismiss: false,
-            buttons: [
-              {
-                text: 'Cancel',
-                role: 'cancel',
-                handler: () => {
-                  replaceCancelled = true;
-                }
-              }
-            ]
+            message: `Replacing with ${file.name}...<br><small>Tap outside to cancel</small>`,
+            backdropDismiss: true
+          });
+          loading.onDidDismiss().then((result: any) => {
+            if (result.role === 'backdrop') {
+              replaceCancelled = true;
+            }
           });
           await loading.present();
         } else {
