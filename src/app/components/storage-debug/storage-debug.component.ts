@@ -61,9 +61,9 @@ interface ServiceSnapshot {
 
         <!-- Services List -->
         <div class="services-section" *ngIf="currentSnapshot?.services?.length">
-          <h3>Services ({{ currentSnapshot.services.length }})</h3>
+          <h3>Services ({{ currentSnapshot!.services!.length }})</h3>
           <ion-list>
-            <ion-item *ngFor="let svc of currentSnapshot.services" [class.purged]="svc.purgeState === 'PURGED'">
+            <ion-item *ngFor="let svc of currentSnapshot!.services!" [class.purged]="svc.purgeState === 'PURGED'">
               <ion-label>
                 <h2>{{ svc.serviceId | slice:0:8 }}...</h2>
                 <p>{{ svc.imageCount }} images | {{ formatBytes(svc.blobBytes) }}</p>
