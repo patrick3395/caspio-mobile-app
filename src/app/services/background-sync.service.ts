@@ -9,6 +9,7 @@ import { CaspioService } from './caspio.service';
 import { LocalImageService } from './local-image.service';
 import { OperationsQueueService } from './operations-queue.service';
 import { ServiceMetadataService } from './service-metadata.service';
+import { ThumbnailService } from './thumbnail.service';
 import { environment } from '../../environments/environment';
 
 export interface PhotoUploadComplete {
@@ -220,7 +221,8 @@ export class BackgroundSyncService {
     private caspioService: CaspioService,
     private localImageService: LocalImageService,
     private operationsQueue: OperationsQueueService,
-    private serviceMetadata: ServiceMetadataService
+    private serviceMetadata: ServiceMetadataService,
+    private thumbnailService: ThumbnailService
   ) {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
@@ -3096,77 +3098,54 @@ export class BackgroundSyncService {
   // ============================================================================
 
   /**
-   * Prune local blobs for verified images
+   * Prune local blobs for verified images (Phase 5: Storage Pressure Handling)
+   *
+   * Uses two-stage purge: generates thumbnail before deleting full-res blob.
    * Only prunes when:
    * - Image status is 'verified'
    * - Remote has been successfully loaded in UI at least once
    * - OR image is older than 24 hours (grace period for UI to load)
-   * - AND a cached base64 exists (or we create one first)
    */
   private async pruneVerifiedBlobs(): Promise<void> {
     if (!this.indexedDb.hasNewImageSystem()) {
       return;
     }
 
-    // DEXIE-FIRST: Disable blob pruning entirely
-    // LocalBlobs are the source of truth and should NOT be pruned.
-    // This also prevents the cachePhotoFromLocalBlob calls that were
-    // triggering unwanted caching during caption/annotation syncs.
-    console.log('[BackgroundSync] Skipping blob pruning (Dexie-first mode)');
-    return;
-
     try {
-      // Get all local images
       const allImages = await this.getAllLocalImages();
       const now = Date.now();
       const GRACE_PERIOD_MS = 24 * 60 * 60 * 1000; // 24 hours
-      
+
       let prunedCount = 0;
-      let cachedBeforePrune = 0;
-      
+
       for (const image of allImages) {
         // Skip if not verified
         if (image.status !== 'verified') {
           continue;
         }
-        
-        // Skip if no local blob
+
+        // Skip if no local blob (already pruned)
         if (!image.localBlobId) {
           continue;
         }
-        
+
         // Check if safe to prune
         const isPastGracePeriod = (now - image.createdAt) > GRACE_PERIOD_MS;
         const hasLoadedInUI = image.remoteLoadedInUI;
-        
+
         if (hasLoadedInUI || isPastGracePeriod) {
           try {
-            // DEFENSIVE CHECK: Before pruning, ensure we have a cached photo fallback
-            if (image.attachId) {
-              const cachedPhoto = await this.indexedDb.getCachedPhoto(String(image.attachId));
-              if (!cachedPhoto) {
-                // No cached photo exists - create one from the local blob before pruning
-                console.log('[BackgroundSync] No cached photo found, creating from blob before pruning:', image.imageId);
-                await this.cachePhotoFromLocalBlob(
-                  image.imageId, 
-                  String(image.attachId), 
-                  image.serviceId, 
-                  image.remoteS3Key || ''
-                );
-                cachedBeforePrune++;
-              }
-            }
-            
-            await this.localImageService.pruneLocalBlob(image.imageId);
+            // Use softPurgeImage which ensures thumbnail exists before pruning
+            await this.softPurgeImage(image.imageId);
             prunedCount++;
           } catch (err) {
             console.warn('[BackgroundSync] Failed to prune blob:', image.imageId, err);
           }
         }
       }
-      
-      if (prunedCount > 0 || cachedBeforePrune > 0) {
-        console.log(`[BackgroundSync] ✅ Pruned ${prunedCount} verified local blobs (cached ${cachedBeforePrune} first)`);
+
+      if (prunedCount > 0) {
+        console.log(`[BackgroundSync] ✅ Pruned ${prunedCount} verified local blobs (thumbnails preserved)`);
       }
     } catch (err) {
       console.warn('[BackgroundSync] Blob pruning error:', err);
@@ -3198,28 +3177,20 @@ export class BackgroundSyncService {
   // ============================================================================
 
   /**
-   * Perform storage cleanup after sync cycle
-   * Only runs if storage usage exceeds threshold
-   * Deletes old cached photos that aren't in active services
+   * Perform storage cleanup after sync cycle (Phase 5: Storage Pressure Handling)
+   *
+   * Two-stage approach:
+   * - Stage 1: Soft purge all verified images (delete full-res, keep thumbnails)
+   * - Stage 2: If still over 80%, hard purge inactive services
    */
   private async performStorageCleanup(): Promise<void> {
-    // First, prune verified local blobs using standard retention policy
+    // First, prune verified local blobs using standard retention policy (24h grace)
     await this.pruneVerifiedBlobs();
 
-    // DEXIE-FIRST: Skip all blob pruning - localBlobs are the source of truth
-    // This prevents caching during caption/annotation syncs
-    console.log('[BackgroundSync] Skipping storage pressure pruning (Dexie-first mode)');
-    return;
-
     try {
-      // ============================================================================
-      // STORAGE PRESSURE PRUNING (Requirement F)
-      // If usage/quota > 75%, prune oldest verified blobs using LRU by updatedAt
-      // ============================================================================
-
+      // Get current storage usage
       let usagePercent = 0;
-      
-      // Use navigator.storage.estimate() for accurate storage measurement
+
       if ('storage' in navigator && 'estimate' in (navigator as any).storage) {
         try {
           const estimate = await (navigator as any).storage.estimate();
@@ -3231,71 +3202,46 @@ export class BackgroundSyncService {
           usagePercent = stats.percent;
         }
       } else {
-        // Fallback for browsers without navigator.storage
         const stats = await this.indexedDb.getStorageStats();
         usagePercent = stats.percent;
       }
-      
-      // Check if storage pressure requires aggressive pruning
-      if (usagePercent > 75) {
-        console.log(`[BackgroundSync] ⚠️ Storage pressure: ${usagePercent.toFixed(1)}% - starting aggressive LRU pruning`);
-        
-        // Get verified images ordered by updatedAt (oldest first for LRU)
-        const verifiedImages = await this.indexedDb.getVerifiedImagesOrderedByAge();
-        console.log(`[BackgroundSync] Found ${verifiedImages.length} verified images with local blobs eligible for pruning`);
-        
-        let prunedCount = 0;
-        
-        // Prune oldest verified images until storage is under 70%
-        for (const image of verifiedImages) {
-          if (image.localBlobId && image.remoteLoadedInUI) {
-            // DEFENSIVE CHECK: Ensure cached photo exists before pruning
-            if (image.attachId) {
-              const cachedPhoto = await this.indexedDb.getCachedPhoto(String(image.attachId));
-              if (!cachedPhoto) {
-                // Create cached photo from blob before pruning
-                await this.cachePhotoFromLocalBlob(
-                  image.imageId, 
-                  String(image.attachId), 
-                  image.serviceId, 
-                  image.remoteS3Key || ''
-                );
-              }
-            }
-            
-            await this.localImageService.pruneLocalBlob(image.imageId);
-            prunedCount++;
-            
-            // Re-check storage every 5 images to avoid over-pruning
-            if (prunedCount % 5 === 0) {
-              if ('storage' in navigator && 'estimate' in (navigator as any).storage) {
-                const newEstimate = await (navigator as any).storage.estimate();
-                const newPercent = ((newEstimate.usage || 0) / (newEstimate.quota || 1)) * 100;
-                
-                if (newPercent < 70) {
-                  console.log(`[BackgroundSync] Storage now at ${newPercent.toFixed(1)}%, stopping pruning`);
-                  break;
-                }
-              }
-            }
-          }
-        }
-        
-        if (prunedCount > 0) {
-          console.log(`[BackgroundSync] ✅ Pruned ${prunedCount} verified blobs due to storage pressure`);
+
+      // No pressure - skip cleanup
+      if (usagePercent < 75) {
+        return;
+      }
+
+      console.log(`[BackgroundSync] ⚠️ Storage pressure: ${usagePercent.toFixed(1)}% - starting two-stage cleanup`);
+
+      // ============================================================================
+      // STAGE 1: Soft purge all verified images (thumbnails preserved)
+      // ============================================================================
+      const softResult = await this.softPurgeAllVerified();
+      console.log(`[BackgroundSync] Stage 1 complete: soft purged ${softResult.purged} images`);
+
+      // Re-check storage after soft purge
+      if ('storage' in navigator && 'estimate' in (navigator as any).storage) {
+        const newEstimate = await (navigator as any).storage.estimate();
+        const newPercent = ((newEstimate.usage || 0) / (newEstimate.quota || 1)) * 100;
+        console.log(`[BackgroundSync] Storage after soft purge: ${newPercent.toFixed(1)}%`);
+
+        // ============================================================================
+        // STAGE 2: If still over 80%, hard purge inactive services
+        // ============================================================================
+        if (newPercent >= 80) {
+          console.log('[BackgroundSync] Still over 80% - starting Stage 2 hard purge');
+          const hardResult = await this.hardPurgeInactiveServices();
+          console.log(`[BackgroundSync] Stage 2 complete: hard purged ${hardResult.purged.length} services, skipped ${hardResult.skipped.length}`);
         }
       }
-      
-      // Also prune verified blobs older than 72h for non-active jobs (retention policy)
-      await this.pruneOldVerifiedBlobs(72 * 60 * 60 * 1000);
-      
-      // Legacy cleanup: Get active service IDs and clean old cached photos
+
+      // Legacy cleanup: Clean old cached photos if still under pressure
       if (usagePercent > 70) {
         const activeServiceIds = await this.getActiveServiceIds();
         const deleted = await this.indexedDb.cleanupOldCachedPhotos(activeServiceIds, 30);
-        
+
         if (deleted > 0) {
-          console.log(`[BackgroundSync] Cleanup complete: deleted ${deleted} old cached photos`);
+          console.log(`[BackgroundSync] Legacy cleanup: deleted ${deleted} old cached photos`);
         }
       }
     } catch (err) {
@@ -3304,36 +3250,27 @@ export class BackgroundSyncService {
   }
   
   /**
-   * Prune verified blobs older than retention period (Requirement F)
+   * Prune verified blobs older than retention period
+   * Uses softPurgeImage to ensure thumbnails are preserved
    */
   private async pruneOldVerifiedBlobs(retentionMs: number): Promise<void> {
     try {
       const verifiedImages = await this.indexedDb.getVerifiedImagesOrderedByAge();
       const cutoffTime = Date.now() - retentionMs;
       let prunedCount = 0;
-      
+
       for (const image of verifiedImages) {
-        // Only prune if older than retention period and remote has been loaded
-        if (image.updatedAt < cutoffTime && image.localBlobId && image.remoteLoadedInUI) {
-          // DEFENSIVE CHECK: Ensure cached photo exists before pruning
-          if (image.attachId) {
-            const cachedPhoto = await this.indexedDb.getCachedPhoto(String(image.attachId));
-            if (!cachedPhoto) {
-              // Create cached photo from blob before pruning
-              await this.cachePhotoFromLocalBlob(
-                image.imageId, 
-                String(image.attachId), 
-                image.serviceId, 
-                image.remoteS3Key || ''
-              );
-            }
+        // Only prune if older than retention period and has local blob
+        if (image.updatedAt < cutoffTime && image.localBlobId) {
+          try {
+            await this.softPurgeImage(image.imageId);
+            prunedCount++;
+          } catch (err) {
+            console.warn('[BackgroundSync] Failed to prune old blob:', image.imageId, err);
           }
-          
-          await this.localImageService.pruneLocalBlob(image.imageId);
-          prunedCount++;
         }
       }
-      
+
       if (prunedCount > 0) {
         console.log(`[BackgroundSync] Pruned ${prunedCount} verified blobs older than ${retentionMs / (60 * 60 * 1000)}h`);
       }
@@ -3521,6 +3458,349 @@ export class BackgroundSyncService {
       }
     } catch (err) {
       console.warn('[BackgroundSync] Error syncing service revisions:', err);
+    }
+  }
+
+  // ============================================================================
+  // TWO-STAGE PURGE - Storage Bloat Prevention (Phase 4)
+  // ============================================================================
+
+  /**
+   * Stage 1: Soft purge - Delete full-res blob, keep thumbnail
+   * Called after upload ACK when image is verified on server
+   *
+   * @param imageId - The local image ID to soft purge
+   */
+  async softPurgeImage(imageId: string): Promise<void> {
+    try {
+      const image = await this.indexedDb.getLocalImage(imageId);
+      if (!image) {
+        console.warn('[BackgroundSync] softPurgeImage: Image not found:', imageId);
+        return;
+      }
+
+      // Only purge verified images
+      if (image.status !== 'verified') {
+        console.log('[BackgroundSync] softPurgeImage: Skipping non-verified image:', imageId, 'status:', image.status);
+        return;
+      }
+
+      // Skip if already purged (no local blob)
+      if (!image.localBlobId) {
+        console.log('[BackgroundSync] softPurgeImage: Already purged:', imageId);
+        return;
+      }
+
+      // Ensure thumbnail exists before deleting full-res
+      if (!image.thumbBlobId) {
+        console.log('[BackgroundSync] softPurgeImage: Generating thumbnail before purge:', imageId);
+        await this.generateAndStoreThumbnail(imageId);
+      }
+
+      // Delete full-res blob, keep thumbnail
+      await this.indexedDb.deleteLocalBlob(image.localBlobId);
+      await this.indexedDb.updateLocalImage(imageId, { localBlobId: null });
+
+      console.log('[BackgroundSync] ✅ Soft purged image:', imageId);
+    } catch (err) {
+      console.warn('[BackgroundSync] softPurgeImage error:', imageId, err);
+    }
+  }
+
+  /**
+   * Generate and store thumbnail for an existing image
+   * Used by soft purge when image was captured before thumbnail support
+   */
+  private async generateAndStoreThumbnail(imageId: string): Promise<void> {
+    const image = await this.indexedDb.getLocalImage(imageId);
+    if (!image || !image.localBlobId) {
+      console.warn('[BackgroundSync] generateAndStoreThumbnail: No image or blob:', imageId);
+      return;
+    }
+
+    // Get the full-res blob data
+    const blob = await this.indexedDb.getLocalBlob(image.localBlobId);
+    if (!blob || !blob.data) {
+      console.warn('[BackgroundSync] generateAndStoreThumbnail: Blob data not found:', imageId);
+      return;
+    }
+
+    try {
+      // Generate thumbnail
+      const thumbResult = await this.thumbnailService.generateThumbnailFromArrayBuffer(
+        blob.data,
+        blob.contentType || 'image/jpeg'
+      );
+
+      // Store thumbnail blob
+      const thumbBlobId = `thumb_${imageId}`;
+      await db.localBlobs.put({
+        blobId: thumbBlobId,
+        data: thumbResult.data,
+        contentType: thumbResult.contentType,
+        sizeBytes: thumbResult.sizeBytes,
+        createdAt: Date.now()
+      });
+
+      // Update image record with thumbnail reference
+      await this.indexedDb.updateLocalImage(imageId, { thumbBlobId });
+
+      console.log('[BackgroundSync] ✅ Generated thumbnail for:', imageId, 'size:', thumbResult.sizeBytes);
+    } catch (err) {
+      console.warn('[BackgroundSync] generateAndStoreThumbnail error:', imageId, err);
+    }
+  }
+
+  /**
+   * Soft purge all verified images
+   * Called during storage pressure handling
+   */
+  async softPurgeAllVerified(): Promise<{ purged: number; skipped: number }> {
+    let purged = 0;
+    let skipped = 0;
+
+    try {
+      const allImages = await this.getAllLocalImages();
+
+      for (const image of allImages) {
+        if (image.status === 'verified' && image.localBlobId) {
+          try {
+            await this.softPurgeImage(image.imageId);
+            purged++;
+          } catch {
+            skipped++;
+          }
+        }
+      }
+
+      console.log(`[BackgroundSync] softPurgeAllVerified: purged=${purged}, skipped=${skipped}`);
+    } catch (err) {
+      console.warn('[BackgroundSync] softPurgeAllVerified error:', err);
+    }
+
+    return { purged, skipped };
+  }
+
+  /**
+   * Stage 2: Hard purge - Delete all local data for inactive services
+   * Only purges services that are:
+   * - Inactive for more than 3 days (PURGE_AFTER_MS)
+   * - Safe to purge (no pending uploads, server has latest, not open)
+   *
+   * @returns Object with arrays of purged and skipped service IDs
+   */
+  async hardPurgeInactiveServices(): Promise<{ purged: string[]; skipped: string[] }> {
+    const PURGE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+    const cutoff = Date.now() - PURGE_AFTER_MS;
+
+    const purged: string[] = [];
+    const skipped: string[] = [];
+
+    try {
+      const inactiveServices = await this.serviceMetadata.getInactiveServices(cutoff);
+      console.log(`[BackgroundSync] hardPurgeInactiveServices: Found ${inactiveServices.length} inactive services`);
+
+      for (const service of inactiveServices) {
+        const { safe, reasons } = await this.serviceMetadata.isPurgeSafe(service.serviceId);
+
+        if (!safe) {
+          console.log(`[BackgroundSync] Skipping purge for ${service.serviceId}:`, reasons);
+          skipped.push(service.serviceId);
+          continue;
+        }
+
+        // Purge all data for this service
+        await this.purgeServiceData(service.serviceId);
+        await this.serviceMetadata.setPurgeState(service.serviceId, 'ARCHIVED');
+        purged.push(service.serviceId);
+
+        console.log(`[BackgroundSync] ✅ Hard purged service: ${service.serviceId}`);
+      }
+
+      console.log(`[BackgroundSync] hardPurgeInactiveServices complete: purged=${purged.length}, skipped=${skipped.length}`);
+    } catch (err) {
+      console.warn('[BackgroundSync] hardPurgeInactiveServices error:', err);
+    }
+
+    return { purged, skipped };
+  }
+
+  /**
+   * Delete all local data for a service (full-res blobs, thumbnails, images, fields)
+   * Keeps metadata record for tracking purposes (marked as ARCHIVED)
+   */
+  private async purgeServiceData(serviceId: string): Promise<void> {
+    try {
+      console.log(`[BackgroundSync] Purging all data for service: ${serviceId}`);
+
+      // Get all local images for this service
+      const images = await this.indexedDb.getLocalImagesForService(serviceId);
+
+      // Delete all blobs (full-res and thumbnails) and image records
+      for (const image of images) {
+        // Delete full-res blob if exists
+        if (image.localBlobId) {
+          await this.indexedDb.deleteLocalBlob(image.localBlobId);
+        }
+        // Delete thumbnail blob if exists
+        if (image.thumbBlobId) {
+          await this.indexedDb.deleteLocalBlob(image.thumbBlobId);
+        }
+      }
+
+      // Delete local image records
+      await db.localImages.where('serviceId').equals(serviceId).delete();
+
+      // Delete visual fields for this service
+      await db.visualFields.where('serviceId').equals(serviceId).delete();
+
+      // Delete EFE fields for this service
+      await db.efeFields.where('serviceId').equals(serviceId).delete();
+
+      // Delete cached photos for this service
+      await db.cachedPhotos.where('serviceId').equals(serviceId).delete();
+
+      // Delete cached annotated images for this service
+      await db.cachedAnnotatedImages.where('serviceId').equals(serviceId).delete();
+
+      // Delete pending captions for this service
+      await db.pendingCaptions.where('serviceId').equals(serviceId).delete();
+
+      console.log(`[BackgroundSync] ✅ Purged data for service: ${serviceId} (${images.length} images)`);
+    } catch (err) {
+      console.warn(`[BackgroundSync] purgeServiceData error for ${serviceId}:`, err);
+      throw err;
+    }
+  }
+
+  // ============================================================================
+  // MANUAL PURGE - User-initiated storage cleanup (Phase 6)
+  // ============================================================================
+
+  /**
+   * Check if a service can be safely purged
+   * Returns detailed status for UI to display appropriate warnings
+   */
+  async getServicePurgeStatus(serviceId: string): Promise<{
+    canPurge: boolean;
+    hasUnsyncedData: boolean;
+    pendingCount: number;
+    reasons: string[];
+  }> {
+    const { safe, reasons } = await this.serviceMetadata.isPurgeSafe(serviceId);
+    const pendingCount = await this.serviceMetadata.getOutboxCount(serviceId);
+    const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
+
+    const hasUnsyncedData = pendingCount > 0 ||
+      (metadata ? metadata.lastServerAckRevision < metadata.lastLocalRevision : false);
+
+    return {
+      canPurge: safe,
+      hasUnsyncedData,
+      pendingCount,
+      reasons
+    };
+  }
+
+  /**
+   * Manually purge a service's local data
+   * Use forceUnsafe=true to purge even if there's unsynced data (with user confirmation)
+   *
+   * @returns Result object with success status and any warnings
+   */
+  async manualPurgeService(
+    serviceId: string,
+    forceUnsafe: boolean = false
+  ): Promise<{
+    success: boolean;
+    purgedImages: number;
+    warning?: string;
+    error?: string;
+  }> {
+    console.log(`[BackgroundSync] Manual purge requested for service: ${serviceId}, forceUnsafe: ${forceUnsafe}`);
+
+    try {
+      const status = await this.getServicePurgeStatus(serviceId);
+
+      // Block if unsafe and not forced
+      if (!status.canPurge && !forceUnsafe) {
+        return {
+          success: false,
+          purgedImages: 0,
+          warning: `Cannot purge: ${status.reasons.join(', ')}. Use force option to override.`
+        };
+      }
+
+      // Warn if forcing unsafe purge
+      let warning: string | undefined;
+      if (!status.canPurge && forceUnsafe) {
+        warning = `Forced purge with unsynced data: ${status.reasons.join(', ')}`;
+        console.warn('[BackgroundSync] ⚠️', warning);
+      }
+
+      // Count images before purge
+      const imagesBefore = await db.localImages.where('serviceId').equals(serviceId).count();
+
+      // Perform the purge
+      await this.purgeServiceData(serviceId);
+
+      // Update service metadata
+      await this.serviceMetadata.setPurgeState(serviceId, 'PURGED');
+
+      return {
+        success: true,
+        purgedImages: imagesBefore,
+        warning
+      };
+    } catch (err) {
+      console.error('[BackgroundSync] Manual purge failed:', err);
+      return {
+        success: false,
+        purgedImages: 0,
+        error: err instanceof Error ? err.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get storage usage statistics for a service
+   * Useful for showing users how much space they can free
+   */
+  async getServiceStorageStats(serviceId: string): Promise<{
+    imageCount: number;
+    blobCount: number;
+    estimatedBytes: number;
+  }> {
+    try {
+      const images = await db.localImages.where('serviceId').equals(serviceId).toArray();
+
+      let blobCount = 0;
+      let estimatedBytes = 0;
+
+      for (const img of images) {
+        if (img.localBlobId) {
+          blobCount++;
+          const blob = await db.localBlobs.get(img.localBlobId);
+          if (blob) {
+            estimatedBytes += blob.sizeBytes || 0;
+          }
+        }
+        if (img.thumbBlobId) {
+          const thumb = await db.localBlobs.get(img.thumbBlobId);
+          if (thumb) {
+            estimatedBytes += thumb.sizeBytes || 0;
+          }
+        }
+      }
+
+      return {
+        imageCount: images.length,
+        blobCount,
+        estimatedBytes
+      };
+    } catch (err) {
+      console.warn('[BackgroundSync] Error getting storage stats:', err);
+      return { imageCount: 0, blobCount: 0, estimatedBytes: 0 };
     }
   }
 

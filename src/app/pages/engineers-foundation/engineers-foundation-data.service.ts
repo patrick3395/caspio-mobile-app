@@ -8,6 +8,7 @@ import { OfflineDataCacheService } from '../../services/offline-data-cache.servi
 import { OfflineTemplateService } from '../../services/offline-template.service';
 import { OfflineService } from '../../services/offline.service';
 import { LocalImageService } from '../../services/local-image.service';
+import { ServiceMetadataService } from '../../services/service-metadata.service';
 import { environment } from '../../../environments/environment';
 
 interface CacheEntry<T> {
@@ -46,7 +47,8 @@ export class EngineersFoundationDataService {
     private readonly offlineCache: OfflineDataCacheService,
     private readonly offlineTemplate: OfflineTemplateService,
     private readonly offlineService: OfflineService,
-    private readonly localImageService: LocalImageService
+    private readonly localImageService: LocalImageService,
+    private readonly serviceMetadata: ServiceMetadataService
   ) {
     this.subscribeToSyncEvents();
   }
@@ -1900,5 +1902,150 @@ export class EngineersFoundationDataService {
 
     // Merge with pending offline visuals
     return this.offlineCache.getMergedVisuals(serviceId, apiVisuals);
+  }
+
+  // ============================================================================
+  // REHYDRATION - Restore purged service data from server (Phase 7)
+  // ============================================================================
+
+  /**
+   * Rehydrate a service that was previously purged
+   * Fetches fresh data from the server and restores to ACTIVE state
+   *
+   * Called when user opens a service that's in PURGED or ARCHIVED state.
+   * Must be online to rehydrate.
+   *
+   * @param serviceId - The service to rehydrate
+   * @returns Result with success status and counts of restored items
+   */
+  async rehydrateService(serviceId: string): Promise<{
+    success: boolean;
+    restored: {
+      visuals: number;
+      efeRooms: number;
+      visualAttachments: number;
+      efeAttachments: number;
+    };
+    error?: string;
+  }> {
+    console.log(`[DataService] 🔄 Rehydrating service: ${serviceId}`);
+
+    const result = {
+      success: false,
+      restored: {
+        visuals: 0,
+        efeRooms: 0,
+        visualAttachments: 0,
+        efeAttachments: 0
+      },
+      error: undefined as string | undefined
+    };
+
+    // Must be online to rehydrate
+    if (!this.offlineService.isOnline()) {
+      result.error = 'Cannot rehydrate while offline. Please connect to the internet.';
+      console.warn('[DataService] Rehydration failed: offline');
+      return result;
+    }
+
+    try {
+      // Check current purge state
+      const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
+      if (metadata && metadata.purgeState === 'ACTIVE') {
+        console.log('[DataService] Service already ACTIVE, no rehydration needed');
+        result.success = true;
+        return result;
+      }
+
+      // Clear in-memory caches for this service to force fresh fetch
+      this.invalidateCachesForService(serviceId, 'rehydration_start');
+
+      // Fetch fresh data from server using existing API methods
+      // 1. Fetch visuals
+      console.log('[DataService] Rehydrating visuals...');
+      const visuals = await firstValueFrom(this.caspioService.getVisualsByService(serviceId));
+      if (visuals && visuals.length > 0) {
+        await this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals);
+        result.restored.visuals = visuals.length;
+        console.log(`[DataService] ✅ Restored ${visuals.length} visuals`);
+
+        // 2. Fetch visual attachments for each visual
+        for (const visual of visuals) {
+          const visualId = visual.VisualID || visual.visualId;
+          if (visualId) {
+            const attachments = await firstValueFrom(
+              this.caspioService.getVisualAttachments(visualId)
+            );
+            if (attachments && attachments.length > 0) {
+              await this.indexedDb.cacheVisualAttachments(visualId, attachments);
+              result.restored.visualAttachments += attachments.length;
+            }
+          }
+        }
+        console.log(`[DataService] ✅ Restored ${result.restored.visualAttachments} visual attachments`);
+      }
+
+      // 3. Fetch EFE rooms
+      console.log('[DataService] Rehydrating EFE rooms...');
+      const efeRooms = await firstValueFrom(this.caspioService.getEFEByService(serviceId));
+      if (efeRooms && efeRooms.length > 0) {
+        await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', efeRooms);
+        result.restored.efeRooms = efeRooms.length;
+        console.log(`[DataService] ✅ Restored ${efeRooms.length} EFE rooms`);
+
+        // 4. Fetch EFE points and attachments for each room
+        for (const room of efeRooms) {
+          const roomId = room.RoomID || room.roomId;
+          if (roomId) {
+            const points = await firstValueFrom(this.caspioService.getEFEPoints(roomId));
+            if (points && points.length > 0) {
+              await this.indexedDb.cacheServiceData(serviceId, 'efe_points', points);
+
+              // Fetch attachments for each point
+              for (const point of points) {
+                const pointId = point.PointID || point.pointId;
+                if (pointId) {
+                  const attachments = await firstValueFrom(
+                    this.caspioService.getEFEPointAttachments(pointId)
+                  );
+                  if (attachments && attachments.length > 0) {
+                    await this.indexedDb.cacheEFEPointAttachments(pointId, attachments);
+                    result.restored.efeAttachments += attachments.length;
+                  }
+                }
+              }
+            }
+          }
+        }
+        console.log(`[DataService] ✅ Restored ${result.restored.efeAttachments} EFE attachments`);
+      }
+
+      // Update purge state to ACTIVE
+      await this.serviceMetadata.setPurgeState(serviceId, 'ACTIVE');
+      await this.serviceMetadata.touchService(serviceId);
+
+      // Clear caches again to ensure UI picks up fresh data
+      this.invalidateCachesForService(serviceId, 'rehydration_complete');
+
+      result.success = true;
+      console.log(`[DataService] ✅ Rehydration complete for service: ${serviceId}`, result.restored);
+
+    } catch (err) {
+      result.error = err instanceof Error ? err.message : 'Unknown error during rehydration';
+      console.error('[DataService] Rehydration failed:', err);
+    }
+
+    return result;
+  }
+
+  /**
+   * Check if a service needs rehydration (is in PURGED or ARCHIVED state)
+   */
+  async needsRehydration(serviceId: string): Promise<boolean> {
+    const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
+    if (!metadata) {
+      return false; // New service, doesn't need rehydration
+    }
+    return metadata.purgeState === 'PURGED' || metadata.purgeState === 'ARCHIVED';
   }
 }

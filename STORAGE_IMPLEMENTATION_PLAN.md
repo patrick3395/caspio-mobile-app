@@ -338,29 +338,29 @@ async rehydrateService(serviceId: string): Promise<void> {
 
 | Task | Status | Date | Notes |
 |------|--------|------|-------|
-| 4.1 Implement isPurgeSafe() | ⬜ TODO | | |
-| 4.2 Implement softPurgeImage() | ⬜ TODO | | |
-| 4.3 Implement hardPurgeInactiveServices() | ⬜ TODO | | |
+| 4.1 Implement isPurgeSafe() | ✅ DONE | 2026-01-21 | Already implemented in `service-metadata.service.ts` lines 223-254. Returns `{ safe, reasons }` with 3 rules: outbox empty, revisions synced, not open. |
+| 4.2 Implement softPurgeImage() | ✅ DONE | 2026-01-21 | Added to `background-sync.service.ts` lines 3539-3573. Generates thumbnail if missing, deletes full-res blob, keeps thumbBlobId. |
+| 4.3 Implement hardPurgeInactiveServices() | ✅ DONE | 2026-01-21 | Added to `background-sync.service.ts` lines 3657-3691. Purges services inactive 3+ days that pass isPurgeSafe(). Also added `purgeServiceData()` helper (lines 3697-3739) and `softPurgeAllVerified()` (lines 3623-3647). |
 
 ### Phase 5: Storage Pressure Handling
 
 | Task | Status | Date | Notes |
 |------|--------|------|-------|
-| 5.1 Modify performStorageCleanup() | ⬜ TODO | | |
-| 5.2 Re-enable pruneVerifiedBlobs() | ⬜ TODO | | |
+| 5.1 Modify performStorageCleanup() | ✅ DONE | 2026-01-21 | Replaced early return with two-stage cleanup: Stage 1 soft purge at 75%, Stage 2 hard purge at 80%. Lines 3186-3250. |
+| 5.2 Re-enable pruneVerifiedBlobs() | ✅ DONE | 2026-01-21 | Removed early return, now uses `softPurgeImage()` to ensure thumbnails preserved. Lines 3109-3153. Also updated `pruneOldVerifiedBlobs()` (lines 3256-3280). |
 
 ### Phase 6: Warning UI
 
 | Task | Status | Date | Notes |
 |------|--------|------|-------|
-| 6.1 Create sync-warning-banner | ⬜ TODO | | |
-| 6.2 Add manual purge option | ⬜ TODO | | |
+| 6.1 Create sync-warning-banner | ✅ DONE | 2026-01-21 | Created `sync-warning-banner.component.ts`. Shows warning when outboxCount > 0 or revisions unsynced. Mobile only. |
+| 6.2 Add manual purge option | ✅ DONE | 2026-01-21 | Added `manualPurgeService()`, `getServicePurgeStatus()`, `getServiceStorageStats()` to BackgroundSync. Lines 3676-3805. |
 
 ### Phase 7: Rehydration
 
 | Task | Status | Date | Notes |
 |------|--------|------|-------|
-| 7.1 Implement rehydrateService() | ⬜ TODO | | |
+| 7.1 Implement rehydrateService() | ✅ DONE | 2026-01-21 | Added `rehydrateService()` and `needsRehydration()` to EngineersFoundationDataService. Lines 1907-2051. Fetches visuals, EFE rooms, attachments from server. |
 
 ### Decision Log
 
