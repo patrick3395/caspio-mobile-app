@@ -72,21 +72,11 @@ export class LbwPdfService {
 
     try {
       // Show loading indicator with cancel button
-      // Web: Show progress bar with percentage
+      // Web: Show progress bar with percentage (injected after present to avoid HTML escaping)
       // Mobile: Show simple loading message
-      const alertMessage = environment.isWeb
-        ? `<div class="progress-container">
-            <div class="progress-percentage">0%</div>
-            <div class="progress-bar-wrapper">
-              <div class="progress-bar-fill" style="width: 0%"></div>
-            </div>
-            <div class="progress-step">Initializing...</div>
-          </div>`
-        : 'Initializing...';
-
       loading = await this.alertController.create({
         header: 'Loading Report',
-        message: alertMessage,
+        message: environment.isWeb ? '' : 'Initializing...',
         buttons: [
           {
             text: 'Cancel',
@@ -103,6 +93,22 @@ export class LbwPdfService {
         cssClass: environment.isWeb ? 'progress-loading-alert' : 'template-loading-alert'
       });
       await loading.present();
+
+      // WEBAPP: Inject HTML progress bar after alert is presented to bypass Angular sanitizer
+      if (environment.isWeb) {
+        const alertEl = document.querySelector('.progress-loading-alert');
+        const alertMessage = alertEl?.querySelector('.alert-message');
+        if (alertMessage) {
+          alertMessage.innerHTML = `
+            <div class="progress-container">
+              <div class="progress-percentage">0%</div>
+              <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" style="width: 0%"></div>
+              </div>
+              <div class="progress-step">Initializing...</div>
+            </div>`;
+        }
+      }
 
       console.log('[LBW PDF Service] Starting PDF generation for:', { projectId, serviceId });
 

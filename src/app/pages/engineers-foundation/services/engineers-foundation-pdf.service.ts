@@ -79,21 +79,11 @@ export class EngineersFoundationPdfService {
 
     try {
       // Show loading indicator with cancel button
-      // Web: Show progress bar with percentage
+      // Web: Show progress bar with percentage (injected after present to avoid HTML escaping)
       // Mobile: Show simple loading message
-      const alertMessage = environment.isWeb
-        ? `<div class="progress-container">
-            <div class="progress-percentage">0%</div>
-            <div class="progress-bar-wrapper">
-              <div class="progress-bar-fill" style="width: 0%"></div>
-            </div>
-            <div class="progress-step">Initializing...</div>
-          </div>`
-        : 'Initializing...';
-
       loading = await this.alertController.create({
         header: 'Loading Report',
-        message: alertMessage,
+        message: environment.isWeb ? '' : 'Initializing...',
         buttons: [
           {
             text: 'Cancel',
@@ -110,6 +100,22 @@ export class EngineersFoundationPdfService {
         cssClass: environment.isWeb ? 'progress-loading-alert' : 'template-loading-alert'
       });
       await loading.present();
+
+      // WEBAPP: Inject HTML progress bar after alert is presented to bypass Angular sanitizer
+      if (environment.isWeb) {
+        const alertEl = document.querySelector('.progress-loading-alert');
+        const alertMessage = alertEl?.querySelector('.alert-message');
+        if (alertMessage) {
+          alertMessage.innerHTML = `
+            <div class="progress-container">
+              <div class="progress-percentage">0%</div>
+              <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" style="width: 0%"></div>
+              </div>
+              <div class="progress-step">Initializing...</div>
+            </div>`;
+        }
+      }
 
       console.log('[PDF Service] Starting PDF generation for:', { projectId, serviceId });
 
@@ -836,6 +842,9 @@ export class EngineersFoundationPdfService {
       const attachments = await this.foundationData.getVisualAttachments(visualId);
       const photos = [];
 
+      // Load Fabric.js for annotation rendering
+      const fabric = await this.fabricService.getFabric();
+
       for (const attachment of (attachments || [])) {
         const attachId = attachment.AttachID || attachment.attachId || attachment.imageId || '';
         const caption = attachment.Annotation || attachment.Caption || attachment.caption || '';
@@ -940,6 +949,21 @@ export class EngineersFoundationPdfService {
           }
         }
 
+        // Render annotations if we have a valid URL and drawings data
+        if (finalUrl && drawings) {
+          try {
+            console.log('[PDF Service] Rendering annotations for visual attachment:', attachId);
+            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawings, { quality: 0.9, format: 'jpeg', fabric });
+            if (annotatedUrl && annotatedUrl !== finalUrl) {
+              finalUrl = annotatedUrl;
+              console.log('[PDF Service] ✓ Annotations rendered successfully for:', attachId);
+            }
+          } catch (renderError) {
+            console.error('[PDF Service] Error rendering visual photo annotation:', renderError);
+            // Continue with unannotated image
+          }
+        }
+
         // Only add photo if we have a valid URL
         if (finalUrl) {
           photos.push({
@@ -947,7 +971,7 @@ export class EngineersFoundationPdfService {
             caption: caption,
             conversionSuccess: conversionSuccess
           });
-        } else if (attachment.Photo || attachment.PhotoPath) {
+        } else if (attachment.Photo || attachment.PhotoPath || attachment.Attachment) {
           // Mark as failed if there was supposed to be a photo
           console.warn('[PDF Service] No photo data available for attachment:', attachId);
           photos.push({

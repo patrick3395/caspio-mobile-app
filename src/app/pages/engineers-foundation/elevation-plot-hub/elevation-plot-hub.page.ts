@@ -2096,50 +2096,69 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       this.savingRooms[roomName] = false;  // No loading needed - Dexie-first
       this.changeDetectorRef.detectChanges();
 
-      // DEXIE-FIRST: Add/update room in Dexie with tempEfeId
-      // This ensures room-elevation page can load instantly from Dexie
-      // Use addRoom() which handles both new rooms (like "Bedroom #2") and existing template rooms
-      try {
-        // Convert elevationPoints to EfePoint format for Dexie
-        const efePoints: EfePoint[] = elevationPoints.map((ep: any) => ({
-          pointNumber: ep.pointNumber,
-          pointId: null,
-          tempPointId: null,  // Will be set by createPointRecordsForRoom
-          name: ep.name,
-          value: '',
-          photoCount: 0
-        }));
+      // WEBAPP MODE: Skip Dexie operations - room and points already created via API
+      // MOBILE MODE: Use Dexie-first pattern for offline support
+      if (!environment.isWeb) {
+        // DEXIE-FIRST: Add/update room in Dexie with tempEfeId
+        // This ensures room-elevation page can load instantly from Dexie
+        // Use addRoom() which handles both new rooms (like "Bedroom #2") and existing template rooms
+        try {
+          // Convert elevationPoints to EfePoint format for Dexie
+          const efePoints: EfePoint[] = elevationPoints.map((ep: any) => ({
+            pointNumber: ep.pointNumber,
+            pointId: null,
+            tempPointId: null,  // Will be set by createPointRecordsForRoom
+            name: ep.name,
+            value: '',
+            photoCount: 0
+          }));
 
-        // Add room to Dexie (creates new or updates existing)
-        await this.efeFieldRepo.addRoom(
-          this.serviceId,
-          roomName,
-          template.TemplateID || template.PK_ID,
-          newOrganization,  // Insert after last navigated room
-          null,  // efeId not yet known
-          tempEfeId,
-          efePoints
-        );
-        console.log('[Add Room] Added room to Dexie with tempEfeId:', tempEfeId);
+          // Add room to Dexie (creates new or updates existing)
+          await this.efeFieldRepo.addRoom(
+            this.serviceId,
+            roomName,
+            template.TemplateID || template.PK_ID,
+            newOrganization,  // Insert after last navigated room
+            null,  // efeId not yet known
+            tempEfeId,
+            efePoints
+          );
+          console.log('[Add Room] Added room to Dexie with tempEfeId:', tempEfeId);
 
-        // DEXIE-FIRST: Create ALL elevation points with tempPointIds NOW
-        // Points depend on the room's pending request, which was just created above
-        // This ensures all buttons are enabled when entering room-elevation
-        const createdPoints = await this.efeFieldRepo.createPointRecordsForRoom(
-          this.serviceId,
-          roomName,
-          tempEfeId,
-          this.foundationData  // Pass foundationData for queueing points
-        );
-        console.log('[Add Room] Created', createdPoints.length, 'elevation points with temp IDs');
-      } catch (dexieError) {
-        console.error('[Add Room] Dexie update error (non-fatal):', dexieError);
-        // Continue - room and points are queued for sync
+          // DEXIE-FIRST: Create ALL elevation points with tempPointIds NOW
+          // Points depend on the room's pending request, which was just created above
+          // This ensures all buttons are enabled when entering room-elevation
+          const createdPoints = await this.efeFieldRepo.createPointRecordsForRoom(
+            this.serviceId,
+            roomName,
+            tempEfeId,
+            this.foundationData  // Pass foundationData for queueing points
+          );
+          console.log('[Add Room] Created', createdPoints.length, 'elevation points with temp IDs');
+        } catch (dexieError) {
+          console.error('[Add Room] Dexie update error (non-fatal):', dexieError);
+          // Continue - room and points are queued for sync
+        }
+
+        // Room and points are now queued for background sync
+        // No direct API call needed - BackgroundSyncService will handle it
+        console.log('[Add Room] Room and points queued for sync:', roomName, 'tempEfeId:', tempEfeId);
+      } else {
+        // WEBAPP: Room and points already created directly via API
+        // Create points for the newly created room
+        console.log('[Add Room] WEBAPP: Creating elevation points via API for room:', tempEfeId);
+        try {
+          for (const ep of elevationPoints) {
+            await this.foundationData.createEFEPoint({
+              EFEID: tempEfeId,
+              PointName: ep.name
+            }, tempEfeId);
+          }
+          console.log('[Add Room] WEBAPP: Created', elevationPoints.length, 'elevation points');
+        } catch (pointError) {
+          console.error('[Add Room] WEBAPP: Error creating points (non-fatal):', pointError);
+        }
       }
-
-      // Room and points are now queued for background sync
-      // No direct API call needed - BackgroundSyncService will handle it
-      console.log('[Add Room] Room and points queued for sync:', roomName, 'tempEfeId:', tempEfeId);
 
       // CRITICAL: Clear flag after all updates complete (allows liveQuery to resume)
       this.isAddingRoom = false;

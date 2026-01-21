@@ -1232,6 +1232,40 @@ export class EngineersFoundationDataService {
    * Similar to createVisual() but for EFE records
    */
   async createEFERoom(roomData: any): Promise<any> {
+    // WEBAPP MODE: Create directly via API (no local storage)
+    if (environment.isWeb) {
+      console.log('[EFE Data] WEBAPP: Creating EFE room directly via API:', roomData);
+
+      try {
+        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?response=rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(roomData)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to create EFE room: ${errorText}`);
+        }
+
+        const result = await response.json();
+        const createdRecord = result.Result?.[0] || result;
+
+        console.log('[EFE Data] WEBAPP: ✅ EFE room created with ID:', createdRecord.EFEID || createdRecord.PK_ID);
+
+        return {
+          ...roomData,
+          EFEID: createdRecord.EFEID || createdRecord.PK_ID,
+          PK_ID: createdRecord.PK_ID || createdRecord.EFEID,
+          ...createdRecord
+        };
+      } catch (error: any) {
+        console.error('[EFE Data] WEBAPP: ❌ Error creating EFE room:', error?.message || error);
+        throw error;
+      }
+    }
+
+    // MOBILE MODE: Offline-first with background sync
     console.log('[EFE Data] Creating new EFE room (OFFLINE-FIRST):', roomData);
 
     // Generate temporary ID
@@ -1324,14 +1358,52 @@ export class EngineersFoundationDataService {
    * Create an EFE point (offline-first pattern with room dependency)
    */
   async createEFEPoint(pointData: any, roomTempId?: string): Promise<any> {
+    // Determine parent ID (room's temp or real ID)
+    const parentId = roomTempId || String(pointData.EFEID);
+
+    // WEBAPP MODE: Create directly via API (if room has real ID, not temp)
+    if (environment.isWeb && !String(parentId).startsWith('temp_')) {
+      console.log('[EFE Data] WEBAPP: Creating EFE point directly via API:', pointData);
+
+      try {
+        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?response=rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...pointData,
+            EFEID: parentId
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to create EFE point: ${errorText}`);
+        }
+
+        const result = await response.json();
+        const createdRecord = result.Result?.[0] || result;
+
+        console.log('[EFE Data] WEBAPP: ✅ EFE point created with ID:', createdRecord.PointID || createdRecord.PK_ID);
+
+        return {
+          ...pointData,
+          PointID: createdRecord.PointID || createdRecord.PK_ID,
+          PK_ID: createdRecord.PK_ID || createdRecord.PointID,
+          EFEID: parentId,
+          _tempId: createdRecord.PointID || createdRecord.PK_ID, // Use real ID as _tempId for compatibility
+          ...createdRecord
+        };
+      } catch (error: any) {
+        console.error('[EFE Data] WEBAPP: ❌ Error creating EFE point:', error?.message || error);
+        throw error;
+      }
+    }
+
+    // MOBILE MODE: Offline-first with background sync
     console.log('[EFE Data] Creating new EFE point (OFFLINE-FIRST):', pointData);
 
     // Generate temporary ID
     const tempId = this.tempId.generateTempId('point');
-
-    // Determine parent ID (room's temp or real ID)
-    // If roomTempId is provided, use it for both dependencies AND EFEID in the request
-    const parentId = roomTempId || String(pointData.EFEID);
 
     // Create placeholder for immediate UI
     const placeholder = {

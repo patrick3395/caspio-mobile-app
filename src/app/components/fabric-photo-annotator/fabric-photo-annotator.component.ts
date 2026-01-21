@@ -478,27 +478,26 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       
       // CRITICAL FIX: Convert S3 URLs to data URLs to avoid CORS issues
       // S3 presigned URLs don't have proper CORS headers for cross-origin canvas access
-      // WEBAPP MODE: Skip this conversion - we'll load directly without crossOrigin (tainted but viewable)
-      if (!environment.isWeb && imageUrl.startsWith('https://') && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
-        console.log('[FabricAnnotator] S3 URL detected, fetching as data URL to avoid CORS...');
+      // WEBAPP MODE: Uses API Gateway proxy to fetch S3 images (enables saving annotations)
+      // MOBILE MODE: Uses direct XHR fetch
+      if (imageUrl.startsWith('https://') && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
+        console.log('[FabricAnnotator] S3 URL detected, fetching as data URL to avoid CORS...', environment.isWeb ? '(webapp via proxy)' : '(mobile via XHR)');
         try {
           imageUrl = await this.fetchRemoteImageAsDataUrl(imageUrl);
           console.log('[FabricAnnotator] ✅ S3 image converted to data URL successfully');
         } catch (conversionError) {
           console.error('[FabricAnnotator] ❌ Failed to convert S3 URL to data URL:', conversionError);
-          // Continue with original URL as fallback (may fail due to CORS)
+          // Continue with original URL as fallback (may fail due to CORS or be view-only)
         }
-      } else if (environment.isWeb && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
-        console.log('[FabricAnnotator] WEBAPP: Loading S3 image directly (tainted mode for viewing)');
       }
 
       // Only use crossOrigin for remote URLs, not for data URLs or blob URLs (offline photos)
       // Data URLs and blob URLs are same-origin by default and crossOrigin can cause them to fail silently
-      // WEBAPP MODE: Skip crossOrigin to avoid CORS issues - image will be tainted but viewable
+      // S3 images should have been converted to data URLs above - if conversion failed, load without crossOrigin (view-only fallback)
       const isLocalUrl = imageUrl.startsWith('data:') || imageUrl.startsWith('blob:');
-      const isWebAppS3 = environment.isWeb && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com');
-      const loadOptions = (isLocalUrl || isWebAppS3) ? {} : { crossOrigin: 'anonymous' };
-      console.log('[FabricAnnotator] Loading image, isLocalUrl:', isLocalUrl, 'isWebAppS3:', isWebAppS3, 'url prefix:', imageUrl.substring(0, 50));
+      const isS3Fallback = imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com');
+      const loadOptions = (isLocalUrl || isS3Fallback) ? {} : { crossOrigin: 'anonymous' };
+      console.log('[FabricAnnotator] Loading image, isLocalUrl:', isLocalUrl, 'isS3Fallback:', isS3Fallback, 'url prefix:', imageUrl.substring(0, 50));
 
       fabric.Image.fromURL(imageUrl, loadOptions).then((img: any) => {
         console.log('[FabricAnnotator] Image loaded successfully, dimensions:', img.width, 'x', img.height);
