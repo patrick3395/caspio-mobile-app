@@ -7157,7 +7157,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   }
 
   /**
-   * WEBAPP: Resolve S3 keys to signed URLs for all photos
+   * WEBAPP: Resolve S3 keys to displayable blob URLs for all photos
    */
   private async resolveS3UrlsForWebapp(): Promise<void> {
     if (!this.roomData?.elevationPoints) return;
@@ -7166,11 +7166,22 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       for (const photo of point.photos || []) {
         if (photo.url && this.caspioService.isS3Key(photo.url)) {
           try {
-            const signedUrl = await this.caspioService.getS3FileUrl(photo.url);
-            photo.displayUrl = signedUrl;
+            // Use proxy endpoint to fetch image as blob (avoids CORS and pre-signed URL issues)
+            const proxyUrl = `${environment.apiGatewayUrl}/api/s3/proxy?s3Key=${encodeURIComponent(photo.url)}`;
+            console.log('[RoomElevation] WEBAPP: Fetching photo via proxy for:', photo.attachId);
+
+            const response = await fetch(proxyUrl);
+            if (!response.ok) {
+              throw new Error(`Proxy fetch failed: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            photo.displayUrl = blobUrl;
+            console.log('[RoomElevation] WEBAPP: ✅ Created blob URL for photo:', photo.attachId);
           } catch (err) {
             console.warn('[RoomElevation] WEBAPP: Failed to resolve S3 URL:', err);
-            photo.displayUrl = photo.url;
+            photo.displayUrl = 'assets/img/photo-placeholder.png';
           }
         } else {
           photo.displayUrl = photo.url;
