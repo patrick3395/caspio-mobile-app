@@ -300,7 +300,7 @@ export class OfflineTemplateService {
       const downloads: Promise<any>[] = [];
 
       // 1. Visual Templates (Structural System categories - comments, limitations, deficiencies)
-      console.log('\n[1/8] 📋 Downloading VISUAL TEMPLATES (Structural System categories)...');
+      console.log('\n[1/9] 📋 Downloading VISUAL TEMPLATES (Structural System categories)...');
       downloads.push(
         firstValueFrom(this.caspioService.getServicesVisualsTemplates())
           .then(async (templates) => {
@@ -309,6 +309,18 @@ export class OfflineTemplateService {
             console.log(`    ✅ Visual Templates: ${downloadSummary.visualTemplates} templates cached`);
             console.log(`    📦 Categories include: ${[...new Set(templates?.map((t: any) => t.Category) || [])].slice(0, 5).join(', ')}...`);
             return templates;
+          })
+      );
+
+      // 1b. Visual Dropdown Options (multi-select options for Walls, Crawlspace, etc.)
+      console.log('[1b/9] 📋 Downloading VISUAL DROPDOWN OPTIONS (multi-select options)...');
+      downloads.push(
+        firstValueFrom(this.caspioService.getServicesVisualsDrop())
+          .then(async (dropdownData) => {
+            downloadSummary.visualDropdownOptions = dropdownData?.length || 0;
+            await this.indexedDb.cacheTemplates('visual_dropdown', dropdownData || []);
+            console.log(`    ✅ Visual Dropdown Options: ${downloadSummary.visualDropdownOptions} options cached`);
+            return dropdownData;
           })
       );
 
@@ -481,6 +493,7 @@ export class OfflineTemplateService {
       console.log('║            📦 TEMPLATE DOWNLOAD COMPLETE                        ║');
       console.log('╠════════════════════════════════════════════════════════════════╣');
       console.log(`║  📋 Visual Templates (Structural System):  ${String(downloadSummary.visualTemplates).padStart(5)} templates    ║`);
+      console.log(`║  📋 Visual Dropdown Options (multi-sel):   ${String(downloadSummary.visualDropdownOptions).padStart(5)} options      ║`);
       console.log(`║  🏠 EFE Templates (Room definitions):      ${String(downloadSummary.efeTemplates).padStart(5)} templates    ║`);
       console.log(`║  🔍 Service Visuals (existing items):      ${String(downloadSummary.serviceVisuals).padStart(5)} items        ║`);
       console.log(`║  📸 Visual Attachments (photos):           ${String(downloadSummary.visualAttachments).padStart(5)} photos       ║`);

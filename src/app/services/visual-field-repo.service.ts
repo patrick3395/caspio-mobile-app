@@ -36,8 +36,9 @@ export class VisualFieldRepoService {
    * @param serviceId - The service ID
    * @param category - The category name (e.g., 'Foundations')
    * @param templates - Array of template objects from cachedTemplates
+   * @param dropdownData - Optional array of dropdown options from LPS_Services_Visuals_Drop (cached)
    */
-  async seedFromTemplates(serviceId: string, category: string, templates: any[]): Promise<void> {
+  async seedFromTemplates(serviceId: string, category: string, templates: any[], dropdownData?: any[]): Promise<void> {
     console.log(`[VisualFieldRepo] Seeding ${templates.length} templates for ${category}`);
 
     // Filter templates for this category
@@ -48,6 +49,32 @@ export class VisualFieldRepoService {
     if (categoryTemplates.length === 0) {
       console.log('[VisualFieldRepo] No templates to seed for this category');
       return;
+    }
+
+    // Build dropdown options map by TemplateID from cached dropdown data
+    // This enables Dexie-first loading of multi-select options (Walls, Crawlspace, etc.)
+    const dropdownOptionsMap: { [templateId: number]: string[] } = {};
+    if (dropdownData && dropdownData.length > 0) {
+      dropdownData.forEach((row: any) => {
+        const templateId = row.TemplateID;
+        const dropdownValue = row.Dropdown;
+        if (templateId && dropdownValue) {
+          if (!dropdownOptionsMap[templateId]) {
+            dropdownOptionsMap[templateId] = [];
+          }
+          if (!dropdownOptionsMap[templateId].includes(dropdownValue)) {
+            dropdownOptionsMap[templateId].push(dropdownValue);
+          }
+        }
+      });
+      // Add "Other" option to all multi-select dropdowns
+      Object.keys(dropdownOptionsMap).forEach(templateId => {
+        const options = dropdownOptionsMap[Number(templateId)];
+        if (options && !options.includes('Other')) {
+          options.push('Other');
+        }
+      });
+      console.log(`[VisualFieldRepo] Built dropdown options map for ${Object.keys(dropdownOptionsMap).length} templates`);
     }
 
     // Check which fields already exist (don't overwrite user data)
@@ -74,14 +101,20 @@ export class VisualFieldRepoService {
         continue;
       }
 
-      // Parse dropdown options if present (embedded in template)
-      // Note: Most dropdown options come from LPS_Services_Visuals_Drop table
+      // Get dropdown options: first from cached dropdown data, then from embedded template
       let dropdownOptions: string[] | undefined;
-      if (template.AnswerType === 2 && template.DropdownOptions) {
-        try {
-          dropdownOptions = JSON.parse(template.DropdownOptions);
-        } catch (e) {
-          dropdownOptions = [];
+      if (template.AnswerType === 2) {
+        // Priority 1: Use cached dropdown data from LPS_Services_Visuals_Drop
+        if (dropdownOptionsMap[effectiveTemplateId]) {
+          dropdownOptions = dropdownOptionsMap[effectiveTemplateId];
+        }
+        // Priority 2: Fall back to embedded DropdownOptions in template
+        else if (template.DropdownOptions) {
+          try {
+            dropdownOptions = JSON.parse(template.DropdownOptions);
+          } catch (e) {
+            dropdownOptions = [];
+          }
         }
       }
 

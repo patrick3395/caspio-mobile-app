@@ -598,6 +598,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       this.categoryName
     );
 
+    // DEXIE-FIRST: Load cached dropdown options (for Walls, Crawlspace, etc.)
+    const cachedDropdownData = await this.indexedDb.getCachedTemplates('visual_dropdown') || [];
+    console.log(`[CategoryDetail] Loaded ${cachedDropdownData.length} cached dropdown options`);
+
     if (!hasFields) {
       console.log('[CategoryDetail] No fields found, seeding from templates...');
 
@@ -614,11 +618,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         return;
       }
 
-      // Seed templates into visualFields
+      // Seed templates into visualFields with cached dropdown options
       await this.visualFieldRepo.seedFromTemplates(
         this.serviceId,
         this.categoryName,
-        templates
+        templates,
+        cachedDropdownData
       );
 
       // Get existing visuals and merge selections
@@ -632,6 +637,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       console.log('[CategoryDetail] Seeding complete');
     } else {
       console.log('[CategoryDetail] Fields already exist, using cached data');
+    }
+
+    // DEXIE-FIRST: Populate visualDropdownOptions from cached data
+    // This replaces the API call with local cache lookup
+    if (cachedDropdownData.length > 0) {
+      this.populateDropdownOptionsFromCache(cachedDropdownData);
     }
 
     // DEXIE-FIRST: Set up LocalImages subscription FIRST (before fields subscription)
@@ -670,8 +681,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     this.lastLoadedCategoryName = this.categoryName;
     this.initialLoadComplete = true;
 
-    // Load dropdown options from LPS_Services_Visuals_Drop table
-    await this.loadDropdownOptionsFromAPI();
+    // DEXIE-FIRST: Only fetch from API if cache was empty (fallback for first-time use)
+    if (cachedDropdownData.length === 0) {
+      console.log('[CategoryDetail] No cached dropdown options, fetching from API as fallback...');
+      await this.loadDropdownOptionsFromAPI();
+    } else {
+      console.log('[CategoryDetail] Using cached dropdown options (Dexie-first)');
+    }
 
     console.timeEnd('[CategoryDetail] initializeVisualFields');
   }
@@ -916,15 +932,57 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
   }
 
   /**
-   * Load dropdown options from LPS_Services_Visuals_Drop table
+   * DEXIE-FIRST: Populate dropdown options from cached data
+   * This enables instant loading of multi-select options without API call
+   */
+  private populateDropdownOptionsFromCache(dropdownData: any[]): void {
+    console.log('[CategoryDetail] Populating dropdown options from cache...');
+
+    // Group dropdown options by TemplateID
+    dropdownData.forEach((row: any) => {
+      const templateId = row.TemplateID;
+      const dropdownValue = row.Dropdown;
+
+      if (templateId && dropdownValue) {
+        if (!this.visualDropdownOptions[templateId]) {
+          this.visualDropdownOptions[templateId] = [];
+        }
+        // Add unique dropdown values for this template
+        if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
+          this.visualDropdownOptions[templateId].push(dropdownValue);
+        }
+      }
+    });
+
+    // Add "Other" option to all multi-select dropdowns
+    Object.keys(this.visualDropdownOptions).forEach(templateId => {
+      const options = this.visualDropdownOptions[Number(templateId)];
+      if (options && !options.includes('Other')) {
+        options.push('Other');
+      }
+    });
+
+    console.log('[CategoryDetail] Populated dropdown options for', Object.keys(this.visualDropdownOptions).length, 'templates from cache');
+
+    // Trigger change detection to update UI
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Load dropdown options from LPS_Services_Visuals_Drop table (API fallback)
+   * Only called when cached data is not available
    * These are stored separately from templates and need to be fetched and matched by TemplateID
    */
   private async loadDropdownOptionsFromAPI(): Promise<void> {
     try {
-      console.log('[CategoryDetail] Loading dropdown options from API...');
+      console.log('[CategoryDetail] Loading dropdown options from API (fallback)...');
       const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
 
       if (dropdownData && dropdownData.length > 0) {
+        // Cache the dropdown data for future use
+        await this.indexedDb.cacheTemplates('visual_dropdown', dropdownData);
+        console.log('[CategoryDetail] Cached dropdown options for future use');
+
         // Group dropdown options by TemplateID
         dropdownData.forEach((row: any) => {
           const templateId = row.TemplateID; // Keep as number for consistency with field.templateId
