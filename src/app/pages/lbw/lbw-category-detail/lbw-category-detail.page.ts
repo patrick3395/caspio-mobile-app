@@ -1179,17 +1179,30 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Escape HTML characters to prevent XSS (web only)
+   */
+  private escapeHtml(text: string): string {
+    if (!environment.isWeb) return text;
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   highlightText(text: string | undefined): string {
     if (!text || !this.searchTerm || this.searchTerm.trim() === '') {
-      return text || '';
+      // Escape HTML even when no search term to prevent XSS (web only)
+      return environment.isWeb ? this.escapeHtml(text || '') : (text || '');
     }
 
     const term = this.searchTerm.trim();
+    // First escape the text to prevent XSS (web only)
+    const escapedText = environment.isWeb ? this.escapeHtml(text) : text;
     // Create a case-insensitive regex to find all matches
     const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
 
     // Replace matches with highlighted span
-    return text.replace(regex, '<span class="highlight">$1</span>');
+    return escapedText.replace(regex, '<span class="highlight">$1</span>');
   }
 
   private escapeRegex(str: string): string {

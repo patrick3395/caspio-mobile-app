@@ -43,6 +43,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   // Service instance tracking for multiple EFE services on same project
   serviceInstanceNumber: number = 1;
   totalEFEServices: number = 1;
+  private serviceInstanceLoaded: boolean = false;
 
   // Offline-first: template loading state
   templateReady: boolean = false;
@@ -159,14 +160,16 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     });
 
     // Subscribe to router events to update breadcrumbs
+    // Only update if service instance has been loaded (totalEFEServices is set)
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
-      this.updateBreadcrumbs();
+      // Only update breadcrumbs after initial load has completed
+      // The initial breadcrumb update is done in loadServiceInstanceNumber()
+      if (this.serviceInstanceLoaded) {
+        this.updateBreadcrumbs();
+      }
     });
-
-    // Initial breadcrumb update
-    this.updateBreadcrumbs();
   }
 
   ngOnDestroy() {
@@ -226,16 +229,25 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         return;
       }
 
-      const currentTypeId = currentService.TypeID;
+      // Convert TypeID to string for consistent comparison
+      const currentTypeId = String(currentService.TypeID);
       console.log(`[EF Container] Current service TypeID: ${currentTypeId}`);
 
       // Get all services for this project
       const allServices = await firstValueFrom(this.caspioService.getServicesByProject(this.projectId));
       console.log(`[EF Container] Found ${allServices?.length || 0} total services for project`);
 
+      // Debug: log all services and their TypeIDs
+      if (allServices) {
+        allServices.forEach((s: any) => {
+          console.log(`[EF Container] Service ${s.PK_ID || s.ServiceID}: TypeID=${s.TypeID}`);
+        });
+      }
+
       // Filter to only services with the same TypeID (same service type)
+      // Use String() conversion for consistent comparison
       const sameTypeServices = (allServices || [])
-        .filter((s: any) => s.TypeID === currentTypeId)
+        .filter((s: any) => String(s.TypeID) === currentTypeId)
         .sort((a: any, b: any) => {
           // Sort by PK_ID (ServiceID) to get consistent ordering
           const idA = parseInt(a.PK_ID || a.ServiceID) || 0;
@@ -243,6 +255,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
           return idA - idB;
         });
 
+      console.log(`[EF Container] Same type services count: ${sameTypeServices.length}`);
       this.totalEFEServices = sameTypeServices.length;
 
       // Find the index of the current service
@@ -254,12 +267,16 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
       console.log(`[EF Container] Service instance: ${this.serviceInstanceNumber} of ${this.totalEFEServices} EFE services`);
 
-      // Update breadcrumbs with new instance number
+      // Mark as loaded and update breadcrumbs with new instance number
+      this.serviceInstanceLoaded = true;
       this.updateBreadcrumbs();
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.warn('[EF Container] Error loading service instance number:', error);
-      // Keep defaults (1 of 1)
+      // Keep defaults (1 of 1) but still mark as loaded
+      this.serviceInstanceLoaded = true;
+      this.updateBreadcrumbs();
+      this.changeDetectorRef.detectChanges();
     }
   }
 

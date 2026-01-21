@@ -178,6 +178,15 @@ export class RetryNotificationService {
   }
 
   /**
+   * Escape HTML characters to prevent XSS (web only)
+   */
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  /**
    * Show a toast notification (web only)
    */
   private showRetryToast(message: string, type: 'warning' | 'danger' | 'success', duration: number): void {
@@ -186,12 +195,15 @@ export class RetryNotificationService {
     this.ngZone.run(() => {
       this.dismissToast();
 
+      // Escape message to prevent XSS
+      const escapedMessage = this.escapeHtml(message);
+
       const toast = document.createElement('div');
       toast.className = `retry-toast retry-toast-${type}`;
       toast.innerHTML = `
         <div class="retry-toast-content">
           <span class="retry-toast-icon">${this.getIcon(type)}</span>
-          <span class="retry-toast-message">${message}</span>
+          <span class="retry-toast-message">${escapedMessage}</span>
         </div>
       `;
       toast.style.cssText = `
@@ -234,12 +246,15 @@ export class RetryNotificationService {
     this.ngZone.run(() => {
       this.dismissToast();
 
+      // Escape message to prevent XSS
+      const escapedMessage = this.escapeHtml(message);
+
       const toast = document.createElement('div');
       toast.className = `retry-toast retry-toast-${type} retry-toast-actionable`;
       toast.innerHTML = `
         <div class="retry-toast-content">
           <span class="retry-toast-icon">${this.getIcon(type)}</span>
-          <span class="retry-toast-message">${message}</span>
+          <span class="retry-toast-message">${escapedMessage}</span>
           <button class="retry-toast-button">Retry</button>
         </div>
       `;

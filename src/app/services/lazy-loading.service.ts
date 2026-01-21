@@ -6,6 +6,7 @@
 import { Injectable, Type } from '@angular/core';
 import { Observable, from, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 export interface LazyComponentConfig {
   component: () => Promise<any>;
@@ -273,9 +274,21 @@ export class LazyComponentDirective implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Escape HTML characters to prevent XSS (web only)
+   */
+  private escapeHtml(text: string): string {
+    if (!environment.isWeb) return text;
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   private renderComponent(component: any): void {
     // This would need to be customized based on your component structure
     const element = this.elementRef.nativeElement;
-    element.innerHTML = `<div>Component loaded: ${this.componentName}</div>`;
+    // Escape componentName to prevent XSS (web only)
+    const escapedName = this.escapeHtml(this.componentName);
+    element.innerHTML = `<div>Component loaded: ${escapedName}</div>`;
   }
 }

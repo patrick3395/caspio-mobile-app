@@ -1,7 +1,9 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, LoadingController, AlertController } from '@ionic/angular';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CaspioService } from '../../services/caspio.service';
+import { environment } from '../../../environments/environment';
 
 interface HelpData {
   HelpID: number;
@@ -56,7 +58,7 @@ interface HelpItem {
         <!-- Description Section -->
         <div *ngIf="helpText" class="help-description-section">
           <div class="help-text">
-            <div [innerHTML]="helpText"></div>
+            <div [innerHTML]="sanitizedHelpText"></div>
           </div>
         </div>
 
@@ -319,6 +321,7 @@ export class HelpModalComponent implements OnInit {
   helpImages: HelpImage[] = [];
   helpItems: HelpItem[] = [];
   helpText = '';
+  sanitizedHelpText: SafeHtml = '';
   debugMessages: string[] = [];
   loading = false;
   error = '';
@@ -327,7 +330,8 @@ export class HelpModalComponent implements OnInit {
     private modalController: ModalController,
     private loadingController: LoadingController,
     private alertController: AlertController,
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit() {
@@ -342,6 +346,7 @@ export class HelpModalComponent implements OnInit {
     this.loading = true;
     this.error = '';
     this.helpText = '';
+    this.sanitizedHelpText = '';
     this.debugMessages = [];
 
     const helpEndpoint = this.getHelpEndpoint(this.helpId);
@@ -376,6 +381,12 @@ export class HelpModalComponent implements OnInit {
       });
       this.helpImages = helpImages || [];
       this.helpText = helpData?.Comment || '';
+      // Sanitize HTML content to prevent XSS (web only)
+      if (environment.isWeb && this.helpText) {
+        this.sanitizedHelpText = this.sanitizer.sanitize(1, this.helpText) || ''; // SecurityContext.HTML = 1
+      } else {
+        this.sanitizedHelpText = this.helpText;
+      }
 
       if (!this.title && helpData?.Title) {
         this.title = helpData.Title;

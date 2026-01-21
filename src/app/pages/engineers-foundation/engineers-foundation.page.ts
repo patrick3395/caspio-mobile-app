@@ -28,6 +28,7 @@ import { LocalImageService } from '../../services/local-image.service';
 import { BackgroundSyncService } from '../../services/background-sync.service';
 // STATIC import for offline support - prevents ChunkLoadError when offline
 import { AddCustomVisualModalComponent } from '../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
+import { environment } from '../../../environments/environment';
 
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
@@ -13459,6 +13460,16 @@ Stack: ${error?.stack}`;
     return html;
   })();
 
+  /**
+   * Escape HTML characters to prevent XSS (web only)
+   */
+  private escapeHtml(text: string): string {
+    if (!environment.isWeb) return text;
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   // Open caption popup for general photos
   async openCaptionPopup(photo: any, category: string, itemId: string) {
     const tempCaption = photo.caption || '';
@@ -13489,25 +13500,29 @@ Stack: ${error?.stack}`;
 
     await alert.present();
 
-    // Use requestAnimationFrame for faster rendering
-    requestAnimationFrame(() => {
-      const alertElement = document.querySelector('.caption-popup-alert .alert-message');
-      if (!alertElement) return;
+    // Use requestAnimationFrame for faster rendering (web only with XSS protection)
+    if (environment.isWeb) {
+      requestAnimationFrame(() => {
+        const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+        if (!alertElement) return;
 
-      alertElement.innerHTML = `
-        <div class="caption-popup-content">
-          <div class="caption-input-container">
-            <input type="text" id="captionInput" class="caption-text-input"
-                   placeholder="Enter caption..."
-                   value="${tempCaption.replace(/"/g, '&quot;')}"
-                   maxlength="255" />
-            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
-              <ion-icon name="backspace-outline"></ion-icon>
-            </button>
+        // Escape caption to prevent XSS
+        const escapedCaption = this.escapeHtml(tempCaption);
+
+        alertElement.innerHTML = `
+          <div class="caption-popup-content">
+            <div class="caption-input-container">
+              <input type="text" id="captionInput" class="caption-text-input"
+                     placeholder="Enter caption..."
+                     value="${escapedCaption}"
+                     maxlength="255" />
+              <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
+                <ion-icon name="backspace-outline"></ion-icon>
+              </button>
+            </div>
+            ${this.presetButtonsHtml}
           </div>
-          ${this.presetButtonsHtml}
-        </div>
-      `;
+        `;
 
       const captionInput = document.getElementById('captionInput') as HTMLInputElement;
       const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
@@ -13558,7 +13573,8 @@ Stack: ${error?.stack}`;
           }
         });
       }
-    });
+      });
+    }
   }
 
   // Open caption popup for FDF photos
@@ -13603,7 +13619,7 @@ Stack: ${error?.stack}`;
           <div class="caption-input-container">
             <input type="text" id="captionInput" class="caption-text-input"
                    placeholder="Enter caption..."
-                   value="${tempCaption.replace(/"/g, '&quot;')}"
+                   value="${this.escapeHtml(tempCaption)}"
                    maxlength="255" />
             <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
               <ion-icon name="backspace-outline"></ion-icon>
@@ -13706,7 +13722,7 @@ Stack: ${error?.stack}`;
           <div class="caption-input-container">
             <input type="text" id="captionInput" class="caption-text-input"
                    placeholder="Enter caption..."
-                   value="${tempCaption.replace(/"/g, '&quot;')}"
+                   value="${this.escapeHtml(tempCaption)}"
                    maxlength="255" />
             <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
               <ion-icon name="backspace-outline"></ion-icon>
@@ -13808,7 +13824,7 @@ Stack: ${error?.stack}`;
           <div class="caption-input-container">
             <input type="text" id="captionInput" class="caption-text-input"
                    placeholder="Enter caption..."
-                   value="${tempCaption.replace(/"/g, '&quot;')}"
+                   value="${this.escapeHtml(tempCaption)}"
                    maxlength="255" />
             <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
               <ion-icon name="backspace-outline"></ion-icon>
