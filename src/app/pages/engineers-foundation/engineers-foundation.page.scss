@@ -1324,14 +1324,12 @@ ion-app.modal-open {
             
             // Multi-select container styling - moved to correct level
             .multi-select-container {
-              margin-bottom: 4px; // Reduced from 10px to 4px for more condensed spacing
+              margin-bottom: 4px;
               border: 1px solid #f0f0f0;
               border-radius: 8px;
               background: white;
               transition: all 0.3s ease;
-              overflow: visible; // Prevent corner clipping
-
-              // Hover effect removed for mobile optimization
+              overflow: visible;
 
               // Remove border from checkbox-item when inside multi-select
               .checkbox-item {
@@ -1339,20 +1337,20 @@ ion-app.modal-open {
                 --inner-border-width: 0;
                 --border-width: 0;
                 --highlight-height: 0;
+                --min-height: 36px; // Reduced min height for more compact header
                 border: none !important;
                 border-radius: 8px 8px 0 0;
-                padding: 10px 12px 6px 12px !important; // Reduced padding: less top/bottom
-                background: white; // Explicitly set to ensure no transparency
-
-                // Hover effect removed for mobile optimization
+                padding: 6px 12px 2px 12px !important; // More condensed padding
+                background: white;
 
                 .item-label {
                   h3 {
-                    margin-bottom: 0 !important; // Remove bottom margin on title in multi-select
+                    margin: 0 !important; // Remove all margins on title
+                    font-size: 14px;
                   }
 
                   .item-text-wrapper {
-                    display: none; // Hide description text in multi-select to reduce whitespace
+                    display: none; // Hide description text in multi-select
                   }
                 }
               }
@@ -1360,8 +1358,8 @@ ion-app.modal-open {
               .multi-select-options {
                 padding-left: 16px;
                 padding-right: 12px;
-                padding-top: 4px; // Reduced top padding to minimize gap between title and options
-                padding-bottom: 8px;
+                padding-top: 0; // Removed top padding for tighter spacing
+                padding-bottom: 4px; // Reduced bottom padding
                 background: white;
                 border-top: 1px solid #f0f0f0;
                 margin-top: 0;
@@ -1371,11 +1369,18 @@ ion-app.modal-open {
                 .option-item {
                   --background: transparent;
                   --padding-start: 8px;
+                  --min-height: 32px; // Reduced height for compact options
+                  --padding-top: 4px;
+                  --padding-bottom: 4px;
                   font-size: 14px;
 
                   ion-checkbox {
                     --size: 18px;
                     margin-right: 10px;
+                  }
+
+                  ion-label {
+                    margin: 0;
                   }
                 }
               }

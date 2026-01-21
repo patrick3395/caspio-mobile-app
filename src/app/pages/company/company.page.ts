@@ -223,6 +223,9 @@ export class CompanyPage implements OnInit, OnDestroy {
   isInitialLoad = true;
   isProcessingTab = false;
 
+  // WEBAPP: Expose isWeb for template skeleton loader conditionals
+  isWeb = environment.isWeb;
+
   companies: CompanyRecord[] = [];
   currentCompany: CompanyRecord | null = null;
   stages: StageDefinition[] = [];
@@ -567,7 +570,9 @@ export class CompanyPage implements OnInit, OnDestroy {
     let loading: HTMLIonAlertElement | null = null;
     let cancelled = false;
     try {
-      if (showSpinner) {
+      // WEBAPP: Use skeleton loaders instead of alert spinner for better UX
+      // Mobile: Keep the alert spinner for native feel
+      if (showSpinner && !environment.isWeb) {
         loading = await this.alertController.create({
           header: this.isInitialLoad ? 'Loading CRM' : 'Refreshing CRM',
           buttons: [

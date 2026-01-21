@@ -277,6 +277,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
   /**
    * WEBAPP MODE: Load data directly from API to see synced data from mobile
+   * Mirrors mobile app behavior:
+   * 1. Load ALL Auto='Yes' templates with isSelected=false
+   * 2. Mark rooms that exist in database as isSelected=true
    */
   private async loadDataFromAPI(): Promise<void> {
     this.loading = true;
@@ -284,13 +287,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     this.changeDetectorRef.detectChanges();
 
     try {
-      // Load templates and rooms from API
-      const [templates, rooms] = await Promise.all([
+      // Load templates and existing rooms from API
+      const [templates, existingRooms] = await Promise.all([
         this.foundationData.getEFETemplates(),
         this.foundationData.getEFEByService(this.serviceId)
       ]);
 
-      console.log(`[ElevationPlotHub] WEBAPP: Loaded ${templates?.length || 0} templates, ${rooms?.length || 0} rooms from API`);
+      console.log(`[ElevationPlotHub] WEBAPP: Loaded ${templates?.length || 0} templates, ${existingRooms?.length || 0} existing rooms from API`);
 
       // Store templates for add room dialog
       this.allRoomTemplates = (templates || []).map((t: any) => ({ ...t }));
@@ -300,14 +303,64 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       this.efeRecordIds = {};
       this.roomTemplates = [];
 
-      // Track which room names we've already added from API
-      const addedRoomNames = new Set<string>();
+      // Build a map of existing rooms by name for quick lookup
+      const existingRoomsByName = new Map<string, any>();
+      for (const room of existingRooms || []) {
+        if (room.RoomName) {
+          existingRoomsByName.set(room.RoomName, room);
+        }
+      }
 
-      // Build room display data from server rooms (existing records)
-      for (const room of rooms || []) {
-        const roomName = room.RoomName;
+      // Step 1: Add ALL Auto='Yes' templates (like mobile seedFromTemplates)
+      for (const template of this.allRoomTemplates) {
+        const roomName = template.RoomName;
+        if (!roomName) continue;
+
+        const isAutoInclude = template.Auto === 'Yes' || template.Auto === true || template.Auto === 1;
+        if (!isAutoInclude) continue;
+
+        const templateId = template.TemplateID || template.PK_ID;
+        const existingRoom = existingRoomsByName.get(roomName);
+
+        // If room exists in database, mark as selected with its data
+        const isSelected = !!existingRoom;
+        const efeId = existingRoom ? String(existingRoom.EFEID || existingRoom.PK_ID) : '';
+
+        this.selectedRooms[roomName] = isSelected;
+        if (efeId) {
+          this.efeRecordIds[roomName] = efeId;
+        }
+
+        // Store elevation data for navigation
+        this.roomElevationData[roomName] = {
+          roomName: roomName,
+          templateId: templateId,
+          elevationPoints: [],
+          pointCount: template.PointCount || 0,
+          notes: existingRoom?.Notes || '',
+          fdf: existingRoom?.FDF || '',
+          location: existingRoom?.Location || ''
+        };
+
+        this.roomTemplates.push({
+          RoomName: roomName,
+          TemplateID: templateId,
+          PK_ID: templateId,
+          PointCount: template.PointCount || 0,
+          Organization: existingRoom?.Organization ?? template['Organization'],
+          isSelected: isSelected,
+          isSaving: false,
+          efeId: efeId
+        } as RoomDisplayData);
+
+        // Mark as processed
+        existingRoomsByName.delete(roomName);
+      }
+
+      // Step 2: Add any remaining existing rooms not in templates (custom/renamed rooms)
+      for (const [roomName, room] of existingRoomsByName) {
         const templateId = room.TemplateID;
-        const efeId = room.EFEID || room.PK_ID;
+        const efeId = String(room.EFEID || room.PK_ID);
 
         // Find matching template for point count
         const template = this.allRoomTemplates.find((t: any) =>
@@ -315,15 +368,13 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         );
 
         this.selectedRooms[roomName] = true;
-        this.efeRecordIds[roomName] = String(efeId);
-        addedRoomNames.add(roomName);
+        this.efeRecordIds[roomName] = efeId;
 
-        // Store elevation data for navigation
         this.roomElevationData[roomName] = {
           roomName: roomName,
           templateId: templateId,
           elevationPoints: [],
-          pointCount: template?.PointCount || 0,
+          pointCount: template?.PointCount || room.PointCount || 0,
           notes: room.Notes || '',
           fdf: room.FDF || '',
           location: room.Location || ''
@@ -333,51 +384,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           RoomName: roomName,
           TemplateID: templateId,
           PK_ID: templateId,
-          PointCount: template?.PointCount || 0,
-          Organization: room.Organization ?? template?.['Organization'],
+          PointCount: template?.PointCount || room.PointCount || 0,
+          Organization: room.Organization ?? 999999,
           isSelected: true,
           isSaving: false,
-          efeId: String(efeId)
-        } as RoomDisplayData);
-      }
-
-      // Add template rooms with Auto='Yes' that don't have records yet
-      for (const template of this.allRoomTemplates) {
-        const roomName = template.RoomName;
-        const isAutoInclude = template.Auto === 'Yes' || template.Auto === true || template.Auto === 1;
-
-        // Skip if already added from API or not auto-include
-        if (addedRoomNames.has(roomName) || !isAutoInclude) {
-          continue;
-        }
-
-        const templateId = template.TemplateID || template.PK_ID;
-
-        // Mark as selected (will be created when user navigates to room)
-        this.selectedRooms[roomName] = true;
-        // No efeId yet - will be created on first save
-        this.efeRecordIds[roomName] = '';
-
-        // Store elevation data for navigation
-        this.roomElevationData[roomName] = {
-          roomName: roomName,
-          templateId: templateId,
-          elevationPoints: [],
-          pointCount: template.PointCount || 0,
-          notes: '',
-          fdf: '',
-          location: ''
-        };
-
-        this.roomTemplates.push({
-          RoomName: roomName,
-          TemplateID: templateId,
-          PK_ID: templateId,
-          PointCount: template.PointCount || 0,
-          Organization: template['Organization'],
-          isSelected: true,
-          isSaving: false,
-          efeId: ''
+          efeId: efeId
         } as RoomDisplayData);
       }
 
@@ -392,7 +403,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       this.isEmpty = this.roomTemplates.length === 0;
       this.hasPendingSync = false;
 
-      console.log(`[ElevationPlotHub] WEBAPP: ${this.roomTemplates.length} rooms loaded (including Auto=Yes templates)`);
+      const selectedCount = this.roomTemplates.filter(r => r.isSelected).length;
+      console.log(`[ElevationPlotHub] WEBAPP: ${this.roomTemplates.length} rooms loaded, ${selectedCount} selected`);
     } catch (error) {
       console.error('[ElevationPlotHub] WEBAPP: Error loading data:', error);
     } finally {

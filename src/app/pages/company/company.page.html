@@ -279,7 +279,33 @@
         </div>
       </div>
 
-      <div class="stage-rollups" *ngIf="stageGroups.length; else emptyCompanies">
+      <!-- WEBAPP: Skeleton loaders for companies -->
+      <div *ngIf="isLoading && isWeb" class="crm-skeleton-container">
+        <div *ngFor="let i of [1,2,3]">
+          <div class="skeleton-stage-header">
+            <div class="skeleton-stage-info">
+              <div class="skeleton-stage-name"></div>
+              <div class="skeleton-stage-count"></div>
+            </div>
+            <div class="skeleton-toggle"></div>
+          </div>
+          <div class="crm-skeleton-container">
+            <div class="skeleton-company-card" *ngFor="let j of [1,2,3]">
+              <div class="skeleton-company-info">
+                <div class="skeleton-company-name"></div>
+                <div class="skeleton-company-location"></div>
+              </div>
+              <div class="skeleton-company-metrics">
+                <div class="skeleton-metric"></div>
+                <div class="skeleton-metric"></div>
+              </div>
+              <div class="skeleton-expand-btn"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-rollups" *ngIf="!isLoading && stageGroups.length; else emptyCompanies">
         <div class="stage-container" *ngFor="let group of stageGroups; trackBy: trackByStage">
           <div class="stage-header" (click)="toggleStageExpand(group.stage, $event)">
             <div class="stage-info">
@@ -446,7 +472,7 @@
       </div>
 
       <ng-template #emptyCompanies>
-        <div class="empty-state-modern">
+        <div *ngIf="!isLoading" class="empty-state-modern">
           <div class="empty-icon-wrapper">
             <ion-icon name="business"></ion-icon>
           </div>
@@ -525,7 +551,7 @@
         </div>
       </div>
       <ng-template #emptyContacts>
-        <div class="empty-tab-state">
+        <div *ngIf="!isLoading" class="empty-tab-state">
           <ion-icon name="people-outline"></ion-icon>
           <h3>No contacts match your filters</h3>
           <p>Adjust the filters or search criteria.</p>
@@ -595,7 +621,25 @@
         </div>
       </div>
 
-      <div *ngIf="filteredTasks.length; else emptyTasks" class="tasks-grid">
+      <!-- WEBAPP: Skeleton loaders for tasks -->
+      <div *ngIf="isLoading && isWeb" class="skeleton-tasks-grid">
+        <div class="skeleton-task-card" *ngFor="let i of [1,2,3,4,5,6]">
+          <div class="skeleton-task-header">
+            <div class="skeleton-checkbox"></div>
+            <div class="skeleton-task-info">
+              <div class="skeleton-task-title"></div>
+              <div class="skeleton-task-company"></div>
+            </div>
+            <div class="skeleton-badge"></div>
+          </div>
+          <div class="skeleton-task-meta">
+            <div class="skeleton-meta-line"></div>
+            <div class="skeleton-meta-line"></div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!isLoading && filteredTasks.length; else emptyTasks" class="tasks-grid">
         <ion-card *ngFor="let task of paginatedTasks; trackBy: trackByTask" class="task-card clickable-card" [class.completed]="task.completed" [class.overdue]="task.isOverdue" (click)="openEditTaskModal(task)">
           <ion-item lines="none" class="task-card-header">
             <ion-checkbox
@@ -632,7 +676,7 @@
         </button>
       </div>
       <ng-template #emptyTasks>
-        <div class="empty-tab-state">
+        <div *ngIf="!isLoading" class="empty-tab-state">
           <ion-icon name="checkbox-outline"></ion-icon>
           <h3>No tasks match your filters</h3>
           <p>Try expanding your filters or change the scope.</p>
@@ -809,7 +853,34 @@
         </div>
       </div>
 
-      <div *ngIf="filteredUsers.length; else emptyUsers" class="users-grid">
+      <!-- WEBAPP: Skeleton loaders for users -->
+      <div *ngIf="isLoading && isWeb" class="skeleton-users-grid">
+        <div class="skeleton-user-card" *ngFor="let i of [1,2,3,4,5,6]">
+          <div class="skeleton-user-header">
+            <div class="skeleton-user-avatar"></div>
+            <div class="skeleton-user-info">
+              <div class="skeleton-user-name"></div>
+              <div class="skeleton-user-role"></div>
+            </div>
+          </div>
+          <div class="skeleton-user-details">
+            <div class="skeleton-user-detail-item">
+              <div class="skeleton-icon"></div>
+              <div class="skeleton-detail-text"></div>
+            </div>
+            <div class="skeleton-user-detail-item">
+              <div class="skeleton-icon"></div>
+              <div class="skeleton-detail-text"></div>
+            </div>
+            <div class="skeleton-user-detail-item">
+              <div class="skeleton-icon"></div>
+              <div class="skeleton-detail-text"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!isLoading && filteredUsers.length; else emptyUsers" class="users-grid">
         <div class="user-card clickable-card" *ngFor="let user of filteredUsers" (click)="openEditUserModal(user)">
           <div class="user-card-content">
             <div class="user-header">
@@ -843,7 +914,7 @@
       </div>
 
       <ng-template #emptyUsers>
-        <div class="empty-tab-state">
+        <div *ngIf="!isLoading" class="empty-tab-state">
           <ion-icon name="people-outline"></ion-icon>
           <h3>No users found</h3>
           <p>No users match your filters or company selection.</p>
@@ -878,7 +949,32 @@
         </div>
       </div>
 
-      <div class="invoice-groups" *ngIf="paginatedInvoiceGroups.length; else emptyInvoices">
+      <!-- WEBAPP: Skeleton loaders for invoices -->
+      <div *ngIf="isLoading && isWeb" class="crm-skeleton-container">
+        <div *ngFor="let i of [1,2,3]">
+          <div class="skeleton-invoice-item">
+            <div class="skeleton-invoice-headers">
+              <div class="skeleton-header-cell"></div>
+              <div class="skeleton-header-cell"></div>
+              <div class="skeleton-header-cell"></div>
+            </div>
+            <div class="skeleton-invoice-content">
+              <div class="skeleton-invoice-value">
+                <div class="skeleton-value-line"></div>
+                <div class="skeleton-value-line"></div>
+              </div>
+              <div class="skeleton-invoice-value">
+                <div class="skeleton-value-line"></div>
+              </div>
+              <div class="skeleton-invoice-value">
+                <div class="skeleton-value-line"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="invoice-groups" *ngIf="!isLoading && paginatedInvoiceGroups.length; else emptyInvoices">
         <div class="invoice-group" *ngFor="let group of paginatedInvoiceGroups; trackBy: trackByInvoiceGroup">
           <div class="invoice-group-header">
             <h4>{{ group.companyName }}</h4>
@@ -934,7 +1030,7 @@
       </div>
 
       <ng-template #emptyInvoices>
-        <div class="empty-tab-state">
+        <div *ngIf="!isLoading" class="empty-tab-state">
           <ion-icon name="receipt-outline"></ion-icon>
           <h3>No invoices found</h3>
           <p>Once invoices are generated they will appear here.</p>

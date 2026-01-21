@@ -637,6 +637,21 @@ export class EngineersFoundationPdfService {
                 if (photoPath.startsWith('data:') || photoPath.startsWith('blob:')) {
                   console.log(`[PDF Service] FDF ${photoType.key} already has local URL`);
                   base64Data = photoPath;
+                } else if (this.caspioService.isS3Key(photoPath)) {
+                  // S3 key - fetch from S3
+                  console.log(`[PDF Service] Loading FDF ${photoType.key} from S3:`, photoPath);
+                  try {
+                    const s3Url = await this.caspioService.getS3FileUrl(photoPath);
+                    if (s3Url) {
+                      const response = await fetch(s3Url);
+                      if (response.ok) {
+                        const blob = await response.blob();
+                        base64Data = await this.blobToBase64(blob);
+                      }
+                    }
+                  } catch (s3Error) {
+                    console.error(`[PDF Service] Failed to load FDF ${photoType.key} from S3:`, s3Error);
+                  }
                 } else if (photoPath.startsWith('/')) {
                   // DEXIE-FIRST: Try cache then API
                   base64Data = await this.getImageDexieFirst(photoPath, cacheKey, serviceId);
@@ -699,14 +714,15 @@ export class EngineersFoundationPdfService {
 
               for (const attachment of (attachments || [])) {
                 const attachId = attachment.AttachID || attachment.attachId || attachment.imageId || '';
-                const photoPath = attachment.Photo || attachment.PhotoPath || '';
+                // Also check Attachment field which contains S3 key for webapp uploads
+                const photoPath = attachment.Photo || attachment.PhotoPath || attachment.Attachment || '';
                 const drawingsData = attachment.Drawings || attachment.drawings || null;
                 const caption = attachment.Caption || attachment.caption || '';
 
                 let finalUrl: string | null = null;
 
                 // DEXIE-FIRST: Check if attachment already has a local/cached URL
-                const existingUrl = attachment.displayUrl || attachment.url || photoPath;
+                const existingUrl = attachment.displayUrl || attachment.url || attachment.Attachment || photoPath;
 
                 if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
                   // Already have a usable local URL
@@ -749,9 +765,27 @@ export class EngineersFoundationPdfService {
                   }
                 }
 
-                // FALLBACK: Load from API (for server paths)
-                if (!finalUrl && photoPath && photoPath.startsWith('/')) {
-                  finalUrl = await this.getImageDexieFirst(photoPath, String(attachId), serviceId);
+                // FALLBACK: Load from API (for server paths or S3 keys)
+                if (!finalUrl && photoPath) {
+                  if (this.caspioService.isS3Key(photoPath)) {
+                    // S3 key - fetch from S3
+                    console.log('[PDF Service] Loading point photo from S3:', photoPath);
+                    try {
+                      const s3Url = await this.caspioService.getS3FileUrl(photoPath);
+                      if (s3Url) {
+                        const response = await fetch(s3Url);
+                        if (response.ok) {
+                          const blob = await response.blob();
+                          finalUrl = await this.blobToBase64(blob);
+                        }
+                      }
+                    } catch (s3Error) {
+                      console.error('[PDF Service] Failed to load point photo from S3:', s3Error);
+                    }
+                  } else if (photoPath.startsWith('/')) {
+                    // Caspio file path
+                    finalUrl = await this.getImageDexieFirst(photoPath, String(attachId), serviceId);
+                  }
                 }
 
                 if (finalUrl && finalUrl.startsWith('data:')) {
@@ -811,7 +845,8 @@ export class EngineersFoundationPdfService {
         let conversionSuccess = false;
 
         // DEXIE-FIRST: Check if attachment already has a local/cached URL
-        const existingUrl = attachment.displayUrl || attachment.url || attachment.Photo || '';
+        // Also check Attachment field which contains S3 key for webapp uploads
+        const existingUrl = attachment.displayUrl || attachment.url || attachment.Photo || attachment.Attachment || '';
 
         if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
           // Already have a usable local URL
@@ -858,23 +893,44 @@ export class EngineersFoundationPdfService {
           }
         }
 
-        // FALLBACK: If no local data, try API (for server paths)
+        // FALLBACK: If no local data, try API (for server paths or S3 keys)
         if (!finalUrl) {
-          const serverPath = attachment.Photo || attachment.PhotoPath || '';
-          if (serverPath && serverPath.startsWith('/')) {
-            try {
-              console.log('[PDF Service] Falling back to API for:', serverPath);
-              const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(serverPath));
-              if (base64Data && base64Data.startsWith('data:')) {
-                finalUrl = base64Data;
-                conversionSuccess = true;
+          // Check both Photo/PhotoPath (Caspio file paths) and Attachment (S3 keys)
+          const serverPath = attachment.Photo || attachment.PhotoPath || attachment.Attachment || '';
 
-                // Cache for future use (mobile only)
-                if (!environment.isWeb && attachId && attachment.serviceId) {
-                  try {
-                    await this.indexedDb.cachePhoto(String(attachId), attachment.serviceId, base64Data);
-                  } catch (cacheErr) {
-                    console.warn('[PDF Service] Failed to cache visual photo:', cacheErr);
+          if (serverPath) {
+            try {
+              // Check if this is an S3 key (starts with 'uploads/')
+              if (this.caspioService.isS3Key(serverPath)) {
+                console.log('[PDF Service] Loading from S3 for:', serverPath);
+                const s3Url = await this.caspioService.getS3FileUrl(serverPath);
+                if (s3Url) {
+                  // Fetch the image and convert to base64 for PDF embedding
+                  const response = await fetch(s3Url);
+                  if (response.ok) {
+                    const blob = await response.blob();
+                    const base64Data = await this.blobToBase64(blob);
+                    if (base64Data) {
+                      finalUrl = base64Data;
+                      conversionSuccess = true;
+                    }
+                  }
+                }
+              } else if (serverPath.startsWith('/')) {
+                // Caspio file path - use Files API
+                console.log('[PDF Service] Falling back to API for:', serverPath);
+                const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(serverPath));
+                if (base64Data && base64Data.startsWith('data:')) {
+                  finalUrl = base64Data;
+                  conversionSuccess = true;
+
+                  // Cache for future use (mobile only)
+                  if (!environment.isWeb && attachId && attachment.serviceId) {
+                    try {
+                      await this.indexedDb.cachePhoto(String(attachId), attachment.serviceId, base64Data);
+                    } catch (cacheErr) {
+                      console.warn('[PDF Service] Failed to cache visual photo:', cacheErr);
+                    }
                   }
                 }
               }
@@ -1086,6 +1142,20 @@ export class EngineersFoundationPdfService {
     }
 
     return null;
+  }
+
+  /**
+   * Convert a Blob to a base64 data URL
+   */
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 }
 

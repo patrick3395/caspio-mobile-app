@@ -119,6 +119,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
   ionViewWillEnter() {
     // WEBAPP: Clear any loading state from previous navigation (immediate)
+    // Note: We clear here but also need markForCheck in ionViewDidEnter for OnPush
     if (environment.isWeb) {
       this.selectingProjectId = null;
     }
@@ -139,25 +140,12 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
   ionViewDidEnter() {
     // G2-LOADING-001: Clear spinner state AFTER view is fully rendered
-    // This is critical for CDK virtual scroll which caches rendered templates
+    // CRITICAL: Always trigger change detection for OnPush components when returning
+    // to this page, to ensure the spinner is cleared regardless of navigation timing
     if (environment.isWeb) {
-      // Always clear the selecting state when entering the view
-      const wasSelecting = this.selectingProjectId !== null;
       this.selectingProjectId = null;
-
-      if (wasSelecting && this.filteredProjects && this.filteredProjects.length > 0) {
-        // Force complete re-render by temporarily clearing and restoring the array
-        // This is necessary because CDK virtual scroll caches rendered items by trackBy key
-        const savedProjects = this.filteredProjects;
-        this.filteredProjects = [];
-        this.cdr.detectChanges();
-
-        // Restore after a microtask to ensure the clear is processed
-        setTimeout(() => {
-          this.filteredProjects = savedProjects;
-          this.cdr.detectChanges();
-        }, 0);
-      }
+      // Force change detection to update the UI and clear any stale spinner state
+      this.cdr.markForCheck();
     }
   }
 

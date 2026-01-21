@@ -1180,16 +1180,17 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
           }
 
           // Build the full HTML content with inline styles for mobile app compatibility
+          // Using fixed positioning (top: 5px) instead of transform for native mobile compatibility
           const htmlContent = `
             <div class="caption-popup-content">
-              <div class="caption-input-container" style="position: relative; margin-bottom: 16px; display: flex; align-items: center;">
+              <div class="caption-input-container" style="position: relative; margin-bottom: 16px;">
                 <input type="text" id="captionInput" class="caption-text-input"
                        placeholder="Enter caption..."
                        value="${tempCaption}"
                        maxlength="255"
                        style="width: 100%; padding: 14px 54px 14px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; color: #333; background: white; box-sizing: border-box; height: 52px;" />
                 <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word"
-                        style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 1;">
+                        style="position: absolute; right: 5px; top: 5px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 10;">
                   <ion-icon name="backspace-outline" style="font-size: 20px; color: #666;"></ion-icon>
                 </button>
               </div>
