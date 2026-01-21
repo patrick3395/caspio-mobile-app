@@ -334,7 +334,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           TemplateID: templateId,
           PK_ID: templateId,
           PointCount: template?.PointCount || 0,
-          Organization: room.Organization ?? template?.Organization,
+          Organization: room.Organization ?? template?.['Organization'],
           isSelected: true,
           isSaving: false,
           efeId: String(efeId)
@@ -374,7 +374,7 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           TemplateID: templateId,
           PK_ID: templateId,
           PointCount: template.PointCount || 0,
-          Organization: template.Organization,
+          Organization: template['Organization'],
           isSelected: true,
           isSaving: false,
           efeId: ''
