@@ -331,12 +331,28 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           this.efeRecordIds[roomName] = efeId;
         }
 
+        // Extract elevation points from template Point1Name, Point2Name, etc.
+        const elevationPoints: any[] = [];
+        for (let i = 1; i <= 20; i++) {
+          const pointName = template[`Point${i}Name`];
+          if (pointName && pointName.trim() !== '') {
+            elevationPoints.push({
+              pointNumber: i,
+              name: pointName,
+              value: '',
+              photo: null,
+              photos: [],
+              photoCount: 0
+            });
+          }
+        }
+
         // Store elevation data for navigation
         this.roomElevationData[roomName] = {
           roomName: roomName,
           templateId: templateId,
-          elevationPoints: [],
-          pointCount: template.PointCount || 0,
+          elevationPoints: elevationPoints,
+          pointCount: template.PointCount || elevationPoints.length,
           notes: existingRoom?.Notes || '',
           fdf: existingRoom?.FDF || '',
           location: existingRoom?.Location || ''
@@ -370,11 +386,29 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         this.selectedRooms[roomName] = true;
         this.efeRecordIds[roomName] = efeId;
 
+        // Extract elevation points from template Point1Name, Point2Name, etc.
+        const elevationPoints: any[] = [];
+        if (template) {
+          for (let i = 1; i <= 20; i++) {
+            const pointName = template[`Point${i}Name`];
+            if (pointName && pointName.trim() !== '') {
+              elevationPoints.push({
+                pointNumber: i,
+                name: pointName,
+                value: '',
+                photo: null,
+                photos: [],
+                photoCount: 0
+              });
+            }
+          }
+        }
+
         this.roomElevationData[roomName] = {
           roomName: roomName,
           templateId: templateId,
-          elevationPoints: [],
-          pointCount: template?.PointCount || room.PointCount || 0,
+          elevationPoints: elevationPoints,
+          pointCount: template?.PointCount || elevationPoints.length || room.PointCount || 0,
           notes: room.Notes || '',
           fdf: room.FDF || '',
           location: room.Location || ''
@@ -824,6 +858,26 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         value: p.value || '',
         photoCount: p.photoCount || 0
       })) || [];
+
+      // WEBAPP MODE: Create elevation points directly via API
+      if (environment.isWeb && roomId && !String(roomId).startsWith('temp_')) {
+        console.log('[Create Room] WEBAPP: Creating elevation points for room EFEID:', roomId);
+        console.log('[Create Room] WEBAPP: Points to create:', elevationPoints.length, elevationPoints.map(ep => ep.name));
+
+        for (const ep of elevationPoints) {
+          try {
+            console.log('[Create Room] WEBAPP: Creating point:', ep.name);
+            const pointResult = await this.foundationData.createEFEPoint({
+              PointName: ep.name
+            }, String(roomId));
+            const pointId = pointResult?.PointID || pointResult?.PK_ID;
+            console.log('[Create Room] WEBAPP: ✅ Point created:', ep.name, 'with ID:', pointId);
+            ep.pointId = pointId;
+          } catch (pointError: any) {
+            console.error('[Create Room] WEBAPP: ❌ Failed to create point:', ep.name, pointError?.message || pointError);
+          }
+        }
+      }
 
       await this.efeFieldRepo.setRoomSelected(
         this.serviceId,

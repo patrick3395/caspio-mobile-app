@@ -20,7 +20,14 @@
     "set-ios-build-number": "node scripts/set-ios-build-number.js",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:headed": "playwright test --headed",
+    "e2e:debug": "playwright test --debug",
+    "e2e:report": "playwright show-report",
+    "e2e:codegen": "playwright codegen http://localhost:4200",
+    "screenshot": "npx ts-node e2e/capture-screenshot.ts"
   },
   "private": true,
   "dependencies": {
@@ -57,6 +64,8 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "ts-node": "^10.9.2",
     "@angular-devkit/build-angular": "^20.0.0",
     "@angular-eslint/builder": "^20.0.0",
     "@angular-eslint/eslint-plugin": "^20.0.0",
