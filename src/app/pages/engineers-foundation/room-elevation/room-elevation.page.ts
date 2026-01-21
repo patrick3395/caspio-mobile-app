@@ -5789,8 +5789,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       }
 
       // CRITICAL FIX: Get image as data URL to avoid CORS issues in Fabric.js canvas
-      let imageUrl = photo.url || photo.displayUrl;
-      
+      // WEBAPP FIX: Prefer displayUrl (resolved data URL) over url (S3 key)
+      let imageUrl = photo.displayUrl || photo.url;
+
       // PERFORMANCE FIX: Try bulk map first (O(1) lookup), fall back to IndexedDB if not found
       const attachId = photo.attachId;
       if (attachId) {
@@ -5805,10 +5806,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           imageUrl = cachedDataUrl;
         }
       }
-      
+
       // If still no valid data URL and we have a path, fetch and cache it
-      if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.png' || imageUrl.startsWith('https://')) {
-        const s3Key = photo.Attachment || photo.path;
+      // WEBAPP FIX: Also check for S3 keys (start with 'uploads/')
+      if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.png' || imageUrl.startsWith('https://') || this.caspioService.isS3Key(imageUrl)) {
+        const s3Key = photo.Attachment || photo.path || (this.caspioService.isS3Key(photo.url) ? photo.url : null);
         
         // For S3 images, fetch via XMLHttpRequest to get data URL (avoids CORS issues with fabric.js canvas)
         if (s3Key && this.caspioService.isS3Key(s3Key)) {
