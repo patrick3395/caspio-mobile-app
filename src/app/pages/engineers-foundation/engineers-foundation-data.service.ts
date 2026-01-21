@@ -1963,59 +1963,81 @@ export class EngineersFoundationDataService {
       // Fetch fresh data from server using existing API methods
       // 1. Fetch visuals
       console.log('[DataService] Rehydrating visuals...');
-      const visuals = await firstValueFrom(this.caspioService.getVisualsByService(serviceId));
-      if (visuals && visuals.length > 0) {
+      const visuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
+      if (visuals && Array.isArray(visuals) && visuals.length > 0) {
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals);
         result.restored.visuals = visuals.length;
         console.log(`[DataService] ✅ Restored ${visuals.length} visuals`);
 
         // 2. Fetch visual attachments for each visual
+        const allVisualAttachments: any[] = [];
         for (const visual of visuals) {
           const visualId = visual.VisualID || visual.visualId;
           if (visualId) {
-            const attachments = await firstValueFrom(
-              this.caspioService.getVisualAttachments(visualId)
-            );
-            if (attachments && attachments.length > 0) {
-              await this.indexedDb.cacheVisualAttachments(visualId, attachments);
-              result.restored.visualAttachments += attachments.length;
+            try {
+              const attachments = await firstValueFrom(
+                this.caspioService.getServiceVisualsAttachByVisualId(String(visualId))
+              );
+              if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+                allVisualAttachments.push(...attachments);
+                result.restored.visualAttachments += attachments.length;
+              }
+            } catch (err) {
+              console.warn(`[DataService] Failed to fetch attachments for visual ${visualId}:`, err);
             }
           }
+        }
+        if (allVisualAttachments.length > 0) {
+          await this.indexedDb.cacheServiceData(serviceId, 'visual_attachments', allVisualAttachments);
         }
         console.log(`[DataService] ✅ Restored ${result.restored.visualAttachments} visual attachments`);
       }
 
       // 3. Fetch EFE rooms
       console.log('[DataService] Rehydrating EFE rooms...');
-      const efeRooms = await firstValueFrom(this.caspioService.getEFEByService(serviceId));
-      if (efeRooms && efeRooms.length > 0) {
+      const efeRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
+      if (efeRooms && Array.isArray(efeRooms) && efeRooms.length > 0) {
         await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', efeRooms);
         result.restored.efeRooms = efeRooms.length;
         console.log(`[DataService] ✅ Restored ${efeRooms.length} EFE rooms`);
 
         // 4. Fetch EFE points and attachments for each room
+        const allEfePoints: any[] = [];
+        const allEfeAttachments: any[] = [];
         for (const room of efeRooms) {
-          const roomId = room.RoomID || room.roomId;
+          const roomId = room.RoomID || room.EFEID;
           if (roomId) {
-            const points = await firstValueFrom(this.caspioService.getEFEPoints(roomId));
-            if (points && points.length > 0) {
-              await this.indexedDb.cacheServiceData(serviceId, 'efe_points', points);
+            try {
+              const points = await firstValueFrom(this.caspioService.getServicesEFEPoints(String(roomId)));
+              if (points && Array.isArray(points) && points.length > 0) {
+                allEfePoints.push(...points);
 
-              // Fetch attachments for each point
-              for (const point of points) {
-                const pointId = point.PointID || point.pointId;
-                if (pointId) {
-                  const attachments = await firstValueFrom(
-                    this.caspioService.getEFEPointAttachments(pointId)
-                  );
-                  if (attachments && attachments.length > 0) {
-                    await this.indexedDb.cacheEFEPointAttachments(pointId, attachments);
-                    result.restored.efeAttachments += attachments.length;
+                // Fetch attachments for these points (batch)
+                const pointIds = points.map((p: any) => String(p.PointID || p.pointId)).filter(Boolean);
+                if (pointIds.length > 0) {
+                  try {
+                    const attachments = await firstValueFrom(
+                      this.caspioService.getServicesEFEAttachments(pointIds)
+                    );
+                    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+                      allEfeAttachments.push(...attachments);
+                      result.restored.efeAttachments += attachments.length;
+                    }
+                  } catch (err) {
+                    console.warn(`[DataService] Failed to fetch EFE attachments:`, err);
                   }
                 }
               }
+            } catch (err) {
+              console.warn(`[DataService] Failed to fetch points for room ${roomId}:`, err);
             }
           }
+        }
+        if (allEfePoints.length > 0) {
+          await this.indexedDb.cacheServiceData(serviceId, 'efe_points', allEfePoints);
+        }
+        if (allEfeAttachments.length > 0) {
+          await this.indexedDb.cacheServiceData(serviceId, 'efe_point_attachments', allEfeAttachments);
         }
         console.log(`[DataService] ✅ Restored ${result.restored.efeAttachments} EFE attachments`);
       }

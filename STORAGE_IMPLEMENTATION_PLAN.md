@@ -360,7 +360,7 @@ async rehydrateService(serviceId: string): Promise<void> {
 
 | Task | Status | Date | Notes |
 |------|--------|------|-------|
-| 7.1 Implement rehydrateService() | ✅ DONE | 2026-01-21 | Added `rehydrateService()` and `needsRehydration()` to EngineersFoundationDataService. Lines 1907-2051. Fetches visuals, EFE rooms, attachments from server. |
+| 7.1 Implement rehydrateService() | ✅ DONE | 2026-01-21 | Added `rehydrateService()` and `needsRehydration()` to EngineersFoundationDataService. Uses correct API methods (getServicesVisualsByServiceId, getServicesEFE, etc). |
 
 ### Decision Log
 

@@ -3660,9 +3660,6 @@ export class BackgroundSyncService {
       // Delete cached photos for this service
       await db.cachedPhotos.where('serviceId').equals(serviceId).delete();
 
-      // Delete cached annotated images for this service
-      await db.cachedAnnotatedImages.where('serviceId').equals(serviceId).delete();
-
       // Delete pending captions for this service
       await db.pendingCaptions.where('serviceId').equals(serviceId).delete();
 
