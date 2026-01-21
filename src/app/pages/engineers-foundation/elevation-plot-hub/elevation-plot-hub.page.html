@@ -172,5 +172,16 @@
         Add Room
       </button>
     </div>
+
+    <!-- Storage Debug Toggle (Mobile Only) -->
+    <div *ngIf="!isWeb" style="margin: 20px 8px;">
+      <ion-button expand="block" fill="outline" color="medium" (click)="showStorageDebug = !showStorageDebug">
+        <ion-icon [name]="showStorageDebug ? 'chevron-up' : 'bug'" slot="start"></ion-icon>
+        {{ showStorageDebug ? 'Hide' : 'Show' }} Storage Debug
+      </ion-button>
+    </div>
+
+    <!-- Storage Debug Panel -->
+    <app-storage-debug *ngIf="showStorageDebug && !isWeb"></app-storage-debug>
   </div>
 </div>
