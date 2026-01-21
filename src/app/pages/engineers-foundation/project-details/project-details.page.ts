@@ -356,7 +356,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       // WEBAPP MODE: Load directly from API
       if (environment.isWeb) {
         console.log('[ProjectDetails] WEBAPP MODE: Loading Services_Drop directly from API');
-        servicesDropData = await firstValueFrom(this.caspioService.getServicesVisualsDropFiltered()) || [];
+        servicesDropData = await firstValueFrom(this.caspioService.getServicesVisualsDrop()) || [];
       } else {
         // MOBILE MODE: Use OfflineTemplateService which reads from IndexedDB
         servicesDropData = await this.offlineTemplate.getServicesDrop();
