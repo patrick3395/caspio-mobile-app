@@ -15,6 +15,7 @@ import { IndexedDbService } from '../../../services/indexed-db.service';
 import { SmartSyncService } from '../../../services/smart-sync.service';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
 import { EfeField, EfePoint, db } from '../../../services/caspio-db';
+import { ServiceMetadataService } from '../../../services/service-metadata.service';
 import { environment } from '../../../../environments/environment';
 
 interface RoomTemplate {
@@ -100,7 +101,8 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     private offlineService: OfflineService,
     private indexedDb: IndexedDbService,
     private smartSync: SmartSyncService,
-    private efeFieldRepo: EfeFieldRepoService
+    private efeFieldRepo: EfeFieldRepoService,
+    private serviceMetadata: ServiceMetadataService
   ) {}
 
   async ngOnInit() {
@@ -527,6 +529,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
       return;
     }
 
+    // Track service as open for storage bloat prevention (Phase 3)
+    this.serviceMetadata.setOpen(this.serviceId, true).catch(err => {
+      console.warn('[ElevationPlotHub] Failed to set service open:', err);
+    });
+
     const sectionKey = `${this.serviceId}_elevation`;
     const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
 
@@ -757,6 +764,11 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // Unregister from SmartSync
     if (this.serviceId) {
       this.smartSync.unregisterActiveService(this.serviceId);
+
+      // Track service as closed for storage bloat prevention (Phase 3)
+      this.serviceMetadata.setOpen(this.serviceId, false).catch(err => {
+        console.warn('[ElevationPlotHub] Failed to set service closed:', err);
+      });
     }
 
     // Clean up Dexie-first subscription

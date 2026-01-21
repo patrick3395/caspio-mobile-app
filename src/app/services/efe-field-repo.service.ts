@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { db, EfeField, EfePoint, EfeFdfPhoto } from './caspio-db';
+import { ServiceMetadataService } from './service-metadata.service';
 
 /**
  * EfeFieldRepoService - Repository API for EFE (Elevation Field Equipment) field data
@@ -23,7 +24,7 @@ import { db, EfeField, EfePoint, EfeFdfPhoto } from './caspio-db';
 })
 export class EfeFieldRepoService {
 
-  constructor() {}
+  constructor(private serviceMetadata: ServiceMetadataService) {}
 
   // ============================================================================
   // SEEDING - Initialize fields from templates
@@ -472,6 +473,9 @@ export class EfeFieldRepoService {
         });
       }
     });
+
+    // Track service revision for storage bloat prevention (Phase 3)
+    this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 
   /**
@@ -492,6 +496,9 @@ export class EfeFieldRepoService {
         });
       }
     });
+
+    // Track service revision for storage bloat prevention (Phase 3)
+    this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 
   /**
@@ -512,6 +519,9 @@ export class EfeFieldRepoService {
         });
       }
     });
+
+    // Track service revision for storage bloat prevention (Phase 3)
+    this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 
   /**
@@ -550,6 +560,9 @@ export class EfeFieldRepoService {
         }
       }
     });
+
+    // Track service revision for storage bloat prevention (Phase 3)
+    this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 
   /**
@@ -585,6 +598,9 @@ export class EfeFieldRepoService {
         }
       }
     });
+
+    // Track service revision for storage bloat prevention (Phase 3)
+    this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 
   /**

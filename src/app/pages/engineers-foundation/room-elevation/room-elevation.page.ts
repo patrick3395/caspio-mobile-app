@@ -23,6 +23,7 @@ import { HelpModalComponent } from '../../../components/help-modal/help-modal.co
 import { db, EfeField, EfePoint } from '../../../services/caspio-db';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
 import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
+import { ServiceMetadataService } from '../../../services/service-metadata.service';
 
 @Component({
   selector: 'app-room-elevation',
@@ -137,7 +138,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     private backgroundSync: BackgroundSyncService,
     private localImageService: LocalImageService,
     private ngZone: NgZone,
-    private efeFieldRepo: EfeFieldRepoService
+    private efeFieldRepo: EfeFieldRepoService,
+    private serviceMetadata: ServiceMetadataService
   ) {}
 
   // WEBAPP MODE flag for easy checking
@@ -996,6 +998,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       return;
     }
 
+    // Track service as open for storage bloat prevention (Phase 3)
+    if (this.serviceId) {
+      this.serviceMetadata.setOpen(this.serviceId, true).catch(err => {
+        console.warn('[RoomElevation] Failed to set service open:', err);
+      });
+    }
+
     const sectionKey = `${this.serviceId}_room_${this.roomName}`;
 
     // Check if we have data in memory and if section is dirty
@@ -1823,6 +1832,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   }
 
   ngOnDestroy() {
+    // Track service as closed for storage bloat prevention (Phase 3)
+    if (this.serviceId) {
+      this.serviceMetadata.setOpen(this.serviceId, false).catch(err => {
+        console.warn('[RoomElevation] Failed to set service closed:', err);
+      });
+    }
+
     // Clean up debounce timers
     if (this.notesDebounceTimer) {
       clearTimeout(this.notesDebounceTimer);

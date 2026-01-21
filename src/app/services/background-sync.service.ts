@@ -8,6 +8,7 @@ import { ConnectionMonitorService } from './connection-monitor.service';
 import { CaspioService } from './caspio.service';
 import { LocalImageService } from './local-image.service';
 import { OperationsQueueService } from './operations-queue.service';
+import { ServiceMetadataService } from './service-metadata.service';
 import { environment } from '../../environments/environment';
 
 export interface PhotoUploadComplete {
@@ -218,7 +219,8 @@ export class BackgroundSyncService {
     private ngZone: NgZone,
     private caspioService: CaspioService,
     private localImageService: LocalImageService,
-    private operationsQueue: OperationsQueueService
+    private operationsQueue: OperationsQueueService,
+    private serviceMetadata: ServiceMetadataService
   ) {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
@@ -604,6 +606,12 @@ export class BackgroundSyncService {
       // Clear pending changes count after successful sync
       this.clearPendingChangesCount();
       console.log('[BackgroundSync] Sync completed successfully, pending changes cleared');
+
+      // Update service metadata revisions for storage bloat prevention (Phase 3)
+      // This marks that the server has received all local changes
+      this.syncAllServiceRevisions().catch(err => {
+        console.warn('[BackgroundSync] Failed to sync service revisions:', err);
+      });
     } catch (error) {
       console.error('[BackgroundSync] Sync failed:', error);
     } finally {
@@ -3483,6 +3491,37 @@ export class BackgroundSyncService {
 
     console.log('[BackgroundSync] Force sync complete:', result);
     return result;
+  }
+
+  // ============================================================================
+  // SERVICE METADATA - Storage Bloat Prevention (Phase 3)
+  // ============================================================================
+
+  /**
+   * Sync service metadata revisions after successful sync cycle
+   * This marks that the server has received all local changes for each service
+   * Used by storage bloat prevention to determine if data is safe to purge
+   */
+  private async syncAllServiceRevisions(): Promise<void> {
+    try {
+      // Get all services that have metadata tracked
+      const allServices = await this.serviceMetadata.getAllServices();
+
+      for (const service of allServices) {
+        // Check if service has unsynced changes
+        if (service.lastLocalRevision > service.lastServerAckRevision) {
+          // Verify outbox is empty for this service (all uploads complete)
+          const outboxCount = await this.serviceMetadata.getOutboxCount(service.serviceId);
+
+          if (outboxCount === 0) {
+            // Sync the revisions - server has all changes
+            await this.serviceMetadata.syncRevisions(service.serviceId);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[BackgroundSync] Error syncing service revisions:', err);
+    }
   }
 
   /**

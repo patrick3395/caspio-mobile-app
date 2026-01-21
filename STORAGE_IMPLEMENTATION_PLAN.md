@@ -320,19 +320,19 @@ async rehydrateService(serviceId: string): Promise<void> {
 
 | Task | Status | Date | Notes |
 |------|--------|------|-------|
-| 2.1 persistThumbnail() in ThumbnailService | ⬜ TODO | | |
-| 2.2 Modify captureImage() for thumbnails | ⬜ TODO | | |
-| 2.3 Add thumbnail fallback to getDisplayUrl() | ⬜ TODO | | |
+| 2.1 persistThumbnail() in ThumbnailService | ✅ DONE | 2026-01-21 | Added `generateThumbnailFromArrayBuffer()` at lines 270-347. Returns ArrayBuffer for Dexie. |
+| 2.2 Modify captureImage() for thumbnails | ✅ DONE | 2026-01-21 | Modified `createLocalImage()` in indexed-db.service.ts lines 2697-2768. Generates thumb blob atomically with full-res. |
+| 2.3 Add thumbnail fallback to getDisplayUrl() | ✅ DONE | 2026-01-21 | Added Rule 1.5 in `local-image.service.ts` lines 179-187. Checks thumbBlobId after localBlobId. |
 
 ### Phase 3: Service Metadata Tracking
 
 | Task | Status | Date | Notes |
 |------|--------|------|-------|
-| 3.1 Create ServiceMetadataService | ⬜ TODO | | |
-| 3.2 Add touchService() to pages | ⬜ TODO | | |
-| 3.3 Add setOpen() to page lifecycle | ⬜ TODO | | |
-| 3.4 Wire incrementLocalRevision | ⬜ TODO | | |
-| 3.5 Wire setServerAckRevision | ⬜ TODO | | |
+| 3.1 Create ServiceMetadataService | ✅ DONE | 2026-01-21 | Created `service-metadata.service.ts`. Has initService, touchService, incrementLocalRevision, setServerAckRevision, setOpen, isPurgeSafe. |
+| 3.2 Add touchService() to pages | ✅ DONE | 2026-01-21 | setOpen implicitly touches. Added to elevation-plot-hub and room-elevation pages. |
+| 3.3 Add setOpen() to page lifecycle | ✅ DONE | 2026-01-21 | Added setOpen(true) in ionViewWillEnter, setOpen(false) in ngOnDestroy for both pages. |
+| 3.4 Wire incrementLocalRevision | ✅ DONE | 2026-01-21 | Added to EfeFieldRepo (setRoomNotes/Fdf/Location, setPointName/Value) and VisualFieldRepo (setField, setFieldsBulk). |
+| 3.5 Wire setServerAckRevision | ✅ DONE | 2026-01-21 | Added `syncAllServiceRevisions()` to BackgroundSync, called after successful sync cycle. |
 
 ### Phase 4: Two-Stage Purge
 

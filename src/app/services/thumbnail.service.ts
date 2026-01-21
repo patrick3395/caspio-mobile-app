@@ -245,7 +245,7 @@ export class ThumbnailService {
     sizes: number[] = [100, 200, 400, 800]
   ): Promise<{ [size: string]: string }> {
     const thumbnails: { [size: string]: string } = {};
-    
+
     const promises = sizes.map(async (size) => {
       const result = await this.generateThumbnail(imageUrl, {
         width: size,
@@ -254,8 +254,95 @@ export class ThumbnailService {
       });
       thumbnails[size.toString()] = result.thumbnail;
     });
-    
+
     await Promise.all(promises);
     return thumbnails;
+  }
+
+  /**
+   * Generate thumbnail from ArrayBuffer and return as ArrayBuffer for Dexie storage
+   * Used by local-first image capture to create persistent thumbnails
+   *
+   * @param imageData - Original image as ArrayBuffer
+   * @param contentType - MIME type of the image (e.g., 'image/jpeg')
+   * @returns Thumbnail as ArrayBuffer ready for localBlobs storage
+   */
+  async generateThumbnailFromArrayBuffer(
+    imageData: ArrayBuffer,
+    contentType: string = 'image/jpeg'
+  ): Promise<{ data: ArrayBuffer; sizeBytes: number; contentType: string }> {
+    return new Promise((resolve, reject) => {
+      // Create blob from ArrayBuffer
+      const blob = new Blob([imageData], { type: contentType });
+      const imageUrl = URL.createObjectURL(blob);
+
+      const img = new Image();
+
+      img.onload = () => {
+        try {
+          // Revoke the object URL to free memory
+          URL.revokeObjectURL(imageUrl);
+
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+
+          // Calculate dimensions maintaining aspect ratio (200px max)
+          const { width, height } = this.calculateDimensions(
+            img.width,
+            img.height,
+            this.DEFAULT_CONFIG.width,  // 200
+            this.DEFAULT_CONFIG.height  // 200
+          );
+
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw image to canvas
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to blob (JPEG for smaller size)
+          canvas.toBlob(
+            async (thumbnailBlob) => {
+              if (!thumbnailBlob) {
+                reject(new Error('Failed to create thumbnail blob'));
+                return;
+              }
+
+              try {
+                // Convert blob to ArrayBuffer for Dexie storage
+                const arrayBuffer = await thumbnailBlob.arrayBuffer();
+
+                console.log(`[ThumbnailService] Generated thumbnail: ${width}x${height}, ${thumbnailBlob.size} bytes (original: ${imageData.byteLength} bytes)`);
+
+                resolve({
+                  data: arrayBuffer,
+                  sizeBytes: thumbnailBlob.size,
+                  contentType: 'image/jpeg'
+                });
+              } catch (error) {
+                reject(error);
+              }
+            },
+            'image/jpeg',
+            this.DEFAULT_CONFIG.quality  // 0.8
+          );
+        } catch (error) {
+          URL.revokeObjectURL(imageUrl);
+          reject(error);
+        }
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        reject(new Error('Failed to load image for thumbnail generation'));
+      };
+
+      img.src = imageUrl;
+    });
   }
 }

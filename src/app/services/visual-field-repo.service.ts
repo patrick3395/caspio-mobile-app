@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { db, VisualField } from './caspio-db';
+import { ServiceMetadataService } from './service-metadata.service';
 
 /**
  * VisualFieldRepoService - Repository API for visual field data
@@ -22,7 +23,7 @@ import { db, VisualField } from './caspio-db';
 })
 export class VisualFieldRepoService {
 
-  constructor() {}
+  constructor(private serviceMetadata: ServiceMetadataService) {}
 
   // ============================================================================
   // SEEDING - Initialize fields from templates
@@ -344,6 +345,9 @@ export class VisualFieldRepoService {
         console.log(`[VisualFieldRepo] Created new field for custom visual: ${key}`);
       }
     });
+
+    // Track service revision for storage bloat prevention (Phase 3)
+    this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 
   /**
@@ -372,6 +376,9 @@ export class VisualFieldRepoService {
         }
       }
     });
+
+    // Track service revision for storage bloat prevention (Phase 3)
+    this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 
   /**

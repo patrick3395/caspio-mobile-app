@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 import { db } from './caspio-db';
+import { ThumbnailService } from './thumbnail.service';
 
 // ============================================================================
 // REACTIVE DATABASE CHANGE EVENTS (Requirement E)
@@ -181,7 +182,7 @@ export class IndexedDbService {
   // ==========================================================================
   public syncQueueChange$ = new Subject<{ reason: string; count?: number }>();
 
-  constructor() {
+  constructor(private thumbnailService: ThumbnailService) {
     // Database is initialized automatically by Dexie when first accessed
     console.log('[IndexedDB] Service initialized with Dexie wrapper');
   }
@@ -2693,13 +2694,40 @@ export class IndexedDbService {
       createdAt: now
     };
 
+    // Generate thumbnail for storage bloat prevention (Phase 2)
+    // Thumbnail survives soft purge and serves as fallback when full-res blob is deleted
+    let thumbBlobId: string | null = null;
+    let thumbBlob: LocalBlob | null = null;
+
+    try {
+      const thumbnailResult = await this.thumbnailService.generateThumbnailFromArrayBuffer(
+        arrayBuffer,
+        file.type || 'image/jpeg'
+      );
+
+      thumbBlobId = `thumb_${blobId}`;
+      thumbBlob = {
+        blobId: thumbBlobId,
+        data: thumbnailResult.data,
+        sizeBytes: thumbnailResult.sizeBytes,
+        contentType: thumbnailResult.contentType,
+        createdAt: now
+      };
+
+      console.log(`[IndexedDB] Thumbnail generated: ${thumbBlobId} (${thumbnailResult.sizeBytes} bytes)`);
+    } catch (thumbError) {
+      // Non-fatal: Continue without thumbnail if generation fails
+      // Photos will still work, just won't have thumbnail fallback after soft purge
+      console.warn('[IndexedDB] Thumbnail generation failed (non-fatal):', thumbError);
+    }
+
     const localImage: LocalImage = {
       imageId,
       entityType,
       entityId,
       serviceId,
       localBlobId: blobId,
-      thumbBlobId: null,  // Will be populated in Phase 2 when thumbnail generation is added
+      thumbBlobId,  // Will be null if thumbnail generation failed
       remoteS3Key: null,
       status: 'local_only',
       attachId: null,
@@ -2731,6 +2759,10 @@ export class IndexedDbService {
 
     await db.transaction('rw', [db.localBlobs, db.localImages, db.uploadOutbox], async () => {
       await db.localBlobs.add(localBlob);
+      // Store thumbnail blob if generated
+      if (thumbBlob) {
+        await db.localBlobs.add(thumbBlob);
+      }
       await db.localImages.add(localImage);
       await db.uploadOutbox.add(outboxItem);
     });
