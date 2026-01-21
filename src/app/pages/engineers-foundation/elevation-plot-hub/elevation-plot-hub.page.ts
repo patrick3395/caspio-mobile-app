@@ -173,6 +173,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
     // Update online status
     this.isOnline = this.offlineService.isOnline();
 
+    // ===== AUTO-REHYDRATION: Check if service was purged and needs data restored =====
+    await this.checkAndRehydrateIfNeeded();
+
     // Subscribe to EFE room sync completions (for offline-first support)
     this.subscribeToSyncEvents();
 
@@ -189,6 +192,51 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Mark initial load as complete
     this.initialLoadComplete = true;
+  }
+
+  // ============================================================================
+  // AUTO-REHYDRATION: Restore purged service data from server
+  // ============================================================================
+
+  /**
+   * Check if service was purged and automatically rehydrate if needed
+   * This ensures users see their data even after storage cleanup
+   */
+  private async checkAndRehydrateIfNeeded(): Promise<void> {
+    if (!this.serviceId) return;
+
+    // Only on mobile - web always fetches from server
+    if (environment.isWeb) return;
+
+    try {
+      const needsRehydration = await this.foundationData.needsRehydration(this.serviceId);
+
+      if (needsRehydration) {
+        console.log('[ElevationPlotHub] Service was purged - auto-rehydrating...');
+
+        // Must be online to rehydrate
+        if (!this.offlineService.isOnline()) {
+          console.warn('[ElevationPlotHub] Cannot rehydrate while offline');
+          // Could show a toast here if desired
+          return;
+        }
+
+        // Show loading state
+        this.loading = true;
+        this.changeDetectorRef.detectChanges();
+
+        // Rehydrate - fetch data from server and store locally
+        const result = await this.foundationData.rehydrateService(this.serviceId);
+
+        if (result.success) {
+          console.log('[ElevationPlotHub] Auto-rehydration complete:', result.restored);
+        } else {
+          console.error('[ElevationPlotHub] Auto-rehydration failed:', result.error);
+        }
+      }
+    } catch (err) {
+      console.error('[ElevationPlotHub] Error checking rehydration:', err);
+    }
   }
 
   // ============================================================================

@@ -147,6 +147,46 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     return environment.isWeb;
   }
 
+  /**
+   * Check if service was purged and automatically rehydrate if needed
+   * This ensures users see their data even after storage cleanup
+   */
+  private async checkAndRehydrateIfNeeded(): Promise<void> {
+    if (!this.serviceId) return;
+
+    // Only on mobile - web always fetches from server
+    if (environment.isWeb) return;
+
+    try {
+      const needsRehydration = await this.foundationData.needsRehydration(this.serviceId);
+
+      if (needsRehydration) {
+        console.log('[RoomElevation] Service was purged - auto-rehydrating...');
+
+        // Must be online to rehydrate
+        if (!this.offlineService.isOnline()) {
+          console.warn('[RoomElevation] Cannot rehydrate while offline');
+          return;
+        }
+
+        // Show loading state
+        this.loading = true;
+        this.changeDetectorRef.detectChanges();
+
+        // Rehydrate - fetch data from server and store locally
+        const result = await this.foundationData.rehydrateService(this.serviceId);
+
+        if (result.success) {
+          console.log('[RoomElevation] Auto-rehydration complete:', result.restored);
+        } else {
+          console.error('[RoomElevation] Auto-rehydration failed:', result.error);
+        }
+      }
+    } catch (err) {
+      console.error('[RoomElevation] Error checking rehydration:', err);
+    }
+  }
+
   async ngOnInit() {
     console.time('[RoomElevation] ngOnInit total');
     console.log('========================================');
@@ -263,6 +303,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     }
 
     console.log('[RoomElevation] Validation passed. Loading room data...');
+
+    // ===== AUTO-REHYDRATION: Check if service was purged and needs data restored =====
+    await this.checkAndRehydrateIfNeeded();
 
     // DEXIE-FIRST: Use initializeFromDexie() for instant loading from Dexie
     // Falls back to loadRoomData() if room not in Dexie yet
