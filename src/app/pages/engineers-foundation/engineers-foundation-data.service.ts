@@ -1363,15 +1363,22 @@ export class EngineersFoundationDataService {
 
     // WEBAPP MODE: Create directly via API (if room has real ID, not temp)
     if (environment.isWeb && !String(parentId).startsWith('temp_')) {
-      console.log('[EFE Data] WEBAPP: Creating EFE point directly via API:', pointData);
+      // Ensure EFEID is numeric (database expects integer)
+      const numericEfeId = parseInt(String(parentId), 10);
+      if (isNaN(numericEfeId)) {
+        console.error('[EFE Data] WEBAPP: Invalid EFEID (not numeric):', parentId);
+        throw new Error(`Invalid EFEID: ${parentId}`);
+      }
+
+      console.log('[EFE Data] WEBAPP: Creating EFE point directly via API:', { ...pointData, EFEID: numericEfeId });
 
       try {
         const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?response=rows`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ...pointData,
-            EFEID: parentId
+            EFEID: numericEfeId,
+            PointName: pointData.PointName
           })
         });
 
@@ -1386,10 +1393,10 @@ export class EngineersFoundationDataService {
         console.log('[EFE Data] WEBAPP: ✅ EFE point created with ID:', createdRecord.PointID || createdRecord.PK_ID);
 
         return {
-          ...pointData,
           PointID: createdRecord.PointID || createdRecord.PK_ID,
           PK_ID: createdRecord.PK_ID || createdRecord.PointID,
-          EFEID: parentId,
+          EFEID: numericEfeId,
+          PointName: pointData.PointName,
           _tempId: createdRecord.PointID || createdRecord.PK_ID, // Use real ID as _tempId for compatibility
           ...createdRecord
         };

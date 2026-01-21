@@ -973,43 +973,67 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
           await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
           console.log('[Rename Room] Updated Dexie efeFields');
         } else {
-          // REAL ROOM: Queue rename for background sync (offline-first pattern)
-          console.log('[Rename Room] Real room - queueing rename for sync...');
+          // REAL ROOM: Update in backend
 
-          // Queue the rename as a pending request
-          await this.indexedDb.addPendingRequest({
-            type: 'UPDATE',
-            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`,
-            method: 'PUT',
-            data: { RoomName: newRoomName },
-            dependencies: [],
-            status: 'pending',
-            priority: 'normal',
-            serviceId: this.serviceId
-          });
-          console.log('[Rename Room] Queued rename for sync');
+          // WEBAPP MODE: Call API directly
+          if (environment.isWeb) {
+            console.log('[Rename Room] WEBAPP: Calling API directly to rename room...');
+            try {
+              const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ RoomName: newRoomName })
+              });
 
-          // Update IndexedDB cache for immediate persistence
-          try {
-            const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
-            const updatedCachedRooms = cachedRooms.map((room: any) => {
-              if (String(room.EFEID) === String(roomId) || room.RoomName === oldRoomName) {
-                return { ...room, RoomName: newRoomName };
+              if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to rename room: ${errorText}`);
               }
-              return room;
+
+              console.log('[Rename Room] WEBAPP: ✅ Room renamed successfully in database');
+            } catch (apiError: any) {
+              console.error('[Rename Room] WEBAPP: ❌ API call failed:', apiError?.message || apiError);
+              throw apiError;
+            }
+          } else {
+            // MOBILE MODE: Queue rename for background sync (offline-first pattern)
+            console.log('[Rename Room] Real room - queueing rename for sync...');
+
+            // Queue the rename as a pending request
+            await this.indexedDb.addPendingRequest({
+              type: 'UPDATE',
+              endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`,
+              method: 'PUT',
+              data: { RoomName: newRoomName },
+              dependencies: [],
+              status: 'pending',
+              priority: 'normal',
+              serviceId: this.serviceId
             });
-            await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedCachedRooms);
-            console.log('[Rename Room] Updated efe_rooms cache');
-          } catch (cacheError) {
-            console.warn('[Rename Room] Failed to update cache (non-fatal):', cacheError);
+            console.log('[Rename Room] Queued rename for sync');
+
+            // Update IndexedDB cache for immediate persistence
+            try {
+              const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+              const updatedCachedRooms = cachedRooms.map((room: any) => {
+                if (String(room.EFEID) === String(roomId) || room.RoomName === oldRoomName) {
+                  return { ...room, RoomName: newRoomName };
+                }
+                return room;
+              });
+              await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedCachedRooms);
+              console.log('[Rename Room] Updated efe_rooms cache');
+            } catch (cacheError) {
+              console.warn('[Rename Room] Failed to update cache (non-fatal):', cacheError);
+            }
+
+            // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
+            await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
+            console.log('[Rename Room] Updated Dexie efeFields');
+
+            // Refresh sync status to show pending rename in UI
+            await this.backgroundSync.refreshSyncStatus();
           }
-
-          // DEXIE-FIRST: Rename room in Dexie (liveQuery will update UI)
-          await this.efeFieldRepo.renameRoom(this.serviceId, oldRoomName, newRoomName);
-          console.log('[Rename Room] Updated Dexie efeFields');
-
-          // Refresh sync status to show pending rename in UI
-          await this.backgroundSync.refreshSyncStatus();
         }
 
         // ATOMIC UPDATE: Create all new dictionary entries FIRST, then delete old ones
@@ -1464,40 +1488,57 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
 
     if (roomId && roomId !== '__pending__' && !roomIdStr.startsWith('temp_')) {
       try {
-        console.log('[ElevationPlotHub] Queueing room deletion for sync...');
+        // WEBAPP MODE: Call API directly to delete room
+        if (environment.isWeb) {
+          console.log('[ElevationPlotHub] WEBAPP: Deleting room via API...');
 
-        // OFFLINE-FIRST: Queue the deletion as a pending request instead of direct API call
-        await this.indexedDb.addPendingRequest({
-          type: 'DELETE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`,
-          method: 'DELETE',
-          data: { EFEID: roomId, RoomName: roomName },
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal',
-          serviceId: this.serviceId
-        });
-        console.log('[ElevationPlotHub] Room deletion queued for sync');
-
-        // Update IndexedDB cache to remove the deleted room immediately
-        try {
-          const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
-          const updatedRooms = cachedRooms.filter((room: any) => {
-            const cachedRoomId = String(room.EFEID || room.PK_ID || '');
-            return cachedRoomId !== String(roomId);
+          const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
           });
-          await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedRooms);
-          console.log('[ElevationPlotHub] ✅ Updated IndexedDB cache - removed room from efe_rooms');
-        } catch (cacheError) {
-          console.warn('[ElevationPlotHub] Failed to update IndexedDB cache:', cacheError);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to delete room: ${errorText}`);
+          }
+
+          console.log('[ElevationPlotHub] WEBAPP: ✅ Room deleted successfully from database');
+        } else {
+          // MOBILE MODE: Queue the deletion as a pending request (offline-first pattern)
+          console.log('[ElevationPlotHub] Queueing room deletion for sync...');
+
+          await this.indexedDb.addPendingRequest({
+            type: 'DELETE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`,
+            method: 'DELETE',
+            data: { EFEID: roomId, RoomName: roomName },
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+          console.log('[ElevationPlotHub] Room deletion queued for sync');
+
+          // Update IndexedDB cache to remove the deleted room immediately
+          try {
+            const cachedRooms = await this.indexedDb.getCachedServiceData(this.serviceId, 'efe_rooms') || [];
+            const updatedRooms = cachedRooms.filter((room: any) => {
+              const cachedRoomId = String(room.EFEID || room.PK_ID || '');
+              return cachedRoomId !== String(roomId);
+            });
+            await this.indexedDb.cacheServiceData(this.serviceId, 'efe_rooms', updatedRooms);
+            console.log('[ElevationPlotHub] ✅ Updated IndexedDB cache - removed room from efe_rooms');
+          } catch (cacheError) {
+            console.warn('[ElevationPlotHub] Failed to update IndexedDB cache:', cacheError);
+          }
+
+          // DEXIE-FIRST: Mark room as deleted/unselected in Dexie (liveQuery will update UI)
+          await this.efeFieldRepo.deleteRoom(this.serviceId, roomName);
+          console.log('[ElevationPlotHub] ✅ Updated Dexie efeFields - room unselected');
+
+          // Refresh sync status to show pending deletion in UI
+          await this.backgroundSync.refreshSyncStatus();
         }
-
-        // DEXIE-FIRST: Mark room as deleted/unselected in Dexie (liveQuery will update UI)
-        await this.efeFieldRepo.deleteRoom(this.serviceId, roomName);
-        console.log('[ElevationPlotHub] ✅ Updated Dexie efeFields - room unselected');
-
-        // Refresh sync status to show pending deletion in UI
-        await this.backgroundSync.refreshSyncStatus();
 
         // Update local state - mark as unselected
         delete this.efeRecordIds[roomName];
@@ -2144,19 +2185,39 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
         // No direct API call needed - BackgroundSyncService will handle it
         console.log('[Add Room] Room and points queued for sync:', roomName, 'tempEfeId:', tempEfeId);
       } else {
-        // WEBAPP: Room and points already created directly via API
-        // Create points for the newly created room
-        console.log('[Add Room] WEBAPP: Creating elevation points via API for room:', tempEfeId);
-        try {
-          for (const ep of elevationPoints) {
-            await this.foundationData.createEFEPoint({
-              EFEID: tempEfeId,
+        // WEBAPP: Room created directly via API - now create points
+        console.log('[Add Room] WEBAPP: Creating elevation points via API for room EFEID:', tempEfeId);
+        console.log('[Add Room] WEBAPP: Points to create:', elevationPoints.length, elevationPoints.map(ep => ep.name));
+
+        if (elevationPoints.length === 0) {
+          console.warn('[Add Room] WEBAPP: No elevation points found in template! Check template Point1Name, Point2Name, etc. fields');
+        }
+
+        const createdPointIds: string[] = [];
+        for (const ep of elevationPoints) {
+          try {
+            console.log('[Add Room] WEBAPP: Creating point:', ep.name, 'for EFEID:', tempEfeId);
+            const pointResult = await this.foundationData.createEFEPoint({
+              EFEID: parseInt(tempEfeId, 10),  // Ensure numeric EFEID
               PointName: ep.name
             }, tempEfeId);
+            const pointId = pointResult?.PointID || pointResult?.PK_ID || pointResult?._tempId;
+            console.log('[Add Room] WEBAPP: ✅ Point created:', ep.name, 'with ID:', pointId);
+            createdPointIds.push(String(pointId));
+
+            // Update elevationPoints with real ID
+            ep.pointId = String(pointId);
+          } catch (pointError: any) {
+            console.error('[Add Room] WEBAPP: ❌ Failed to create point:', ep.name, pointError?.message || pointError);
           }
-          console.log('[Add Room] WEBAPP: Created', elevationPoints.length, 'elevation points');
-        } catch (pointError) {
-          console.error('[Add Room] WEBAPP: Error creating points (non-fatal):', pointError);
+        }
+
+        console.log('[Add Room] WEBAPP: Created', createdPointIds.length, 'of', elevationPoints.length, 'elevation points');
+        console.log('[Add Room] WEBAPP: Point IDs:', createdPointIds);
+
+        // Update roomElevationData with created point IDs
+        if (this.roomElevationData[roomName]) {
+          this.roomElevationData[roomName].elevationPoints = elevationPoints;
         }
       }
 

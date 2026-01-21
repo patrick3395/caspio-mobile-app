@@ -1242,6 +1242,37 @@ ion-accordion-group {
   }
 }
 
+// ===========================================
+// WEBAPP: Smaller photo thumbnails (half size)
+// ===========================================
+@media (hover: hover) and (pointer: fine) {
+  .image-preview-section {
+    .image-preview-container {
+      // Double the columns to make thumbnails half the size
+      grid-template-columns: repeat(6, 1fr) !important;
+      gap: 10px !important;
+
+      .image-preview.structural-photo-preview {
+        padding-bottom: 24px !important;
+
+        .delete-btn {
+          width: 20px !important;
+          height: 20px !important;
+
+          ion-icon {
+            font-size: 12px !important;
+          }
+        }
+
+        .room-photo-caption {
+          font-size: 9px !important;
+          padding: 3px 4px !important;
+        }
+      }
+    }
+  }
+}
+
 // Debug Panel
 .debug-panel {
   position: fixed;
