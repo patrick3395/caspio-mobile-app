@@ -431,13 +431,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
         // Set InAttendance options (multi-select - preserve current selections)
         if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
           this.inAttendanceOptions = optionsByService['InAttendance'];
-          if (!this.inAttendanceOptions.includes('Other')) {
-            this.inAttendanceOptions.push('Other');
-          }
           // Normalize selections to match API options, or add if truly missing
           if (this.inAttendanceSelections && this.inAttendanceSelections.length > 0) {
             this.inAttendanceSelections = this.inAttendanceSelections.map(selection => {
-              if (!selection || selection === 'Other') return selection;
+              if (!selection || selection === 'Other' || selection === 'None') return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.inAttendanceOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -448,26 +445,20 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
                 }
                 return matchingOption;
               } else {
-                // Add missing selection to options (before Other)
+                // Add missing selection to options (custom values added via Other)
                 console.log(`[ProjectDetails] Adding missing InAttendance selection to options: "${selection}"`);
-                const otherIndex = this.inAttendanceOptions.indexOf('Other');
-                if (otherIndex > 0) {
-                  this.inAttendanceOptions.splice(otherIndex, 0, selection);
-                } else {
-                  this.inAttendanceOptions.push(selection);
-                }
+                this.inAttendanceOptions.push(selection);
                 return selection;
               }
             });
           }
-          // Sort options alphabetically, keeping "Other" at the end
-          const otherOption = this.inAttendanceOptions.includes('Other') ? 'Other' : null;
+          // Sort options alphabetically, keeping "None" and "Other" at the end
           this.inAttendanceOptions = this.inAttendanceOptions
-            .filter(opt => opt !== 'Other')
+            .filter(opt => opt !== 'Other' && opt !== 'None')
             .sort((a, b) => a.localeCompare(b));
-          if (otherOption) {
-            this.inAttendanceOptions.push(otherOption);
-          }
+          // Add "None" and "Other" at the end (in that order)
+          this.inAttendanceOptions.push('None');
+          this.inAttendanceOptions.push('Other');
         }
 
         // Set FirstFoundationType options
@@ -794,10 +785,6 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     if (!this.inAttendanceSelections || !Array.isArray(this.inAttendanceSelections)) {
       return false;
     }
-    if (option === 'Other') {
-      return this.inAttendanceSelections.includes('Other') ||
-             !!(this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim().length > 0);
-    }
     return this.inAttendanceSelections.includes(option);
   }
 
@@ -807,8 +794,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     if (event.detail.checked) {
-      if (!this.inAttendanceSelections.includes(option)) {
-        this.inAttendanceSelections.push(option);
+      if (option === 'None') {
+        // "None" is mutually exclusive - clear all other selections
+        this.inAttendanceSelections = ['None'];
+        this.inAttendanceOtherValue = '';
+      } else {
+        // Remove "None" if selecting any other option
+        const noneIndex = this.inAttendanceSelections.indexOf('None');
+        if (noneIndex > -1) {
+          this.inAttendanceSelections.splice(noneIndex, 1);
+        }
+        if (!this.inAttendanceSelections.includes(option)) {
+          this.inAttendanceSelections.push(option);
+        }
       }
     } else {
       const index = this.inAttendanceSelections.indexOf(option);
@@ -823,33 +821,62 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     await this.saveInAttendance();
   }
 
-  async onInAttendanceOtherChange() {
-    if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+  async addInAttendanceOther() {
+    const customValue = this.inAttendanceOtherValue?.trim();
+    if (!customValue) {
+      return;
+    }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.inAttendanceSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.inAttendanceSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.inAttendanceOptions.includes(customValue)) {
+      console.log(`[ProjectDetails] InAttendance option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.inAttendanceSelections.includes(customValue)) {
+        this.inAttendanceSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneIndex = this.inAttendanceOptions.indexOf('None');
+      if (noneIndex > -1) {
+        this.inAttendanceOptions.splice(noneIndex, 0, customValue);
+      } else {
+        // Fallback: add before Other
+        const otherIndex = this.inAttendanceOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.inAttendanceOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.inAttendanceOptions.push(customValue);
+        }
+      }
+      console.log(`[ProjectDetails] Added custom InAttendance option: "${customValue}"`);
+
+      // Select the new custom value
       if (!this.inAttendanceSelections) {
         this.inAttendanceSelections = [];
       }
-      const otherIndex = this.inAttendanceSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.inAttendanceSelections[otherIndex] = this.inAttendanceOtherValue.trim();
-      } else {
-        const customIndex = this.inAttendanceSelections.findIndex((opt: string) =>
-          opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-        );
-        if (customIndex > -1) {
-          this.inAttendanceSelections[customIndex] = this.inAttendanceOtherValue.trim();
-        } else {
-          this.inAttendanceSelections.push(this.inAttendanceOtherValue.trim());
-        }
-      }
-    } else {
-      const customIndex = this.inAttendanceSelections.findIndex((opt: string) =>
-        opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-      );
-      if (customIndex > -1) {
-        this.inAttendanceSelections[customIndex] = 'Other';
-      }
+      this.inAttendanceSelections.push(customValue);
     }
+
+    // Clear the input field for the next entry
+    this.inAttendanceOtherValue = '';
+
+    // Save the updated selections
     await this.saveInAttendance();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // Legacy method for blur - only save if there's a pending value
+  async onInAttendanceOtherChange() {
+    // Only add if there's a value (blur without value should do nothing)
+    if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+      await this.addInAttendanceOther();
+    }
   }
 
   private async saveInAttendance() {

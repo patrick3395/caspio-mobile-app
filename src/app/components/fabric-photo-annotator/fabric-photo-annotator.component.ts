@@ -199,15 +199,19 @@ import { environment } from '../../../environments/environment';
       width: auto;
       min-width: 250px;
       max-width: 80%;
-      
-      // Mobile-specific positioning
+
+      // Mobile: fixed width centering to prevent any movement
       @media (max-width: 768px) {
         bottom: 20px;
-        min-width: 200px;
-        max-width: 90%;
+        left: 5%;
+        right: 5%;
+        width: 90%;
+        min-width: unset;
+        max-width: unset;
+        transform: none;
       }
     }
-    
+
     .caption-button {
       width: 100%;
       padding: 12px 16px;
@@ -217,7 +221,6 @@ import { environment } from '../../../environments/environment';
       font-size: 14px;
       color: #333;
       cursor: pointer;
-      transition: all 0.2s ease;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -226,23 +229,10 @@ import { environment } from '../../../environments/environment';
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
 
-      ion-icon {
-        font-size: 20px;
-        color: #F15A27;
-        pointer-events: none; // Allow clicks to pass through to button
-      }
-
-      span {
-        flex: 1;
-        text-align: left;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        pointer-events: none; // Allow clicks to pass through to button
-      }
-
-      // Desktop only: hover/active transforms
+      // Desktop only: transitions and transforms
       @media (hover: hover) and (pointer: fine) {
+        transition: all 0.2s ease;
+
         &:hover {
           background: white;
           border-color: #F15A27;
@@ -255,15 +245,27 @@ import { environment } from '../../../environments/environment';
         }
       }
 
-      // Mobile: no transform effects to prevent jumping
+      ion-icon {
+        font-size: 20px;
+        color: #F15A27;
+        pointer-events: none;
+      }
+
+      span {
+        flex: 1;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        pointer-events: none;
+      }
+
+      // Mobile: completely static, no transitions or transforms
       @media (max-width: 768px) {
         padding: 14px 18px;
         font-size: 15px;
-
-        &:active {
-          background: white;
-          border-color: #F15A27;
-        }
+        transition: none;
+        transform: none;
       }
     }
 

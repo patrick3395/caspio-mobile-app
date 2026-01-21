@@ -121,9 +121,16 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     // WEBAPP: Clear any loading state from previous navigation
     if (environment.isWeb) {
       this.selectingProjectId = null;
-      // G2-LOADING-001: Force immediate change detection to clear spinner
-      // detectChanges() is needed because markForCheck() only schedules a check,
-      // but with virtual scroll also using OnPush, we need synchronous update
+
+      // G2-LOADING-001: Force virtual scroll to re-render items
+      // CDK virtual scroll caches rendered templates, so we need to:
+      // 1. Create a new array reference to trigger change detection in the virtual scroll
+      // 2. Use setTimeout to ensure this happens after the view is fully ready
+      if (this.filteredProjects && this.filteredProjects.length > 0) {
+        this.filteredProjects = [...this.filteredProjects];
+      }
+
+      // Force synchronous change detection to clear spinner immediately
       this.cdr.detectChanges();
     }
 
@@ -1021,10 +1028,11 @@ URL Attempted: ${imgUrl}`;
   selectProject(project: Project): void {
     const projectId = project.PK_ID || project.ProjectID;
     if (projectId) {
-      // WEBAPP: Show immediate loading feedback
+      // WEBAPP: Set selecting state for spinner feedback
+      // Note: We don't call markForCheck() to avoid page flash before navigation
+      // The spinner will show if change detection runs before navigation completes
       if (environment.isWeb) {
         this.selectingProjectId = projectId;
-        this.cdr.markForCheck();
       }
       this.router.navigate(['/project', projectId], { state: { project } });
     }

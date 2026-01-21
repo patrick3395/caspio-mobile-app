@@ -93,47 +93,19 @@ ion-content {
           }
 
           // Red TRIANGLE for deficiencies - larger size for 2-digit numbers
+          // Using SVG for uniform stroke on all sides
           &.deficiency {
-            width: 0;
-            height: 0;
-            border: none;
-            border-left: 20px solid transparent;
-            border-right: 20px solid transparent;
-            border-bottom: 34px solid transparent;
+            width: 40px;
+            height: 34px;
             position: relative;
             color: #dc3545;
-            background: transparent;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='34' viewBox='0 0 40 34'%3E%3Cpolygon points='20,3 37,31 3,31' fill='none' stroke='%23dc3545' stroke-width='2.5' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+            background-size: contain;
 
-            // Triangle outline using pseudo-element (thicker border to match circle/square)
-            &::before {
-              content: '';
-              position: absolute;
-              top: 4px;
-              left: -18px;
-              width: 0;
-              height: 0;
-              border-left: 18px solid transparent;
-              border-right: 18px solid transparent;
-              border-bottom: 30px solid #dc3545;
-            }
-
-            // Inner white triangle to create outline effect (larger inset for thicker border)
-            &::after {
-              content: '';
-              position: absolute;
-              top: 8px;
-              left: -14px;
-              width: 0;
-              height: 0;
-              border-left: 14px solid transparent;
-              border-right: 14px solid transparent;
-              border-bottom: 23px solid white;
-            }
-
-            // Number inside triangle
+            // Number inside triangle - visually centered (pushed down due to pointed top)
             span {
               position: absolute;
-              top: 14px;
+              top: 17px;
               left: 50%;
               transform: translateX(-50%);
               z-index: 1;

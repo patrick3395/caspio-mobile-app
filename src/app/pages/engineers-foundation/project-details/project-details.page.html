@@ -61,14 +61,18 @@
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>
-            <!-- Custom input for "Other" option -->
+            <!-- Custom input for "Other" option - allows adding multiple custom values -->
             <div class="other-input-container" *ngIf="isInAttendanceSelected('Other')">
               <input type="text"
                      [(ngModel)]="inAttendanceOtherValue"
-                     (blur)="onInAttendanceOtherChange()"
+                     (keyup.enter)="addInAttendanceOther()"
                      (click)="$event.stopPropagation()"
-                     placeholder="Please specify..."
+                     placeholder="Type name and press Enter or Add..."
                      class="styled-input other-input">
+              <ion-button size="small" fill="solid" color="primary" (click)="addInAttendanceOther()">
+                <ion-icon name="add-outline" slot="start"></ion-icon>
+                Add
+              </ion-button>
             </div>
           </div>
         </div>

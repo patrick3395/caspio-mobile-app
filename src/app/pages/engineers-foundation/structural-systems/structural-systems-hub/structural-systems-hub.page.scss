@@ -224,47 +224,19 @@ select.styled-input {
         }
 
         // Red TRIANGLE for deficiencies
-        // Sized to match 22px circle/square
+        // Sized to match 22px circle/square - using SVG for uniform stroke
         &.deficiency {
-          width: 0;
-          height: 0;
-          border: none;
-          border-left: 12px solid transparent;
-          border-right: 12px solid transparent;
-          border-bottom: 22px solid transparent;
+          width: 24px;
+          height: 22px;
           position: relative;
           color: #dc3545;
+          background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='22' viewBox='0 0 24 22'%3E%3Cpolygon points='12,2 22,20 2,20' fill='none' stroke='%23dc3545' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+          background-size: contain;
 
-          // Triangle outline using pseudo-element (red border)
-          &::before {
-            content: '';
-            position: absolute;
-            top: 1px;
-            left: -11px;
-            width: 0;
-            height: 0;
-            border-left: 11px solid transparent;
-            border-right: 11px solid transparent;
-            border-bottom: 20px solid #dc3545;
-          }
-
-          // Inner white triangle to create outline effect (2px border)
-          &::after {
-            content: '';
-            position: absolute;
-            top: 4px;
-            left: -8px;
-            width: 0;
-            height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-bottom: 14px solid white;
-          }
-
-          // Number inside triangle - centered
+          // Number inside triangle - visually centered (pushed down due to pointed top)
           span {
             position: absolute;
-            top: 7px;
+            top: 10px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1;
