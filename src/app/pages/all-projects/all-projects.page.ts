@@ -660,7 +660,18 @@ export class AllProjectsPage implements OnInit {
         {
           text: 'Logout',
           handler: () => {
-            localStorage.removeItem('currentUser');
+            // G2-SEC-002: Clear all auth data on logout (web only)
+            if (environment.isWeb) {
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('currentUser');
+              localStorage.removeItem('caspio_token');
+              localStorage.removeItem('caspio_token_expiry');
+              // Clear any Cognito tokens
+              localStorage.removeItem('cognito_access_token');
+              localStorage.removeItem('cognito_id_token');
+            }
+
+            // Navigate to login
             this.router.navigate(['/login']);
           }
         }

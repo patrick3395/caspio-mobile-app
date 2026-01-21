@@ -42,7 +42,8 @@ export class CaspioService {
   private isRefreshing = false;
   private refreshTokenSubject = new BehaviorSubject<string | null>(null);
   private tokenExpiryTime: number = 0;
-  private debugMode = true; // TEMPORARILY ENABLED for debugging - Set to false to disable detailed logging
+  // G2-SEC-002: Disable debug logging in production to prevent sensitive data exposure
+  private debugMode = !environment.production;
   private ongoingAuthRequest: Observable<CaspioAuthResponse> | null = null;
 
   constructor(

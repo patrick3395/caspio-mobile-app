@@ -3992,9 +3992,10 @@ Troubleshooting:
     }
 
     // If State abbreviation exists, find matching StateID
-    if (this.project.State) {
+    const projectState = this.project.State;
+    if (projectState) {
       const match = this.stateOptions.find(s =>
-        s.Abbr === this.project.State || s.State === this.project.State
+        s.Abbr === projectState || s.State === projectState
       );
       return match?.StateID || null;
     }
@@ -4120,7 +4121,7 @@ Troubleshooting:
       // Update local project object
       this.project.Address = data.address;
       this.project.City = data.city;
-      this.project.StateID = data.stateId;
+      this.project.StateID = data.stateId ?? undefined;
       this.project.State = stateAbbr;
       this.project.Zip = data.zip;
 

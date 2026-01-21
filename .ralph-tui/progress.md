@@ -158,3 +158,12 @@ user interaction** - Non-blocking with `pointer-events: auto`, toasts stack vert
 \| Partnership` |\n| All Projects | `All Projects \\| Partnership` |\n| Login | `Login \\| Partnership` |\n| New Project | `New Project \\| Partnership` |\n| Company | `Company \\| Partnership` |\n\n### Acceptance Criteria Met\n\n| Criteria | Status |\n|----------|--------|\n| Each page has unique title | ✅ |\n| Title reflects current content (e.g., project address) | ✅ |\n| Browser tab shows meaningful text | ✅ |\n| All changes wrapped in `environment.isWeb` check | ✅ Mobile app unchanged |\n\n
 
 ---
+## ✓ Iteration 18 - G2-SEC-001: Audit and fix XSS vulnerabilities
+*2026-01-21T00:51:13.996Z (1255s)*
+
+**Status:** Completed
+
+**Notes:**
+innerHTML operations in `environment.isWeb` checks\n   - Escaped user-provided caption values\n\n### Acceptance Criteria Met:\n| Criteria | Status |\n|----------|--------|\n| No innerHTML with unsanitized user content | ✅ All user content properly escaped |\n| All dynamic content properly escaped | ✅ Using `escapeHtml()` helper method |\n| Angular's DomSanitizer used where needed | ✅ Used in help-modal component |\n| All changes wrapped in `environment.isWeb` check | ✅ Mobile app unchanged |\n\n
+
+---

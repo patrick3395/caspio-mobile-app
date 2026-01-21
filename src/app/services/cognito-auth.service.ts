@@ -100,7 +100,10 @@ export class CognitoAuthService {
           resolve(result);
         },
         onFailure: (err: any) => {
-          console.error('Authentication failed:', err);
+          // G2-SEC-002: Only log errors in non-production to prevent sensitive data exposure
+          if (!environment.production) {
+            console.error('Authentication failed:', err);
+          }
           reject(err);
         },
         newPasswordRequired: (userAttributes: any) => {

@@ -73,24 +73,21 @@ export class LoginPage implements OnInit, OnDestroy {
       return;
     }
 
-    // Check for saved credentials
-    const savedCredentials = localStorage.getItem('savedCredentials');
-    if (savedCredentials) {
-      try {
-        const creds = JSON.parse(savedCredentials);
-        this.credentials.email = creds.email || '';
-        this.credentials.password = creds.password || '';
-        this.credentials.companyId = creds.companyId || 1;
-        this.rememberMe = true;
-
-        // If we have both email and password saved, they can just click login
-        if (this.credentials.email && this.credentials.password) {
-          // Optionally auto-login after a short delay
-          // setTimeout(() => this.login(), 500);
+    // Check for saved email (G2-SEC-002: Only store email, never passwords)
+    if (this.isWeb) {
+      const savedEmail = localStorage.getItem('savedEmail');
+      if (savedEmail) {
+        try {
+          const saved = JSON.parse(savedEmail);
+          this.credentials.email = saved.email || '';
+          this.credentials.companyId = saved.companyId || 1;
+          this.rememberMe = true;
+        } catch (e) {
+          // Silent fail - not logging errors that could expose what we're looking for
         }
-      } catch (e) {
-        console.error('Error loading saved credentials:', e);
       }
+      // G2-SEC-002: Clean up any legacy savedCredentials that may contain passwords
+      localStorage.removeItem('savedCredentials');
     }
   }
 
@@ -181,7 +178,10 @@ export class LoginPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       await loading.dismiss();
-      console.error('Login error:', error);
+      // G2-SEC-002: Only log errors in non-production to prevent sensitive data exposure
+      if (!environment.production) {
+        console.error('Login error:', error);
+      }
       await this.showAlert('Error', 'An error occurred during login. Please try again.');
     }
   }
@@ -204,15 +204,16 @@ export class LoginPage implements OnInit, OnDestroy {
       localStorage.setItem('authToken', 'authenticated');
     }
     
-    // Save credentials if remember me is checked
-    if (this.rememberMe) {
-      localStorage.setItem('savedCredentials', JSON.stringify({
-        email: this.credentials.email,
-        password: this.credentials.password,
-        companyId: this.credentials.companyId
-      }));
-    } else {
-      localStorage.removeItem('savedCredentials');
+    // G2-SEC-002: Save only email if remember me is checked (never store passwords)
+    if (this.isWeb) {
+      if (this.rememberMe) {
+        localStorage.setItem('savedEmail', JSON.stringify({
+          email: this.credentials.email,
+          companyId: this.credentials.companyId
+        }));
+      } else {
+        localStorage.removeItem('savedEmail');
+      }
     }
     
     // Only dismiss loading if it exists (it might already be dismissed)
