@@ -358,3 +358,79 @@
     gap: 20px;
   }
 }
+
+// ==============================================
+// WEBAPP: Skeleton Loader Styles
+// ==============================================
+
+@keyframes elevation-skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-rooms-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-subsection {
+  .skeleton-subsection-header {
+    width: 120px;
+    height: 19px;
+    margin-bottom: 16px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: elevation-skeleton-shimmer 1.5s infinite ease-in-out;
+  }
+}
+
+.skeleton-room-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  margin-bottom: 12px;
+
+  .skeleton-room-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .skeleton-room-title {
+      width: 50%;
+      height: 16px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: elevation-skeleton-shimmer 1.5s infinite ease-in-out;
+    }
+
+    .skeleton-room-info {
+      width: 35%;
+      height: 13px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: elevation-skeleton-shimmer 1.5s infinite ease-in-out;
+    }
+  }
+
+  .skeleton-chevron {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: elevation-skeleton-shimmer 1.5s infinite ease-in-out;
+  }
+}

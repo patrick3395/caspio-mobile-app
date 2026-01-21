@@ -54,6 +54,9 @@ export class ElevationPlotHubPage implements OnInit, OnDestroy, ViewWillEnter {
   roomOperationIds: { [roomName: string]: string } = {};
   loading: boolean = true; // Track loading state
 
+  // WEBAPP: Expose isWeb for template skeleton loader conditionals
+  isWeb = environment.isWeb;
+
   allRoomTemplates: RoomTemplate[] = [];
 
   // Subscriptions for offline sync events

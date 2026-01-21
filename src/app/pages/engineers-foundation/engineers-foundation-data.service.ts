@@ -1047,11 +1047,55 @@ export class EngineersFoundationDataService {
     metadata: { serviceId?: string; visualId?: string; pointId?: string } = {}
   ): Promise<string> {
     console.log(`[Caption Queue] Queueing caption update for ${attachType} attach:`, attachId);
-    
+
     // 1. Update local cache immediately with _localUpdate flag
     await this.updateLocalCacheWithCaption(attachId, caption, undefined, attachType, metadata);
-    
-    // 2. Queue the caption update for background sync
+
+    // WEBAPP MODE: Call API directly for immediate persistence (if not a temp ID)
+    const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
+    if (environment.isWeb && !isTempId) {
+      console.log(`[Caption Queue] WEBAPP: Updating caption directly via API for ${attachType}:`, attachId);
+      try {
+        let endpoint = '';
+        if (attachType === 'efe_point') {
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
+        } else if (attachType === 'visual') {
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
+        } else if (attachType === 'fdf') {
+          // FDF captions are stored on the EFE room record
+          const roomId = attachId; // For FDF, attachId is the roomId
+          const photoType = metadata.pointId; // photoType (Top/Bottom/Threshold) is passed in pointId
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`;
+        }
+
+        if (endpoint) {
+          const updateData: any = { Annotation: caption };
+          if (attachType === 'fdf' && metadata.pointId) {
+            // FDF uses different column names: FDF{Type}Annotation
+            updateData[`FDF${metadata.pointId}Annotation`] = caption;
+            delete updateData.Annotation;
+          }
+
+          const response = await fetch(endpoint, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+          });
+
+          if (!response.ok) {
+            throw new Error(`API returned ${response.status}`);
+          }
+
+          console.log(`[Caption Queue] WEBAPP: ✅ Caption updated successfully`);
+          return `webapp_direct_${Date.now()}`;
+        }
+      } catch (apiError: any) {
+        console.error(`[Caption Queue] WEBAPP: ❌ API call failed, falling back to queue:`, apiError?.message || apiError);
+        // Fall through to queue-based approach
+      }
+    }
+
+    // MOBILE MODE (or webapp fallback): Queue the caption update for background sync
     const captionId = await this.indexedDb.queueCaptionUpdate({
       attachId,
       attachType,
@@ -1060,11 +1104,11 @@ export class EngineersFoundationDataService {
       visualId: metadata.visualId,
       pointId: metadata.pointId
     });
-    
+
     console.log(`[Caption Queue] ✅ Caption queued:`, captionId);
-    
+
     // Sync will happen on next 60-second interval (batched sync)
-    
+
     return captionId;
   }
 
@@ -1079,11 +1123,60 @@ export class EngineersFoundationDataService {
     metadata: { serviceId?: string; visualId?: string; pointId?: string; caption?: string } = {}
   ): Promise<string> {
     console.log(`[Annotation Queue] Queueing annotation update for ${attachType} attach:`, attachId);
-    
+
     // 1. Update local cache immediately with _localUpdate flag
     await this.updateLocalCacheWithCaption(attachId, metadata.caption, drawings, attachType, metadata);
-    
-    // 2. Queue the annotation update for background sync
+
+    // WEBAPP MODE: Call API directly for immediate persistence (if not a temp ID)
+    const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
+    if (environment.isWeb && !isTempId) {
+      console.log(`[Annotation Queue] WEBAPP: Updating annotation directly via API for ${attachType}:`, attachId);
+      try {
+        let endpoint = '';
+        const updateData: any = { Drawings: drawings };
+
+        if (attachType === 'efe_point') {
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
+        } else if (attachType === 'visual') {
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
+        } else if (attachType === 'fdf') {
+          const roomId = attachId;
+          const photoType = metadata.pointId;
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`;
+          if (photoType) {
+            updateData[`FDF${photoType}Drawings`] = drawings;
+            delete updateData.Drawings;
+          }
+        }
+
+        if (endpoint) {
+          if (metadata.caption !== undefined) {
+            if (attachType === 'fdf' && metadata.pointId) {
+              updateData[`FDF${metadata.pointId}Annotation`] = metadata.caption;
+            } else {
+              updateData.Annotation = metadata.caption;
+            }
+          }
+
+          const response = await fetch(endpoint, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+          });
+
+          if (!response.ok) {
+            throw new Error(`API returned ${response.status}`);
+          }
+
+          console.log(`[Annotation Queue] WEBAPP: ✅ Annotation updated successfully`);
+          return `webapp_direct_${Date.now()}`;
+        }
+      } catch (apiError: any) {
+        console.error(`[Annotation Queue] WEBAPP: ❌ API call failed, falling back to queue:`, apiError?.message || apiError);
+      }
+    }
+
+    // MOBILE MODE (or webapp fallback): Queue the annotation update for background sync
     const captionId = await this.indexedDb.queueCaptionUpdate({
       attachId,
       attachType,
@@ -1093,11 +1186,11 @@ export class EngineersFoundationDataService {
       visualId: metadata.visualId,
       pointId: metadata.pointId
     });
-    
+
     console.log(`[Annotation Queue] ✅ Annotation queued:`, captionId);
-    
+
     // Sync will happen on next 60-second interval (batched sync)
-    
+
     return captionId;
   }
 
@@ -1112,11 +1205,54 @@ export class EngineersFoundationDataService {
     metadata: { serviceId?: string; visualId?: string; pointId?: string } = {}
   ): Promise<string> {
     console.log(`[Caption+Annotation Queue] Queueing combined update for ${attachType} attach:`, attachId);
-    
+
     // 1. Update local cache
     await this.updateLocalCacheWithCaption(attachId, caption, drawings, attachType, metadata);
-    
-    // 2. Queue combined update
+
+    // WEBAPP MODE: Call API directly for immediate persistence (if not a temp ID)
+    const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
+    if (environment.isWeb && !isTempId) {
+      console.log(`[Caption+Annotation Queue] WEBAPP: Updating directly via API for ${attachType}:`, attachId);
+      try {
+        let endpoint = '';
+        const updateData: any = { Annotation: caption, Drawings: drawings };
+
+        if (attachType === 'efe_point') {
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
+        } else if (attachType === 'visual') {
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
+        } else if (attachType === 'fdf') {
+          const roomId = attachId;
+          const photoType = metadata.pointId;
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${roomId}`;
+          if (photoType) {
+            updateData[`FDF${photoType}Annotation`] = caption;
+            updateData[`FDF${photoType}Drawings`] = drawings;
+            delete updateData.Annotation;
+            delete updateData.Drawings;
+          }
+        }
+
+        if (endpoint) {
+          const response = await fetch(endpoint, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+          });
+
+          if (!response.ok) {
+            throw new Error(`API returned ${response.status}`);
+          }
+
+          console.log(`[Caption+Annotation Queue] WEBAPP: ✅ Updated successfully`);
+          return `webapp_direct_${Date.now()}`;
+        }
+      } catch (apiError: any) {
+        console.error(`[Caption+Annotation Queue] WEBAPP: ❌ API call failed, falling back to queue:`, apiError?.message || apiError);
+      }
+    }
+
+    // MOBILE MODE (or webapp fallback): Queue combined update
     const captionId = await this.indexedDb.queueCaptionUpdate({
       attachId,
       attachType,
@@ -1126,9 +1262,9 @@ export class EngineersFoundationDataService {
       visualId: metadata.visualId,
       pointId: metadata.pointId
     });
-    
+
     console.log(`[Caption+Annotation Queue] ✅ Combined update queued:`, captionId);
-    
+
     // Sync will happen on next 60-second interval (batched sync)
     return captionId;
   }

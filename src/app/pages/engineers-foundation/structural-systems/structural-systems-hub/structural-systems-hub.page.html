@@ -1,11 +1,30 @@
 <div class="page-container">
   <div class="content-section">
     <!-- STANDARDIZED LOADING STATES -->
-    
-    <!-- Loading State -->
-    <div *ngIf="loading" class="loading-container">
+
+    <!-- Loading State - Mobile only (spinner) -->
+    <div *ngIf="loading && !isWeb" class="loading-container">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Loading categories...</p>
+    </div>
+
+    <!-- WEBAPP: Skeleton loaders -->
+    <div *ngIf="loading && isWeb" class="skeleton-container">
+      <div class="skeleton-form-group">
+        <div class="skeleton-label"></div>
+        <div class="skeleton-select"></div>
+      </div>
+      <div class="skeleton-category-card" *ngFor="let i of [1,2,3,4,5,6,7]">
+        <div class="skeleton-icon"></div>
+        <div class="skeleton-content">
+          <div class="skeleton-title"></div>
+          <div class="skeleton-badges">
+            <div class="skeleton-badge"></div>
+            <div class="skeleton-badge"></div>
+            <div class="skeleton-badge"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Visual Assessment Location Question -->

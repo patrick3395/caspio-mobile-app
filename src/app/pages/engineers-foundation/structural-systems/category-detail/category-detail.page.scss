@@ -1382,7 +1382,7 @@ ion-accordion-group {
     padding: 8px 16px;
     background: #2d2d2d;
     border-top: 1px solid #444;
-    
+
     button {
       background: #666;
       color: white;
@@ -1390,10 +1390,126 @@ ion-accordion-group {
       padding: 6px 12px;
       border-radius: 4px;
       cursor: pointer;
-      
+
       &:hover {
         background: #888;
       }
+    }
+  }
+}
+
+// ==============================================
+// WEBAPP: Skeleton Loader Styles
+// ==============================================
+
+@keyframes category-skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-category-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.skeleton-search-bar {
+  width: 100%;
+  height: 44px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: category-skeleton-shimmer 1.5s infinite ease-in-out;
+}
+
+.skeleton-accordion-section {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  .skeleton-accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e8e8e8;
+
+    .skeleton-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(90deg, #e8e8e8 25%, #d8d8d8 50%, #e8e8e8 75%);
+      background-size: 200% 100%;
+      animation: category-skeleton-shimmer 1.5s infinite ease-in-out;
+    }
+
+    .skeleton-section-title {
+      width: 120px;
+      height: 18px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #e8e8e8 25%, #d8d8d8 50%, #e8e8e8 75%);
+      background-size: 200% 100%;
+      animation: category-skeleton-shimmer 1.5s infinite ease-in-out;
+    }
+  }
+
+  .skeleton-accordion-content {
+    padding: 12px 16px;
+  }
+}
+
+.skeleton-visual-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .skeleton-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    background: linear-gradient(90deg, #e8e8e8 25%, #d8d8d8 50%, #e8e8e8 75%);
+    background-size: 200% 100%;
+    animation: category-skeleton-shimmer 1.5s infinite ease-in-out;
+  }
+
+  .skeleton-item-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .skeleton-item-title {
+      width: 70%;
+      height: 16px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: category-skeleton-shimmer 1.5s infinite ease-in-out;
+    }
+
+    .skeleton-item-text {
+      width: 90%;
+      height: 14px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: category-skeleton-shimmer 1.5s infinite ease-in-out;
     }
   }
 }

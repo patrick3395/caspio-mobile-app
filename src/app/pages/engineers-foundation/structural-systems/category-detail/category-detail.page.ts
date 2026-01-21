@@ -65,6 +65,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
   loading: boolean = true;
   searchTerm: string = '';
   expandedAccordions: string[] = ['information', 'limitations', 'deficiencies'];
+
+  // WEBAPP: Expose isWeb for template skeleton loader conditionals
+  isWeb = environment.isWeb;
   organizedData: {
     comments: VisualItem[];
     limitations: VisualItem[];

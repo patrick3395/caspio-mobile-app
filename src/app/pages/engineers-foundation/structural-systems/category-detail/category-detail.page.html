@@ -3,10 +3,32 @@
   <input #fileInput type="file" style="display: none;" (change)="onFileSelected($event)" accept="image/*">
 
   <div class="content-section">
-    <!-- Loading State -->
-    <div *ngIf="loading" class="loading-container">
+    <!-- Loading State - Mobile only (spinner) -->
+    <div *ngIf="loading && !isWeb" class="loading-container">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Loading items...</p>
+    </div>
+
+    <!-- WEBAPP: Skeleton loaders -->
+    <div *ngIf="loading && isWeb" class="skeleton-category-container">
+      <!-- Search bar skeleton -->
+      <div class="skeleton-search-bar"></div>
+      <!-- Accordion section skeletons -->
+      <div class="skeleton-accordion-section" *ngFor="let section of [1,2,3]">
+        <div class="skeleton-accordion-header">
+          <div class="skeleton-badge"></div>
+          <div class="skeleton-section-title"></div>
+        </div>
+        <div class="skeleton-accordion-content">
+          <div class="skeleton-visual-item" *ngFor="let item of [1,2,3,4]">
+            <div class="skeleton-checkbox"></div>
+            <div class="skeleton-item-content">
+              <div class="skeleton-item-title"></div>
+              <div class="skeleton-item-text"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Category Content -->

@@ -26,11 +26,14 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
   categories: { name: string; commentCount: number; limitationCount: number; deficiencyCount: number }[] = [];
   loading: boolean = true;
   serviceData: any = {};
-  
+
   // Standardized UI state flags
   isOnline: boolean = true;
   isEmpty: boolean = false;
   hasPendingSync: boolean = false;
+
+  // WEBAPP: Expose isWeb for template skeleton loader conditionals
+  isWeb = environment.isWeb;
   
   private cacheInvalidationSubscription?: Subscription;
   private backgroundRefreshSubscription?: Subscription;

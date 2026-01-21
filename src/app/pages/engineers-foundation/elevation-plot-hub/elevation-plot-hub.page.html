@@ -120,11 +120,35 @@
     </div>
 
     <!-- STANDARDIZED LOADING STATES -->
-    
-    <!-- Loading State -->
-    <div class="loading-container" *ngIf="loading">
+
+    <!-- Loading State - Mobile only (spinner) -->
+    <div class="loading-container" *ngIf="loading && !isWeb">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Loading rooms...</p>
+    </div>
+
+    <!-- WEBAPP: Skeleton loaders -->
+    <div *ngIf="loading && isWeb" class="skeleton-rooms-container">
+      <div class="skeleton-subsection">
+        <div class="skeleton-subsection-header"></div>
+        <div class="skeleton-room-card">
+          <div class="skeleton-room-content">
+            <div class="skeleton-room-title"></div>
+            <div class="skeleton-room-info"></div>
+          </div>
+          <div class="skeleton-chevron"></div>
+        </div>
+      </div>
+      <div class="skeleton-subsection" style="margin-top: 12px;">
+        <div class="skeleton-subsection-header"></div>
+        <div class="skeleton-room-card" *ngFor="let i of [1,2,3,4,5,6]">
+          <div class="skeleton-room-content">
+            <div class="skeleton-room-title"></div>
+            <div class="skeleton-room-info"></div>
+          </div>
+          <div class="skeleton-chevron"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Empty Offline State -->

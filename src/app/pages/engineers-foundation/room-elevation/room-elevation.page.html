@@ -1,9 +1,36 @@
 <div class="page-container">
   <div class="content-section" *ngIf="roomData">
-    <!-- Loading State -->
-    <div *ngIf="loading" style="text-align: center; padding: 40px;">
+    <!-- Loading State - Mobile only (spinner) -->
+    <div *ngIf="loading && !isWeb" style="text-align: center; padding: 40px;">
       <ion-spinner name="crescent"></ion-spinner>
       <p style="margin-top: 12px; color: #666;">Loading room data...</p>
+    </div>
+
+    <!-- WEBAPP: Skeleton loaders -->
+    <div *ngIf="loading && isWeb" class="skeleton-room-container">
+      <!-- FDF section skeleton -->
+      <div class="skeleton-fdf-section">
+        <div class="skeleton-section-label"></div>
+        <div class="skeleton-dropdown"></div>
+      </div>
+      <!-- Measurements section skeleton -->
+      <div class="skeleton-fdf-section" style="margin-top: 15px;">
+        <div class="skeleton-section-label"></div>
+        <div class="skeleton-points-grid">
+          <div class="skeleton-point-card" *ngFor="let i of [1,2,3,4]">
+            <div class="skeleton-point-header"></div>
+            <div class="skeleton-point-body">
+              <div class="skeleton-photo-box"></div>
+              <div class="skeleton-photo-box"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Notes section skeleton -->
+      <div class="skeleton-fdf-section" style="margin-top: 15px;">
+        <div class="skeleton-section-label"></div>
+        <div class="skeleton-notes-area"></div>
+      </div>
     </div>
 
     <!-- Main Content -->

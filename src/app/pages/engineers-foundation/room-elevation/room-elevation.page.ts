@@ -42,6 +42,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   roomData: any = null;
   loading: boolean = false;  // OFFLINE-FIRST: Start with no loading spinner (data from IndexedDB is instant)
 
+  // WEBAPP: Expose isWeb for template skeleton loader conditionals
+  isWeb = environment.isWeb;
+
   // FDF dropdown options
   fdfOptions: string[] = [];
 
@@ -4226,39 +4229,59 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // This ensures the FDF value persists even if offline
       await this.updateLocalEFECache({ FDF: this.roomData.fdf });
 
-      // TASK 2 FIX: ALWAYS queue FDF updates for sync - this makes them visible in sync modal
-      // This matches the workflow for all other operations (images, notes, etc.)
-      if (isTempId) {
-        // Queue for background sync - room not synced yet
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
-          method: 'PUT',
-          data: { FDF: this.roomData.fdf, _tempEfeId: this.roomId, RoomName: this.roomName },
-          dependencies: [this.roomId],
-          status: 'pending',
-          priority: 'normal',
-          serviceId: this.serviceId
-        });
-        console.log('[RoomElevation] FDF update queued for sync (room not yet synced)');
-      } else {
-        // TASK 2 FIX: Queue for background sync (visible in sync modal) instead of direct API call
-        // This ensures FDF changes appear in the sync queue like all other operations
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
-          method: 'PUT',
-          data: { FDF: this.roomData.fdf, RoomName: this.roomName },
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal',
-          serviceId: this.serviceId
-        });
-        console.log('[RoomElevation] FDF update queued for sync');
-      }
+      // WEBAPP MODE: Call API directly for immediate persistence
+      if (environment.isWeb && !isTempId) {
+        console.log('[RoomElevation] WEBAPP: Updating FDF directly via API for EFEID:', id);
+        try {
+          const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ FDF: this.roomData.fdf })
+          });
 
-      // Update sync pending count to show in UI immediately
-      await this.backgroundSync.refreshSyncStatus();
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to update FDF: ${errorText}`);
+          }
+
+          console.log('[RoomElevation] WEBAPP: ✅ FDF updated successfully');
+        } catch (apiError: any) {
+          console.error('[RoomElevation] WEBAPP: ❌ FDF API update failed:', apiError?.message || apiError);
+          throw apiError;
+        }
+      } else {
+        // MOBILE MODE: Queue for background sync
+        if (isTempId) {
+          // Queue for background sync - room not synced yet
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+            method: 'PUT',
+            data: { FDF: this.roomData.fdf, _tempEfeId: this.roomId, RoomName: this.roomName },
+            dependencies: [this.roomId],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+          console.log('[RoomElevation] FDF update queued for sync (room not yet synced)');
+        } else {
+          // Queue for background sync (visible in sync modal)
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+            method: 'PUT',
+            data: { FDF: this.roomData.fdf, RoomName: this.roomName },
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+          console.log('[RoomElevation] FDF update queued for sync');
+        }
+
+        // Update sync pending count to show in UI immediately
+        await this.backgroundSync.refreshSyncStatus();
+      }
 
     } catch (error) {
       console.error('Error saving FDF:', error);
@@ -4344,38 +4367,59 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
       await this.updateLocalEFECache({ Location: this.roomData.location });
 
-      // TASK 3 FIX: ALWAYS queue updates for sync - this makes them visible in sync modal
-      // This matches the workflow for all other operations
-      if (isTempId) {
-        // Queue for background sync - room not synced yet
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
-          method: 'PUT',
-          data: { Location: this.roomData.location, _tempEfeId: this.roomId, RoomName: this.roomName },
-          dependencies: [this.roomId],
-          status: 'pending',
-          priority: 'normal',
-          serviceId: this.serviceId
-        });
-        console.log('[RoomElevation] Location update queued for sync (room not yet synced)');
-      } else {
-        // Queue for background sync (visible in sync modal) instead of direct API call
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
-          method: 'PUT',
-          data: { Location: this.roomData.location, RoomName: this.roomName },
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal',
-          serviceId: this.serviceId
-        });
-        console.log('[RoomElevation] Location update queued for sync');
-      }
+      // WEBAPP MODE: Call API directly for immediate persistence
+      if (environment.isWeb && !isTempId) {
+        console.log('[RoomElevation] WEBAPP: Updating Location directly via API for EFEID:', id);
+        try {
+          const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ Location: this.roomData.location })
+          });
 
-      // Update sync pending count to show in UI immediately
-      await this.backgroundSync.refreshSyncStatus();
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to update Location: ${errorText}`);
+          }
+
+          console.log('[RoomElevation] WEBAPP: ✅ Location updated successfully');
+        } catch (apiError: any) {
+          console.error('[RoomElevation] WEBAPP: ❌ Location API update failed:', apiError?.message || apiError);
+          throw apiError;
+        }
+      } else {
+        // MOBILE MODE: Queue for background sync
+        if (isTempId) {
+          // Queue for background sync - room not synced yet
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+            method: 'PUT',
+            data: { Location: this.roomData.location, _tempEfeId: this.roomId, RoomName: this.roomName },
+            dependencies: [this.roomId],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+          console.log('[RoomElevation] Location update queued for sync (room not yet synced)');
+        } else {
+          // Queue for background sync (visible in sync modal) instead of direct API call
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+            method: 'PUT',
+            data: { Location: this.roomData.location, RoomName: this.roomName },
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+          console.log('[RoomElevation] Location update queued for sync');
+        }
+
+        // Update sync pending count to show in UI immediately
+        await this.backgroundSync.refreshSyncStatus();
+      }
 
     } catch (error) {
       console.error('Error saving location:', error);
@@ -4430,38 +4474,59 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // CRITICAL: Always update local IndexedDB cache first for offline-first behavior
       await this.updateLocalEFECache({ Notes: this.roomData.notes });
 
-      // TASK 3 FIX: ALWAYS queue updates for sync - this makes them visible in sync modal
-      // This matches the workflow for all other operations
-      if (isTempId) {
-        // Queue for background sync - room not synced yet
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
-          method: 'PUT',
-          data: { Notes: this.roomData.notes, _tempEfeId: this.roomId, RoomName: this.roomName },
-          dependencies: [this.roomId],
-          status: 'pending',
-          priority: 'normal',
-          serviceId: this.serviceId
-        });
-        console.log('[RoomElevation] Notes update queued for sync (room not yet synced)');
-      } else {
-        // Queue for background sync (visible in sync modal) instead of direct API call
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
-          method: 'PUT',
-          data: { Notes: this.roomData.notes, RoomName: this.roomName },
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal',
-          serviceId: this.serviceId
-        });
-        console.log('[RoomElevation] Notes update queued for sync');
-      }
+      // WEBAPP MODE: Call API directly for immediate persistence
+      if (environment.isWeb && !isTempId) {
+        console.log('[RoomElevation] WEBAPP: Updating Notes directly via API for EFEID:', id);
+        try {
+          const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ Notes: this.roomData.notes })
+          });
 
-      // Update sync pending count to show in UI immediately
-      await this.backgroundSync.refreshSyncStatus();
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to update Notes: ${errorText}`);
+          }
+
+          console.log('[RoomElevation] WEBAPP: ✅ Notes updated successfully');
+        } catch (apiError: any) {
+          console.error('[RoomElevation] WEBAPP: ❌ Notes API update failed:', apiError?.message || apiError);
+          throw apiError;
+        }
+      } else {
+        // MOBILE MODE: Queue for background sync
+        if (isTempId) {
+          // Queue for background sync - room not synced yet
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`,
+            method: 'PUT',
+            data: { Notes: this.roomData.notes, _tempEfeId: this.roomId, RoomName: this.roomName },
+            dependencies: [this.roomId],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+          console.log('[RoomElevation] Notes update queued for sync (room not yet synced)');
+        } else {
+          // Queue for background sync (visible in sync modal) instead of direct API call
+          await this.indexedDb.addPendingRequest({
+            type: 'UPDATE',
+            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=${id}`,
+            method: 'PUT',
+            data: { Notes: this.roomData.notes, RoomName: this.roomName },
+            dependencies: [],
+            status: 'pending',
+            priority: 'normal',
+            serviceId: this.serviceId
+          });
+          console.log('[RoomElevation] Notes update queued for sync');
+        }
+
+        // Update sync pending count to show in UI immediately
+        await this.backgroundSync.refreshSyncStatus();
+      }
 
     } catch (error) {
       console.error('Error saving notes:', error);
@@ -5242,37 +5307,60 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         // 3. Update local cache (for legacy compatibility)
         await this.updateLocalEFECache({ elevationPoints: this.roomData.elevationPoints });
 
-        // 4. Queue for backend sync
+        // 4. Sync to backend
         const isTempId = String(point.pointId).startsWith('temp_');
 
-        if (isTempId) {
-          // Point not synced yet - queue update with dependency
-          await this.indexedDb.addPendingRequest({
-            type: 'UPDATE',
-            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=DEFERRED`,
-            method: 'PUT',
-            data: { PointName: newName, _tempPointId: point.pointId },
-            dependencies: [point.pointId],
-            status: 'pending',
-            priority: 'normal',
-            serviceId: this.serviceId
-          });
-        } else {
-          // Point already synced - queue direct update
-          await this.indexedDb.addPendingRequest({
-            type: 'UPDATE',
-            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=${point.pointId}`,
-            method: 'PUT',
-            data: { PointName: newName },
-            dependencies: [],
-            status: 'pending',
-            priority: 'normal',
-            serviceId: this.serviceId
-          });
-        }
+        // WEBAPP MODE: Call API directly for immediate persistence
+        if (environment.isWeb && !isTempId) {
+          console.log('[RoomElevation] WEBAPP: Updating point name directly via API for PointID:', point.pointId);
+          try {
+            const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=${point.pointId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ PointName: newName })
+            });
 
-        // Refresh sync status to show in UI
-        await this.backgroundSync.refreshSyncStatus();
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`Failed to update point name: ${errorText}`);
+            }
+
+            console.log('[RoomElevation] WEBAPP: ✅ Point name updated successfully');
+          } catch (apiError: any) {
+            console.error('[RoomElevation] WEBAPP: ❌ Point name API update failed:', apiError?.message || apiError);
+            throw apiError;
+          }
+        } else {
+          // MOBILE MODE: Queue for background sync
+          if (isTempId) {
+            // Point not synced yet - queue update with dependency
+            await this.indexedDb.addPendingRequest({
+              type: 'UPDATE',
+              endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=DEFERRED`,
+              method: 'PUT',
+              data: { PointName: newName, _tempPointId: point.pointId },
+              dependencies: [point.pointId],
+              status: 'pending',
+              priority: 'normal',
+              serviceId: this.serviceId
+            });
+          } else {
+            // Point already synced - queue direct update
+            await this.indexedDb.addPendingRequest({
+              type: 'UPDATE',
+              endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=${point.pointId}`,
+              method: 'PUT',
+              data: { PointName: newName },
+              dependencies: [],
+              status: 'pending',
+              priority: 'normal',
+              serviceId: this.serviceId
+            });
+          }
+
+          // Refresh sync status to show in UI
+          await this.backgroundSync.refreshSyncStatus();
+        }
 
         console.log('[RoomElevation] Point name update saved to Dexie and queued for sync');
       } catch (error) {
@@ -5305,75 +5393,127 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     // Only process if user clicked Delete
     if (result.role === 'destructive') {
       try {
-        // TASK 3 FIX: Use sync queue pattern instead of direct API calls
-        // This ensures operations work offline and appear in sync queue
         const isTempPointId = String(point.pointId).startsWith('temp_');
 
-        // Queue photo deletions first
-        if (point.photos && point.photos.length > 0) {
-          for (const photo of point.photos) {
-            if (photo.attachId) {
-              const isTempAttachId = String(photo.attachId).startsWith('temp_');
+        // WEBAPP MODE: Call API directly for immediate persistence
+        if (environment.isWeb && !isTempPointId) {
+          console.log('[RoomElevation] WEBAPP: Deleting point and photos via API for PointID:', point.pointId);
 
-              if (isTempAttachId) {
-                // Photo not synced yet - queue deletion with dependency
-                await this.indexedDb.addPendingRequest({
-                  type: 'DELETE',
-                  endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=DEFERRED`,
-                  method: 'DELETE',
-                  data: { _tempAttachId: photo.attachId },
-                  dependencies: [photo.attachId],
-                  status: 'pending',
-                  priority: 'normal',
-                  serviceId: this.serviceId
-                });
-              } else {
-                // Photo already synced - queue direct deletion
-                await this.indexedDb.addPendingRequest({
-                  type: 'DELETE',
-                  endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
-                  method: 'DELETE',
-                  data: {},
-                  dependencies: [],
-                  status: 'pending',
-                  priority: 'normal',
-                  serviceId: this.serviceId
-                });
-              }
+          // Delete photos first
+          if (point.photos && point.photos.length > 0) {
+            for (const photo of point.photos) {
+              if (photo.attachId && !String(photo.attachId).startsWith('temp_')) {
+                try {
+                  const photoResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                  });
 
-              // Clean up local image cache
-              if (photo.localKey) {
-                await this.localImageService.deleteLocalImage(photo.localKey);
+                  if (!photoResponse.ok) {
+                    console.warn('[RoomElevation] WEBAPP: Failed to delete photo:', photo.attachId);
+                  } else {
+                    console.log('[RoomElevation] WEBAPP: ✅ Photo deleted:', photo.attachId);
+                  }
+                } catch (photoError) {
+                  console.warn('[RoomElevation] WEBAPP: Photo delete error:', photoError);
+                }
+
+                // Clean up local image cache
+                if (photo.localKey) {
+                  await this.localImageService.deleteLocalImage(photo.localKey);
+                }
               }
             }
           }
-        }
 
-        // Queue point deletion (after photos in queue)
-        if (isTempPointId) {
-          // Point not synced yet - queue deletion with dependency
-          await this.indexedDb.addPendingRequest({
-            type: 'DELETE',
-            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=DEFERRED`,
-            method: 'DELETE',
-            data: { _tempPointId: point.pointId },
-            dependencies: [point.pointId],
-            status: 'pending',
-            priority: 'normal',
-            serviceId: this.serviceId
-          });
+          // Delete point
+          try {
+            const pointResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=${point.pointId}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!pointResponse.ok) {
+              const errorText = await pointResponse.text();
+              throw new Error(`Failed to delete point: ${errorText}`);
+            }
+
+            console.log('[RoomElevation] WEBAPP: ✅ Point deleted successfully');
+          } catch (apiError: any) {
+            console.error('[RoomElevation] WEBAPP: ❌ Point delete failed:', apiError?.message || apiError);
+            throw apiError;
+          }
         } else {
-          // Point already synced - queue direct deletion
-          await this.indexedDb.addPendingRequest({
-            type: 'DELETE',
-            endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=${point.pointId}`,
-            method: 'DELETE',
-            data: {},
-            dependencies: [],
-            status: 'pending',
-            priority: 'normal',
-            serviceId: this.serviceId
-          });
+          // MOBILE MODE: Use sync queue pattern for offline support
+          // Queue photo deletions first
+          if (point.photos && point.photos.length > 0) {
+            for (const photo of point.photos) {
+              if (photo.attachId) {
+                const isTempAttachId = String(photo.attachId).startsWith('temp_');
+
+                if (isTempAttachId) {
+                  // Photo not synced yet - queue deletion with dependency
+                  await this.indexedDb.addPendingRequest({
+                    type: 'DELETE',
+                    endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=DEFERRED`,
+                    method: 'DELETE',
+                    data: { _tempAttachId: photo.attachId },
+                    dependencies: [photo.attachId],
+                    status: 'pending',
+                    priority: 'normal',
+                    serviceId: this.serviceId
+                  });
+                } else {
+                  // Photo already synced - queue direct deletion
+                  await this.indexedDb.addPendingRequest({
+                    type: 'DELETE',
+                    endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+                    method: 'DELETE',
+                    data: {},
+                    dependencies: [],
+                    status: 'pending',
+                    priority: 'normal',
+                    serviceId: this.serviceId
+                  });
+                }
+
+                // Clean up local image cache
+                if (photo.localKey) {
+                  await this.localImageService.deleteLocalImage(photo.localKey);
+                }
+              }
+            }
+          }
+
+          // Queue point deletion (after photos in queue)
+          if (isTempPointId) {
+            // Point not synced yet - queue deletion with dependency
+            await this.indexedDb.addPendingRequest({
+              type: 'DELETE',
+              endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=DEFERRED`,
+              method: 'DELETE',
+              data: { _tempPointId: point.pointId },
+              dependencies: [point.pointId],
+              status: 'pending',
+              priority: 'normal',
+              serviceId: this.serviceId
+            });
+          } else {
+            // Point already synced - queue direct deletion
+            await this.indexedDb.addPendingRequest({
+              type: 'DELETE',
+              endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points/records?q.where=PointID=${point.pointId}`,
+              method: 'DELETE',
+              data: {},
+              dependencies: [],
+              status: 'pending',
+              priority: 'normal',
+              serviceId: this.serviceId
+            });
+          }
+
+          // Refresh sync status to show in UI
+          await this.backgroundSync.refreshSyncStatus();
         }
 
         // Remove from local array immediately
@@ -5947,19 +6087,39 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 // Remove from cached ATTACHMENTS LIST in IndexedDB
                 await this.indexedDb.removeAttachmentFromCache(String(photo.attachId), 'efe_point_attachments');
 
-                // Delete from database - always queue to ensure reliable sync
+                // Delete from database
                 if (!String(photo.attachId).startsWith('temp_') && !String(photo.attachId).startsWith('img_')) {
-                  console.log('[Point Photo] Queuing delete for sync:', photo.attachId);
-                  await this.indexedDb.addPendingRequest({
-                    type: 'DELETE',
-                    endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
-                    method: 'DELETE',
-                    data: { attachId: photo.attachId },
-                    dependencies: [],
-                    status: 'pending',
-                    priority: 'high',
-                  });
-                  // Sync will happen on next 60-second interval (batched sync)
+                  // WEBAPP MODE: Call API directly for immediate persistence
+                  if (environment.isWeb) {
+                    console.log('[Point Photo] WEBAPP: Deleting photo via API:', photo.attachId);
+                    try {
+                      const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' }
+                      });
+
+                      if (!response.ok) {
+                        console.warn('[Point Photo] WEBAPP: Delete API returned non-OK status');
+                      } else {
+                        console.log('[Point Photo] WEBAPP: ✅ Photo deleted successfully');
+                      }
+                    } catch (apiError: any) {
+                      console.error('[Point Photo] WEBAPP: ❌ Delete failed:', apiError?.message || apiError);
+                    }
+                  } else {
+                    // MOBILE MODE: Queue for background sync
+                    console.log('[Point Photo] Queuing delete for sync:', photo.attachId);
+                    await this.indexedDb.addPendingRequest({
+                      type: 'DELETE',
+                      endpoint: `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${photo.attachId}`,
+                      method: 'DELETE',
+                      data: { attachId: photo.attachId },
+                      dependencies: [],
+                      status: 'pending',
+                      priority: 'high',
+                    });
+                    // Sync will happen on next 60-second interval (batched sync)
+                  }
                 }
 
                 console.log('[Point Photo] Photo removed successfully');

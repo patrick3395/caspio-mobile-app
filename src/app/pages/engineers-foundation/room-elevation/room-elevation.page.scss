@@ -689,3 +689,91 @@ select.styled-input {
     background-position: -200% 0;
   }
 }
+
+// ==============================================
+// WEBAPP: Top-level Skeleton Loader Styles
+// ==============================================
+
+@keyframes room-skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-room-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.skeleton-fdf-section {
+  .skeleton-section-label {
+    width: 200px;
+    height: 18px;
+    margin-bottom: 12px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
+  }
+
+  .skeleton-dropdown {
+    width: 100%;
+    height: 48px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
+  }
+}
+
+.skeleton-points-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.skeleton-point-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  .skeleton-point-header {
+    width: 50%;
+    height: 16px;
+    margin-bottom: 16px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #e8e8e8 25%, #d8d8d8 50%, #e8e8e8 75%);
+    background-size: 200% 100%;
+    animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
+  }
+
+  .skeleton-point-body {
+    display: flex;
+    gap: 12px;
+
+    .skeleton-photo-box {
+      flex: 1;
+      height: 120px;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #e8e8e8 25%, #d8d8d8 50%, #e8e8e8 75%);
+      background-size: 200% 100%;
+      animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
+    }
+  }
+}
+
+.skeleton-notes-area {
+  width: 100%;
+  height: 100px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: room-skeleton-shimmer 1.5s infinite ease-in-out;
+}

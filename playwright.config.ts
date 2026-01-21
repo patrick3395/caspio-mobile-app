@@ -67,10 +67,12 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
+  /* Uncomment this block if you want Playwright to auto-start the server:
   webServer: {
     command: 'npm run start',
     url: 'http://localhost:4200',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000, // 2 minutes for Angular to build and start
+    timeout: 120 * 1000,
   },
+  */
 });
