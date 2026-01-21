@@ -532,6 +532,15 @@ export class StorageDebugComponent implements OnInit {
         this.log(`Rehydration SUCCESS`, 'success');
         this.log(`Restored: ${result.restored.visuals} visuals, ${result.restored.efeRooms} EFE rooms`, 'success');
         this.log(`Attachments: ${result.restored.visualAttachments} visual, ${result.restored.efeAttachments} EFE`, 'success');
+        this.log(`>>> NAVIGATE AWAY AND BACK to see data <<<`, 'warning');
+
+        // Show alert to navigate
+        const alert = await this.alertCtrl.create({
+          header: 'Rehydration Complete',
+          message: 'Data has been restored to IndexedDB.\n\nNavigate away from this page and come back to see the restored data.',
+          buttons: ['OK']
+        });
+        await alert.present();
       } else {
         this.log(`Rehydration FAILED: ${result.error}`, 'error');
       }
