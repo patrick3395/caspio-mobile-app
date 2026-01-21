@@ -124,22 +124,15 @@
   --padding-end: 10px;
   --inner-padding-end: 0;
   border: 1px solid #e0e0e0;
-  transition: all 0.3s ease;
+  transition: border-color 0.2s ease;
 
   &:focus-within {
     border-color: #F15A27;
-    box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
   }
 
   // Error state styling (web only)
   &.input-error {
     border-color: #dc3545;
-    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
-
-    &:focus-within {
-      border-color: #dc3545;
-      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.15);
-    }
 
     ion-icon[slot="start"] {
       color: #dc3545;

@@ -121,8 +121,10 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     // WEBAPP: Clear any loading state from previous navigation
     if (environment.isWeb) {
       this.selectingProjectId = null;
-      // G2-LOADING-001: Must trigger change detection to clear spinner with OnPush strategy
-      this.cdr.markForCheck();
+      // G2-LOADING-001: Force immediate change detection to clear spinner
+      // detectChanges() is needed because markForCheck() only schedules a check,
+      // but with virtual scroll also using OnPush, we need synchronous update
+      this.cdr.detectChanges();
     }
 
     // OPTIMIZATION: Smart caching - only reload if data is stale or user made changes
@@ -193,7 +195,12 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
     // Simple approach: Load projects first, then load services for each
     this.projectsService.getActiveProjects(companyId).subscribe({
       next: (projects) => {
-        this.projects = projects || [];
+        // Sort by DateOfRequest, newest to oldest
+        this.projects = (projects || []).sort((a, b) => {
+          const dateA = a.DateOfRequest ? new Date(a.DateOfRequest).getTime() : 0;
+          const dateB = b.DateOfRequest ? new Date(b.DateOfRequest).getTime() : 0;
+          return dateB - dateA; // Descending order (newest first)
+        });
         console.log('📦 Loaded projects:', this.projects.length);
         
         // Load service types and then services

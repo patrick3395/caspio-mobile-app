@@ -326,7 +326,7 @@
       
       <!-- Unified expandable services list -->
       <div *ngIf="!loadingServices" class="services-list">
-        <div *ngFor="let offer of getSortedOffers()" 
+        <div *ngFor="let offer of getSortedOffers(); trackBy: trackByOfferId"
              class="service-list-item"
              [class.has-selection]="isServiceSelected(offer.OffersID)">
           <!-- Service header row (always visible) -->

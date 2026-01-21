@@ -1237,25 +1237,32 @@ textarea.styled-input {
         input, select {
           width: 100%;
           padding: 10px 12px;
-          border: 1px solid #ddd;
+          border: 1px solid #ddd !important;
           border-radius: 6px;
-          font-size: 14px;
-          color: #333;
-          background: #fafafa;
+          font-size: 16px; // Prevents iOS zoom on focus
+          color: #333 !important;
+          background: #fff !important;
+          background-color: #fff !important;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          appearance: none;
           transition: border-color 0.2s, background-color 0.2s;
 
           &:focus {
             outline: none;
-            border-color: #F15A27;
-            background: white;
+            border-color: #F15A27 !important;
+            background: #fff !important;
+          }
+
+          &::placeholder {
+            color: #999;
           }
         }
 
         select {
-          appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 12px center;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E") !important;
+          background-repeat: no-repeat !important;
+          background-position: right 12px center !important;
           padding-right: 32px;
           cursor: pointer;
         }

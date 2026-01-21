@@ -129,6 +129,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   selectedServices: ServiceSelection[] = [];
   loadingServices = false;
   updatingServices = false;
+
+  // WEBAPP: Cache sorted offers to prevent DOM re-creation
+  private sortedOffersCache: any[] = [];
+  private sortedOffersCacheKey: string = '';
   
   // Documents
   attachTemplates: any[] = [];
@@ -1567,10 +1571,23 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     });
   }
 
+  // TrackBy function to prevent DOM re-creation on change detection
+  trackByOfferId(index: number, offer: any): string {
+    return offer.OffersID;
+  }
+
   getSortedOffers(): any[] {
+    // WEBAPP: Cache sorted offers to prevent array re-creation on every template read
+    // This prevents click events from hitting wrong elements due to DOM re-creation
+    const cacheKey = this.availableOffers.map(o => o.OffersID).join(',');
+
+    if (cacheKey === this.sortedOffersCacheKey && this.sortedOffersCache.length > 0) {
+      return this.sortedOffersCache;
+    }
+
     const order = ['EIR', 'EFE', 'DCR', 'HUD', 'ELBW', 'ECSA', 'EWPI', 'EDTE', 'OTHER'];
 
-    return [...this.availableOffers].sort((a, b) => {
+    this.sortedOffersCache = [...this.availableOffers].sort((a, b) => {
       // Use TypeShort field directly
       const typeA = a.TypeShort || 'OTHER';
       const typeB = b.TypeShort || 'OTHER';
@@ -1592,6 +1609,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // If neither is in order, sort alphabetically by TypeName
       return (a.TypeName || '').localeCompare(b.TypeName || '');
     });
+
+    this.sortedOffersCacheKey = cacheKey;
+    return this.sortedOffersCache;
   }
 
   getServicesForTemplates(): ServiceSelection[] {
@@ -2539,26 +2559,29 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // ServiceID is NOT needed for Attach table - only ProjectID, TypeID, Title, Notes, Link, Attachment
         
-        // Build the attachment data for preview
-        const attachData = {
-          ProjectID: projectIdNum,
-          TypeID: typeIdNum,
-          Title: doc.title || 'Document',
-          Notes: '',
-          Link: file.name,  // We ARE sending Link field with filename
-          Attachment: `[File: ${file.name}]`
-        };
-        
-        // WEBAPP: Show confirmation popup before upload (allows cancel)
+        // WEBAPP: Show cancellable upload popup
+        let uploadCancelled = false;
         if (environment.isWeb) {
-          await this.showAttachmentDataPopup(attachData, file, serviceId);
+          loading = await this.loadingController.create({
+            message: `Uploading ${file.name}...`,
+            backdropDismiss: false,
+            buttons: [
+              {
+                text: 'Cancel',
+                role: 'cancel',
+                handler: () => {
+                  uploadCancelled = true;
+                }
+              }
+            ]
+          });
+          await loading.present();
+        } else {
+          loading = await this.loadingController.create({
+            message: 'Uploading file...'
+          });
+          await loading.present();
         }
-
-        // Show loading immediately
-        loading = await this.loadingController.create({
-          message: 'Uploading file...'
-        });
-        await loading.present();
 
         // Create attachment WITH file in ONE request (using Observable converted to Promise)
         // Pass serviceId to tie document to specific service instance
@@ -2570,6 +2593,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           file,
           serviceId // Pass serviceId to differentiate between multiple instances
         ).toPromise();
+
+        // Check if user cancelled during upload
+        if (uploadCancelled) {
+          throw new Error('Upload cancelled by user');
+        }
 
         // Attachment created - update UI immediately without waiting
         if (response) {
@@ -2589,14 +2617,37 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         }
       } else if (action === 'replace' && doc.attachId) {
-        // Show loading for replace action
-        loading = await this.loadingController.create({
-          message: 'Replacing file...'
-        });
-        await loading.present();
+        // WEBAPP: Show cancellable upload popup for replace
+        let replaceCancelled = false;
+        if (environment.isWeb) {
+          loading = await this.loadingController.create({
+            message: `Replacing with ${file.name}...`,
+            backdropDismiss: false,
+            buttons: [
+              {
+                text: 'Cancel',
+                role: 'cancel',
+                handler: () => {
+                  replaceCancelled = true;
+                }
+              }
+            ]
+          });
+          await loading.present();
+        } else {
+          loading = await this.loadingController.create({
+            message: 'Replacing file...'
+          });
+          await loading.present();
+        }
 
         // uploadFileToCaspio calls replaceAttachmentFile which updates both Attachment and Link fields
         await this.uploadFileToCaspio(doc.attachId, file);
+
+        // Check if user cancelled during upload
+        if (replaceCancelled) {
+          throw new Error('Upload cancelled by user');
+        }
 
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
@@ -4588,43 +4639,6 @@ Troubleshooting:
     await toast.present();
   }
 
-  private async showAttachmentDataPopup(attachData: any, file: File, serviceId: any) {
-    const alert = await this.alertController.create({
-      header: 'Attachment Data Being Sent',
-      message: `
-        <strong>Table: Attach</strong><br><br>
-        <strong>Fields to be populated:</strong><br>
-        <strong>ProjectID:</strong> ${attachData.ProjectID}<br>
-        <strong>TypeID:</strong> ${attachData.TypeID}<br>
-        <strong>Title:</strong> ${attachData.Title}<br>
-        <strong>Notes:</strong> ${attachData.Notes || '(empty)'}<br>
-        <strong>Link:</strong> ${attachData.Link}<br>
-        <strong>Attachment:</strong> [File: ${file.name}, ${file.size} bytes, ${file.type}]<br><br>
-        <strong>Context (not sent to table):</strong><br>
-        <strong>ServiceID:</strong> ${serviceId}<br>
-        <strong>API Endpoint:</strong> /tables/LPS_Attach/records?response=rows<br>
-        <strong>Method:</strong> Two-step upload (JSON then File)
-      `,
-      buttons: [
-        {
-          text: 'Cancel Upload',
-          role: 'cancel',
-          cssClass: 'secondary'
-        },
-        {
-          text: 'Continue',
-          role: 'confirm'
-        }
-      ]
-    });
-
-    await alert.present();
-    const { role } = await alert.onDidDismiss();
-    
-    if (role === 'cancel') {
-      throw new Error('Upload cancelled by user');
-    }
-  }
 
   private async showErrorPopup(error: any, attachData: any) {
     const errorDetails = `
