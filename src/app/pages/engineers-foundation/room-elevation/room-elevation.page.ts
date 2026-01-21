@@ -2000,8 +2000,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         let attachments: any[] = [];
         if (points.length > 0) {
           const pointIds = points.map((p: any) => String(p.PointID || p.PK_ID));
+          console.log('[RoomElevation] WEBAPP: Fetching attachments for pointIds:', pointIds);
           attachments = await firstValueFrom(this.caspioService.getServicesEFEAttachments(pointIds));
           console.log('[RoomElevation] WEBAPP: Loaded', attachments.length, 'attachments');
+          // Debug: Log each attachment's key fields
+          attachments.forEach((a, i) => {
+            console.log(`[RoomElevation] WEBAPP: Attachment[${i}]:`, {
+              AttachID: a.AttachID,
+              PointID: a.PointID,
+              Type: a.Type,
+              Attachment: a.Attachment?.substring(0, 50),
+              Photo: a.Photo
+            });
+          });
         }
 
         // 5. Build roomData from API response
@@ -2018,10 +2029,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               .map((a: any) => ({
                 attachId: String(a.AttachID || a.PK_ID),
                 url: a.Attachment || a.Photo || '',
-                caption: a.Caption || '',
+                photoType: a.Type || 'Measurement',  // CRITICAL: Template uses getPointPhotoByType() which needs this
+                caption: a.Annotation || a.Caption || '',
                 drawings: a.Drawings || '',
-                hasAnnotations: !!a.Drawings
+                hasAnnotations: !!a.Drawings,
+                loading: true,  // Show loading state until S3 image loads
+                displayUrl: 'assets/img/photo-placeholder.png'  // Placeholder until resolved
               }));
+
+            // Debug: Log photos mapped for this point
+            if (pointPhotos.length > 0) {
+              console.log(`[RoomElevation] WEBAPP: Point ${p.PointName} (${pointId}) has ${pointPhotos.length} photos:`,
+                pointPhotos.map(ph => ({ attachId: ph.attachId, photoType: ph.photoType, url: ph.url?.substring(0, 40) })));
+            }
 
             return {
               name: p.PointName,
@@ -7157,36 +7177,43 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   }
 
   /**
-   * WEBAPP: Resolve S3 keys to displayable blob URLs for all photos
+   * WEBAPP: Resolve S3 keys to displayable data URLs for all photos
+   * Uses same pattern as loadFDFPhotoImage() which works
    */
   private async resolveS3UrlsForWebapp(): Promise<void> {
     if (!this.roomData?.elevationPoints) return;
 
+    console.log('[RoomElevation] WEBAPP: Resolving S3 URLs for', this.roomData.elevationPoints.length, 'points');
+
     for (const point of this.roomData.elevationPoints) {
+      console.log('[RoomElevation] WEBAPP: Point', point.name, 'has', point.photos?.length || 0, 'photos');
       for (const photo of point.photos || []) {
+        console.log('[RoomElevation] WEBAPP: Photo', photo.attachId, 'type:', photo.photoType, 'url:', photo.url?.substring(0, 50));
         if (photo.url && this.caspioService.isS3Key(photo.url)) {
           try {
-            // Use proxy endpoint to fetch image as blob (avoids CORS and pre-signed URL issues)
-            const proxyUrl = `${environment.apiGatewayUrl}/api/s3/proxy?s3Key=${encodeURIComponent(photo.url)}`;
-            console.log('[RoomElevation] WEBAPP: Fetching photo via proxy for:', photo.attachId);
+            // Use same pattern as FDF: getS3FileUrl() + fetchS3ImageAsDataUrl()
+            console.log('[RoomElevation] WEBAPP: Fetching S3 URL for:', photo.attachId);
+            const s3Url = await this.caspioService.getS3FileUrl(photo.url);
+            const dataUrl = await this.fetchS3ImageAsDataUrl(s3Url);
 
-            const response = await fetch(proxyUrl);
-            if (!response.ok) {
-              throw new Error(`Proxy fetch failed: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            photo.displayUrl = blobUrl;
-            console.log('[RoomElevation] WEBAPP: ✅ Created blob URL for photo:', photo.attachId);
+            photo.displayUrl = dataUrl;
+            photo.loading = false;
+            console.log('[RoomElevation] WEBAPP: ✅ Created data URL for photo:', photo.attachId, 'type:', photo.photoType);
           } catch (err) {
             console.warn('[RoomElevation] WEBAPP: Failed to resolve S3 URL:', err);
             photo.displayUrl = 'assets/img/photo-placeholder.png';
+            photo.loading = false;
           }
-        } else {
+        } else if (photo.url) {
           photo.displayUrl = photo.url;
+          photo.loading = false;
+        } else {
+          photo.loading = false;
         }
       }
     }
+
+    // Trigger change detection after all photos resolved
+    this.changeDetectorRef.detectChanges();
   }
 }
