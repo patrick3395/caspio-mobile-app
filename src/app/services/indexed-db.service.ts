@@ -1239,7 +1239,7 @@ export class IndexedDbService {
   /**
    * Cache templates
    */
-  async cacheTemplates(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown', templates: any[]): Promise<void> {
+  async cacheTemplates(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown', templates: any[]): Promise<void> {
     const cacheEntry: CachedTemplate = {
       cacheKey: `templates_${type}`,
       type,
@@ -1254,7 +1254,7 @@ export class IndexedDbService {
   /**
    * Get cached templates
    */
-  async getCachedTemplates(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown'): Promise<any[] | null> {
+  async getCachedTemplates(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown'): Promise<any[] | null> {
     const cached = await db.cachedTemplates.get(`templates_${type}`);
     if (cached) {
       console.log(`[IndexedDB] Retrieved ${cached.templates.length} cached ${type} templates`);
@@ -1266,7 +1266,7 @@ export class IndexedDbService {
   /**
    * Check if template cache is valid
    */
-  async isTemplateCacheValid(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown', maxAgeMs: number): Promise<boolean> {
+  async isTemplateCacheValid(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown', maxAgeMs: number): Promise<boolean> {
     const cached = await db.cachedTemplates.get(`templates_${type}`);
     if (cached && (Date.now() - cached.lastUpdated) < maxAgeMs) {
       return true;

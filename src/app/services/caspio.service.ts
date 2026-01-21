@@ -4749,7 +4749,7 @@ export class CaspioService {
       }
       
       // CRITICAL: Clear attachments cache so UI shows new document immediately
-      this.clearAttachmentsCache(projectId);
+      this.clearAttachmentsCache(String(projectId));
       console.log('[Upload] Cleared attachments cache for project:', projectId);
 
       return {

@@ -280,6 +280,7 @@ export class OfflineTemplateService {
     // Track what we download for final summary
     const downloadSummary = {
       visualTemplates: 0,
+      visualDropdownOptions: 0,
       efeTemplates: 0,
       serviceVisuals: 0,
       visualAttachments: 0,
