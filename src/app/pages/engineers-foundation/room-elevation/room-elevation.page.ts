@@ -1944,6 +1944,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       this.loading = true;
       this.changeDetectorRef.detectChanges();
 
+      // WEBAPP FIX: Pre-load cached photos including annotated images
+      // This ensures annotations show on thumbnails after reload
+      this.cacheLoadPromise = this.preloadPhotoCaches();
+
       try {
         // 1. Load all EFE rooms for this service and find matching room
         const allRooms = await firstValueFrom(this.caspioService.getServicesEFE(this.serviceId));
@@ -5907,11 +5911,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         // CRITICAL FIX: Use TRUE IMMUTABLE pattern - replace entire photo object in array
         // This ensures Angular change detection properly sees the update
-        const photoIndex = point.photos.findIndex((p: any) => 
-          p.attachId === photo.attachId || 
-          p._tempId === photo._tempId ||
-          p._pendingFileId === photo._pendingFileId
-        );
+        // WEBAPP FIX: Include photoType in match to avoid matching wrong photo
+        const photoIndex = point.photos.findIndex((p: any) => {
+          // First try exact ID match
+          if (photo.attachId && p.attachId === photo.attachId) return true;
+          if (photo._tempId && p._tempId === photo._tempId) return true;
+          if (photo._pendingFileId && p._pendingFileId === photo._pendingFileId) return true;
+          // Fallback to photoType match (for webapp where IDs might not match)
+          if (photo.photoType && p.photoType === photo.photoType) return true;
+          return false;
+        });
         
         if (photoIndex >= 0) {
           // Replace the entire photo object in the array (immutable update)
@@ -7185,12 +7194,27 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
   private async resolveS3UrlsForWebapp(): Promise<void> {
     if (!this.roomData?.elevationPoints) return;
 
+    // Wait for cache to load first (so we can check for annotated images)
+    await this.cacheLoadPromise;
+
     console.log('[RoomElevation] WEBAPP: Resolving S3 URLs for', this.roomData.elevationPoints.length, 'points');
 
     for (const point of this.roomData.elevationPoints) {
       console.log('[RoomElevation] WEBAPP: Point', point.name, 'has', point.photos?.length || 0, 'photos');
       for (const photo of point.photos || []) {
-        console.log('[RoomElevation] WEBAPP: Photo', photo.attachId, 'type:', photo.photoType, 'url:', photo.url?.substring(0, 50));
+        console.log('[RoomElevation] WEBAPP: Photo', photo.attachId, 'type:', photo.photoType, 'url:', photo.url?.substring(0, 50), 'hasAnnotations:', photo.hasAnnotations);
+
+        // WEBAPP FIX: Check for cached annotated image FIRST (shows annotations on thumbnail)
+        if (photo.attachId && photo.hasAnnotations) {
+          const cachedAnnotated = this.bulkAnnotatedImagesMap.get(String(photo.attachId));
+          if (cachedAnnotated) {
+            console.log('[RoomElevation] WEBAPP: ✅ Using cached annotated image for:', photo.attachId);
+            photo.displayUrl = cachedAnnotated;
+            photo.loading = false;
+            continue;  // Skip S3 fetch - we have the annotated version
+          }
+        }
+
         if (photo.url && this.caspioService.isS3Key(photo.url)) {
           try {
             // Use same pattern as FDF: getS3FileUrl() + fetchS3ImageAsDataUrl()
