@@ -118,20 +118,9 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
   // Users can also pull-to-refresh or click refresh button for instant updates
 
   ionViewWillEnter() {
-    // WEBAPP: Clear any loading state from previous navigation
+    // WEBAPP: Clear any loading state from previous navigation (immediate)
     if (environment.isWeb) {
       this.selectingProjectId = null;
-
-      // G2-LOADING-001: Force virtual scroll to re-render items
-      // CDK virtual scroll caches rendered templates, so we need to:
-      // 1. Create a new array reference to trigger change detection in the virtual scroll
-      // 2. Use setTimeout to ensure this happens after the view is fully ready
-      if (this.filteredProjects && this.filteredProjects.length > 0) {
-        this.filteredProjects = [...this.filteredProjects];
-      }
-
-      // Force synchronous change detection to clear spinner immediately
-      this.cdr.detectChanges();
     }
 
     // OPTIMIZATION: Smart caching - only reload if data is stale or user made changes
@@ -146,6 +135,30 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
 
     console.log('🔄 Loading fresh data (cache expired or no data)');
     this.checkAuthAndLoadProjects();
+  }
+
+  ionViewDidEnter() {
+    // G2-LOADING-001: Clear spinner state AFTER view is fully rendered
+    // This is critical for CDK virtual scroll which caches rendered templates
+    if (environment.isWeb) {
+      // Always clear the selecting state when entering the view
+      const wasSelecting = this.selectingProjectId !== null;
+      this.selectingProjectId = null;
+
+      if (wasSelecting && this.filteredProjects && this.filteredProjects.length > 0) {
+        // Force complete re-render by temporarily clearing and restoring the array
+        // This is necessary because CDK virtual scroll caches rendered items by trackBy key
+        const savedProjects = this.filteredProjects;
+        this.filteredProjects = [];
+        this.cdr.detectChanges();
+
+        // Restore after a microtask to ensure the clear is processed
+        setTimeout(() => {
+          this.filteredProjects = savedProjects;
+          this.cdr.detectChanges();
+        }, 0);
+      }
+    }
   }
 
   checkAuthAndLoadProjects() {

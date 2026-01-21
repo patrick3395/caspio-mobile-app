@@ -4465,7 +4465,9 @@ export class CaspioService {
   }
 
   updateProject(projectId: string, updateData: any): Observable<any> {
-    return this.put<any>(`/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`, updateData);
+    // URL-encode the WHERE clause to handle the = sign properly
+    const whereClause = encodeURIComponent(`PK_ID=${projectId}`);
+    return this.put<any>(`/tables/LPS_Projects/records?q.where=${whereClause}`, updateData);
   }
   
   // Service methods

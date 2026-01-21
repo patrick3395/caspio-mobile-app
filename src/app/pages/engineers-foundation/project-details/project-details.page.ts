@@ -10,6 +10,8 @@ import { OfflineService } from '../../../services/offline.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { environment } from '../../../../environments/environment';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-project-details',
@@ -166,9 +168,16 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   /**
    * Subscribe to background sync events for real-time UI updates
+   * MOBILE ONLY: Not needed in web mode since we save directly to API
    */
   private subscribeToSyncEvents(): void {
-    // Subscribe to service data sync completion
+    // WEBAPP MODE: Skip sync event subscription - not needed with direct API calls
+    if (environment.isWeb) {
+      console.log('[ProjectDetails] WEBAPP MODE: Skipping sync event subscription');
+      return;
+    }
+
+    // MOBILE MODE: Subscribe to service data sync completion
     // This fires when local changes to project/service data are synced to the server
     this.serviceDataSyncSubscription = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
       if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
@@ -208,23 +217,36 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   private async loadProjectData() {
-    // Try IndexedDB first - this is the source of truth for offline-first
-    let project = await this.offlineTemplate.getProject(this.projectId);
+    let project: any = null;
 
-    if (project) {
-      console.log('[ProjectDetails] Loaded project from IndexedDB cache');
-    } else {
-      // Only fetch from API if IndexedDB has nothing at all
-      console.log('[ProjectDetails] Project not in cache, fetching from API...');
+    // WEBAPP MODE: Load directly from API (no IndexedDB caching)
+    if (environment.isWeb) {
+      console.log('[ProjectDetails] WEBAPP MODE: Loading project directly from API');
       try {
-        const freshProject = await this.caspioService.getProject(this.projectId, false).toPromise();
-        if (freshProject) {
-          await this.indexedDb.cacheProjectRecord(this.projectId, freshProject);
-          project = freshProject;
-        }
+        project = await firstValueFrom(this.caspioService.getProject(this.projectId, false));
       } catch (error) {
-        console.error('[ProjectDetails] Error loading project from API:', error);
+        console.error('[ProjectDetails] WEBAPP: Error loading project from API:', error);
         return;
+      }
+    } else {
+      // MOBILE MODE: Try IndexedDB first - this is the source of truth for offline-first
+      project = await this.offlineTemplate.getProject(this.projectId);
+
+      if (project) {
+        console.log('[ProjectDetails] Loaded project from IndexedDB cache');
+      } else {
+        // Only fetch from API if IndexedDB has nothing at all
+        console.log('[ProjectDetails] Project not in cache, fetching from API...');
+        try {
+          const freshProject = await this.caspioService.getProject(this.projectId, false).toPromise();
+          if (freshProject) {
+            await this.indexedDb.cacheProjectRecord(this.projectId, freshProject);
+            project = freshProject;
+          }
+        } catch (error) {
+          console.error('[ProjectDetails] Error loading project from API:', error);
+          return;
+        }
       }
     }
 
@@ -241,31 +263,44 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   private async loadServiceData() {
     console.log(`[ProjectDetails] loadServiceData() called for serviceId=${this.serviceId}`);
+    let service: any = null;
 
-    // Try IndexedDB first - this is the source of truth for offline-first
-    let service = await this.offlineTemplate.getService(this.serviceId);
-
-    console.log(`[ProjectDetails] getService(${this.serviceId}) returned:`, service);
-    console.log(`[ProjectDetails] service fields:`, service ? Object.keys(service) : 'null');
-
-    if (service) {
-      console.log('[ProjectDetails] Loaded service from IndexedDB cache');
-      console.log('[ProjectDetails] FirstFoundationType =', service.FirstFoundationType);
-      console.log('[ProjectDetails] OccupancyFurnishings =', service.OccupancyFurnishings);
-      console.log('[ProjectDetails] WeatherConditions =', service.WeatherConditions);
-    } else {
-      // Only fetch from API if IndexedDB has nothing at all
-      console.log('[ProjectDetails] Service not in cache, fetching from API...');
+    // WEBAPP MODE: Load directly from API (no IndexedDB caching)
+    if (environment.isWeb) {
+      console.log('[ProjectDetails] WEBAPP MODE: Loading service directly from API');
       try {
-        const freshService = await this.caspioService.getService(this.serviceId, false).toPromise();
-        console.log('[ProjectDetails] API returned:', freshService);
-        if (freshService) {
-          await this.indexedDb.cacheServiceRecord(this.serviceId, freshService);
-          service = freshService;
-        }
+        service = await firstValueFrom(this.caspioService.getService(this.serviceId, false));
+        console.log('[ProjectDetails] WEBAPP: API returned service with fields:', service ? Object.keys(service) : 'null');
       } catch (error) {
-        console.error('[ProjectDetails] Error loading service from API:', error);
+        console.error('[ProjectDetails] WEBAPP: Error loading service from API:', error);
         return;
+      }
+    } else {
+      // MOBILE MODE: Try IndexedDB first - this is the source of truth for offline-first
+      service = await this.offlineTemplate.getService(this.serviceId);
+
+      console.log(`[ProjectDetails] getService(${this.serviceId}) returned:`, service);
+      console.log(`[ProjectDetails] service fields:`, service ? Object.keys(service) : 'null');
+
+      if (service) {
+        console.log('[ProjectDetails] Loaded service from IndexedDB cache');
+        console.log('[ProjectDetails] FirstFoundationType =', service.FirstFoundationType);
+        console.log('[ProjectDetails] OccupancyFurnishings =', service.OccupancyFurnishings);
+        console.log('[ProjectDetails] WeatherConditions =', service.WeatherConditions);
+      } else {
+        // Only fetch from API if IndexedDB has nothing at all
+        console.log('[ProjectDetails] Service not in cache, fetching from API...');
+        try {
+          const freshService = await this.caspioService.getService(this.serviceId, false).toPromise();
+          console.log('[ProjectDetails] API returned:', freshService);
+          if (freshService) {
+            await this.indexedDb.cacheServiceRecord(this.serviceId, freshService);
+            service = freshService;
+          }
+        } catch (error) {
+          console.error('[ProjectDetails] Error loading service from API:', error);
+          return;
+        }
       }
     }
 
@@ -312,12 +347,20 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.changeDetectorRef.detectChanges();
   }
 
-  // Load dropdown options from Services_Drop table (OFFLINE-FIRST)
+  // Load dropdown options from Services_Drop table
   private async loadDropdownOptions() {
     console.log('[ProjectDetails] loadDropdownOptions() called');
     try {
-      // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
-      const servicesDropData = await this.offlineTemplate.getServicesDrop();
+      let servicesDropData: any[] = [];
+
+      // WEBAPP MODE: Load directly from API
+      if (environment.isWeb) {
+        console.log('[ProjectDetails] WEBAPP MODE: Loading Services_Drop directly from API');
+        servicesDropData = await firstValueFrom(this.caspioService.getServicesVisualsDropFiltered()) || [];
+      } else {
+        // MOBILE MODE: Use OfflineTemplateService which reads from IndexedDB
+        servicesDropData = await this.offlineTemplate.getServicesDrop();
+      }
       console.log('[ProjectDetails] loadDropdownOptions(): got data, servicesDropData.length =', servicesDropData?.length);
       
       // Debug: Log all unique ServicesName values to see what's available
@@ -542,13 +585,10 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
         const secondFoundationRoomsSource = optionsByService['SecondFoundationRooms'] || optionsByService['FoundationRooms'] || optionsByService['ThirdFoundationRooms'];
         if (secondFoundationRoomsSource && secondFoundationRoomsSource.length > 0) {
           this.secondFoundationRoomsOptions = [...secondFoundationRoomsSource]; // Clone
-          if (!this.secondFoundationRoomsOptions.includes('Other')) {
-            this.secondFoundationRoomsOptions.push('Other');
-          }
           // Normalize selections to match API options, or add if truly missing
           if (this.secondFoundationRoomsSelections && this.secondFoundationRoomsSelections.length > 0) {
             this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.map(selection => {
-              if (!selection || selection === 'Other') return selection;
+              if (!selection || selection === 'Other' || selection === 'None') return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.secondFoundationRoomsOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -559,39 +599,30 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
                 }
                 return matchingOption;
               } else {
-                // Add missing selection to options (before Other)
+                // Add missing selection to options (custom values added via Other)
                 console.log(`[ProjectDetails] Adding missing SecondFoundationRooms selection to options: "${selection}"`);
-                const otherIndex = this.secondFoundationRoomsOptions.indexOf('Other');
-                if (otherIndex > 0) {
-                  this.secondFoundationRoomsOptions.splice(otherIndex, 0, selection);
-                } else {
-                  this.secondFoundationRoomsOptions.push(selection);
-                }
+                this.secondFoundationRoomsOptions.push(selection);
                 return selection;
               }
             });
           }
-          // Sort options alphabetically, keeping "Other" at the end
-          const otherOption = this.secondFoundationRoomsOptions.includes('Other') ? 'Other' : null;
+          // Sort options alphabetically, keeping "None" and "Other" at the end
           this.secondFoundationRoomsOptions = this.secondFoundationRoomsOptions
-            .filter(opt => opt !== 'Other')
+            .filter(opt => opt !== 'Other' && opt !== 'None')
             .sort((a, b) => a.localeCompare(b));
-          if (otherOption) {
-            this.secondFoundationRoomsOptions.push(otherOption);
-          }
+          // Add "None" and "Other" at the end (in that order)
+          this.secondFoundationRoomsOptions.push('None');
+          this.secondFoundationRoomsOptions.push('Other');
         }
 
         // Set ThirdFoundationRooms options (multi-select - fall back to room options if not available)
         const thirdFoundationRoomsSource = optionsByService['ThirdFoundationRooms'] || optionsByService['FoundationRooms'] || optionsByService['SecondFoundationRooms'];
         if (thirdFoundationRoomsSource && thirdFoundationRoomsSource.length > 0) {
           this.thirdFoundationRoomsOptions = [...thirdFoundationRoomsSource]; // Clone
-          if (!this.thirdFoundationRoomsOptions.includes('Other')) {
-            this.thirdFoundationRoomsOptions.push('Other');
-          }
           // Normalize selections to match API options, or add if truly missing
           if (this.thirdFoundationRoomsSelections && this.thirdFoundationRoomsSelections.length > 0) {
             this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.map(selection => {
-              if (!selection || selection === 'Other') return selection;
+              if (!selection || selection === 'Other' || selection === 'None') return selection;
               const normalizedSelection = this.normalizeForComparison(selection);
               const matchingOption = this.thirdFoundationRoomsOptions.find(opt =>
                 this.normalizeForComparison(opt) === normalizedSelection
@@ -602,26 +633,20 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
                 }
                 return matchingOption;
               } else {
-                // Add missing selection to options (before Other)
+                // Add missing selection to options (custom values added via Other)
                 console.log(`[ProjectDetails] Adding missing ThirdFoundationRooms selection to options: "${selection}"`);
-                const otherIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
-                if (otherIndex > 0) {
-                  this.thirdFoundationRoomsOptions.splice(otherIndex, 0, selection);
-                } else {
-                  this.thirdFoundationRoomsOptions.push(selection);
-                }
+                this.thirdFoundationRoomsOptions.push(selection);
                 return selection;
               }
             });
           }
-          // Sort options alphabetically, keeping "Other" at the end
-          const otherOption = this.thirdFoundationRoomsOptions.includes('Other') ? 'Other' : null;
+          // Sort options alphabetically, keeping "None" and "Other" at the end
           this.thirdFoundationRoomsOptions = this.thirdFoundationRoomsOptions
-            .filter(opt => opt !== 'Other')
+            .filter(opt => opt !== 'Other' && opt !== 'None')
             .sort((a, b) => a.localeCompare(b));
-          if (otherOption) {
-            this.thirdFoundationRoomsOptions.push(otherOption);
-          }
+          // Add "None" and "Other" at the end (in that order)
+          this.thirdFoundationRoomsOptions.push('None');
+          this.thirdFoundationRoomsOptions.push('Other');
         }
 
         // Set OwnerOccupantInterview options
@@ -657,11 +682,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
-  // Load dropdown options from Projects_Drop table (OFFLINE-FIRST)
+  // Load dropdown options from Projects_Drop table
   private async loadProjectDropdownOptions() {
     try {
-      // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
-      const dropdownData = await this.offlineTemplate.getProjectsDrop();
+      let dropdownData: any[] = [];
+
+      // WEBAPP MODE: Load directly from API
+      if (environment.isWeb) {
+        console.log('[ProjectDetails] WEBAPP MODE: Loading Projects_Drop directly from API');
+        dropdownData = await firstValueFrom(this.caspioService.getProjectsDrop()) || [];
+      } else {
+        // MOBILE MODE: Use OfflineTemplateService which reads from IndexedDB
+        dropdownData = await this.offlineTemplate.getProjectsDrop();
+      }
 
       if (dropdownData && dropdownData.length > 0) {
         // Initialize arrays for each field type
@@ -888,12 +921,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Second Foundation Rooms multi-select methods
   isSecondFoundationRoomsSelected(option: string): boolean {
-    if (!this.secondFoundationRoomsSelections) {
+    if (!this.secondFoundationRoomsSelections || !Array.isArray(this.secondFoundationRoomsSelections)) {
       return false;
-    }
-    if (option === 'Other') {
-      return this.secondFoundationRoomsSelections.includes('Other') ||
-             !!(this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim().length > 0);
     }
     return this.secondFoundationRoomsSelections.includes(option);
   }
@@ -904,8 +933,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     if (event.detail.checked) {
-      if (!this.secondFoundationRoomsSelections.includes(option)) {
-        this.secondFoundationRoomsSelections.push(option);
+      if (option === 'None') {
+        // "None" is mutually exclusive - clear all other selections
+        this.secondFoundationRoomsSelections = ['None'];
+        this.secondFoundationRoomsOtherValue = '';
+      } else {
+        // Remove "None" if selecting any other option
+        const noneIndex = this.secondFoundationRoomsSelections.indexOf('None');
+        if (noneIndex > -1) {
+          this.secondFoundationRoomsSelections.splice(noneIndex, 1);
+        }
+        if (!this.secondFoundationRoomsSelections.includes(option)) {
+          this.secondFoundationRoomsSelections.push(option);
+        }
       }
     } else {
       const index = this.secondFoundationRoomsSelections.indexOf(option);
@@ -920,16 +960,60 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     await this.saveSecondFoundationRooms();
   }
 
-  async onSecondFoundationRoomsOtherChange() {
-    if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
-      const otherIndex = this.secondFoundationRoomsSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.secondFoundationRoomsSelections[otherIndex] = this.secondFoundationRoomsOtherValue.trim();
-      } else {
-        this.secondFoundationRoomsSelections.push(this.secondFoundationRoomsOtherValue.trim());
-      }
+  async addSecondFoundationRoomsOther() {
+    const customValue = this.secondFoundationRoomsOtherValue?.trim();
+    if (!customValue) {
+      return;
     }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.secondFoundationRoomsSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.secondFoundationRoomsSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.secondFoundationRoomsOptions.includes(customValue)) {
+      console.log(`[ProjectDetails] SecondFoundationRooms option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.secondFoundationRoomsSelections.includes(customValue)) {
+        this.secondFoundationRoomsSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneOptIndex = this.secondFoundationRoomsOptions.indexOf('None');
+      if (noneOptIndex > -1) {
+        this.secondFoundationRoomsOptions.splice(noneOptIndex, 0, customValue);
+      } else {
+        const otherIndex = this.secondFoundationRoomsOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.secondFoundationRoomsOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.secondFoundationRoomsOptions.push(customValue);
+        }
+      }
+      console.log(`[ProjectDetails] Added custom SecondFoundationRooms option: "${customValue}"`);
+
+      // Select the new custom value
+      if (!this.secondFoundationRoomsSelections) {
+        this.secondFoundationRoomsSelections = [];
+      }
+      this.secondFoundationRoomsSelections.push(customValue);
+    }
+
+    // Clear the input field for the next entry
+    this.secondFoundationRoomsOtherValue = '';
+
+    // Save the updated selections
     await this.saveSecondFoundationRooms();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  async onSecondFoundationRoomsOtherChange() {
+    // Only add if there's a value (blur without value should do nothing)
+    if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
+      await this.addSecondFoundationRoomsOther();
+    }
   }
 
   private async saveSecondFoundationRooms() {
@@ -941,12 +1025,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // Third Foundation Rooms multi-select methods
   isThirdFoundationRoomsSelected(option: string): boolean {
-    if (!this.thirdFoundationRoomsSelections) {
+    if (!this.thirdFoundationRoomsSelections || !Array.isArray(this.thirdFoundationRoomsSelections)) {
       return false;
-    }
-    if (option === 'Other') {
-      return this.thirdFoundationRoomsSelections.includes('Other') ||
-             !!(this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim().length > 0);
     }
     return this.thirdFoundationRoomsSelections.includes(option);
   }
@@ -957,8 +1037,19 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     }
 
     if (event.detail.checked) {
-      if (!this.thirdFoundationRoomsSelections.includes(option)) {
-        this.thirdFoundationRoomsSelections.push(option);
+      if (option === 'None') {
+        // "None" is mutually exclusive - clear all other selections
+        this.thirdFoundationRoomsSelections = ['None'];
+        this.thirdFoundationRoomsOtherValue = '';
+      } else {
+        // Remove "None" if selecting any other option
+        const noneIndex = this.thirdFoundationRoomsSelections.indexOf('None');
+        if (noneIndex > -1) {
+          this.thirdFoundationRoomsSelections.splice(noneIndex, 1);
+        }
+        if (!this.thirdFoundationRoomsSelections.includes(option)) {
+          this.thirdFoundationRoomsSelections.push(option);
+        }
       }
     } else {
       const index = this.thirdFoundationRoomsSelections.indexOf(option);
@@ -973,16 +1064,60 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     await this.saveThirdFoundationRooms();
   }
 
-  async onThirdFoundationRoomsOtherChange() {
-    if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
-      const otherIndex = this.thirdFoundationRoomsSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.thirdFoundationRoomsSelections[otherIndex] = this.thirdFoundationRoomsOtherValue.trim();
-      } else {
-        this.thirdFoundationRoomsSelections.push(this.thirdFoundationRoomsOtherValue.trim());
-      }
+  async addThirdFoundationRoomsOther() {
+    const customValue = this.thirdFoundationRoomsOtherValue?.trim();
+    if (!customValue) {
+      return;
     }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.thirdFoundationRoomsSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.thirdFoundationRoomsSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.thirdFoundationRoomsOptions.includes(customValue)) {
+      console.log(`[ProjectDetails] ThirdFoundationRooms option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.thirdFoundationRoomsSelections.includes(customValue)) {
+        this.thirdFoundationRoomsSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneOptIndex = this.thirdFoundationRoomsOptions.indexOf('None');
+      if (noneOptIndex > -1) {
+        this.thirdFoundationRoomsOptions.splice(noneOptIndex, 0, customValue);
+      } else {
+        const otherIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.thirdFoundationRoomsOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.thirdFoundationRoomsOptions.push(customValue);
+        }
+      }
+      console.log(`[ProjectDetails] Added custom ThirdFoundationRooms option: "${customValue}"`);
+
+      // Select the new custom value
+      if (!this.thirdFoundationRoomsSelections) {
+        this.thirdFoundationRoomsSelections = [];
+      }
+      this.thirdFoundationRoomsSelections.push(customValue);
+    }
+
+    // Clear the input field for the next entry
+    this.thirdFoundationRoomsOtherValue = '';
+
+    // Save the updated selections
     await this.saveThirdFoundationRooms();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  async onThirdFoundationRoomsOtherChange() {
+    // Only add if there's a value (blur without value should do nothing)
+    if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
+      await this.addThirdFoundationRoomsOther();
+    }
   }
 
   private async saveThirdFoundationRooms() {
@@ -1074,9 +1209,30 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   private async saveOtherValueToDatabase(tableType: 'project' | 'service', fieldName: string, value: string) {
     console.log(`[ProjectDetails] Saving Other value for ${fieldName}: "${value}"`);
 
+    // WEBAPP MODE: Save directly to API
+    if (environment.isWeb) {
+      try {
+        if (tableType === 'project') {
+          if (!this.projectId || this.projectId === 'new') return;
+          await firstValueFrom(this.caspioService.updateProject(this.projectId, { [fieldName]: value }));
+          console.log(`[ProjectDetails] WEBAPP: Project Other value ${fieldName} saved to API`);
+        } else {
+          if (!this.serviceId || this.serviceId === 'new') return;
+          await firstValueFrom(this.caspioService.updateService(this.serviceId, { [fieldName]: value }));
+          console.log(`[ProjectDetails] WEBAPP: Service Other value ${fieldName} saved to API`);
+        }
+        this.showSaveStatus(`${fieldName} saved`, 'success');
+      } catch (error) {
+        console.error(`[ProjectDetails] WEBAPP: Error saving Other value to API:`, error);
+        this.showSaveStatus(`Error saving ${fieldName}`, 'error');
+      }
+      return;
+    }
+
+    // MOBILE MODE: Save to IndexedDB, sync later
     if (tableType === 'project') {
       if (!this.projectId || this.projectId === 'new') return;
-      
+
       // Save to IndexedDB (actual value, not "Other")
       try {
         await this.offlineTemplate.updateProject(this.projectId, { [fieldName]: value });
@@ -1086,7 +1242,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     } else {
       if (!this.serviceId || this.serviceId === 'new') return;
-      
+
       // Save to IndexedDB (actual value, not "Other")
       try {
         await this.offlineTemplate.updateService(this.serviceId, { [fieldName]: value });
@@ -1106,16 +1262,29 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     // Sync will happen on next 60-second interval (batched sync)
   }
 
-  // Auto-save to Projects table (OFFLINE-FIRST)
+  // Auto-save to Projects table
   private async autoSaveProjectField(fieldName: string, value: any) {
     if (!this.projectId || this.projectId === 'new') return;
 
     console.log(`[ProjectDetails] Saving project field ${fieldName}:`, value);
 
-    // 1. Update local data immediately (for instant UI feedback)
+    // Update local data immediately (for instant UI feedback)
     this.projectData[fieldName] = value;
 
-    // 2. Update IndexedDB cache immediately
+    // WEBAPP MODE: Save directly to API
+    if (environment.isWeb) {
+      try {
+        await firstValueFrom(this.caspioService.updateProject(this.projectId, { [fieldName]: value }));
+        console.log(`[ProjectDetails] WEBAPP: Project field ${fieldName} saved to API`);
+        this.showSaveStatus(`${fieldName} saved`, 'success');
+      } catch (error) {
+        console.error(`[ProjectDetails] WEBAPP: Error saving to API:`, error);
+        this.showSaveStatus(`Error saving ${fieldName}`, 'error');
+      }
+      return;
+    }
+
+    // MOBILE MODE: Update IndexedDB cache, sync later
     try {
       await this.offlineTemplate.updateProject(this.projectId, { [fieldName]: value });
       console.log(`[ProjectDetails] Project field ${fieldName} saved to IndexedDB`);
@@ -1123,7 +1292,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       console.error(`[ProjectDetails] Error saving to IndexedDB:`, error);
     }
 
-    // 3. Show appropriate status message
+    // Show appropriate status message
     const isOnline = this.offlineService.isOnline();
     if (isOnline) {
       this.showSaveStatus(`${fieldName} saved`, 'success');
@@ -1134,7 +1303,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     // Sync will happen on next 60-second interval (batched sync)
   }
 
-  // Auto-save to Services table (OFFLINE-FIRST)
+  // Auto-save to Services table
   private async autoSaveServiceField(fieldName: string, value: any) {
     console.log(`[ProjectDetails] autoSaveServiceField(${fieldName}, ${value}) called for serviceId=${this.serviceId}`);
 
@@ -1145,11 +1314,24 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     console.log(`[ProjectDetails] Saving service field ${fieldName}:`, value);
 
-    // 1. Update local data immediately (for instant UI feedback)
+    // Update local data immediately (for instant UI feedback)
     this.serviceData[fieldName] = value;
     console.log(`[ProjectDetails] this.serviceData[${fieldName}] set to:`, this.serviceData[fieldName]);
 
-    // 2. Update IndexedDB cache immediately
+    // WEBAPP MODE: Save directly to API
+    if (environment.isWeb) {
+      try {
+        await firstValueFrom(this.caspioService.updateService(this.serviceId, { [fieldName]: value }));
+        console.log(`[ProjectDetails] WEBAPP: Service field ${fieldName} saved to API`);
+        this.showSaveStatus(`${fieldName} saved`, 'success');
+      } catch (error) {
+        console.error(`[ProjectDetails] WEBAPP: Error saving to API:`, error);
+        this.showSaveStatus(`Error saving ${fieldName}`, 'error');
+      }
+      return;
+    }
+
+    // MOBILE MODE: Update IndexedDB cache, sync later
     try {
       console.log(`[ProjectDetails] Calling offlineTemplate.updateService...`);
       await this.offlineTemplate.updateService(this.serviceId, { [fieldName]: value });
@@ -1158,7 +1340,7 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       console.error(`[ProjectDetails] Error saving to IndexedDB:`, error);
     }
 
-    // 3. Show appropriate status message
+    // Show appropriate status message
     const isOnline = this.offlineService.isOnline();
     console.log(`[ProjectDetails] isOnline = ${isOnline}`);
     if (isOnline) {

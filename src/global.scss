@@ -1698,6 +1698,8 @@ textarea.styled-input {
       .caption-input-container {
         position: relative;
         margin-bottom: 16px;
+        display: flex;
+        align-items: center;
 
         .caption-text-input {
           width: 100%;
@@ -1709,6 +1711,7 @@ textarea.styled-input {
           background: white;
           transition: all 0.2s ease;
           box-sizing: border-box;
+          height: 48px; // Fixed height for consistent button alignment
 
           &:focus {
             outline: none;
@@ -1719,6 +1722,13 @@ textarea.styled-input {
           &::placeholder {
             color: #999;
             font-style: italic;
+          }
+
+          // Mobile: larger touch target
+          @media (max-width: 768px) {
+            height: 52px;
+            font-size: 16px; // Prevent iOS zoom
+            padding: 14px 54px 14px 14px;
           }
         }
 
@@ -1736,25 +1746,43 @@ textarea.styled-input {
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: all 0.15s ease;
           padding: 0;
+          z-index: 1; // Ensure button is above input
 
           ion-icon {
             font-size: 20px;
             color: #666;
           }
 
-          &:hover {
-            background: #F15A27;
-            border-color: #F15A27;
+          // Desktop only: hover/active effects
+          @media (hover: hover) and (pointer: fine) {
+            transition: all 0.15s ease;
 
-            ion-icon {
-              color: white;
+            &:hover {
+              background: #F15A27;
+              border-color: #F15A27;
+
+              ion-icon {
+                color: white;
+              }
+            }
+
+            &:active {
+              transform: translateY(-50%) scale(0.95);
             }
           }
 
-          &:active {
-            transform: translateY(-50%) scale(0.95);
+          // Mobile: static button, no transforms
+          @media (max-width: 768px) {
+            width: 42px;
+            height: 42px;
+            right: 5px;
+            transition: none;
+            transform: translateY(-50%);
+
+            &:active {
+              background: #e8e8e8;
+            }
           }
         }
       }

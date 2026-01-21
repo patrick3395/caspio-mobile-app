@@ -947,18 +947,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         if (!this.visualDropdownOptions[templateId]) {
           this.visualDropdownOptions[templateId] = [];
         }
-        // Add unique dropdown values for this template
-        if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
+        // Add unique dropdown values for this template (excluding None/Other which we add at end)
+        if (!this.visualDropdownOptions[templateId].includes(dropdownValue) &&
+            dropdownValue !== 'None' && dropdownValue !== 'Other') {
           this.visualDropdownOptions[templateId].push(dropdownValue);
         }
       }
     });
 
-    // Add "Other" option to all multi-select dropdowns
+    // Sort options alphabetically and add "None" and "Other" at the end
     Object.keys(this.visualDropdownOptions).forEach(templateId => {
       const options = this.visualDropdownOptions[Number(templateId)];
-      if (options && !options.includes('Other')) {
-        options.push('Other');
+      if (options) {
+        // Sort alphabetically
+        options.sort((a, b) => a.localeCompare(b));
+        // Add "None" and "Other" at the end
+        if (!options.includes('None')) {
+          options.push('None');
+        }
+        if (!options.includes('Other')) {
+          options.push('Other');
+        }
       }
     });
 
@@ -992,18 +1001,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             if (!this.visualDropdownOptions[templateId]) {
               this.visualDropdownOptions[templateId] = [];
             }
-            // Add unique dropdown values for this template
-            if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
+            // Add unique dropdown values for this template (excluding None/Other which we add at end)
+            if (!this.visualDropdownOptions[templateId].includes(dropdownValue) &&
+                dropdownValue !== 'None' && dropdownValue !== 'Other') {
               this.visualDropdownOptions[templateId].push(dropdownValue);
             }
           }
         });
 
-        // Add "Other" option to all multi-select dropdowns
+        // Sort options alphabetically and add "None" and "Other" at the end
         Object.keys(this.visualDropdownOptions).forEach(templateId => {
           const options = this.visualDropdownOptions[Number(templateId)];
-          if (options && !options.includes('Other')) {
-            options.push('Other');
+          if (options) {
+            // Sort alphabetically
+            options.sort((a, b) => a.localeCompare(b));
+            // Add "None" and "Other" at the end
+            if (!options.includes('None')) {
+              options.push('None');
+            }
+            if (!options.includes('Other')) {
+              options.push('Other');
+            }
           }
         });
 
@@ -4583,11 +4601,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     }
 
     if (isChecked) {
-      if (!selectedOptions.includes(option)) {
-        selectedOptions.push(option);
+      if (option === 'None') {
+        // "None" is mutually exclusive - clear all other selections
+        selectedOptions = ['None'];
+        item.otherValue = '';
+      } else {
+        // Remove "None" if selecting any other option
+        selectedOptions = selectedOptions.filter(o => o !== 'None');
+        if (!selectedOptions.includes(option)) {
+          selectedOptions.push(option);
+        }
       }
     } else {
       selectedOptions = selectedOptions.filter(o => o !== option);
+      if (option === 'Other') {
+        item.otherValue = '';
+      }
     }
 
     item.answer = selectedOptions.join(', ');
@@ -4754,6 +4783,117 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     }
 
     this.savingItems[key] = false;
+  }
+
+  /**
+   * Add a custom value from "Other" input to the options list
+   * Allows adding multiple custom values to multi-select dropdowns
+   */
+  async addMultiSelectOther(category: string, item: VisualItem) {
+    const customValue = item.otherValue?.trim();
+    if (!customValue) {
+      return;
+    }
+
+    const key = `${category}_${item.id}`;
+    console.log('[OTHER] Adding custom option:', customValue, 'for', key);
+
+    // Get current options for this template
+    let options = this.visualDropdownOptions[item.templateId];
+    if (!options) {
+      options = [];
+      this.visualDropdownOptions[item.templateId] = options;
+    }
+
+    // Parse current selections
+    let selectedOptions: string[] = [];
+    if (item.answer) {
+      selectedOptions = item.answer.split(',').map(o => o.trim()).filter(o => o);
+    }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    selectedOptions = selectedOptions.filter(o => o !== 'None');
+
+    // Check if this value already exists in options
+    if (options.includes(customValue)) {
+      console.log(`[OTHER] Option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!selectedOptions.includes(customValue)) {
+        selectedOptions.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneIndex = options.indexOf('None');
+      if (noneIndex > -1) {
+        options.splice(noneIndex, 0, customValue);
+      } else {
+        const otherIndex = options.indexOf('Other');
+        if (otherIndex > -1) {
+          options.splice(otherIndex, 0, customValue);
+        } else {
+          options.push(customValue);
+        }
+      }
+      console.log(`[OTHER] Added custom option: "${customValue}"`);
+
+      // Select the new custom value
+      selectedOptions.push(customValue);
+    }
+
+    // Update item answer
+    item.answer = selectedOptions.join(', ');
+
+    // Clear the input field for the next entry
+    item.otherValue = '';
+
+    // DEXIE-FIRST: Write-through to visualFields
+    await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+      answer: item.answer,
+      otherValue: '',
+      isSelected: true
+    });
+
+    // Save to database
+    this.savingItems[key] = true;
+    try {
+      let visualId = this.visualRecordIds[key];
+
+      if (!visualId) {
+        // Create new visual
+        const serviceIdNum = parseInt(this.serviceId, 10);
+        const visualData = {
+          ServiceID: serviceIdNum,
+          Category: category,
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: '',
+          Answers: item.answer
+        };
+
+        const result = await this.foundationData.createVisual(visualData);
+        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = newVisualId;
+
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          tempVisualId: newVisualId
+        });
+
+        console.log('[OTHER] Created visual:', newVisualId);
+      } else {
+        // Update existing visual
+        await this.foundationData.updateVisual(visualId, {
+          Answers: item.answer,
+          Notes: ''
+        }, this.serviceId);
+        console.log('[OTHER] Updated visual:', visualId);
+      }
+    } catch (error) {
+      console.error('[OTHER] Error saving custom option:', error);
+    }
+
+    this.savingItems[key] = false;
+    this.changeDetectorRef.detectChanges();
   }
 
   isItemSaving(category: string, itemId: string | number): boolean {
@@ -5101,10 +5241,120 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           }
 
           // ============================================
-          // NEW LOCAL-FIRST IMAGE SYSTEM
+          // WEBAPP MODE: Direct S3 Upload (No Local Storage)
+          // MOBILE MODE: Local-first with background sync
+          // ============================================
+
+          // WEBAPP MODE: Upload directly to S3
+          if (environment.isWeb) {
+            console.log('[CAMERA UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
+
+            // Initialize photo array if it doesn't exist
+            if (!this.visualPhotos[key]) {
+              this.visualPhotos[key] = [];
+            }
+
+            // Create temp photo entry with loading state (show roller)
+            const tempId = `uploading_${Date.now()}`;
+            const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : URL.createObjectURL(blob);
+            const tempPhotoEntry = {
+              imageId: tempId,
+              AttachID: tempId,
+              attachId: tempId,
+              id: tempId,
+              url: annotatedDisplayUrl,
+              displayUrl: annotatedDisplayUrl,
+              originalUrl: annotatedDisplayUrl,
+              thumbnailUrl: annotatedDisplayUrl,
+              name: 'camera-photo.jpg',
+              caption: caption || '',
+              annotation: caption || '',
+              Annotation: caption || '',
+              Drawings: compressedDrawings,
+              hasAnnotations: !!annotationsData,
+              status: 'uploading',
+              isLocal: false,
+              uploading: true,  // Show loading roller
+              isPending: true,
+              isSkeleton: false,
+              progress: 0
+            };
+
+            // Add temp photo to UI immediately (with loading roller)
+            this.visualPhotos[key].push(tempPhotoEntry);
+            this.loadingPhotosByKey[key] = false;
+            this.expandPhotos(category, itemId);
+            this.changeDetectorRef.detectChanges();
+
+            try {
+              // Upload directly to S3
+              const uploadResult = await this.localImageService.uploadImageDirectToS3(
+                compressedFile,
+                'visual',
+                String(visualId),
+                this.serviceId,
+                caption,
+                compressedDrawings
+              );
+
+              console.log('[CAMERA UPLOAD] WEBAPP: ✅ Upload complete, AttachID:', uploadResult.attachId);
+
+              // Replace temp photo with real photo (remove loading roller)
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key][tempIndex] = {
+                  ...tempPhotoEntry,
+                  imageId: uploadResult.attachId,
+                  AttachID: uploadResult.attachId,
+                  attachId: uploadResult.attachId,
+                  id: uploadResult.attachId,
+                  url: uploadResult.s3Url,
+                  displayUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
+                  originalUrl: uploadResult.s3Url,
+                  thumbnailUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
+                  status: 'uploaded',
+                  isLocal: false,
+                  uploading: false,  // Remove loading roller
+                  isPending: false
+                };
+              }
+
+              this.changeDetectorRef.detectChanges();
+
+              // Clean up blob URL
+              URL.revokeObjectURL(imageUrl);
+              console.log('[CAMERA UPLOAD] WEBAPP: Photo added successfully');
+              return;
+
+            } catch (uploadError: any) {
+              console.error('[CAMERA UPLOAD] WEBAPP: ❌ Upload failed:', uploadError?.message || uploadError);
+
+              // Remove temp photo on error
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key].splice(tempIndex, 1);
+              }
+              this.changeDetectorRef.detectChanges();
+
+              // Show error toast
+              const toast = await this.toastController.create({
+                message: 'Failed to upload photo. Please try again.',
+                duration: 3000,
+                color: 'danger'
+              });
+              await toast.present();
+
+              URL.revokeObjectURL(imageUrl);
+              if (annotatedBlob) URL.revokeObjectURL(annotatedDisplayUrl);
+              return;
+            }
+          }
+
+          // ============================================
+          // MOBILE MODE: LOCAL-FIRST IMAGE SYSTEM
           // Uses stable UUID that NEVER changes
           // ============================================
-          
+
           this.logDebug('CAPTURE', `Starting captureImage for visualId: ${visualId}`);
 
           // RACE CONDITION FIX: Suppress liveQuery during camera capture
@@ -5324,7 +5574,130 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         }
 
         // ============================================
-        // US-003 FIX: IMMEDIATE UPLOAD WITH DUPLICATE PREVENTION
+        // WEBAPP MODE: Direct S3 Upload (No Local Storage)
+        // ============================================
+        if (environment.isWeb) {
+          console.log('[GALLERY UPLOAD] WEBAPP MODE: Direct S3 upload for', images.photos.length, 'photos');
+
+          for (let i = 0; i < images.photos.length; i++) {
+            const image = images.photos[i];
+
+            if (image.webPath) {
+              try {
+                console.log(`[GALLERY UPLOAD] WEBAPP: Processing photo ${i + 1}/${images.photos.length}`);
+
+                // Fetch the blob
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+
+                if (!blob || blob.size === 0) {
+                  console.error(`[GALLERY UPLOAD] WEBAPP: Photo ${i + 1} has empty blob - skipping`);
+                  continue;
+                }
+
+                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+
+                // Compress image
+                const compressedFile = await this.imageCompression.compressImage(file, {
+                  maxSizeMB: 0.8,
+                  maxWidthOrHeight: 1280,
+                  useWebWorker: true
+                }) as File;
+
+                // Create temp photo entry with loading state (show roller)
+                const tempId = `uploading_${Date.now()}_${i}`;
+                const tempDisplayUrl = URL.createObjectURL(blob);
+                const tempPhotoEntry = {
+                  imageId: tempId,
+                  AttachID: tempId,
+                  attachId: tempId,
+                  id: tempId,
+                  url: tempDisplayUrl,
+                  displayUrl: tempDisplayUrl,
+                  originalUrl: tempDisplayUrl,
+                  thumbnailUrl: tempDisplayUrl,
+                  name: `photo_${i}.jpg`,
+                  caption: '',
+                  annotation: '',
+                  Annotation: '',
+                  Drawings: '',
+                  hasAnnotations: false,
+                  status: 'uploading',
+                  isLocal: false,
+                  uploading: true,  // Show loading roller
+                  isPending: true,
+                  isSkeleton: false,
+                  progress: 0
+                };
+
+                // Add temp photo to UI immediately
+                this.visualPhotos[key].push(tempPhotoEntry);
+                this.changeDetectorRef.detectChanges();
+
+                try {
+                  // Upload directly to S3
+                  const uploadResult = await this.localImageService.uploadImageDirectToS3(
+                    compressedFile,
+                    'visual',
+                    String(visualId),
+                    this.serviceId,
+                    '', // caption
+                    ''  // drawings
+                  );
+
+                  console.log(`[GALLERY UPLOAD] WEBAPP: ✅ Photo ${i + 1} uploaded, AttachID:`, uploadResult.attachId);
+
+                  // Replace temp photo with real photo
+                  const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+                  if (tempIndex >= 0) {
+                    this.visualPhotos[key][tempIndex] = {
+                      ...tempPhotoEntry,
+                      imageId: uploadResult.attachId,
+                      AttachID: uploadResult.attachId,
+                      attachId: uploadResult.attachId,
+                      id: uploadResult.attachId,
+                      url: uploadResult.s3Url,
+                      displayUrl: uploadResult.s3Url,
+                      originalUrl: uploadResult.s3Url,
+                      thumbnailUrl: uploadResult.s3Url,
+                      status: 'uploaded',
+                      isLocal: false,
+                      uploading: false,  // Remove loading roller
+                      isPending: false
+                    };
+                  }
+                  this.changeDetectorRef.detectChanges();
+
+                  // Clean up temp URL
+                  URL.revokeObjectURL(tempDisplayUrl);
+
+                } catch (uploadError: any) {
+                  console.error(`[GALLERY UPLOAD] WEBAPP: ❌ Photo ${i + 1} upload failed:`, uploadError?.message || uploadError);
+
+                  // Remove failed temp photo
+                  const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+                  if (tempIndex >= 0) {
+                    this.visualPhotos[key].splice(tempIndex, 1);
+                  }
+                  this.changeDetectorRef.detectChanges();
+                  URL.revokeObjectURL(tempDisplayUrl);
+                }
+
+              } catch (processError) {
+                console.error(`[GALLERY UPLOAD] WEBAPP: Error processing photo ${i + 1}:`, processError);
+              }
+            }
+          }
+
+          // Expand photos section
+          this.expandPhotos(category, itemId);
+          this.changeDetectorRef.detectChanges();
+          console.log('[GALLERY UPLOAD] WEBAPP: All photos processed');
+          return;
+        }
+
+        // ============================================
+        // MOBILE MODE: US-003 FIX - IMMEDIATE UPLOAD WITH DUPLICATE PREVENTION
         // Photos are added to UI immediately so user can view them right away.
         // batchUploadImageIds tracks added photos to prevent liveQuery duplicates.
         // ============================================

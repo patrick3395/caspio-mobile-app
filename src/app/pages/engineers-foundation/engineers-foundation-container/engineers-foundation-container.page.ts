@@ -49,6 +49,9 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
   templateReady: boolean = false;
   downloadProgress: string = 'Preparing template for offline use...';
 
+  // WEBAPP MODE: Flag for template to hide sync-related UI
+  isWeb: boolean = environment.isWeb;
+
   // US-002 FIX: Track last loaded service to prevent unnecessary re-downloads
   // CRITICAL: The check ONLY uses lastLoadedServiceId, NOT templateReady state!
   // This prevents the loading overlay from appearing when:

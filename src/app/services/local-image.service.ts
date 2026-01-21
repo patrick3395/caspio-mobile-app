@@ -1082,5 +1082,107 @@ export class LocalImageService {
       freedBytes
     };
   }
+
+  // ============================================================================
+  // WEBAPP MODE: DIRECT S3 UPLOAD (No Local Storage)
+  // ============================================================================
+
+  /**
+   * Upload image directly to S3 (WEBAPP MODE ONLY)
+   * Bypasses local blob storage - uploads directly to S3 and creates Caspio record
+   * Returns real AttachID and S3 URL immediately
+   *
+   * @param file - The image file to upload
+   * @param entityType - Type of entity ('visual' | 'efe_point' | 'fdf')
+   * @param entityId - The entity ID (VisualID, PointID, etc.)
+   * @param serviceId - The service ID
+   * @param caption - Optional caption/annotation text
+   * @param drawings - Optional compressed annotation data
+   * @param photoType - Optional photo type ('Measurement' | 'Location' for EFE, 'Top' | 'Bottom' | 'Threshold' for FDF)
+   * @returns Object with attachId, s3Key, and s3Url
+   */
+  async uploadImageDirectToS3(
+    file: File,
+    entityType: ImageEntityType,
+    entityId: string,
+    serviceId: string,
+    caption: string = '',
+    drawings: string = '',
+    photoType: string | null = null
+  ): Promise<{ attachId: string; s3Key: string; s3Url: string }> {
+    console.log('[LocalImage] WEBAPP: uploadImageDirectToS3 starting...');
+    console.log('[LocalImage] WEBAPP: entityType:', entityType, 'entityId:', entityId, 'fileSize:', file.size);
+
+    // Validate file
+    if (!file || file.size === 0) {
+      throw new Error('Cannot upload empty file');
+    }
+
+    try {
+      let result: any;
+
+      // Route to appropriate upload method based on entity type
+      if (entityType === 'visual') {
+        // Upload visual attachment
+        result = await this.caspioService.uploadVisualsAttachWithS3(
+          parseInt(entityId),
+          drawings,
+          file,
+          caption
+        );
+      } else if (entityType === 'efe_point') {
+        // Upload EFE point attachment
+        result = await this.caspioService.uploadEFEPointsAttachWithS3(
+          parseInt(entityId),
+          drawings,
+          file,
+          photoType || undefined,
+          caption
+        );
+      } else if (entityType === 'fdf') {
+        // FDF photos use EFE point attachment with photo type
+        result = await this.caspioService.uploadEFEPointsAttachWithS3(
+          parseInt(entityId),
+          drawings,
+          file,
+          photoType || undefined,
+          caption
+        );
+      } else {
+        throw new Error(`Unsupported entity type for web upload: ${entityType}`);
+      }
+
+      // Extract AttachID and S3 key from result
+      const attachId = result.AttachID || result.Result?.[0]?.AttachID;
+      const s3Key = result.Attachment || result.Result?.[0]?.Attachment;
+
+      if (!attachId || !s3Key) {
+        throw new Error('Upload succeeded but missing AttachID or S3 key');
+      }
+
+      // Get signed URL for the uploaded file
+      const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+
+      console.log('[LocalImage] WEBAPP: ✅ Direct upload complete');
+      console.log('[LocalImage] WEBAPP: AttachID:', attachId, 'S3Key:', s3Key);
+
+      return {
+        attachId: String(attachId),
+        s3Key,
+        s3Url
+      };
+    } catch (error: any) {
+      console.error('[LocalImage] WEBAPP: ❌ Direct upload failed:', error?.message || error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get signed S3 URL for display (WEBAPP MODE)
+   * Used when displaying images loaded from server
+   */
+  async getSignedS3Url(s3Key: string): Promise<string> {
+    return this.getSignedUrl(s3Key);
+  }
 }
 

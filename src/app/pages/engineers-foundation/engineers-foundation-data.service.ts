@@ -652,6 +652,45 @@ export class EngineersFoundationDataService {
   // ============================================
 
   async createVisual(visualData: any): Promise<any> {
+    // WEBAPP MODE: Create directly via API (no local storage)
+    if (environment.isWeb) {
+      console.log('[Visual Data] WEBAPP: Creating visual directly via API:', visualData);
+
+      try {
+        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals/records?response=rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(visualData)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to create visual: ${errorText}`);
+        }
+
+        const result = await response.json();
+        const createdRecord = result.Result?.[0] || result;
+
+        console.log('[Visual Data] WEBAPP: ✅ Visual created with ID:', createdRecord.VisualID || createdRecord.PK_ID);
+
+        // Clear cache
+        if (visualData.ServiceID) {
+          this.visualsCache.delete(String(visualData.ServiceID));
+        }
+
+        return {
+          ...visualData,
+          VisualID: createdRecord.VisualID || createdRecord.PK_ID,
+          PK_ID: createdRecord.PK_ID || createdRecord.VisualID,
+          ...createdRecord
+        };
+      } catch (error: any) {
+        console.error('[Visual Data] WEBAPP: ❌ Error creating visual:', error?.message || error);
+        throw error;
+      }
+    }
+
+    // MOBILE MODE: Offline-first with background sync
     console.log('[Visual Data] Creating new visual (OFFLINE-FIRST):', visualData);
 
     // Generate temporary ID
@@ -693,10 +732,39 @@ export class EngineersFoundationDataService {
   }
 
   async updateVisual(visualId: string, visualData: any, serviceId?: string): Promise<any> {
+    // WEBAPP MODE: Update directly via API
+    if (environment.isWeb) {
+      console.log('[Visual Data] WEBAPP: Updating visual directly via API:', visualId, visualData);
+
+      try {
+        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals/records?q.where=VisualID=${visualId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(visualData)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to update visual: ${errorText}`);
+        }
+
+        console.log('[Visual Data] WEBAPP: ✅ Visual updated:', visualId);
+
+        // Clear in-memory cache
+        this.visualsCache.clear();
+
+        return { success: true, visualId, ...visualData };
+      } catch (error: any) {
+        console.error('[Visual Data] WEBAPP: ❌ Error updating visual:', error?.message || error);
+        throw error;
+      }
+    }
+
+    // MOBILE MODE: Offline-first
     console.log('[Visual Data] Updating visual (OFFLINE-FIRST):', visualId, visualData);
-    
+
     const isTempId = String(visualId).startsWith('temp_');
-    
+
     // OFFLINE-FIRST: Update IndexedDB cache immediately, queue for sync
     if (serviceId) {
       await this.offlineTemplate.updateVisual(visualId, visualData, serviceId);

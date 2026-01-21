@@ -12,6 +12,7 @@ import { BackgroundSyncService } from '../../../services/background-sync.service
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
+import { environment } from '../../../../environments/environment';
 
 interface NavigationCard {
   title: string;
@@ -315,6 +316,86 @@ export class EngineersFoundationMainPage implements OnInit {
 
     const isUpdate = this.isReportFinalized;
 
+    // ==========================================
+    // WEBAPP MODE: Simplified finalization (no sync needed)
+    // All data is already saved directly to the API
+    // ==========================================
+    if (environment.isWeb) {
+      console.log('[EngFoundation Main] WEBAPP MODE: Simplified finalization');
+
+      const loading = await this.loadingController.create({
+        message: isUpdate ? 'Updating report...' : 'Finalizing report...',
+        backdropDismiss: false
+      });
+      await loading.present();
+
+      try {
+        // Update the Services table status
+        const currentDateTime = new Date().toISOString();
+        const statusClientValue = isUpdate ? 'Updated' : 'Finalized';
+        const statusAdminValue = this.getStatusAdminByClient(statusClientValue);
+
+        const updateData = {
+          StatusDateTime: currentDateTime,
+          Status: statusAdminValue
+        };
+
+        console.log('[EngFoundation Main] WEBAPP: Updating service status:', updateData);
+
+        await this.caspioService.updateService(this.serviceId, updateData).toPromise();
+        console.log('[EngFoundation Main] WEBAPP: ✅ Status updated successfully');
+
+        // Clear caches
+        console.log('[EngFoundation Main] WEBAPP: Clearing caches');
+        this.cache.clearProjectRelatedCaches(this.projectId);
+        this.cache.clearByPattern('projects_active');
+        this.cache.clearByPattern('projects_all');
+
+        // Reset change tracking
+        this.hasChangesAfterFinalization = false;
+        this.isReportFinalized = true;
+        this.isFinalizationInProgress = false;
+
+        await loading.dismiss();
+
+        // Show success message
+        const successMessage = isUpdate
+          ? 'Your report has been successfully updated.'
+          : 'Your report has been successfully finalized.';
+
+        const alert = await this.alertController.create({
+          header: isUpdate ? 'Report Updated' : 'Report Finalized',
+          message: successMessage,
+          buttons: [{
+            text: 'OK',
+            handler: () => {
+              // Navigate back to project detail
+              console.log('[EngFoundation Main] WEBAPP: Navigating to project detail');
+              this.navController.navigateBack(['/project', this.projectId]);
+            }
+          }]
+        });
+        await alert.present();
+        return;
+
+      } catch (error: any) {
+        await loading.dismiss();
+        this.isFinalizationInProgress = false;
+        console.error('[EngFoundation Main] WEBAPP: Error finalizing report:', error);
+
+        const alert = await this.alertController.create({
+          header: 'Error',
+          message: `Failed to finalize report: ${error?.message || 'Unknown error'}. Please try again.`,
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+    }
+
+    // ==========================================
+    // MOBILE MODE: Full sync workflow
+    // ==========================================
     const loading = await this.loadingController.create({
       message: isUpdate ? 'Updating report...' : 'Finalizing report...',
       backdropDismiss: false
