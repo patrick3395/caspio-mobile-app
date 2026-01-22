@@ -4467,7 +4467,8 @@ export class CaspioService {
 
   updateProject(projectId: string | number, updateData: any): Observable<any> {
     // Note: Caspio REST API requires PK_ID for PUT operations
-    const endpoint = `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
+    // Use URL-encoded quotes to match the GET format: PK_ID='value'
+    const endpoint = `/tables/LPS_Projects/records?q.where=PK_ID%3D%27${projectId}%27`;
     console.log('[CaspioService] updateProject called with:', { projectId, updateData, endpoint });
     return this.put<any>(endpoint, updateData).pipe(
       tap(response => console.log('[CaspioService] updateProject success:', response)),
