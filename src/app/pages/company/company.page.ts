@@ -571,6 +571,7 @@ export class CompanyPage implements OnInit, OnDestroy {
     // Use skeleton loaders for both web and mobile for consistent UX
     this.isLoading = true;
 
+    try {
       // Calculate date filters for time-sensitive data
       // Tasks: Include tasks from 90 days ago to capture overdue items
       const tasksDateFilter = this.getDateFilter(90);
