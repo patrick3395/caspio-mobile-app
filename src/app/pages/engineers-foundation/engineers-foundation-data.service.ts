@@ -1970,7 +1970,7 @@ export class EngineersFoundationDataService {
 
       // ========== STEP 1: Seed EFE templates ==========
       console.log('[DataService] Step 1: Seeding EFE templates...');
-      const efeTemplates = await this.offlineTemplate.getEfeTemplates();
+      const efeTemplates = await this.offlineTemplate.getEFETemplates();
       if (efeTemplates && efeTemplates.length > 0) {
         await this.efeFieldRepo.seedFromTemplates(serviceId, efeTemplates);
         console.log(`[DataService] ✅ Seeded ${efeTemplates.length} EFE templates`);
@@ -1978,9 +1978,11 @@ export class EngineersFoundationDataService {
 
       // ========== STEP 2: Seed Visual templates ==========
       console.log('[DataService] Step 2: Seeding Visual templates...');
+      const allVisualTemplates = await this.offlineTemplate.getVisualTemplates();
       for (const category of visualCategories) {
         try {
-          const templates = await this.offlineTemplate.getVisualTemplates(category);
+          // Filter templates by category
+          const templates = allVisualTemplates.filter((t: any) => t.Category === category);
           if (templates && templates.length > 0) {
             await this.visualFieldRepo.seedFromTemplates(serviceId, category, templates);
           }
