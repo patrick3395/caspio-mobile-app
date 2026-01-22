@@ -8339,7 +8339,9 @@ Stack: ${error?.stack}`;
     }
 
     // Update the Projects table directly
-    this.caspioService.updateProject(this.projectId, { [fieldName]: value }).subscribe({
+    // Use ProjectID from loaded project data for API updates
+    const projectIdForUpdate = this.projectData?.ProjectID || this.projectId;
+    this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }).subscribe({
       next: () => {
         if (this.offlineService.isOnline()) {
           this.showSaveStatus(`${fieldName} saved`, 'success');
@@ -8353,7 +8355,7 @@ Stack: ${error?.stack}`;
       }
     });
   }
-  
+
   // Auto-save service field to Caspio Services table  
   private autoSaveServiceField(fieldName: string, value: any) {
     if (!this.serviceId) {

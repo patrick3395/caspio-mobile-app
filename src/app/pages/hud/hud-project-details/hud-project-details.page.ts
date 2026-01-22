@@ -713,7 +713,9 @@ export class HudProjectDetailsPage implements OnInit {
       this.showSaveStatus(queuedMessage, 'info');
     }
 
-    this.caspioService.updateProject(this.projectId, { [fieldName]: value }).subscribe({
+    // Use ProjectID from loaded project data for API updates
+    const projectIdForUpdate = this.projectData?.ProjectID || this.projectId;
+    this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }).subscribe({
       next: () => {
         if (this.offlineService.isOnline()) {
           this.showSaveStatus(`${fieldName} saved`, 'success');

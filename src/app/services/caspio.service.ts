@@ -4445,6 +4445,7 @@ export class CaspioService {
   // Project methods
   getProject(projectId: string, useCache: boolean = true): Observable<any> {
     // All requests go through generic proxy or direct Caspio
+    // Note: Routes use PK_ID for navigation, so getProject uses PK_ID
     return this.get<any>(`/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`, useCache).pipe(
       map(response => response.Result && response.Result.length > 0 ? response.Result[0] : null)
     );
@@ -4465,9 +4466,8 @@ export class CaspioService {
   }
 
   updateProject(projectId: string | number, updateData: any): Observable<any> {
-    // Note: Other PUT requests in this service use the same format without URL encoding
-    // and work correctly (e.g., updateEfeData, updateService, etc.)
-    const endpoint = `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
+    // Note: LPS_Projects table uses ProjectID as primary identifier, not PK_ID
+    const endpoint = `/tables/LPS_Projects/records?q.where=ProjectID=${projectId}`;
     console.log('[CaspioService] updateProject called with:', { projectId, updateData, endpoint });
     return this.put<any>(endpoint, updateData).pipe(
       tap(response => console.log('[CaspioService] updateProject success:', response)),

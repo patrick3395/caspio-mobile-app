@@ -1723,7 +1723,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.notesSaved = false;
 
     try {
-      const projectId = this.project.PK_ID || this.project.ProjectID;
+      // Projects table uses ProjectID as primary key for updates
+      const projectId = this.project.ProjectID;
       if (!projectId) {
         throw new Error('Project ID not found');
       }
@@ -3220,6 +3221,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Cache was automatically cleared by CaspioService, so this gets fresh data
         await this.loadExistingAttachments();
 
+        // WEBAPP: Trigger change detection to update UI with OnPush strategy
+        this.changeDetectorRef.markForCheck();
+
         await this.showToast('Link added successfully', 'success')
       } else {
         throw new Error('No ID returned from server');
@@ -3334,15 +3338,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Rebuild documents list to reflect the change
       this.updateDocumentsList();
 
-      // Force Angular to detect changes immediately
-      this.changeDetectorRef.markForCheck();
-
       // Invalidate cache to ensure fresh data on reload
       ProjectDetailPage.detailStateCache.delete(this.projectId);
 
       // Reload attachments from database to ensure UI matches server state
       // Cache was automatically cleared by CaspioService, so this gets fresh data
       await this.loadExistingAttachments();
+
+      // WEBAPP: Trigger change detection to update UI with OnPush strategy
+      this.changeDetectorRef.markForCheck();
 
       this.showToast('Document replaced with link successfully', 'success');
     } catch (error) {
@@ -3386,6 +3390,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Reload attachments from database to ensure UI matches server state
         // Cache was automatically cleared by CaspioService, so this gets fresh data
         await this.loadExistingAttachments();
+
+        // WEBAPP: Trigger change detection to update UI with OnPush strategy
+        this.changeDetectorRef.markForCheck();
 
         this.showToast('Link added successfully', 'success');
       }
@@ -4173,8 +4180,8 @@ Troubleshooting:
         Zip: data.zip
       };
 
-      // Update via API
-      await this.caspioService.updateProject(this.projectId, updateData).toPromise();
+      // Update via API - use ProjectID from project object, not route param
+      await this.caspioService.updateProject(this.project?.ProjectID || this.projectId, updateData).toPromise();
 
       // Update local project object
       this.project.Address = data.address;
@@ -4669,8 +4676,8 @@ Troubleshooting:
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Projects table uses PK_ID as primary key for updates
-    const projectId = this.project?.PK_ID;
+    // Projects table uses ProjectID as primary key for updates
+    const projectId = this.project?.ProjectID;
     
     // Start upload immediately without confirmation
     await this.performPhotoUpload(file, projectId);
