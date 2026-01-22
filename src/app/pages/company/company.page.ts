@@ -12,7 +12,7 @@ import { PageTitleService } from '../../services/page-title.service';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
-import { db } from '../../caspio-db';
+import { db } from '../../services/caspio-db';
 
 interface StageDefinition {
   id: number;
