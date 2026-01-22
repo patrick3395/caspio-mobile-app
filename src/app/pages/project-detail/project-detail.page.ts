@@ -4180,8 +4180,8 @@ Troubleshooting:
         Zip: data.zip
       };
 
-      // Update via API - use ProjectID for Caspio REST API updates
-      await this.caspioService.updateProject(this.project?.ProjectID || this.projectId, updateData).toPromise();
+      // Update via API - use PK_ID for Caspio REST API updates (matches mobile app pattern)
+      await this.caspioService.updateProject(this.project?.PK_ID || this.projectId, updateData).toPromise();
 
       // Update local project object
       this.project.Address = data.address;

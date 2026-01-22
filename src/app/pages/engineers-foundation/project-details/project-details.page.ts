@@ -1214,8 +1214,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
       try {
         if (tableType === 'project') {
           if (!this.projectId || this.projectId === 'new') return;
-          // Use ProjectID from loaded project data for API updates
-          const projectIdForUpdate = this.projectData?.ProjectID || this.projectId;
+          // Use PK_ID from loaded project data for API updates (matches mobile app pattern)
+          const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
           await firstValueFrom(this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }));
           console.log(`[ProjectDetails] WEBAPP: Project Other value ${fieldName} saved to API`);
         } else {
@@ -1276,8 +1276,8 @@ export class ProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
     // WEBAPP MODE: Save directly to API
     if (environment.isWeb) {
       try {
-        // Use ProjectID from loaded project data for API updates
-        const projectIdForUpdate = this.projectData?.ProjectID || this.projectId;
+        // Use PK_ID from loaded project data for API updates (matches mobile app pattern)
+        const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
         await firstValueFrom(this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }));
         console.log(`[ProjectDetails] WEBAPP: Project field ${fieldName} saved to API`);
         this.showSaveStatus(`${fieldName} saved`, 'success');
