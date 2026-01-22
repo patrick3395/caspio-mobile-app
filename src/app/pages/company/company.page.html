@@ -130,10 +130,35 @@
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div *ngIf="!currentCompany" class="empty-state-modern">
-        <ion-spinner name="crescent"></ion-spinner>
-        <h3>Loading company information...</h3>
+      <!-- Loading State - Skeleton loader -->
+      <div *ngIf="!currentCompany" class="skeleton-company-details">
+        <div class="skeleton-company-header">
+          <div class="skeleton-title-line"></div>
+        </div>
+        <div class="skeleton-detail-section">
+          <div class="skeleton-section-title"></div>
+          <div class="skeleton-detail-row">
+            <div class="skeleton-detail-col" *ngFor="let i of [1,2,3]">
+              <div class="skeleton-label"></div>
+              <div class="skeleton-value"></div>
+            </div>
+          </div>
+          <div class="skeleton-detail-row">
+            <div class="skeleton-detail-col" *ngFor="let i of [1,2,3]">
+              <div class="skeleton-label"></div>
+              <div class="skeleton-value"></div>
+            </div>
+          </div>
+        </div>
+        <div class="skeleton-detail-section">
+          <div class="skeleton-section-title"></div>
+          <div class="skeleton-detail-row">
+            <div class="skeleton-detail-col" *ngFor="let i of [1,2,3]">
+              <div class="skeleton-label"></div>
+              <div class="skeleton-value"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Company Details -->
@@ -288,8 +313,8 @@
         </div>
       </div>
 
-      <!-- WEBAPP: Skeleton loaders for companies -->
-      <div *ngIf="isLoading && isWeb" class="crm-skeleton-container">
+      <!-- Skeleton loaders for companies -->
+      <div *ngIf="isLoading" class="crm-skeleton-container">
         <div *ngFor="let i of [1,2,3]">
           <div class="skeleton-stage-header">
             <div class="skeleton-stage-info">
@@ -630,8 +655,8 @@
         </div>
       </div>
 
-      <!-- WEBAPP: Skeleton loaders for tasks -->
-      <div *ngIf="isLoading && isWeb" class="skeleton-tasks-grid">
+      <!-- Skeleton loaders for tasks -->
+      <div *ngIf="isLoading" class="skeleton-tasks-grid">
         <div class="skeleton-task-card" *ngFor="let i of [1,2,3,4,5,6]">
           <div class="skeleton-task-header">
             <div class="skeleton-checkbox"></div>
@@ -862,8 +887,8 @@
         </div>
       </div>
 
-      <!-- WEBAPP: Skeleton loaders for users -->
-      <div *ngIf="isLoading && isWeb" class="skeleton-users-grid">
+      <!-- Skeleton loaders for users -->
+      <div *ngIf="isLoading" class="skeleton-users-grid">
         <div class="skeleton-user-card" *ngFor="let i of [1,2,3,4,5,6]">
           <div class="skeleton-user-header">
             <div class="skeleton-user-avatar"></div>
@@ -958,8 +983,8 @@
         </div>
       </div>
 
-      <!-- WEBAPP: Skeleton loaders for invoices -->
-      <div *ngIf="isLoading && isWeb" class="crm-skeleton-container">
+      <!-- Skeleton loaders for invoices -->
+      <div *ngIf="isLoading" class="crm-skeleton-container">
         <div *ngFor="let i of [1,2,3]">
           <div class="skeleton-invoice-item">
             <div class="skeleton-invoice-headers">
@@ -1060,10 +1085,27 @@
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div *ngIf="isLoading" class="empty-state-modern">
-      <ion-spinner name="crescent"></ion-spinner>
-      <h3>Loading users...</h3>
+    <!-- Loading State - Skeleton loader -->
+    <div *ngIf="isLoading" class="skeleton-users-grid">
+      <div class="skeleton-user-card" *ngFor="let i of [1,2,3,4,5,6]">
+        <div class="skeleton-user-header">
+          <div class="skeleton-user-avatar"></div>
+          <div class="skeleton-user-info">
+            <div class="skeleton-user-name"></div>
+            <div class="skeleton-user-role"></div>
+          </div>
+        </div>
+        <div class="skeleton-user-details">
+          <div class="skeleton-user-detail-item">
+            <div class="skeleton-icon"></div>
+            <div class="skeleton-detail-text"></div>
+          </div>
+          <div class="skeleton-user-detail-item">
+            <div class="skeleton-icon"></div>
+            <div class="skeleton-detail-text"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Users List -->

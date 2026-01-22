@@ -46,15 +46,8 @@
       </ion-searchbar>
     </div>
 
-    <!-- Loading state - WEBAPP: Skeleton loaders for better perceived performance -->
-    <!-- Mobile: Simple spinner -->
-    <div *ngIf="loading && !platform.isWeb()" class="loading-container" role="status" aria-live="polite">
-      <ion-spinner name="crescent"></ion-spinner>
-      <p>Loading projects…</p>
-    </div>
-
-    <!-- Web: Skeleton loader cards -->
-    <div *ngIf="loading && platform.isWeb()" class="skeleton-container" role="status" aria-live="polite">
+    <!-- Loading state - Skeleton loaders for better perceived performance -->
+    <div *ngIf="loading" class="skeleton-container" role="status" aria-live="polite">
       <div class="skeleton-card" *ngFor="let i of [1,2,3,4,5]">
         <div class="skeleton-image"></div>
         <div class="skeleton-details">
