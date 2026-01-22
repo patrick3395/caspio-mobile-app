@@ -8343,8 +8343,8 @@ Stack: ${error?.stack}`;
     }
 
     // Update the Projects table directly
-    // Use ProjectID from loaded project data for API updates
-    const projectIdForUpdate = this.projectData?.ProjectID || this.projectId;
+    // Use PK_ID from loaded project data for API updates
+    const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
     this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }).subscribe({
       next: () => {
         if (this.offlineService.isOnline()) {

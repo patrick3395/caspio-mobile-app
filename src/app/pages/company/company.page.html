@@ -534,7 +534,24 @@
         </div>
       </div>
 
-      <div class="contact-groups" *ngIf="paginatedContactGroups.length; else emptyContacts">
+      <!-- Skeleton loaders for contacts -->
+      <div *ngIf="isLoading" class="skeleton-contacts-container">
+        <div class="skeleton-contact-group" *ngFor="let i of [1,2,3]">
+          <div class="skeleton-contact-group-header">
+            <div class="skeleton-company-name"></div>
+            <div class="skeleton-badge"></div>
+          </div>
+          <div class="skeleton-contact-table">
+            <div class="skeleton-contact-row" *ngFor="let j of [1,2]">
+              <div class="skeleton-contact-name"></div>
+              <div class="skeleton-contact-title"></div>
+              <div class="skeleton-contact-phone"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="contact-groups" *ngIf="!isLoading && paginatedContactGroups.length; else emptyContacts">
         <div class="contact-group" *ngFor="let group of paginatedContactGroups; trackBy: trackByContactGroup">
           <div class="contact-group-header">
             <h4>{{ group.companyName }}</h4>
@@ -749,7 +766,25 @@
         </div>
       </div>
 
-      <div *ngIf="filteredMeetings.length; else emptyMeetings" class="timeline">
+      <!-- Skeleton loaders for meetings -->
+      <div *ngIf="isLoading" class="skeleton-meetings-container">
+        <div class="skeleton-meeting-item" *ngFor="let i of [1,2,3,4]">
+          <div class="skeleton-meeting-header">
+            <div class="skeleton-meeting-subject"></div>
+            <div class="skeleton-meeting-datetime">
+              <div class="skeleton-date"></div>
+              <div class="skeleton-time"></div>
+            </div>
+          </div>
+          <div class="skeleton-meeting-description"></div>
+          <div class="skeleton-meeting-meta">
+            <div class="skeleton-meta-item"></div>
+            <div class="skeleton-meta-item"></div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!isLoading && filteredMeetings.length; else emptyMeetings" class="timeline">
         <div class="timeline-item clickable-card" *ngFor="let meeting of paginatedMeetings" (click)="openEditMeetingModal(meeting)">
           <div class="timeline-content">
             <div class="timeline-header">
@@ -806,7 +841,23 @@
         </div>
       </div>
 
-      <div *ngIf="filteredCommunications.length; else emptyCommunications" class="communications-timeline">
+      <!-- Skeleton loaders for communications -->
+      <div *ngIf="isLoading" class="skeleton-communications-container">
+        <div class="skeleton-communication-card" *ngFor="let i of [1,2,3,4]">
+          <div class="skeleton-communication-header">
+            <div class="skeleton-comm-type"></div>
+            <div class="skeleton-comm-date"></div>
+          </div>
+          <div class="skeleton-comm-notes"></div>
+          <div class="skeleton-comm-meta">
+            <div class="skeleton-meta-item"></div>
+            <div class="skeleton-meta-item"></div>
+            <div class="skeleton-meta-item"></div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!isLoading && filteredCommunications.length; else emptyCommunications" class="communications-timeline">
         <div class="communication-card clickable-card" *ngFor="let comm of paginatedCommunications" (click)="openEditCommunicationModal(comm)">
           <div class="communication-header">
             <h4>{{ comm.communicationType }}</h4>
@@ -848,7 +899,20 @@
         </div>
       </div>
 
-      <div class="chart-container">
+      <!-- Skeleton loaders for metrics -->
+      <div *ngIf="isLoading" class="skeleton-metrics-container">
+        <div class="skeleton-chart-container" *ngFor="let i of [1,2]">
+          <div class="skeleton-chart-header">
+            <div class="skeleton-chart-title"></div>
+            <div class="skeleton-chart-subtitle"></div>
+          </div>
+          <div class="skeleton-chart-wrapper">
+            <div class="skeleton-chart"></div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!isLoading" class="chart-container">
         <div class="chart-header">
           <h4>Revenue Over Time</h4>
           <p>Monthly invoice revenue</p>
@@ -858,7 +922,7 @@
         </div>
       </div>
 
-      <div class="chart-container">
+      <div *ngIf="!isLoading" class="chart-container">
         <div class="chart-header">
           <h4>Projects by Service Type</h4>
           <p>Completed projects and revenue by service category</p>

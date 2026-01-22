@@ -1723,8 +1723,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     this.notesSaved = false;
 
     try {
-      // Projects table uses ProjectID as primary key for updates
-      const projectId = this.project.ProjectID;
+      // Projects table uses PK_ID as primary key for updates
+      const projectId = this.project.PK_ID;
       if (!projectId) {
         throw new Error('Project ID not found');
       }
@@ -4180,8 +4180,8 @@ Troubleshooting:
         Zip: data.zip
       };
 
-      // Update via API - use ProjectID (not PK_ID) for Caspio REST API updates
-      await this.caspioService.updateProject(this.project?.ProjectID || this.projectId, updateData).toPromise();
+      // Update via API - use PK_ID for Caspio REST API updates
+      await this.caspioService.updateProject(this.project?.PK_ID || this.projectId, updateData).toPromise();
 
       // Update local project object
       this.project.Address = data.address;
@@ -4677,8 +4677,8 @@ Troubleshooting:
     if (!file) return;
 
     // Projects table uses ProjectID as primary key for updates
-    const projectId = this.project?.ProjectID;
-    
+    const projectId = this.project?.PK_ID;
+
     // Start upload immediately without confirmation
     await this.performPhotoUpload(file, projectId);
   }

@@ -4466,8 +4466,9 @@ export class CaspioService {
   }
 
   updateProject(projectId: string | number, updateData: any): Observable<any> {
-    // Note: Caspio REST API requires ProjectID with quoted value for PUT operations
-    const endpoint = `/tables/LPS_Projects/records?q.where=ProjectID='${projectId}'`;
+    // Note: Caspio REST API uses PK_ID as the unique identifier for records
+    // PK_ID is numeric, so no quotes needed in the query
+    const endpoint = `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
     console.log('[CaspioService] updateProject called with:', { projectId, updateData, endpoint });
     return this.put<any>(endpoint, updateData).pipe(
       tap(response => console.log('[CaspioService] updateProject success:', response)),

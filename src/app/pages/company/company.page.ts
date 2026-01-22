@@ -568,31 +568,8 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async loadCompanyData(showSpinner: boolean = true) {
-    let loading: HTMLIonAlertElement | null = null;
-    let cancelled = false;
-    try {
-      // WEBAPP: Use skeleton loaders instead of alert spinner for better UX
-      // Mobile: Keep the alert spinner for native feel
-      if (showSpinner && !environment.isWeb) {
-        loading = await this.alertController.create({
-          header: this.isInitialLoad ? 'Loading CRM' : 'Refreshing CRM',
-          buttons: [
-            {
-              text: 'Cancel',
-              role: 'cancel',
-              handler: () => {
-                cancelled = true;
-                return true;
-              }
-            }
-          ],
-          backdropDismiss: false,
-          cssClass: 'template-loading-alert'
-        });
-        await loading.present();
-      }
-
-      this.isLoading = true;
+    // Use skeleton loaders for both web and mobile for consistent UX
+    this.isLoading = true;
 
       // Calculate date filters for time-sensitive data
       // Tasks: Include tasks from 90 days ago to capture overdue items
@@ -672,22 +649,18 @@ export class CompanyPage implements OnInit, OnDestroy {
       const [stageRecords, softwareRecords, communicationRecords, typeRecords] =
         await this.executeInChunks(lookupTasks, 4, 50);
 
-      if (cancelled) return;
       console.log('[CRM] Chunk 2/5: Loading core entities...');
       const [companyRecords, contactRecords, userRecords] =
         await this.executeInChunks(coreTasks, 3, 100);
 
-      if (cancelled) return;
       console.log('[CRM] Chunk 3/5: Loading activities...');
       const [taskRecords, touchRecords, meetingRecords] =
         await this.executeInChunks(activityTasks, 3, 100);
 
-      if (cancelled) return;
       console.log('[CRM] Chunk 4/5: Loading financial data...');
       const [invoiceRecords, projectRecords, servicesRecords] =
         await this.executeInChunks(financialTasks, 3, 100);
 
-      if (cancelled) return;
       console.log('[CRM] Chunk 5/5: Loading offers...');
       let [offersRecords] = await this.executeInChunks(offersTasks, 1, 0);
 
@@ -727,11 +700,6 @@ export class CompanyPage implements OnInit, OnDestroy {
             break;
           }
         }
-      }
-
-      // Check if user cancelled during data fetch
-      if (cancelled) {
-        return;
       }
 
       this.populateStageDefinitions(stageRecords);
@@ -827,9 +795,6 @@ export class CompanyPage implements OnInit, OnDestroy {
       console.error('Error loading company data:', error);
       await this.showToast(error?.message ?? 'Unable to load company data', 'danger');
     } finally {
-      if (loading) {
-        await loading.dismiss();
-      }
       this.isLoading = false;
       this.isInitialLoad = false;
     }
