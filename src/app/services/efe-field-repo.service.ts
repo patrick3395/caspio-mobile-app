@@ -198,6 +198,75 @@ export class EfeFieldRepoService {
   }
 
   /**
+   * Merge existing points from server into a room's efeFields entry
+   * Called during rehydration to restore point data with real PointIDs
+   *
+   * @param serviceId - The service ID
+   * @param roomName - The room name
+   * @param points - Array of point records from server (Services_EFE_Points)
+   */
+  async mergeExistingPoints(serviceId: string, roomName: string, points: any[]): Promise<void> {
+    if (points.length === 0) return;
+
+    const key = `${serviceId}:${roomName}`;
+    const existing = await db.efeFields.where('key').equals(key).first();
+
+    if (!existing) {
+      console.warn(`[EfeFieldRepo] Cannot merge points - room not found: ${roomName}`);
+      return;
+    }
+
+    console.log(`[EfeFieldRepo] Merging ${points.length} points for room: ${roomName}`);
+
+    const now = Date.now();
+
+    // Build updated elevation points by matching on point name or number
+    const updatedPoints: EfePoint[] = [...existing.elevationPoints];
+
+    for (const serverPoint of points) {
+      const pointId = serverPoint.PointID || serverPoint.PK_ID;
+      const pointName = serverPoint.PointName || serverPoint.Name;
+      const pointValue = serverPoint.Value || serverPoint.PointValue || '';
+
+      // Find matching point in existing array by name
+      const matchIndex = updatedPoints.findIndex(p =>
+        p.name === pointName || p.pointNumber === serverPoint.PointNumber
+      );
+
+      if (matchIndex >= 0) {
+        // Update existing point
+        updatedPoints[matchIndex] = {
+          ...updatedPoints[matchIndex],
+          pointId: pointId ? String(pointId) : null,
+          tempPointId: null,  // Clear temp ID since we have real ID
+          value: pointValue,
+          photoCount: serverPoint.PhotoCount || 0
+        };
+      } else {
+        // Add new point from server (not in template)
+        updatedPoints.push({
+          pointNumber: serverPoint.PointNumber || updatedPoints.length + 1,
+          pointId: pointId ? String(pointId) : null,
+          tempPointId: null,
+          name: pointName || `Point ${updatedPoints.length + 1}`,
+          value: pointValue,
+          photoCount: serverPoint.PhotoCount || 0
+        });
+      }
+    }
+
+    // Update the efeFields record
+    await db.efeFields.update(existing.id!, {
+      elevationPoints: updatedPoints,
+      pointCount: updatedPoints.length,
+      updatedAt: now,
+      dirty: false
+    });
+
+    console.log(`[EfeFieldRepo] Merged ${points.length} points into room: ${roomName}`);
+  }
+
+  /**
    * Create point records for a room when it's first added
    * This generates tempPointIds and queues points for sync
    * Called from elevation-plot-hub when user adds a room

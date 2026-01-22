@@ -4,6 +4,7 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
 import { EngineersFoundationPdfService } from '../services/engineers-foundation-pdf.service';
+import { EngineersFoundationDataService } from '../engineers-foundation-data.service';
 import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
@@ -78,7 +79,8 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
     private changeDetectorRef: ChangeDetectorRef,
     private navigationHistory: NavigationHistoryService,
     private caspioService: CaspioService,
-    private pageTitleService: PageTitleService
+    private pageTitleService: PageTitleService,
+    private foundationData: EngineersFoundationDataService
   ) {
     // CRITICAL: Ensure loading screen shows immediately
     this.templateReady = false;
@@ -499,13 +501,38 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
     const isOnline = this.offlineService.isOnline();
 
+    // ========== REHYDRATION CHECK ==========
+    // Check if service was purged and needs data restored from server
+    // This happens BEFORE normal template download
+    if (isOnline) {
+      try {
+        const needsRehydration = await this.foundationData.needsRehydration(this.serviceId);
+
+        if (needsRehydration) {
+          alert(`[Container] Service needs rehydration - starting...`);
+          this.downloadProgress = 'Restoring data from server...';
+          this.changeDetectorRef.detectChanges();
+
+          const result = await this.foundationData.rehydrateService(this.serviceId);
+
+          if (result.success) {
+            alert(`[Container] Rehydration SUCCESS!\nVisuals: ${result.restored.visuals}\nEFE Rooms: ${result.restored.efeRooms}\nAttachments: ${result.restored.visualAttachments + result.restored.efeAttachments}`);
+          } else {
+            alert(`[Container] Rehydration FAILED: ${result.error}`);
+          }
+        }
+      } catch (err) {
+        console.error('[EF Container] Rehydration check failed:', err);
+      }
+    }
+
     if (isOnline) {
       // ONLINE: Always download fresh data
       try {
         this.downloadProgress = 'Syncing template data...';
         this.changeDetectorRef.detectChanges();
         console.log('[EF Container] Online - downloading fresh template data...');
-        
+
         await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'EFE', this.projectId);
         console.log('[EF Container] ✅ Template data synced successfully');
         

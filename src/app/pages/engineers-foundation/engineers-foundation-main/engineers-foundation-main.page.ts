@@ -4,11 +4,9 @@ import { IonicModule, AlertController, LoadingController, NavController } from '
 import { Router, ActivatedRoute } from '@angular/router';
 import { EngineersFoundationStateService } from '../services/engineers-foundation-state.service';
 import { EngineersFoundationValidationService, IncompleteField } from '../services/engineers-foundation-validation.service';
-import { EngineersFoundationDataService } from '../engineers-foundation-data.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { CacheService } from '../../../services/cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
-import { OfflineService } from '../../../services/offline.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
@@ -78,9 +76,7 @@ export class EngineersFoundationMainPage implements OnInit {
     private backgroundSync: BackgroundSyncService,
     private indexedDb: IndexedDbService,
     private efeFieldRepo: EfeFieldRepoService,
-    private visualFieldRepo: VisualFieldRepoService,
-    private foundationData: EngineersFoundationDataService,
-    private offlineService: OfflineService
+    private visualFieldRepo: VisualFieldRepoService
   ) {}
 
   async ngOnInit() {
@@ -93,10 +89,6 @@ export class EngineersFoundationMainPage implements OnInit {
       this.projectId = parentParams['projectId'] || '';
       this.serviceId = parentParams['serviceId'] || '';
       console.log('[EngFoundation Main] Got params from snapshot:', this.projectId, this.serviceId);
-
-      // AUTO-REHYDRATION: Check if service was purged and needs data restored
-      // This is the entry point from project-details, so rehydrate here FIRST
-      await this.checkAndRehydrateIfNeeded();
     }
 
     // Also subscribe to param changes (for dynamic updates)
@@ -142,57 +134,6 @@ export class EngineersFoundationMainPage implements OnInit {
       }
       // Non-blocking - fail silently offline
       this.checkCanFinalize();
-    }
-  }
-
-  /**
-   * Check if service was purged and automatically rehydrate if needed.
-   * This is the ENTRY POINT from project-details - rehydration happens here
-   * so data is ready before user navigates to Elevation Plot or Structural sections.
-   */
-  private async checkAndRehydrateIfNeeded(): Promise<void> {
-    if (!this.serviceId) return;
-
-    // Only on mobile - web always fetches from server
-    if (environment.isWeb) return;
-
-    try {
-      alert(`[Main] Checking rehydration for: ${this.serviceId}`);
-      const needsRehydration = await this.foundationData.needsRehydration(this.serviceId);
-
-      if (needsRehydration) {
-        alert('[Main] NEEDS REHYDRATION - starting...');
-
-        // Must be online to rehydrate
-        if (!this.offlineService.isOnline()) {
-          alert('[Main] Cannot rehydrate - OFFLINE');
-          return;
-        }
-
-        // Show loading indicator
-        const loading = await this.loadingController.create({
-          message: 'Restoring data from server...',
-          spinner: 'crescent'
-        });
-        await loading.present();
-
-        try {
-          // Rehydrate - fetch data from server and store locally
-          const result = await this.foundationData.rehydrateService(this.serviceId);
-
-          if (result.success) {
-            alert(`[Main] Rehydration SUCCESS!\nVisuals: ${result.restored.visuals}\nEFE Rooms: ${result.restored.efeRooms}\nAttachments: ${result.restored.visualAttachments + result.restored.efeAttachments}`);
-          } else {
-            alert(`[Main] Rehydration FAILED: ${result.error}`);
-          }
-        } finally {
-          await loading.dismiss();
-        }
-      } else {
-        alert('[Main] No rehydration needed');
-      }
-    } catch (err) {
-      alert(`[Main] Error checking rehydration: ${err}`);
     }
   }
 

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { CaspioService } from '../../services/caspio.service';
-import { IndexedDbService } from '../../services/indexed-db.service';
+import { IndexedDbService, LocalImage } from '../../services/indexed-db.service';
 import { TempIdService } from '../../services/temp-id.service';
 import { BackgroundSyncService } from '../../services/background-sync.service';
 import { OfflineDataCacheService } from '../../services/offline-data-cache.service';
@@ -9,6 +9,9 @@ import { OfflineTemplateService } from '../../services/offline-template.service'
 import { OfflineService } from '../../services/offline.service';
 import { LocalImageService } from '../../services/local-image.service';
 import { ServiceMetadataService } from '../../services/service-metadata.service';
+import { EfeFieldRepoService } from '../../services/efe-field-repo.service';
+import { VisualFieldRepoService } from '../../services/visual-field-repo.service';
+import { db } from '../../services/caspio-db';
 import { environment } from '../../../environments/environment';
 
 interface CacheEntry<T> {
@@ -48,7 +51,9 @@ export class EngineersFoundationDataService {
     private readonly offlineTemplate: OfflineTemplateService,
     private readonly offlineService: OfflineService,
     private readonly localImageService: LocalImageService,
-    private readonly serviceMetadata: ServiceMetadataService
+    private readonly serviceMetadata: ServiceMetadataService,
+    private readonly efeFieldRepo: EfeFieldRepoService,
+    private readonly visualFieldRepo: VisualFieldRepoService
   ) {
     this.subscribeToSyncEvents();
   }
@@ -1960,59 +1965,55 @@ export class EngineersFoundationDataService {
       // Clear in-memory caches for this service to force fresh fetch
       this.invalidateCachesForService(serviceId, 'rehydration_start');
 
-      // Fetch fresh data from server using existing API methods
-      // 1. Fetch visuals
-      console.log('[DataService] Rehydrating visuals...');
-      const visuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
-      if (visuals && Array.isArray(visuals) && visuals.length > 0) {
-        await this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals);
-        result.restored.visuals = visuals.length;
-        console.log(`[DataService] ✅ Restored ${visuals.length} visuals`);
+      // Visual categories to process
+      const visualCategories = ['Grading', 'Roofing', 'Foundation', 'Superstructure', 'Limitations', 'Summary'];
 
-        // 2. Fetch visual attachments for each visual
-        const allVisualAttachments: any[] = [];
-        for (const visual of visuals) {
-          const visualId = visual.VisualID || visual.visualId;
-          if (visualId) {
-            try {
-              const attachments = await firstValueFrom(
-                this.caspioService.getServiceVisualsAttachByVisualId(String(visualId))
-              );
-              if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-                allVisualAttachments.push(...attachments);
-                result.restored.visualAttachments += attachments.length;
-              }
-            } catch (err) {
-              console.warn(`[DataService] Failed to fetch attachments for visual ${visualId}:`, err);
-            }
-          }
-        }
-        if (allVisualAttachments.length > 0) {
-          await this.indexedDb.cacheServiceData(serviceId, 'visual_attachments', allVisualAttachments);
-        }
-        console.log(`[DataService] ✅ Restored ${result.restored.visualAttachments} visual attachments`);
+      // ========== STEP 1: Seed EFE templates ==========
+      console.log('[DataService] Step 1: Seeding EFE templates...');
+      const efeTemplates = await this.offlineTemplate.getEfeTemplates();
+      if (efeTemplates && efeTemplates.length > 0) {
+        await this.efeFieldRepo.seedFromTemplates(serviceId, efeTemplates);
+        console.log(`[DataService] ✅ Seeded ${efeTemplates.length} EFE templates`);
       }
 
-      // 3. Fetch EFE rooms
-      console.log('[DataService] Rehydrating EFE rooms...');
+      // ========== STEP 2: Seed Visual templates ==========
+      console.log('[DataService] Step 2: Seeding Visual templates...');
+      for (const category of visualCategories) {
+        try {
+          const templates = await this.offlineTemplate.getVisualTemplates(category);
+          if (templates && templates.length > 0) {
+            await this.visualFieldRepo.seedFromTemplates(serviceId, category, templates);
+          }
+        } catch (err) {
+          console.warn(`[DataService] Failed to seed visual templates for ${category}:`, err);
+        }
+      }
+      console.log('[DataService] ✅ Visual templates seeded');
+
+      // ========== STEP 3: Fetch and merge EFE rooms from server ==========
+      console.log('[DataService] Step 3: Fetching EFE rooms from server...');
       const efeRooms = await firstValueFrom(this.caspioService.getServicesEFE(serviceId));
       if (efeRooms && Array.isArray(efeRooms) && efeRooms.length > 0) {
+        // Cache the raw data
         await this.indexedDb.cacheServiceData(serviceId, 'efe_rooms', efeRooms);
-        result.restored.efeRooms = efeRooms.length;
-        console.log(`[DataService] ✅ Restored ${efeRooms.length} EFE rooms`);
 
-        // 4. Fetch EFE points and attachments for each room
-        const allEfePoints: any[] = [];
-        const allEfeAttachments: any[] = [];
+        // Merge into efeFields table (Dexie-first)
+        await this.efeFieldRepo.mergeExistingRooms(serviceId, efeRooms);
+        result.restored.efeRooms = efeRooms.length;
+        console.log(`[DataService] ✅ Merged ${efeRooms.length} EFE rooms`);
+
+        // Fetch EFE points for each room and update efeFields
         for (const room of efeRooms) {
-          const roomId = room.RoomID || room.EFEID;
-          if (roomId) {
+          const roomId = room.EFEID || room.RoomID;
+          const roomName = room.RoomName;
+          if (roomId && roomName) {
             try {
               const points = await firstValueFrom(this.caspioService.getServicesEFEPoints(String(roomId)));
               if (points && Array.isArray(points) && points.length > 0) {
-                allEfePoints.push(...points);
+                // Update efeFields with point data
+                await this.efeFieldRepo.mergeExistingPoints(serviceId, roomName, points);
 
-                // Fetch attachments for these points (batch)
+                // Fetch attachments for these points
                 const pointIds = points.map((p: any) => String(p.PointID || p.pointId)).filter(Boolean);
                 if (pointIds.length > 0) {
                   try {
@@ -2020,7 +2021,10 @@ export class EngineersFoundationDataService {
                       this.caspioService.getServicesEFEAttachments(pointIds)
                     );
                     if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-                      allEfeAttachments.push(...attachments);
+                      // Create LocalImage records for each attachment
+                      for (const attach of attachments) {
+                        await this.createLocalImageFromAttachment(serviceId, 'efe_point', attach);
+                      }
                       result.restored.efeAttachments += attachments.length;
                     }
                   } catch (err) {
@@ -2033,13 +2037,43 @@ export class EngineersFoundationDataService {
             }
           }
         }
-        if (allEfePoints.length > 0) {
-          await this.indexedDb.cacheServiceData(serviceId, 'efe_points', allEfePoints);
-        }
-        if (allEfeAttachments.length > 0) {
-          await this.indexedDb.cacheServiceData(serviceId, 'efe_point_attachments', allEfeAttachments);
-        }
         console.log(`[DataService] ✅ Restored ${result.restored.efeAttachments} EFE attachments`);
+      }
+
+      // ========== STEP 4: Fetch and merge Visuals from server ==========
+      console.log('[DataService] Step 4: Fetching Visuals from server...');
+      const visuals = await firstValueFrom(this.caspioService.getServicesVisualsByServiceId(serviceId));
+      if (visuals && Array.isArray(visuals) && visuals.length > 0) {
+        // Cache the raw data
+        await this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals);
+        result.restored.visuals = visuals.length;
+
+        // Merge into visualFields table for each category
+        for (const category of visualCategories) {
+          await this.visualFieldRepo.mergeExistingVisuals(serviceId, category, visuals);
+        }
+        console.log(`[DataService] ✅ Merged ${visuals.length} visuals`);
+
+        // Fetch visual attachments and create LocalImage records
+        for (const visual of visuals) {
+          const visualId = visual.VisualID || visual.visualId;
+          if (visualId) {
+            try {
+              const attachments = await firstValueFrom(
+                this.caspioService.getServiceVisualsAttachByVisualId(String(visualId))
+              );
+              if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+                for (const attach of attachments) {
+                  await this.createLocalImageFromAttachment(serviceId, 'visual', attach);
+                }
+                result.restored.visualAttachments += attachments.length;
+              }
+            } catch (err) {
+              console.warn(`[DataService] Failed to fetch attachments for visual ${visualId}:`, err);
+            }
+          }
+        }
+        console.log(`[DataService] ✅ Restored ${result.restored.visualAttachments} visual attachments`);
       }
 
       // Update purge state to ACTIVE
@@ -2058,6 +2092,71 @@ export class EngineersFoundationDataService {
     }
 
     return result;
+  }
+
+  /**
+   * Create a LocalImage record from a server attachment
+   * Used during rehydration to restore photo references
+   */
+  private async createLocalImageFromAttachment(
+    serviceId: string,
+    entityType: 'visual' | 'efe_point',
+    attachment: any
+  ): Promise<void> {
+    const attachId = attachment.AttachID || attachment.PK_ID;
+    const entityId = entityType === 'visual'
+      ? String(attachment.VisualID || attachment.visualId)
+      : String(attachment.PointID || attachment.pointId);
+    const photoUrl = attachment.Photo || attachment.Attachment;
+    const caption = attachment.Caption || '';
+
+    if (!attachId || !entityId) {
+      console.warn('[DataService] Skipping attachment - missing IDs:', attachment);
+      return;
+    }
+
+    // Check if LocalImage already exists for this attachId
+    const existing = await db.localImages
+      .where('attachId')
+      .equals(String(attachId))
+      .first();
+
+    if (existing) {
+      console.log(`[DataService] LocalImage already exists for attachId: ${attachId}`);
+      return;
+    }
+
+    const now = Date.now();
+    const imageId = `rehydrated_${attachId}_${now}`;
+
+    const localImage: LocalImage = {
+      imageId,
+      entityType: entityType === 'visual' ? 'visual' : 'efe_point',
+      entityId,
+      serviceId,
+      localBlobId: null,  // No local blob - will load from S3
+      thumbBlobId: null,
+      remoteS3Key: photoUrl || null,
+      status: 'verified',
+      attachId: String(attachId),
+      isSynced: true,
+      remoteUrl: photoUrl || null,
+      fileName: `photo_${attachId}.jpg`,
+      fileSize: 0,
+      contentType: 'image/jpeg',
+      caption,
+      drawings: attachment.Drawings || '',
+      photoType: attachment.PhotoType || null,
+      createdAt: now,
+      updatedAt: now,
+      lastError: null,
+      localVersion: 1,
+      remoteVerifiedAt: now,
+      remoteLoadedInUI: false
+    };
+
+    await db.localImages.add(localImage);
+    console.log(`[DataService] Created LocalImage for attachment: ${attachId}`);
   }
 
   /**
