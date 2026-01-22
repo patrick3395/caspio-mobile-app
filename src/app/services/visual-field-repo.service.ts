@@ -172,6 +172,12 @@ export class VisualFieldRepoService {
 
     console.log(`[VisualFieldRepo] Merging ${categoryVisuals.length} existing visuals for ${category}`);
 
+    // DEBUG: Show first visual's fields
+    if (categoryVisuals.length > 0) {
+      const firstVisual = categoryVisuals[0];
+      alert(`[DEBUG mergeVisuals] First visual keys:\n${Object.keys(firstVisual).join(', ')}\n\nVisualTemplateID: ${firstVisual.VisualTemplateID}\ntemplateId: ${firstVisual.templateId}\nTemplateID: ${firstVisual.TemplateID}`);
+    }
+
     const now = Date.now();
 
     // Apply updates/inserts in transaction
