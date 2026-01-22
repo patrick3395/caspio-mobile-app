@@ -1933,7 +1933,9 @@ export class EngineersFoundationDataService {
     };
     error?: string;
   }> {
-    console.log(`[DataService] 🔄 Rehydrating service: ${serviceId}`);
+    console.log(`[DataService] ═══════════════════════════════════════════════════`);
+    console.log(`[DataService] 🔄 REHYDRATION STARTING for service: ${serviceId}`);
+    console.log(`[DataService] ═══════════════════════════════════════════════════`);
 
     const result = {
       success: false,
@@ -1954,8 +1956,27 @@ export class EngineersFoundationDataService {
     }
 
     try {
-      // Check current purge state
+      // Check current purge state and show what was previously cleared
       const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
+
+      // Log the state before rehydration
+      if (metadata) {
+        console.log(`[DataService] 📋 Service State Before Rehydration:`);
+        console.log(`[DataService]    - Purge State: ${metadata.purgeState}`);
+        console.log(`[DataService]    - Last Touched: ${new Date(metadata.lastTouchedAt).toLocaleString()}`);
+        console.log(`[DataService]    - Local Revision: ${metadata.lastLocalRevision}`);
+        console.log(`[DataService]    - Server ACK Revision: ${metadata.lastServerAckRevision}`);
+      }
+
+      // Count what's currently in local storage (should be 0 or minimal if purged)
+      const existingImages = await db.localImages.where('serviceId').equals(serviceId).count();
+      const existingVisualFields = await db.visualFields.where('serviceId').equals(serviceId).count();
+      const existingEfeFields = await db.efeFields.where('serviceId').equals(serviceId).count();
+
+      console.log(`[DataService] 📊 Current Local State (before rehydration):`);
+      console.log(`[DataService]    - Local Images: ${existingImages}`);
+      console.log(`[DataService]    - Visual Fields: ${existingVisualFields}`);
+      console.log(`[DataService]    - EFE Fields: ${existingEfeFields}`);
       if (metadata && metadata.purgeState === 'ACTIVE') {
         console.log('[DataService] Service already ACTIVE, no rehydration needed');
         result.success = true;
@@ -2096,7 +2117,18 @@ export class EngineersFoundationDataService {
       this.invalidateCachesForService(serviceId, 'rehydration_complete');
 
       result.success = true;
-      console.log(`[DataService] ✅ Rehydration complete for service: ${serviceId}`, result.restored);
+
+      // Output detailed rehydration stats
+      console.log(`[DataService] ═══════════════════════════════════════════════════`);
+      console.log(`[DataService] 🔄 REHYDRATION COMPLETE for service: ${serviceId}`);
+      console.log(`[DataService] ═══════════════════════════════════════════════════`);
+      console.log(`[DataService] 📊 Data Restored from Server:`);
+      console.log(`[DataService]    - Visuals: ${result.restored.visuals}`);
+      console.log(`[DataService]    - EFE Rooms: ${result.restored.efeRooms}`);
+      console.log(`[DataService]    - Visual Attachments: ${result.restored.visualAttachments}`);
+      console.log(`[DataService]    - EFE Attachments: ${result.restored.efeAttachments}`);
+      console.log(`[DataService]    - Total Items: ${result.restored.visuals + result.restored.efeRooms + result.restored.visualAttachments + result.restored.efeAttachments}`);
+      console.log(`[DataService] ═══════════════════════════════════════════════════`);
 
     } catch (err) {
       result.error = err instanceof Error ? err.message : 'Unknown error during rehydration';

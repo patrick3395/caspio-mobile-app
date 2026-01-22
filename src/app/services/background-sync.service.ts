@@ -3583,13 +3583,13 @@ export class BackgroundSyncService {
   /**
    * Stage 2: Hard purge - Delete all local data for inactive services
    * Only purges services that are:
-   * - Inactive for more than 2 days (PURGE_AFTER_MS)
+   * - Inactive for more than 1 hour (PURGE_AFTER_MS) - TESTING VALUE
    * - Safe to purge (no pending uploads, server has latest, not open)
    *
    * @returns Object with arrays of purged and skipped service IDs
    */
   async hardPurgeInactiveServices(): Promise<{ purged: string[]; skipped: string[] }> {
-    const PURGE_AFTER_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+    const PURGE_AFTER_MS = 1 * 60 * 60 * 1000; // 1 hour - TESTING (was 2 days)
     const cutoff = Date.now() - PURGE_AFTER_MS;
 
     const purged: string[] = [];
@@ -3630,20 +3630,37 @@ export class BackgroundSyncService {
    */
   private async purgeServiceData(serviceId: string): Promise<void> {
     try {
-      console.log(`[BackgroundSync] Purging all data for service: ${serviceId}`);
+      console.log(`[BackgroundSync] 🗑️ PURGE STARTING for service: ${serviceId}`);
 
       // Get all local images for this service
       const images = await this.indexedDb.getLocalImagesForService(serviceId);
+
+      // Count stats before purge
+      const visualFieldCount = await db.visualFields.where('serviceId').equals(serviceId).count();
+      const efeFieldCount = await db.efeFields.where('serviceId').equals(serviceId).count();
+      const cachedPhotoCount = await db.cachedPhotos.where('serviceId').equals(serviceId).count();
+      const pendingCaptionCount = await db.pendingCaptions.where('serviceId').equals(serviceId).count();
+
+      // Calculate total blob bytes being purged
+      let totalBlobBytes = 0;
+      let fullResBlobCount = 0;
+      let thumbBlobCount = 0;
 
       // Delete all blobs (full-res and thumbnails) and image records
       for (const image of images) {
         // Delete full-res blob if exists
         if (image.localBlobId) {
+          const blob = await this.indexedDb.getLocalBlob(image.localBlobId);
+          if (blob) totalBlobBytes += blob.sizeBytes || 0;
           await this.indexedDb.deleteLocalBlob(image.localBlobId);
+          fullResBlobCount++;
         }
         // Delete thumbnail blob if exists
         if (image.thumbBlobId) {
+          const thumbBlob = await this.indexedDb.getLocalBlob(image.thumbBlobId);
+          if (thumbBlob) totalBlobBytes += thumbBlob.sizeBytes || 0;
           await this.indexedDb.deleteLocalBlob(image.thumbBlobId);
+          thumbBlobCount++;
         }
       }
 
@@ -3662,7 +3679,19 @@ export class BackgroundSyncService {
       // Delete pending captions for this service
       await db.pendingCaptions.where('serviceId').equals(serviceId).delete();
 
-      console.log(`[BackgroundSync] ✅ Purged data for service: ${serviceId} (${images.length} images)`);
+      // Output detailed purge stats
+      console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);
+      console.log(`[BackgroundSync] 🗑️ PURGE COMPLETE for service: ${serviceId}`);
+      console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);
+      console.log(`[BackgroundSync] 📸 Images cleared: ${images.length}`);
+      console.log(`[BackgroundSync]    - Full-res blobs: ${fullResBlobCount}`);
+      console.log(`[BackgroundSync]    - Thumbnail blobs: ${thumbBlobCount}`);
+      console.log(`[BackgroundSync]    - Total bytes freed: ${(totalBlobBytes / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`[BackgroundSync] 📝 Visual fields cleared: ${visualFieldCount}`);
+      console.log(`[BackgroundSync] 🏠 EFE fields cleared: ${efeFieldCount}`);
+      console.log(`[BackgroundSync] 🖼️ Cached photos cleared: ${cachedPhotoCount}`);
+      console.log(`[BackgroundSync] ✏️ Pending captions cleared: ${pendingCaptionCount}`);
+      console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);
     } catch (err) {
       console.warn(`[BackgroundSync] purgeServiceData error for ${serviceId}:`, err);
       throw err;

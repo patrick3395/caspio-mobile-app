@@ -4180,6 +4180,16 @@ Troubleshooting:
         Zip: data.zip
       };
 
+      // DEBUG: Log all project identifiers to diagnose the 404 issue
+      console.log('[saveAddressChanges] DEBUG - Project Identifiers:', {
+        'this.projectId (route param)': this.projectId,
+        'this.project?.PK_ID': this.project?.PK_ID,
+        'this.project?.ProjectID': this.project?.ProjectID,
+        'this.project?.Project_ID': (this.project as any)?.Project_ID,
+        'Value being passed to updateProject': this.project?.PK_ID || this.projectId,
+        'Full project object keys': this.project ? Object.keys(this.project) : 'no project'
+      });
+
       // Update via API - use PK_ID (database primary key) for Caspio REST API
       await this.caspioService.updateProject(this.project?.PK_ID || this.projectId, updateData).toPromise();
 
