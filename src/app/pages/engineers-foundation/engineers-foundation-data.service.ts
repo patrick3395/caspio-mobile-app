@@ -2050,16 +2050,34 @@ export class EngineersFoundationDataService {
         await this.indexedDb.cacheServiceData(serviceId, 'visuals', visuals);
         result.restored.visuals = visuals.length;
 
-        // Merge into visualFields table for each category
-        for (const category of visualCategories) {
+        // Extract unique categories from ACTUAL server data (not hardcoded)
+        const serverCategories = new Set<string>();
+        for (const visual of visuals) {
+          if (visual.Category) {
+            serverCategories.add(visual.Category);
+          }
+        }
+        const categoriesArray = Array.from(serverCategories);
+        console.log(`[DataService] Found categories in server data:`, categoriesArray);
+        alert(`[Rehydration] Found ${visuals.length} visuals in categories:\n${categoriesArray.join(', ')}`);
+
+        // Merge into visualFields table for each category found in server data
+        for (const category of serverCategories) {
           await this.visualFieldRepo.mergeExistingVisuals(serviceId, category, visuals);
         }
-        console.log(`[DataService] ✅ Merged ${visuals.length} visuals`);
+        console.log(`[DataService] ✅ Merged ${visuals.length} visuals across ${serverCategories.size} categories`);
+
+        // DEBUG: Show what was stored in visualFields
+        const storedFields = await db.visualFields.where('serviceId').equals(serviceId).toArray();
+        const selectedFields = storedFields.filter(f => f.isSelected);
+        alert(`[DEBUG] VisualFields stored:\nTotal: ${storedFields.length}\nSelected: ${selectedFields.length}\nVisualIDs: ${selectedFields.slice(0, 5).map(f => f.visualId).join(', ')}`);
 
         // Fetch visual attachments and create LocalImage records
+        const visualIdsRestored: string[] = [];
         for (const visual of visuals) {
           const visualId = visual.VisualID || visual.visualId;
           if (visualId) {
+            visualIdsRestored.push(String(visualId));
             try {
               const attachments = await firstValueFrom(
                 this.caspioService.getServiceVisualsAttachByVisualId(String(visualId))
@@ -2076,6 +2094,11 @@ export class EngineersFoundationDataService {
           }
         }
         console.log(`[DataService] ✅ Restored ${result.restored.visualAttachments} visual attachments`);
+
+        // DEBUG: Show what was created
+        const createdImages = await db.localImages.where('serviceId').equals(serviceId).toArray();
+        const visualImages = createdImages.filter(i => i.entityType === 'visual');
+        alert(`[DEBUG] Created LocalImages:\nTotal: ${createdImages.length}\nVisual type: ${visualImages.length}\nVisualIDs in visuals: ${visualIdsRestored.slice(0, 5).join(', ')}\nEntityIDs in images: ${visualImages.slice(0, 5).map(i => i.entityId).join(', ')}`);
       }
 
       // Update purge state to ACTIVE
