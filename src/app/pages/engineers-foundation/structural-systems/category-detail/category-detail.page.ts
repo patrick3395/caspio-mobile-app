@@ -166,6 +166,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
   private isCameraCaptureInProgress = false;
   // Track imageIds in current batch to prevent duplicates even if liveQuery fires
   private batchUploadImageIds = new Set<string>();
+  // MUTEX: Prevent concurrent populatePhotosFromDexie calls (race condition fix)
+  // When sync/rehydration triggers both liveQuery and fields subscription simultaneously,
+  // both would add photos before the other's duplicate check runs, causing 2x photos
+  private isPopulatingPhotos = false;
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -1142,25 +1146,35 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
    * Called after convertFieldsToOrganizedData to render photos from Dexie data
    */
   private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
-    console.log('[DEXIE-FIRST] Populating photos directly from Dexie...');
-
-    // ===== US-001 DEBUG: populatePhotosFromDexie start =====
-    this.logDebug('DEXIE_LOAD', `populatePhotosFromDexie START\nfields count: ${fields.length}\nserviceId: ${this.serviceId}`);
-    // ===== END US-001 DEBUG =====
-
-    // DEXIE-FIRST: Load annotated images in background (non-blocking)
-    // Don't await - let photos render immediately, annotations will update when ready
-    if (this.bulkAnnotatedImagesMap.size === 0) {
-      this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
-        this.bulkAnnotatedImagesMap = annotatedImages;
-        // Trigger change detection to update any thumbnails that now have annotations
-        this.changeDetectorRef.detectChanges();
-      });
+    // MUTEX: Prevent concurrent calls that cause duplicate photos
+    // When sync/rehydration triggers both liveQuery AND fields subscription,
+    // both would read same initial state and both add photos = 2x duplicates
+    if (this.isPopulatingPhotos) {
+      console.log('[DEXIE-FIRST] Skipping - already populating photos (mutex)');
+      return;
     }
+    this.isPopulatingPhotos = true;
 
-    // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query
-    // This eliminates the race condition - we don't rely on bulkLocalImagesMap being populated
-    const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+    try {
+      console.log('[DEXIE-FIRST] Populating photos directly from Dexie...');
+
+      // ===== US-001 DEBUG: populatePhotosFromDexie start =====
+      this.logDebug('DEXIE_LOAD', `populatePhotosFromDexie START\nfields count: ${fields.length}\nserviceId: ${this.serviceId}`);
+      // ===== END US-001 DEBUG =====
+
+      // DEXIE-FIRST: Load annotated images in background (non-blocking)
+      // Don't await - let photos render immediately, annotations will update when ready
+      if (this.bulkAnnotatedImagesMap.size === 0) {
+        this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
+          this.bulkAnnotatedImagesMap = annotatedImages;
+          // Trigger change detection to update any thumbnails that now have annotations
+          this.changeDetectorRef.detectChanges();
+        });
+      }
+
+      // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query
+      // This eliminates the race condition - we don't rely on bulkLocalImagesMap being populated
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
 
     // ===== US-001 DEBUG: LocalImages query result =====
     const localImagesWithDrawings = allLocalImages.filter(img => img.drawings && img.drawings.length > 10);
@@ -1380,7 +1394,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     this.logDebug('DEXIE_LOAD', debugSummary);
     // ===== END US-001/US-003 DEBUG =====
 
-    console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
+      console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
+    } finally {
+      // Always release mutex, even if error occurs
+      this.isPopulatingPhotos = false;
+    }
   }
 
   /**
@@ -7279,16 +7297,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             return;
           }
 
-          // Build the full HTML content
+          // Build the full HTML content with inline styles for mobile app compatibility
           const htmlContent = `
             <div class="caption-popup-content">
-              <div class="caption-input-container">
+              <div class="caption-input-container" style="position: relative; margin-bottom: 16px;">
                 <input type="text" id="captionInput" class="caption-text-input"
                        placeholder="Enter caption..."
                        value="${tempCaption}"
-                       maxlength="255" />
-                <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
-                  <ion-icon name="backspace-outline"></ion-icon>
+                       maxlength="255"
+                       style="width: 100%; padding: 14px 54px 14px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; color: #333; background: white; box-sizing: border-box; height: 52px;" />
+                <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word"
+                        style="position: absolute; right: 5px; top: 5px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 10;">
+                  <ion-icon name="backspace-outline" style="font-size: 20px; color: #666;"></ion-icon>
                 </button>
               </div>
               ${buttonsHtml}

@@ -16,6 +16,7 @@
         <ion-item lines="none" class="input-item" [class.input-error]="isWeb && shouldShowError('email')">
           <ion-icon name="mail-outline" slot="start"></ion-icon>
           <ion-input
+            data-testid="email-input"
             [(ngModel)]="credentials.email"
             type="email"
             placeholder="Email Address"
@@ -38,6 +39,7 @@
         <ion-item lines="none" class="input-item" [class.input-error]="isWeb && shouldShowError('password')">
           <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
           <ion-input
+            data-testid="password-input"
             [(ngModel)]="credentials.password"
             [type]="showPassword ? 'text' : 'password'"
             placeholder="Password"
@@ -48,6 +50,7 @@
             required>
           </ion-input>
           <ion-button
+            data-testid="toggle-password-visibility"
             fill="clear"
             slot="end"
             class="visibility-toggle"
@@ -72,6 +75,7 @@
       </ion-item>
 
       <ion-button
+        data-testid="sign-in-button"
         expand="block"
         class="login-button"
         (click)="login()"
@@ -82,7 +86,7 @@
       </ion-button>
 
       <div class="forgot-password">
-        <ion-button fill="clear" size="small" (click)="forgotPassword()">
+        <ion-button data-testid="forgot-password-button" fill="clear" size="small" (click)="forgotPassword()">
           <ion-icon name="help-circle-outline" slot="start"></ion-icon>
           Forgot Password?
         </ion-button>

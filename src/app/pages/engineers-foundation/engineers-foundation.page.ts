@@ -13511,13 +13511,15 @@ Stack: ${error?.stack}`;
 
         alertElement.innerHTML = `
           <div class="caption-popup-content">
-            <div class="caption-input-container">
+            <div class="caption-input-container" style="position: relative; margin-bottom: 16px;">
               <input type="text" id="captionInput" class="caption-text-input"
                      placeholder="Enter caption..."
                      value="${escapedCaption}"
-                     maxlength="255" />
-              <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
-                <ion-icon name="backspace-outline"></ion-icon>
+                     maxlength="255"
+                     style="width: 100%; padding: 14px 54px 14px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; color: #333; background: white; box-sizing: border-box; height: 52px;" />
+              <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word"
+                      style="position: absolute; right: 5px; top: 5px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 10;">
+                <ion-icon name="backspace-outline" style="font-size: 20px; color: #666;"></ion-icon>
               </button>
             </div>
             ${this.presetButtonsHtml}
@@ -13616,13 +13618,15 @@ Stack: ${error?.stack}`;
 
       alertElement.innerHTML = `
         <div class="caption-popup-content">
-          <div class="caption-input-container">
+          <div class="caption-input-container" style="position: relative; margin-bottom: 16px;">
             <input type="text" id="captionInput" class="caption-text-input"
                    placeholder="Enter caption..."
                    value="${this.escapeHtml(tempCaption)}"
-                   maxlength="255" />
-            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
-              <ion-icon name="backspace-outline"></ion-icon>
+                   maxlength="255"
+                   style="width: 100%; padding: 14px 54px 14px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; color: #333; background: white; box-sizing: border-box; height: 52px;" />
+            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word"
+                    style="position: absolute; right: 5px; top: 5px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 10;">
+              <ion-icon name="backspace-outline" style="font-size: 20px; color: #666;"></ion-icon>
             </button>
           </div>
           ${this.presetButtonsHtml}
@@ -13719,13 +13723,15 @@ Stack: ${error?.stack}`;
 
       alertElement.innerHTML = `
         <div class="caption-popup-content">
-          <div class="caption-input-container">
+          <div class="caption-input-container" style="position: relative; margin-bottom: 16px;">
             <input type="text" id="captionInput" class="caption-text-input"
                    placeholder="Enter caption..."
                    value="${this.escapeHtml(tempCaption)}"
-                   maxlength="255" />
-            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
-              <ion-icon name="backspace-outline"></ion-icon>
+                   maxlength="255"
+                   style="width: 100%; padding: 14px 54px 14px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; color: #333; background: white; box-sizing: border-box; height: 52px;" />
+            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word"
+                    style="position: absolute; right: 5px; top: 5px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 10;">
+              <ion-icon name="backspace-outline" style="font-size: 20px; color: #666;"></ion-icon>
             </button>
           </div>
           ${this.presetButtonsHtml}
@@ -13821,13 +13827,15 @@ Stack: ${error?.stack}`;
 
       alertElement.innerHTML = `
         <div class="caption-popup-content">
-          <div class="caption-input-container">
+          <div class="caption-input-container" style="position: relative; margin-bottom: 16px;">
             <input type="text" id="captionInput" class="caption-text-input"
                    placeholder="Enter caption..."
                    value="${this.escapeHtml(tempCaption)}"
-                   maxlength="255" />
-            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word">
-              <ion-icon name="backspace-outline"></ion-icon>
+                   maxlength="255"
+                   style="width: 100%; padding: 14px 54px 14px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; color: #333; background: white; box-sizing: border-box; height: 52px;" />
+            <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word"
+                    style="position: absolute; right: 5px; top: 5px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 10;">
+              <ion-icon name="backspace-outline" style="font-size: 20px; color: #666;"></ion-icon>
             </button>
           </div>
           ${this.presetButtonsHtml}

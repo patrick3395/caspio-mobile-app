@@ -5766,15 +5766,25 @@ export class CompanyPage implements OnInit, OnDestroy {
             await loading.present();
 
             try {
-              // Clear all Dexie tables
+              // Clear all Dexie data tables
               await db.localImages.clear();
               await db.localBlobs.clear();
               await db.efeFields.clear();
               await db.visualFields.clear();
               await db.cachedPhotos.clear();
               await db.cachedServiceData.clear();
-              await db.serviceMetadata.clear();
               await db.uploadOutbox.clear();
+
+              // Mark ALL services as PURGED so rehydration triggers when re-entering
+              // Don't clear serviceMetadata - update purgeState instead
+              const allMetadata = await db.serviceMetadata.toArray();
+              for (const metadata of allMetadata) {
+                await db.serviceMetadata.update(metadata.serviceId, {
+                  purgeState: 'PURGED',
+                  updatedAt: Date.now()
+                });
+              }
+              console.log(`[Company] Reset app memory: marked ${allMetadata.length} services as PURGED`);
 
               await loading.dismiss();
 
