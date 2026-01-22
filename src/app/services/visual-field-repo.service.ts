@@ -170,44 +170,63 @@ export class VisualFieldRepoService {
       return;
     }
 
-    console.log(`[VisualFieldRepo] Merging ${categoryVisuals.length} existing visuals`);
+    console.log(`[VisualFieldRepo] Merging ${categoryVisuals.length} existing visuals for ${category}`);
 
-    // Build updates
-    const updates: { key: string; changes: Partial<VisualField> }[] = [];
     const now = Date.now();
 
-    for (const visual of categoryVisuals) {
-      const templateId = visual.VisualTemplateID || visual.templateId;
-      if (!templateId) continue;
-
-      const key = `${serviceId}:${category}:${templateId}`;
-
-      updates.push({
-        key,
-        changes: {
-          isSelected: true,
-          answer: visual.VisualText || visual.Answer || '',
-          otherValue: visual.OtherValue || '',
-          visualId: visual.VisualID || visual.PK_ID || null,
-          tempVisualId: visual.tempId || null,
-          photoCount: visual.photoCount || 0,
-          updatedAt: now,
-          dirty: false  // Existing data from server is not dirty
-        }
-      });
-    }
-
-    // Apply updates in transaction
+    // Apply updates/inserts in transaction
     await db.transaction('rw', db.visualFields, async () => {
-      for (const update of updates) {
-        const existing = await db.visualFields.where('key').equals(update.key).first();
+      for (const visual of categoryVisuals) {
+        const templateId = visual.VisualTemplateID || visual.templateId;
+        if (!templateId) continue;
+
+        const key = `${serviceId}:${category}:${templateId}`;
+        const existing = await db.visualFields.where('key').equals(key).first();
+
+        const visualId = visual.VisualID || visual.PK_ID || null;
+
         if (existing) {
-          await db.visualFields.update(existing.id!, update.changes);
+          // Update existing field
+          await db.visualFields.update(existing.id!, {
+            isSelected: true,
+            answer: visual.VisualText || visual.Answer || '',
+            otherValue: visual.OtherValue || '',
+            visualId: visualId ? String(visualId) : null,
+            tempVisualId: visual.tempId || null,
+            photoCount: visual.photoCount || 0,
+            updatedAt: now,
+            dirty: false
+          });
+        } else {
+          // CREATE new record if it doesn't exist (e.g., after purge)
+          // This handles rehydration when templates weren't seeded
+          const newField: VisualField = {
+            key,
+            serviceId,
+            category,
+            templateId: Number(templateId),
+            templateName: visual.VisualName || visual.Name || '',
+            templateText: visual.VisualText || visual.Text || '',
+            kind: visual.Kind || 'Comment',
+            answerType: visual.AnswerType || 0,
+            dropdownOptions: undefined,
+            isSelected: true,
+            answer: visual.VisualText || visual.Answer || '',
+            otherValue: visual.OtherValue || '',
+            visualId: visualId ? String(visualId) : null,
+            tempVisualId: visual.tempId || null,
+            photoCount: visual.photoCount || 0,
+            rev: 0,
+            updatedAt: now,
+            dirty: false
+          };
+          await db.visualFields.add(newField);
+          console.log(`[VisualFieldRepo] Created new visualField for ${key}`);
         }
       }
     });
 
-    console.log(`[VisualFieldRepo] Merged ${updates.length} visuals`);
+    console.log(`[VisualFieldRepo] Merged ${categoryVisuals.length} visuals for ${category}`);
   }
 
   // ============================================================================
