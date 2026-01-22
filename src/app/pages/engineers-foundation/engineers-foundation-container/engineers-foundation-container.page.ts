@@ -146,7 +146,7 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         try {
           const needsRehydration = await this.foundationData.needsRehydration(newServiceId);
           if (needsRehydration) {
-            alert(`[Container] Service needs rehydration - starting...`);
+            console.log('[EF Container] Service needs rehydration - starting...');
 
             // Show loading screen for rehydration
             this.templateReady = false;
@@ -156,9 +156,9 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
             const result = await this.foundationData.rehydrateService(newServiceId);
 
             if (result.success) {
-              alert(`[Container] Rehydration SUCCESS!\nVisuals: ${result.restored.visuals}\nEFE Rooms: ${result.restored.efeRooms}\nAttachments: ${result.restored.visualAttachments + result.restored.efeAttachments}`);
+              console.log(`[EF Container] Rehydration complete: ${result.restored.visuals} visuals, ${result.restored.efeRooms} rooms`);
             } else {
-              alert(`[Container] Rehydration FAILED: ${result.error}`);
+              console.error(`[EF Container] Rehydration failed: ${result.error}`);
             }
           }
         } catch (err) {

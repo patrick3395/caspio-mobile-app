@@ -271,9 +271,6 @@ export class ServiceMetadataService {
     const existing = await db.serviceMetadata.get(serviceId);
     const now = Date.now();
 
-    // DEBUG ALERT for mobile testing
-    alert(`[setPurgeState] serviceId: ${serviceId}\nstate: ${state}\nexisting record: ${existing ? 'YES' : 'NO'}`);
-
     if (existing) {
       // Update existing record
       await db.serviceMetadata.update(serviceId, {
@@ -295,10 +292,7 @@ export class ServiceMetadataService {
       };
       await db.serviceMetadata.add(metadata);
     }
-
-    // Verify it was saved
-    const verify = await db.serviceMetadata.get(serviceId);
-    alert(`[setPurgeState] SAVED. Verify purgeState: ${verify?.purgeState}`);
+    console.log('[ServiceMetadata] Purge state set:', serviceId, state);
   }
 
   /**

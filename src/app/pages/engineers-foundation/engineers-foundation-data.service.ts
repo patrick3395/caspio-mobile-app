@@ -2059,7 +2059,6 @@ export class EngineersFoundationDataService {
         }
         const categoriesArray = Array.from(serverCategories);
         console.log(`[DataService] Found categories in server data:`, categoriesArray);
-        alert(`[Rehydration] Found ${visuals.length} visuals in categories:\n${categoriesArray.join(', ')}`);
 
         // Merge into visualFields table for each category found in server data
         for (const category of serverCategories) {
@@ -2067,17 +2066,10 @@ export class EngineersFoundationDataService {
         }
         console.log(`[DataService] ✅ Merged ${visuals.length} visuals across ${serverCategories.size} categories`);
 
-        // DEBUG: Show what was stored in visualFields
-        const storedFields = await db.visualFields.where('serviceId').equals(serviceId).toArray();
-        const selectedFields = storedFields.filter(f => f.isSelected);
-        alert(`[DEBUG] VisualFields stored:\nTotal: ${storedFields.length}\nSelected: ${selectedFields.length}\nVisualIDs: ${selectedFields.slice(0, 5).map(f => f.visualId).join(', ')}`);
-
         // Fetch visual attachments and create LocalImage records
-        const visualIdsRestored: string[] = [];
         for (const visual of visuals) {
           const visualId = visual.VisualID || visual.visualId;
           if (visualId) {
-            visualIdsRestored.push(String(visualId));
             try {
               const attachments = await firstValueFrom(
                 this.caspioService.getServiceVisualsAttachByVisualId(String(visualId))
@@ -2094,11 +2086,6 @@ export class EngineersFoundationDataService {
           }
         }
         console.log(`[DataService] ✅ Restored ${result.restored.visualAttachments} visual attachments`);
-
-        // DEBUG: Show what was created
-        const createdImages = await db.localImages.where('serviceId').equals(serviceId).toArray();
-        const visualImages = createdImages.filter(i => i.entityType === 'visual');
-        alert(`[DEBUG] Created LocalImages:\nTotal: ${createdImages.length}\nVisual type: ${visualImages.length}\nVisualIDs in visuals: ${visualIdsRestored.slice(0, 5).join(', ')}\nEntityIDs in images: ${visualImages.slice(0, 5).map(i => i.entityId).join(', ')}`);
       }
 
       // Update purge state to ACTIVE
@@ -2189,19 +2176,9 @@ export class EngineersFoundationDataService {
    */
   async needsRehydration(serviceId: string): Promise<boolean> {
     const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
-
-    // DEBUG ALERT for mobile testing
-    if (metadata) {
-      alert(`[needsRehydration] serviceId: ${serviceId}\npurgeState: ${metadata.purgeState}`);
-    } else {
-      alert(`[needsRehydration] serviceId: ${serviceId}\nNO METADATA FOUND`);
-    }
-
     if (!metadata) {
       return false; // New service, doesn't need rehydration
     }
-    const needs = metadata.purgeState === 'PURGED' || metadata.purgeState === 'ARCHIVED';
-    alert(`[needsRehydration] Result: ${needs}`);
-    return needs;
+    return metadata.purgeState === 'PURGED' || metadata.purgeState === 'ARCHIVED';
   }
 }

@@ -12,6 +12,7 @@ import { PageTitleService } from '../../services/page-title.service';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { db } from '../../caspio-db';
 
 interface StageDefinition {
   id: number;
@@ -5733,6 +5734,75 @@ export class CompanyPage implements OnInit, OnDestroy {
 
     console.log(`Finished fetching ${tableName}: ${allRecords.length} total records`);
     return allRecords;
+  }
+
+  async resetAppMemory() {
+    // Skip on web - only relevant for mobile with IndexedDB storage
+    if (environment.isWeb) {
+      const alert = await this.alertController.create({
+        header: 'Not Available',
+        message: 'Reset App Memory is only available on mobile devices.',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Reset App Memory',
+      message: 'This will clear ALL cached data including photos, offline data, and service records. You will need to re-download data when you next access a service. Continue?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Reset',
+          cssClass: 'danger',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Clearing app memory...'
+            });
+            await loading.present();
+
+            try {
+              // Clear all Dexie tables
+              await db.localImages.clear();
+              await db.localBlobs.clear();
+              await db.efeFields.clear();
+              await db.visualFields.clear();
+              await db.cachedPhotos.clear();
+              await db.cachedServiceData.clear();
+              await db.serviceMetadata.clear();
+              await db.uploadOutbox.clear();
+              await db.captionOutbox.clear();
+
+              await loading.dismiss();
+
+              const successAlert = await this.alertController.create({
+                header: 'Memory Cleared',
+                message: 'All cached data has been cleared. Data will be re-downloaded when you access services.',
+                buttons: ['OK']
+              });
+              await successAlert.present();
+
+            } catch (err) {
+              await loading.dismiss();
+              console.error('[Company] Reset app memory failed:', err);
+
+              const errorAlert = await this.alertController.create({
+                header: 'Error',
+                message: 'Failed to clear app memory. Please try again.',
+                buttons: ['OK']
+              });
+              await errorAlert.present();
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   async logout() {

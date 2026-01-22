@@ -3187,6 +3187,20 @@ export class BackgroundSyncService {
     // First, prune verified local blobs using standard retention policy (24h grace)
     await this.pruneVerifiedBlobs();
 
+    // ============================================================================
+    // AUTO-PURGE: Check for inactive services (2 days) - runs EVERY sync
+    // This is independent of storage pressure - we always clean up old data
+    // Safety checks in isPurgeSafe() prevent purging unsynced data
+    // ============================================================================
+    try {
+      const hardResult = await this.hardPurgeInactiveServices();
+      if (hardResult.purged.length > 0) {
+        console.log(`[BackgroundSync] Auto-purged ${hardResult.purged.length} inactive services (2+ days old)`);
+      }
+    } catch (purgeErr) {
+      console.warn('[BackgroundSync] Auto-purge check failed:', purgeErr);
+    }
+
     try {
       // Get current storage usage
       let usagePercent = 0;
@@ -3206,34 +3220,19 @@ export class BackgroundSyncService {
         usagePercent = stats.percent;
       }
 
-      // No pressure - skip cleanup
+      // No pressure - skip additional cleanup
       if (usagePercent < 75) {
         return;
       }
 
-      console.log(`[BackgroundSync] ⚠️ Storage pressure: ${usagePercent.toFixed(1)}% - starting two-stage cleanup`);
+      console.log(`[BackgroundSync] ⚠️ Storage pressure: ${usagePercent.toFixed(1)}% - starting soft purge`);
 
       // ============================================================================
-      // STAGE 1: Soft purge all verified images (thumbnails preserved)
+      // SOFT PURGE: Remove full-res blobs from verified images (thumbnails preserved)
+      // Only runs under storage pressure
       // ============================================================================
       const softResult = await this.softPurgeAllVerified();
-      console.log(`[BackgroundSync] Stage 1 complete: soft purged ${softResult.purged} images`);
-
-      // Re-check storage after soft purge
-      if ('storage' in navigator && 'estimate' in (navigator as any).storage) {
-        const newEstimate = await (navigator as any).storage.estimate();
-        const newPercent = ((newEstimate.usage || 0) / (newEstimate.quota || 1)) * 100;
-        console.log(`[BackgroundSync] Storage after soft purge: ${newPercent.toFixed(1)}%`);
-
-        // ============================================================================
-        // STAGE 2: If still over 80%, hard purge inactive services
-        // ============================================================================
-        if (newPercent >= 80) {
-          console.log('[BackgroundSync] Still over 80% - starting Stage 2 hard purge');
-          const hardResult = await this.hardPurgeInactiveServices();
-          console.log(`[BackgroundSync] Stage 2 complete: hard purged ${hardResult.purged.length} services, skipped ${hardResult.skipped.length}`);
-        }
-      }
+      console.log(`[BackgroundSync] Soft purge complete: freed ${softResult.purged} images`);
 
       // Legacy cleanup: Clean old cached photos if still under pressure
       if (usagePercent > 70) {
@@ -3584,13 +3583,13 @@ export class BackgroundSyncService {
   /**
    * Stage 2: Hard purge - Delete all local data for inactive services
    * Only purges services that are:
-   * - Inactive for more than 3 days (PURGE_AFTER_MS)
+   * - Inactive for more than 2 days (PURGE_AFTER_MS)
    * - Safe to purge (no pending uploads, server has latest, not open)
    *
    * @returns Object with arrays of purged and skipped service IDs
    */
   async hardPurgeInactiveServices(): Promise<{ purged: string[]; skipped: string[] }> {
-    const PURGE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+    const PURGE_AFTER_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
     const cutoff = Date.now() - PURGE_AFTER_MS;
 
     const purged: string[] = [];
