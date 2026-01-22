@@ -172,62 +172,107 @@ export class VisualFieldRepoService {
 
     console.log(`[VisualFieldRepo] Merging ${categoryVisuals.length} existing visuals for ${category}`);
 
-    // DEBUG: Show first visual's fields
-    if (categoryVisuals.length > 0) {
-      const firstVisual = categoryVisuals[0];
-      alert(`[DEBUG mergeVisuals] First visual keys:\n${Object.keys(firstVisual).join(', ')}\n\nVisualTemplateID: ${firstVisual.VisualTemplateID}\ntemplateId: ${firstVisual.templateId}\nTemplateID: ${firstVisual.TemplateID}`);
+    const now = Date.now();
+
+    // Get all existing visualFields for this category to match by name+text
+    const existingFields = await db.visualFields
+      .where('[serviceId+category]')
+      .equals([serviceId, category])
+      .toArray();
+
+    // Build maps for matching - try multiple strategies
+    // Key 1: name+text combined (most specific)
+    // Key 2: text alone (for cases where name might differ)
+    // Key 3: name alone (fallback)
+    const fieldsByNameAndText = new Map<string, VisualField>();
+    const fieldsByText = new Map<string, VisualField>();
+    const fieldsByName = new Map<string, VisualField>();
+
+    for (const field of existingFields) {
+      const name = (field.templateName || '').toLowerCase().trim();
+      const text = (field.templateText || '').toLowerCase().trim();
+
+      if (name && text) {
+        fieldsByNameAndText.set(`${name}|${text}`, field);
+      }
+      if (text) {
+        fieldsByText.set(text, field);
+      }
+      if (name) {
+        fieldsByName.set(name, field);
+      }
     }
 
-    const now = Date.now();
+    console.log(`[VisualFieldRepo] Found ${existingFields.length} existing fields for matching`);
 
     // Apply updates/inserts in transaction
     await db.transaction('rw', db.visualFields, async () => {
       for (const visual of categoryVisuals) {
-        const templateId = visual.VisualTemplateID || visual.templateId;
-        if (!templateId) continue;
-
-        const key = `${serviceId}:${category}:${templateId}`;
-        const existing = await db.visualFields.where('key').equals(key).first();
-
         const visualId = visual.VisualID || visual.PK_ID || null;
+        const visualName = (visual.Name || '').trim();
+        const visualText = (visual.Text || '').trim();
+        const nameLower = visualName.toLowerCase();
+        const textLower = visualText.toLowerCase();
 
-        if (existing) {
-          // Update existing field
-          await db.visualFields.update(existing.id!, {
+        // Try to find matching field - most specific first
+        let matchingField: VisualField | undefined;
+
+        // Strategy 1: Match by name + text (most accurate)
+        if (nameLower && textLower) {
+          matchingField = fieldsByNameAndText.get(`${nameLower}|${textLower}`);
+        }
+
+        // Strategy 2: Match by text alone
+        if (!matchingField && textLower) {
+          matchingField = fieldsByText.get(textLower);
+        }
+
+        // Strategy 3: Match by name alone (least specific)
+        if (!matchingField && nameLower) {
+          matchingField = fieldsByName.get(nameLower);
+        }
+
+        if (matchingField) {
+          // Update existing field - matched to template
+          await db.visualFields.update(matchingField.id!, {
             isSelected: true,
-            answer: visual.VisualText || visual.Answer || '',
+            answer: visualText || visual.Answers || '',
             otherValue: visual.OtherValue || '',
             visualId: visualId ? String(visualId) : null,
-            tempVisualId: visual.tempId || null,
+            tempVisualId: null,
             photoCount: visual.photoCount || 0,
             updatedAt: now,
             dirty: false
           });
+          console.log(`[VisualFieldRepo] Updated visualField by template match: ${visualName}`);
         } else {
-          // CREATE new record if it doesn't exist (e.g., after purge)
-          // This handles rehydration when templates weren't seeded
+          // No template match - create entry anyway (handles custom visuals)
+          // Use visualId as the "templateId" since we don't have the real one
+          const syntheticTemplateId = visualId || Date.now();
+          const key = `${serviceId}:${category}:${syntheticTemplateId}`;
+
           const newField: VisualField = {
             key,
             serviceId,
             category,
-            templateId: Number(templateId),
-            templateName: visual.VisualName || visual.Name || '',
-            templateText: visual.VisualText || visual.Text || '',
+            templateId: Number(syntheticTemplateId),
+            templateName: visualName,
+            templateText: visualText,
             kind: visual.Kind || 'Comment',
-            answerType: visual.AnswerType || 0,
+            answerType: 0,
             dropdownOptions: undefined,
             isSelected: true,
-            answer: visual.VisualText || visual.Answer || '',
+            answer: visualText || visual.Answers || '',
             otherValue: visual.OtherValue || '',
             visualId: visualId ? String(visualId) : null,
-            tempVisualId: visual.tempId || null,
+            tempVisualId: null,
             photoCount: visual.photoCount || 0,
             rev: 0,
             updatedAt: now,
             dirty: false
           };
           await db.visualFields.add(newField);
-          console.log(`[VisualFieldRepo] Created new visualField for ${key}`);
+          console.log(`[VisualFieldRepo] Created visualField (custom/no template): ${visualName}`);
         }
       }
     });
