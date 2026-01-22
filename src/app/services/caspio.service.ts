@@ -4466,8 +4466,8 @@ export class CaspioService {
   }
 
   updateProject(projectId: string | number, updateData: any): Observable<any> {
-    // Note: LPS_Projects table uses ProjectID as primary identifier, not PK_ID
-    const endpoint = `/tables/LPS_Projects/records?q.where=ProjectID=${projectId}`;
+    // Note: Caspio REST API requires PK_ID for PUT operations
+    const endpoint = `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
     console.log('[CaspioService] updateProject called with:', { projectId, updateData, endpoint });
     return this.put<any>(endpoint, updateData).pipe(
       tap(response => console.log('[CaspioService] updateProject success:', response)),

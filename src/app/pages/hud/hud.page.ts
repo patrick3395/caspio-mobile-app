@@ -2582,9 +2582,13 @@ export class HudPage implements OnInit, AfterViewInit, OnDestroy {
       const draftKey = `efe_template_${this.projectId}_${this.serviceId}`;
       localStorage.removeItem(draftKey);
 
-      // Navigate back
-      this.router.navigate(['/project', this.projectId]);
-      
+      // Navigate back - use replaceUrl on web to avoid template staying in browser history
+      if (environment.isWeb) {
+        this.router.navigate(['/project', this.projectId], { replaceUrl: true });
+      } else {
+        this.router.navigate(['/project', this.projectId]);
+      }
+
     } catch (error) {
       console.error('Error submitting template:', error);
       await loading.dismiss();

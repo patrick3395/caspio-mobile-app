@@ -140,7 +140,12 @@ export class HudContainerPage implements OnInit {
 
   navigateToHome() {
     // Navigate back to the project detail page
-    this.router.navigate(['/project', this.projectId]);
+    // Use replaceUrl on web to avoid template staying in browser history
+    if (environment.isWeb) {
+      this.router.navigate(['/project', this.projectId], { replaceUrl: true });
+    } else {
+      this.router.navigate(['/project', this.projectId]);
+    }
   }
 
   navigateToCrumb(crumb: Breadcrumb) {
