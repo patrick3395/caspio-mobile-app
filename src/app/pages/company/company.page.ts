@@ -5775,7 +5775,6 @@ export class CompanyPage implements OnInit, OnDestroy {
               await db.cachedServiceData.clear();
               await db.serviceMetadata.clear();
               await db.uploadOutbox.clear();
-              await db.captionOutbox.clear();
 
               await loading.dismiss();
 
