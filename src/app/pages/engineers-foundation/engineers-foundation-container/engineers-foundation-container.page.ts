@@ -139,6 +139,33 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
         this.subscribeToSyncEvents();
       }
 
+      // ========== REHYDRATION CHECK (runs every time, not just new service) ==========
+      // Check if service was purged and needs data restored
+      // This must run even for "same service" because user might have force purged
+      if (!environment.isWeb && this.offlineService.isOnline()) {
+        try {
+          const needsRehydration = await this.foundationData.needsRehydration(newServiceId);
+          if (needsRehydration) {
+            alert(`[Container] Service needs rehydration - starting...`);
+
+            // Show loading screen for rehydration
+            this.templateReady = false;
+            this.downloadProgress = 'Restoring data from server...';
+            this.changeDetectorRef.detectChanges();
+
+            const result = await this.foundationData.rehydrateService(newServiceId);
+
+            if (result.success) {
+              alert(`[Container] Rehydration SUCCESS!\nVisuals: ${result.restored.visuals}\nEFE Rooms: ${result.restored.efeRooms}\nAttachments: ${result.restored.visualAttachments + result.restored.efeAttachments}`);
+            } else {
+              alert(`[Container] Rehydration FAILED: ${result.error}`);
+            }
+          }
+        } catch (err) {
+          console.error('[EF Container] Rehydration check failed:', err);
+        }
+      }
+
       // US-002 FIX: Only show loading and re-download if this is a NEW service
       // CRITICAL: Never show loading overlay for same service - even if templateReady is false
       if (isNewService || isFirstLoad) {
@@ -501,30 +528,8 @@ export class EngineersFoundationContainerPage implements OnInit, OnDestroy {
 
     const isOnline = this.offlineService.isOnline();
 
-    // ========== REHYDRATION CHECK ==========
-    // Check if service was purged and needs data restored from server
-    // This happens BEFORE normal template download
-    if (isOnline) {
-      try {
-        const needsRehydration = await this.foundationData.needsRehydration(this.serviceId);
-
-        if (needsRehydration) {
-          alert(`[Container] Service needs rehydration - starting...`);
-          this.downloadProgress = 'Restoring data from server...';
-          this.changeDetectorRef.detectChanges();
-
-          const result = await this.foundationData.rehydrateService(this.serviceId);
-
-          if (result.success) {
-            alert(`[Container] Rehydration SUCCESS!\nVisuals: ${result.restored.visuals}\nEFE Rooms: ${result.restored.efeRooms}\nAttachments: ${result.restored.visualAttachments + result.restored.efeAttachments}`);
-          } else {
-            alert(`[Container] Rehydration FAILED: ${result.error}`);
-          }
-        }
-      } catch (err) {
-        console.error('[EF Container] Rehydration check failed:', err);
-      }
-    }
+    // NOTE: Rehydration check now happens BEFORE downloadTemplateData() is called
+    // in the ngOnInit route.params subscription, so it runs even for "same service"
 
     if (isOnline) {
       // ONLINE: Always download fresh data
