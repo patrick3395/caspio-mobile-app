@@ -42,10 +42,10 @@ Plans:
   2. Sync events are debounced to prevent UI thrashing during rapid operations
   3. Background sync completion triggers coordinated page refresh
   4. Photo upload completion properly refreshes affected components
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 02-01: TBD (to be defined during planning)
+- [ ] 02-01-PLAN.md — Add cacheInvalidated$ Subject, debounced emission, and comprehensive Dexie subscriptions
 
 ### Phase 3: Category Detail Integration
 **Goal**: Category detail pages use Dexie-first pattern with reactive updates, write-through changes, and mobile-responsive styling
@@ -84,7 +84,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Container Enhancements | 2/2 | Complete | 2026-01-23 |
-| 2. Data Service Enhancement | 0/? | Not started | - |
+| 2. Data Service Enhancement | 0/1 | Planned | - |
 | 3. Category Detail Integration | 0/? | Not started | - |
 | 4. Validation and Polish | 0/? | Not started | - |
 
