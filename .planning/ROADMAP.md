@@ -57,11 +57,12 @@ Plans:
   3. Changes queue to Caspio API via HudOperationsQueueService (background sync)
   4. Photos appear immediately with local blob URLs before upload completes
   5. Mobile styling matches engineers-foundation layout and spacing exactly
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Add race condition guards and debounce patterns to TypeScript
-- [ ] 03-02-PLAN.md — Update SCSS to edge-to-edge mobile styling with CSS Grid photos
+- [x] 03-01-PLAN.md — Add race condition guards and debounce patterns to TypeScript
+- [x] 03-02-PLAN.md — Update SCSS to edge-to-edge mobile styling with CSS Grid photos
+- [ ] 03-03-PLAN.md — Wire toggleItemSelection to mobile write-through path (gap closure)
 
 ### Phase 4: Validation and Polish
 **Goal**: Complete system works end-to-end with proper finalization sync and error recovery
@@ -86,9 +87,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Container Enhancements | 2/2 | Complete | 2026-01-23 |
 | 2. Data Service Enhancement | 1/1 | Complete | 2026-01-23 |
-| 3. Category Detail Integration | 0/2 | Planned | - |
+| 3. Category Detail Integration | 2/3 | Gap closure pending | - |
 | 4. Validation and Polish | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-23 (Phase 3 planned)*
+*Last updated: 2026-01-23 (Phase 3 gap closure plan added)*
