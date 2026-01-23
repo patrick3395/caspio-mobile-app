@@ -229,6 +229,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       this.captionSyncCompleteSubscription.unsubscribe();
     }
 
+    // Clean up liveQuery debounce timer
+    if (this.liveQueryDebounceTimer) {
+      clearTimeout(this.liveQueryDebounceTimer);
+      this.liveQueryDebounceTimer = null;
+    }
+
     console.log('[HUD CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
@@ -344,6 +350,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
    * Maps Dexie HudField data to UI state
    */
   private async processLiveFieldUpdates(fields: HudField[]): Promise<void> {
+    // Skip if camera capture in progress to prevent duplicates with annotated photos
+    if (this.isCameraCaptureInProgress) {
+      console.log('[HUD-CATEGORY-DETAIL] Skipping liveQuery during camera capture');
+      return;
+    }
+
     for (const field of fields) {
       if (!field.isSelected) {
         continue;
@@ -373,7 +385,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       }
     }
 
-    this.changeDetectorRef.detectChanges();
+    // Debounce change detection to prevent UI thrashing from rapid liveQuery updates
+    if (this.liveQueryDebounceTimer) {
+      clearTimeout(this.liveQueryDebounceTimer);
+    }
+    this.liveQueryDebounceTimer = setTimeout(() => {
+      this.liveQueryDebounceTimer = null;
+      this.changeDetectorRef.detectChanges();
+    }, 100);
   }
 
   /**
