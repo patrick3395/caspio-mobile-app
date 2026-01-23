@@ -4,6 +4,8 @@ import { CaspioService } from '../../../services/caspio.service';
 import { PlatformDetectionService } from '../../../services/platform-detection.service';
 import { HudFieldRepoService } from './hud-field-repo.service';
 import { ImageCompressionService } from '../../../services/image-compression.service';
+import { LocalImageService } from '../../../services/local-image.service';
+import { IndexedDbService, ImageEntityType } from '../../../services/indexed-db.service';
 import { compressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../utils/annotation-utils';
 
 /**
@@ -34,7 +36,9 @@ export class HudOperationsQueueService {
     private caspioService: CaspioService,
     private platform: PlatformDetectionService,
     private hudFieldRepo: HudFieldRepoService,
-    private imageCompression: ImageCompressionService
+    private imageCompression: ImageCompressionService,
+    private localImageService: LocalImageService,
+    private indexedDb: IndexedDbService
   ) {}
 
   // ============================================================================
@@ -114,8 +118,16 @@ export class HudOperationsQueueService {
     });
 
     // Register UPLOAD_HUD_PHOTO executor
+    // This executor handles the upload when file is provided directly (legacy path)
+    // For new local-first uploads, use HudS3UploadService which uses 3-step queue process
     this.operationsQueue.setExecutor('UPLOAD_HUD_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
       console.log('[HudOperationsQueue] Executing UPLOAD_HUD_PHOTO for HUD:', data.hudId);
+
+      // Check if this is a LocalImage-based upload (has imageId)
+      if (data.imageId) {
+        // Mark the LocalImage as uploading
+        await this.localImageService.updateStatus(data.imageId, 'uploading');
+      }
 
       // Compress the file first
       const compressedFile = await this.imageCompression.compressImage(data.file, {
@@ -154,8 +166,17 @@ export class HudOperationsQueueService {
 
       if (onProgress) onProgress(1.0); // 100% complete
 
-      console.log('[HudOperationsQueue] HUD photo uploaded successfully:', response?.AttachID);
-      return { attachId: response?.AttachID || response?.PK_ID, response };
+      const attachId = response?.AttachID || response?.Result?.[0]?.AttachID || response?.PK_ID;
+      const s3Key = response?.Attachment || response?.Result?.[0]?.Attachment;
+
+      console.log('[HudOperationsQueue] HUD photo uploaded successfully:', attachId);
+
+      // If this is a LocalImage-based upload, update the LocalImage status
+      if (data.imageId && attachId) {
+        await this.localImageService.markUploaded(data.imageId, s3Key || '', String(attachId));
+      }
+
+      return { attachId, s3Key, response };
     });
 
     this.executorsRegistered = true;
@@ -348,6 +369,9 @@ export class HudOperationsQueueService {
   /**
    * Enqueue an UPLOAD_HUD_PHOTO operation with dependency on visual creation
    *
+   * RECOMMENDED: For new implementations, use HudS3UploadService.captureHudPhoto()
+   * which stores photos in LocalImages table first and uses the 3-step queue process.
+   *
    * @param hudId - HUD ID (or temp ID if visual not yet created)
    * @param file - Photo file to upload
    * @param caption - Photo caption/annotation
@@ -355,6 +379,7 @@ export class HudOperationsQueueService {
    * @param fieldKey - HudField key for tracking
    * @param dependsOnOpId - Operation ID to wait for (visual creation)
    * @param callbacks - Optional success/error/progress callbacks
+   * @param imageId - Optional LocalImage ID for local-first uploads
    * @returns Operation ID
    */
   async enqueueUploadHudPhoto(
@@ -368,15 +393,18 @@ export class HudOperationsQueueService {
       onSuccess?: (result: any) => void;
       onError?: (error: any) => void;
       onProgress?: (percent: number) => void;
-    }
+    },
+    imageId?: string  // LocalImage ID for local-first uploads
   ): Promise<string> {
     if (!this.isQueueEnabled()) {
       throw new Error('Operations queue is only available on mobile');
     }
 
     // Deduplication: prevent duplicate uploads of same photo
-    // Use file name + size + field key for uniqueness
-    const dedupeKey = `hud_photo_${fieldKey}_${file.name}_${file.size}`;
+    // Use imageId if available (more stable), otherwise file name + size + field key
+    const dedupeKey = imageId
+      ? `hud_photo_${imageId}`
+      : `hud_photo_${fieldKey}_${file.name}_${file.size}`;
 
     // Build dependencies array
     const dependencies: string[] = [];
@@ -391,7 +419,8 @@ export class HudOperationsQueueService {
         file,
         caption,
         annotationData,
-        _meta: { fieldKey }
+        imageId,  // Pass imageId for LocalImage integration
+        _meta: { fieldKey, imageId }
       },
       dedupeKey,
       dependencies,
@@ -409,8 +438,13 @@ export class HudOperationsQueueService {
           callbacks.onSuccess(result);
         }
       },
-      onError: (error: any) => {
+      onError: async (error: any) => {
         console.error(`[HudOperationsQueue] UPLOAD_HUD_PHOTO failed for ${fieldKey}:`, error);
+
+        // If LocalImage-based upload, mark as failed
+        if (imageId) {
+          await this.localImageService.markFailed(imageId, error?.message || 'Upload failed');
+        }
 
         if (callbacks?.onError) {
           callbacks.onError(error);
