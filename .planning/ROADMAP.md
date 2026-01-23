@@ -73,10 +73,11 @@ Plans:
   2. Offline operations sync correctly when connectivity returns
   3. Finalization reads from Dexie cache and syncs changes before completing
   4. IndexedDB connection errors recover gracefully without data loss
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD (to be defined during planning)
+- [ ] 04-01-PLAN.md — Add missing finalization sync steps (forceSyncAllPendingForService + dirty flag cleanup)
+- [ ] 04-02-PLAN.md — End-to-end device validation checkpoint
 
 ## Progress
 
@@ -88,7 +89,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Container Enhancements | 2/2 | Complete | 2026-01-23 |
 | 2. Data Service Enhancement | 1/1 | Complete | 2026-01-23 |
 | 3. Category Detail Integration | 3/3 | Complete | 2026-01-23 |
-| 4. Validation and Polish | 0/? | Not started | - |
+| 4. Validation and Polish | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
