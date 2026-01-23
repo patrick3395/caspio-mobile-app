@@ -178,6 +178,34 @@ export interface VisualField {
   dirty: boolean;                 // true until backend sync acknowledges
 }
 
+/**
+ * HudField - Normalized field-level storage for HUD (Heating/Utilities/etc.) items
+ * Each template item gets one row per service/category
+ * Follows VisualField pattern for Dexie-first architecture
+ * MOBILE ONLY: Dexie-first is only enabled on Capacitor.isNativePlatform()
+ */
+export interface HudField {
+  id?: number;                    // Auto-increment primary key
+  key: string;                    // Deterministic: ${serviceId}:${category}:${templateId}
+  serviceId: string;
+  category: string;
+  templateId: number;
+  templateName: string;           // Name from template for display
+  templateText: string;           // Text/description from template
+  kind: 'Comment' | 'Limitation' | 'Deficiency';
+  answerType: number;             // 0=none, 1=text, 2=dropdown
+  dropdownOptions?: string[];     // Parsed dropdown options if answerType=2
+  isSelected: boolean;            // User selected this item
+  answer: string;                 // User's answer/notes
+  otherValue: string;             // "Other" field value
+  hudId: string | null;           // Real HUD ID after sync (null if pending)
+  tempHudId: string | null;       // Temp ID while pending sync
+  photoCount: number;             // Number of photos attached
+  rev: number;                    // Increment on every local write
+  updatedAt: number;              // Date.now() on update
+  dirty: boolean;                 // true until backend sync acknowledges
+}
+
 // ============================================================================
 // DEXIE DATABASE CLASS
 // ============================================================================
@@ -198,6 +226,7 @@ export class CaspioDB extends Dexie {
   operationsQueue!: Table<QueuedOperation, string>;
   visualFields!: Table<VisualField, number>;
   efeFields!: Table<EfeField, number>;
+  hudFields!: Table<HudField, number>;
   serviceMetadata!: Table<ServiceMetadata, string>;
 
   // MOBILE FIX: Cache last known good results for liveQueries
@@ -215,6 +244,9 @@ export class CaspioDB extends Dexie {
 
   // Cache for single EFE fields by key (serviceId:roomName)
   private _lastEfeFieldCache: Map<string, EfeField | undefined> = new Map();
+
+  // Cache for HUD fields by service ID + category
+  private _lastHudFieldsCache: Map<string, HudField[]> = new Map();
 
   constructor() {
     super('CaspioOfflineDB');
@@ -373,6 +405,45 @@ export class CaspioDB extends Dexie {
           img.thumbBlobId = null;
         }
       });
+    });
+
+    // Version 11: Add hudFields table for HUD Dexie-first architecture (MOBILE ONLY)
+    // This table stores field-level HUD data for instant page rendering on mobile
+    this.version(11).stores({
+      // Local-first image system
+      localImages: 'imageId, entityType, entityId, serviceId, status, attachId, createdAt, [entityType+entityId], [serviceId+entityType]',
+      localBlobs: 'blobId, createdAt',
+      uploadOutbox: 'opId, imageId, nextRetryAt, createdAt',
+
+      // Core sync system
+      pendingRequests: 'requestId, timestamp, status, priority, tempId',
+      tempIdMappings: 'tempId, realId, type',
+
+      // Caching
+      cachedServiceData: 'cacheKey, serviceId, dataType, lastUpdated',
+      cachedTemplates: 'cacheKey, type, lastUpdated',
+      cachedPhotos: 'photoKey, attachId, serviceId, cachedAt',
+
+      // Pending data
+      pendingCaptions: 'captionId, attachId, attachType, status, serviceId, createdAt',
+      pendingEFEData: 'tempId, serviceId, type, parentId',
+      pendingImages: 'imageId, requestId, status, serviceId, visualId',
+
+      // Operations queue
+      operationsQueue: 'id, type, status, createdAt, dedupeKey',
+
+      // Visual fields - normalized field-level storage for reactive UI
+      visualFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt',
+
+      // EFE fields - normalized room-level storage for elevation plot
+      efeFields: '++id, key, serviceId, roomName, [serviceId+roomName], efeId, tempEfeId, dirty, updatedAt',
+
+      // Service metadata - tracks service activity for storage bloat prevention
+      serviceMetadata: 'serviceId, lastTouchedAt, purgeState, [purgeState+lastTouchedAt]',
+
+      // HUD fields (v11) - normalized field-level storage for HUD reactive UI (MOBILE ONLY)
+      // Compound indexes enable fast queries by [serviceId+category] for page rendering
+      hudFields: '++id, key, [serviceId+category], [serviceId+category+templateId], serviceId, dirty, updatedAt'
     });
 
     // Log successful database open
@@ -864,6 +935,106 @@ export class CaspioDB extends Dexie {
       this.efeFields.where('dirty').equals(1).toArray()
     );
     return this.toRxObservable<EfeField[]>(query);
+  }
+
+  // ============================================================================
+  // HUD FIELDS - REACTIVE QUERIES FOR DEXIE-FIRST ARCHITECTURE (MOBILE ONLY)
+  // ============================================================================
+
+  /**
+   * Live query for HUD fields by service and category
+   * This is the primary query for rendering HUD category detail pages on mobile
+   * Auto-updates when ANY field in the category changes
+   *
+   * MOBILE FIX: Caches last known good result and returns it on error
+   * This prevents the page from hanging when IndexedDB has temporary connection issues
+   * during photo upload transactions (common on mobile WebView)
+   */
+  liveHudFields$(serviceId: string, category: string): Observable<HudField[]> {
+    const cacheKey = `${serviceId}:${category}`;
+    const query = liveQuery(async () => {
+      try {
+        // MOBILE FIX: Check if database connection is open, reopen if needed
+        if (!this.isOpen()) {
+          console.log('[LIVEQUERY] liveHudFields$ - Database not open, reopening...');
+          await this.open();
+        }
+
+        const fields = await this.hudFields
+          .where('[serviceId+category]')
+          .equals([serviceId, category])
+          .toArray();
+        console.log(`[LIVEQUERY] liveHudFields$: serviceId=${serviceId}, category=${category}, fields=${fields.length}`);
+
+        // Cache the successful result
+        this._lastHudFieldsCache.set(cacheKey, fields);
+
+        return fields;
+      } catch (err: any) {
+        console.error('[LIVEQUERY ERROR] liveHudFields$:', err?.message || err);
+
+        // MOBILE FIX: On connection lost, try to reopen database
+        if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
+          console.log('[LIVEQUERY] liveHudFields$ - Connection lost, attempting to reopen database...');
+          try {
+            await this.close();
+            await this.open();
+            // Retry the query after reopening
+            const fields = await this.hudFields
+              .where('[serviceId+category]')
+              .equals([serviceId, category])
+              .toArray();
+            console.log('[LIVEQUERY] liveHudFields$ - Reconnected successfully');
+            this._lastHudFieldsCache.set(cacheKey, fields);
+            return fields;
+          } catch (retryErr) {
+            console.error('[LIVEQUERY] liveHudFields$ - Retry failed:', retryErr);
+          }
+        }
+
+        // CRITICAL FIX: Return cached data instead of empty array on error
+        // This prevents the page from hanging when IndexedDB has temporary issues
+        const cached = this._lastHudFieldsCache.get(cacheKey);
+        if (cached) {
+          console.log('[LIVEQUERY] liveHudFields$ - Returning cached data to prevent hang');
+          return cached;
+        }
+
+        // Only return empty array if we have no cached data (first run)
+        return [];
+      }
+    });
+    return this.toRxObservable<HudField[]>(query);
+  }
+
+  /**
+   * Live query for a single HUD field by key
+   */
+  liveHudField$(key: string): Observable<HudField | undefined> {
+    const query = liveQuery(() =>
+      this.hudFields.where('key').equals(key).first()
+    );
+    return this.toRxObservable<HudField | undefined>(query);
+  }
+
+  /**
+   * Live query for dirty HUD fields (pending sync)
+   */
+  liveDirtyHudFields$(): Observable<HudField[]> {
+    const query = liveQuery(() =>
+      this.hudFields.where('dirty').equals(1).toArray()
+    );
+    return this.toRxObservable<HudField[]>(query);
+  }
+
+  /**
+   * Live query for all HUD fields for a service (all categories)
+   */
+  liveAllHudFieldsForService$(serviceId: string): Observable<HudField[]> {
+    const query = liveQuery(() =>
+      this.hudFields.where('serviceId').equals(serviceId).toArray()
+    );
+    return this.toRxObservable<HudField[]>(query);
   }
 
   // ============================================================================
