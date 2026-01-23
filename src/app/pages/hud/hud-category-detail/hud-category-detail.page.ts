@@ -10,11 +10,14 @@ import { CameraService } from '../../../services/camera.service';
 import { ImageCompressionService } from '../../../services/image-compression.service';
 import { CacheService } from '../../../services/cache.service';
 import { HudDataService } from '../hud-data.service';
+import { HudFieldRepoService } from '../services/hud-field-repo.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
-import { IndexedDbService } from '../../../services/indexed-db.service';
+import { IndexedDbService, LocalImage } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { LocalImageService } from '../../../services/local-image.service';
+import { HudField } from '../../../services/caspio-db';
 import { environment } from '../../../../environments/environment';
 
 interface VisualItem {
@@ -86,6 +89,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   private taskSubscription?: Subscription;
   private photoSyncSubscription?: Subscription;
 
+  // HUD-010: LiveQuery subscriptions for mobile
+  private hudFieldsSubscription?: Subscription;
+  private hudSyncCompleteSubscription?: Subscription;
+  private hudPhotoUploadCompleteSubscription?: Subscription;
+
+  // HUD-010: Track if we're on mobile for Dexie-first approach
+  private isMobile: boolean = false;
+
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -106,15 +117,25 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     private cameraService: CameraService,
     private imageCompression: ImageCompressionService,
     private hudData: HudDataService,
+    private hudFieldRepo: HudFieldRepoService,
     private backgroundUploadService: BackgroundPhotoUploadService,
     private cache: CacheService,
     private indexedDb: IndexedDbService,
-    private backgroundSync: BackgroundSyncService
-  ) {}
+    private backgroundSync: BackgroundSyncService,
+    private localImageService: LocalImageService
+  ) {
+    // HUD-010: Detect mobile platform for Dexie-first approach
+    this.isMobile = this.hudData.isMobile();
+  }
 
   async ngOnInit() {
     // Subscribe to background upload task updates
     this.subscribeToUploadUpdates();
+
+    // HUD-010: Subscribe to sync events for automatic refresh on mobile
+    if (this.isMobile) {
+      this.subscribeToSyncEvents();
+    }
 
     // Get category name from route
     this.route.params.subscribe(params => {
@@ -130,6 +151,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         console.log('Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
         if (this.projectId && this.serviceId && this.categoryName) {
+          // HUD-010: On mobile, subscribe to liveQuery for reactive updates
+          if (this.isMobile) {
+            this.subscribeToLiveHudFields();
+          }
           this.loadData();
         } else {
           console.error('Missing required route params');
@@ -140,10 +165,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   ionViewWillEnter() {
-    // WEBAPP: Clear loading state when returning to this page
+    // WEBAPP: Use traditional ionViewWillEnter data loading
     if (environment.isWeb) {
       this.loading = false;
       this.changeDetectorRef.detectChanges();
+      // Reload data on page return for webapp
+      if (this.projectId && this.serviceId && this.categoryName) {
+        this.loadData();
+      }
     }
   }
 
@@ -158,6 +187,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     if (this.photoSyncSubscription) {
       this.photoSyncSubscription.unsubscribe();
     }
+
+    // HUD-010: Clean up LiveQuery subscriptions to prevent memory leaks
+    if (this.hudFieldsSubscription) {
+      this.hudFieldsSubscription.unsubscribe();
+    }
+    if (this.hudSyncCompleteSubscription) {
+      this.hudSyncCompleteSubscription.unsubscribe();
+    }
+    if (this.hudPhotoUploadCompleteSubscription) {
+      this.hudPhotoUploadCompleteSubscription.unsubscribe();
+    }
+
     console.log('[HUD CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
 
@@ -236,6 +277,234 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  /**
+   * HUD-010: Subscribe to liveHudFields$ for reactive UI updates on mobile
+   * Auto-updates UI when field data changes in Dexie
+   */
+  private subscribeToLiveHudFields(): void {
+    if (!this.isMobile || !this.serviceId || !this.categoryName) {
+      return;
+    }
+
+    console.log('[HUD-010] Subscribing to liveHudFields$ for:', this.serviceId, this.categoryName);
+
+    // Unsubscribe from any existing subscription
+    if (this.hudFieldsSubscription) {
+      this.hudFieldsSubscription.unsubscribe();
+    }
+
+    this.hudFieldsSubscription = this.hudFieldRepo.liveHudFields$(this.serviceId, this.categoryName)
+      .subscribe({
+        next: async (fields: HudField[]) => {
+          console.log('[HUD-010] LiveQuery update received:', fields.length, 'fields');
+
+          // Process field updates and update UI
+          await this.processLiveFieldUpdates(fields);
+        },
+        error: (err) => {
+          console.error('[HUD-010] LiveQuery error:', err);
+        }
+      });
+  }
+
+  /**
+   * HUD-010: Process field updates from liveQuery
+   * Maps Dexie HudField data to UI state
+   */
+  private async processLiveFieldUpdates(fields: HudField[]): Promise<void> {
+    for (const field of fields) {
+      if (!field.isSelected) {
+        continue;
+      }
+
+      const key = `${field.category}_${field.templateId}`;
+      const hudId = field.hudId || field.tempHudId || '';
+
+      // Update selection state
+      this.selectedItems[key] = true;
+
+      // Store visual record ID if we have one
+      if (hudId) {
+        this.visualRecordIds[key] = hudId;
+      }
+
+      // Update answer in matching template item
+      const item = this.findItemByTemplateId(field.templateId);
+      if (item) {
+        item.answer = field.answer || '';
+        item.otherValue = field.otherValue || '';
+      }
+
+      // HUD-010: Load photos from LocalImages (no server round-trip on mobile)
+      if (hudId) {
+        await this.loadPhotosFromLocalImages(hudId, key);
+      }
+    }
+
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * HUD-010: Subscribe to sync events for automatic refresh on mobile
+   * Triggers UI update when sync completes
+   */
+  private subscribeToSyncEvents(): void {
+    if (!this.isMobile) {
+      return;
+    }
+
+    console.log('[HUD-010] Subscribing to sync events for automatic refresh');
+
+    // Subscribe to HUD sync complete events
+    this.hudSyncCompleteSubscription = this.backgroundSync.hudSyncComplete$.subscribe(
+      async (event) => {
+        console.log('[HUD-010] Sync complete event:', event.operation, 'for', event.fieldKey);
+
+        // Check if this event is for our current service/category
+        if (event.serviceId === this.serviceId) {
+          const category = event.fieldKey.split(':')[1];
+          if (category === this.categoryName) {
+            console.log('[HUD-010] Sync complete for current category - refreshing photos');
+            // Refresh photos for the affected field
+            const templateId = event.fieldKey.split(':')[2];
+            const key = `${this.categoryName}_${templateId}`;
+            const hudId = this.visualRecordIds[key];
+            if (hudId) {
+              await this.loadPhotosFromLocalImages(hudId, key);
+              this.changeDetectorRef.detectChanges();
+            }
+          }
+        }
+      }
+    );
+
+    // Subscribe to HUD photo upload complete events
+    this.hudPhotoUploadCompleteSubscription = this.backgroundSync.hudPhotoUploadComplete$.subscribe(
+      async (event) => {
+        console.log('[HUD-010] Photo upload complete:', event.imageId);
+
+        // Find and update the photo in our visualPhotos
+        for (const key of Object.keys(this.visualPhotos)) {
+          const photoIndex = this.visualPhotos[key].findIndex(p =>
+            p._localImageId === event.imageId ||
+            p.imageId === event.imageId
+          );
+
+          if (photoIndex !== -1) {
+            console.log('[HUD-010] Found photo at key:', key, 'index:', photoIndex);
+
+            // Refresh the photo display from LocalImages
+            const hudId = this.visualRecordIds[key];
+            if (hudId) {
+              await this.loadPhotosFromLocalImages(hudId, key);
+              this.changeDetectorRef.detectChanges();
+            }
+            break;
+          }
+        }
+      }
+    );
+  }
+
+  /**
+   * HUD-010: Load photos from LocalImages (local-first, no server round-trip)
+   * displayUrl ALWAYS points to local blob on mobile
+   */
+  private async loadPhotosFromLocalImages(hudId: string, key: string): Promise<void> {
+    if (!this.isMobile) {
+      // Fall back to traditional photo loading for webapp
+      await this.loadPhotosForVisual(hudId, key);
+      return;
+    }
+
+    try {
+      console.log('[HUD-010] Loading photos from LocalImages for HUD:', hudId, 'key:', key);
+
+      // Get all local images for this HUD entity
+      const localImages = await this.localImageService.getImagesForEntity('hud', hudId);
+      console.log('[HUD-010] Found', localImages.length, 'local images');
+
+      if (localImages.length === 0) {
+        // No local images - check API cache for synced images
+        await this.loadPhotosForVisual(hudId, key);
+        return;
+      }
+
+      // Initialize photo array if needed
+      if (!this.visualPhotos[key]) {
+        this.visualPhotos[key] = [];
+      }
+
+      // Process each local image
+      for (const localImage of localImages) {
+        // Get display info with resolved URL (always local blob on mobile)
+        const displayInfo = await this.localImageService.getDisplayInfo(localImage);
+
+        const existingIndex = this.visualPhotos[key].findIndex(p =>
+          p.imageId === localImage.imageId ||
+          p._localImageId === localImage.imageId ||
+          (localImage.attachId && String(p.AttachID) === String(localImage.attachId))
+        );
+
+        const photoData: any = {
+          // HUD-010: Use stable imageId as primary key
+          imageId: localImage.imageId,
+          _localImageId: localImage.imageId,
+          AttachID: localImage.attachId || localImage.imageId,
+          attachId: localImage.attachId || localImage.imageId,
+          id: localImage.attachId || localImage.imageId,
+          name: localImage.fileName,
+          filePath: localImage.remoteS3Key || '',
+          Photo: localImage.remoteS3Key || '',
+          // HUD-010: displayUrl ALWAYS points to local blob on mobile
+          url: displayInfo.displayUrl,
+          originalUrl: displayInfo.displayUrl,
+          thumbnailUrl: displayInfo.displayUrl,
+          displayUrl: displayInfo.displayUrl,
+          // Display state
+          displayState: displayInfo.isLocal ? 'local' : 'cached',
+          isLocal: displayInfo.isLocal,
+          loading: displayInfo.isLoading,
+          // Metadata
+          caption: localImage.caption || '',
+          annotation: localImage.caption || '',
+          Annotation: localImage.caption || '',
+          hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
+          Drawings: localImage.drawings || null,
+          // Status
+          uploading: displayInfo.status === 'uploading',
+          queued: displayInfo.status === 'queued',
+          uploadFailed: displayInfo.hasError,
+          status: displayInfo.status
+        };
+
+        if (existingIndex !== -1) {
+          // Update existing photo, preserving upload state
+          const existing = this.visualPhotos[key][existingIndex];
+          this.visualPhotos[key][existingIndex] = {
+            ...photoData,
+            // Preserve upload progress if still uploading
+            uploading: existing.uploading || photoData.uploading,
+            progress: existing.progress
+          };
+        } else {
+          this.visualPhotos[key].push(photoData);
+        }
+      }
+
+      // Update photo count
+      this.photoCountsByKey[key] = this.visualPhotos[key].length;
+      this.loadingPhotosByKey[key] = false;
+
+      console.log('[HUD-010] Loaded', this.visualPhotos[key].length, 'photos for key:', key);
+
+    } catch (error) {
+      console.error('[HUD-010] Error loading photos from LocalImages:', error);
+      // Fall back to traditional loading
+      await this.loadPhotosForVisual(hudId, key);
+    }
   }
 
   /**
