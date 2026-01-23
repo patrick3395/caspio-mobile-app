@@ -8,6 +8,7 @@ import { LocalImageService } from '../../services/local-image.service';
 import { BackgroundSyncService, HudSyncComplete, HudPhotoUploadComplete } from '../../services/background-sync.service';
 import { IndexedDbService } from '../../services/indexed-db.service';
 import { ServiceMetadataService } from '../../services/service-metadata.service';
+import { OfflineService } from '../../services/offline.service';
 import { compressAnnotationData } from '../../utils/annotation-utils';
 
 interface CacheEntry<T> {
@@ -54,7 +55,8 @@ export class HudDataService implements OnDestroy {
     private readonly localImageService: LocalImageService,
     private readonly backgroundSync: BackgroundSyncService,
     private readonly indexedDb: IndexedDbService,
-    private readonly serviceMetadata: ServiceMetadataService
+    private readonly serviceMetadata: ServiceMetadataService,
+    private readonly offlineService: OfflineService
   ) {
     // Subscribe to sync events on mobile for cache invalidation
     this.subscribeToSyncEvents();
@@ -932,6 +934,150 @@ export class HudDataService implements OnDestroy {
     );
 
     this.hudAttachmentsCache.clear();
+    return result;
+  }
+
+  // ============================================================================
+  // REHYDRATION - Restore purged HUD service data from server
+  // ============================================================================
+
+  /**
+   * Check if a HUD service needs rehydration (is in PURGED or ARCHIVED state)
+   *
+   * Called before opening a HUD service to determine if data needs to be restored.
+   *
+   * @param serviceId - The HUD service to check
+   * @returns true if service needs rehydration, false otherwise
+   */
+  async needsRehydration(serviceId: string): Promise<boolean> {
+    const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
+    if (!metadata) {
+      return false; // New service, doesn't need rehydration
+    }
+    return metadata.purgeState === 'PURGED' || metadata.purgeState === 'ARCHIVED';
+  }
+
+  /**
+   * Rehydrate a HUD service that was previously purged
+   * Fetches fresh data from the server and restores to ACTIVE state
+   *
+   * HUD services use TypeID=2 - we use HUD-specific API endpoints that filter correctly:
+   * - getServicesHUDByServiceId: fetches LPS_Services_HUD records
+   * - getServiceHUDAttachByHUDId: fetches LPS_Services_HUD_Attach records
+   *
+   * Called when user opens a HUD service that's in PURGED or ARCHIVED state.
+   * Must be online to rehydrate.
+   *
+   * @param serviceId - The HUD service to rehydrate
+   * @returns Result with success status and counts of restored items
+   */
+  async rehydrateService(serviceId: string): Promise<{
+    success: boolean;
+    restored: {
+      hudRecords: number;
+      hudAttachments: number;
+    };
+    error?: string;
+  }> {
+    console.log(`[HUD Data] ═══════════════════════════════════════════════════`);
+    console.log(`[HUD Data] REHYDRATION STARTING for HUD service: ${serviceId}`);
+    console.log(`[HUD Data] ═══════════════════════════════════════════════════`);
+
+    const result = {
+      success: false,
+      restored: {
+        hudRecords: 0,
+        hudAttachments: 0
+      },
+      error: undefined as string | undefined
+    };
+
+    // Must be online to rehydrate
+    if (!this.offlineService.isOnline()) {
+      result.error = 'Cannot rehydrate while offline. Please connect to the internet.';
+      console.warn('[HUD Data] Rehydration failed: offline');
+      return result;
+    }
+
+    try {
+      // Check current purge state
+      const metadata = await this.serviceMetadata.getServiceMetadata(serviceId);
+
+      // Log the state before rehydration
+      if (metadata) {
+        console.log(`[HUD Data] Service State Before Rehydration:`);
+        console.log(`[HUD Data]    - Purge State: ${metadata.purgeState}`);
+        console.log(`[HUD Data]    - Last Touched: ${new Date(metadata.lastTouchedAt).toLocaleString()}`);
+      }
+
+      if (metadata && metadata.purgeState === 'ACTIVE') {
+        console.log('[HUD Data] Service already ACTIVE, no rehydration needed');
+        result.success = true;
+        return result;
+      }
+
+      // Clear in-memory caches for this service to force fresh fetch
+      this.clearServiceCaches(serviceId);
+
+      // ========== STEP 1: Fetch HUD records from server ==========
+      // HUD services use TypeID=2 - we use HUD-specific API endpoints that filter correctly
+      console.log('[HUD Data] Step 1: Fetching HUD records from server...');
+      const hudRecords = await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId));
+
+      if (hudRecords && Array.isArray(hudRecords) && hudRecords.length > 0) {
+        // Cache the raw data
+        await this.indexedDb.cacheServiceData(serviceId, 'hud_records', hudRecords);
+        result.restored.hudRecords = hudRecords.length;
+        console.log(`[HUD Data] Restored ${hudRecords.length} HUD records`);
+
+        // ========== STEP 2: Fetch attachments for each HUD record ==========
+        console.log('[HUD Data] Step 2: Fetching HUD attachments...');
+        for (const hud of hudRecords) {
+          const hudId = hud.PK_ID || hud.HUDID;
+          if (hudId) {
+            try {
+              const attachments = await firstValueFrom(
+                this.caspioService.getServiceHUDAttachByHUDId(String(hudId))
+              );
+              if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+                // Cache attachments for this HUD record
+                await this.indexedDb.cacheServiceData(serviceId, `hud_attach_${hudId}`, attachments);
+                result.restored.hudAttachments += attachments.length;
+              }
+            } catch (err) {
+              console.warn(`[HUD Data] Failed to fetch attachments for HUD ${hudId}:`, err);
+            }
+          }
+        }
+        console.log(`[HUD Data] Restored ${result.restored.hudAttachments} HUD attachments`);
+      } else {
+        console.log('[HUD Data] No HUD records found on server');
+      }
+
+      // Update purge state to ACTIVE
+      await this.serviceMetadata.setPurgeState(serviceId, 'ACTIVE');
+      await this.serviceMetadata.touchService(serviceId);
+
+      // Clear caches again to ensure UI picks up fresh data
+      this.clearServiceCaches(serviceId);
+
+      result.success = true;
+
+      // Output detailed rehydration stats
+      console.log(`[HUD Data] ═══════════════════════════════════════════════════`);
+      console.log(`[HUD Data] REHYDRATION COMPLETE for HUD service: ${serviceId}`);
+      console.log(`[HUD Data] ═══════════════════════════════════════════════════`);
+      console.log(`[HUD Data] Data Restored from Server:`);
+      console.log(`[HUD Data]    - HUD Records: ${result.restored.hudRecords}`);
+      console.log(`[HUD Data]    - HUD Attachments: ${result.restored.hudAttachments}`);
+      console.log(`[HUD Data]    - Total Items: ${result.restored.hudRecords + result.restored.hudAttachments}`);
+      console.log(`[HUD Data] ═══════════════════════════════════════════════════`);
+
+    } catch (err) {
+      result.error = err instanceof Error ? err.message : 'Unknown error during rehydration';
+      console.error('[HUD Data] Rehydration failed:', err);
+    }
+
     return result;
   }
 }
