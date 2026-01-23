@@ -1640,7 +1640,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         // Visual exists but was hidden - unhide it
         this.savingItems[key] = true;
         try {
-          await this.hudData.updateVisual(visualId, { Notes: '' });
+          const fieldKey = `${this.serviceId}:${category}:${itemId}`;
+          await this.hudData.updateVisual(visualId, { Notes: '' }, fieldKey);
           console.log('[TOGGLE] Unhid visual:', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error unhiding visual:', error);
@@ -1659,7 +1660,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       if (visualId && !String(visualId).startsWith('temp_')) {
         this.savingItems[key] = true;
         try {
-          await this.hudData.updateVisual(visualId, { Notes: 'HIDDEN' });
+          const fieldKey = `${this.serviceId}:${category}:${itemId}`;
+          await this.hudData.updateVisual(visualId, { Notes: 'HIDDEN' }, fieldKey);
           console.log('[TOGGLE] Hid visual (preserving photos):', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error hiding visual:', error);
