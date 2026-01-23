@@ -29,7 +29,7 @@ export class OfflineTemplateService {
   // Event emitted when background refresh completes - pages can subscribe to reload their data
   public backgroundRefreshComplete$ = new Subject<{
     serviceId: string;
-    dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments';
+    dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_records' | 'hud_attachments';
   }>();
 
   constructor(

@@ -50,10 +50,14 @@ export interface CachedTemplate {
   version?: number;  // HUD-012: Template version for cache invalidation
 }
 
+// HUD uses dynamic attachment keys like 'hud_attach_123'
+export type HudAttachmentKey = `hud_attach_${string}`;
+export type CacheDataType = 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments' | 'lbw_dropdown' | 'hud_records' | HudAttachmentKey;
+
 export interface CachedServiceData {
   cacheKey: string;
   serviceId: string;
-  dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments' | 'lbw_dropdown';
+  dataType: CacheDataType;
   data: any[];
   lastUpdated: number;
 }
@@ -1378,7 +1382,7 @@ export class IndexedDbService {
    */
   async safeUpdateCache(
     serviceId: string,
-    dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments',
+    dataType: CacheDataType,
     newData: any[],
     options: {
       allowEmpty?: boolean;
@@ -1459,7 +1463,7 @@ export class IndexedDbService {
   /**
    * Cache service-specific data
    */
-  async cacheServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments', data: any[]): Promise<void> {
+  async cacheServiceData(serviceId: string, dataType: CacheDataType, data: any[]): Promise<void> {
     const cacheEntry: CachedServiceData = {
       cacheKey: `${dataType}_${serviceId}`,
       serviceId,
@@ -1475,7 +1479,7 @@ export class IndexedDbService {
   /**
    * Get cached service data
    */
-  async getCachedServiceData(serviceId: string, dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments'): Promise<any[] | null> {
+  async getCachedServiceData(serviceId: string, dataType: CacheDataType): Promise<any[] | null> {
     const cached = await db.cachedServiceData.get(`${dataType}_${serviceId}`);
     if (cached) {
       console.log(`[IndexedDB] Retrieved ${cached.data.length} cached ${dataType} for service ${serviceId}`);
