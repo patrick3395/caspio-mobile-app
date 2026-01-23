@@ -10,30 +10,30 @@ See: .planning/PROJECT.md (updated 2026-01-23)
 ## Current Position
 
 Phase: 1 of 4 (Container Enhancements)
-Plan: 1 of ? in current phase
-Status: In progress
-Last activity: 2026-01-23 - Completed 01-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase 1 complete
+Last activity: 2026-01-23 - Completed 01-02-PLAN.md
 
-Progress: [#---------] 10%
+Progress: [##--------] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 4 min
-- Total execution time: 4 min
+- Total plans completed: 2
+- Average duration: 3.5 min
+- Total execution time: 7 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Container Enhancements | 1/? | 4 min | 4 min |
+| 1. Container Enhancements | 2/2 | 7 min | 3.5 min |
 | 2. Data Service Enhancement | 0/? | - | - |
 | 3. Category Detail Integration | 0/? | - | - |
 | 4. Validation and Polish | 0/? | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (4 min)
+- Last 5 plans: 01-01 (4 min), 01-02 (3 min)
 - Trend: -
 
 *Updated after each plan completion*
@@ -49,6 +49,8 @@ Recent decisions affecting current work:
 - [Init]: Table-only differences between templates (pending validation)
 - [01-01]: Simplified rehydration for HUD (no rooms/points unlike EFE)
 - [01-01]: Used existing HUD-specific API endpoints for TypeID=2 filtering
+- [01-02]: Rehydration runs every route change (not just new service) to handle user purging while viewing
+- [01-02]: Breadcrumb instance numbers already implemented in 01-01
 
 ### Pending Todos
 
@@ -60,8 +62,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-23T16:40:00Z
-Stopped at: Completed 01-01-PLAN.md (Container Enhancements - Rehydration & Instance Tracking)
+Last session: 2026-01-23T16:48:00Z
+Stopped at: Completed 01-02-PLAN.md (Container Enhancements - Rehydration Integration)
 Resume file: None
 
 ---
