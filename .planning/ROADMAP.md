@@ -11,7 +11,7 @@ This roadmap delivers the Dexie-first mobile implementation to the HUD template 
 - Decimal phases (e.g., 2.1): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Container Enhancements** - Foundation layer with rehydration, service tracking, and table mapping
-- [ ] **Phase 2: Data Service Enhancement** - Orchestration layer with cache invalidation and sync subscriptions
+- [x] **Phase 2: Data Service Enhancement** - Orchestration layer with cache invalidation and sync subscriptions
 - [ ] **Phase 3: Category Detail Integration** - UI layer with liveQuery, write-through, and mobile styling
 - [ ] **Phase 4: Validation and Polish** - Finalization cleanup and end-to-end verification
 
@@ -45,7 +45,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01-PLAN.md — Add cacheInvalidated$ Subject, debounced emission, and comprehensive Dexie subscriptions
+- [x] 02-01-PLAN.md — Add cacheInvalidated$ Subject, debounced emission, and comprehensive Dexie subscriptions
 
 ### Phase 3: Category Detail Integration
 **Goal**: Category detail pages use Dexie-first pattern with reactive updates, write-through changes, and mobile-responsive styling
@@ -84,10 +84,10 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Container Enhancements | 2/2 | Complete | 2026-01-23 |
-| 2. Data Service Enhancement | 0/1 | Planned | - |
+| 2. Data Service Enhancement | 1/1 | Complete | 2026-01-23 |
 | 3. Category Detail Integration | 0/? | Not started | - |
 | 4. Validation and Polish | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-23*
+*Last updated: 2026-01-23 (Phase 2 complete)*
