@@ -24,6 +24,21 @@ interface Breadcrumb {
   icon?: string;
 }
 
+/**
+ * HUD Container Page
+ *
+ * Data Loading Architecture:
+ * - Uses Dexie-first pattern: checks cache before API calls
+ * - HUD services use TypeID=2 in LPS_Services table
+ * - Template loading uses HUD-specific methods (getCachedTemplates('hud'), downloadTemplateForOffline with 'HUD' type)
+ * - HUD data operations use HUD-specific API endpoints (getServicesHUDByServiceId, getServiceHUDAttachByHUDId)
+ * - Attachments use getServiceHUDAttachByHUDId endpoint
+ *
+ * Service Instance Tracking:
+ * - Supports multiple HUD services per project (HUD #1, HUD #2, etc.)
+ * - loadServiceInstanceNumber() queries CaspioService for all project services
+ * - Filters by same TypeID and sorts by PK_ID for consistent ordering
+ */
 @Component({
   selector: 'app-hud-container',
   templateUrl: './hud-container.page.html',
