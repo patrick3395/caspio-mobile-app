@@ -102,6 +102,25 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   // HUD-010: Track if we're on mobile for Dexie-first approach
   private isMobile: boolean = false;
 
+  // ===== RACE CONDITION GUARDS (EFE PATTERN) =====
+  // Debounce timer for liveQuery updates to prevent multiple rapid change detections
+  private liveQueryDebounceTimer: any = null;
+
+  // Guard to prevent concurrent/duplicate loadPhotosForVisual calls for same key
+  private loadingPhotoPromises: Map<string, Promise<void>> = new Map();
+
+  // Suppress liveQuery during batch multi-image upload to prevent race conditions
+  private isMultiImageUploadInProgress = false;
+
+  // Separate flag for camera captures - suppresses liveQuery to prevent duplicates with annotated photos
+  private isCameraCaptureInProgress = false;
+
+  // Track imageIds in current batch to prevent duplicates even if liveQuery fires
+  private batchUploadImageIds = new Set<string>();
+
+  // MUTEX: Prevent concurrent populatePhotosFromDexie calls
+  private isPopulatingPhotos = false;
+
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
