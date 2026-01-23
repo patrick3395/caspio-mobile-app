@@ -5,20 +5,23 @@ ion-content {
   --offset-top: auto !important;
 }
 
+// ===========================================
+// EDGE-TO-EDGE FULL-SCREEN LAYOUT
+// ===========================================
+
 .page-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 0;
+  margin: 0;
   background: #f5f5f5;
   min-height: 100vh;
   scroll-behavior: auto !important;
 }
 
 .content-section {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  padding: 24px;
+  background: #f5f5f5;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
   min-height: 200px;
   scroll-behavior: auto !important;
 }
