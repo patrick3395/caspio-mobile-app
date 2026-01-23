@@ -46,7 +46,7 @@ Requirements for copying engineers-foundation Dexie-first implementation to HUD.
 
 Deferred to future release. Not in current roadmap.
 
-(None — this is a focused copy implementation)
+(None - this is a focused copy implementation)
 
 ## Out of Scope
 
@@ -82,15 +82,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STYLE-01 | Phase 3 | Pending |
 | STYLE-02 | Phase 3 | Pending |
 | STYLE-03 | Phase 3 | Pending |
-| MAP-01 | Phase 1-3 | Pending |
-| MAP-02 | Phase 1-3 | Pending |
-| MAP-03 | Phase 1-3 | Pending |
+| MAP-01 | Phase 1 | Pending |
+| MAP-02 | Phase 1 | Pending |
+| MAP-03 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 20 total
 - Mapped to phases: 20
-- Unmapped: 0 ✓
+- Unmapped: 0
+
+**Phase Distribution:**
+- Phase 1 (Container Enhancements): 8 requirements
+- Phase 2 (Data Service Enhancement): 4 requirements
+- Phase 3 (Category Detail Integration): 8 requirements
+- Phase 4 (Validation and Polish): 0 (validation phase)
 
 ---
 *Requirements defined: 2026-01-23*
-*Last updated: 2026-01-23 after initial definition*
+*Traceability updated: 2026-01-23 after roadmap creation*
