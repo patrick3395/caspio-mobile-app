@@ -4,6 +4,7 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { HudStateService } from '../services/hud-state.service';
 import { HudPdfService } from '../services/hud-pdf.service';
+import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { NavigationHistoryService } from '../../../services/navigation-history.service';
@@ -22,7 +23,7 @@ interface Breadcrumb {
   templateUrl: './hud-container.page.html',
   styleUrls: ['./hud-container.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule]
+  imports: [CommonModule, IonicModule, RouterModule, SyncStatusWidgetComponent]
 })
 export class HudContainerPage implements OnInit {
   projectId: string = '';
@@ -32,6 +33,7 @@ export class HudContainerPage implements OnInit {
   currentPageTitle: string = 'HUD/Manufactured Home';
   currentPageShortTitle: string = 'HUD';
   isGeneratingPDF: boolean = false;
+  isWeb: boolean = environment.isWeb;
 
   constructor(
     private router: Router,
