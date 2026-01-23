@@ -27,10 +27,11 @@ This roadmap delivers the Dexie-first mobile implementation to the HUD template 
   3. HUD container recovers data correctly after smart purge (rehydration works)
   4. HUD container displays correct service instance number (HUD #1, #2) for multi-service projects
   5. All table references use HUD tables (not EFE/Visuals tables) with TypeID=2 filtering
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD (to be defined during planning)
+- [ ] 01-01-PLAN.md — Add rehydration methods to HudDataService + service instance tracking to container
+- [ ] 01-02-PLAN.md — Integrate rehydration check in ngOnInit + update breadcrumbs with instance numbers
 
 ### Phase 2: Data Service Enhancement
 **Goal**: HudDataService coordinates cache invalidation and sync events for reactive page updates
@@ -82,7 +83,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Container Enhancements | 0/? | Not started | - |
+| 1. Container Enhancements | 0/2 | Planned | - |
 | 2. Data Service Enhancement | 0/? | Not started | - |
 | 3. Category Detail Integration | 0/? | Not started | - |
 | 4. Validation and Polish | 0/? | Not started | - |
