@@ -3870,6 +3870,7 @@ export class BackgroundSyncService {
       // Count stats before purge
       const visualFieldCount = await db.visualFields.where('serviceId').equals(serviceId).count();
       const efeFieldCount = await db.efeFields.where('serviceId').equals(serviceId).count();
+      const hudFieldCount = await db.hudFields.where('serviceId').equals(serviceId).count();
       const cachedPhotoCount = await db.cachedPhotos.where('serviceId').equals(serviceId).count();
       const pendingCaptionCount = await db.pendingCaptions.where('serviceId').equals(serviceId).count();
 
@@ -3905,6 +3906,9 @@ export class BackgroundSyncService {
       // Delete EFE fields for this service
       await db.efeFields.where('serviceId').equals(serviceId).delete();
 
+      // Delete HUD fields for this service (HUD-019)
+      await db.hudFields.where('serviceId').equals(serviceId).delete();
+
       // Delete cached photos for this service
       await db.cachedPhotos.where('serviceId').equals(serviceId).delete();
 
@@ -3921,6 +3925,7 @@ export class BackgroundSyncService {
       console.log(`[BackgroundSync]    - Total bytes freed: ${(totalBlobBytes / 1024 / 1024).toFixed(2)} MB`);
       console.log(`[BackgroundSync] 📝 Visual fields cleared: ${visualFieldCount}`);
       console.log(`[BackgroundSync] 🏠 EFE fields cleared: ${efeFieldCount}`);
+      console.log(`[BackgroundSync] 🔧 HUD fields cleared: ${hudFieldCount}`);
       console.log(`[BackgroundSync] 🖼️ Cached photos cleared: ${cachedPhotoCount}`);
       console.log(`[BackgroundSync] ✏️ Pending captions cleared: ${pendingCaptionCount}`);
       console.log(`[BackgroundSync] ═══════════════════════════════════════════════════`);

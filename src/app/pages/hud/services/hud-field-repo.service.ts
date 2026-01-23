@@ -630,7 +630,8 @@ export class HudFieldRepoService {
       }
     });
 
-    // Track service revision for storage bloat prevention
+    // HUD-019: Track service activity and revision for smart purging
+    this.serviceMetadata.touchService(serviceId).catch(() => {});
     this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 
@@ -694,6 +695,8 @@ export class HudFieldRepoService {
       }
     });
 
+    // HUD-019: Track service activity and revision for smart purging
+    this.serviceMetadata.touchService(serviceId).catch(() => {});
     this.serviceMetadata.incrementLocalRevision(serviceId).catch(() => {});
   }
 

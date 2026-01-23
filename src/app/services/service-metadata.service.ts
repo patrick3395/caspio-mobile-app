@@ -209,7 +209,14 @@ export class ServiceMetadataService {
       .filter(f => f.dirty)
       .count();
 
-    const total = pendingImages + pendingCaptions + dirtyVisuals + dirtyEfe;
+    // Count dirty HUD fields (HUD-019)
+    const dirtyHud = await db.hudFields
+      .where('serviceId')
+      .equals(serviceId)
+      .filter(f => f.dirty)
+      .count();
+
+    const total = pendingImages + pendingCaptions + dirtyVisuals + dirtyEfe + dirtyHud;
     return total;
   }
 

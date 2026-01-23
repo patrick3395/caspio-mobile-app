@@ -7,6 +7,7 @@ import { HudOperationsQueueService } from './services/hud-operations-queue.servi
 import { LocalImageService } from '../../services/local-image.service';
 import { BackgroundSyncService, HudSyncComplete, HudPhotoUploadComplete } from '../../services/background-sync.service';
 import { IndexedDbService } from '../../services/indexed-db.service';
+import { ServiceMetadataService } from '../../services/service-metadata.service';
 import { compressAnnotationData } from '../../utils/annotation-utils';
 
 interface CacheEntry<T> {
@@ -52,7 +53,8 @@ export class HudDataService implements OnDestroy {
     private readonly hudOpsQueue: HudOperationsQueueService,
     private readonly localImageService: LocalImageService,
     private readonly backgroundSync: BackgroundSyncService,
-    private readonly indexedDb: IndexedDbService
+    private readonly indexedDb: IndexedDbService,
+    private readonly serviceMetadata: ServiceMetadataService
   ) {
     // Subscribe to sync events on mobile for cache invalidation
     this.subscribeToSyncEvents();
@@ -191,6 +193,9 @@ export class HudDataService implements OnDestroy {
     }
 
     console.log('[HUD Data] Loading HUD records for ServiceID:', serviceId, 'BypassCache:', bypassCache, 'Mobile:', this.isMobile());
+
+    // HUD-019: Track service activity for smart purging
+    this.serviceMetadata.touchService(serviceId).catch(() => {});
 
     // MOBILE PATH: Use Dexie-first approach
     if (this.isMobile()) {
@@ -469,6 +474,11 @@ export class HudDataService implements OnDestroy {
   async createVisual(hudData: any): Promise<any> {
     console.log('[HUD Data] Creating HUD record:', hudData, 'Mobile:', this.isMobile());
 
+    // HUD-019: Track service activity for smart purging
+    if (hudData.ServiceID) {
+      this.serviceMetadata.touchService(String(hudData.ServiceID)).catch(() => {});
+    }
+
     // MOBILE PATH: Queue the operation
     if (this.isMobile()) {
       return this.createVisualMobile(hudData);
@@ -616,6 +626,14 @@ export class HudDataService implements OnDestroy {
     fieldKey?: string
   ): Promise<any> {
     console.log('[HUD Photo] Uploading photo for HUDID:', hudId, 'Mobile:', this.isMobile());
+
+    // HUD-019: Track service activity for smart purging (extract serviceId from fieldKey)
+    if (fieldKey) {
+      const serviceId = fieldKey.split(':')[0];
+      if (serviceId) {
+        this.serviceMetadata.touchService(serviceId).catch(() => {});
+      }
+    }
 
     // MOBILE PATH: Local-first via LocalImageService
     if (this.isMobile() && fieldKey) {
