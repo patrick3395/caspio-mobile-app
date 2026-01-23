@@ -1004,12 +1004,13 @@ ion-accordion-group {
 }
 
 @media (max-width: 768px) {
+  // Edge-to-edge on mobile - no padding overrides
   .page-container {
-    padding: 12px;
+    padding: 0;
   }
 
   .content-section {
-    padding: 16px;
+    padding: 0;
   }
 
   .photos-grid {
