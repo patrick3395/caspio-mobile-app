@@ -9,11 +9,11 @@ Requirements for copying engineers-foundation Dexie-first implementation to HUD.
 
 ### Container Layer
 
-- [ ] **CONT-01**: HUD container loads data from Dexie cache first (rehydration)
-- [ ] **CONT-02**: HUD container syncs with Caspio after Dexie load
-- [ ] **CONT-03**: HUD container tracks service instance numbers
-- [ ] **CONT-04**: HUD container shows loading overlay during rehydration
-- [ ] **CONT-05**: HUD container handles TypeID 2 filtering (HUD-specific)
+- [x] **CONT-01**: HUD container loads data from Dexie cache first (rehydration)
+- [x] **CONT-02**: HUD container syncs with Caspio after Dexie load
+- [x] **CONT-03**: HUD container tracks service instance numbers
+- [x] **CONT-04**: HUD container shows loading overlay during rehydration
+- [x] **CONT-05**: HUD container handles TypeID 2 filtering (HUD-specific)
 
 ### Data Service Layer
 
@@ -38,9 +38,9 @@ Requirements for copying engineers-foundation Dexie-first implementation to HUD.
 
 ### Table Mapping
 
-- [ ] **MAP-01**: Map all EFE table references to HUD equivalents
-- [ ] **MAP-02**: Update TypeID filtering from 1 (EFE) to 2 (HUD)
-- [ ] **MAP-03**: Update entity type references throughout
+- [x] **MAP-01**: Map all EFE table references to HUD equivalents
+- [x] **MAP-02**: Update TypeID filtering from 1 (EFE) to 2 (HUD)
+- [x] **MAP-03**: Update entity type references throughout
 
 ## v2 Requirements
 
@@ -65,11 +65,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONT-01 | Phase 1 | Pending |
-| CONT-02 | Phase 1 | Pending |
-| CONT-03 | Phase 1 | Pending |
-| CONT-04 | Phase 1 | Pending |
-| CONT-05 | Phase 1 | Pending |
+| CONT-01 | Phase 1 | Complete |
+| CONT-02 | Phase 1 | Complete |
+| CONT-03 | Phase 1 | Complete |
+| CONT-04 | Phase 1 | Complete |
+| CONT-05 | Phase 1 | Complete |
 | DATA-01 | Phase 2 | Pending |
 | DATA-02 | Phase 2 | Pending |
 | DATA-03 | Phase 2 | Pending |
@@ -82,9 +82,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STYLE-01 | Phase 3 | Pending |
 | STYLE-02 | Phase 3 | Pending |
 | STYLE-03 | Phase 3 | Pending |
-| MAP-01 | Phase 1 | Pending |
-| MAP-02 | Phase 1 | Pending |
-| MAP-03 | Phase 1 | Pending |
+| MAP-01 | Phase 1 | Complete |
+| MAP-02 | Phase 1 | Complete |
+| MAP-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 20 total
@@ -99,4 +99,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-23*
-*Traceability updated: 2026-01-23 after roadmap creation*
+*Traceability updated: 2026-01-23 after Phase 1 completion*

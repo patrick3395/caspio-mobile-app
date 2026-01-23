@@ -10,7 +10,7 @@ This roadmap delivers the Dexie-first mobile implementation to the HUD template 
 - Integer phases (1, 2, 3, 4): Planned milestone work
 - Decimal phases (e.g., 2.1): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Container Enhancements** - Foundation layer with rehydration, service tracking, and table mapping
+- [x] **Phase 1: Container Enhancements** - Foundation layer with rehydration, service tracking, and table mapping
 - [ ] **Phase 2: Data Service Enhancement** - Orchestration layer with cache invalidation and sync subscriptions
 - [ ] **Phase 3: Category Detail Integration** - UI layer with liveQuery, write-through, and mobile styling
 - [ ] **Phase 4: Validation and Polish** - Finalization cleanup and end-to-end verification
@@ -30,8 +30,8 @@ This roadmap delivers the Dexie-first mobile implementation to the HUD template 
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Add rehydration methods to HudDataService + service instance tracking to container
-- [ ] 01-02-PLAN.md — Integrate rehydration check in ngOnInit + update breadcrumbs with instance numbers
+- [x] 01-01-PLAN.md — Add rehydration methods to HudDataService + service instance tracking to container
+- [x] 01-02-PLAN.md — Integrate rehydration check in ngOnInit + update breadcrumbs with instance numbers
 
 ### Phase 2: Data Service Enhancement
 **Goal**: HudDataService coordinates cache invalidation and sync events for reactive page updates
@@ -83,7 +83,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Container Enhancements | 0/2 | Planned | - |
+| 1. Container Enhancements | 2/2 | Complete | 2026-01-23 |
 | 2. Data Service Enhancement | 0/? | Not started | - |
 | 3. Category Detail Integration | 0/? | Not started | - |
 | 4. Validation and Polish | 0/? | Not started | - |
