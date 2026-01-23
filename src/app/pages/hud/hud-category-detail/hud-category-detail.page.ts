@@ -53,6 +53,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
   loading: boolean = false;  // Start false - show cached data instantly, only show spinner if cache empty
   isRefreshing: boolean = false;  // Track background refresh status
+  isWeb: boolean = environment.isWeb;  // HUD-017: For conditional skeleton loaders
   searchTerm: string = '';
   expandedAccordions: string[] = []; // Start collapsed
   organizedData: {

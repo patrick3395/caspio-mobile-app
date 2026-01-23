@@ -1,8 +1,23 @@
 <div class="main-container">
-  <!-- Loading State -->
-  <div *ngIf="loading" class="loading-container">
+  <!-- Loading State - Mobile only (spinner) -->
+  <div *ngIf="loading && !isWeb" class="loading-container">
     <ion-spinner name="crescent"></ion-spinner>
     <p>Loading...</p>
+  </div>
+
+  <!-- WEBAPP: Skeleton loaders for navigation cards -->
+  <div *ngIf="loading && isWeb" class="skeleton-container">
+    <div class="skeleton-card" *ngFor="let i of [1,2]">
+      <div class="skeleton-icon"></div>
+      <div class="skeleton-content">
+        <div class="skeleton-title"></div>
+        <div class="skeleton-description"></div>
+        <div class="skeleton-badges">
+          <div class="skeleton-badge"></div>
+          <div class="skeleton-badge"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Navigation Cards (Main View) -->

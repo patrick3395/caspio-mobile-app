@@ -234,3 +234,153 @@
   }
 }
 
+// ==============================================
+// HUD-017: Skeleton Loader Styles (Web Only)
+// Hardware-accelerated animations for smooth loading
+// ==============================================
+
+@keyframes hud-skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 12px;
+  margin-bottom: 20px;
+  // Hardware acceleration
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.skeleton-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-top: 3px solid #e0e0e0;
+  // Hardware acceleration
+  transform: translateZ(0);
+  backface-visibility: hidden;
+
+  .skeleton-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: hud-skeleton-shimmer 1.5s infinite ease-in-out;
+    // Hardware acceleration
+    transform: translateZ(0);
+    will-change: background-position;
+  }
+
+  .skeleton-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .skeleton-title {
+      width: 45%;
+      height: 20px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: hud-skeleton-shimmer 1.5s infinite ease-in-out;
+      animation-delay: 0.1s;
+      // Hardware acceleration
+      transform: translateZ(0);
+      will-change: background-position;
+    }
+
+    .skeleton-description {
+      width: 80%;
+      height: 14px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: hud-skeleton-shimmer 1.5s infinite ease-in-out;
+      animation-delay: 0.2s;
+      // Hardware acceleration
+      transform: translateZ(0);
+      will-change: background-position;
+    }
+
+    .skeleton-badges {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+
+      .skeleton-badge {
+        width: 70px;
+        height: 22px;
+        border-radius: 12px;
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: hud-skeleton-shimmer 1.5s infinite ease-in-out;
+        animation-delay: 0.3s;
+        // Hardware acceleration
+        transform: translateZ(0);
+        will-change: background-position;
+      }
+    }
+  }
+}
+
+// Tablet+: Grid layout for skeleton cards (matching navigation-card layout)
+@media (min-width: 768px) {
+  .skeleton-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+}
+
+// Desktop: Wider gaps
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  .skeleton-container {
+    gap: 20px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
+  .skeleton-container {
+    gap: 24px;
+  }
+}
+
+// Smooth transition from skeleton to content
+.white-container {
+  animation: hud-content-fade-in 0.3s ease-out;
+}
+
+.footer-section {
+  animation: hud-content-fade-in 0.3s ease-out;
+  animation-delay: 0.1s;
+  animation-fill-mode: both;
+}
+
+@keyframes hud-content-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

@@ -7,6 +7,7 @@ import { CaspioService } from '../../../services/caspio.service';
 import { CacheService } from '../../../services/cache.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { environment } from '../../../../environments/environment';
 
 interface NavigationCard {
   title: string;
@@ -55,6 +56,7 @@ export class HudMainPage implements OnInit {
   serviceId: string = '';
   loading: boolean = true;
   canFinalize: boolean = false;
+  isWeb: boolean = environment.isWeb;
   statusOptions: any[] = [];
   isReportFinalized: boolean = false;
   hasChangesAfterFinalization: boolean = false;
