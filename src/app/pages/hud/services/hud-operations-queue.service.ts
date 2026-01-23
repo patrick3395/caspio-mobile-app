@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
 import { OperationsQueueService } from '../../../services/operations-queue.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { PlatformDetectionService } from '../../../services/platform-detection.service';
@@ -7,6 +8,17 @@ import { ImageCompressionService } from '../../../services/image-compression.ser
 import { LocalImageService } from '../../../services/local-image.service';
 import { IndexedDbService, ImageEntityType } from '../../../services/indexed-db.service';
 import { compressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../utils/annotation-utils';
+
+/**
+ * Event emitted when a HUD operation completes
+ * Used by BackgroundSyncService to notify UI components
+ */
+export interface HudSyncEvent {
+  serviceId: string;
+  fieldKey: string;
+  hudId: string;
+  operation: 'create' | 'update' | 'delete';
+}
 
 /**
  * HudOperationsQueueService - Operations queue integration for HUD (mobile only)
@@ -30,6 +42,10 @@ import { compressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../u
 })
 export class HudOperationsQueueService {
   private executorsRegistered = false;
+
+  // Event emitted when a HUD operation completes (create/update/delete)
+  // BackgroundSyncService subscribes to this to forward events to hudSyncComplete$
+  public syncComplete$ = new Subject<HudSyncEvent>();
 
   constructor(
     private operationsQueue: OperationsQueueService,
@@ -234,8 +250,16 @@ export class HudOperationsQueueService {
       onSuccess: async (result: any) => {
         console.log(`[HudOperationsQueue] CREATE_HUD_VISUAL success for ${fieldKey}:`, result.hudId);
 
-        // Mark field as synced in HudFieldRepo
+        // Mark field as synced in HudFieldRepo (clears dirty flag)
         await this.hudFieldRepo.markSynced(fieldKey, String(result.hudId));
+
+        // Emit sync complete event for UI refresh
+        this.syncComplete$.next({
+          serviceId,
+          fieldKey,
+          hudId: String(result.hudId),
+          operation: 'create'
+        });
 
         // Call user callback
         if (callbacks?.onSuccess) {
@@ -280,6 +304,9 @@ export class HudOperationsQueueService {
       throw new Error('Operations queue is only available on mobile');
     }
 
+    // Extract serviceId from fieldKey (format: serviceId:category:templateId)
+    const serviceId = fieldKey.split(':')[0];
+
     // Deduplication key: allow multiple updates but dedupe rapid-fire same-field updates
     const dedupeKey = `hud_update_${hudId}_${Date.now()}`;
 
@@ -295,8 +322,16 @@ export class HudOperationsQueueService {
       onSuccess: async (result: any) => {
         console.log(`[HudOperationsQueue] UPDATE_HUD_VISUAL success for ${fieldKey}`);
 
-        // Mark field as synced
+        // Mark field as synced (clears dirty flag)
         await this.hudFieldRepo.markSynced(fieldKey, hudId);
+
+        // Emit sync complete event for UI refresh
+        this.syncComplete$.next({
+          serviceId,
+          fieldKey,
+          hudId,
+          operation: 'update'
+        });
 
         if (callbacks?.onSuccess) {
           callbacks.onSuccess(result);
@@ -335,6 +370,9 @@ export class HudOperationsQueueService {
       throw new Error('Operations queue is only available on mobile');
     }
 
+    // Extract serviceId from fieldKey (format: serviceId:category:templateId)
+    const serviceId = fieldKey.split(':')[0];
+
     // Deduplication: only one delete per hudId
     const dedupeKey = `hud_delete_${hudId}`;
 
@@ -348,6 +386,14 @@ export class HudOperationsQueueService {
       maxRetries: 3,
       onSuccess: (result: any) => {
         console.log(`[HudOperationsQueue] DELETE_HUD_VISUAL success for ${fieldKey}`);
+
+        // Emit sync complete event for UI refresh
+        this.syncComplete$.next({
+          serviceId,
+          fieldKey,
+          hudId,
+          operation: 'delete'
+        });
 
         if (callbacks?.onSuccess) {
           callbacks.onSuccess(result);

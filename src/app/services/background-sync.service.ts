@@ -10,7 +10,14 @@ import { LocalImageService } from './local-image.service';
 import { OperationsQueueService } from './operations-queue.service';
 import { ServiceMetadataService } from './service-metadata.service';
 import { ThumbnailService } from './thumbnail.service';
+import { PlatformDetectionService } from './platform-detection.service';
 import { environment } from '../../environments/environment';
+
+// HUD services - lazy import to avoid circular dependency
+// These are resolved at runtime via Angular's injector
+type HudFieldRepoServiceType = import('../pages/hud/services/hud-field-repo.service').HudFieldRepoService;
+type HudOperationsQueueServiceType = import('../pages/hud/services/hud-operations-queue.service').HudOperationsQueueService;
+type HudS3UploadServiceType = import('../pages/hud/services/hud-s3-upload.service').HudS3UploadService;
 
 export interface PhotoUploadComplete {
   tempFileId: string;
@@ -41,6 +48,20 @@ export interface EFEPhotoUploadComplete {
 export interface ServiceDataSyncComplete {
   serviceId?: string;
   projectId?: string;
+}
+
+export interface HudSyncComplete {
+  serviceId: string;
+  fieldKey: string;
+  hudId: string;
+  operation: 'create' | 'update' | 'delete';
+}
+
+export interface HudPhotoUploadComplete {
+  imageId: string;
+  attachId: string;
+  s3Key: string;
+  hudId: string;
 }
 
 export interface SyncStatus {
@@ -102,6 +123,18 @@ export class BackgroundSyncService {
 
   // Caption sync events - emits when caption/annotation updates complete
   public captionSyncComplete$ = new Subject<{ attachId: string; attachType: string; captionId: string }>();
+
+  // HUD sync events - pages can subscribe to update UI when HUD data syncs
+  public hudSyncComplete$ = new Subject<HudSyncComplete>();
+  public hudPhotoUploadComplete$ = new Subject<HudPhotoUploadComplete>();
+
+  // ==========================================================================
+  // HUD SERVICES - Lazy loaded to avoid circular dependencies
+  // ==========================================================================
+  private _hudFieldRepo: HudFieldRepoServiceType | null = null;
+  private _hudOpsQueue: HudOperationsQueueServiceType | null = null;
+  private _hudS3Upload: HudS3UploadServiceType | null = null;
+  private hudServicesSubscription: Subscription | null = null;
 
   // ==========================================================================
   // SECTION DIRTY FLAG TRACKING
@@ -222,12 +255,120 @@ export class BackgroundSyncService {
     private localImageService: LocalImageService,
     private operationsQueue: OperationsQueueService,
     private serviceMetadata: ServiceMetadataService,
-    private thumbnailService: ThumbnailService
+    private thumbnailService: ThumbnailService,
+    private platform: PlatformDetectionService
   ) {
     this.startBackgroundSync();
     this.listenToConnectionChanges();
     this.subscribeToSyncQueueChanges();
+    this.subscribeToHudServices();
     // NOTE: App state listener for native foreground/background removed - @capacitor/app not available in web build
+  }
+
+  // ==========================================================================
+  // HUD SERVICES LAZY LOADING
+  // Avoids circular dependency by loading services at runtime
+  // ==========================================================================
+
+  /**
+   * Get HudFieldRepoService lazily to avoid circular dependency
+   */
+  private async getHudFieldRepo(): Promise<HudFieldRepoServiceType | null> {
+    if (this._hudFieldRepo) return this._hudFieldRepo;
+    try {
+      const module = await import('../pages/hud/services/hud-field-repo.service');
+      // Get from Angular's injector via the global injector (providedIn: 'root' services)
+      const injector = (window as any).__ngInjector;
+      if (injector) {
+        this._hudFieldRepo = injector.get(module.HudFieldRepoService);
+      }
+      return this._hudFieldRepo;
+    } catch (e) {
+      console.warn('[BackgroundSync] Could not load HudFieldRepoService:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Get HudOperationsQueueService lazily to avoid circular dependency
+   */
+  private async getHudOpsQueue(): Promise<HudOperationsQueueServiceType | null> {
+    if (this._hudOpsQueue) return this._hudOpsQueue;
+    try {
+      const module = await import('../pages/hud/services/hud-operations-queue.service');
+      const injector = (window as any).__ngInjector;
+      if (injector) {
+        this._hudOpsQueue = injector.get(module.HudOperationsQueueService);
+      }
+      return this._hudOpsQueue;
+    } catch (e) {
+      console.warn('[BackgroundSync] Could not load HudOperationsQueueService:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Get HudS3UploadService lazily to avoid circular dependency
+   */
+  private async getHudS3Upload(): Promise<HudS3UploadServiceType | null> {
+    if (this._hudS3Upload) return this._hudS3Upload;
+    try {
+      const module = await import('../pages/hud/services/hud-s3-upload.service');
+      const injector = (window as any).__ngInjector;
+      if (injector) {
+        this._hudS3Upload = injector.get(module.HudS3UploadService);
+      }
+      return this._hudS3Upload;
+    } catch (e) {
+      console.warn('[BackgroundSync] Could not load HudS3UploadService:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to HUD services' events and forward to BackgroundSyncService subjects
+   * This connects the HUD-specific upload events to the central sync service
+   */
+  private async subscribeToHudServices(): Promise<void> {
+    // Only subscribe on mobile where HUD uses Dexie-first architecture
+    if (!this.platform.isMobile()) {
+      console.log('[BackgroundSync] Webapp mode - HUD syncs immediately without batching');
+      return;
+    }
+
+    try {
+      // Subscribe to HUD photo upload events
+      const hudS3Upload = await this.getHudS3Upload();
+      if (hudS3Upload) {
+        // Forward HUD photo upload events to the central hudPhotoUploadComplete$ subject
+        this.hudServicesSubscription = hudS3Upload.uploadComplete$.subscribe((result) => {
+          console.log('[BackgroundSync] HUD photo upload complete:', result.imageId);
+          this.ngZone.run(() => {
+            this.hudPhotoUploadComplete$.next(result);
+          });
+        });
+        console.log('[BackgroundSync] Subscribed to HUD photo upload events');
+      }
+
+      // Subscribe to HUD sync events (create/update/delete operations)
+      const hudOpsQueue = await this.getHudOpsQueue();
+      if (hudOpsQueue) {
+        hudOpsQueue.syncComplete$.subscribe((event) => {
+          console.log(`[BackgroundSync] HUD sync complete: ${event.operation} for ${event.fieldKey}`);
+          this.ngZone.run(() => {
+            this.hudSyncComplete$.next({
+              serviceId: event.serviceId,
+              fieldKey: event.fieldKey,
+              hudId: event.hudId,
+              operation: event.operation
+            });
+          });
+        });
+        console.log('[BackgroundSync] Subscribed to HUD sync events');
+      }
+    } catch (e) {
+      console.warn('[BackgroundSync] Could not subscribe to HUD services:', e);
+    }
   }
 
   /**
@@ -575,6 +716,11 @@ export class BackgroundSyncService {
       console.log('[BackgroundSync] Processing OperationsQueue (room/point creations)...');
       await this.operationsQueue.processQueue();
 
+      // HUD-004: Process dirty HUD fields (MOBILE ONLY)
+      // Webapp syncs immediately without batching via direct API calls
+      // Mobile uses Dexie-first architecture with dirty flag tracking
+      await this.syncDirtyHudFields();
+
       // Process pending requests (rooms, points updates)
       // This ensures rooms have real IDs before we try to upload FDF photos
       // FDF photos use room ID as entityId - if room hasn't synced, photo would be deferred
@@ -619,6 +765,81 @@ export class BackgroundSyncService {
     } finally {
       this.isSyncing = false;
       await this.updateSyncStatusFromDb();
+    }
+  }
+
+  // ==========================================================================
+  // HUD SYNC - Dirty field batching and sync (MOBILE ONLY)
+  // ==========================================================================
+
+  /**
+   * Sync all dirty HUD fields (MOBILE ONLY)
+   *
+   * This method:
+   * 1. Gets all dirty HUD fields from Dexie
+   * 2. Groups them by service ID for batch processing
+   * 3. Enqueues create/update/delete operations via HudOperationsQueueService
+   * 4. Emits hudSyncComplete$ events for UI refresh
+   * 5. Dirty flags are cleared by HudOperationsQueueService on success
+   *
+   * WEBAPP: Syncs immediately without batching - this method is a no-op
+   */
+  private async syncDirtyHudFields(): Promise<void> {
+    // MOBILE ONLY: Webapp syncs immediately without batching
+    if (!this.platform.isMobile()) {
+      return;
+    }
+
+    try {
+      const hudFieldRepo = await this.getHudFieldRepo();
+      const hudOpsQueue = await this.getHudOpsQueue();
+
+      if (!hudFieldRepo || !hudOpsQueue) {
+        console.log('[BackgroundSync] HUD services not available, skipping HUD sync');
+        return;
+      }
+
+      // Check if Dexie-first is enabled (should be true on mobile)
+      if (!hudFieldRepo.isDexieFirstEnabled()) {
+        return;
+      }
+
+      // Get all dirty fields
+      const dirtyFields = await hudFieldRepo.getDirtyFields();
+
+      if (dirtyFields.length === 0) {
+        console.log('[BackgroundSync] No dirty HUD fields to sync');
+        return;
+      }
+
+      console.log(`[BackgroundSync] Syncing ${dirtyFields.length} dirty HUD fields`);
+
+      // Group by service ID for batch processing
+      const fieldsByService = new Map<string, typeof dirtyFields>();
+      for (const field of dirtyFields) {
+        const serviceFields = fieldsByService.get(field.serviceId) || [];
+        serviceFields.push(field);
+        fieldsByService.set(field.serviceId, serviceFields);
+      }
+
+      // Process each service's dirty fields
+      let totalEnqueued = 0;
+      for (const [serviceId, fields] of fieldsByService) {
+        console.log(`[BackgroundSync] Processing ${fields.length} dirty HUD fields for service ${serviceId}`);
+
+        // Use HudOperationsQueueService.syncDirtyFields() which handles the enqueuing
+        // and sets up callbacks to emit hudSyncComplete$ events
+        const enqueued = await hudOpsQueue.syncDirtyFields(serviceId);
+        totalEnqueued += enqueued;
+
+        // Mark section dirty so UI knows to refresh
+        this.markSectionDirty(`${serviceId}_hud`);
+      }
+
+      console.log(`[BackgroundSync] Enqueued ${totalEnqueued} HUD operations across ${fieldsByService.size} services`);
+
+    } catch (error) {
+      console.error('[BackgroundSync] Error syncing dirty HUD fields:', error);
     }
   }
 
