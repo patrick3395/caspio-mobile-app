@@ -249,6 +249,15 @@ export class CaspioDB extends Dexie {
   // Cache for HUD fields by service ID + category
   private _lastHudFieldsCache: Map<string, HudField[]> = new Map();
 
+  // Cache for single HUD field by key
+  private _lastHudFieldCache: Map<string, HudField | undefined> = new Map();
+
+  // Cache for dirty HUD fields
+  private _lastDirtyHudFieldsCache: HudField[] | null = null;
+
+  // Cache for all HUD fields by service ID
+  private _lastAllHudFieldsCache: Map<string, HudField[]> = new Map();
+
   constructor() {
     super('CaspioOfflineDB');
 
@@ -1010,31 +1019,168 @@ export class CaspioDB extends Dexie {
 
   /**
    * Live query for a single HUD field by key
+   *
+   * MOBILE FIX (HUD-013): Caches last known good result and returns it on error
+   * Handles WebView IndexedDB connection hiccups gracefully
    */
   liveHudField$(key: string): Observable<HudField | undefined> {
-    const query = liveQuery(() =>
-      this.hudFields.where('key').equals(key).first()
-    );
+    const query = liveQuery(async () => {
+      try {
+        // MOBILE FIX: Check if database connection is open, reopen if needed
+        if (!this.isOpen()) {
+          console.log('[HUD] liveHudField$ - Database not open, reopening...');
+          await this.open();
+        }
+
+        const field = await this.hudFields.where('key').equals(key).first();
+        console.log(`[HUD] liveHudField$: key=${key}, found=${!!field}`);
+
+        // Cache the successful result
+        this._lastHudFieldCache.set(key, field);
+
+        return field;
+      } catch (err: any) {
+        console.error('[HUD] liveHudField$ error:', err?.message || err);
+
+        // MOBILE FIX: On connection lost, try to reopen database
+        if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
+          console.log('[HUD] liveHudField$ - Connection lost, attempting to reopen database...');
+          try {
+            await this.close();
+            await this.open();
+            // Retry the query after reopening
+            const field = await this.hudFields.where('key').equals(key).first();
+            console.log('[HUD] liveHudField$ - Reconnected successfully');
+            this._lastHudFieldCache.set(key, field);
+            return field;
+          } catch (retryErr) {
+            console.error('[HUD] liveHudField$ - Retry failed:', retryErr);
+          }
+        }
+
+        // CRITICAL FIX: Return cached data instead of undefined on error
+        // This prevents the UI from losing data when IndexedDB has temporary issues
+        const cached = this._lastHudFieldCache.get(key);
+        if (cached !== undefined) {
+          console.log('[HUD] liveHudField$ - Returning cached data to prevent data loss');
+          return cached;
+        }
+
+        // Only return undefined if we have no cached data (first run)
+        return undefined;
+      }
+    });
     return this.toRxObservable<HudField | undefined>(query);
   }
 
   /**
    * Live query for dirty HUD fields (pending sync)
+   *
+   * MOBILE FIX (HUD-013): Caches last known good result and returns it on error
+   * Handles WebView IndexedDB connection hiccups gracefully
    */
   liveDirtyHudFields$(): Observable<HudField[]> {
-    const query = liveQuery(() =>
-      this.hudFields.where('dirty').equals(1).toArray()
-    );
+    const query = liveQuery(async () => {
+      try {
+        // MOBILE FIX: Check if database connection is open, reopen if needed
+        if (!this.isOpen()) {
+          console.log('[HUD] liveDirtyHudFields$ - Database not open, reopening...');
+          await this.open();
+        }
+
+        const fields = await this.hudFields.where('dirty').equals(1).toArray();
+        console.log(`[HUD] liveDirtyHudFields$: count=${fields.length}`);
+
+        // Cache the successful result
+        this._lastDirtyHudFieldsCache = fields;
+
+        return fields;
+      } catch (err: any) {
+        console.error('[HUD] liveDirtyHudFields$ error:', err?.message || err);
+
+        // MOBILE FIX: On connection lost, try to reopen database
+        if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
+          console.log('[HUD] liveDirtyHudFields$ - Connection lost, attempting to reopen database...');
+          try {
+            await this.close();
+            await this.open();
+            // Retry the query after reopening
+            const fields = await this.hudFields.where('dirty').equals(1).toArray();
+            console.log('[HUD] liveDirtyHudFields$ - Reconnected successfully');
+            this._lastDirtyHudFieldsCache = fields;
+            return fields;
+          } catch (retryErr) {
+            console.error('[HUD] liveDirtyHudFields$ - Retry failed:', retryErr);
+          }
+        }
+
+        // CRITICAL FIX: Return cached data instead of empty array on error
+        // This prevents the UI from clearing when IndexedDB has temporary issues
+        if (this._lastDirtyHudFieldsCache) {
+          console.log('[HUD] liveDirtyHudFields$ - Returning cached data to prevent data loss');
+          return this._lastDirtyHudFieldsCache;
+        }
+
+        // Only return empty array if we have no cached data (first run)
+        return [];
+      }
+    });
     return this.toRxObservable<HudField[]>(query);
   }
 
   /**
    * Live query for all HUD fields for a service (all categories)
+   *
+   * MOBILE FIX (HUD-013): Caches last known good result and returns it on error
+   * Handles WebView IndexedDB connection hiccups gracefully
    */
   liveAllHudFieldsForService$(serviceId: string): Observable<HudField[]> {
-    const query = liveQuery(() =>
-      this.hudFields.where('serviceId').equals(serviceId).toArray()
-    );
+    const query = liveQuery(async () => {
+      try {
+        // MOBILE FIX: Check if database connection is open, reopen if needed
+        if (!this.isOpen()) {
+          console.log('[HUD] liveAllHudFieldsForService$ - Database not open, reopening...');
+          await this.open();
+        }
+
+        const fields = await this.hudFields.where('serviceId').equals(serviceId).toArray();
+        console.log(`[HUD] liveAllHudFieldsForService$: serviceId=${serviceId}, count=${fields.length}`);
+
+        // Cache the successful result
+        this._lastAllHudFieldsCache.set(serviceId, fields);
+
+        return fields;
+      } catch (err: any) {
+        console.error('[HUD] liveAllHudFieldsForService$ error:', err?.message || err);
+
+        // MOBILE FIX: On connection lost, try to reopen database
+        if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
+          console.log('[HUD] liveAllHudFieldsForService$ - Connection lost, attempting to reopen database...');
+          try {
+            await this.close();
+            await this.open();
+            // Retry the query after reopening
+            const fields = await this.hudFields.where('serviceId').equals(serviceId).toArray();
+            console.log('[HUD] liveAllHudFieldsForService$ - Reconnected successfully');
+            this._lastAllHudFieldsCache.set(serviceId, fields);
+            return fields;
+          } catch (retryErr) {
+            console.error('[HUD] liveAllHudFieldsForService$ - Retry failed:', retryErr);
+          }
+        }
+
+        // CRITICAL FIX: Return cached data instead of empty array on error
+        // This prevents the UI from clearing when IndexedDB has temporary issues
+        const cached = this._lastAllHudFieldsCache.get(serviceId);
+        if (cached) {
+          console.log('[HUD] liveAllHudFieldsForService$ - Returning cached data to prevent data loss');
+          return cached;
+        }
+
+        // Only return empty array if we have no cached data (first run)
+        return [];
+      }
+    });
     return this.toRxObservable<HudField[]>(query);
   }
 

@@ -345,51 +345,224 @@ export class HudFieldRepoService {
   // NON-REACTIVE READS - For one-time queries (MOBILE ONLY)
   // ============================================================================
 
+  // HUD-013: Cache for non-reactive queries to handle IndexedDB connection issues
+  private _categoryFieldsCache: Map<string, HudField[]> = new Map();
+  private _singleFieldCache: Map<string, HudField | undefined> = new Map();
+  private _dirtyFieldsCache: HudField[] | null = null;
+
+  /**
+   * HUD-013: Helper to ensure DB connection before queries
+   * Reopens database if needed and retries on connection errors
+   */
+  private async ensureDbConnection(): Promise<void> {
+    if (!db.isOpen()) {
+      console.log('[HUD] ensureDbConnection - Database not open, reopening...');
+      await db.open();
+    }
+  }
+
+  /**
+   * HUD-013: Helper to handle connection errors with retry
+   * Returns true if retry succeeded, false if should use cache
+   */
+  private async handleConnectionError(err: any, context: string): Promise<boolean> {
+    console.error(`[HUD] ${context} error:`, err?.message || err);
+
+    if (err?.message?.includes('Connection') || err?.name === 'UnknownError') {
+      console.log(`[HUD] ${context} - Connection lost, attempting to reopen database...`);
+      try {
+        await db.close();
+        await db.open();
+        console.log(`[HUD] ${context} - Reconnected successfully`);
+        return true; // Retry succeeded
+      } catch (retryErr) {
+        console.error(`[HUD] ${context} - Retry failed:`, retryErr);
+      }
+    }
+    return false; // Use cache
+  }
+
   /**
    * Get all fields for a category (non-reactive, one-time read)
+   *
+   * MOBILE FIX (HUD-013): Handles IndexedDB connection issues gracefully
+   * Returns cached data on error to prevent UI clearing
    */
   async getFieldsForCategory(serviceId: string, category: string): Promise<HudField[]> {
     if (!this.isDexieFirstEnabled()) {
       return [];
     }
-    return db.hudFields
-      .where('[serviceId+category]')
-      .equals([serviceId, category])
-      .toArray();
+
+    const cacheKey = `${serviceId}:${category}`;
+
+    try {
+      await this.ensureDbConnection();
+
+      const fields = await db.hudFields
+        .where('[serviceId+category]')
+        .equals([serviceId, category])
+        .toArray();
+
+      // Cache successful result
+      this._categoryFieldsCache.set(cacheKey, fields);
+      return fields;
+    } catch (err: any) {
+      const shouldRetry = await this.handleConnectionError(err, 'getFieldsForCategory');
+
+      if (shouldRetry) {
+        try {
+          const fields = await db.hudFields
+            .where('[serviceId+category]')
+            .equals([serviceId, category])
+            .toArray();
+          this._categoryFieldsCache.set(cacheKey, fields);
+          return fields;
+        } catch (retryErr) {
+          console.error('[HUD] getFieldsForCategory - Retry query failed:', retryErr);
+        }
+      }
+
+      // Return cached data to prevent UI clearing
+      const cached = this._categoryFieldsCache.get(cacheKey);
+      if (cached) {
+        console.log('[HUD] getFieldsForCategory - Returning cached data');
+        return cached;
+      }
+
+      return [];
+    }
   }
 
   /**
    * Get a single field by key (non-reactive)
+   *
+   * MOBILE FIX (HUD-013): Handles IndexedDB connection issues gracefully
+   * Returns cached data on error to prevent data loss
    */
   async getField(key: string): Promise<HudField | undefined> {
     if (!this.isDexieFirstEnabled()) {
       return undefined;
     }
-    return db.hudFields.where('key').equals(key).first();
+
+    try {
+      await this.ensureDbConnection();
+
+      const field = await db.hudFields.where('key').equals(key).first();
+
+      // Cache successful result
+      this._singleFieldCache.set(key, field);
+      return field;
+    } catch (err: any) {
+      const shouldRetry = await this.handleConnectionError(err, 'getField');
+
+      if (shouldRetry) {
+        try {
+          const field = await db.hudFields.where('key').equals(key).first();
+          this._singleFieldCache.set(key, field);
+          return field;
+        } catch (retryErr) {
+          console.error('[HUD] getField - Retry query failed:', retryErr);
+        }
+      }
+
+      // Return cached data to prevent data loss
+      const cached = this._singleFieldCache.get(key);
+      if (cached !== undefined) {
+        console.log('[HUD] getField - Returning cached data');
+        return cached;
+      }
+
+      return undefined;
+    }
   }
 
   /**
    * Get all dirty fields (non-reactive, for sync service)
+   *
+   * MOBILE FIX (HUD-013): Handles IndexedDB connection issues gracefully
+   * Returns cached data on error to prevent sync issues
    */
   async getDirtyFields(): Promise<HudField[]> {
     if (!this.isDexieFirstEnabled()) {
       return [];
     }
-    return db.hudFields.where('dirty').equals(1).toArray();
+
+    try {
+      await this.ensureDbConnection();
+
+      const fields = await db.hudFields.where('dirty').equals(1).toArray();
+
+      // Cache successful result
+      this._dirtyFieldsCache = fields;
+      return fields;
+    } catch (err: any) {
+      const shouldRetry = await this.handleConnectionError(err, 'getDirtyFields');
+
+      if (shouldRetry) {
+        try {
+          const fields = await db.hudFields.where('dirty').equals(1).toArray();
+          this._dirtyFieldsCache = fields;
+          return fields;
+        } catch (retryErr) {
+          console.error('[HUD] getDirtyFields - Retry query failed:', retryErr);
+        }
+      }
+
+      // Return cached data to prevent sync issues
+      if (this._dirtyFieldsCache) {
+        console.log('[HUD] getDirtyFields - Returning cached data');
+        return this._dirtyFieldsCache;
+      }
+
+      return [];
+    }
   }
 
   /**
    * Check if fields exist for a category (for seeding check)
+   *
+   * MOBILE FIX (HUD-013): Handles IndexedDB connection issues gracefully
+   * Uses cached data if available to provide an answer
    */
   async hasFieldsForCategory(serviceId: string, category: string): Promise<boolean> {
     if (!this.isDexieFirstEnabled()) {
       return false;
     }
-    const count = await db.hudFields
-      .where('[serviceId+category]')
-      .equals([serviceId, category])
-      .count();
-    return count > 0;
+
+    const cacheKey = `${serviceId}:${category}`;
+
+    try {
+      await this.ensureDbConnection();
+
+      const count = await db.hudFields
+        .where('[serviceId+category]')
+        .equals([serviceId, category])
+        .count();
+      return count > 0;
+    } catch (err: any) {
+      const shouldRetry = await this.handleConnectionError(err, 'hasFieldsForCategory');
+
+      if (shouldRetry) {
+        try {
+          const count = await db.hudFields
+            .where('[serviceId+category]')
+            .equals([serviceId, category])
+            .count();
+          return count > 0;
+        } catch (retryErr) {
+          console.error('[HUD] hasFieldsForCategory - Retry query failed:', retryErr);
+        }
+      }
+
+      // Use cached data if available to provide an answer
+      const cached = this._categoryFieldsCache.get(cacheKey);
+      if (cached) {
+        console.log('[HUD] hasFieldsForCategory - Using cached data for answer');
+        return cached.length > 0;
+      }
+
+      return false;
+    }
   }
 
   // ============================================================================
