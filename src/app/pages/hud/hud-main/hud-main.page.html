@@ -22,6 +22,16 @@
             <div class="title-container">
               <ion-card-title>{{ card.title }}</ion-card-title>
               <p class="card-description" *ngIf="card.description">{{ card.description }}</p>
+              <!-- Badge Row -->
+              <div class="badge-row" *ngIf="card.badges && card.badges.length > 0">
+                <ion-badge
+                  *ngFor="let badge of card.badges"
+                  [color]="badge.color"
+                  class="count-badge">
+                  <ion-icon *ngIf="badge.icon" [name]="badge.icon"></ion-icon>
+                  {{ badge.label }}: {{ badge.count }}
+                </ion-badge>
+              </div>
             </div>
           </div>
         </ion-card-header>

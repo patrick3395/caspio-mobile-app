@@ -14,6 +14,14 @@ interface NavigationCard {
   route: string;
   description: string;
   completed: boolean;
+  badges?: CardBadge[];
+}
+
+interface CardBadge {
+  label: string;
+  count: number;
+  color: 'success' | 'warning' | 'danger' | 'primary';
+  icon?: string;
 }
 
 @Component({
@@ -29,15 +37,17 @@ export class HudMainPage implements OnInit {
       title: 'Project Details',
       icon: 'document-text-outline',
       route: 'project-details',
-      description: '',
-      completed: false
+      description: 'Property information, people, and environmental conditions',
+      completed: false,
+      badges: []
     },
     {
       title: 'HUD / Manufactured Home',
       icon: 'construct-outline',
       route: 'categories',
-      description: '',
-      completed: false
+      description: 'Inspection findings, comments, and photo documentation',
+      completed: false,
+      badges: []
     }
   ];
 
