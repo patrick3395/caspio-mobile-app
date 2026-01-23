@@ -8,6 +8,8 @@
     <ion-title class="full-title">{{ currentPageTitle }}</ion-title>
     <ion-title class="short-title">{{ currentPageShortTitle }}</ion-title>
     <ion-buttons slot="end">
+      <!-- MOBILE ONLY: Sync status widget (not needed on web since data saves directly) -->
+      <app-sync-status-widget *ngIf="!isWeb"></app-sync-status-widget>
       <ion-button (click)="generatePDF()" [disabled]="isGeneratingPDF">
         <ion-icon slot="icon-only" name="document-text"></ion-icon>
       </ion-button>
@@ -16,8 +18,27 @@
 </ion-header>
 
 <ion-content>
-  <!-- Child pages will be rendered here -->
-  <router-outlet></router-outlet>
+  <!-- Loading overlay while downloading template data -->
+  <!-- US-002 FIX: Use CSS visibility instead of *ngIf to prevent overlay from blocking router-outlet -->
+  <div class="template-loading-overlay" [class.hidden]="templateReady">
+    <div class="loading-content">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <h2>Preparing Template</h2>
+      <p>{{ downloadProgress }}</p>
+      <!-- MOBILE ONLY: Offline capability hint -->
+      <p class="loading-hint" *ngIf="!isWeb">This ensures you can work offline</p>
+    </div>
+  </div>
+
+  <!-- US-002 CRITICAL FIX: NEVER use *ngIf on router-outlet!
+       When *ngIf removes/adds router-outlet, Angular destroys ALL child components
+       and their entire state, causing what looks like a hard refresh to users.
+
+       Instead, always keep router-outlet mounted and use CSS to hide content.
+       Child components now persist across templateReady state changes. -->
+  <div class="router-wrapper" [class.loading]="!templateReady">
+    <router-outlet></router-outlet>
+  </div>
 </ion-content>
 
 <ion-footer class="breadcrumb-footer">
@@ -36,4 +57,3 @@
     </div>
   </ion-toolbar>
 </ion-footer>
-

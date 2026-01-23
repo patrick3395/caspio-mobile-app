@@ -1,14 +1,17 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { LbwStateService } from '../services/lbw-state.service';
 import { LbwPdfService } from '../services/lbw-pdf.service';
+import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { OfflineService } from '../../../services/offline.service';
 import { NavigationHistoryService } from '../../../services/navigation-history.service';
 import { PageTitleService } from '../../../services/page-title.service';
 import { filter } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 interface Breadcrumb {
@@ -22,9 +25,9 @@ interface Breadcrumb {
   templateUrl: './lbw-container.page.html',
   styleUrls: ['./lbw-container.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule]
+  imports: [CommonModule, IonicModule, RouterModule, SyncStatusWidgetComponent]
 })
-export class LbwContainerPage implements OnInit {
+export class LbwContainerPage implements OnInit, OnDestroy {
   projectId: string = '';
   serviceId: string = '';
   projectName: string = 'Loading...';
@@ -32,6 +35,20 @@ export class LbwContainerPage implements OnInit {
   currentPageTitle: string = 'LBW/Load Bearing Wall';
   currentPageShortTitle: string = 'LBW';
   isGeneratingPDF: boolean = false;
+
+  // Offline-first: template loading state
+  templateReady: boolean = false;
+  downloadProgress: string = 'Preparing template for offline use...';
+
+  // WEBAPP MODE: Flag for template to hide sync-related UI
+  isWeb: boolean = environment.isWeb;
+
+  // US-002 FIX: Track last loaded service to prevent unnecessary re-downloads
+  // MOBILE FIX: Made static so it persists across component recreation (Ionic destroys/recreates pages)
+  private static lastLoadedServiceId: string = '';
+
+  // Subscriptions for cleanup
+  private syncSubscriptions: Subscription[] = [];
 
   constructor(
     private router: Router,
@@ -41,28 +58,69 @@ export class LbwContainerPage implements OnInit {
     private location: Location,
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,
+    private offlineService: OfflineService,
     private navigationHistory: NavigationHistoryService,
-    private pageTitleService: PageTitleService
-  ) {}
+    private pageTitleService: PageTitleService,
+    private changeDetectorRef: ChangeDetectorRef
+  ) {
+    // CRITICAL: Ensure loading screen shows immediately
+    this.templateReady = false;
+    this.downloadProgress = 'Loading template...';
+  }
 
   ngOnInit() {
+    // CRITICAL: Ensure loading screen is visible immediately
+    this.templateReady = false;
+    this.downloadProgress = 'Initializing template...';
+    this.changeDetectorRef.detectChanges();
+
     // Get project and service IDs from route params
-    this.route.params.subscribe(params => {
-      this.projectId = params['projectId'];
-      this.serviceId = params['serviceId'];
+    this.route.params.subscribe(async params => {
+      const newProjectId = params['projectId'];
+      const newServiceId = params['serviceId'];
+
+      // US-002 FIX: Skip re-download if navigating within the same service
+      const isNewService = LbwContainerPage.lastLoadedServiceId !== newServiceId;
+      const isFirstLoad = !LbwContainerPage.lastLoadedServiceId;
+
+      this.projectId = newProjectId;
+      this.serviceId = newServiceId;
 
       // Initialize state service with IDs
       this.stateService.initialize(this.projectId, this.serviceId);
 
-      // Subscribe to project name updates
-      this.stateService.projectData$.subscribe(data => {
-        if (data?.projectName) {
-          this.projectName = data.projectName;
-        }
-      });
+      // Subscribe to project name updates (only once per service)
+      if (isNewService || isFirstLoad) {
+        this.stateService.projectData$.subscribe(data => {
+          if (data?.projectName) {
+            this.projectName = data.projectName;
+          }
+        });
+      }
 
-      // Pre-cache templates and service data for offline use (non-blocking)
-      this.preCacheForOffline();
+      // US-002 FIX: Only show loading and re-download if this is a NEW service
+      if (isNewService || isFirstLoad) {
+        console.log('[LBW Container] New service detected, downloading template data...');
+
+        // CRITICAL: Force loading screen to render before starting download
+        this.templateReady = false;
+        this.downloadProgress = 'Loading template data...';
+        this.changeDetectorRef.detectChanges();
+
+        // Small delay to ensure UI renders loading state
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // CRITICAL: Download ALL template data for offline use
+        await this.downloadTemplateData();
+
+        // Track that we've loaded this service
+        LbwContainerPage.lastLoadedServiceId = newServiceId;
+      } else {
+        console.log('[LBW Container] Same service (' + newServiceId + '), skipping re-download to prevent hard refresh');
+        // CRITICAL: Must set templateReady=true when skipping download
+        this.templateReady = true;
+        this.changeDetectorRef.detectChanges();
+      }
     });
 
     // Subscribe to router events to update breadcrumbs
@@ -76,29 +134,91 @@ export class LbwContainerPage implements OnInit {
     this.updateBreadcrumbs();
   }
 
+  ngOnDestroy() {
+    // Clean up subscriptions
+    this.syncSubscriptions.forEach(sub => sub.unsubscribe());
+  }
+
   /**
-   * Download complete template for offline use.
-   * Runs in background, doesn't block UI.
+   * Template Loading - ALWAYS shows loading screen and syncs fresh data when online
    */
-  private async preCacheForOffline(): Promise<void> {
-    if (!this.serviceId) return;
-
-    console.log('[LBW Container] Downloading template for offline use...');
-
-    try {
-      await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'LBW');
-      console.log('[LBW Container] Template downloaded - ready for offline use');
-    } catch (error) {
-      console.warn('[LBW Container] Template download skipped:', error);
-      try {
-        await Promise.all([
-          this.offlineCache.refreshAllTemplates(),
-          this.offlineCache.preCacheServiceData(this.serviceId)
-        ]);
-      } catch (fallbackError) {
-        console.warn('[LBW Container] Fallback pre-cache also failed:', fallbackError);
-      }
+  private async downloadTemplateData(): Promise<void> {
+    if (!this.serviceId) {
+      console.log('[LBW Container] loadTemplate: no serviceId, skipping');
+      this.templateReady = true;
+      this.changeDetectorRef.detectChanges();
+      return;
     }
+
+    console.log(`[LBW Container] ========== TEMPLATE LOAD ==========`);
+    console.log(`[LBW Container] ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`);
+    console.log(`[LBW Container] Online: ${this.offlineService.isOnline()}`);
+
+    // WEBAPP MODE: Skip template download - pages will fetch directly from API
+    if (environment.isWeb) {
+      console.log('[LBW Container] WEBAPP MODE: Skipping template download - pages fetch from API directly');
+      this.templateReady = true;
+      this.downloadProgress = 'Ready';
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
+
+    // MOBILE MODE: Download template for offline use
+    this.templateReady = false;
+    this.downloadProgress = 'Loading template data...';
+    this.changeDetectorRef.detectChanges();
+    console.log('[LBW Container] Loading screen should now be visible');
+
+    const isOnline = this.offlineService.isOnline();
+
+    if (isOnline) {
+      // ONLINE: Always download fresh data
+      try {
+        this.downloadProgress = 'Syncing template data...';
+        this.changeDetectorRef.detectChanges();
+        console.log('[LBW Container] Online - downloading fresh template data...');
+
+        await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'LBW', this.projectId);
+        console.log('[LBW Container] Template downloaded - ready for offline use');
+
+        this.downloadProgress = 'Template ready!';
+        this.changeDetectorRef.detectChanges();
+      } catch (error: any) {
+        console.warn('[LBW Container] Template download failed:', error);
+        this.downloadProgress = 'Sync failed - checking cached data...';
+        this.changeDetectorRef.detectChanges();
+
+        // Try fallback download
+        try {
+          console.log('[LBW Container] Trying fallback pre-cache...');
+          this.downloadProgress = 'Attempting fallback sync...';
+          this.changeDetectorRef.detectChanges();
+          await Promise.all([
+            this.offlineCache.refreshAllTemplates(),
+            this.offlineCache.preCacheServiceData(this.serviceId)
+          ]);
+          console.log('[LBW Container] Fallback completed');
+          this.downloadProgress = 'Template ready (partial sync)';
+          this.changeDetectorRef.detectChanges();
+        } catch (fallbackError) {
+          console.warn('[LBW Container] Fallback also failed:', fallbackError);
+          this.downloadProgress = 'Limited functionality - some data unavailable';
+          this.changeDetectorRef.detectChanges();
+        }
+      }
+    } else {
+      // OFFLINE: Check for cached data
+      this.downloadProgress = 'Offline - loading cached data...';
+      this.changeDetectorRef.detectChanges();
+      console.log('[LBW Container] Offline - checking for cached data...');
+      this.downloadProgress = 'Working offline with cached data';
+      this.changeDetectorRef.detectChanges();
+    }
+
+    // Always mark as ready - let user proceed
+    this.templateReady = true;
+    this.changeDetectorRef.detectChanges();
+    console.log('[LBW Container] Template ready, loading screen hidden');
   }
 
   private updateBreadcrumbs() {
@@ -126,10 +246,10 @@ export class LbwContainerPage implements OnInit {
 
     // Check for project details
     if (url.includes('/project-details')) {
-      this.breadcrumbs.push({ 
-        label: 'Project Details', 
-        path: 'project-details', 
-        icon: 'document-text-outline' 
+      this.breadcrumbs.push({
+        label: 'Project Details',
+        path: 'project-details',
+        icon: 'document-text-outline'
       });
       this.currentPageTitle = 'Project Details';
       this.currentPageShortTitle = 'Project Details';
@@ -137,10 +257,10 @@ export class LbwContainerPage implements OnInit {
 
     // Check for categories list page
     if (url.includes('/categories') && !url.includes('/category/')) {
-      this.breadcrumbs.push({ 
-        label: 'Load Bearing Wall', 
-        path: 'categories', 
-        icon: 'construct-outline' 
+      this.breadcrumbs.push({
+        label: 'Load Bearing Wall',
+        path: 'categories',
+        icon: 'construct-outline'
       });
       this.currentPageTitle = 'Load Bearing Wall';
       this.currentPageShortTitle = 'LBW';
@@ -150,12 +270,12 @@ export class LbwContainerPage implements OnInit {
     const categoryMatch = url.match(/\/category\/([^\/]+)/);
     if (categoryMatch) {
       // Add categories breadcrumb first
-      this.breadcrumbs.push({ 
-        label: 'Load Bearing Wall', 
-        path: 'categories', 
-        icon: 'construct-outline' 
+      this.breadcrumbs.push({
+        label: 'Load Bearing Wall',
+        path: 'categories',
+        icon: 'construct-outline'
       });
-      
+
       const categoryName = decodeURIComponent(categoryMatch[1]);
       const categoryIcon = this.getCategoryIcon(categoryName);
       this.breadcrumbs.push({
@@ -261,5 +381,3 @@ export class LbwContainerPage implements OnInit {
     return iconMap[categoryName] || 'document-text-outline';
   }
 }
-
-
