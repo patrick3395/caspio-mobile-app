@@ -139,6 +139,21 @@ export class HudOperationsQueueService {
     this.operationsQueue.setExecutor('UPLOAD_HUD_PHOTO', async (data: any, onProgress?: (p: number) => void) => {
       console.log('[HudOperationsQueue] Executing UPLOAD_HUD_PHOTO for HUD:', data.hudId);
 
+      // HUD-018: Resolve temp HUD ID to real ID if the parent HUD has been created
+      // This handles the dependency chain: visual creation → photo upload
+      let resolvedHudId = data.hudId;
+      if (this.isTempHudId(data.hudId)) {
+        const realId = await this.indexedDb.getRealId(data.hudId);
+        if (realId) {
+          console.log(`[HudOperationsQueue] Resolved temp HUD ID ${data.hudId} to ${realId}`);
+          resolvedHudId = realId;
+        } else {
+          // HUD not yet created - this operation will fail, but retry will resolve it
+          console.log(`[HudOperationsQueue] Temp HUD ID ${data.hudId} not yet resolved, will retry`);
+          throw new Error(`HUD ${data.hudId} not yet created - waiting for sync`);
+        }
+      }
+
       // Check if this is a LocalImage-based upload (has imageId)
       if (data.imageId) {
         // Mark the LocalImage as uploading
@@ -172,9 +187,9 @@ export class HudOperationsQueueService {
 
       if (onProgress) onProgress(0.5); // 50% before upload
 
-      // Upload the photo
+      // Upload the photo using the resolved HUD ID
       const response = await this.caspioService.createServicesHUDAttachWithFile(
-        parseInt(data.hudId, 10),
+        parseInt(resolvedHudId, 10),
         data.caption || '',
         compressedFile,
         drawingsData
@@ -250,14 +265,23 @@ export class HudOperationsQueueService {
       onSuccess: async (result: any) => {
         console.log(`[HudOperationsQueue] CREATE_HUD_VISUAL success for ${fieldKey}:`, result.hudId);
 
+        const realHudId = String(result.hudId);
+
+        // HUD-018: Store temp ID → real ID mapping for reference resolution
+        // This allows photos/attachments created with temp ID to be resolved later
+        await this.indexedDb.mapTempId(opId, realHudId, 'hud');
+
+        // HUD-018: Update LocalImages that reference this temp HUD ID
+        await this.updateLocalImagesWithRealId(opId, realHudId);
+
         // Mark field as synced in HudFieldRepo (clears dirty flag)
-        await this.hudFieldRepo.markSynced(fieldKey, String(result.hudId));
+        await this.hudFieldRepo.markSynced(fieldKey, realHudId);
 
         // Emit sync complete event for UI refresh
         this.syncComplete$.next({
           serviceId,
           fieldKey,
-          hudId: String(result.hudId),
+          hudId: realHudId,
           operation: 'create'
         });
 
@@ -585,6 +609,92 @@ export class HudOperationsQueueService {
 
     console.log(`[HudOperationsQueue] Enqueued ${enqueuedCount} operations for service: ${serviceId}`);
     return enqueuedCount;
+  }
+
+  // ============================================================================
+  // HUD-018: TEMP ID RESOLUTION - Update references when temp ID resolves
+  // ============================================================================
+
+  /**
+   * HUD-018: Update LocalImages that reference a temp HUD ID with the real ID
+   * Called when CREATE_HUD_VISUAL completes successfully
+   *
+   * This handles the dependency chain: HUD visual → photos → annotations
+   * Photos are stored in LocalImages with entityType='hud' and entityId=tempHudId
+   * When the HUD visual gets a real ID, we update all associated photos
+   *
+   * @param tempHudId - The temporary HUD ID (operation ID)
+   * @param realHudId - The real HUD ID from server
+   */
+  private async updateLocalImagesWithRealId(tempHudId: string, realHudId: string): Promise<void> {
+    try {
+      // Use IndexedDbService's updateEntityIdForImages which handles:
+      // 1. Finding all LocalImages with the temp entityId
+      // 2. Updating them to use the real ID
+      // 3. Resetting upload outbox items so they process immediately
+      const updatedCount = await this.indexedDb.updateEntityIdForImages(tempHudId, realHudId);
+
+      if (updatedCount === 0) {
+        console.log(`[HudOperationsQueue] No LocalImages to update for temp ID: ${tempHudId}`);
+      } else {
+        console.log(`[HudOperationsQueue] Updated ${updatedCount} LocalImages from tempId ${tempHudId} to realId ${realHudId}`);
+      }
+    } catch (error) {
+      console.error(`[HudOperationsQueue] Failed to update LocalImages for temp ID ${tempHudId}:`, error);
+      // Don't throw - photo entity updates are not critical for HUD creation
+    }
+  }
+
+  /**
+   * HUD-018: Resolve a temp HUD ID to its real ID
+   * Used by photo upload operations that depend on HUD creation
+   *
+   * @param tempOrRealId - Either a temp ID (operation ID) or real HUD ID
+   * @returns The real HUD ID, or the input if it's already a real ID
+   */
+  async resolveHudId(tempOrRealId: string): Promise<string> {
+    // If it's not a temp ID pattern, return as-is (it's likely a real ID)
+    if (!this.isTempId(tempOrRealId)) {
+      return tempOrRealId;
+    }
+
+    // Try to get the real ID from mapping
+    const realId = await this.indexedDb.getRealId(tempOrRealId);
+    if (realId) {
+      console.log(`[HudOperationsQueue] Resolved temp ID ${tempOrRealId} to real ID ${realId}`);
+      return realId;
+    }
+
+    // Mapping not found yet - HUD might still be pending creation
+    console.log(`[HudOperationsQueue] No mapping found for temp ID ${tempOrRealId}, returning as-is`);
+    return tempOrRealId;
+  }
+
+  /**
+   * HUD-018: Check if an ID is a temporary ID
+   * Temp IDs are operation IDs or follow the temp_hud_timestamp_random pattern
+   */
+  private isTempId(id: string): boolean {
+    return this.isTempHudId(id);
+  }
+
+  /**
+   * HUD-018: Check if an ID is a temporary HUD ID
+   * Temp HUD IDs can be:
+   * 1. Operation IDs from the queue (UUID format with dashes)
+   * 2. Format: temp_hud_{timestamp}_{random} from TempIdService
+   * Real HUD IDs are numeric strings
+   */
+  private isTempHudId(id: string): boolean {
+    if (!id || typeof id !== 'string') {
+      return false;
+    }
+    // Real HUD IDs are purely numeric
+    if (/^\d+$/.test(id)) {
+      return false;
+    }
+    // Operation IDs contain dashes (UUID format) or start with temp_
+    return id.startsWith('temp_') || id.includes('-');
   }
 
   /**

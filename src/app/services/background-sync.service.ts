@@ -3405,6 +3405,17 @@ export class BackgroundSyncService {
    * - Stage 2: If still over 80%, hard purge inactive services
    */
   private async performStorageCleanup(): Promise<void> {
+    // HUD-018: Clean up old temp ID mappings (24-hour retention)
+    // This is a lightweight operation that runs every sync cycle
+    try {
+      const tempIdMappingsCleared = await this.indexedDb.cleanupTempIdMappings(24);
+      if (tempIdMappingsCleared > 0) {
+        console.log(`[BackgroundSync] HUD-018: Cleaned up ${tempIdMappingsCleared} old temp ID mappings`);
+      }
+    } catch (err) {
+      console.warn('[BackgroundSync] HUD-018: Temp ID mapping cleanup failed:', err);
+    }
+
     // First, prune verified local blobs using standard retention policy (24h grace)
     await this.pruneVerifiedBlobs();
 

@@ -465,6 +465,31 @@ export class IndexedDbService {
   }
 
   /**
+   * HUD-018: Clean up old temp ID mappings
+   * Removes mappings older than the specified time (default 24 hours)
+   * Safe to call periodically - only removes mappings that are no longer needed
+   *
+   * @param olderThanHours Number of hours after which to clean up mappings (default 24)
+   * @returns Number of mappings deleted
+   */
+  async cleanupTempIdMappings(olderThanHours: number = 24): Promise<number> {
+    const cutoffTime = Date.now() - (olderThanHours * 60 * 60 * 1000);
+
+    const allMappings = await db.tempIdMappings.toArray();
+
+    // Filter to mappings older than cutoff time
+    const toDelete = allMappings.filter(m => m.timestamp && m.timestamp < cutoffTime);
+    const deletedCount = toDelete.length;
+
+    if (deletedCount > 0) {
+      await db.tempIdMappings.bulkDelete(toDelete.map(m => m.tempId));
+      console.log(`[IndexedDB] HUD-018: Cleaned up ${deletedCount} old temp ID mappings (older than ${olderThanHours}h)`);
+    }
+
+    return deletedCount;
+  }
+
+  /**
    * Remove a pending request by requestId or tempId
    */
   async removePendingRequest(idOrTempId: string): Promise<void> {
