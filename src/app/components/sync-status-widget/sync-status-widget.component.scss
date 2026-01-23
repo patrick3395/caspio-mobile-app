@@ -1,34 +1,145 @@
 .sync-widget {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.05);
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.15);
   cursor: pointer;
   font-size: 12px;
+  // Hardware-accelerated transitions
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-tap-highlight-color: transparent;
 
   ion-icon {
-    font-size: 14px;
+    font-size: 16px;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateZ(0);
   }
 
   .sync-count {
-    font-weight: 500;
-    color: var(--ion-color-medium);
+    font-weight: 600;
+    color: white;
+    min-width: 16px;
+    text-align: center;
   }
 
+  // Syncing state - spinning icon with warning color
   &.syncing {
+    background: rgba(var(--ion-color-warning-rgb), 0.3);
+
     ion-icon {
       animation: spin 1s linear infinite;
+      // Hardware acceleration for smoother animation
+      will-change: transform;
     }
   }
 
+  // Pending state - warning badge style
+  &.pending {
+    background: rgba(var(--ion-color-warning-rgb), 0.25);
+  }
+
+  // Failed state - danger badge style
+  &.failed {
+    background: rgba(var(--ion-color-danger-rgb), 0.25);
+  }
+
+  // Synced state - success badge style
+  &.synced {
+    background: rgba(var(--ion-color-success-rgb), 0.25);
+  }
+
+  // Desktop hover effects
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateZ(0) scale(1.02);
+    }
+
+    &.syncing:hover {
+      background: rgba(var(--ion-color-warning-rgb), 0.4);
+    }
+
+    &.pending:hover {
+      background: rgba(var(--ion-color-warning-rgb), 0.35);
+    }
+
+    &.failed:hover {
+      background: rgba(var(--ion-color-danger-rgb), 0.35);
+    }
+
+    &.synced:hover {
+      background: rgba(var(--ion-color-success-rgb), 0.35);
+    }
+  }
+
+  // Mobile active/pressed state
   &:active {
-    background: rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateZ(0) scale(0.98);
   }
 }
 
+// Hardware-accelerated spin animation
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: translateZ(0) rotate(0deg);
+  }
+  to {
+    transform: translateZ(0) rotate(360deg);
+  }
+}
+
+// Badge variant for use in different contexts
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  // Hardware-accelerated
+  transform: translateZ(0);
+  backface-visibility: hidden;
+
+  &.badge-pending {
+    background: rgba(var(--ion-color-warning-rgb), 0.15);
+    color: var(--ion-color-warning-shade);
+    border: 1px solid rgba(var(--ion-color-warning-rgb), 0.3);
+  }
+
+  &.badge-synced {
+    background: rgba(var(--ion-color-success-rgb), 0.15);
+    color: var(--ion-color-success-shade);
+    border: 1px solid rgba(var(--ion-color-success-rgb), 0.3);
+  }
+
+  &.badge-failed {
+    background: rgba(var(--ion-color-danger-rgb), 0.15);
+    color: var(--ion-color-danger-shade);
+    border: 1px solid rgba(var(--ion-color-danger-rgb), 0.3);
+  }
+
+  &.badge-syncing {
+    background: rgba(var(--ion-color-warning-rgb), 0.15);
+    color: var(--ion-color-warning-shade);
+    border: 1px solid rgba(var(--ion-color-warning-rgb), 0.3);
+
+    ion-icon {
+      animation: spin 1s linear infinite;
+      will-change: transform;
+    }
+  }
+
+  ion-icon {
+    font-size: 12px;
+  }
 }
