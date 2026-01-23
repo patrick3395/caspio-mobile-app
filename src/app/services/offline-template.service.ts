@@ -182,6 +182,205 @@ export class OfflineTemplateService {
     return [];
   }
 
+  // ============================================
+  // HUD-012: HUD TEMPLATE CACHING (MOBILE ONLY)
+  // 24-hour TTL, background refresh when online
+  // ============================================
+
+  // HUD-012: 24-hour cache TTL for HUD templates
+  private static readonly HUD_TEMPLATE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  // HUD-012: Current HUD template version for cache invalidation
+  // Increment this when HUD template schema changes
+  private static readonly HUD_TEMPLATE_VERSION = 1;
+
+  /**
+   * HUD-012: Ensure HUD templates are ready for use (MOBILE ONLY).
+   * - If cached and valid: returns immediately
+   * - If download in progress: waits for it
+   * - If not started: fetches from API and caches
+   * - Background refresh when cache is stale but available
+   * - WEBAPP: Returns from API directly (no local caching)
+   *
+   * @returns HUD templates array, or empty array if offline with no cache
+   */
+  async ensureHudTemplatesReady(): Promise<any[]> {
+    console.log('[OfflineTemplate] ensureHudTemplatesReady() called');
+
+    // WEBAPP: Network-first with no local caching
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP mode - fetching HUD templates from API (no caching)');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesHUDTemplates());
+        console.log(`[OfflineTemplate] ✅ WEBAPP: Fetched ${templates?.length || 0} HUD templates`);
+        return templates || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: HUD templates API fetch failed:', error);
+        return [];
+      }
+    }
+
+    // MOBILE: Dexie-first with 24-hour TTL and background refresh
+    try {
+      // Check cache validity and version
+      const cachedMeta = await this.indexedDb.getCachedTemplateWithMeta('hud');
+
+      if (cachedMeta) {
+        const cacheAge = Date.now() - cachedMeta.lastUpdated;
+        const isCacheValid = cacheAge < OfflineTemplateService.HUD_TEMPLATE_CACHE_TTL_MS;
+        const isVersionValid = cachedMeta.version === OfflineTemplateService.HUD_TEMPLATE_VERSION;
+
+        // HUD-012: Cache invalidation on version change
+        if (!isVersionValid) {
+          console.log(`[OfflineTemplate] HUD template version mismatch (cached: ${cachedMeta.version}, current: ${OfflineTemplateService.HUD_TEMPLATE_VERSION}) - invalidating cache`);
+          await this.indexedDb.invalidateTemplateCache('hud');
+          await this.indexedDb.invalidateTemplateCache('hud_dropdown');
+        } else if (cachedMeta.templates && cachedMeta.templates.length > 0) {
+          console.log(`[OfflineTemplate] ✅ ensureHudTemplatesReady: ${cachedMeta.templates.length} templates cached (age: ${Math.round(cacheAge / 1000 / 60)} min)`);
+
+          // If cache is stale but valid, trigger background refresh when online
+          if (!isCacheValid && this.offlineService.isOnline()) {
+            console.log('[OfflineTemplate] HUD cache stale - triggering background refresh');
+            this.backgroundRefreshHudTemplates();
+          }
+
+          return cachedMeta.templates;
+        }
+      }
+    } catch (dbError) {
+      console.error('[OfflineTemplate] ❌ IndexedDB error when getting cached HUD templates:', dbError);
+    }
+
+    // CRITICAL: If offline and no cache, return empty immediately - don't wait for downloads
+    if (!this.offlineService.isOnline()) {
+      console.log('[OfflineTemplate] ⚠️ Offline with no cached HUD templates - returning empty');
+      return [];
+    }
+
+    // Only wait for downloads if ONLINE (they might complete soon)
+    for (const [key, promise] of this.downloadPromises.entries()) {
+      if (key.startsWith('HUD_')) {
+        console.log(`[OfflineTemplate] ensureHudTemplatesReady: waiting for download ${key}...`);
+        try {
+          // Add timeout to prevent hanging
+          const timeoutPromise = new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error('Download timeout')), 5000)
+          );
+          await Promise.race([promise, timeoutPromise]);
+        } catch (err) {
+          console.warn('[OfflineTemplate] Download wait timed out or failed:', err);
+        }
+        // Check again after download completes
+        const afterDownload = await this.indexedDb.getCachedTemplates('hud');
+        if (afterDownload && afterDownload.length > 0) {
+          console.log(`[OfflineTemplate] ensureHudTemplatesReady: ${afterDownload.length} templates available after download`);
+          return afterDownload;
+        }
+      }
+    }
+
+    // No cache, no download in progress - fetch directly if online
+    if (this.offlineService.isOnline()) {
+      console.log('[OfflineTemplate] ensureHudTemplatesReady: fetching from API...');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesHUDTemplates());
+        await this.indexedDb.cacheTemplates('hud', templates, OfflineTemplateService.HUD_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] ensureHudTemplatesReady: fetched and cached ${templates.length} templates`);
+        return templates;
+      } catch (error) {
+        console.error('[OfflineTemplate] ensureHudTemplatesReady: API fetch failed:', error);
+        return [];
+      }
+    }
+
+    console.warn('[OfflineTemplate] ensureHudTemplatesReady: offline and no cache available');
+    return [];
+  }
+
+  /**
+   * HUD-012: Ensure HUD dropdown options are ready for use (MOBILE ONLY).
+   * - If cached and valid: returns immediately
+   * - If not started: fetches from API and caches
+   * - WEBAPP: Returns from API directly (no local caching)
+   *
+   * @returns HUD dropdown options array, or empty array if offline with no cache
+   */
+  async ensureHudDropdownReady(): Promise<any[]> {
+    console.log('[OfflineTemplate] ensureHudDropdownReady() called');
+
+    // WEBAPP: Network-first with no local caching
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP mode - fetching HUD dropdown from API (no caching)');
+      try {
+        const dropdown = await firstValueFrom(this.caspioService.getServicesHUDDrop());
+        console.log(`[OfflineTemplate] ✅ WEBAPP: Fetched ${dropdown?.length || 0} HUD dropdown options`);
+        return dropdown || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: HUD dropdown API fetch failed:', error);
+        return [];
+      }
+    }
+
+    // MOBILE: Dexie-first with caching
+    try {
+      const cached = await this.indexedDb.getCachedTemplates('hud_dropdown');
+
+      if (cached && cached.length > 0) {
+        console.log(`[OfflineTemplate] ✅ ensureHudDropdownReady: ${cached.length} dropdown options cached`);
+        return cached;
+      }
+    } catch (dbError) {
+      console.error('[OfflineTemplate] ❌ IndexedDB error when getting cached HUD dropdown:', dbError);
+    }
+
+    // CRITICAL: If offline and no cache, return empty immediately
+    if (!this.offlineService.isOnline()) {
+      console.log('[OfflineTemplate] ⚠️ Offline with no cached HUD dropdown - returning empty');
+      return [];
+    }
+
+    // No cache - fetch from API
+    console.log('[OfflineTemplate] ensureHudDropdownReady: fetching from API...');
+    try {
+      const dropdown = await firstValueFrom(this.caspioService.getServicesHUDDrop());
+      await this.indexedDb.cacheTemplates('hud_dropdown', dropdown || [], OfflineTemplateService.HUD_TEMPLATE_VERSION);
+      console.log(`[OfflineTemplate] ensureHudDropdownReady: fetched and cached ${dropdown?.length || 0} dropdown options`);
+      return dropdown || [];
+    } catch (error) {
+      console.error('[OfflineTemplate] ensureHudDropdownReady: API fetch failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * HUD-012: Background refresh of HUD templates
+   * Called when cache is stale but still valid - doesn't block UI
+   */
+  private backgroundRefreshHudTemplates(): void {
+    // Fire and forget - don't await
+    const refreshJob = async () => {
+      try {
+        console.log('[OfflineTemplate] [BG] Starting HUD template background refresh...');
+
+        // Fetch fresh templates
+        const templates = await firstValueFrom(this.caspioService.getServicesHUDTemplates());
+        await this.indexedDb.cacheTemplates('hud', templates, OfflineTemplateService.HUD_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] [BG] ✅ HUD templates refreshed: ${templates.length} templates`);
+
+        // Also refresh dropdown options
+        const dropdown = await firstValueFrom(this.caspioService.getServicesHUDDrop());
+        await this.indexedDb.cacheTemplates('hud_dropdown', dropdown || [], OfflineTemplateService.HUD_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] [BG] ✅ HUD dropdown refreshed: ${dropdown?.length || 0} options`);
+
+      } catch (error) {
+        console.warn('[OfflineTemplate] [BG] HUD template background refresh failed:', error);
+        // Don't throw - background job, don't affect user experience
+      }
+    };
+
+    refreshJob();
+  }
+
   /**
    * Download complete template data for offline use.
    * Call this when user creates or opens a service.
@@ -470,6 +669,39 @@ export class OfflineTemplateService {
             })
             .catch(err => {
               console.warn('    ⚠️ EFE_Drop cache failed:', err);
+              return [];
+            })
+        );
+      }
+
+      // HUD-012: Download HUD templates and dropdown options when template type is HUD
+      if (templateType === 'HUD') {
+        console.log('[HUD] 🏠 Downloading HUD TEMPLATES...');
+        downloads.push(
+          firstValueFrom(this.caspioService.getServicesHUDTemplates())
+            .then(async (templates) => {
+              const count = templates?.length || 0;
+              await this.indexedDb.cacheTemplates('hud', templates || [], OfflineTemplateService.HUD_TEMPLATE_VERSION);
+              console.log(`    ✅ HUD Templates: ${count} templates cached`);
+              return templates;
+            })
+            .catch(err => {
+              console.warn('    ⚠️ HUD Templates cache failed:', err);
+              return [];
+            })
+        );
+
+        console.log('[HUD] 📋 Downloading HUD_DROP (dropdown options)...');
+        downloads.push(
+          firstValueFrom(this.caspioService.getServicesHUDDrop())
+            .then(async (data) => {
+              const count = data?.length || 0;
+              await this.indexedDb.cacheTemplates('hud_dropdown', data || [], OfflineTemplateService.HUD_TEMPLATE_VERSION);
+              console.log(`    ✅ HUD_Drop (dropdown options): ${count} options cached`);
+              return data;
+            })
+            .catch(err => {
+              console.warn('    ⚠️ HUD_Drop cache failed:', err);
               return [];
             })
         );

@@ -44,9 +44,10 @@ export interface TempIdMapping {
 
 export interface CachedTemplate {
   cacheKey: string;
-  type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown';
+  type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown';
   templates: any[];
   lastUpdated: number;
+  version?: number;  // HUD-012: Template version for cache invalidation
 }
 
 export interface CachedServiceData {
@@ -1240,23 +1241,32 @@ export class IndexedDbService {
 
   /**
    * Cache templates
+   * HUD-012: Added 'hud' and 'hud_dropdown' types for HUD offline template caching
    */
-  async cacheTemplates(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown', templates: any[]): Promise<void> {
+  async cacheTemplates(
+    type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown',
+    templates: any[],
+    version?: number
+  ): Promise<void> {
     const cacheEntry: CachedTemplate = {
       cacheKey: `templates_${type}`,
       type,
       templates,
       lastUpdated: Date.now(),
+      version,
     };
 
     await db.cachedTemplates.put(cacheEntry);
-    console.log(`[IndexedDB] Cached ${templates.length} ${type} templates`);
+    console.log(`[IndexedDB] Cached ${templates.length} ${type} templates${version ? ` (version ${version})` : ''}`);
   }
 
   /**
    * Get cached templates
+   * HUD-012: Added 'hud' and 'hud_dropdown' types for HUD offline template caching
    */
-  async getCachedTemplates(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown'): Promise<any[] | null> {
+  async getCachedTemplates(
+    type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown'
+  ): Promise<any[] | null> {
     const cached = await db.cachedTemplates.get(`templates_${type}`);
     if (cached) {
       console.log(`[IndexedDB] Retrieved ${cached.templates.length} cached ${type} templates`);
@@ -1267,13 +1277,39 @@ export class IndexedDbService {
 
   /**
    * Check if template cache is valid
+   * HUD-012: Added 'hud' and 'hud_dropdown' types for HUD offline template caching
    */
-  async isTemplateCacheValid(type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown', maxAgeMs: number): Promise<boolean> {
+  async isTemplateCacheValid(
+    type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown',
+    maxAgeMs: number
+  ): Promise<boolean> {
     const cached = await db.cachedTemplates.get(`templates_${type}`);
     if (cached && (Date.now() - cached.lastUpdated) < maxAgeMs) {
       return true;
     }
     return false;
+  }
+
+  /**
+   * HUD-012: Get cached template with metadata (lastUpdated, version)
+   * Used for cache invalidation on version change
+   */
+  async getCachedTemplateWithMeta(
+    type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown'
+  ): Promise<CachedTemplate | null> {
+    const cached = await db.cachedTemplates.get(`templates_${type}`);
+    return cached || null;
+  }
+
+  /**
+   * HUD-012: Invalidate template cache (force re-download)
+   * Used when version changes or cache needs to be cleared
+   */
+  async invalidateTemplateCache(
+    type: 'visual' | 'efe' | 'lbw' | 'lbw_dropdown' | 'visual_dropdown' | 'hud' | 'hud_dropdown'
+  ): Promise<void> {
+    await db.cachedTemplates.delete(`templates_${type}`);
+    console.log(`[IndexedDB] Invalidated ${type} template cache`);
   }
 
   // ============================================

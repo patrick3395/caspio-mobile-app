@@ -17,6 +17,7 @@ import { BackgroundPhotoUploadService } from '../../../services/background-photo
 import { IndexedDbService, LocalImage } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { LocalImageService } from '../../../services/local-image.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { HudField } from '../../../services/caspio-db';
 import { environment } from '../../../../environments/environment';
 
@@ -122,7 +123,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     private cache: CacheService,
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
-    private localImageService: LocalImageService
+    private localImageService: LocalImageService,
+    private offlineTemplate: OfflineTemplateService  // HUD-012: For cached template access
   ) {
     // HUD-010: Detect mobile platform for Dexie-first approach
     this.isMobile = this.hudData.isMobile();
@@ -667,8 +669,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
   private async loadCategoryTemplates() {
     try {
-      // Get all HUD templates for this category
-      const allTemplates = await this.caspioService.getServicesHUDTemplates().toPromise();
+      // HUD-012: Use cached templates on mobile, direct API on webapp
+      // ensureHudTemplatesReady() returns cached data if available (mobile)
+      // or fetches from API (webapp) - follows platform-aware pattern
+      const allTemplates = await this.offlineTemplate.ensureHudTemplatesReady();
       const hudTemplates = (allTemplates || []).filter((template: any) =>
         template.Category === this.categoryName
       );
@@ -739,13 +743,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   /**
    * Load all dropdown options from Services_HUD_Drop table
    * This loads all options upfront and groups them by TemplateID
+   * HUD-012: Uses cached dropdown data on mobile, direct API on webapp
    */
   private async loadAllDropdownOptions() {
     try {
-      const dropdownData = await firstValueFrom(
-        this.caspioService.getServicesHUDDrop()
-      );
-      
+      // HUD-012: Use cached dropdown on mobile, direct API on webapp
+      // ensureHudDropdownReady() returns cached data if available (mobile)
+      // or fetches from API (webapp) - follows platform-aware pattern
+      const dropdownData = await this.offlineTemplate.ensureHudDropdownReady();
+
       console.log('[HUD Category] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
       if (dropdownData && dropdownData.length > 0) {
