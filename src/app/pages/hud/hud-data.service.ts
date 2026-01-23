@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { firstValueFrom, Subscription } from 'rxjs';
+import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { CaspioService } from '../../services/caspio.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { HudFieldRepoService } from './services/hud-field-repo.service';
@@ -9,6 +9,7 @@ import { BackgroundSyncService, HudSyncComplete, HudPhotoUploadComplete } from '
 import { IndexedDbService } from '../../services/indexed-db.service';
 import { ServiceMetadataService } from '../../services/service-metadata.service';
 import { OfflineService } from '../../services/offline.service';
+import { OfflineTemplateService } from '../../services/offline-template.service';
 import { compressAnnotationData } from '../../utils/annotation-utils';
 
 interface CacheEntry<T> {
@@ -43,9 +44,15 @@ export class HudDataService implements OnDestroy {
   private hudCache = new Map<string, CacheEntry<any[]>>();
   private hudAttachmentsCache = new Map<string, CacheEntry<any[]>>();
 
-  // Subscriptions for mobile sync events
-  private syncSubscription: Subscription | null = null;
-  private photoSyncSubscription: Subscription | null = null;
+  // Event emitted when caches are invalidated - pages should reload their data
+  public cacheInvalidated$ = new Subject<{ serviceId?: string; reason: string }>();
+
+  // Subscription array for cleanup (replaces individual syncSubscription/photoSyncSubscription)
+  private syncSubscriptions: Subscription[] = [];
+
+  // Debounce timer for cache invalidation to batch multiple sync events into one UI refresh
+  private cacheInvalidationTimer: any = null;
+  private pendingInvalidationServiceId: string | undefined = undefined;
 
   constructor(
     private readonly caspioService: CaspioService,
@@ -56,7 +63,8 @@ export class HudDataService implements OnDestroy {
     private readonly backgroundSync: BackgroundSyncService,
     private readonly indexedDb: IndexedDbService,
     private readonly serviceMetadata: ServiceMetadataService,
-    private readonly offlineService: OfflineService
+    private readonly offlineService: OfflineService,
+    private readonly offlineTemplate: OfflineTemplateService
   ) {
     // Subscribe to sync events on mobile for cache invalidation
     this.subscribeToSyncEvents();
@@ -90,7 +98,10 @@ export class HudDataService implements OnDestroy {
 
   /**
    * Subscribe to sync events on mobile for cache invalidation
-   * When sync completes, clear relevant caches so fresh data is loaded
+   * When sync completes, clear relevant caches and emit cacheInvalidated$ (debounced)
+   *
+   * CRITICAL: Photo sync events do NOT emit cacheInvalidated$ - pages handle directly
+   * to avoid race conditions with temp ID updates
    */
   private subscribeToSyncEvents(): void {
     // Only subscribe on mobile
@@ -101,8 +112,8 @@ export class HudDataService implements OnDestroy {
     console.log('[HUD Data] Mobile mode - subscribing to sync events for cache invalidation');
 
     // Subscribe to HUD sync complete events
-    this.syncSubscription = this.backgroundSync.hudSyncComplete$.subscribe(
-      (event: HudSyncComplete) => {
+    this.syncSubscriptions.push(
+      this.backgroundSync.hudSyncComplete$.subscribe((event: HudSyncComplete) => {
         console.log('[HUD Data] Sync complete event received:', event.operation, 'for', event.fieldKey);
 
         // Clear cache for the affected service
@@ -113,32 +124,119 @@ export class HudDataService implements OnDestroy {
         if (category) {
           this.backgroundSync.markSectionDirty(`${event.serviceId}_${category}`);
         }
-      }
+
+        // Debounced emit for page refresh
+        this.debouncedCacheInvalidation(event.serviceId, 'hud_sync');
+      })
     );
 
-    // Subscribe to HUD photo upload complete events
-    this.photoSyncSubscription = this.backgroundSync.hudPhotoUploadComplete$.subscribe(
-      (event: HudPhotoUploadComplete) => {
-        console.log('[HUD Data] Photo upload complete event received:', event.imageId);
-
-        // Clear attachment cache for this HUD
+    // CRITICAL: Photo sync - clear caches but DO NOT emit cacheInvalidated$
+    // Pages handle hudPhotoUploadComplete$ directly to avoid race conditions
+    // Emitting cacheInvalidated$ here causes duplicate photos or lost captions
+    this.syncSubscriptions.push(
+      this.backgroundSync.hudPhotoUploadComplete$.subscribe((event: HudPhotoUploadComplete) => {
+        console.log('[HUD Data] Photo synced, clearing in-memory caches only (no reload trigger)');
         this.hudAttachmentsCache.delete(event.hudId);
-      }
+        this.imageCache.clear();
+        // DO NOT call: this.debouncedCacheInvalidation(...);
+        // The page handles hudPhotoUploadComplete$ directly for seamless UI updates
+      })
+    );
+
+    // Subscribe to background refresh complete (fresh data downloaded in background)
+    this.syncSubscriptions.push(
+      this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
+        console.log('[HUD Data] Background refresh complete:', event.dataType, 'for', event.serviceId);
+
+        // Clear the corresponding in-memory cache based on data type
+        // HUD uses 'hud_records' and 'hud_attachments' data types
+        if (event.dataType === 'visuals' || event.dataType === 'hud_records') {
+          this.hudCache.delete(event.serviceId);
+          console.log('[HUD Data] Cleared hudCache for', event.serviceId);
+        } else if (event.dataType === 'visual_attachments' || event.dataType === 'hud_attachments') {
+          this.hudAttachmentsCache.delete(event.serviceId);
+          console.log('[HUD Data] Cleared hudAttachmentsCache for', event.serviceId);
+        }
+
+        // Debounced emit for page refresh
+        this.debouncedCacheInvalidation(event.serviceId, `background_refresh_${event.dataType}`);
+      })
+    );
+
+    // Subscribe to IndexedDB image changes (real-time UI updates when images created/updated)
+    this.syncSubscriptions.push(
+      this.indexedDb.imageChange$.subscribe(event => {
+        console.log('[HUD Data] IndexedDB image change:', event.action, event.key, 'entity:', event.entityType, event.entityId);
+
+        // Clear attachment caches if this is a HUD image
+        if (event.entityType === 'hud') {
+          this.hudAttachmentsCache.clear();
+        }
+
+        // Debounced emit for page refresh
+        this.debouncedCacheInvalidation(event.serviceId, `indexeddb_${event.action}_${event.entityType}`);
+      })
     );
   }
 
   /**
-   * Unsubscribe from sync events
+   * Unsubscribe from sync events and clear debounce timer
    */
   private unsubscribeFromSyncEvents(): void {
-    if (this.syncSubscription) {
-      this.syncSubscription.unsubscribe();
-      this.syncSubscription = null;
+    this.syncSubscriptions.forEach(sub => sub.unsubscribe());
+    this.syncSubscriptions = [];
+
+    if (this.cacheInvalidationTimer) {
+      clearTimeout(this.cacheInvalidationTimer);
+      this.cacheInvalidationTimer = null;
     }
-    if (this.photoSyncSubscription) {
-      this.photoSyncSubscription.unsubscribe();
-      this.photoSyncSubscription = null;
+  }
+
+  /**
+   * Debounced cache invalidation to batch multiple sync events into one UI refresh
+   * This prevents rapid UI flickering when multiple items sync in quick succession
+   */
+  private debouncedCacheInvalidation(serviceId?: string, reason: string = 'batch_sync'): void {
+    // Track the service ID (use most recent if multiple)
+    if (serviceId) {
+      this.pendingInvalidationServiceId = serviceId;
     }
+
+    // Clear any existing timer
+    if (this.cacheInvalidationTimer) {
+      clearTimeout(this.cacheInvalidationTimer);
+    }
+
+    // Set a new timer - emit after 1 second of no new sync events
+    this.cacheInvalidationTimer = setTimeout(() => {
+      console.log(`[HUD DataService] Debounced cache invalidation fired (reason: ${reason})`);
+      this.cacheInvalidated$.next({
+        serviceId: this.pendingInvalidationServiceId,
+        reason: reason
+      });
+      this.cacheInvalidationTimer = null;
+      this.pendingInvalidationServiceId = undefined;
+    }, 1000); // 1 second debounce
+  }
+
+  /**
+   * Invalidate all caches for a specific service
+   * Called after sync to ensure fresh data is loaded from IndexedDB
+   * Can also be called directly by pages when manual refresh is needed
+   */
+  invalidateCachesForService(serviceId: string, reason: string = 'manual'): void {
+    console.log(`[HUD DataService] Invalidating all caches for service ${serviceId} (reason: ${reason})`);
+
+    // Clear service-specific caches
+    this.hudCache.delete(serviceId);
+    this.serviceCache.delete(serviceId);
+
+    // Clear all attachment caches (we don't track by service)
+    this.hudAttachmentsCache.clear();
+    this.imageCache.clear();
+
+    // Use debounced invalidation to batch rapid sync events
+    this.debouncedCacheInvalidation(serviceId, reason);
   }
 
   // ============================================================================
