@@ -164,7 +164,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
     // Get category name from route
     this.route.params.subscribe(params => {
-      this.categoryName = params['category'];
+      // Decode in case of double-encoding (e.g., Mobile%2FManufactured%20Homes)
+      this.categoryName = decodeURIComponent(params['category'] || '');
 
       // Get IDs from container route
       // Route structure: hud/:projectId/:serviceId -> category/:category (we are here)

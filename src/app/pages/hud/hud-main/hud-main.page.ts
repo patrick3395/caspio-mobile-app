@@ -158,7 +158,9 @@ export class HudMainPage implements OnInit {
   navigateTo(card: NavigationCard) {
     if (card.route === 'categories') {
       // Navigate directly to Mobile/Manufactured Homes category
-      this.router.navigate(['category', 'Mobile/Manufactured Homes'], { relativeTo: this.route });
+      // Use encodeURIComponent to handle the / in the category name
+      const encodedCategory = encodeURIComponent('Mobile/Manufactured Homes');
+      this.router.navigate(['category', encodedCategory], { relativeTo: this.route });
     } else {
       this.router.navigate([card.route], { relativeTo: this.route.parent });
     }
