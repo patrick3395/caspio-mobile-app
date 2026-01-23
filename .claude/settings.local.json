@@ -60,7 +60,11 @@
       "Bash(ralph --circuit-status:*)",
       "Bash(dir:*)",
       "Bash(git checkout:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Skill(gsd:new-project)",
+      "Skill(gsd:map-codebase)",
+      "Skill(gsd:plan-phase)",
+      "Skill(gsd:execute-phase)"
     ],
     "deny": [],
     "ask": []
