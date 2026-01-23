@@ -133,6 +133,33 @@ export class HudContainerPage implements OnInit, OnDestroy {
         await this.loadServiceInstanceNumber();
       }
 
+      // ========== REHYDRATION CHECK (runs every time, not just new service) ==========
+      // Check if service was purged and needs data restored
+      // This must run even for "same service" because user might have force purged
+      if (!environment.isWeb && this.offlineService.isOnline()) {
+        try {
+          const needsRehydration = await this.hudData.needsRehydration(newServiceId);
+          if (needsRehydration) {
+            console.log('[HUD Container] Service needs rehydration - starting...');
+
+            // Show loading screen for rehydration
+            this.templateReady = false;
+            this.downloadProgress = 'Restoring data from server...';
+            this.changeDetectorRef.detectChanges();
+
+            const result = await this.hudData.rehydrateService(newServiceId);
+
+            if (result.success) {
+              console.log(`[HUD Container] Rehydration complete: ${result.restored.hudRecords} records, ${result.restored.hudAttachments} attachments`);
+            } else {
+              console.error(`[HUD Container] Rehydration failed: ${result.error}`);
+            }
+          }
+        } catch (err) {
+          console.error('[HUD Container] Rehydration check failed:', err);
+        }
+      }
+
       // Subscribe to project name updates (only once per service)
       if (isNewService || isFirstLoad) {
         this.stateService.projectData$.subscribe(data => {
