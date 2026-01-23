@@ -255,7 +255,9 @@ export class HudMainPage implements OnInit {
     await loading.present();
 
     try {
-      // Step 1: Check for unsynced images and force sync them
+      // ==========================================
+      // STEP 1: Sync ALL pending images (with timeout)
+      // ==========================================
       console.log('[HUD Main] Checking for unsynced images...');
       const imageStatus = await this.localImageService.getServiceImageSyncStatus(this.serviceId);
 
@@ -266,22 +268,28 @@ export class HudMainPage implements OnInit {
         // Trigger background sync to process pending uploads
         this.backgroundSync.triggerSync();
 
-        // Force sync and wait for completion
-        const syncResult = await this.localImageService.forceSyncServiceImages(
-          this.serviceId,
-          (current, total, status) => {
-            loading.message = status;
-          }
+        // Force sync with timeout
+        const syncOutcome = await this.withTimeout(
+          this.localImageService.forceSyncServiceImages(
+            this.serviceId,
+            (current, total, status) => {
+              loading.message = status;
+            }
+          ),
+          this.SYNC_TIMEOUT_MS,
+          'Image sync'
         );
 
-        if (!syncResult.success) {
+        // Handle timeout or failure
+        if (syncOutcome.timedOut || !syncOutcome.result.success) {
+          const failedCount = syncOutcome.timedOut ? imageStatus.pending : syncOutcome.result.failedCount;
+          const reason = syncOutcome.timedOut ? 'Sync timed out' : 'Some images failed';
+
           await loading.dismiss();
 
-          // Show warning about failed images but allow proceeding
-          const failedCount = syncResult.failedCount;
           const alert = await this.alertController.create({
             header: 'Image Sync Warning',
-            message: `${failedCount} image(s) could not be synced. These images may not be available remotely. Do you want to proceed with finalization anyway?`,
+            message: `${reason}. ${failedCount} image(s) may not be synced. Do you want to proceed with finalization anyway?`,
             cssClass: 'custom-document-alert',
             buttons: [
               { text: 'Cancel', role: 'cancel' },
@@ -296,14 +304,61 @@ export class HudMainPage implements OnInit {
         }
       }
 
-      // Step 2: Update image pointers to remote URLs
+      // ==========================================
+      // STEP 2: Sync ALL pending requests/captions (with timeout)
+      // ==========================================
+      console.log('[HUD Main] Syncing pending requests and captions...');
+      loading.message = 'Syncing data...';
+
+      const dataSyncOutcome = await this.withTimeout(
+        this.backgroundSync.forceSyncAllPendingForService(
+          this.serviceId,
+          (status, current, total) => {
+            loading.message = status;
+          }
+        ),
+        this.SYNC_TIMEOUT_MS,
+        'Data sync'
+      );
+
+      console.log('[HUD Main] Data sync result:', dataSyncOutcome);
+
+      // Handle timeout or failure
+      if (dataSyncOutcome.timedOut || !dataSyncOutcome.result.success) {
+        const failedTotal = dataSyncOutcome.timedOut ? '?' :
+          (dataSyncOutcome.result.requestsFailed + dataSyncOutcome.result.captionsFailed);
+        const reason = dataSyncOutcome.timedOut ? 'Sync timed out' : 'Some items failed';
+
+        await loading.dismiss();
+
+        const alert = await this.alertController.create({
+          header: 'Sync Warning',
+          message: `${reason}. ${failedTotal} item(s) may not be synced. Do you want to proceed with finalization anyway?`,
+          cssClass: 'custom-document-alert',
+          buttons: [
+            { text: 'Cancel', role: 'cancel' },
+            {
+              text: 'Proceed Anyway',
+              handler: () => this.completeFinalization(isUpdate)
+            }
+          ]
+        });
+        await alert.present();
+        return;
+      }
+
+      // ==========================================
+      // STEP 3: Update image pointers
+      // ==========================================
       console.log('[HUD Main] Updating image pointers to remote URLs...');
       loading.message = 'Updating image references...';
       await this.localImageService.updateImagePointersToRemote(this.serviceId);
 
       await loading.dismiss();
 
-      // Step 3: Complete the finalization
+      // ==========================================
+      // STEP 4: Complete finalization
+      // ==========================================
       await this.completeFinalization(isUpdate);
 
     } catch (error) {
