@@ -430,22 +430,90 @@ ion-content {
     }
   }
 
+  // Camera buttons row container
+  .camera-buttons-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+
+    &.multi-select-buttons {
+      margin-top: 8px;
+      margin-bottom: 8px;
+      padding-right: 16px;
+    }
+
+    &.checkbox-buttons {
+      margin-top: 6px;
+      flex-wrap: nowrap;
+    }
+  }
+
   .camera-button-structural {
+    position: relative;
     background: transparent;
     border: none;
     padding: 0;
     margin: 0;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    transform: translateZ(0);
+    backface-visibility: hidden;
 
     &:active {
       transform: scale(0.95);
     }
 
     ion-icon {
-      transition: transform 0.2s ease;
+      font-size: 32px;
+      color: var(--noble-orange, #F15A27);
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover ion-icon {
+        transform: scale(1.1);
+      }
+    }
+
+    // Photo count badge on camera button
+    &.camera-with-badge {
+      .photo-count-badge {
+        position: absolute;
+        top: -4px;
+        right: -6px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        background: var(--noble-orange, #F15A27);
+        color: white;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        z-index: 5;
+        animation: badge-pop 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+    }
+  }
+
+  @keyframes badge-pop {
+    0% {
+      transform: scale(0.5);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
     }
   }
 
@@ -628,6 +696,7 @@ ion-accordion-group {
           justify-content: flex-start !important;
           transform: none !important;
           position: relative !important;
+          gap: 12px;
 
           &::part(native) {
             display: flex !important;
@@ -644,6 +713,83 @@ ion-accordion-group {
             line-height: 1 !important;
             vertical-align: middle !important;
             align-self: center !important;
+          }
+
+          // Section completion badge - engineers-foundation pattern
+          .section-progress-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 12px;
+            text-transform: none;
+            letter-spacing: 0;
+            white-space: nowrap;
+            animation: badge-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+            // Color-coded badge states matching engineers-foundation
+            &[color="success"] {
+              --background: rgba(var(--ion-color-success-rgb), 0.15);
+              --color: var(--ion-color-success-shade);
+            }
+
+            &[color="warning"] {
+              --background: rgba(255, 140, 0, 0.15);
+              --color: #cc7000;
+            }
+
+            &[color="danger"] {
+              --background: rgba(var(--ion-color-danger-rgb), 0.15);
+              --color: var(--ion-color-danger-shade);
+            }
+
+            &[color="primary"] {
+              --background: rgba(var(--ion-color-primary-rgb), 0.15);
+              --color: var(--ion-color-primary-shade);
+            }
+          }
+
+          @keyframes badge-fade-in {
+            from {
+              opacity: 0;
+              transform: translateX(-8px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+        }
+      }
+
+      // Add visual button styling
+      .add-visual-btn {
+        background: transparent;
+        border: none;
+        padding: 8px;
+        margin: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.15s ease;
+
+        ion-icon {
+          font-size: 28px;
+          color: var(--noble-orange, #F15A27);
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        &:active {
+          transform: scale(0.9);
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+          &:hover ion-icon {
+            transform: scale(1.15);
           }
         }
       }

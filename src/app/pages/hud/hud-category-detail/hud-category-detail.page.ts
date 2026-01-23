@@ -2562,6 +2562,51 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     return (this.visualPhotos[key] || []).length;
   }
 
+  /**
+   * Check if an individual item is completed based on its answer type
+   */
+  isItemCompleted(item: VisualItem): boolean {
+    if (item.answerType === 1) {
+      // Yes/No: completed if answer is 'Yes' or 'No'
+      return item.answer === 'Yes' || item.answer === 'No';
+    } else if (item.answerType === 2) {
+      // Multi-select: completed if any option is selected
+      return !!(item.answer && item.answer.trim());
+    } else {
+      // Text/checkbox (answerType 0 or undefined): completed if selected
+      const key = `${this.categoryName}_${item.id}`;
+      return this.selectedItems[key] || false;
+    }
+  }
+
+  /**
+   * Get section progress data for a given section
+   */
+  getSectionProgress(sectionType: 'comments' | 'limitations' | 'deficiencies'): { completed: number; total: number; percentage: number } {
+    const items = this.organizedData[sectionType] || [];
+    const filteredItems = this.filterItems(items);
+
+    if (filteredItems.length === 0) {
+      return { completed: 0, total: 0, percentage: 0 };
+    }
+
+    const completed = filteredItems.filter(item => this.isItemCompleted(item)).length;
+    const total = filteredItems.length;
+    const percentage = Math.round((completed / total) * 100);
+
+    return { completed, total, percentage };
+  }
+
+  /**
+   * Get color for completion badge based on percentage
+   */
+  getProgressColor(percentage: number): 'success' | 'warning' | 'danger' | 'primary' {
+    if (percentage === 100) return 'success';
+    if (percentage >= 50) return 'warning';
+    if (percentage > 0) return 'primary';
+    return 'danger';
+  }
+
   async openCaptionPopup(photo: any, category: string, itemId: string | number) {
     // Prevent multiple popups
     if ((this as any).isCaptionPopupOpen) {
