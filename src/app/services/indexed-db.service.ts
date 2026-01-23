@@ -3132,6 +3132,61 @@ export class IndexedDbService {
   }
 
   /**
+   * HUD-011: Reset a failed upload to retry
+   * Resets the LocalImage status to 'queued' and resets the outbox item retry counters
+   */
+  async resetFailedUpload(imageId: string): Promise<void> {
+    console.log('[IndexedDB] HUD-011: Resetting failed upload for:', imageId);
+
+    // Update LocalImage status back to queued
+    const image = await db.localImages.get(imageId);
+    if (image) {
+      await db.localImages.update(imageId, {
+        status: 'queued',
+        lastError: null,
+        updatedAt: Date.now()
+      });
+      console.log('[IndexedDB] Reset LocalImage status to queued:', imageId);
+    }
+
+    // Check for existing outbox item
+    const existingItem = await this.getOutboxItemForImage(imageId);
+
+    if (existingItem) {
+      // Reset the existing outbox item
+      await db.uploadOutbox.update(existingItem.opId, {
+        attempts: 0,
+        nextRetryAt: Date.now(), // Ready immediately
+        lastError: null
+      });
+      console.log('[IndexedDB] Reset existing outbox item:', existingItem.opId);
+    } else {
+      // Create new outbox item if it doesn't exist (e.g., was previously cleaned up)
+      const opId = crypto.randomUUID();
+      await db.uploadOutbox.add({
+        opId,
+        type: 'UPLOAD_IMAGE',
+        imageId,
+        attempts: 0,
+        nextRetryAt: Date.now(),
+        createdAt: Date.now(),
+        lastError: null
+      });
+      console.log('[IndexedDB] Created new outbox item for retry:', opId);
+    }
+
+    // Emit sync queue change to trigger background sync
+    this.emitSyncQueueChange('resetFailedUpload', 1);
+
+    // Emit image change event for UI updates
+    this.imageChange$.next({
+      store: 'localImages',
+      action: 'update',
+      key: imageId
+    });
+  }
+
+  /**
    * Delete a LocalImage record
    */
   async deleteLocalImage(imageId: string): Promise<void> {

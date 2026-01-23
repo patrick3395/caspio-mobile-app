@@ -3316,6 +3316,48 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   /**
+   * HUD-011: Retry failed upload for a photo
+   * Resets the photo status and re-queues for upload
+   */
+  async retryUpload(photo: any, category: string, itemId: string | number): Promise<void> {
+    try {
+      console.log('[HUD-011] Retrying upload for photo:', photo.imageId || photo._localImageId);
+
+      const key = `${category}_${itemId}`;
+      const imageId = photo.imageId || photo._localImageId;
+
+      if (!imageId) {
+        console.error('[HUD-011] Cannot retry upload - no imageId found');
+        await this.showToast('Cannot retry upload', 'danger');
+        return;
+      }
+
+      // Update UI immediately - show uploading state
+      const photoIndex = this.visualPhotos[key]?.findIndex(p =>
+        p.imageId === imageId || p._localImageId === imageId
+      );
+
+      if (photoIndex !== -1 && this.visualPhotos[key]) {
+        this.visualPhotos[key][photoIndex].uploadFailed = false;
+        this.visualPhotos[key][photoIndex].uploading = true;
+        this.visualPhotos[key][photoIndex].status = 'queued';
+        this.changeDetectorRef.detectChanges();
+      }
+
+      // Reset the upload in IndexedDB and re-queue
+      await this.indexedDb.resetFailedUpload(imageId);
+
+      await this.showToast('Retrying upload...', 'primary');
+
+      // The background sync service will pick up the re-queued upload automatically
+
+    } catch (error) {
+      console.error('[HUD-011] Error retrying upload:', error);
+      await this.showToast('Failed to retry upload', 'danger');
+    }
+  }
+
+  /**
    * Convert a Blob to a data URL string
    * Used for persistent offline storage (data URLs survive page navigation unlike blob URLs)
    */
