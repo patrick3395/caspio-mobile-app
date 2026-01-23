@@ -7,6 +7,7 @@ import { CaspioService } from '../../../services/caspio.service';
 import { CacheService } from '../../../services/cache.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { HudFieldRepoService } from '../services/hud-field-repo.service';
 import { environment } from '../../../../environments/environment';
 
 interface NavigationCard {
@@ -73,7 +74,8 @@ export class HudMainPage implements OnInit {
     private loadingController: LoadingController,
     private navController: NavController,
     private localImageService: LocalImageService,
-    private backgroundSync: BackgroundSyncService
+    private backgroundSync: BackgroundSyncService,
+    private hudFieldRepo: HudFieldRepoService
   ) {}
 
   async ngOnInit() {
@@ -408,6 +410,14 @@ export class HudMainPage implements OnInit {
       loading.message = 'Freeing device storage...';
       const cleanupResult = await this.localImageService.cleanupBlobDataAfterFinalization(this.serviceId);
       console.log('[HUD Main] Blob cleanup complete:', cleanupResult);
+
+      // Mark all Dexie records as clean (removes dirty flags)
+      try {
+        await this.hudFieldRepo.markAllCleanForService(this.serviceId);
+        console.log('[HUD Main] Marked all Dexie records as clean');
+      } catch (err) {
+        console.warn('[HUD Main] Failed to mark records clean (non-fatal):', err);
+      }
 
       // Reset change tracking
       this.hasChangesAfterFinalization = false;
