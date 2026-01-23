@@ -14,7 +14,8 @@ import { IndexedDbService } from '../../../services/indexed-db.service';
 import { NavigationHistoryService } from '../../../services/navigation-history.service';
 import { PageTitleService } from '../../../services/page-title.service';
 import { filter } from 'rxjs/operators';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
+import { CaspioService } from '../../../services/caspio.service';
 import { environment } from '../../../../environments/environment';
 
 interface Breadcrumb {
@@ -39,6 +40,11 @@ export class HudContainerPage implements OnInit, OnDestroy {
   currentPageShortTitle: string = 'HUD';
   isGeneratingPDF: boolean = false;
   isSubPage: boolean = false;
+
+  // Service instance tracking for multiple HUD services on same project
+  serviceInstanceNumber: number = 1;
+  totalHUDServices: number = 1;
+  private serviceInstanceLoaded: boolean = false;
 
   // Offline-first: template loading state
   templateReady: boolean = false;
@@ -73,7 +79,8 @@ export class HudContainerPage implements OnInit, OnDestroy {
     private changeDetectorRef: ChangeDetectorRef,
     private navigationHistory: NavigationHistoryService,
     private pageTitleService: PageTitleService,
-    private hudData: HudDataService
+    private hudData: HudDataService,
+    private caspioService: CaspioService
   ) {
     // CRITICAL: Ensure loading screen shows immediately
     this.templateReady = false;
@@ -101,6 +108,15 @@ export class HudContainerPage implements OnInit, OnDestroy {
 
       // Initialize state service with IDs
       this.stateService.initialize(this.projectId, this.serviceId);
+
+      // Load service instance number (for multiple HUD services on same project)
+      // MUST await this to ensure instance number is loaded before UI renders
+      // FIX: Also check !serviceInstanceLoaded because the component may be recreated
+      // (instance variables reset to defaults) while lastLoadedServiceId is static (persists).
+      // Without this check, returning to the same service would skip loading and show "HUD" not "HUD #1"
+      if (isNewService || isFirstLoad || !this.serviceInstanceLoaded) {
+        await this.loadServiceInstanceNumber();
+      }
 
       // Subscribe to project name updates (only once per service)
       if (isNewService || isFirstLoad) {
@@ -146,10 +162,15 @@ export class HudContainerPage implements OnInit, OnDestroy {
     });
 
     // Subscribe to router events to update breadcrumbs
+    // Only update if service instance has been loaded (totalHUDServices is set)
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
-      this.updateBreadcrumbs();
+      // Only update breadcrumbs after initial load has completed
+      // The initial breadcrumb update is done in loadServiceInstanceNumber()
+      if (this.serviceInstanceLoaded) {
+        this.updateBreadcrumbs();
+      }
     });
   }
 
@@ -192,9 +213,14 @@ export class HudContainerPage implements OnInit, OnDestroy {
     this.breadcrumbs = [];
     const url = this.router.url;
 
-    // Reset to default title
-    this.currentPageTitle = 'HUD/Manufactured Home';
-    this.currentPageShortTitle = 'HUD';
+    // Reset to default title - include instance number if multiple HUD services exist
+    if (this.totalHUDServices > 1) {
+      this.currentPageTitle = `HUD/Manufactured Home #${this.serviceInstanceNumber}`;
+      this.currentPageShortTitle = `HUD #${this.serviceInstanceNumber}`;
+    } else {
+      this.currentPageTitle = 'HUD/Manufactured Home';
+      this.currentPageShortTitle = 'HUD';
+    }
 
     // Parse URL to build breadcrumbs and set page title
     // URL format: /hud/{projectId}/{serviceId}/...
@@ -202,9 +228,12 @@ export class HudContainerPage implements OnInit, OnDestroy {
     // Check if we're on a sub-page (not the main HUD hub)
     this.isSubPage = url.includes('/project-details') || url.includes('/category/');
 
-    // Always add HUD main page breadcrumb
+    // Always add HUD main page breadcrumb (include instance number if multiple)
+    const hudLabel = this.totalHUDServices > 1
+      ? `HUD/Manufactured Home #${this.serviceInstanceNumber}`
+      : 'HUD/Manufactured Home';
     this.breadcrumbs.push({
-      label: 'HUD/Manufactured Home',
+      label: hudLabel,
       path: '',
       icon: 'clipboard-outline'
     });
@@ -246,6 +275,78 @@ export class HudContainerPage implements OnInit, OnDestroy {
 
     const projectAddress = this.projectName || 'Project';
     this.pageTitleService.setCategoryTitle(this.currentPageShortTitle, projectAddress + ' - HUD');
+  }
+
+  /**
+   * Load service instance number for display when multiple HUD services exist on the same project
+   * This allows showing "HUD #1", "HUD #2" etc. in the header
+   */
+  private async loadServiceInstanceNumber(): Promise<void> {
+    try {
+      // First get the current service to find its TypeID
+      // Try offline cache first, then fall back to API (needed for web mode)
+      let currentService = await this.offlineTemplate.getService(this.serviceId);
+
+      if (!currentService) {
+        // Fallback to API (especially needed in web mode where template download is skipped)
+        console.log('[HUD Container] No cached service, fetching from API...');
+        currentService = await firstValueFrom(this.caspioService.getService(this.serviceId, false));
+      }
+
+      if (!currentService) {
+        console.log('[HUD Container] Could not load current service from cache or API');
+        return;
+      }
+
+      // Convert TypeID to string for consistent comparison
+      const currentTypeId = String(currentService.TypeID);
+      console.log(`[HUD Container] Current service TypeID: ${currentTypeId}`);
+
+      // Get all services for this project
+      const allServices = await firstValueFrom(this.caspioService.getServicesByProject(this.projectId));
+      console.log(`[HUD Container] Found ${allServices?.length || 0} total services for project`);
+
+      // Debug: log all services and their TypeIDs
+      if (allServices) {
+        allServices.forEach((s: any) => {
+          console.log(`[HUD Container] Service ${s.PK_ID || s.ServiceID}: TypeID=${s.TypeID}`);
+        });
+      }
+
+      // Filter to only services with the same TypeID (same service type)
+      // Use String() conversion for consistent comparison
+      const sameTypeServices = (allServices || [])
+        .filter((s: any) => String(s.TypeID) === currentTypeId)
+        .sort((a: any, b: any) => {
+          // Sort by PK_ID (ServiceID) to get consistent ordering
+          const idA = parseInt(a.PK_ID || a.ServiceID) || 0;
+          const idB = parseInt(b.PK_ID || b.ServiceID) || 0;
+          return idA - idB;
+        });
+
+      console.log(`[HUD Container] Same type services count: ${sameTypeServices.length}`);
+      this.totalHUDServices = sameTypeServices.length;
+
+      // Find the index of the current service
+      const currentIndex = sameTypeServices.findIndex((s: any) =>
+        String(s.PK_ID || s.ServiceID) === String(this.serviceId)
+      );
+
+      this.serviceInstanceNumber = currentIndex >= 0 ? currentIndex + 1 : 1;
+
+      console.log(`[HUD Container] Service instance: ${this.serviceInstanceNumber} of ${this.totalHUDServices} HUD services`);
+
+      // Mark as loaded and update breadcrumbs with new instance number
+      this.serviceInstanceLoaded = true;
+      this.updateBreadcrumbs();
+      this.changeDetectorRef.detectChanges();
+    } catch (error) {
+      console.warn('[HUD Container] Error loading service instance number:', error);
+      // Keep defaults (1 of 1) but still mark as loaded
+      this.serviceInstanceLoaded = true;
+      this.updateBreadcrumbs();
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   navigateToHome() {
