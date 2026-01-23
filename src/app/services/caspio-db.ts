@@ -65,7 +65,8 @@ export interface ServiceMetadata {
 
 export type OperationType = 'CREATE_ROOM' | 'CREATE_POINT' | 'UPLOAD_PHOTO' | 'UPDATE_ROOM' | 'DELETE_ROOM' |
                             'CREATE_VISUAL' | 'UPDATE_VISUAL' | 'DELETE_VISUAL' | 'UPLOAD_VISUAL_PHOTO' |
-                            'UPLOAD_VISUAL_PHOTO_UPDATE' | 'UPLOAD_ROOM_POINT_PHOTO_UPDATE' | 'UPLOAD_FDF_PHOTO';
+                            'UPLOAD_VISUAL_PHOTO_UPDATE' | 'UPLOAD_ROOM_POINT_PHOTO_UPDATE' | 'UPLOAD_FDF_PHOTO' |
+                            'CREATE_HUD_VISUAL' | 'UPDATE_HUD_VISUAL' | 'DELETE_HUD_VISUAL' | 'UPLOAD_HUD_PHOTO';
 export type OperationStatus = 'pending' | 'in-progress' | 'completed' | 'failed' | 'cancelled';
 
 export interface QueuedOperation {
