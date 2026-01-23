@@ -61,6 +61,8 @@ export class HudMainPage implements OnInit {
   isReportFinalized: boolean = false;
   hasChangesAfterFinalization: boolean = false;
 
+  private readonly SYNC_TIMEOUT_MS = 45000; // 45 seconds per sync step
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -383,6 +385,26 @@ export class HudMainPage implements OnInit {
       });
       await alert.present();
     }
+  }
+
+  /**
+   * Helper to run a promise with timeout
+   * Returns { success: false, timedOut: true } on timeout
+   */
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    operationName: string
+  ): Promise<{ result: T; timedOut: false } | { result: null; timedOut: true }> {
+    return Promise.race([
+      promise.then(result => ({ result, timedOut: false as const })),
+      new Promise<{ result: null; timedOut: true }>((resolve) => {
+        setTimeout(() => {
+          console.warn(`[HUD Main] ${operationName} timed out after ${timeoutMs}ms`);
+          resolve({ result: null, timedOut: true });
+        }, timeoutMs);
+      })
+    ]);
   }
 
 }
