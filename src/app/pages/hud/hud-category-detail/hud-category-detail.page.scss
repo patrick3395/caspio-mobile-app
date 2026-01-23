@@ -10,8 +10,8 @@ ion-content {
 // ===========================================
 
 .page-container {
-  padding: 0;
-  margin: 0;
+  padding: 0 !important;
+  margin: 0 !important;
   background: #f5f5f5;
   min-height: 100vh;
   scroll-behavior: auto !important;
@@ -19,9 +19,9 @@ ion-content {
 
 .content-section {
   background: #f5f5f5;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 0;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
   min-height: 200px;
   scroll-behavior: auto !important;
 }
@@ -1006,11 +1006,11 @@ ion-accordion-group {
 @media (max-width: 768px) {
   // Edge-to-edge on mobile - no padding overrides
   .page-container {
-    padding: 0;
+    padding: 0 !important;
   }
 
   .content-section {
-    padding: 0;
+    padding: 0 !important;
   }
 
   .photos-grid {
