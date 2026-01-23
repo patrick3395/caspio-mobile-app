@@ -462,10 +462,8 @@ export class HudContainerPage implements OnInit, OnDestroy {
         console.log(`║     Categories: ${categories.slice(0, 3).join(', ')}${categories.length > 3 ? '...' : ''}`);
       }
 
-      // Check HUD Service Data
-      const hudData = await this.indexedDb.getCachedServiceData(this.serviceId, 'hud');
-      const hudCount = hudData?.length || 0;
-      console.log(`║  🔍 HUD Service Data:        ${String(hudCount).padStart(5)} existing items                  ║`);
+      // Note: HUD field data is stored in db.hudFields table (Dexie-first pattern)
+      // Fields are created on-demand when user enters a category, so we don't verify here
 
       // Check Service Record
       const serviceRecord = await this.indexedDb.getCachedServiceRecord(this.serviceId);
