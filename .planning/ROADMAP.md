@@ -12,7 +12,7 @@ This roadmap delivers the Dexie-first mobile implementation to the HUD template 
 
 - [x] **Phase 1: Container Enhancements** - Foundation layer with rehydration, service tracking, and table mapping
 - [x] **Phase 2: Data Service Enhancement** - Orchestration layer with cache invalidation and sync subscriptions
-- [ ] **Phase 3: Category Detail Integration** - UI layer with liveQuery, write-through, and mobile styling
+- [x] **Phase 3: Category Detail Integration** - UI layer with liveQuery, write-through, and mobile styling
 - [ ] **Phase 4: Validation and Polish** - Finalization cleanup and end-to-end verification
 
 ## Phase Details
@@ -62,7 +62,7 @@ Plans:
 Plans:
 - [x] 03-01-PLAN.md — Add race condition guards and debounce patterns to TypeScript
 - [x] 03-02-PLAN.md — Update SCSS to edge-to-edge mobile styling with CSS Grid photos
-- [ ] 03-03-PLAN.md — Wire toggleItemSelection to mobile write-through path (gap closure)
+- [x] 03-03-PLAN.md — Wire toggleItemSelection to mobile write-through path (gap closure)
 
 ### Phase 4: Validation and Polish
 **Goal**: Complete system works end-to-end with proper finalization sync and error recovery
@@ -87,9 +87,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Container Enhancements | 2/2 | Complete | 2026-01-23 |
 | 2. Data Service Enhancement | 1/1 | Complete | 2026-01-23 |
-| 3. Category Detail Integration | 2/3 | Gap closure pending | - |
+| 3. Category Detail Integration | 3/3 | Complete | 2026-01-23 |
 | 4. Validation and Polish | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-23 (Phase 3 gap closure plan added)*
+*Last updated: 2026-01-23 (Phase 3 complete)*
