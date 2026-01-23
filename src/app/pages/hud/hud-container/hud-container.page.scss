@@ -2,6 +2,78 @@ ion-content {
   --background: #f5f5f5;
 }
 
+// Template loading overlay
+// US-002 FIX: Changed from *ngIf to CSS class-based visibility
+// This prevents the overlay from destroying the router-outlet
+.template-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  z-index: 1000;
+  // US-002: Use opacity and pointer-events for smooth transitions
+  opacity: 1;
+  transition: opacity 0.2s ease-out;
+  pointer-events: auto;
+
+  // US-002 FIX: When hidden, fade out and allow clicks through
+  &.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .loading-content {
+    text-align: center;
+    padding: 32px;
+    max-width: 320px;
+
+    ion-spinner {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 24px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    p {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .loading-hint {
+      font-size: 12px;
+      color: #999;
+      font-style: italic;
+    }
+  }
+}
+
+// US-002 CRITICAL FIX: Router wrapper ensures child components are never destroyed
+// by templateReady state changes. The router-outlet is always mounted.
+.router-wrapper {
+  height: 100%;
+  width: 100%;
+
+  // When loading, hide but don't destroy child components
+  // Using visibility:hidden instead of display:none preserves layout calculations
+  &.loading {
+    visibility: hidden;
+    // Ensure no interaction while loading
+    pointer-events: none;
+  }
+}
+
 ion-toolbar {
   --background: var(--ion-color-primary);
   --color: white;

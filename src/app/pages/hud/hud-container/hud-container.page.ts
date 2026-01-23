@@ -1,15 +1,20 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { HudStateService } from '../services/hud-state.service';
 import { HudPdfService } from '../services/hud-pdf.service';
+import { HudDataService } from '../hud-data.service';
 import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { OfflineService } from '../../../services/offline.service';
+import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
 import { NavigationHistoryService } from '../../../services/navigation-history.service';
 import { PageTitleService } from '../../../services/page-title.service';
 import { filter } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 
 interface Breadcrumb {
@@ -25,7 +30,7 @@ interface Breadcrumb {
   standalone: true,
   imports: [CommonModule, IonicModule, RouterModule, SyncStatusWidgetComponent]
 })
-export class HudContainerPage implements OnInit {
+export class HudContainerPage implements OnInit, OnDestroy {
   projectId: string = '';
   serviceId: string = '';
   projectName: string = 'Loading...';
@@ -33,7 +38,26 @@ export class HudContainerPage implements OnInit {
   currentPageTitle: string = 'HUD/Manufactured Home';
   currentPageShortTitle: string = 'HUD';
   isGeneratingPDF: boolean = false;
+  isSubPage: boolean = false;
+
+  // Offline-first: template loading state
+  templateReady: boolean = false;
+  downloadProgress: string = 'Preparing template for offline use...';
+
+  // WEBAPP MODE: Flag for template to hide sync-related UI
   isWeb: boolean = environment.isWeb;
+
+  // US-002 FIX: Track last loaded service to prevent unnecessary re-downloads
+  // CRITICAL: The check ONLY uses lastLoadedServiceId, NOT templateReady state!
+  // This prevents the loading overlay from appearing when:
+  // - Navigating within the same service (between categories)
+  // - Route params re-firing for any reason (cache invalidation, navigation events)
+  // - Any scenario where templateReady might be temporarily false
+  // MOBILE FIX: Made static so it persists across component recreation (Ionic destroys/recreates pages)
+  private static lastLoadedServiceId: string = '';
+
+  // Subscriptions for cleanup
+  private syncSubscriptions: Subscription[] = [];
 
   constructor(
     private router: Router,
@@ -43,28 +67,82 @@ export class HudContainerPage implements OnInit {
     private location: Location,
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,
+    private offlineService: OfflineService,
+    private backgroundSync: BackgroundSyncService,
+    private indexedDb: IndexedDbService,
+    private changeDetectorRef: ChangeDetectorRef,
     private navigationHistory: NavigationHistoryService,
-    private pageTitleService: PageTitleService
-  ) {}
+    private pageTitleService: PageTitleService,
+    private hudData: HudDataService
+  ) {
+    // CRITICAL: Ensure loading screen shows immediately
+    this.templateReady = false;
+    this.downloadProgress = 'Loading template...';
+  }
 
   ngOnInit() {
+    // CRITICAL: Ensure loading screen is visible immediately
+    this.templateReady = false;
+    this.downloadProgress = 'Initializing template...';
+    this.changeDetectorRef.detectChanges();
+
     // Get project and service IDs from route params
-    this.route.params.subscribe(params => {
-      this.projectId = params['projectId'];
-      this.serviceId = params['serviceId'];
+    this.route.params.subscribe(async params => {
+      const newProjectId = params['projectId'];
+      const newServiceId = params['serviceId'];
+
+      // US-002 FIX: Skip re-download if navigating within the same service
+      // CRITICAL: Only check serviceId, NOT templateReady state!
+      const isNewService = HudContainerPage.lastLoadedServiceId !== newServiceId;
+      const isFirstLoad = !HudContainerPage.lastLoadedServiceId;
+
+      this.projectId = newProjectId;
+      this.serviceId = newServiceId;
 
       // Initialize state service with IDs
       this.stateService.initialize(this.projectId, this.serviceId);
 
-      // Subscribe to project name updates
-      this.stateService.projectData$.subscribe(data => {
-        if (data?.projectName) {
-          this.projectName = data.projectName;
-        }
-      });
+      // Subscribe to project name updates (only once per service)
+      if (isNewService || isFirstLoad) {
+        this.stateService.projectData$.subscribe(data => {
+          if (data?.projectName) {
+            this.projectName = data.projectName;
+          }
+        });
 
-      // Pre-cache templates and service data for offline use (non-blocking)
-      this.preCacheForOffline();
+        // Subscribe to sync events to refresh cache when data syncs
+        this.subscribeToSyncEvents();
+      }
+
+      // US-002 FIX: Only show loading and re-download if this is a NEW service
+      // CRITICAL: Never show loading overlay for same service - even if templateReady is false
+      if (isNewService || isFirstLoad) {
+        console.log('[HUD Container] New service detected, downloading template data...');
+
+        // CRITICAL: Force loading screen to render before starting download
+        this.templateReady = false;
+        this.downloadProgress = 'Loading template data...';
+        this.changeDetectorRef.detectChanges();
+
+        // Small delay to ensure UI renders loading state
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // CRITICAL: Download ALL template data for offline use
+        // This MUST complete before user can work on template
+        await this.downloadTemplateData();
+
+        // Track that we've loaded this service - BEFORE setting templateReady
+        // This ensures any subsequent route param emissions don't trigger reload
+        HudContainerPage.lastLoadedServiceId = newServiceId;
+      } else {
+        console.log('[HUD Container] Same service (' + newServiceId + '), skipping re-download to prevent hard refresh');
+        // CRITICAL: Must set templateReady=true when skipping download, otherwise loading screen persists
+        this.templateReady = true;
+        this.changeDetectorRef.detectChanges();
+      }
+
+      // Update breadcrumbs after loading
+      this.updateBreadcrumbs();
     });
 
     // Subscribe to router events to update breadcrumbs
@@ -73,9 +151,41 @@ export class HudContainerPage implements OnInit {
     ).subscribe(() => {
       this.updateBreadcrumbs();
     });
+  }
 
-    // Initial breadcrumb update
-    this.updateBreadcrumbs();
+  ngOnDestroy() {
+    // Clean up subscriptions
+    this.syncSubscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  /**
+   * Subscribe to background sync events to refresh cache when data syncs
+   */
+  private subscribeToSyncEvents(): void {
+    // When HUD data syncs, refresh cache
+    const hudSyncSub = this.backgroundSync.hudSyncComplete$.subscribe(event => {
+      if (event.serviceId === this.serviceId) {
+        console.log('[HUD Container] HUD data synced:', event);
+        // Cache is automatically refreshed by BackgroundSyncService
+      }
+    });
+    this.syncSubscriptions.push(hudSyncSub);
+
+    // When photos sync, cache is automatically refreshed
+    const photoSub = this.backgroundSync.hudPhotoUploadComplete$.subscribe(event => {
+      console.log('[HUD Container] HUD photo upload complete:', event);
+      // Cache is already refreshed by BackgroundSyncService
+    });
+    this.syncSubscriptions.push(photoSub);
+
+    // When service data syncs, trigger a full cache refresh
+    const serviceSub = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
+      if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
+        console.log('[HUD Container] Service/Project data synced:', event);
+        // Cache is already refreshed by BackgroundSyncService.updateCacheAfterSync()
+      }
+    });
+    this.syncSubscriptions.push(serviceSub);
   }
 
   private updateBreadcrumbs() {
@@ -90,23 +200,21 @@ export class HudContainerPage implements OnInit {
     // URL format: /hud/{projectId}/{serviceId}/...
 
     // Check if we're on a sub-page (not the main HUD hub)
-    const isSubPage = url.includes('/project-details') || url.includes('/category/');
+    this.isSubPage = url.includes('/project-details') || url.includes('/category/');
 
-    if (isSubPage) {
-      // Add HUD main page as first breadcrumb when on sub-pages
-      this.breadcrumbs.push({
-        label: 'HUD/Manufactured Home',
-        path: '',
-        icon: 'home-outline'
-      });
-    }
+    // Always add HUD main page breadcrumb
+    this.breadcrumbs.push({
+      label: 'HUD/Manufactured Home',
+      path: '',
+      icon: 'clipboard-outline'
+    });
 
     // Check for project details
     if (url.includes('/project-details')) {
-      this.breadcrumbs.push({ 
-        label: 'Project Details', 
-        path: 'project-details', 
-        icon: 'document-text-outline' 
+      this.breadcrumbs.push({
+        label: 'Project Details',
+        path: 'project-details',
+        icon: 'document-text-outline'
       });
       this.currentPageTitle = 'Project Details';
       this.currentPageShortTitle = 'Project Details';
@@ -218,28 +326,202 @@ export class HudContainerPage implements OnInit {
   }
 
   /**
-   * Download complete template for offline use.
-   * Runs in background, doesn't block UI.
+   * Template Loading - ALWAYS shows loading screen and syncs fresh data when online
+   *
+   * The strategy is:
+   * 1. ALWAYS show loading screen to indicate sync in progress
+   * 2. If online: Download fresh template data (blocking)
+   * 3. If offline: Check for cached data and proceed if available
+   * 4. Ensure images are cached after template data is ready
    */
-  private async preCacheForOffline(): Promise<void> {
-    if (!this.serviceId) return;
+  private async downloadTemplateData(): Promise<void> {
+    if (!this.serviceId) {
+      console.log('[HUD Container] loadTemplate: no serviceId, skipping');
+      this.templateReady = true;
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
 
-    console.log('[HUD Container] Downloading template for offline use...');
+    console.log(`[HUD Container] ========== TEMPLATE LOAD ==========`);
+    console.log(`[HUD Container] ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`);
+    console.log(`[HUD Container] Online: ${this.offlineService.isOnline()}`);
+
+    // WEBAPP MODE: Skip template download - pages will fetch directly from API
+    if (environment.isWeb) {
+      console.log('[HUD Container] WEBAPP MODE: Skipping template download - pages fetch from API directly');
+      this.templateReady = true;
+      this.downloadProgress = 'Ready';
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
+
+    // MOBILE MODE: Download template for offline use
+    // ALWAYS show loading screen first
+    this.templateReady = false;
+    this.downloadProgress = 'Loading template data...';
+    this.changeDetectorRef.detectChanges();
+    console.log('[HUD Container] Loading screen should now be visible');
+
+    const isOnline = this.offlineService.isOnline();
+
+    if (isOnline) {
+      // ONLINE: Always download fresh data
+      try {
+        this.downloadProgress = 'Syncing template data...';
+        this.changeDetectorRef.detectChanges();
+        console.log('[HUD Container] Online - downloading fresh template data...');
+
+        await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'HUD', this.projectId);
+        console.log('[HUD Container] ✅ Template data synced successfully');
+
+        // Verify and log what was cached (debug only)
+        await this.verifyDownloadedData();
+
+        this.downloadProgress = 'Template ready!';
+        this.changeDetectorRef.detectChanges();
+        console.log('[HUD Container] ✅ Template fully loaded');
+      } catch (error: any) {
+        console.warn('[HUD Container] Template download failed:', error);
+        this.downloadProgress = 'Sync failed - checking cached data...';
+        this.changeDetectorRef.detectChanges();
+
+        // Check if we have cached data to fall back to
+        const hasCachedData = await this.verifyCachedDataExists();
+        if (hasCachedData) {
+          console.log('[HUD Container] Using cached data after sync failure');
+          this.downloadProgress = 'Using cached data (sync failed)';
+          this.changeDetectorRef.detectChanges();
+        } else {
+          // Try fallback download
+          try {
+            console.log('[HUD Container] Trying fallback pre-cache...');
+            this.downloadProgress = 'Attempting fallback sync...';
+            this.changeDetectorRef.detectChanges();
+            await Promise.all([
+              this.offlineCache.refreshAllTemplates(),
+              this.offlineCache.preCacheServiceData(this.serviceId)
+            ]);
+            console.log('[HUD Container] Fallback completed');
+            this.downloadProgress = 'Template ready (partial sync)';
+            this.changeDetectorRef.detectChanges();
+          } catch (fallbackError) {
+            console.warn('[HUD Container] Fallback also failed:', fallbackError);
+            this.downloadProgress = 'Limited functionality - some data unavailable';
+            this.changeDetectorRef.detectChanges();
+          }
+        }
+      }
+    } else {
+      // OFFLINE: Check for cached data
+      this.downloadProgress = 'Offline - loading cached data...';
+      this.changeDetectorRef.detectChanges();
+      console.log('[HUD Container] Offline - checking for cached data...');
+
+      const hasCachedData = await this.verifyCachedDataExists();
+
+      if (hasCachedData) {
+        console.log('[HUD Container] ✅ Cached data found - ready for offline use');
+        this.downloadProgress = 'Working offline with cached data';
+        this.changeDetectorRef.detectChanges();
+        await this.verifyDownloadedData();
+      } else {
+        console.warn('[HUD Container] No cached data available offline');
+        this.downloadProgress = 'Connect to internet to download template data';
+        this.changeDetectorRef.detectChanges();
+      }
+    }
+
+    // Always mark as ready - let user proceed
+    this.templateReady = true;
+    this.changeDetectorRef.detectChanges();
+    console.log('[HUD Container] Template ready, loading screen hidden');
+  }
+
+  /**
+   * Verify what data was actually cached in IndexedDB after download
+   * OPTIMIZATION: Only runs in development mode to avoid IndexedDB reads in production
+   */
+  private async verifyDownloadedData(): Promise<void> {
+    // OPTIMIZATION: Skip verification in production - saves IndexedDB reads
+    if (environment.production) {
+      console.log('[HUD Container] Skipping data verification in production mode');
+      return;
+    }
+
+    console.log('\n╔════════════════════════════════════════════════════════════════╗');
+    console.log('║         📋 VERIFYING CACHED DATA IN INDEXEDDB (HUD)            ║');
+    console.log('╠════════════════════════════════════════════════════════════════╣');
 
     try {
-      await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'HUD');
-      console.log('[HUD Container] Template downloaded - ready for offline use');
-    } catch (error) {
-      console.warn('[HUD Container] Template download skipped:', error);
-      try {
-        await Promise.all([
-          this.offlineCache.refreshAllTemplates(),
-          this.offlineCache.preCacheServiceData(this.serviceId)
-        ]);
-      } catch (fallbackError) {
-        console.warn('[HUD Container] Fallback pre-cache also failed:', fallbackError);
+      // Check HUD Templates
+      const hudTemplates = await this.indexedDb.getCachedTemplates('hud');
+      const hudTemplateCount = hudTemplates?.length || 0;
+      const categories = Array.from(new Set(hudTemplates?.map((t: any) => t.Category) || []));
+      console.log(`║  📋 HUD Templates:           ${String(hudTemplateCount).padStart(5)} templates in ${categories.length} categories  ║`);
+      if (categories.length > 0) {
+        console.log(`║     Categories: ${categories.slice(0, 3).join(', ')}${categories.length > 3 ? '...' : ''}`);
       }
+
+      // Check HUD Service Data
+      const hudData = await this.indexedDb.getCachedServiceData(this.serviceId, 'hud');
+      const hudCount = hudData?.length || 0;
+      console.log(`║  🔍 HUD Service Data:        ${String(hudCount).padStart(5)} existing items                  ║`);
+
+      // Check Service Record
+      const serviceRecord = await this.indexedDb.getCachedServiceRecord(this.serviceId);
+      const hasService = serviceRecord ? 'YES' : 'NO';
+      console.log(`║  📝 Service Record:            ${hasService.padStart(3)}                                ║`);
+
+      // Check Project Record
+      const projectRecord = await this.indexedDb.getCachedProjectRecord(this.projectId);
+      const hasProject = projectRecord ? 'YES' : 'NO';
+      console.log(`║  📝 Project Record:            ${hasProject.padStart(3)}                                ║`);
+
+      console.log('╠════════════════════════════════════════════════════════════════╣');
+
+      // Summary verdict
+      const allGood = hudTemplateCount > 0 && serviceRecord && projectRecord;
+      if (allGood) {
+        console.log('║  ✅ ALL REQUIRED DATA CACHED - READY FOR OFFLINE USE            ║');
+      } else {
+        console.log('║  ⚠️ SOME DATA MAY BE MISSING - CHECK ABOVE                       ║');
+      }
+      console.log('╚════════════════════════════════════════════════════════════════╝\n');
+
+    } catch (error) {
+      console.error('║  ❌ ERROR VERIFYING CACHED DATA:', error);
+      console.log('╚════════════════════════════════════════════════════════════════╝\n');
+    }
+  }
+
+  /**
+   * OFFLINE-FIRST: Verify that we actually have cached data in IndexedDB
+   * Returns true only if critical data exists (not just the download status flag)
+   */
+  private async verifyCachedDataExists(): Promise<boolean> {
+    console.log('[HUD Container] Verifying cached data exists...');
+    try {
+      // Check for HUD templates (required for categories)
+      const hudTemplates = await this.indexedDb.getCachedTemplates('hud');
+      if (!hudTemplates || hudTemplates.length === 0) {
+        console.log('[HUD Container] ❌ No HUD templates cached');
+        return false;
+      }
+      console.log(`[HUD Container] ✅ HUD templates: ${hudTemplates.length}`);
+
+      // Check for service record (required for project context)
+      const serviceRecord = await this.indexedDb.getCachedServiceRecord(this.serviceId);
+      if (!serviceRecord) {
+        console.log('[HUD Container] ❌ No service record cached');
+        return false;
+      }
+      console.log(`[HUD Container] ✅ Service record cached`);
+
+      console.log('[HUD Container] ✅ All required cached data verified');
+      return true;
+    } catch (error) {
+      console.error('[HUD Container] Error verifying cached data:', error);
+      return false;
     }
   }
 }
-
