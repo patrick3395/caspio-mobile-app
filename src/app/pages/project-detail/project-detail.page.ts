@@ -3575,10 +3575,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       typeIdStr === '35';
 
     // Check for HUD template - typically includes "HUD" or "Manufactured" in the name
+    // TypeID 2 is HUD/Manufactured Housing
     const isHUDTemplate =
       service.typeName?.toLowerCase().includes('hud') ||
       service.typeName?.toLowerCase().includes('manufactured') ||
-      service.typeName?.toLowerCase().includes('mobile home');
+      service.typeName?.toLowerCase().includes('mobile home') ||
+      typeIdStr === '2';
 
     // Check for LBW template - Load Bearing Wall
     const isLBWTemplate =
@@ -5068,7 +5070,8 @@ Time: ${debugInfo.timestamp}
 
   private isHudTemplateService(service: ServiceSelection): boolean {
     const typeName = service.typeName?.toLowerCase() || '';
-    return typeName.includes('hud') || typeName.includes('manufactured') || typeName.includes('mobile home');
+    const typeIdStr = String(service.typeId || '');
+    return typeName.includes('hud') || typeName.includes('manufactured') || typeName.includes('mobile home') || typeIdStr === '2';
   }
 
   private async generateEngineersFoundationPdf(service: ServiceSelection): Promise<void> {
