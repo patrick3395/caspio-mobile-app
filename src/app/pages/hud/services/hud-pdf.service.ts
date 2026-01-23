@@ -7,6 +7,9 @@ import { HudStateService } from './hud-state.service';
 import { CacheService } from '../../../services/cache.service';
 import { FabricService } from '../../../services/fabric.service';
 import { RetryNotificationService } from '../../../services/retry-notification.service';
+import { LocalImageService } from '../../../services/local-image.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
+import { PlatformDetectionService } from '../../../services/platform-detection.service';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { environment } from '../../../../environments/environment';
 
@@ -38,8 +41,18 @@ export class HudPdfService {
     private stateService: HudStateService,
     private cache: CacheService,
     private fabricService: FabricService,
-    private retryNotification: RetryNotificationService
+    private retryNotification: RetryNotificationService,
+    private localImageService: LocalImageService,
+    private indexedDb: IndexedDbService,
+    private platformDetection: PlatformDetectionService
   ) {}
+
+  /**
+   * Check if running on mobile (uses Dexie-first approach)
+   */
+  private isMobile(): boolean {
+    return this.platformDetection.isMobile();
+  }
 
   /**
    * Main PDF generation method
@@ -589,49 +602,169 @@ export class HudPdfService {
   }
 
   /**
-   * Get photos for a HUD item with annotation rendering
+   * Get photos for a HUD item - DEXIE-FIRST approach for mobile
+   * Checks local storage first before falling back to API
+   *
+   * HUD-015: Updated to read from Dexie hudFields and LocalImages tables on mobile
    */
   private async getHUDPhotos(hudId: string, fabric: any): Promise<any[]> {
     try {
-      const attachments = await this.hudData.getVisualAttachments(hudId);
+      // Use PDF-optimized method that includes pending caption/annotation changes
+      const attachments = await this.hudData.getVisualAttachmentsForPdf(hudId);
       const photos = [];
 
       for (const attachment of (attachments || [])) {
-        let photoUrl = attachment.Photo || attachment.PhotoPath || '';
+        const attachId = attachment.AttachID || attachment.attachId || attachment.imageId || '';
+        const caption = attachment.Annotation || attachment.Caption || attachment.caption || '';
+        const drawings = attachment.Drawings || attachment.drawings || '';
 
-        if (photoUrl && photoUrl.startsWith('/')) {
+        let finalUrl = '';
+        let conversionSuccess = false;
+
+        // DEXIE-FIRST: Check if attachment already has a local/cached URL
+        // Also check Attachment field which contains S3 key for webapp uploads
+        const existingUrl = attachment.displayUrl || attachment.url || attachment.Photo || attachment.Attachment || '';
+
+        if (existingUrl && (existingUrl.startsWith('data:') || existingUrl.startsWith('blob:'))) {
+          // Already have a usable local URL - convert blob to base64 for PDF
+          console.log('[HUD PDF Service] Using existing local URL for attachment:', attachId);
+          if (existingUrl.startsWith('blob:')) {
+            // Convert blob URL to base64 for PDF embedding
+            const base64 = await this.blobToBase64FromUrl(existingUrl);
+            if (base64) {
+              finalUrl = base64;
+              conversionSuccess = true;
+            }
+          } else {
+            finalUrl = existingUrl;
+            conversionSuccess = true;
+          }
+        } else if (this.isMobile() && attachId) {
+          // MOBILE: Try to get from IndexedDB cached photos first
           try {
-            const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(photoUrl));
-            if (base64Data && base64Data.startsWith('data:')) {
-              let finalUrl = base64Data;
+            // First try cached annotated image (if has annotations)
+            if (drawings) {
+              const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(attachId));
+              if (cachedAnnotated) {
+                console.log('[HUD PDF Service] Using cached ANNOTATED image for:', attachId);
+                finalUrl = cachedAnnotated;
+                conversionSuccess = true;
+              }
+            }
 
-              // Render annotations if drawings exist
-              const drawingsData = attachment.Drawings || null;
-              if (drawingsData) {
-                try {
-                  const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawingsData, { quality: 0.9, format: 'jpeg', fabric });
-                  if (annotatedUrl && annotatedUrl !== finalUrl) {
-                    finalUrl = annotatedUrl;
+            // If no annotated, try regular cached photo
+            if (!finalUrl) {
+              const cachedPhoto = await this.indexedDb.getCachedPhoto(String(attachId));
+              if (cachedPhoto) {
+                console.log('[HUD PDF Service] Using cached photo from IndexedDB for:', attachId);
+                finalUrl = cachedPhoto;
+                conversionSuccess = true;
+              }
+            }
+
+            // Try LocalImage service for local-first images
+            if (!finalUrl && attachment.imageId) {
+              const localImage = await this.localImageService.getImage(attachment.imageId);
+              if (localImage) {
+                const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+                if (displayUrl && !displayUrl.includes('placeholder')) {
+                  console.log('[HUD PDF Service] Using LocalImage display URL for:', attachment.imageId);
+                  // Convert blob URL to base64 for PDF
+                  if (displayUrl.startsWith('blob:')) {
+                    const base64 = await this.blobToBase64FromUrl(displayUrl);
+                    if (base64) {
+                      finalUrl = base64;
+                      conversionSuccess = true;
+                    }
+                  } else {
+                    finalUrl = displayUrl;
+                    conversionSuccess = true;
                   }
-                } catch (renderError) {
-                  console.error(`[HUD PDF Service] Error rendering photo annotation:`, renderError);
                 }
               }
-
-              photos.push({
-                url: finalUrl,
-                caption: attachment.Annotation || attachment.Caption || '',
-                conversionSuccess: true
-              });
             }
-          } catch (error) {
-            console.error(`[HUD PDF Service] Failed to convert HUD photo:`, error);
-            photos.push({
-              url: '',
-              caption: attachment.Annotation || attachment.Caption || '',
-              conversionSuccess: false
-            });
+          } catch (cacheError) {
+            console.warn('[HUD PDF Service] Cache lookup failed:', cacheError);
           }
+        }
+
+        // FALLBACK: If no local data, try API (for server paths or S3 keys)
+        if (!finalUrl) {
+          // Check both Photo/PhotoPath (Caspio file paths) and Attachment (S3 keys)
+          const serverPath = attachment.Photo || attachment.PhotoPath || attachment.Attachment || '';
+
+          if (serverPath) {
+            try {
+              // Check if this is an S3 key (starts with 'uploads/')
+              if (this.caspioService.isS3Key(serverPath)) {
+                console.log('[HUD PDF Service] Loading from S3 for:', serverPath);
+                const s3Url = await this.caspioService.getS3FileUrl(serverPath);
+                if (s3Url) {
+                  // Fetch the image and convert to base64 for PDF embedding
+                  const response = await fetch(s3Url);
+                  if (response.ok) {
+                    const blob = await response.blob();
+                    const base64Data = await this.blobToBase64(blob);
+                    if (base64Data) {
+                      finalUrl = base64Data;
+                      conversionSuccess = true;
+                    }
+                  }
+                }
+              } else if (serverPath.startsWith('/')) {
+                // Caspio file path - use Files API
+                console.log('[HUD PDF Service] Falling back to API for:', serverPath);
+                const base64Data = await firstValueFrom(this.caspioService.getImageFromFilesAPI(serverPath));
+                if (base64Data && base64Data.startsWith('data:')) {
+                  finalUrl = base64Data;
+                  conversionSuccess = true;
+
+                  // Cache for future use (mobile only)
+                  if (this.isMobile() && attachId && attachment.serviceId) {
+                    try {
+                      await this.indexedDb.cachePhoto(String(attachId), attachment.serviceId, base64Data);
+                    } catch (cacheErr) {
+                      console.warn('[HUD PDF Service] Failed to cache HUD photo:', cacheErr);
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`[HUD PDF Service] Failed to convert HUD photo from API:`, error);
+            }
+          }
+        }
+
+        // Render annotations if we have a valid URL and drawings data
+        if (finalUrl && drawings) {
+          try {
+            console.log('[HUD PDF Service] Rendering annotations for HUD attachment:', attachId);
+            const annotatedUrl = await renderAnnotationsOnPhoto(finalUrl, drawings, { quality: 0.9, format: 'jpeg', fabric });
+            if (annotatedUrl && annotatedUrl !== finalUrl) {
+              finalUrl = annotatedUrl;
+              console.log('[HUD PDF Service] ✓ Annotations rendered successfully for:', attachId);
+            }
+          } catch (renderError) {
+            console.error('[HUD PDF Service] Error rendering HUD photo annotation:', renderError);
+            // Continue with unannotated image
+          }
+        }
+
+        // Only add photo if we have a valid URL
+        if (finalUrl) {
+          photos.push({
+            url: finalUrl,
+            caption: caption,
+            conversionSuccess: conversionSuccess
+          });
+        } else if (attachment.Photo || attachment.PhotoPath || attachment.Attachment) {
+          // Mark as failed if there was supposed to be a photo
+          console.warn('[HUD PDF Service] No photo data available for attachment:', attachId);
+          photos.push({
+            url: '',
+            caption: caption,
+            conversionSuccess: false
+          });
         }
       }
 
@@ -639,6 +772,35 @@ export class HudPdfService {
     } catch (error) {
       console.error(`[HUD PDF Service] Error getting HUD photos:`, error);
       return [];
+    }
+  }
+
+  /**
+   * Convert a blob to base64 data URL
+   */
+  private async blobToBase64(blob: Blob): Promise<string | null> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result);
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * Convert a blob URL to base64 data URL
+   */
+  private async blobToBase64FromUrl(blobUrl: string): Promise<string | null> {
+    try {
+      const response = await fetch(blobUrl);
+      const blob = await response.blob();
+      return this.blobToBase64(blob);
+    } catch (error) {
+      console.error('[HUD PDF Service] Error converting blob URL to base64:', error);
+      return null;
     }
   }
 

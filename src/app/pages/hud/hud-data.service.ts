@@ -265,14 +265,146 @@ export class HudDataService implements OnDestroy {
     return hudRecords;
   }
 
+  /**
+   * Get HUD attachments/photos for a specific HUD record
+   *
+   * MOBILE: Dexie-first approach - reads from LocalImages, merges with API data
+   * WEBAPP: Direct API call with in-memory cache
+   */
   async getVisualAttachments(hudId: string | number): Promise<any[]> {
     if (!hudId) {
       return [];
     }
-    const key = String(hudId);
-    return this.resolveWithCache(this.hudAttachmentsCache, key, () =>
-      firstValueFrom(this.caspioService.getServiceHUDAttachByHUDId(String(hudId)))
-    );
+    const hudIdStr = String(hudId);
+    console.log('[HUD Data] Loading attachments for HUDID:', hudIdStr, 'Mobile:', this.isMobile());
+
+    // WEBAPP MODE: Return only server data (no local images)
+    if (this.isWebapp()) {
+      console.log('[HUD Data] WEBAPP MODE: Loading attachments from server only');
+      return this.resolveWithCache(this.hudAttachmentsCache, hudIdStr, () =>
+        firstValueFrom(this.caspioService.getServiceHUDAttachByHUDId(hudIdStr))
+      );
+    }
+
+    // MOBILE MODE: OFFLINE-FIRST pattern
+    // Get server attachments first (may be empty if offline)
+    let serverAttachments: any[] = [];
+    try {
+      serverAttachments = await firstValueFrom(this.caspioService.getServiceHUDAttachByHUDId(hudIdStr));
+    } catch (err) {
+      console.log('[HUD Data] MOBILE: API call failed (may be offline), using local data only');
+    }
+
+    // NEW LOCAL-FIRST: Get local images for this HUD from LocalImageService
+    const localImages = await this.localImageService.getImagesForEntity('hud', hudIdStr);
+
+    // Convert local images to attachment format for UI compatibility
+    const localAttachments = await Promise.all(localImages.map(async (img) => {
+      const displayUrl = await this.localImageService.getDisplayUrl(img);
+      return {
+        // Stable identifiers
+        imageId: img.imageId,              // STABLE UUID for trackBy
+        AttachID: img.attachId || img.imageId,  // Real AttachID after sync, else imageId
+        attachId: img.attachId || img.imageId,
+        _tempId: img.imageId,
+        _pendingFileId: img.imageId,
+
+        // Entity references
+        HUDID: img.entityId,
+        entityId: img.entityId,
+        entityType: img.entityType,
+        serviceId: img.serviceId,
+
+        // Content
+        Annotation: img.caption,
+        caption: img.caption,
+        Drawings: img.drawings,
+        drawings: img.drawings,
+        fileName: img.fileName,
+
+        // Display URLs
+        Photo: displayUrl,
+        url: displayUrl,
+        thumbnailUrl: displayUrl,
+        displayUrl: displayUrl,
+        _thumbnailUrl: displayUrl,
+
+        // Status flags - SILENT SYNC: No uploading/queued indicators
+        status: img.status,
+        localVersion: img.localVersion,
+        _syncing: false,              // SILENT SYNC
+        uploading: false,             // SILENT SYNC: No spinner
+        queued: false,                // SILENT SYNC: No indicator
+        isPending: img.status !== 'verified',
+        isLocalFirst: true,
+        isLocalImage: true,
+        localBlobId: img.localBlobId,
+      };
+    }));
+
+    // Filter server attachments to exclude any that have been migrated to new system
+    // (match by AttachID to imageId or attachId)
+    const filteredServer = serverAttachments.filter((att: any) => {
+      const attId = String(att.AttachID || att.attachId || '');
+      // Keep if not in local images (by attachId match)
+      return !localImages.some(img => img.attachId === attId);
+    });
+
+    // Merge: local-first images first (most recent), then server
+    const merged = [...localAttachments, ...filteredServer];
+
+    console.log('[HUD Data] Loaded attachments (mobile):', merged.length,
+      `(${localAttachments.length} local-first + ${filteredServer.length} server)`);
+
+    return merged;
+  }
+
+  /**
+   * Get HUD attachments optimized for PDF generation
+   * Includes pending caption/annotation changes from IndexedDB
+   *
+   * MOBILE: Merges LocalImages + server data + pending captions
+   * WEBAPP: Direct API call
+   */
+  async getVisualAttachmentsForPdf(hudId: string | number): Promise<any[]> {
+    if (!hudId) {
+      return [];
+    }
+    const hudIdStr = String(hudId);
+
+    // Get base attachments
+    const attachments = await this.getVisualAttachments(hudId);
+
+    // MOBILE: Merge pending captions/annotations
+    if (this.isMobile() && attachments.length > 0) {
+      const attachIds = attachments.map(a => String(a.AttachID || a.attachId || a.imageId));
+      const pendingCaptions = await this.indexedDb.getPendingCaptionsForAttachments(attachIds);
+
+      if (pendingCaptions.length > 0) {
+        console.log('[HUD Data] Merging', pendingCaptions.length, 'pending captions into PDF attachments');
+
+        // Apply pending changes to attachments
+        for (const pending of pendingCaptions) {
+          const attachment = attachments.find(a =>
+            String(a.AttachID || a.attachId || a.imageId) === pending.attachId
+          );
+          if (attachment) {
+            if (pending.caption !== undefined) {
+              attachment.Annotation = pending.caption;
+              attachment.caption = pending.caption;
+              attachment._hasPendingCaption = true;
+            }
+            if (pending.drawings !== undefined) {
+              attachment.Drawings = pending.drawings;
+              attachment.drawings = pending.drawings;
+              attachment._hasPendingDrawings = true;
+            }
+          }
+        }
+      }
+    }
+
+    return attachments;
   }
 
   // ============================================================================
