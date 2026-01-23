@@ -356,6 +356,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       return;
     }
 
+    // Skip if multi-image upload in progress to prevent race conditions
+    if (this.isMultiImageUploadInProgress) {
+      console.log('[HUD-CATEGORY-DETAIL] Skipping liveQuery during batch upload');
+      return;
+    }
+
     for (const field of fields) {
       if (!field.isSelected) {
         continue;
@@ -2224,6 +2230,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   // ============================================
 
   async addPhotoFromCamera(category: string, itemId: string | number) {
+    // Set camera capture guard to prevent liveQuery from creating duplicates
+    this.isCameraCaptureInProgress = true;
+
     try {
       // Capture photo with camera
       const image = await Camera.getPhoto({
@@ -2321,6 +2330,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           this.visualPhotos[key].push(photoEntry);
           this.changeDetectorRef.detectChanges();
           console.log('[CAMERA UPLOAD] Added photo placeholder, offline:', isOfflineMode);
+
+          // Clear camera capture guard after manual UI push
+          this.isCameraCaptureInProgress = false;
 
           // Serialize and compress annotations data for IndexedDB storage
           let drawingsString = '';
@@ -2445,6 +2457,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       if (!isCancelled) {
         console.error('Error capturing photo from camera:', error);
       }
+    } finally {
+      // Always reset camera capture guard
+      this.isCameraCaptureInProgress = false;
     }
   }
 
@@ -2464,11 +2479,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           this.visualPhotos[key] = [];
         }
 
+        // Set batch upload guard to prevent liveQuery from creating duplicates
+        this.isMultiImageUploadInProgress = true;
+        this.batchUploadImageIds.clear();
+
         console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
 
         // CRITICAL: Create skeleton placeholders IMMEDIATELY for all photos
         const skeletonPhotos = images.photos.map((image, i) => {
           const tempId = `temp_skeleton_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
+          // Track imageId in batch to prevent duplicates even if liveQuery fires
+          this.batchUploadImageIds.add(tempId);
           return {
             AttachID: tempId,
             id: tempId,
@@ -2644,6 +2665,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
           console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos queued successfully`);
 
+          // Clear batch upload guard after all photos processed
+          this.isMultiImageUploadInProgress = false;
+          this.batchUploadImageIds.clear();
+
         }, 150); // Small delay to ensure skeletons render
       }
     } catch (error) {
@@ -2657,6 +2682,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       if (!isCancelled) {
         console.error('Error selecting photo from gallery:', error);
       }
+    } finally {
+      // Always reset batch upload guard
+      this.isMultiImageUploadInProgress = false;
+      this.batchUploadImageIds.clear();
     }
   }
 
