@@ -6,6 +6,8 @@ import { HudFieldRepoService } from './services/hud-field-repo.service';
 import { HudOperationsQueueService } from './services/hud-operations-queue.service';
 import { LocalImageService } from '../../services/local-image.service';
 import { BackgroundSyncService, HudSyncComplete, HudPhotoUploadComplete } from '../../services/background-sync.service';
+import { IndexedDbService } from '../../services/indexed-db.service';
+import { compressAnnotationData } from '../../utils/annotation-utils';
 
 interface CacheEntry<T> {
   value: Promise<T>;
@@ -49,7 +51,8 @@ export class HudDataService implements OnDestroy {
     private readonly hudFieldRepo: HudFieldRepoService,
     private readonly hudOpsQueue: HudOperationsQueueService,
     private readonly localImageService: LocalImageService,
-    private readonly backgroundSync: BackgroundSyncService
+    private readonly backgroundSync: BackgroundSyncService,
+    private readonly indexedDb: IndexedDbService
   ) {
     // Subscribe to sync events on mobile for cache invalidation
     this.subscribeToSyncEvents();
@@ -581,10 +584,56 @@ export class HudDataService implements OnDestroy {
   /**
    * Update photo caption
    *
-   * Both mobile and webapp use direct API call for caption updates
+   * HUD-014: Platform-aware caption sync
+   * MOBILE: Queue caption update for background sync via pendingCaptions table
+   * WEBAPP: Direct API call for immediate persistence
    */
-  async updateVisualPhotoCaption(attachId: string, caption: string): Promise<any> {
-    console.log('[HUD Photo] Updating caption for AttachID:', attachId);
+  async updateVisualPhotoCaption(
+    attachId: string,
+    caption: string,
+    metadata: { serviceId?: string; hudId?: string } = {}
+  ): Promise<any> {
+    console.log('[HUD Photo] Updating caption for AttachID:', attachId, 'Mobile:', this.isMobile());
+
+    // Check if this is a temp/local ID that hasn't synced yet
+    const isTempId = String(attachId).startsWith('temp_') ||
+                     String(attachId).startsWith('img_') ||
+                     String(attachId).includes('-');
+
+    // MOBILE PATH: Queue caption update for background sync
+    if (this.isMobile()) {
+      console.log('[HUD Photo] MOBILE: Queueing caption update for background sync');
+
+      const captionId = await this.indexedDb.queueCaptionUpdate({
+        attachId,
+        attachType: 'visual',
+        caption,
+        serviceId: metadata.serviceId,
+        visualId: metadata.hudId
+      });
+
+      console.log('[HUD Photo] MOBILE: Caption queued:', captionId);
+
+      // Clear attachment cache so next load merges with pending caption
+      this.hudAttachmentsCache.clear();
+
+      return { captionId, queued: true };
+    }
+
+    // WEBAPP PATH: Direct API call (unless temp ID)
+    if (isTempId) {
+      console.log('[HUD Photo] WEBAPP: Temp ID detected, queueing for later sync');
+      const captionId = await this.indexedDb.queueCaptionUpdate({
+        attachId,
+        attachType: 'visual',
+        caption,
+        serviceId: metadata.serviceId,
+        visualId: metadata.hudId
+      });
+      return { captionId, queued: true };
+    }
+
+    console.log('[HUD Photo] WEBAPP: Updating caption directly via API');
     const result = await firstValueFrom(
       this.caspioService.updateServicesHUDAttach(attachId, { Annotation: caption })
     );
@@ -592,6 +641,147 @@ export class HudDataService implements OnDestroy {
     // Clear all attachment caches
     this.hudAttachmentsCache.clear();
 
+    return result;
+  }
+
+  /**
+   * Update photo annotation (drawings)
+   *
+   * HUD-014: Platform-aware annotation sync with COMPRESSED_V3 format
+   * MOBILE: Queue annotation update for background sync
+   * WEBAPP: Direct API call for immediate persistence
+   */
+  async updateVisualPhotoAnnotation(
+    attachId: string,
+    drawings: string | object,
+    metadata: { serviceId?: string; hudId?: string; caption?: string } = {}
+  ): Promise<any> {
+    console.log('[HUD Photo] Updating annotation for AttachID:', attachId, 'Mobile:', this.isMobile());
+
+    // Compress annotation data using COMPRESSED_V3 format
+    let compressedDrawings: string;
+    if (typeof drawings === 'string') {
+      compressedDrawings = compressAnnotationData(drawings, { emptyResult: '{}' });
+    } else {
+      compressedDrawings = compressAnnotationData(JSON.stringify(drawings), { emptyResult: '{}' });
+    }
+
+    console.log('[HUD Photo] Compressed annotation from',
+      typeof drawings === 'string' ? drawings.length : JSON.stringify(drawings).length,
+      'to', compressedDrawings.length, 'bytes');
+
+    // Check if this is a temp/local ID
+    const isTempId = String(attachId).startsWith('temp_') ||
+                     String(attachId).startsWith('img_') ||
+                     String(attachId).includes('-');
+
+    // MOBILE PATH: Queue annotation update for background sync
+    if (this.isMobile()) {
+      console.log('[HUD Photo] MOBILE: Queueing annotation update for background sync');
+
+      const captionId = await this.indexedDb.queueCaptionUpdate({
+        attachId,
+        attachType: 'visual',
+        drawings: compressedDrawings,
+        caption: metadata.caption,
+        serviceId: metadata.serviceId,
+        visualId: metadata.hudId
+      });
+
+      console.log('[HUD Photo] MOBILE: Annotation queued:', captionId);
+
+      // Clear attachment cache
+      this.hudAttachmentsCache.clear();
+
+      return { captionId, queued: true };
+    }
+
+    // WEBAPP PATH: Direct API call (unless temp ID)
+    if (isTempId) {
+      console.log('[HUD Photo] WEBAPP: Temp ID detected, queueing annotation for later sync');
+      const captionId = await this.indexedDb.queueCaptionUpdate({
+        attachId,
+        attachType: 'visual',
+        drawings: compressedDrawings,
+        caption: metadata.caption,
+        serviceId: metadata.serviceId,
+        visualId: metadata.hudId
+      });
+      return { captionId, queued: true };
+    }
+
+    console.log('[HUD Photo] WEBAPP: Updating annotation directly via API');
+    const updateData: any = { Drawings: compressedDrawings };
+    if (metadata.caption !== undefined) {
+      updateData.Annotation = metadata.caption;
+    }
+
+    const result = await firstValueFrom(
+      this.caspioService.updateServicesHUDAttach(attachId, updateData)
+    );
+
+    // Clear all attachment caches
+    this.hudAttachmentsCache.clear();
+
+    return result;
+  }
+
+  /**
+   * Update both caption and annotation together
+   *
+   * HUD-014: Combines caption and annotation into single queued update
+   */
+  async updateVisualPhotoCaptionAndAnnotation(
+    attachId: string,
+    caption: string,
+    drawings: string | object,
+    metadata: { serviceId?: string; hudId?: string } = {}
+  ): Promise<any> {
+    console.log('[HUD Photo] Updating caption+annotation for AttachID:', attachId);
+
+    // Compress annotation data using COMPRESSED_V3 format
+    let compressedDrawings: string;
+    if (typeof drawings === 'string') {
+      compressedDrawings = compressAnnotationData(drawings, { emptyResult: '{}' });
+    } else {
+      compressedDrawings = compressAnnotationData(JSON.stringify(drawings), { emptyResult: '{}' });
+    }
+
+    // Check if this is a temp/local ID
+    const isTempId = String(attachId).startsWith('temp_') ||
+                     String(attachId).startsWith('img_') ||
+                     String(attachId).includes('-');
+
+    // MOBILE PATH or temp ID: Queue for background sync
+    if (this.isMobile() || isTempId) {
+      const platform = this.isMobile() ? 'MOBILE' : 'WEBAPP (temp ID)';
+      console.log(`[HUD Photo] ${platform}: Queueing caption+annotation for background sync`);
+
+      const captionId = await this.indexedDb.queueCaptionUpdate({
+        attachId,
+        attachType: 'visual',
+        caption,
+        drawings: compressedDrawings,
+        serviceId: metadata.serviceId,
+        visualId: metadata.hudId
+      });
+
+      console.log('[HUD Photo] Caption+annotation queued:', captionId);
+      this.hudAttachmentsCache.clear();
+
+      return { captionId, queued: true };
+    }
+
+    // WEBAPP PATH: Direct API call
+    console.log('[HUD Photo] WEBAPP: Updating caption+annotation directly via API');
+    const result = await firstValueFrom(
+      this.caspioService.updateServicesHUDAttach(attachId, {
+        Annotation: caption,
+        Drawings: compressedDrawings
+      })
+    );
+
+    this.hudAttachmentsCache.clear();
     return result;
   }
 }

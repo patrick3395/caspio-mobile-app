@@ -95,6 +95,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   private hudSyncCompleteSubscription?: Subscription;
   private hudPhotoUploadCompleteSubscription?: Subscription;
 
+  // HUD-014: Caption sync subscription for mobile
+  private captionSyncCompleteSubscription?: Subscription;
+
   // HUD-010: Track if we're on mobile for Dexie-first approach
   private isMobile: boolean = false;
 
@@ -199,6 +202,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     }
     if (this.hudPhotoUploadCompleteSubscription) {
       this.hudPhotoUploadCompleteSubscription.unsubscribe();
+    }
+
+    // HUD-014: Clean up caption sync subscription
+    if (this.captionSyncCompleteSubscription) {
+      this.captionSyncCompleteSubscription.unsubscribe();
     }
 
     console.log('[HUD CATEGORY DETAIL] Component destroyed, but uploads continue in background');
@@ -403,6 +411,41 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
               await this.loadPhotosFromLocalImages(hudId, key);
               this.changeDetectorRef.detectChanges();
             }
+            break;
+          }
+        }
+      }
+    );
+
+    // HUD-014: Subscribe to caption sync complete events
+    // Updates UI when caption/annotation sync completes in background
+    this.captionSyncCompleteSubscription = this.backgroundSync.captionSyncComplete$.subscribe(
+      async (event) => {
+        console.log('[HUD-014] Caption sync complete:', event.attachId, 'type:', event.attachType);
+
+        // Only process visual type captions for HUD
+        if (event.attachType !== 'visual') {
+          return;
+        }
+
+        // Find and update the photo with the synced caption in our visualPhotos
+        for (const key of Object.keys(this.visualPhotos)) {
+          const photoIndex = this.visualPhotos[key].findIndex(p =>
+            String(p.AttachID) === String(event.attachId) ||
+            String(p.attachId) === String(event.attachId) ||
+            String(p.imageId) === String(event.attachId)
+          );
+
+          if (photoIndex !== -1) {
+            console.log('[HUD-014] Found synced photo at key:', key, 'index:', photoIndex);
+
+            // Mark the photo as synced (remove any pending indicator)
+            if (this.visualPhotos[key][photoIndex]._captionPending) {
+              delete this.visualPhotos[key][photoIndex]._captionPending;
+            }
+
+            // Trigger UI update
+            this.changeDetectorRef.detectChanges();
             break;
           }
         }
@@ -2308,7 +2351,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
               if (annotationsData && result) {
                 try {
                   console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', result);
-                  await this.saveAnnotationToDatabase(result, annotatedBlob, annotationsData, cap);
+                  await this.saveAnnotationToDatabase(result, annotatedBlob, annotationsData, cap, String(visualId));
 
                   const displayUrl = URL.createObjectURL(annotatedBlob);
                   const photos = this.visualPhotos[key] || [];
@@ -2712,21 +2755,25 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  // Save annotation data to database (from structural systems)
-  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<string> {
-    // Import compression utilities
-    const { compressAnnotationData } = await import('../../../utils/annotation-utils');
+  /**
+   * Save annotation data to database
+   * HUD-014: Platform-aware annotation sync with COMPRESSED_V3 format
+   * - MOBILE: Queues annotation update for background sync
+   * - WEBAPP: Direct API call for immediate persistence
+   * - Caches annotated blob for immediate thumbnail display
+   */
+  private async saveAnnotationToDatabase(
+    attachId: string,
+    annotatedBlob: Blob,
+    annotationsData: any,
+    caption: string,
+    hudId?: string
+  ): Promise<string> {
+    console.log('[SAVE ANNOTATION] Saving annotation for AttachID:', attachId, 'Mobile:', this.isMobile);
 
-    // Build the updateData object with Annotation and Drawings fields
-    const updateData: any = {
-      Annotation: caption || ''
-    };
-
-    // Add annotations to Drawings field if provided
+    // Prepare drawings data string
+    let drawingsData = '';
     if (annotationsData) {
-      let drawingsData = '';
-
-      // Handle Fabric.js canvas export
       if (annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData) {
         try {
           drawingsData = JSON.stringify(annotationsData);
@@ -2743,30 +2790,41 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           console.error('[SAVE] Failed to stringify annotation data:', e);
         }
       }
+    }
 
-      if (drawingsData && drawingsData.length > 0) {
-        // Compress if large
-        let compressedDrawings = drawingsData;
-        if (drawingsData.length > 50000) {
-          try {
-            compressedDrawings = compressAnnotationData(drawingsData, { emptyResult: '{}' });
-            console.log('[SAVE ANNOTATION] Compressed from', drawingsData.length, 'to', compressedDrawings.length, 'bytes');
-          } catch (e) {
-            console.error('[SAVE] Compression failed:', e);
-            compressedDrawings = drawingsData;
+    // HUD-014: Use platform-aware annotation sync via HudDataService
+    // This handles COMPRESSED_V3 format and queuing for mobile
+    if (drawingsData && drawingsData.length > 0) {
+      try {
+        const result = await this.hudData.updateVisualPhotoCaptionAndAnnotation(
+          attachId,
+          caption || '',
+          drawingsData,
+          {
+            serviceId: this.serviceId,
+            hudId: hudId
           }
-        }
-
-        updateData.Drawings = compressedDrawings;
+        );
+        console.log('[SAVE ANNOTATION] ✅ Annotation update initiated:', result?.queued ? 'queued for sync' : 'saved directly');
+      } catch (error) {
+        console.error('[SAVE ANNOTATION] Error saving annotation:', error);
+        // Don't throw - we still want to cache the blob for immediate display
+      }
+    } else {
+      // No drawings - just update caption
+      try {
+        await this.hudData.updateVisualPhotoCaption(attachId, caption || '', {
+          serviceId: this.serviceId,
+          hudId: hudId
+        });
+        console.log('[SAVE ANNOTATION] ✅ Caption saved (no drawings)');
+      } catch (error) {
+        console.error('[SAVE ANNOTATION] Error saving caption:', error);
       }
     }
 
-    // Update the HUD attach record
-    await firstValueFrom(this.caspioService.updateServicesHUDAttach(attachId, updateData));
-    console.log('[SAVE ANNOTATION] ✅ Annotations saved successfully');
-
-    // TASK 4 FIX: Cache the annotated blob for thumbnail display on reload
-    // This ensures annotations are visible in thumbnails after page reload
+    // Cache the annotated blob for immediate thumbnail display
+    // This ensures annotations are visible in thumbnails immediately
     if (annotatedBlob && annotatedBlob.size > 0) {
       try {
         const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
@@ -2947,16 +3005,33 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
               // Update photo caption in UI immediately
               photo.caption = newCaption;
+
+              // HUD-014: Mark as pending on mobile until sync completes
+              if (this.isMobile) {
+                photo._captionPending = true;
+              }
+
               this.changeDetectorRef.detectChanges();
 
               // Close popup immediately
               (this as any).isCaptionPopupOpen = false;
 
-              // Save to database in background
-              if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
-                this.hudData.updateVisualPhotoCaption(photo.AttachID, newCaption)
-                  .then(() => {
-                    console.log('[CAPTION] Saved caption for photo:', photo.AttachID);
+              // HUD-014: Get the attachId (could be temp ID, imageId, or real AttachID)
+              const attachId = photo.imageId || photo.AttachID || photo.attachId;
+              const hudId = photo.HUDID || photo.VisualID;
+
+              // Save to database in background (works for both mobile and webapp)
+              if (attachId) {
+                this.hudData.updateVisualPhotoCaption(attachId, newCaption, {
+                  serviceId: this.serviceId,
+                  hudId: hudId ? String(hudId) : undefined
+                })
+                  .then((result) => {
+                    console.log('[CAPTION] Caption update initiated:', result?.queued ? 'queued for sync' : 'saved directly');
+                    if (result?.queued && this.isMobile) {
+                      // Caption queued - will sync in background
+                      console.log('[CAPTION] Caption queued, captionId:', result.captionId);
+                    }
                   })
                   .catch((error) => {
                     console.error('[CAPTION] Error saving caption:', error);
@@ -3224,7 +3299,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       const newCaption = data.caption || existingCaption;
 
       // Save annotations to database
-      await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, newCaption);
+      // HUD-014: Pass hudId for proper metadata
+      const hudId = photo.HUDID || photo.VisualID || this.visualRecordIds[key] || String(itemId);
+      await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, newCaption, hudId);
 
       // Update UI
       const photos = this.visualPhotos[key] || [];
@@ -3540,10 +3617,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
             }
 
             // If there are annotations, save them
+            // HUD-014: Pass hudId for proper metadata
             if (annotationData) {
               const annotatedBlob = photoData.annotatedBlob;
               if (annotatedBlob) {
-                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationData, caption);
+                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationData, caption, String(visualId));
               }
             }
 
