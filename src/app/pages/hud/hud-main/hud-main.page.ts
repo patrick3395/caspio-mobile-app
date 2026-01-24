@@ -182,7 +182,7 @@ export class HudMainPage implements OnInit {
 
     // Use absolute navigation to ensure it works even if parent route isn't ready
     if (this.projectId && this.serviceId) {
-      this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, card.route]);
+      this.router.navigate(['/hud', this.projectId, this.serviceId, card.route]);
     } else {
       // Fallback to relative navigation
       this.router.navigate([card.route], { relativeTo: this.route.parent });
