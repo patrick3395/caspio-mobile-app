@@ -112,10 +112,10 @@ Plans:
   2. Project Details page styling (fonts, colors, spacing) matches engineers-foundation
   3. Project Details page displays correct project data and allows editing
   4. Changes persist and sync correctly (Dexie-first pattern)
-**Plans**: TBD
+**Plans**: 1 plan (verification-only - implementation already complete)
 
 Plans:
-- [ ] 06-01-PLAN.md — TBD
+- [ ] 06-01-PLAN.md — Verify HUD Project Details matches EFE (file parity + visual/functional verification)
 
 ### Phase 7: HUD Category Detail
 **Goal**: HUD detail page loads from correct tables, displays templates, and pushes selections with Dexie-first pattern
@@ -148,9 +148,9 @@ Phases execute in numeric order: 5 -> 6 -> 7
 | 3. Category Detail Integration | v1.0 | 3/3 | Complete | 2026-01-23 |
 | 4. Validation and Polish | v1.0 | 2/2 | Complete | 2026-01-24 |
 | 5. Navigation Refactor | v1.1 | 2/2 | Complete | 2026-01-24 |
-| 6. Project Details Page | v1.1 | 0/1 | Not started | - |
+| 6. Project Details Page | v1.1 | 0/1 | Planned | - |
 | 7. HUD Category Detail | v1.1 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24 (Phase 5 complete)*
+*Last updated: 2026-01-24 (Phase 6 planned)*
