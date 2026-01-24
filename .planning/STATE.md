@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 ## Current Position
 
 Phase: 5 of 7 (Navigation Refactor)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-24 - Completed 05-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-24 - Completed 05-02-PLAN.md
 
-Progress: [=========-] 82% (v1.0: 8/8, v1.1: 1/5)
+Progress: [=========+] 84% (v1.0: 8/8, v1.1: 2/5)
 
 ## Performance Metrics
 
@@ -24,8 +24,9 @@ Progress: [=========-] 82% (v1.0: 8/8, v1.1: 1/5)
 - Total execution time: 29 min
 
 **Current Milestone (v1.1 HUD Page Structure Refactor):**
-- Plans completed: 1
-- 05-01: 2 min
+- Plans completed: 2
+- 05-01: 2 min (research)
+- 05-02: 2 min
 
 ## Accumulated Context
 
@@ -44,6 +45,8 @@ Carried forward from v1.0:
 New in v1.1:
 - [05-01]: HUD has 2 navigation cards (Project Details, HUD / Mobile Manufactured)
 - [05-01]: HUD navigation uses '/hud' base path, not '/engineers-foundation'
+- [05-02]: Keep Location import - still used in finalize report flow
+- [05-02]: Use router.url.includes() for page context detection
 
 ### Pending Todos
 
@@ -56,7 +59,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-24
-Stopped at: Completed 05-01-PLAN.md
+Stopped at: Completed 05-02-PLAN.md (Phase 5 Navigation Refactor complete)
 Resume file: None
 
 ---
