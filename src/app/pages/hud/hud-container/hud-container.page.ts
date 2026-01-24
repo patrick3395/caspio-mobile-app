@@ -3,7 +3,7 @@ import { IndexedDbService } from '../../../services/indexed-db.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, NavigationEnd, RouterModule } from '@angular/router';
 import { Location } from '@angular/common';
 import { CaspioService } from '../../../services/caspio.service';
 import { OfflineService } from '../../../services/offline.service';
@@ -22,12 +22,14 @@ import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNO
 import { HelpModalComponent } from '../../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { firstValueFrom, Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { HudDataService } from '../hud-data.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 // STATIC import for offline support - prevents ChunkLoadError when offline
 import { AddCustomVisualModalComponent } from '../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
+import { SyncStatusWidgetComponent } from '../../../components/sync-status-widget/sync-status-widget.component';
 import { environment } from '../../../../environments/environment';
 
 type PdfPreviewCtor = typeof import('../../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
@@ -96,21 +98,49 @@ interface PendingVisualCreate {
   data: ServicesVisualRecord;
 }
 
+interface Breadcrumb {
+  label: string;
+  path: string;
+  icon?: string;
+}
+
 @Component({
   selector: 'app-hud-container',
   templateUrl: './hud-container.page.html',
   styleUrls: ['./hud-container.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule],
+  imports: [CommonModule, FormsModule, IonicModule, RouterModule, SyncStatusWidgetComponent],
   changeDetection: ChangeDetectionStrategy.OnPush  // PERFORMANCE: OnPush for optimized change detection
 })
 export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
   // Build cache fix: v1.4.247 - Fixed class structure, removed orphaned code
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('structuralStatusSelect') structuralStatusSelect?: ElementRef<HTMLSelectElement>;
-  
+
   projectId: string = '';
   serviceId: string = '';
+
+  // Router-outlet container properties (matching EFE pattern)
+  templateReady: boolean = false;
+  downloadProgress: string = 'Loading template...';
+  breadcrumbs: Breadcrumb[] = [];
+  currentPageTitle: string = 'HUD / Mobile Manufactured';
+  currentPageShortTitle: string = 'HUD';
+  isSubPage: boolean = false;
+  isWeb: boolean = environment.isWeb;
+
+  // isGeneratingPDF is a getter that returns the existing isPDFGenerating state
+  get isGeneratingPDF(): boolean {
+    return this.isPDFGenerating;
+  }
+
+  // Service instance tracking for multiple HUD services on same project
+  serviceInstanceNumber: number = 1;
+  totalHUDServices: number = 1;
+  private serviceInstanceLoaded: boolean = false;
+
+  // Track last loaded service to prevent unnecessary re-downloads
+  private static lastLoadedServiceId: string = '';
   projectData: any = null;
   serviceData: any = {}; // Store Services table data
   hasChangesAfterLastFinalization: boolean = false; // Track if changes made since last Update/Finalize
@@ -644,6 +674,30 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     const openPdfParam = this.route.snapshot.queryParamMap.get('openPdf');
     this.autoPdfRequested = (openPdfParam || '').toLowerCase() === '1' || (openPdfParam || '').toLowerCase() === 'true';
 
+    // Subscribe to router events to update breadcrumbs
+    this.subscriptions.add(
+      this.router.events.pipe(
+        filter(event => event instanceof NavigationEnd)
+      ).subscribe(() => {
+        // Only update breadcrumbs after initial load has completed
+        if (this.serviceInstanceLoaded) {
+          this.updateBreadcrumbs();
+        }
+      })
+    );
+
+    // Check if this is a new service or same service navigation
+    const isNewService = HudContainerPage.lastLoadedServiceId !== this.serviceId;
+    const isFirstLoad = !HudContainerPage.lastLoadedServiceId;
+
+    // Skip re-download if navigating within the same service
+    if (!isNewService && !isFirstLoad && this.templateReady) {
+      console.log('[HUD Container] Same service (' + this.serviceId + '), skipping re-download');
+      this.updateBreadcrumbs();
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
+
     // Debug logging removed - v1.4.316
 
     // Load all data in parallel for faster initialization
@@ -673,12 +727,24 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
 
       this.dataInitialized = true;
       this.tryAutoOpenPdf();
+
+      // Track that we've loaded this service
+      HudContainerPage.lastLoadedServiceId = this.serviceId;
+      this.serviceInstanceLoaded = true;
     } catch (error) {
       console.error('Error loading template data:', error);
     } finally {
       console.log('[ngOnInit] About to dismiss loader and set isFirstLoad = false');
       await this.dismissTemplateLoader();
       this.isFirstLoad = false; // Mark first load as complete
+
+      // Set templateReady = true after data loading completes
+      this.templateReady = true;
+
+      // Update breadcrumbs with loaded data
+      this.updateBreadcrumbs();
+      this.changeDetectorRef.detectChanges();
+
       console.log('[ngOnInit] ========== END ==========');
     }
   }
@@ -1436,8 +1502,76 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     } else {
       // On HUD main page - navigate to project detail
       console.log('[HUD Container] On main page, navigating to project detail');
+      this.navigateToHome();
+    }
+  }
+
+  // Navigate to project detail page (home icon in breadcrumbs)
+  navigateToHome() {
+    // Navigate back to the project detail page (where reports, deliverables, services are)
+    // Use replaceUrl on web to avoid template staying in browser history
+    if (environment.isWeb) {
+      this.router.navigate(['/project', this.projectId], { replaceUrl: true });
+    } else {
       this.router.navigate(['/project', this.projectId]);
     }
+  }
+
+  // Navigate to a breadcrumb path
+  navigateToCrumb(crumb: Breadcrumb) {
+    // If path is empty, navigate to HUD main page (no additional path segment)
+    if (!crumb.path || crumb.path === '') {
+      this.router.navigate(['/hud', this.projectId, this.serviceId]);
+    } else {
+      this.router.navigate(['/hud', this.projectId, this.serviceId, crumb.path]);
+    }
+  }
+
+  // Update breadcrumbs based on current URL
+  private updateBreadcrumbs() {
+    this.breadcrumbs = [];
+    const url = this.router.url;
+
+    // Reset to default title - include instance number if multiple HUD services exist
+    if (this.totalHUDServices > 1) {
+      this.currentPageTitle = `HUD / Mobile Manufactured #${this.serviceInstanceNumber}`;
+      this.currentPageShortTitle = `HUD #${this.serviceInstanceNumber}`;
+    } else {
+      this.currentPageTitle = 'HUD / Mobile Manufactured';
+      this.currentPageShortTitle = 'HUD';
+    }
+
+    // Check if we're on a sub-page (not the main HUD hub)
+    this.isSubPage = url.includes('/project-details') ||
+                     url.includes('/category/');
+
+    // Always add HUD main page breadcrumb (clipboard icon) - include instance number if multiple
+    const hudLabel = this.totalHUDServices > 1
+      ? `HUD #${this.serviceInstanceNumber}`
+      : 'HUD';
+    this.breadcrumbs.push({
+      label: hudLabel,
+      path: '',
+      icon: 'clipboard-outline'
+    });
+
+    if (url.includes('/project-details')) {
+      // Add Project Details breadcrumb
+      this.breadcrumbs.push({ label: 'Project Details', path: 'project-details', icon: 'document-text-outline' });
+      this.currentPageTitle = 'Project Details';
+      this.currentPageShortTitle = 'Project Details';
+    } else if (url.includes('/category/')) {
+      // Add category breadcrumb
+      const categoryMatch = url.match(/\/category\/([^\/]+)/);
+      if (categoryMatch) {
+        const categoryName = decodeURIComponent(categoryMatch[1]);
+        this.breadcrumbs.push({ label: categoryName, path: `category/${categoryMatch[1]}`, icon: 'checkbox-outline' });
+        this.currentPageTitle = categoryName;
+        this.currentPageShortTitle = categoryName;
+      }
+    }
+
+    this.changeDetectorRef.detectChanges();
   }
 
   async loadProjectData() {
