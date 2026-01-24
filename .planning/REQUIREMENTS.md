@@ -1,52 +1,44 @@
-# Requirements: HUD Template Migration
+# Requirements: HUD Template v1.1
 
-**Defined:** 2026-01-23
-**Core Value:** HUD must have identical Dexie-first mobile behavior to engineers-foundation
+**Defined:** 2026-01-24
+**Core Value:** Field engineers can complete HUD inspections on mobile with offline capability
 
-## v1 Requirements
+## v1.1 Requirements
 
-Requirements for copying engineers-foundation Dexie-first implementation to HUD. Each maps to roadmap phases.
+Requirements for HUD page structure refactor. Each maps to roadmap phases.
 
-### Container Layer
+### Navigation Structure
 
-- [x] **CONT-01**: HUD container loads data from Dexie cache first (rehydration)
-- [x] **CONT-02**: HUD container syncs with Caspio after Dexie load
-- [x] **CONT-03**: HUD container tracks service instance numbers
-- [x] **CONT-04**: HUD container shows loading overlay during rehydration
-- [x] **CONT-05**: HUD container handles TypeID 2 filtering (HUD-specific)
+- [ ] **NAV-01**: Main page displays 2 navigation buttons (not tabs)
+- [ ] **NAV-02**: "Project Details" button navigates to Project Details page
+- [ ] **NAV-03**: "HUD / Mobile Manufactured" button navigates to HUD detail page
+- [ ] **NAV-04**: Back button returns to main page from sub-pages
 
-### Data Service Layer
+### Project Details Page
 
-- [x] **DATA-01**: HudDataService has cache invalidation Subject
-- [x] **DATA-02**: HudDataService has debounced sync events
-- [x] **DATA-03**: HudDataService has comprehensive Dexie subscriptions
-- [x] **DATA-04**: HudDataService coordinates refresh across components
+- [ ] **PROJ-01**: Project Details page layout matches engineers-foundation exactly
+- [ ] **PROJ-02**: Project Details page styling matches engineers-foundation exactly
+- [ ] **PROJ-03**: Project Details page functionality matches engineers-foundation
 
-### Category Detail Pages
+### HUD Category Detail Page
 
-- [x] **CAT-01**: Category detail pages use liveQuery for reactive Dexie queries
-- [x] **CAT-02**: Field changes write to Dexie first (write-through pattern)
-- [x] **CAT-03**: Changes queue to Caspio via HudOperationsQueueService
-- [x] **CAT-04**: Photos stored locally first before upload
-- [x] **CAT-05**: UI updates reactively from Dexie changes
+- [ ] **HUD-01**: HUD page layout matches structural-systems/category-detail
+- [ ] **HUD-02**: HUD page loads templates from LPS_Services_HUD_Templates
+- [ ] **HUD-03**: HUD page pushes selections to LPS_Services_HUD
+- [ ] **HUD-04**: HUD page uses LPS_Services_HUD_Attach for photos
+- [ ] **HUD-05**: HUD page styling matches engineers-foundation category-detail
 
-### Mobile Styling
+### Data Layer
 
-- [x] **STYLE-01**: Copy all mobile-responsive CSS from engineers-foundation
-- [x] **STYLE-02**: Adapt component labels from EFE to HUD terminology
-- [x] **STYLE-03**: Maintain exact same layout and spacing
+- [ ] **DATA-01**: All EFE table references replaced with HUD equivalents
+- [ ] **DATA-02**: Dexie-first pattern functional on mobile
+- [ ] **DATA-03**: Offline data persists and syncs correctly
 
-### Table Mapping
+## Future Requirements
 
-- [x] **MAP-01**: Map all EFE table references to HUD equivalents
-- [x] **MAP-02**: Update TypeID filtering from 1 (EFE) to 2 (HUD)
-- [x] **MAP-03**: Update entity type references throughout
+Deferred to future milestones. Not in current roadmap.
 
-## v2 Requirements
-
-Deferred to future release. Not in current roadmap.
-
-(None - this is a focused copy implementation)
+(None - focused refactor milestone)
 
 ## Out of Scope
 
@@ -54,10 +46,10 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| New features beyond EF | Goal is exact copy, not enhancement |
-| Modifying engineers-foundation | Source template stays unchanged |
-| Backend/Caspio changes | Frontend template work only |
-| Performance optimizations | Copy first, optimize later if needed |
+| Multiple HUD categories | HUD has single category, direct navigation |
+| Elevation Plot section | Not needed for HUD inspections |
+| New features beyond EF parity | Goal is pattern match, not enhancement |
+| Backend/Caspio schema changes | Frontend refactor only |
 
 ## Traceability
 
@@ -65,38 +57,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CONT-01 | Phase 1 | Complete |
-| CONT-02 | Phase 1 | Complete |
-| CONT-03 | Phase 1 | Complete |
-| CONT-04 | Phase 1 | Complete |
-| CONT-05 | Phase 1 | Complete |
-| DATA-01 | Phase 2 | Complete |
-| DATA-02 | Phase 2 | Complete |
-| DATA-03 | Phase 2 | Complete |
-| DATA-04 | Phase 2 | Complete |
-| CAT-01 | Phase 3 | Complete |
-| CAT-02 | Phase 3 | Complete |
-| CAT-03 | Phase 3 | Complete |
-| CAT-04 | Phase 3 | Complete |
-| CAT-05 | Phase 3 | Complete |
-| STYLE-01 | Phase 3 | Complete |
-| STYLE-02 | Phase 3 | Complete |
-| STYLE-03 | Phase 3 | Complete |
-| MAP-01 | Phase 1 | Complete |
-| MAP-02 | Phase 1 | Complete |
-| MAP-03 | Phase 1 | Complete |
+| NAV-01 | TBD | Pending |
+| NAV-02 | TBD | Pending |
+| NAV-03 | TBD | Pending |
+| NAV-04 | TBD | Pending |
+| PROJ-01 | TBD | Pending |
+| PROJ-02 | TBD | Pending |
+| PROJ-03 | TBD | Pending |
+| HUD-01 | TBD | Pending |
+| HUD-02 | TBD | Pending |
+| HUD-03 | TBD | Pending |
+| HUD-04 | TBD | Pending |
+| HUD-05 | TBD | Pending |
+| DATA-01 | TBD | Pending |
+| DATA-02 | TBD | Pending |
+| DATA-03 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 20 total
-- Mapped to phases: 20
-- Unmapped: 0
-
-**Phase Distribution:**
-- Phase 1 (Container Enhancements): 8 requirements
-- Phase 2 (Data Service Enhancement): 4 requirements
-- Phase 3 (Category Detail Integration): 8 requirements
-- Phase 4 (Validation and Polish): 0 (validation phase)
+- v1.1 requirements: 15 total
+- Mapped to phases: 0
+- Unmapped: 15 ⚠️
 
 ---
-*Requirements defined: 2026-01-23*
-*Traceability updated: 2026-01-23 after Phase 3 completion*
+*Requirements defined: 2026-01-24*
+*Last updated: 2026-01-24 after initial definition*
