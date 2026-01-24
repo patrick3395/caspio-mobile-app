@@ -68,7 +68,8 @@
       "Bash(powershell -Command \"\\(Get-Content ''src/app/pages/hud/hud-container/hud-container.page.ts''\\) -replace ''EngineersFoundationPage'', ''HudContainerPage'' -replace ''app-engineers-foundation\\(?!-\\)'', ''app-hud-container'' -replace ''engineers-foundation\\\\.page'', ''hud-container.page'' | Set-Content ''src/app/pages/hud/hud-container/hud-container.page.ts'' -Encoding UTF8\")",
       "Bash(powershell -Command:*)",
       "Bash(powershell -ExecutionPolicy Bypass -File replace-hud.ps1:*)",
-      "Bash(powershell -ExecutionPolicy Bypass -File fix-imports.ps1)"
+      "Bash(powershell -ExecutionPolicy Bypass -File fix-imports.ps1)",
+      "Bash(git show:*)"
     ],
     "deny": [],
     "ask": []
