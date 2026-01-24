@@ -1413,33 +1413,30 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
 
   // Navigation method for back button
   goBack(event?: Event) {
-    console.log('='.repeat(50));
-    console.log('[goBack] CALLED!');
-    console.log('[goBack] Event:', event);
-    console.log('[goBack] Platform:', this.platform.isWeb() ? 'Web' : 'Mobile');
-    console.log('[goBack] ProjectId:', this.projectId);
-    console.log('[goBack] ServiceId:', this.serviceId);
-    console.log('='.repeat(50));
-    
+    console.log('[HUD Container] goBack called');
+
     // Prevent default and stop propagation
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
-    
-    // Method 1: Use Location.back() - this is the simplest and most reliable way
-    try {
-      this.location.back();
-      return;
-    } catch (error) {
-      console.error('[goBack] Location.back() failed:', error);
-    }
 
-    // Fallback to manual navigation if location.back() fails
-    if (this.projectId) {
-      void this.router.navigate(['/project', this.projectId], { replaceUrl: true });
+    // Navigate up one level in the URL hierarchy
+    const url = this.router.url;
+    console.log('[HUD Container] Current URL:', url);
+
+    if (url.includes('/category/')) {
+      // On category detail page - navigate to HUD main
+      console.log('[HUD Container] On category page, navigating to HUD main');
+      this.router.navigate(['/hud', this.projectId, this.serviceId]);
+    } else if (url.includes('/project-details')) {
+      // On project details page - navigate to HUD main
+      console.log('[HUD Container] On project-details, navigating to HUD main');
+      this.router.navigate(['/hud', this.projectId, this.serviceId]);
     } else {
-      void this.router.navigate(['/tabs/active-projects'], { replaceUrl: true });
+      // On HUD main page - navigate to project detail
+      console.log('[HUD Container] On main page, navigating to project detail');
+      this.router.navigate(['/project', this.projectId]);
     }
   }
 
