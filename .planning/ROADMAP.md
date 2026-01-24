@@ -97,11 +97,11 @@ Plans:
   2. Tapping "Project Details" button navigates to Project Details page
   3. Tapping "HUD / Mobile Manufactured" button navigates to HUD detail page
   4. Back button on sub-pages returns user to main page
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — TBD
-- [ ] 05-02-PLAN.md — TBD
+- [ ] 05-01-PLAN.md — Update HUD main page cards array (2 items) and fix navigateTo path
+- [ ] 05-02-PLAN.md — Update HUD container goBack() for URL-based hierarchical navigation
 
 ### Phase 6: Project Details Page
 **Goal**: Project Details page matches engineers-foundation layout, styling, and functionality exactly
@@ -147,10 +147,10 @@ Phases execute in numeric order: 5 -> 6 -> 7
 | 2. Data Service Enhancement | v1.0 | 1/1 | Complete | 2026-01-23 |
 | 3. Category Detail Integration | v1.0 | 3/3 | Complete | 2026-01-23 |
 | 4. Validation and Polish | v1.0 | 2/2 | Complete | 2026-01-24 |
-| 5. Navigation Refactor | v1.1 | 0/2 | Not started | - |
+| 5. Navigation Refactor | v1.1 | 0/2 | Ready | - |
 | 6. Project Details Page | v1.1 | 0/1 | Not started | - |
 | 7. HUD Category Detail | v1.1 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-24 (v1.1 phases added)*
+*Last updated: 2026-01-24 (Phase 5 plans created)*
