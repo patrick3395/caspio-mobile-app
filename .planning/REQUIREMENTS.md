@@ -9,10 +9,10 @@ Requirements for HUD page structure refactor. Each maps to roadmap phases.
 
 ### Navigation Structure
 
-- [ ] **NAV-01**: Main page displays 2 navigation buttons (not tabs)
-- [ ] **NAV-02**: "Project Details" button navigates to Project Details page
-- [ ] **NAV-03**: "HUD / Mobile Manufactured" button navigates to HUD detail page
-- [ ] **NAV-04**: Back button returns to main page from sub-pages
+- [x] **NAV-01**: Main page displays 2 navigation buttons (not tabs)
+- [x] **NAV-02**: "Project Details" button navigates to Project Details page
+- [x] **NAV-03**: "HUD / Mobile Manufactured" button navigates to HUD detail page
+- [x] **NAV-04**: Back button returns to main page from sub-pages
 
 ### Project Details Page
 
@@ -57,10 +57,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| NAV-01 | Phase 5 | Pending |
-| NAV-02 | Phase 5 | Pending |
-| NAV-03 | Phase 5 | Pending |
-| NAV-04 | Phase 5 | Pending |
+| NAV-01 | Phase 5 | Complete |
+| NAV-02 | Phase 5 | Complete |
+| NAV-03 | Phase 5 | Complete |
+| NAV-04 | Phase 5 | Complete |
 | PROJ-01 | Phase 6 | Pending |
 | PROJ-02 | Phase 6 | Pending |
 | PROJ-03 | Phase 6 | Pending |
@@ -80,4 +80,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-24*
-*Last updated: 2026-01-24 after roadmap creation*
+*Last updated: 2026-01-24 (Phase 5 complete)*
