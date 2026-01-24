@@ -57,27 +57,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| NAV-01 | TBD | Pending |
-| NAV-02 | TBD | Pending |
-| NAV-03 | TBD | Pending |
-| NAV-04 | TBD | Pending |
-| PROJ-01 | TBD | Pending |
-| PROJ-02 | TBD | Pending |
-| PROJ-03 | TBD | Pending |
-| HUD-01 | TBD | Pending |
-| HUD-02 | TBD | Pending |
-| HUD-03 | TBD | Pending |
-| HUD-04 | TBD | Pending |
-| HUD-05 | TBD | Pending |
-| DATA-01 | TBD | Pending |
-| DATA-02 | TBD | Pending |
-| DATA-03 | TBD | Pending |
+| NAV-01 | Phase 5 | Pending |
+| NAV-02 | Phase 5 | Pending |
+| NAV-03 | Phase 5 | Pending |
+| NAV-04 | Phase 5 | Pending |
+| PROJ-01 | Phase 6 | Pending |
+| PROJ-02 | Phase 6 | Pending |
+| PROJ-03 | Phase 6 | Pending |
+| HUD-01 | Phase 7 | Pending |
+| HUD-02 | Phase 7 | Pending |
+| HUD-03 | Phase 7 | Pending |
+| HUD-04 | Phase 7 | Pending |
+| HUD-05 | Phase 7 | Pending |
+| DATA-01 | Phase 7 | Pending |
+| DATA-02 | Phase 7 | Pending |
+| DATA-03 | Phase 7 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15 ⚠️
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-24*
-*Last updated: 2026-01-24 after initial definition*
+*Last updated: 2026-01-24 after roadmap creation*
