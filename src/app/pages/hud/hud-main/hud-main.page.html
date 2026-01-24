@@ -1,27 +1,5 @@
 <div class="main-container">
-  <!-- Loading State - Mobile only (spinner) -->
-  <div *ngIf="loading && !isWeb" class="loading-container">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading...</p>
-  </div>
-
-  <!-- WEBAPP: Skeleton loaders for navigation cards -->
-  <div *ngIf="loading && isWeb" class="skeleton-container">
-    <div class="skeleton-card" *ngFor="let i of [1,2]">
-      <div class="skeleton-icon"></div>
-      <div class="skeleton-content">
-        <div class="skeleton-title"></div>
-        <div class="skeleton-description"></div>
-        <div class="skeleton-badges">
-          <div class="skeleton-badge"></div>
-          <div class="skeleton-badge"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Navigation Cards (Main View) -->
-  <div *ngIf="!loading" class="white-container">
+  <div class="white-container">
     <div class="cards-container">
       <ion-card
         *ngFor="let card of cards"
@@ -36,17 +14,6 @@
             </div>
             <div class="title-container">
               <ion-card-title>{{ card.title }}</ion-card-title>
-              <p class="card-description" *ngIf="card.description">{{ card.description }}</p>
-              <!-- Badge Row -->
-              <div class="badge-row" *ngIf="card.badges && card.badges.length > 0">
-                <ion-badge
-                  *ngFor="let badge of card.badges"
-                  [color]="badge.color"
-                  class="count-badge">
-                  <ion-icon *ngIf="badge.icon" [name]="badge.icon"></ion-icon>
-                  {{ badge.label }}: {{ badge.count }}
-                </ion-badge>
-              </div>
             </div>
           </div>
         </ion-card-header>
@@ -54,8 +21,7 @@
     </div>
   </div>
 
-  <!-- Footer with Finalize Button -->
-  <div *ngIf="!loading" class="footer-section">
+  <div class="footer-section">
     <ion-button
       expand="block"
       size="large"
@@ -64,9 +30,8 @@
       <ion-icon slot="start" name="checkmark-done-outline"></ion-icon>
       {{ isReportFinalized ? 'Update' : 'Finalize Report' }}
     </ion-button>
-    <p class="footer-note">
-      {{ canFinalize ? 'All required fields complete' : 'Click to see what\'s missing' }}
+    <p class="footer-note" *ngIf="canFinalize">
+      All required fields complete
     </p>
   </div>
 </div>
-

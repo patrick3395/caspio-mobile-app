@@ -1,11 +1,17 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController } from '@ionic/angular';
+import { IonicModule, ToastController, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { HudStateService, HudProjectData } from '../services/hud-state.service';
+import { Subscription } from 'rxjs';
+import { HudStateService, ProjectData } from '../services/hud-state.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { OfflineService } from '../../../services/offline.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
+import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { environment } from '../../../../environments/environment';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-hud-project-details',
@@ -14,31 +20,29 @@ import { OfflineService } from '../../../services/offline.service';
   standalone: true,
   imports: [CommonModule, IonicModule, FormsModule]
 })
-export class HudProjectDetailsPage implements OnInit {
+export class HudProjectDetailsPage implements OnInit, OnDestroy, ViewWillEnter {
   projectId: string = '';
   serviceId: string = '';
   projectData: any = {};  // Use any to match original structure
   serviceData: any = {};  // Add serviceData for Services table fields
+  
+  // Lifecycle and sync tracking
+  private initialLoadComplete: boolean = false;
+  private serviceDataSyncSubscription?: Subscription;
 
-  // Dropdown options
-  inAttendanceOptions: string[] = ['Owner', 'Occupant', 'Agent', 'Builder', 'Other'];
-  typeOfBuildingOptions: string[] = ['Single Family', 'Multi-Family', 'Commercial', 'Other'];
-  styleOptions: string[] = ['Ranch', 'Two Story', 'Split Level', 'Bi-Level', 'Tri-Level', 'Other'];
-  occupancyFurnishingsOptions: string[] = ['Occupied - Furnished', 'Occupied - Unfurnished', 'Vacant - Furnished', 'Vacant - Unfurnished', 'Other'];
-  weatherConditionsOptions: string[] = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Windy', 'Foggy', 'Other'];
-  outdoorTemperatureOptions: string[] = ['30°F -', '30°F to 60°F', '60°F to 70°F', '70°F to 80°F', '80°F to 90°F', '90°F to 100°F', '100°F+', 'Other'];
-  firstFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'Other'];
-  secondFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
-  thirdFoundationTypeOptions: string[] = ['Slab on Grade', 'Pier and Beam', 'Basement', 'Crawl Space', 'None', 'Other'];
-  secondFoundationRoomsOptions: string[] = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
-  thirdFoundationRoomsOptions: string[] = ['Living Room', 'Kitchen', 'Master Bedroom', 'Bathroom', 'Other'];
-  ownerOccupantInterviewOptions: string[] = [
-    'Owner/occupant not available for discussion',
-    'Owner/occupant not aware of any previous foundation work',
-    'Owner/occupant provided the information documented in Support Documents',
-    'Owner/occupant is aware of previous work and will email documents asap',
-    'Other'
-  ];
+  // Dropdown options - empty by default, populated from LPS_Services_Drop API
+  inAttendanceOptions: string[] = [];
+  typeOfBuildingOptions: string[] = [];
+  styleOptions: string[] = [];
+  occupancyFurnishingsOptions: string[] = [];
+  weatherConditionsOptions: string[] = [];
+  outdoorTemperatureOptions: string[] = [];
+  firstFoundationTypeOptions: string[] = [];
+  secondFoundationTypeOptions: string[] = [];
+  thirdFoundationTypeOptions: string[] = [];
+  secondFoundationRoomsOptions: string[] = [];
+  thirdFoundationRoomsOptions: string[] = [];
+  ownerOccupantInterviewOptions: string[] = [];
 
   // Multi-select arrays
   inAttendanceSelections: string[] = [];
@@ -63,6 +67,27 @@ export class HudProjectDetailsPage implements OnInit {
   saveStatus: string = '';
   saveStatusType: 'info' | 'success' | 'error' = 'info';
 
+  /**
+   * Normalize string for comparison - handles different degree symbols and whitespace
+   */
+  private normalizeForComparison(str: string): string {
+    if (!str) return '';
+    // Replace various degree-like symbols with standard degree
+    // U+00B0 (�), U+02DA (�), U+00BA (�) all become �
+    return str.trim()
+      .replace(/[\u02DA\u00BA]/g, '�')  // Ring above and masculine ordinal to degree
+      .replace(/\s+/g, ' ')              // Normalize whitespace
+      .toLowerCase();
+  }
+
+  /**
+   * Check if options array includes a value (with normalized comparison)
+   */
+  private optionsIncludeNormalized(options: string[], value: string): boolean {
+    const normalizedValue = this.normalizeForComparison(value);
+    return options.some(opt => this.normalizeForComparison(opt) === normalizedValue);
+  }
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -70,203 +95,279 @@ export class HudProjectDetailsPage implements OnInit {
     private caspioService: CaspioService,
     private toastController: ToastController,
     private offlineService: OfflineService,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private indexedDb: IndexedDbService,
+    private backgroundSync: BackgroundSyncService,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   async ngOnInit() {
-    // Load dropdown options from database tables
-    await this.loadDropdownOptions();
-    await this.loadProjectDropdownOptions();
+    console.log('[ProjectDetails] ngOnInit() called');
 
-    // Get IDs from parent route
-    this.route.parent?.params.subscribe(params => {
-      this.projectId = params['projectId'];
-      this.serviceId = params['serviceId'];
+    // Get IDs from parent route snapshot immediately (for offline reliability)
+    const parentParams = this.route.parent?.snapshot?.params;
+    console.log('[ProjectDetails] parentParams from snapshot:', parentParams);
+    if (parentParams) {
+      this.projectId = parentParams['projectId'] || '';
+      this.serviceId = parentParams['serviceId'] || '';
+      console.log('[ProjectDetails] Got params from snapshot:', this.projectId, this.serviceId);
 
-      // Load project and service data
-      this.loadData();
+      if (this.projectId && this.serviceId) {
+        console.log('[ProjectDetails] Calling loadData() from SNAPSHOT');
+        await this.loadData();
+        
+        // CRITICAL: Load dropdown options AFTER data is loaded
+        // This ensures "Other" values are properly detected and text fields populated
+        await this.loadDropdownOptions();
+        await this.loadProjectDropdownOptions();
+      }
+    }
+
+    // Also subscribe to param changes (for dynamic updates)
+    this.route.parent?.params.subscribe(async params => {
+      console.log('[ProjectDetails] params.subscribe fired with:', params);
+      const newProjectId = params['projectId'];
+      const newServiceId = params['serviceId'];
+      console.log('[ProjectDetails] newProjectId:', newProjectId, 'newServiceId:', newServiceId);
+      console.log('[ProjectDetails] current projectId:', this.projectId, 'current serviceId:', this.serviceId);
+
+      // Only reload if IDs changed
+      if (newProjectId !== this.projectId || newServiceId !== this.serviceId) {
+        console.log('[ProjectDetails] IDs CHANGED - calling loadData() from SUBSCRIPTION');
+        this.projectId = newProjectId;
+        this.serviceId = newServiceId;
+        await this.loadData();
+        
+        // CRITICAL: Reload dropdown options after data loads
+        await this.loadDropdownOptions();
+        await this.loadProjectDropdownOptions();
+      } else {
+        console.log('[ProjectDetails] IDs unchanged - NOT reloading');
+      }
+    });
+
+    // Subscribe to sync events for real-time updates
+    this.subscribeToSyncEvents();
+    
+    // Mark initial load as complete
+    this.initialLoadComplete = true;
+  }
+
+  /**
+   * Ionic lifecycle hook - called when navigating back to this page
+   * Ensures data is refreshed when returning from other pages
+   */
+  async ionViewWillEnter() {
+    console.log('[ProjectDetails] ionViewWillEnter - Reloading data from cache');
+    
+    // Only reload if initial load is complete and we have IDs
+    if (this.initialLoadComplete && this.projectId && this.serviceId) {
+      await this.loadData();
+    }
+  }
+
+  /**
+   * Subscribe to background sync events for real-time UI updates
+   * MOBILE ONLY: Not needed in web mode since we save directly to API
+   */
+  private subscribeToSyncEvents(): void {
+    // WEBAPP MODE: Skip sync event subscription - not needed with direct API calls
+    if (environment.isWeb) {
+      console.log('[ProjectDetails] WEBAPP MODE: Skipping sync event subscription');
+      return;
+    }
+
+    // MOBILE MODE: Subscribe to service data sync completion
+    // This fires when local changes to project/service data are synced to the server
+    this.serviceDataSyncSubscription = this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
+      if (event.serviceId === this.serviceId || event.projectId === this.projectId) {
+        console.log('[ProjectDetails] Service/project data synced, reloading...');
+        if (this.initialLoadComplete) {
+          this.loadData();
+        }
+      }
     });
   }
 
-  private async loadData() {
-    try {
-      // Load project data
-      this.caspioService.getProject(this.projectId).subscribe({
-        next: (project) => {
-          this.projectData = project || {};
-
-          // Check if TypeOfBuilding is a custom value (not in predefined options)
-          if (this.projectData.TypeOfBuilding) {
-            if (!this.typeOfBuildingOptions.includes(this.projectData.TypeOfBuilding)) {
-              this.typeOfBuildingOtherValue = this.projectData.TypeOfBuilding;
-              this.projectData.TypeOfBuilding = 'Other';
-            }
-          } else {
-            this.projectData.TypeOfBuilding = '';
-          }
-
-          // Check if Style is a custom value (not in predefined options)
-          if (this.projectData.Style) {
-            if (!this.styleOptions.includes(this.projectData.Style)) {
-              this.styleOtherValue = this.projectData.Style;
-              this.projectData.Style = 'Other';
-            }
-          } else {
-            this.projectData.Style = '';
-          }
-
-          this.changeDetectorRef.detectChanges();
-        },
-        error: (error) => {
-          console.error('Error loading project:', error);
-        }
-      });
-
-      // Load service data
-      this.caspioService.getService(this.serviceId).subscribe({
-        next: (service) => {
-          this.serviceData = service || {};
-
-          // Check if OccupancyFurnishings is a custom value
-          if (this.serviceData.OccupancyFurnishings) {
-            if (!this.occupancyFurnishingsOptions.includes(this.serviceData.OccupancyFurnishings)) {
-              this.occupancyFurnishingsOtherValue = this.serviceData.OccupancyFurnishings;
-              this.serviceData.OccupancyFurnishings = 'Other';
-            }
-          } else {
-            this.serviceData.OccupancyFurnishings = '';
-          }
-
-          // Check if WeatherConditions is a custom value
-          if (this.serviceData.WeatherConditions) {
-            if (!this.weatherConditionsOptions.includes(this.serviceData.WeatherConditions)) {
-              this.weatherConditionsOtherValue = this.serviceData.WeatherConditions;
-              this.serviceData.WeatherConditions = 'Other';
-            }
-          } else {
-            this.serviceData.WeatherConditions = '';
-          }
-
-          // Check if OutdoorTemperature is a custom value
-          if (this.serviceData.OutdoorTemperature) {
-            if (!this.outdoorTemperatureOptions.includes(this.serviceData.OutdoorTemperature)) {
-              this.outdoorTemperatureOtherValue = this.serviceData.OutdoorTemperature;
-              this.serviceData.OutdoorTemperature = 'Other';
-            }
-          } else {
-            this.serviceData.OutdoorTemperature = '';
-          }
-
-          // Check if FirstFoundationType is a custom value
-          if (this.serviceData.FirstFoundationType) {
-            if (!this.firstFoundationTypeOptions.includes(this.serviceData.FirstFoundationType)) {
-              this.firstFoundationTypeOtherValue = this.serviceData.FirstFoundationType;
-              this.serviceData.FirstFoundationType = 'Other';
-            }
-          } else {
-            this.serviceData.FirstFoundationType = '';
-          }
-
-          // Check if SecondFoundationType is a custom value
-          if (this.serviceData.SecondFoundationType) {
-            if (!this.secondFoundationTypeOptions.includes(this.serviceData.SecondFoundationType)) {
-              this.secondFoundationTypeOtherValue = this.serviceData.SecondFoundationType;
-              this.serviceData.SecondFoundationType = 'Other';
-            }
-          } else {
-            this.serviceData.SecondFoundationType = '';
-          }
-
-          // Check if ThirdFoundationType is a custom value
-          if (this.serviceData.ThirdFoundationType) {
-            if (!this.thirdFoundationTypeOptions.includes(this.serviceData.ThirdFoundationType)) {
-              this.thirdFoundationTypeOtherValue = this.serviceData.ThirdFoundationType;
-              this.serviceData.ThirdFoundationType = 'Other';
-            }
-          } else {
-            this.serviceData.ThirdFoundationType = '';
-          }
-
-          // Check if OwnerOccupantInterview is a custom value
-          if (this.serviceData.OwnerOccupantInterview) {
-            if (!this.ownerOccupantInterviewOptions.includes(this.serviceData.OwnerOccupantInterview)) {
-              this.ownerOccupantInterviewOtherValue = this.serviceData.OwnerOccupantInterview;
-              this.serviceData.OwnerOccupantInterview = 'Other';
-            }
-          } else {
-            this.serviceData.OwnerOccupantInterview = '';
-          }
-
-          // Initialize multi-select arrays from stored comma-separated strings
-          if (this.serviceData.InAttendance) {
-            this.inAttendanceSelections = this.serviceData.InAttendance.split(',').map((s: string) => s.trim()).filter((s: string) => s);
-
-            // Check if any selection is a custom value (not in predefined options)
-            const customValues = this.inAttendanceSelections.filter((val: string) =>
-              !this.inAttendanceOptions.includes(val)
-            );
-            if (customValues.length > 0) {
-              this.inAttendanceOtherValue = customValues.join(', ');
-              this.inAttendanceSelections = this.inAttendanceSelections.filter((val: string) =>
-                this.inAttendanceOptions.includes(val) || val === 'Other'
-              );
-              if (!this.inAttendanceSelections.includes('Other')) {
-                this.inAttendanceSelections.push('Other');
-              }
-            }
-          }
-
-          if (this.serviceData.SecondFoundationRooms) {
-            this.secondFoundationRoomsSelections = this.serviceData.SecondFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
-
-            // Check if any selection is a custom value
-            const customValues = this.secondFoundationRoomsSelections.filter((val: string) =>
-              !this.secondFoundationRoomsOptions.includes(val)
-            );
-            if (customValues.length > 0) {
-              this.secondFoundationRoomsOtherValue = customValues.join(', ');
-              this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.filter((val: string) =>
-                this.secondFoundationRoomsOptions.includes(val) || val === 'Other'
-              );
-              if (!this.secondFoundationRoomsSelections.includes('Other')) {
-                this.secondFoundationRoomsSelections.push('Other');
-              }
-            }
-          }
-
-          if (this.serviceData.ThirdFoundationRooms) {
-            this.thirdFoundationRoomsSelections = this.serviceData.ThirdFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
-
-            // Check if any selection is a custom value
-            const customValues = this.thirdFoundationRoomsSelections.filter((val: string) =>
-              !this.thirdFoundationRoomsOptions.includes(val)
-            );
-            if (customValues.length > 0) {
-              this.thirdFoundationRoomsOtherValue = customValues.join(', ');
-              this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.filter((val: string) =>
-                this.thirdFoundationRoomsOptions.includes(val) || val === 'Other'
-              );
-              if (!this.thirdFoundationRoomsSelections.includes('Other')) {
-                this.thirdFoundationRoomsSelections.push('Other');
-              }
-            }
-          }
-
-          this.changeDetectorRef.detectChanges();
-        },
-        error: (error) => {
-          console.error('Error loading service:', error);
-        }
-      });
-    } catch (error) {
-      console.error('Error in loadData:', error);
+  ngOnDestroy() {
+    // Cleanup subscriptions
+    if (this.serviceDataSyncSubscription) {
+      this.serviceDataSyncSubscription.unsubscribe();
     }
+  }
+
+  private loadDataCallCount = 0;
+
+  private async loadData() {
+    this.loadDataCallCount++;
+    const callNum = this.loadDataCallCount;
+    console.log(`[ProjectDetails] ========== loadData() CALL #${callNum} ==========`);
+    console.log(`[ProjectDetails] loadData() #${callNum}: projectId=${this.projectId}, serviceId=${this.serviceId}`);
+
+    try {
+      // OFFLINE-FIRST: Try IndexedDB first for both project and service data
+      await Promise.all([
+        this.loadProjectData(),
+        this.loadServiceData()
+      ]);
+      console.log(`[ProjectDetails] loadData() #${callNum}: COMPLETED`);
+    } catch (error) {
+      console.error(`[ProjectDetails] loadData() #${callNum}: ERROR:`, error);
+    }
+  }
+
+  private async loadProjectData() {
+    let project: any = null;
+
+    // WEBAPP MODE: Load directly from API (no IndexedDB caching)
+    if (environment.isWeb) {
+      console.log('[ProjectDetails] WEBAPP MODE: Loading project directly from API');
+      try {
+        project = await firstValueFrom(this.caspioService.getProject(this.projectId, false));
+      } catch (error) {
+        console.error('[ProjectDetails] WEBAPP: Error loading project from API:', error);
+        return;
+      }
+    } else {
+      // MOBILE MODE: Try IndexedDB first - this is the source of truth for offline-first
+      project = await this.offlineTemplate.getProject(this.projectId);
+
+      if (project) {
+        console.log('[ProjectDetails] Loaded project from IndexedDB cache');
+      } else {
+        // Only fetch from API if IndexedDB has nothing at all
+        console.log('[ProjectDetails] Project not in cache, fetching from API...');
+        try {
+          const freshProject = await this.caspioService.getProject(this.projectId, false).toPromise();
+          if (freshProject) {
+            await this.indexedDb.cacheProjectRecord(this.projectId, freshProject);
+            project = freshProject;
+          }
+        } catch (error) {
+          console.error('[ProjectDetails] Error loading project from API:', error);
+          return;
+        }
+      }
+    }
+
+    this.projectData = project || {};
+
+    // NOTE: Don't convert values to "Other" here - the dropdown options haven't loaded yet from API
+    // The loadProjectDropdownOptions() will handle adding any missing values to the options arrays
+    // Just initialize empty values to empty strings
+    if (!this.projectData.TypeOfBuilding) this.projectData.TypeOfBuilding = '';
+    if (!this.projectData.Style) this.projectData.Style = '';
+
+    this.changeDetectorRef.detectChanges();
+  }
+
+  private async loadServiceData() {
+    console.log(`[ProjectDetails] loadServiceData() called for serviceId=${this.serviceId}`);
+    let service: any = null;
+
+    // WEBAPP MODE: Load directly from API (no IndexedDB caching)
+    if (environment.isWeb) {
+      console.log('[ProjectDetails] WEBAPP MODE: Loading service directly from API');
+      try {
+        service = await firstValueFrom(this.caspioService.getService(this.serviceId, false));
+        console.log('[ProjectDetails] WEBAPP: API returned service with fields:', service ? Object.keys(service) : 'null');
+      } catch (error) {
+        console.error('[ProjectDetails] WEBAPP: Error loading service from API:', error);
+        return;
+      }
+    } else {
+      // MOBILE MODE: Try IndexedDB first - this is the source of truth for offline-first
+      service = await this.offlineTemplate.getService(this.serviceId);
+
+      console.log(`[ProjectDetails] getService(${this.serviceId}) returned:`, service);
+      console.log(`[ProjectDetails] service fields:`, service ? Object.keys(service) : 'null');
+
+      if (service) {
+        console.log('[ProjectDetails] Loaded service from IndexedDB cache');
+        console.log('[ProjectDetails] FirstFoundationType =', service.FirstFoundationType);
+        console.log('[ProjectDetails] OccupancyFurnishings =', service.OccupancyFurnishings);
+        console.log('[ProjectDetails] WeatherConditions =', service.WeatherConditions);
+      } else {
+        // Only fetch from API if IndexedDB has nothing at all
+        console.log('[ProjectDetails] Service not in cache, fetching from API...');
+        try {
+          const freshService = await this.caspioService.getService(this.serviceId, false).toPromise();
+          console.log('[ProjectDetails] API returned:', freshService);
+          if (freshService) {
+            await this.indexedDb.cacheServiceRecord(this.serviceId, freshService);
+            service = freshService;
+          }
+        } catch (error) {
+          console.error('[ProjectDetails] Error loading service from API:', error);
+          return;
+        }
+      }
+    }
+
+    this.serviceData = service || {};
+    if (!service || Object.keys(service).length === 0) {
+      console.error('[ProjectDetails] ?? WARNING: serviceData set to EMPTY! service was:', service);
+      console.trace('[ProjectDetails] Stack trace for empty serviceData:');
+    }
+    console.log('[ProjectDetails] this.serviceData set to:', JSON.stringify(this.serviceData).substring(0, 300));
+
+    // NOTE: Don't convert values to "Other" here - the dropdown options haven't loaded yet from API
+    // The loadDropdownOptions() will handle adding any missing values to the options arrays
+    // Just initialize empty values to empty strings
+    if (!this.serviceData.OccupancyFurnishings) this.serviceData.OccupancyFurnishings = '';
+    if (!this.serviceData.WeatherConditions) this.serviceData.WeatherConditions = '';
+    if (!this.serviceData.OutdoorTemperature) this.serviceData.OutdoorTemperature = '';
+    if (!this.serviceData.FirstFoundationType) this.serviceData.FirstFoundationType = '';
+    if (!this.serviceData.SecondFoundationType) this.serviceData.SecondFoundationType = '';
+    if (!this.serviceData.ThirdFoundationType) this.serviceData.ThirdFoundationType = '';
+    if (!this.serviceData.OwnerOccupantInterview) this.serviceData.OwnerOccupantInterview = '';
+
+    // Initialize multi-select arrays from stored comma-separated strings
+    // Don't filter out values - loadDropdownOptions() will add them to the options if needed
+    if (this.serviceData.InAttendance) {
+      this.inAttendanceSelections = this.serviceData.InAttendance.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+    }
+
+    if (this.serviceData.SecondFoundationRooms) {
+      this.secondFoundationRoomsSelections = this.serviceData.SecondFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+    }
+
+    if (this.serviceData.ThirdFoundationRooms) {
+      this.thirdFoundationRoomsSelections = this.serviceData.ThirdFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+    }
+
+    // FINAL STATE LOG
+    console.log('[ProjectDetails] loadServiceData COMPLETE - Final serviceData state:');
+    console.log('[ProjectDetails]   FirstFoundationType =', this.serviceData.FirstFoundationType);
+    console.log('[ProjectDetails]   OccupancyFurnishings =', this.serviceData.OccupancyFurnishings);
+    console.log('[ProjectDetails]   WeatherConditions =', this.serviceData.WeatherConditions);
+    console.log('[ProjectDetails]   OutdoorTemperature =', this.serviceData.OutdoorTemperature);
+    console.log('[ProjectDetails]   InAttendance =', this.serviceData.InAttendance);
+
+    this.changeDetectorRef.detectChanges();
   }
 
   // Load dropdown options from Services_Drop table
   private async loadDropdownOptions() {
+    console.log('[ProjectDetails] loadDropdownOptions() called');
     try {
-      const servicesDropData = await this.caspioService.getServicesDrop().toPromise();
+      let servicesDropData: any[] = [];
+
+      // WEBAPP MODE: Load directly from API
+      if (environment.isWeb) {
+        console.log('[ProjectDetails] WEBAPP MODE: Loading Services_Drop directly from API');
+        servicesDropData = await firstValueFrom(this.caspioService.getServicesDrop()) || [];
+      } else {
+        // MOBILE MODE: Use OfflineTemplateService which reads from IndexedDB
+        servicesDropData = await this.offlineTemplate.getServicesDrop();
+      }
+      console.log('[ProjectDetails] loadDropdownOptions(): got data, servicesDropData.length =', servicesDropData?.length);
+      
+      // Debug: Log all unique ServicesName values to see what's available
+      if (servicesDropData && servicesDropData.length > 0) {
+        const uniqueServiceNames = [...new Set(servicesDropData.map((row: any) => row.ServicesName))];
+        console.log('[ProjectDetails] Available ServicesName values:', uniqueServiceNames);
+      }
 
       if (servicesDropData && servicesDropData.length > 0) {
         // Group by ServicesName
@@ -288,98 +389,319 @@ export class HudProjectDetailsPage implements OnInit {
 
         // Set Weather Conditions options
         if (optionsByService['WeatherConditions'] && optionsByService['WeatherConditions'].length > 0) {
+          const currentValue = this.serviceData?.WeatherConditions;
           this.weatherConditionsOptions = optionsByService['WeatherConditions'];
           if (!this.weatherConditionsOptions.includes('Other')) {
             this.weatherConditionsOptions.push('Other');
+          }
+          // Handle current value - normalize to match option OR show as "Other"
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.weatherConditionsOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing WeatherConditions: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.WeatherConditions = matchingOption;
+            } else if (!matchingOption) {
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] WeatherConditions "${currentValue}" not in options - showing as Other`);
+              this.weatherConditionsOtherValue = currentValue;
+              this.serviceData.WeatherConditions = 'Other';
+            }
           }
         }
 
         // Set Outdoor Temperature options
         if (optionsByService['OutdoorTemperature'] && optionsByService['OutdoorTemperature'].length > 0) {
+          const currentValue = this.serviceData?.OutdoorTemperature;
           this.outdoorTemperatureOptions = optionsByService['OutdoorTemperature'];
           if (!this.outdoorTemperatureOptions.includes('Other')) {
             this.outdoorTemperatureOptions.push('Other');
+          }
+          // Handle current value - normalize to match option OR show as "Other"
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.outdoorTemperatureOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing OutdoorTemperature: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.OutdoorTemperature = matchingOption;
+            } else if (!matchingOption) {
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] OutdoorTemperature "${currentValue}" not in options - showing as Other`);
+              this.outdoorTemperatureOtherValue = currentValue;
+              this.serviceData.OutdoorTemperature = 'Other';
+            }
+          }
+
+          // Reorder to put "30�F -" first (if it exists)
+          const thirtyBelowIndex = this.outdoorTemperatureOptions.findIndex(opt =>
+            opt.includes('30') && opt.includes('-') && !opt.includes('to')
+          );
+          if (thirtyBelowIndex > 0) {
+            const thirtyBelowOption = this.outdoorTemperatureOptions.splice(thirtyBelowIndex, 1)[0];
+            this.outdoorTemperatureOptions.unshift(thirtyBelowOption);
           }
         }
 
         // Set Occupancy Furnishings options
         if (optionsByService['OccupancyFurnishings'] && optionsByService['OccupancyFurnishings'].length > 0) {
+          const currentValue = this.serviceData?.OccupancyFurnishings;
           this.occupancyFurnishingsOptions = optionsByService['OccupancyFurnishings'];
           if (!this.occupancyFurnishingsOptions.includes('Other')) {
             this.occupancyFurnishingsOptions.push('Other');
           }
+          // Handle current value - normalize to match option OR show as "Other"
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.occupancyFurnishingsOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing OccupancyFurnishings: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.OccupancyFurnishings = matchingOption;
+            } else if (!matchingOption) {
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] OccupancyFurnishings "${currentValue}" not in options - showing as Other`);
+              this.occupancyFurnishingsOtherValue = currentValue;
+              this.serviceData.OccupancyFurnishings = 'Other';
+            }
+          }
         }
 
-        // Set InAttendance options
+        // Set InAttendance options (multi-select - preserve current selections)
         if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
           this.inAttendanceOptions = optionsByService['InAttendance'];
-          if (!this.inAttendanceOptions.includes('Other')) {
-            this.inAttendanceOptions.push('Other');
+          // Normalize selections to match API options, or add if truly missing
+          if (this.inAttendanceSelections && this.inAttendanceSelections.length > 0) {
+            this.inAttendanceSelections = this.inAttendanceSelections.map(selection => {
+              if (!selection || selection === 'Other' || selection === 'None') return selection;
+              const normalizedSelection = this.normalizeForComparison(selection);
+              const matchingOption = this.inAttendanceOptions.find(opt =>
+                this.normalizeForComparison(opt) === normalizedSelection
+              );
+              if (matchingOption) {
+                if (matchingOption !== selection) {
+                  console.log(`[ProjectDetails] Normalizing InAttendance selection: "${selection}" -> "${matchingOption}"`);
+                }
+                return matchingOption;
+              } else {
+                // Add missing selection to options (custom values added via Other)
+                console.log(`[ProjectDetails] Adding missing InAttendance selection to options: "${selection}"`);
+                this.inAttendanceOptions.push(selection);
+                return selection;
+              }
+            });
           }
+          // Sort options alphabetically, keeping "None" and "Other" at the end
+          this.inAttendanceOptions = this.inAttendanceOptions
+            .filter(opt => opt !== 'Other' && opt !== 'None')
+            .sort((a, b) => a.localeCompare(b));
+          // Add "None" and "Other" at the end (in that order)
+          this.inAttendanceOptions.push('None');
+          this.inAttendanceOptions.push('Other');
         }
 
         // Set FirstFoundationType options
         if (optionsByService['FirstFoundationType'] && optionsByService['FirstFoundationType'].length > 0) {
+          const currentValue = this.serviceData?.FirstFoundationType;
           this.firstFoundationTypeOptions = optionsByService['FirstFoundationType'];
           if (!this.firstFoundationTypeOptions.includes('Other')) {
             this.firstFoundationTypeOptions.push('Other');
           }
+          // Handle current value - normalize to match option OR show as "Other"
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.firstFoundationTypeOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing FirstFoundationType: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.FirstFoundationType = matchingOption;
+            } else if (!matchingOption) {
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] FirstFoundationType "${currentValue}" not in options - showing as Other`);
+              this.firstFoundationTypeOtherValue = currentValue;
+              this.serviceData.FirstFoundationType = 'Other';
+            }
+          }
         }
 
-        // Set SecondFoundationType options
-        if (optionsByService['SecondFoundationType'] && optionsByService['SecondFoundationType'].length > 0) {
-          this.secondFoundationTypeOptions = optionsByService['SecondFoundationType'];
+        // Set SecondFoundationType options (fall back to FirstFoundationType options if not available)
+        const secondFoundationTypeSource = optionsByService['SecondFoundationType'] || optionsByService['FirstFoundationType'];
+        if (secondFoundationTypeSource && secondFoundationTypeSource.length > 0) {
+          const currentValue = this.serviceData?.SecondFoundationType;
+          this.secondFoundationTypeOptions = [...secondFoundationTypeSource]; // Clone to avoid mutation
           if (!this.secondFoundationTypeOptions.includes('Other')) {
             this.secondFoundationTypeOptions.push('Other');
           }
+          // Handle current value - normalize to match option OR show as "Other"
+          if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.secondFoundationTypeOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing SecondFoundationType: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.SecondFoundationType = matchingOption;
+            } else if (!matchingOption) {
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] SecondFoundationType "${currentValue}" not in options - showing as Other`);
+              this.secondFoundationTypeOtherValue = currentValue;
+              this.serviceData.SecondFoundationType = 'Other';
+            }
+          }
         }
 
-        // Set ThirdFoundationType options
-        if (optionsByService['ThirdFoundationType'] && optionsByService['ThirdFoundationType'].length > 0) {
-          this.thirdFoundationTypeOptions = optionsByService['ThirdFoundationType'];
+        // Set ThirdFoundationType options (fall back to FirstFoundationType options if not available)
+        const thirdFoundationTypeSource = optionsByService['ThirdFoundationType'] || optionsByService['FirstFoundationType'];
+        if (thirdFoundationTypeSource && thirdFoundationTypeSource.length > 0) {
+          const currentValue = this.serviceData?.ThirdFoundationType;
+          this.thirdFoundationTypeOptions = [...thirdFoundationTypeSource]; // Clone to avoid mutation
           if (!this.thirdFoundationTypeOptions.includes('Other')) {
             this.thirdFoundationTypeOptions.push('Other');
           }
-        }
-
-        // Set SecondFoundationRooms options
-        if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
-          this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
-          if (!this.secondFoundationRoomsOptions.includes('Other')) {
-            this.secondFoundationRoomsOptions.push('Other');
+          // Handle current value - normalize to match option OR show as "Other"
+          if (currentValue && currentValue !== 'Other' && currentValue !== 'None' && currentValue !== '') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.thirdFoundationTypeOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing ThirdFoundationType: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.ThirdFoundationType = matchingOption;
+            } else if (!matchingOption) {
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] ThirdFoundationType "${currentValue}" not in options - showing as Other`);
+              this.thirdFoundationTypeOtherValue = currentValue;
+              this.serviceData.ThirdFoundationType = 'Other';
+            }
           }
         }
 
-        // Set ThirdFoundationRooms options
-        if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
-          this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
-          if (!this.thirdFoundationRoomsOptions.includes('Other')) {
-            this.thirdFoundationRoomsOptions.push('Other');
+        // Set SecondFoundationRooms options (multi-select - fall back to room options if not available)
+        const secondFoundationRoomsSource = optionsByService['SecondFoundationRooms'] || optionsByService['FoundationRooms'] || optionsByService['ThirdFoundationRooms'];
+        if (secondFoundationRoomsSource && secondFoundationRoomsSource.length > 0) {
+          this.secondFoundationRoomsOptions = [...secondFoundationRoomsSource]; // Clone
+          // Normalize selections to match API options, or add if truly missing
+          if (this.secondFoundationRoomsSelections && this.secondFoundationRoomsSelections.length > 0) {
+            this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.map(selection => {
+              if (!selection || selection === 'Other' || selection === 'None') return selection;
+              const normalizedSelection = this.normalizeForComparison(selection);
+              const matchingOption = this.secondFoundationRoomsOptions.find(opt =>
+                this.normalizeForComparison(opt) === normalizedSelection
+              );
+              if (matchingOption) {
+                if (matchingOption !== selection) {
+                  console.log(`[ProjectDetails] Normalizing SecondFoundationRooms selection: "${selection}" -> "${matchingOption}"`);
+                }
+                return matchingOption;
+              } else {
+                // Add missing selection to options (custom values added via Other)
+                console.log(`[ProjectDetails] Adding missing SecondFoundationRooms selection to options: "${selection}"`);
+                this.secondFoundationRoomsOptions.push(selection);
+                return selection;
+              }
+            });
           }
+          // Sort options alphabetically, keeping "None" and "Other" at the end
+          this.secondFoundationRoomsOptions = this.secondFoundationRoomsOptions
+            .filter(opt => opt !== 'Other' && opt !== 'None')
+            .sort((a, b) => a.localeCompare(b));
+          // Add "None" and "Other" at the end (in that order)
+          this.secondFoundationRoomsOptions.push('None');
+          this.secondFoundationRoomsOptions.push('Other');
+        }
+
+        // Set ThirdFoundationRooms options (multi-select - fall back to room options if not available)
+        const thirdFoundationRoomsSource = optionsByService['ThirdFoundationRooms'] || optionsByService['FoundationRooms'] || optionsByService['SecondFoundationRooms'];
+        if (thirdFoundationRoomsSource && thirdFoundationRoomsSource.length > 0) {
+          this.thirdFoundationRoomsOptions = [...thirdFoundationRoomsSource]; // Clone
+          // Normalize selections to match API options, or add if truly missing
+          if (this.thirdFoundationRoomsSelections && this.thirdFoundationRoomsSelections.length > 0) {
+            this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.map(selection => {
+              if (!selection || selection === 'Other' || selection === 'None') return selection;
+              const normalizedSelection = this.normalizeForComparison(selection);
+              const matchingOption = this.thirdFoundationRoomsOptions.find(opt =>
+                this.normalizeForComparison(opt) === normalizedSelection
+              );
+              if (matchingOption) {
+                if (matchingOption !== selection) {
+                  console.log(`[ProjectDetails] Normalizing ThirdFoundationRooms selection: "${selection}" -> "${matchingOption}"`);
+                }
+                return matchingOption;
+              } else {
+                // Add missing selection to options (custom values added via Other)
+                console.log(`[ProjectDetails] Adding missing ThirdFoundationRooms selection to options: "${selection}"`);
+                this.thirdFoundationRoomsOptions.push(selection);
+                return selection;
+              }
+            });
+          }
+          // Sort options alphabetically, keeping "None" and "Other" at the end
+          this.thirdFoundationRoomsOptions = this.thirdFoundationRoomsOptions
+            .filter(opt => opt !== 'Other' && opt !== 'None')
+            .sort((a, b) => a.localeCompare(b));
+          // Add "None" and "Other" at the end (in that order)
+          this.thirdFoundationRoomsOptions.push('None');
+          this.thirdFoundationRoomsOptions.push('Other');
         }
 
         // Set OwnerOccupantInterview options
         if (optionsByService['OwnerOccupantInterview'] && optionsByService['OwnerOccupantInterview'].length > 0) {
+          const currentValue = this.serviceData?.OwnerOccupantInterview;
           this.ownerOccupantInterviewOptions = optionsByService['OwnerOccupantInterview'];
           if (!this.ownerOccupantInterviewOptions.includes('Other')) {
             this.ownerOccupantInterviewOptions.push('Other');
           }
+          // Handle current value - normalize to match option OR show as "Other"
+          if (currentValue && currentValue !== 'Other') {
+            const normalizedCurrentValue = this.normalizeForComparison(currentValue);
+            const matchingOption = this.ownerOccupantInterviewOptions.find(opt =>
+              this.normalizeForComparison(opt) === normalizedCurrentValue
+            );
+            if (matchingOption && matchingOption !== currentValue) {
+              console.log(`[ProjectDetails] Normalizing OwnerOccupantInterview: "${currentValue}" -> "${matchingOption}"`);
+              this.serviceData.OwnerOccupantInterview = matchingOption;
+            } else if (!matchingOption) {
+              // Value not in options - show "Other" and populate text field
+              console.log(`[ProjectDetails] OwnerOccupantInterview "${currentValue}" not in options - showing as Other`);
+              this.ownerOccupantInterviewOtherValue = currentValue;
+              this.serviceData.OwnerOccupantInterview = 'Other';
+            }
+          }
         }
+        console.log('[ProjectDetails] loadDropdownOptions(): Options loaded, forcing change detection');
+        this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
       console.error('Error loading Services_Drop options:', error);
+      // Keep default options on error
     }
   }
 
   // Load dropdown options from Projects_Drop table
   private async loadProjectDropdownOptions() {
     try {
-      const dropdownData = await this.caspioService.getProjectsDrop().toPromise();
+      let dropdownData: any[] = [];
+
+      // WEBAPP MODE: Load directly from API
+      if (environment.isWeb) {
+        console.log('[ProjectDetails] WEBAPP MODE: Loading Projects_Drop directly from API');
+        dropdownData = await firstValueFrom(this.caspioService.getProjectsDrop()) || [];
+      } else {
+        // MOBILE MODE: Use OfflineTemplateService which reads from IndexedDB
+        dropdownData = await this.offlineTemplate.getProjectsDrop();
+      }
 
       if (dropdownData && dropdownData.length > 0) {
+        // Initialize arrays for each field type
         const typeOfBuildingSet = new Set<string>();
         const styleSet = new Set<string>();
 
+        // Process each row
         dropdownData.forEach((row: any) => {
           if (row.ProjectsName === 'TypeOfBuilding' && row.Dropdown) {
             typeOfBuildingSet.add(row.Dropdown);
@@ -388,23 +710,52 @@ export class HudProjectDetailsPage implements OnInit {
           }
         });
 
+        // Convert sets to arrays (removes duplicates automatically)
         this.typeOfBuildingOptions = Array.from(typeOfBuildingSet).sort();
         this.styleOptions = Array.from(styleSet).sort();
 
+        // Add "Other" option to all dropdown arrays
         if (!this.typeOfBuildingOptions.includes('Other')) {
           this.typeOfBuildingOptions.push('Other');
         }
         if (!this.styleOptions.includes('Other')) {
           this.styleOptions.push('Other');
         }
+
+        // Handle TypeOfBuilding: if value is not in options, show "Other" with the value in text field
+        if (this.projectData.TypeOfBuilding &&
+            this.projectData.TypeOfBuilding !== 'Other' &&
+            !this.optionsIncludeNormalized(this.typeOfBuildingOptions, this.projectData.TypeOfBuilding)) {
+          console.log(`[ProjectDetails] TypeOfBuilding "${this.projectData.TypeOfBuilding}" not in options - showing as Other`);
+          // Store the custom value in the Other text field
+          this.typeOfBuildingOtherValue = this.projectData.TypeOfBuilding;
+          // Set dropdown to "Other"
+          this.projectData.TypeOfBuilding = 'Other';
+        }
+
+        // Handle Style: if value is not in options, show "Other" with the value in text field
+        if (this.projectData.Style &&
+            this.projectData.Style !== 'Other' &&
+            !this.optionsIncludeNormalized(this.styleOptions, this.projectData.Style)) {
+          console.log(`[ProjectDetails] Style "${this.projectData.Style}" not in options - showing as Other`);
+          // Store the custom value in the Other text field
+          this.styleOtherValue = this.projectData.Style;
+          // Set dropdown to "Other"
+          this.projectData.Style = 'Other';
+        }
+
+        console.log('[ProjectDetails] loadProjectDropdownOptions(): Options loaded, forcing change detection');
+        this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
       console.error('Error loading Projects_Drop options:', error);
+      // Keep default options on error
     }
   }
 
   // Year Built handlers
   onYearBuiltChange(value: string) {
+    // Remove non-numeric characters
     const cleaned = value.replace(/[^0-9]/g, '');
     this.projectData.YearBuilt = cleaned;
     this.autoSaveProjectField('YearBuilt', cleaned);
@@ -412,6 +763,7 @@ export class HudProjectDetailsPage implements OnInit {
 
   formatYearBuilt() {
     if (this.projectData.YearBuilt) {
+      // Ensure 4 digits
       const year = this.projectData.YearBuilt.replace(/[^0-9]/g, '');
       if (year.length === 4) {
         this.projectData.YearBuilt = year;
@@ -422,6 +774,7 @@ export class HudProjectDetailsPage implements OnInit {
 
   // Square Feet handlers
   onSquareFeetChange(value: string) {
+    // Remove non-numeric characters except comma
     const cleaned = value.replace(/[^0-9,]/g, '');
     this.projectData.SquareFeet = cleaned;
     this.autoSaveProjectField('SquareFeet', cleaned);
@@ -429,6 +782,7 @@ export class HudProjectDetailsPage implements OnInit {
 
   formatSquareFeet() {
     if (this.projectData.SquareFeet) {
+      // Remove existing commas and add thousands separator
       const number = this.projectData.SquareFeet.replace(/,/g, '');
       if (number) {
         const formatted = parseInt(number, 10).toLocaleString('en-US');
@@ -437,8 +791,9 @@ export class HudProjectDetailsPage implements OnInit {
     }
   }
 
-  // Project field change handler
+  // Project field change handler (for Projects table)
   async onProjectFieldChange(fieldName: string, value: any) {
+    // If "Other" is selected, wait for user to fill in the inline input field
     if (value === 'Other') {
       return;
     }
@@ -447,8 +802,9 @@ export class HudProjectDetailsPage implements OnInit {
     this.autoSaveProjectField(fieldName, value);
   }
 
-  // Service field change handler
+  // Service field change handler (for Services table)
   async onServiceFieldChange(fieldName: string, value: any) {
+    // If "Other" is selected, wait for user to fill in the inline input field
     if (value === 'Other') {
       return;
     }
@@ -462,10 +818,6 @@ export class HudProjectDetailsPage implements OnInit {
     if (!this.inAttendanceSelections || !Array.isArray(this.inAttendanceSelections)) {
       return false;
     }
-    if (option === 'Other') {
-      return this.inAttendanceSelections.includes('Other') ||
-             !!(this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim().length > 0);
-    }
     return this.inAttendanceSelections.includes(option);
   }
 
@@ -475,8 +827,19 @@ export class HudProjectDetailsPage implements OnInit {
     }
 
     if (event.detail.checked) {
-      if (!this.inAttendanceSelections.includes(option)) {
-        this.inAttendanceSelections.push(option);
+      if (option === 'None') {
+        // "None" is mutually exclusive - clear all other selections
+        this.inAttendanceSelections = ['None'];
+        this.inAttendanceOtherValue = '';
+      } else {
+        // Remove "None" if selecting any other option
+        const noneIndex = this.inAttendanceSelections.indexOf('None');
+        if (noneIndex > -1) {
+          this.inAttendanceSelections.splice(noneIndex, 1);
+        }
+        if (!this.inAttendanceSelections.includes(option)) {
+          this.inAttendanceSelections.push(option);
+        }
       }
     } else {
       const index = this.inAttendanceSelections.indexOf(option);
@@ -491,33 +854,62 @@ export class HudProjectDetailsPage implements OnInit {
     await this.saveInAttendance();
   }
 
-  async onInAttendanceOtherChange() {
-    if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+  async addInAttendanceOther() {
+    const customValue = this.inAttendanceOtherValue?.trim();
+    if (!customValue) {
+      return;
+    }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.inAttendanceSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.inAttendanceSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.inAttendanceOptions.includes(customValue)) {
+      console.log(`[ProjectDetails] InAttendance option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.inAttendanceSelections.includes(customValue)) {
+        this.inAttendanceSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneIndex = this.inAttendanceOptions.indexOf('None');
+      if (noneIndex > -1) {
+        this.inAttendanceOptions.splice(noneIndex, 0, customValue);
+      } else {
+        // Fallback: add before Other
+        const otherIndex = this.inAttendanceOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.inAttendanceOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.inAttendanceOptions.push(customValue);
+        }
+      }
+      console.log(`[ProjectDetails] Added custom InAttendance option: "${customValue}"`);
+
+      // Select the new custom value
       if (!this.inAttendanceSelections) {
         this.inAttendanceSelections = [];
       }
-      const otherIndex = this.inAttendanceSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.inAttendanceSelections[otherIndex] = this.inAttendanceOtherValue.trim();
-      } else {
-        const customIndex = this.inAttendanceSelections.findIndex((opt: string) =>
-          opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-        );
-        if (customIndex > -1) {
-          this.inAttendanceSelections[customIndex] = this.inAttendanceOtherValue.trim();
-        } else {
-          this.inAttendanceSelections.push(this.inAttendanceOtherValue.trim());
-        }
-      }
-    } else {
-      const customIndex = this.inAttendanceSelections.findIndex((opt: string) =>
-        opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-      );
-      if (customIndex > -1) {
-        this.inAttendanceSelections[customIndex] = 'Other';
-      }
+      this.inAttendanceSelections.push(customValue);
     }
+
+    // Clear the input field for the next entry
+    this.inAttendanceOtherValue = '';
+
+    // Save the updated selections
     await this.saveInAttendance();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // Legacy method for blur - only save if there's a pending value
+  async onInAttendanceOtherChange() {
+    // Only add if there's a value (blur without value should do nothing)
+    if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+      await this.addInAttendanceOther();
+    }
   }
 
   private async saveInAttendance() {
@@ -527,78 +919,10 @@ export class HudProjectDetailsPage implements OnInit {
     this.changeDetectorRef.detectChanges();
   }
 
-  // "Other" value change handlers for dropdowns
-  async onTypeOfBuildingOtherChange() {
-    if (this.typeOfBuildingOtherValue && this.typeOfBuildingOtherValue.trim()) {
-      const customValue = this.typeOfBuildingOtherValue.trim();
-      this.autoSaveProjectField('TypeOfBuilding', customValue);
-    }
-  }
-
-  async onStyleOtherChange() {
-    if (this.styleOtherValue && this.styleOtherValue.trim()) {
-      const customValue = this.styleOtherValue.trim();
-      this.autoSaveProjectField('Style', customValue);
-    }
-  }
-
-  async onOccupancyFurnishingsOtherChange() {
-    if (this.occupancyFurnishingsOtherValue && this.occupancyFurnishingsOtherValue.trim()) {
-      const customValue = this.occupancyFurnishingsOtherValue.trim();
-      this.autoSaveServiceField('OccupancyFurnishings', customValue);
-    }
-  }
-
-  async onWeatherConditionsOtherChange() {
-    if (this.weatherConditionsOtherValue && this.weatherConditionsOtherValue.trim()) {
-      const customValue = this.weatherConditionsOtherValue.trim();
-      this.autoSaveServiceField('WeatherConditions', customValue);
-    }
-  }
-
-  async onOutdoorTemperatureOtherChange() {
-    if (this.outdoorTemperatureOtherValue && this.outdoorTemperatureOtherValue.trim()) {
-      const customValue = this.outdoorTemperatureOtherValue.trim();
-      this.autoSaveServiceField('OutdoorTemperature', customValue);
-    }
-  }
-
-  async onFirstFoundationTypeOtherChange() {
-    if (this.firstFoundationTypeOtherValue && this.firstFoundationTypeOtherValue.trim()) {
-      const customValue = this.firstFoundationTypeOtherValue.trim();
-      this.autoSaveServiceField('FirstFoundationType', customValue);
-    }
-  }
-
-  async onSecondFoundationTypeOtherChange() {
-    if (this.secondFoundationTypeOtherValue && this.secondFoundationTypeOtherValue.trim()) {
-      const customValue = this.secondFoundationTypeOtherValue.trim();
-      this.autoSaveServiceField('SecondFoundationType', customValue);
-    }
-  }
-
-  async onThirdFoundationTypeOtherChange() {
-    if (this.thirdFoundationTypeOtherValue && this.thirdFoundationTypeOtherValue.trim()) {
-      const customValue = this.thirdFoundationTypeOtherValue.trim();
-      this.autoSaveServiceField('ThirdFoundationType', customValue);
-    }
-  }
-
-  async onOwnerOccupantInterviewOtherChange() {
-    if (this.ownerOccupantInterviewOtherValue && this.ownerOccupantInterviewOtherValue.trim()) {
-      const customValue = this.ownerOccupantInterviewOtherValue.trim();
-      this.autoSaveServiceField('OwnerOccupantInterview', customValue);
-    }
-  }
-
   // Second Foundation Rooms multi-select methods
   isSecondFoundationRoomsSelected(option: string): boolean {
-    if (!this.secondFoundationRoomsSelections) {
+    if (!this.secondFoundationRoomsSelections || !Array.isArray(this.secondFoundationRoomsSelections)) {
       return false;
-    }
-    if (option === 'Other') {
-      return this.secondFoundationRoomsSelections.includes('Other') ||
-             !!(this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim().length > 0);
     }
     return this.secondFoundationRoomsSelections.includes(option);
   }
@@ -609,8 +933,19 @@ export class HudProjectDetailsPage implements OnInit {
     }
 
     if (event.detail.checked) {
-      if (!this.secondFoundationRoomsSelections.includes(option)) {
-        this.secondFoundationRoomsSelections.push(option);
+      if (option === 'None') {
+        // "None" is mutually exclusive - clear all other selections
+        this.secondFoundationRoomsSelections = ['None'];
+        this.secondFoundationRoomsOtherValue = '';
+      } else {
+        // Remove "None" if selecting any other option
+        const noneIndex = this.secondFoundationRoomsSelections.indexOf('None');
+        if (noneIndex > -1) {
+          this.secondFoundationRoomsSelections.splice(noneIndex, 1);
+        }
+        if (!this.secondFoundationRoomsSelections.includes(option)) {
+          this.secondFoundationRoomsSelections.push(option);
+        }
       }
     } else {
       const index = this.secondFoundationRoomsSelections.indexOf(option);
@@ -625,16 +960,60 @@ export class HudProjectDetailsPage implements OnInit {
     await this.saveSecondFoundationRooms();
   }
 
-  async onSecondFoundationRoomsOtherChange() {
-    if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
-      const otherIndex = this.secondFoundationRoomsSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.secondFoundationRoomsSelections[otherIndex] = this.secondFoundationRoomsOtherValue.trim();
-      } else {
-        this.secondFoundationRoomsSelections.push(this.secondFoundationRoomsOtherValue.trim());
-      }
+  async addSecondFoundationRoomsOther() {
+    const customValue = this.secondFoundationRoomsOtherValue?.trim();
+    if (!customValue) {
+      return;
     }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.secondFoundationRoomsSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.secondFoundationRoomsSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.secondFoundationRoomsOptions.includes(customValue)) {
+      console.log(`[ProjectDetails] SecondFoundationRooms option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.secondFoundationRoomsSelections.includes(customValue)) {
+        this.secondFoundationRoomsSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneOptIndex = this.secondFoundationRoomsOptions.indexOf('None');
+      if (noneOptIndex > -1) {
+        this.secondFoundationRoomsOptions.splice(noneOptIndex, 0, customValue);
+      } else {
+        const otherIndex = this.secondFoundationRoomsOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.secondFoundationRoomsOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.secondFoundationRoomsOptions.push(customValue);
+        }
+      }
+      console.log(`[ProjectDetails] Added custom SecondFoundationRooms option: "${customValue}"`);
+
+      // Select the new custom value
+      if (!this.secondFoundationRoomsSelections) {
+        this.secondFoundationRoomsSelections = [];
+      }
+      this.secondFoundationRoomsSelections.push(customValue);
+    }
+
+    // Clear the input field for the next entry
+    this.secondFoundationRoomsOtherValue = '';
+
+    // Save the updated selections
     await this.saveSecondFoundationRooms();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  async onSecondFoundationRoomsOtherChange() {
+    // Only add if there's a value (blur without value should do nothing)
+    if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
+      await this.addSecondFoundationRoomsOther();
+    }
   }
 
   private async saveSecondFoundationRooms() {
@@ -646,12 +1025,8 @@ export class HudProjectDetailsPage implements OnInit {
 
   // Third Foundation Rooms multi-select methods
   isThirdFoundationRoomsSelected(option: string): boolean {
-    if (!this.thirdFoundationRoomsSelections) {
+    if (!this.thirdFoundationRoomsSelections || !Array.isArray(this.thirdFoundationRoomsSelections)) {
       return false;
-    }
-    if (option === 'Other') {
-      return this.thirdFoundationRoomsSelections.includes('Other') ||
-             !!(this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim().length > 0);
     }
     return this.thirdFoundationRoomsSelections.includes(option);
   }
@@ -662,8 +1037,19 @@ export class HudProjectDetailsPage implements OnInit {
     }
 
     if (event.detail.checked) {
-      if (!this.thirdFoundationRoomsSelections.includes(option)) {
-        this.thirdFoundationRoomsSelections.push(option);
+      if (option === 'None') {
+        // "None" is mutually exclusive - clear all other selections
+        this.thirdFoundationRoomsSelections = ['None'];
+        this.thirdFoundationRoomsOtherValue = '';
+      } else {
+        // Remove "None" if selecting any other option
+        const noneIndex = this.thirdFoundationRoomsSelections.indexOf('None');
+        if (noneIndex > -1) {
+          this.thirdFoundationRoomsSelections.splice(noneIndex, 1);
+        }
+        if (!this.thirdFoundationRoomsSelections.includes(option)) {
+          this.thirdFoundationRoomsSelections.push(option);
+        }
       }
     } else {
       const index = this.thirdFoundationRoomsSelections.indexOf(option);
@@ -678,16 +1064,60 @@ export class HudProjectDetailsPage implements OnInit {
     await this.saveThirdFoundationRooms();
   }
 
-  async onThirdFoundationRoomsOtherChange() {
-    if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
-      const otherIndex = this.thirdFoundationRoomsSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.thirdFoundationRoomsSelections[otherIndex] = this.thirdFoundationRoomsOtherValue.trim();
-      } else {
-        this.thirdFoundationRoomsSelections.push(this.thirdFoundationRoomsOtherValue.trim());
-      }
+  async addThirdFoundationRoomsOther() {
+    const customValue = this.thirdFoundationRoomsOtherValue?.trim();
+    if (!customValue) {
+      return;
     }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.thirdFoundationRoomsSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.thirdFoundationRoomsSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.thirdFoundationRoomsOptions.includes(customValue)) {
+      console.log(`[ProjectDetails] ThirdFoundationRooms option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.thirdFoundationRoomsSelections.includes(customValue)) {
+        this.thirdFoundationRoomsSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneOptIndex = this.thirdFoundationRoomsOptions.indexOf('None');
+      if (noneOptIndex > -1) {
+        this.thirdFoundationRoomsOptions.splice(noneOptIndex, 0, customValue);
+      } else {
+        const otherIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.thirdFoundationRoomsOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.thirdFoundationRoomsOptions.push(customValue);
+        }
+      }
+      console.log(`[ProjectDetails] Added custom ThirdFoundationRooms option: "${customValue}"`);
+
+      // Select the new custom value
+      if (!this.thirdFoundationRoomsSelections) {
+        this.thirdFoundationRoomsSelections = [];
+      }
+      this.thirdFoundationRoomsSelections.push(customValue);
+    }
+
+    // Clear the input field for the next entry
+    this.thirdFoundationRoomsOtherValue = '';
+
+    // Save the updated selections
     await this.saveThirdFoundationRooms();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  async onThirdFoundationRoomsOtherChange() {
+    // Only add if there's a value (blur without value should do nothing)
+    if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
+      await this.addThirdFoundationRoomsOther();
+    }
   }
 
   private async saveThirdFoundationRooms() {
@@ -697,67 +1127,233 @@ export class HudProjectDetailsPage implements OnInit {
     this.changeDetectorRef.detectChanges();
   }
 
-  // Auto-save to Projects table
-  private autoSaveProjectField(fieldName: string, value: any) {
-    if (!this.projectId || this.projectId === 'new') return;
+  // "Other" value change handlers for dropdowns
+  // Keep dropdown as "Other" and save custom value to database
+  // CRITICAL: Don't use autoSaveProjectField as it updates the dropdown value
+  async onTypeOfBuildingOtherChange() {
+    if (this.typeOfBuildingOtherValue && this.typeOfBuildingOtherValue.trim()) {
+      const customValue = this.typeOfBuildingOtherValue.trim();
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('project', 'TypeOfBuilding', customValue);
+    }
+  }
 
-    const isCurrentlyOnline = this.offlineService.isOnline();
-    const manualOfflineMode = this.offlineService.isManualOffline();
+  async onStyleOtherChange() {
+    if (this.styleOtherValue && this.styleOtherValue.trim()) {
+      const customValue = this.styleOtherValue.trim();
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('project', 'Style', customValue);
+    }
+  }
 
-    if (isCurrentlyOnline) {
-      this.showSaveStatus(`Saving ${fieldName}...`, 'info');
-    } else {
-      const queuedMessage = manualOfflineMode
-        ? `${fieldName} queued (manual offline mode)`
-        : `${fieldName} queued until connection returns`;
-      this.showSaveStatus(queuedMessage, 'info');
+  async onOccupancyFurnishingsOtherChange() {
+    if (this.occupancyFurnishingsOtherValue && this.occupancyFurnishingsOtherValue.trim()) {
+      const customValue = this.occupancyFurnishingsOtherValue.trim();
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'OccupancyFurnishings', customValue);
+    }
+  }
+
+  async onWeatherConditionsOtherChange() {
+    if (this.weatherConditionsOtherValue && this.weatherConditionsOtherValue.trim()) {
+      const customValue = this.weatherConditionsOtherValue.trim();
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'WeatherConditions', customValue);
+    }
+  }
+
+  async onOutdoorTemperatureOtherChange() {
+    if (this.outdoorTemperatureOtherValue && this.outdoorTemperatureOtherValue.trim()) {
+      const customValue = this.outdoorTemperatureOtherValue.trim();
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'OutdoorTemperature', customValue);
+    }
+  }
+
+  async onFirstFoundationTypeOtherChange() {
+    if (this.firstFoundationTypeOtherValue && this.firstFoundationTypeOtherValue.trim()) {
+      const customValue = this.firstFoundationTypeOtherValue.trim();
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'FirstFoundationType', customValue);
+    }
+  }
+
+  async onSecondFoundationTypeOtherChange() {
+    if (this.secondFoundationTypeOtherValue && this.secondFoundationTypeOtherValue.trim()) {
+      const customValue = this.secondFoundationTypeOtherValue.trim();
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'SecondFoundationType', customValue);
+    }
+  }
+
+  async onThirdFoundationTypeOtherChange() {
+    if (this.thirdFoundationTypeOtherValue && this.thirdFoundationTypeOtherValue.trim()) {
+      const customValue = this.thirdFoundationTypeOtherValue.trim();
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'ThirdFoundationType', customValue);
+    }
+  }
+
+  async onOwnerOccupantInterviewOtherChange() {
+    if (this.ownerOccupantInterviewOtherValue && this.ownerOccupantInterviewOtherValue.trim()) {
+      const customValue = this.ownerOccupantInterviewOtherValue.trim();
+      // Save custom value to database WITHOUT updating dropdown
+      await this.saveOtherValueToDatabase('service', 'OwnerOccupantInterview', customValue);
+    }
+  }
+
+  /**
+   * Save "Other" custom value to database WITHOUT updating the dropdown display
+   * This keeps the dropdown showing "Other" while saving the actual custom value
+   */
+  private async saveOtherValueToDatabase(tableType: 'project' | 'service', fieldName: string, value: string) {
+    console.log(`[ProjectDetails] Saving Other value for ${fieldName}: "${value}"`);
+
+    // WEBAPP MODE: Save directly to API
+    if (environment.isWeb) {
+      try {
+        if (tableType === 'project') {
+          if (!this.projectId || this.projectId === 'new') return;
+          // Use PK_ID from loaded project data for API updates (matches mobile app pattern)
+          const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
+          await firstValueFrom(this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }));
+          console.log(`[ProjectDetails] WEBAPP: Project Other value ${fieldName} saved to API`);
+        } else {
+          if (!this.serviceId || this.serviceId === 'new') return;
+          await firstValueFrom(this.caspioService.updateService(this.serviceId, { [fieldName]: value }));
+          console.log(`[ProjectDetails] WEBAPP: Service Other value ${fieldName} saved to API`);
+        }
+        this.showSaveStatus(`${fieldName} saved`, 'success');
+      } catch (error) {
+        console.error(`[ProjectDetails] WEBAPP: Error saving Other value to API:`, error);
+        this.showSaveStatus(`Error saving ${fieldName}`, 'error');
+      }
+      return;
     }
 
-    // Use PK_ID from loaded project data for API updates (matches mobile app pattern)
-    const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
-    this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }).subscribe({
-      next: () => {
-        if (this.offlineService.isOnline()) {
-          this.showSaveStatus(`${fieldName} saved`, 'success');
-        }
-      },
-      error: (error) => {
-        console.error(`Error saving project field ${fieldName}:`, error);
-        this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
+    // MOBILE MODE: Save to IndexedDB, sync later
+    if (tableType === 'project') {
+      if (!this.projectId || this.projectId === 'new') return;
+
+      // Save to IndexedDB (actual value, not "Other")
+      try {
+        await this.offlineTemplate.updateProject(this.projectId, { [fieldName]: value });
+        console.log(`[ProjectDetails] Project Other value ${fieldName} saved to IndexedDB`);
+      } catch (error) {
+        console.error(`[ProjectDetails] Error saving Other value to IndexedDB:`, error);
       }
-    });
+    } else {
+      if (!this.serviceId || this.serviceId === 'new') return;
+
+      // Save to IndexedDB (actual value, not "Other")
+      try {
+        await this.offlineTemplate.updateService(this.serviceId, { [fieldName]: value });
+        console.log(`[ProjectDetails] Service Other value ${fieldName} saved to IndexedDB`);
+      } catch (error) {
+        console.error(`[ProjectDetails] Error saving Other value to IndexedDB:`, error);
+      }
+    }
+
+    // Show status and trigger sync
+    const isOnline = this.offlineService.isOnline();
+    if (isOnline) {
+      this.showSaveStatus(`${fieldName} saved`, 'success');
+    } else {
+      this.showSaveStatus(`${fieldName} saved offline`, 'success');
+    }
+    // Sync will happen on next 60-second interval (batched sync)
+  }
+
+  // Auto-save to Projects table
+  private async autoSaveProjectField(fieldName: string, value: any) {
+    if (!this.projectId || this.projectId === 'new') return;
+
+    console.log(`[ProjectDetails] Saving project field ${fieldName}:`, value);
+
+    // Update local data immediately (for instant UI feedback)
+    this.projectData[fieldName] = value;
+
+    // WEBAPP MODE: Save directly to API
+    if (environment.isWeb) {
+      try {
+        // Use PK_ID from loaded project data for API updates (matches mobile app pattern)
+        const projectIdForUpdate = this.projectData?.PK_ID || this.projectId;
+        await firstValueFrom(this.caspioService.updateProject(projectIdForUpdate, { [fieldName]: value }));
+        console.log(`[ProjectDetails] WEBAPP: Project field ${fieldName} saved to API`);
+        this.showSaveStatus(`${fieldName} saved`, 'success');
+      } catch (error) {
+        console.error(`[ProjectDetails] WEBAPP: Error saving to API:`, error);
+        this.showSaveStatus(`Error saving ${fieldName}`, 'error');
+      }
+      return;
+    }
+
+    // MOBILE MODE: Update IndexedDB cache, sync later
+    try {
+      await this.offlineTemplate.updateProject(this.projectId, { [fieldName]: value });
+      console.log(`[ProjectDetails] Project field ${fieldName} saved to IndexedDB`);
+    } catch (error) {
+      console.error(`[ProjectDetails] Error saving to IndexedDB:`, error);
+    }
+
+    // Show appropriate status message
+    const isOnline = this.offlineService.isOnline();
+    if (isOnline) {
+      this.showSaveStatus(`${fieldName} saved`, 'success');
+    } else {
+      this.showSaveStatus(`${fieldName} saved offline`, 'success');
+    }
+
+    // Sync will happen on next 60-second interval (batched sync)
   }
 
   // Auto-save to Services table
-  private autoSaveServiceField(fieldName: string, value: any) {
+  private async autoSaveServiceField(fieldName: string, value: any) {
+    console.log(`[ProjectDetails] autoSaveServiceField(${fieldName}, ${value}) called for serviceId=${this.serviceId}`);
+
     if (!this.serviceId) {
       console.error(`Cannot save ${fieldName} - No ServiceID! ServiceID is: ${this.serviceId}`);
       return;
     }
 
-    const isCurrentlyOnline = this.offlineService.isOnline();
-    const manualOfflineMode = this.offlineService.isManualOffline();
+    console.log(`[ProjectDetails] Saving service field ${fieldName}:`, value);
 
-    if (isCurrentlyOnline) {
-      this.showSaveStatus(`Saving ${fieldName}...`, 'info');
-    } else {
-      const queuedMessage = manualOfflineMode
-        ? `${fieldName} queued (manual offline mode)`
-        : `${fieldName} queued until connection returns`;
-      this.showSaveStatus(queuedMessage, 'info');
+    // Update local data immediately (for instant UI feedback)
+    this.serviceData[fieldName] = value;
+    console.log(`[ProjectDetails] this.serviceData[${fieldName}] set to:`, this.serviceData[fieldName]);
+
+    // WEBAPP MODE: Save directly to API
+    if (environment.isWeb) {
+      try {
+        await firstValueFrom(this.caspioService.updateService(this.serviceId, { [fieldName]: value }));
+        console.log(`[ProjectDetails] WEBAPP: Service field ${fieldName} saved to API`);
+        this.showSaveStatus(`${fieldName} saved`, 'success');
+      } catch (error) {
+        console.error(`[ProjectDetails] WEBAPP: Error saving to API:`, error);
+        this.showSaveStatus(`Error saving ${fieldName}`, 'error');
+      }
+      return;
     }
 
-    this.caspioService.updateService(this.serviceId, { [fieldName]: value }).subscribe({
-      next: (response) => {
-        if (this.offlineService.isOnline()) {
-          this.showSaveStatus(`${fieldName} saved`, 'success');
-        }
-      },
-      error: (error) => {
-        console.error(`Error saving service field ${fieldName}:`, error);
-        this.showSaveStatus(`Failed to save ${fieldName}`, 'error');
-      }
-    });
+    // MOBILE MODE: Update IndexedDB cache, sync later
+    try {
+      console.log(`[ProjectDetails] Calling offlineTemplate.updateService...`);
+      await this.offlineTemplate.updateService(this.serviceId, { [fieldName]: value });
+      console.log(`[ProjectDetails] Service field ${fieldName} saved to IndexedDB - SUCCESS`);
+    } catch (error) {
+      console.error(`[ProjectDetails] Error saving to IndexedDB:`, error);
+    }
+
+    // Show appropriate status message
+    const isOnline = this.offlineService.isOnline();
+    console.log(`[ProjectDetails] isOnline = ${isOnline}`);
+    if (isOnline) {
+      this.showSaveStatus(`${fieldName} saved`, 'success');
+    } else {
+      this.showSaveStatus(`${fieldName} saved offline`, 'success');
+    }
+
+    // Sync will happen on next 60-second interval (batched sync)
   }
 
   showSaveStatus(message: string, type: 'info' | 'success' | 'error') {
@@ -779,4 +1375,3 @@ export class HudProjectDetailsPage implements OnInit {
     await toast.present();
   }
 }
-

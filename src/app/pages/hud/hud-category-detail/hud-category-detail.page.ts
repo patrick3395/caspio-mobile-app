@@ -1,25 +1,29 @@
-import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild, ElementRef, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent } from '@ionic/angular';
+import { IonicModule, ToastController, LoadingController, AlertController, ActionSheetController, ModalController, IonContent, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { firstValueFrom, Subscription } from 'rxjs';
-import { CaspioService } from '../../../services/caspio.service';
-import { OfflineService } from '../../../services/offline.service';
-import { CameraService } from '../../../services/camera.service';
-import { ImageCompressionService } from '../../../services/image-compression.service';
-import { CacheService } from '../../../services/cache.service';
-import { HudDataService } from '../hud-data.service';
-import { HudFieldRepoService } from '../services/hud-field-repo.service';
-import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
+import { firstValueFrom, Observable, Subscription } from 'rxjs';
+import { CaspioService } from '../../../../services/caspio.service';
+import { OfflineService } from '../../../../services/offline.service';
+import { CameraService } from '../../../../services/camera.service';
+import { ImageCompressionService } from '../../../../services/image-compression.service';
+import { CacheService } from '../../../../services/cache.service';
+import { HudDataService } from '../../hud-data.service';
+import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
-import { IndexedDbService, LocalImage } from '../../../services/indexed-db.service';
-import { BackgroundSyncService } from '../../../services/background-sync.service';
-import { LocalImageService } from '../../../services/local-image.service';
-import { OfflineTemplateService } from '../../../services/offline-template.service';
-import { HudField } from '../../../services/caspio-db';
-import { environment } from '../../../../environments/environment';
+import { BackgroundPhotoUploadService } from '../../../../services/background-photo-upload.service';
+import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.service';
+import { BackgroundSyncService } from '../../../../services/background-sync.service';
+import { OfflineTemplateService } from '../../../../services/offline-template.service';
+import { LocalImageService } from '../../../../services/local-image.service';
+import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../../utils/annotation-utils';
+import { AddCustomVisualModalComponent } from '../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
+import { db, VisualField } from '../../../../services/caspio-db';
+import { VisualFieldRepoService } from '../../../../services/visual-field-repo.service';
+import { environment } from '../../../../../environments/environment';
+import { HasUnsavedChanges } from '../../../../services/unsaved-changes.service';
+import { LazyImageDirective } from '../../../../directives/lazy-image.directive';
 
 interface VisualItem {
   id: string | number;
@@ -44,18 +48,26 @@ interface VisualItem {
   templateUrl: './hud-category-detail.page.html',
   styleUrls: ['./hud-category-detail.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule]
+  imports: [CommonModule, IonicModule, FormsModule, LazyImageDirective]
 })
-export class HudCategoryDetailPage implements OnInit, OnDestroy {
+export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, HasUnsavedChanges {
+  // Debug flag - set to true for verbose logging
+  private readonly DEBUG = false;
+  
+  // Error tracking for debug popup
+  debugLogs: { time: string; type: string; message: string }[] = [];
+  showDebugPopup: boolean = false;
+  
   projectId: string = '';
   serviceId: string = '';
   categoryName: string = '';
 
-  loading: boolean = false;  // Start false - show cached data instantly, only show spinner if cache empty
-  isRefreshing: boolean = false;  // Track background refresh status
-  isWeb: boolean = environment.isWeb;  // HUD-017: For conditional skeleton loaders
+  loading: boolean = true;
   searchTerm: string = '';
-  expandedAccordions: string[] = []; // Start collapsed
+  expandedAccordions: string[] = ['information', 'limitations', 'deficiencies'];
+
+  // WEBAPP: Expose isWeb for template skeleton loader conditionals
+  isWeb = environment.isWeb;
   organizedData: {
     comments: VisualItem[];
     limitations: VisualItem[];
@@ -66,7 +78,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     deficiencies: []
   };
 
-  visualDropdownOptions: { [templateId: string]: string[] } = {};
+  visualDropdownOptions: { [templateId: number]: string[] } = {};
   selectedItems: { [key: string]: boolean } = {};
   savingItems: { [key: string]: boolean } = {};
 
@@ -77,48 +89,86 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   loadingPhotosByKey: { [key: string]: boolean } = {};
   photoCountsByKey: { [key: string]: number } = {};
   pendingPhotoUploads: { [key: string]: any[] } = {};
+  
+  // Lazy image loading - photos only load when user clicks to expand
+  expandedPhotos: { [key: string]: boolean } = {};
   currentUploadContext: { category: string; itemId: string; action: string } | null = null;
   contextClearTimer: any = null;
   lockedScrollY: number = 0;
   private _loggedPhotoKeys = new Set<string>();
-  private isCaptionPopupOpen = false;
-
-  // TASK 4: Bulk cache maps for fast annotated thumbnail display
-  private bulkAnnotatedImagesMap: Map<string, string> = new Map();
 
   // Background upload subscriptions
   private uploadSubscription?: Subscription;
   private taskSubscription?: Subscription;
   private photoSyncSubscription?: Subscription;
+  private cacheInvalidationSubscription?: Subscription;
+  
+  // Debounce timer for cache invalidation to prevent multiple rapid reloads
+  private cacheInvalidationDebounceTimer: any = null;
+  private isReloadingAfterSync = false;
 
-  // HUD-010: LiveQuery subscriptions for mobile
-  private hudFieldsSubscription?: Subscription;
-  private hudSyncCompleteSubscription?: Subscription;
-  private hudPhotoUploadCompleteSubscription?: Subscription;
+  // CRITICAL: Prevent concurrent loadData() calls which can cause photo loss
+  private isLoadingData = false;
 
-  // HUD-014: Caption sync subscription for mobile
-  private captionSyncCompleteSubscription?: Subscription;
-
-  // HUD-010: Track if we're on mobile for Dexie-first approach
-  private isMobile: boolean = false;
-
-  // ===== RACE CONDITION GUARDS (EFE PATTERN) =====
+  // Track if we need to reload after sync completes
+  private pendingSyncReload = false;
+  private syncStatusSubscription?: Subscription;
+  
+  // Dexie liveQuery subscription for reactive LocalImages updates
+  private localImagesSubscription?: Subscription;
   // Debounce timer for liveQuery updates to prevent multiple rapid change detections
   private liveQueryDebounceTimer: any = null;
 
-  // Guard to prevent concurrent/duplicate loadPhotosForVisual calls for same key
+  // Dexie-first: Reactive subscription to visualFields for instant page rendering
+  private visualFieldsSubscription?: Subscription;
+  private visualFieldsSeeded: boolean = false;
+  // Dexie-first: Store fields reference for reactive photo updates
+  private lastConvertedFields: VisualField[] = [];
+
+  // Cooldown after local operations to prevent immediate reload
+  private localOperationCooldown = false;
+  private localOperationCooldownTimer: any = null;
+  
+  // Track if initial load is complete (for ionViewWillEnter)
+  private initialLoadComplete: boolean = false;
+  
+  // Track last loaded IDs to detect when navigation requires fresh data
+  private lastLoadedServiceId: string = '';
+  private lastLoadedCategoryName: string = '';
+  
+  // Track if background photo loading is in progress (to stabilize accordion state)
+  private isLoadingPhotosInBackground = false;
+  // Store accordion state during background operations to prevent state reset
+  private preservedAccordionState: string[] | null = null;
+
+  // ===== BULK CACHED DATA (ONE IndexedDB read per type) =====
+  // These are pre-loaded once at section load to eliminate N+1 reads
+  private bulkAttachmentsMap: Map<string, any[]> = new Map();
+  private bulkCachedPhotosMap: Map<string, string> = new Map();
+  private bulkAnnotatedImagesMap: Map<string, string> = new Map();
+  private bulkPendingPhotosMap: Map<string, any[]> = new Map();
+  private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();  // NEW: LocalImages by entityId
+  // US-001 FIX: Cache temp_ID -> real_ID mappings for synchronous lookup in liveQuery handler
+  // Populated during initial load and when visuals sync
+  private tempIdToRealIdCache: Map<string, string> = new Map();
+  private bulkVisualsCache: any[] = [];
+  private bulkPendingRequestsCache: any[] = [];
+  
+  // Guard to prevent concurrent/duplicate loadPhotosForVisual calls for the same key
   private loadingPhotoPromises: Map<string, Promise<void>> = new Map();
 
-  // Suppress liveQuery during batch multi-image upload to prevent race conditions
+  // US-003 FIX: Suppress liveQuery during batch multi-image upload to prevent race conditions
+  // The liveQuery subscription fires on each IndexedDB write, which can cause duplicate entries
+  // when processing multiple photos in a loop. This flag suppresses change detection during batch ops.
   private isMultiImageUploadInProgress = false;
-
   // Separate flag for camera captures - suppresses liveQuery to prevent duplicates with annotated photos
+  // Gallery uploads use liveQuery for UI updates, but camera needs manual push for annotated URLs
   private isCameraCaptureInProgress = false;
-
   // Track imageIds in current batch to prevent duplicates even if liveQuery fires
   private batchUploadImageIds = new Set<string>();
-
-  // MUTEX: Prevent concurrent populatePhotosFromDexie calls
+  // MUTEX: Prevent concurrent populatePhotosFromDexie calls (race condition fix)
+  // When sync/rehydration triggers both liveQuery and fields subscription simultaneously,
+  // both would add photos before the other's duplicate check runs, causing 2x photos
   private isPopulatingPhotos = false;
 
   // Hidden file input for camera/gallery
@@ -141,63 +191,336 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     private cameraService: CameraService,
     private imageCompression: ImageCompressionService,
     private hudData: HudDataService,
-    private hudFieldRepo: HudFieldRepoService,
     private backgroundUploadService: BackgroundPhotoUploadService,
     private cache: CacheService,
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
+    private offlineTemplate: OfflineTemplateService,
     private localImageService: LocalImageService,
-    private offlineTemplate: OfflineTemplateService  // HUD-012: For cached template access
+    private ngZone: NgZone,
+    private visualFieldRepo: VisualFieldRepoService
   ) {
-    // HUD-010: Detect mobile platform for Dexie-first approach
-    this.isMobile = this.hudData.isMobile();
+    // Set up global error handler for this page
+    this.setupErrorTracking();
+  }
+
+  /**
+   * Set up error tracking to capture unhandled errors
+   */
+  private setupErrorTracking(): void {
+    // Override console.error to capture errors
+    const originalError = console.error;
+    console.error = (...args: any[]) => {
+      this.logDebug('ERROR', args.map(a => String(a)).join(' '));
+      originalError.apply(console, args);
+    };
+  }
+
+  /**
+   * Add entry to debug log
+   */
+  logDebug(type: string, message: string): void {
+    const time = new Date().toLocaleTimeString();
+    this.debugLogs.unshift({ time, type, message: message.substring(0, 200) });
+    // Keep only last 50 entries
+    if (this.debugLogs.length > 50) {
+      this.debugLogs.pop();
+    }
+  }
+
+  /**
+   * Show debug popup with recent errors
+   */
+  async showDebugPanel(): Promise<void> {
+    const logs = this.debugLogs.slice(0, 20).map(l => 
+      `[${l.time}] ${l.type}: ${l.message}`
+    ).join('\n\n');
+    
+    const alert = await this.alertController.create({
+      header: 'Debug Log',
+      message: logs || 'No debug entries yet',
+      buttons: [
+        {
+          text: 'Clear',
+          handler: () => {
+            this.debugLogs = [];
+          }
+        },
+        {
+          text: 'Close',
+          role: 'cancel'
+        }
+      ],
+      cssClass: 'debug-alert'
+    });
+    await alert.present();
+  }
+
+  /**
+   * Toggle debug popup visibility
+   */
+  toggleDebugPopup(): void {
+    this.showDebugPopup = !this.showDebugPopup;
   }
 
   async ngOnInit() {
-    // Subscribe to background upload task updates
-    this.subscribeToUploadUpdates();
+    console.time('[CategoryDetail] ngOnInit total');
+    console.log('[CategoryDetail] ========== ngOnInit START ==========');
 
-    // HUD-010: Subscribe to sync events for automatic refresh on mobile
-    if (this.isMobile) {
-      this.subscribeToSyncEvents();
+    // Check if new image system is available
+    const hasNewSystem = this.indexedDb.hasNewImageSystem();
+    this.logDebug('INIT', `New image system available: ${hasNewSystem}`);
+    console.log('[CategoryDetail] New image system available:', hasNewSystem);
+
+    // Defer subscription setup to after initial render for faster first paint
+    // This will be called in ionViewDidEnter instead
+    // this.subscribeToUploadUpdates(); -- DEFERRED
+
+    // Get category name from route params
+    this.categoryName = this.route.snapshot.params['category'];
+    console.log('[CategoryDetail] Category from route:', this.categoryName);
+
+    // Get IDs from container route using snapshot (for offline reliability)
+    // Route structure: '' (Container) -> 'structural' (anonymous) -> 'category/:category' (we are here)
+    // So parent?.parent gets us to the Container which has :projectId/:serviceId
+    const containerParams = this.route.parent?.parent?.snapshot?.params;
+    console.log('[CategoryDetail] Container params:', containerParams);
+
+    if (containerParams) {
+      this.projectId = containerParams['projectId'];
+      this.serviceId = containerParams['serviceId'];
     }
 
-    // Get category name from route
-    this.route.params.subscribe(params => {
-      // Decode in case of double-encoding (e.g., Mobile%2FManufactured%20Homes)
-      this.categoryName = decodeURIComponent(params['category'] || '');
+    // Fallback: Try parent?.parent?.parent for different route structures
+    if (!this.projectId || !this.serviceId) {
+      console.log('[CategoryDetail] Trying alternate route structure...');
+      const altParams = this.route.parent?.parent?.parent?.snapshot?.params;
+      console.log('[CategoryDetail] Alt params:', altParams);
+      if (altParams) {
+        this.projectId = this.projectId || altParams['projectId'];
+        this.serviceId = this.serviceId || altParams['serviceId'];
+      }
+    }
 
-      // Get IDs from container route
-      // Route structure: hud/:projectId/:serviceId -> category/:category (we are here)
-      // So we need to go up 2 levels to get to container
-      this.route.parent?.parent?.params.subscribe(parentParams => {
-        this.projectId = parentParams['projectId'];
-        this.serviceId = parentParams['serviceId'];
+    console.log('[CategoryDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
 
-        console.log('Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+    if (this.projectId && this.serviceId && this.categoryName) {
+      console.log('[CategoryDetail] All params present, initializing reactive data...');
 
-        if (this.projectId && this.serviceId && this.categoryName) {
-          // HUD-010: On mobile, subscribe to liveQuery for reactive updates
-          if (this.isMobile) {
-            this.subscribeToLiveHudFields();
-          }
-          this.loadData();
-        } else {
-          console.error('Missing required route params');
-          this.loading = false;
-        }
-      });
-    });
-  }
+      // ===== DEXIE-FIRST: Seed templates and subscribe to reactive updates =====
+      await this.initializeVisualFields();
 
-  ionViewWillEnter() {
-    // WEBAPP: Use traditional ionViewWillEnter data loading
-    if (environment.isWeb) {
+      // NOTE: subscribeToLocalImagesChanges() is now deferred to ionViewDidEnter
+      // for faster initial render - subscriptions run after UI is visible
+    } else {
+      console.error('[CategoryDetail] ? Missing required route params - cannot load data');
+      console.error('[CategoryDetail] Missing: projectId=', !this.projectId, 'serviceId=', !this.serviceId, 'categoryName=', !this.categoryName);
       this.loading = false;
       this.changeDetectorRef.detectChanges();
-      // Reload data on page return for webapp
-      if (this.projectId && this.serviceId && this.categoryName) {
-        this.loadData();
+    }
+
+    console.log('[CategoryDetail] ========== ngOnInit END ==========');
+    console.timeEnd('[CategoryDetail] ngOnInit total');
+
+    // Also subscribe to param changes for dynamic updates
+    this.route.params.subscribe(params => {
+      const newCategory = params['category'];
+      if (newCategory && newCategory !== this.categoryName) {
+        this.categoryName = newCategory;
+        console.log('[CategoryDetail] Category changed to:', this.categoryName);
+        if (this.projectId && this.serviceId) {
+          // Re-initialize for new category (reactive subscription will auto-update)
+          this.initializeVisualFields();
+        }
+      }
+    });
+
+    // Mark initial load as complete
+    this.initialLoadComplete = true;
+  }
+
+  /**
+   * Ionic lifecycle hook - called when navigating back to this page
+   * Uses smart skip logic to avoid redundant reloads while ensuring new data always appears
+   */
+  async ionViewWillEnter() {
+    console.time('[CategoryDetail] ionViewWillEnter');
+
+    // ===== US-001 DEBUG: ionViewWillEnter photo population flow =====
+    const debugPhotoCounts: string[] = [];
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      if ((photos as any[]).length > 0) {
+        debugPhotoCounts.push(`${key}: ${(photos as any[]).length} photos`);
+      }
+    }
+    const debugMsg = `ionViewWillEnter START\n` +
+      `serviceId: ${this.serviceId}\n` +
+      `categoryName: ${this.categoryName}\n` +
+      `initialLoadComplete: ${this.initialLoadComplete}\n` +
+      `visualPhotos keys: ${Object.keys(this.visualPhotos).length}\n` +
+      `Photo counts:\n${debugPhotoCounts.slice(0, 5).join('\n') || '(none)'}`;
+    this.logDebug('VIEW_ENTER', debugMsg);
+    // ===== END US-001 DEBUG =====
+
+    // Set up deferred subscriptions on first entry (after initial render for faster paint)
+    // This moves non-critical subscriptions out of ngOnInit
+    if (!this.uploadSubscription) {
+      this.subscribeToUploadUpdates();
+    }
+    if (!this.localImagesSubscription && this.serviceId) {
+      this.subscribeToLocalImagesChanges();
+    }
+
+    // Only process if initial load is complete and we have required IDs
+    if (!this.initialLoadComplete || !this.serviceId || !this.categoryName) {
+      console.timeEnd('[CategoryDetail] ionViewWillEnter');
+      return;
+    }
+
+    const sectionKey = `${this.serviceId}_${this.categoryName}`;
+
+    // Check if we have data in memory and if section is dirty
+    const hasDataInMemory = Object.keys(this.visualPhotos).length > 0;
+    const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
+
+    // CRITICAL: Check if service/category has changed (navigating from project details to different template)
+    const serviceOrCategoryChanged = this.lastLoadedServiceId !== this.serviceId ||
+                                      this.lastLoadedCategoryName !== this.categoryName;
+
+    console.log(`[CategoryDetail] ionViewWillEnter - hasData: ${hasDataInMemory}, isDirty: ${isDirty}, changed: ${serviceOrCategoryChanged}`);
+
+    // ===== US-001 DEBUG: Decision point =====
+    this.logDebug('VIEW_ENTER', `Decision: hasData=${hasDataInMemory}, isDirty=${isDirty}, changed=${serviceOrCategoryChanged}`);
+    // ===== END US-001 DEBUG =====
+
+    // Early return if data is fresh and context unchanged
+    if (hasDataInMemory && !isDirty && !serviceOrCategoryChanged) {
+      // SKIP FULL RELOAD but refresh local state (blob URLs, pending captions/drawings)
+      // This ensures images don't disappear when navigating back to this page
+      console.log('[CategoryDetail] Refreshing local images and pending captions');
+
+      // ===== US-001 DEBUG: Before refreshLocalState =====
+      this.logDebug('VIEW_ENTER', 'Calling refreshLocalState (skip full reload path)');
+      // ===== END US-001 DEBUG =====
+
+      await this.refreshLocalState();
+
+      // DEXIE-FIRST: Always reload photos from Dexie on navigation back
+      // This ensures photos persist even if blob URLs became invalid
+      if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+        // ===== US-001 DEBUG: Before populatePhotosFromDexie =====
+        this.logDebug('VIEW_ENTER', `Calling populatePhotosFromDexie with ${this.lastConvertedFields.length} fields`);
+        // ===== END US-001 DEBUG =====
+
+        await this.populatePhotosFromDexie(this.lastConvertedFields);
+
+        // ===== US-001 DEBUG: After populatePhotosFromDexie =====
+        const afterPhotoCounts: string[] = [];
+        for (const [key, photos] of Object.entries(this.visualPhotos)) {
+          if ((photos as any[]).length > 0) {
+            afterPhotoCounts.push(`${key}: ${(photos as any[]).length} photos`);
+          }
+        }
+        this.logDebug('VIEW_ENTER', `After populatePhotosFromDexie:\n${afterPhotoCounts.slice(0, 5).join('\n') || '(none)'}`);
+        // ===== END US-001 DEBUG =====
+
+        this.changeDetectorRef.detectChanges();
+      }
+
+      console.timeEnd('[CategoryDetail] ionViewWillEnter');
+      return;
+    }
+
+    // ALWAYS reload if:
+    // 1. First load (no data in memory)
+    // 2. Section is marked dirty (data changed while away)
+    // 3. Service or category has changed (navigating from project details)
+    console.log('[CategoryDetail] Reloading data - section dirty, no data, or context changed');
+
+    // ===== US-001 DEBUG: Full reload path =====
+    this.logDebug('VIEW_ENTER', 'Taking FULL RELOAD path - calling loadData()');
+    // ===== END US-001 DEBUG =====
+
+    await this.loadData();
+    this.backgroundSync.clearSectionDirty(sectionKey);
+    console.timeEnd('[CategoryDetail] ionViewWillEnter');
+  }
+
+  /**
+   * Check if there are unsaved changes (for route guard)
+   * Only checks on web platform - returns true if any items are currently being saved
+   */
+  hasUnsavedChanges(): boolean {
+    if (!environment.isWeb) return false;
+
+    // Check if any items are currently being saved
+    return Object.values(this.savingItems).some(saving => saving === true);
+  }
+
+  /**
+   * Refresh local state without full reload
+   * Called when navigating back to page with cached data
+   * - Regenerates blob URLs for LocalImages (they may have been invalidated)
+   * - Merges pending captions/drawings into photo arrays
+   */
+  private async refreshLocalState(): Promise<void> {
+    // 1. Get all LocalImages for this service
+    const localImages = await this.localImageService.getImagesForService(this.serviceId);
+
+    // 2. Regenerate blob URLs from IndexedDB
+    const urlMap = await this.localImageService.refreshBlobUrlsForImages(localImages);
+
+    // 3. Update in-memory photo arrays with fresh URLs
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      for (const photo of photos as any[]) {
+        if (photo.isLocalImage && photo.localImageId) {
+          const newUrl = urlMap.get(photo.localImageId);
+          if (newUrl) {
+            photo.displayUrl = newUrl;
+            photo.url = newUrl;
+            photo.thumbnailUrl = newUrl;
+          }
+        }
+      }
+    }
+
+    // 4. Merge any pending captions/drawings
+    await this.mergePendingCaptions();
+
+    console.log('[CategoryDetail] Local state refreshed - URLs regenerated, captions merged');
+  }
+
+  /**
+   * Merge pending captions and drawings into in-memory photo arrays
+   * This ensures caption/annotation edits persist through navigation
+   */
+  private async mergePendingCaptions(): Promise<void> {
+    const pendingCaptions = await this.indexedDb.getPendingCaptions();
+
+    if (!pendingCaptions || pendingCaptions.length === 0) return;
+
+    // Build lookup map: attachId -> pending caption data
+    const captionMap = new Map<string, { caption: string; drawings: string }>();
+    for (const pc of pendingCaptions) {
+      if (pc.status === 'pending' || pc.status === 'syncing') {
+        captionMap.set(pc.attachId, { caption: pc.caption || '', drawings: pc.drawings || '' });
+      }
+    }
+
+    // Update in-memory photos with pending captions
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      for (const photo of photos as any[]) {
+        const attachId = photo.AttachID || photo.localImageId;
+        const pending = captionMap.get(attachId);
+        if (pending) {
+          if (pending.caption !== undefined) {
+            photo.caption = pending.caption;
+          }
+          if (pending.drawings !== undefined) {
+            photo.Drawings = pending.drawings;
+            photo.hasAnnotations = !!(pending.drawings && pending.drawings.length > 100);
+          }
+        }
       }
     }
   }
@@ -213,34 +536,899 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     if (this.photoSyncSubscription) {
       this.photoSyncSubscription.unsubscribe();
     }
-
-    // HUD-010: Clean up LiveQuery subscriptions to prevent memory leaks
-    if (this.hudFieldsSubscription) {
-      this.hudFieldsSubscription.unsubscribe();
+    if (this.cacheInvalidationSubscription) {
+      this.cacheInvalidationSubscription.unsubscribe();
     }
-    if (this.hudSyncCompleteSubscription) {
-      this.hudSyncCompleteSubscription.unsubscribe();
+    if (this.syncStatusSubscription) {
+      this.syncStatusSubscription.unsubscribe();
     }
-    if (this.hudPhotoUploadCompleteSubscription) {
-      this.hudPhotoUploadCompleteSubscription.unsubscribe();
+    // Clean up Dexie liveQuery subscription
+    if (this.localImagesSubscription) {
+      this.localImagesSubscription.unsubscribe();
     }
-
-    // HUD-014: Clean up caption sync subscription
-    if (this.captionSyncCompleteSubscription) {
-      this.captionSyncCompleteSubscription.unsubscribe();
+    // Clean up visualFields subscription
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
     }
-
-    // Clean up liveQuery debounce timer
+    // Clear debounce timers
+    if (this.cacheInvalidationDebounceTimer) {
+      clearTimeout(this.cacheInvalidationDebounceTimer);
+    }
+    if (this.localOperationCooldownTimer) {
+      clearTimeout(this.localOperationCooldownTimer);
+    }
     if (this.liveQueryDebounceTimer) {
       clearTimeout(this.liveQueryDebounceTimer);
-      this.liveQueryDebounceTimer = null;
+    }
+    
+    // NOTE: We intentionally do NOT revoke blob URLs here anymore.
+    // Revoking causes images to disappear when navigating back to this page
+    // because ionViewWillEnter may skip reload if data appears cached.
+    // Blob URLs are now properly cleaned up when LocalImages are pruned after sync.
+    // See refreshLocalState() for how we regenerate URLs on page return.
+
+    console.log('[CATEGORY DETAIL] Component destroyed, but uploads continue in background');
+  }
+
+  // ============================================================================
+  // DEXIE-FIRST: REACTIVE DATA INITIALIZATION
+  // ============================================================================
+
+  /**
+   * Initialize visual fields for this category using Dexie-first architecture
+   * 1. Seed templates into visualFields (if not already seeded)
+   * 2. Merge existing visuals (user selections)
+   * 3. Subscribe to reactive updates (liveQuery)
+   */
+  private async initializeVisualFields(): Promise<void> {
+    console.time('[CategoryDetail] initializeVisualFields');
+    console.log('[CategoryDetail] Initializing visual fields (Dexie-first)...');
+
+    // WEBAPP MODE: Load directly from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log('[CategoryDetail] WEBAPP MODE: Loading data directly from API');
+      await this.loadDataFromAPI();
+      console.timeEnd('[CategoryDetail] initializeVisualFields');
+      return;
     }
 
-    console.log('[HUD CATEGORY DETAIL] Component destroyed, but uploads continue in background');
+    // MOBILE MODE: Use Dexie-first pattern
+    // Unsubscribe from previous subscription if category changed
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
+      this.visualFieldsSubscription = undefined;
+    }
+
+    // Check if fields exist for this category
+    const hasFields = await this.visualFieldRepo.hasFieldsForCategory(
+      this.serviceId,
+      this.categoryName
+    );
+
+    // DEXIE-FIRST: Load cached dropdown options (for Walls, Crawlspace, etc.)
+    const cachedDropdownData = await this.indexedDb.getCachedTemplates('visual_dropdown') || [];
+    console.log(`[CategoryDetail] Loaded ${cachedDropdownData.length} cached dropdown options`);
+
+    if (!hasFields) {
+      console.log('[CategoryDetail] No fields found, seeding from templates...');
+
+      // Get templates from cache
+      const templates = await this.indexedDb.getCachedTemplates('visual') || [];
+
+      if (templates.length === 0) {
+        console.warn('[CategoryDetail] No templates in cache, showing loading...');
+        this.loading = true;
+        this.changeDetectorRef.detectChanges();
+        // Fall back to old loadData() for initial template fetch
+        await this.loadData();
+        console.timeEnd('[CategoryDetail] initializeVisualFields');
+        return;
+      }
+
+      // Seed templates into visualFields with cached dropdown options
+      await this.visualFieldRepo.seedFromTemplates(
+        this.serviceId,
+        this.categoryName,
+        templates,
+        cachedDropdownData
+      );
+
+      // Get existing visuals and merge selections
+      const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
+      await this.visualFieldRepo.mergeExistingVisuals(
+        this.serviceId,
+        this.categoryName,
+        visuals as any[]
+      );
+
+      console.log('[CategoryDetail] Seeding complete');
+    } else {
+      console.log('[CategoryDetail] Fields already exist, using cached data');
+    }
+
+    // DEXIE-FIRST: Populate visualDropdownOptions from cached data
+    // This replaces the API call with local cache lookup
+    if (cachedDropdownData.length > 0) {
+      this.populateDropdownOptionsFromCache(cachedDropdownData);
+    }
+
+    // DEXIE-FIRST: Set up LocalImages subscription FIRST (before fields subscription)
+    // This ensures bulkLocalImagesMap is populated when populatePhotosFromDexie() runs
+    if (!this.localImagesSubscription && this.serviceId) {
+      this.subscribeToLocalImagesChanges();
+    }
+
+    // Subscribe to reactive updates - this will trigger UI render
+    this.visualFieldsSubscription = this.visualFieldRepo
+      .getFieldsForCategory$(this.serviceId, this.categoryName)
+      .subscribe({
+        next: async (fields) => {
+          console.log(`[CategoryDetail] Received ${fields.length} fields from liveQuery`);
+          this.convertFieldsToOrganizedData(fields);
+
+          // DEXIE-FIRST: Show UI immediately - no loading screen
+          this.loading = false;
+          this.changeDetectorRef.detectChanges();
+
+          // DEXIE-FIRST: Populate photos in background (non-blocking)
+          // Photos will appear as they load, no need to wait
+          this.populatePhotosFromDexie(fields).then(() => {
+            this.changeDetectorRef.detectChanges();
+          });
+        },
+        error: (err) => {
+          console.error('[CategoryDetail] Error in visualFields subscription:', err);
+          this.loading = false;
+          this.changeDetectorRef.detectChanges();
+        }
+      });
+
+    // Update tracking variables
+    this.lastLoadedServiceId = this.serviceId;
+    this.lastLoadedCategoryName = this.categoryName;
+    this.initialLoadComplete = true;
+
+    // DEXIE-FIRST: Only fetch from API if cache was empty (fallback for first-time use)
+    if (cachedDropdownData.length === 0) {
+      console.log('[CategoryDetail] No cached dropdown options, fetching from API as fallback...');
+      await this.loadDropdownOptionsFromAPI();
+    } else {
+      console.log('[CategoryDetail] Using cached dropdown options (Dexie-first)');
+    }
+
+    console.timeEnd('[CategoryDetail] initializeVisualFields');
+  }
+
+  /**
+   * WEBAPP MODE: Load data directly from API to see synced data from mobile
+   * This bypasses all local Dexie caching and reads fresh from the server
+   */
+  private async loadDataFromAPI(): Promise<void> {
+    console.log('[CategoryDetail] WEBAPP MODE: loadDataFromAPI() starting...');
+    this.loading = true;
+    this.changeDetectorRef.detectChanges();
+
+    try {
+      // Load templates and visuals from API (via hudData which now fetches from server in webapp mode)
+      const [templates, visuals] = await Promise.all([
+        this.hudData.getVisualsTemplates(),
+        this.hudData.getVisualsByService(this.serviceId)
+      ]);
+
+      console.log(`[CategoryDetail] WEBAPP: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} visuals from API`);
+
+      // Debug: Log first visual's field names to verify structure
+      if (visuals && visuals.length > 0) {
+        const sampleVisual = visuals[0];
+        console.log('[CategoryDetail] WEBAPP: Sample visual fields:', Object.keys(sampleVisual));
+        console.log('[CategoryDetail] WEBAPP: Sample visual:', {
+          VisualID: sampleVisual.VisualID,
+          VisualTemplateID: sampleVisual.VisualTemplateID,
+          TemplateID: sampleVisual.TemplateID,
+          Name: sampleVisual.Name,
+          Category: sampleVisual.Category,
+          Kind: sampleVisual.Kind
+        });
+      }
+
+      // Filter visuals for this category to get accurate count
+      const categoryVisuals = (visuals || []).filter((v: any) => v.Category === this.categoryName);
+      console.log(`[CategoryDetail] WEBAPP: ${categoryVisuals.length} visuals for category "${this.categoryName}"`);
+
+      // Filter templates for this category
+      const categoryTemplates = (templates || []).filter((t: any) => t.Category === this.categoryName);
+      console.log(`[CategoryDetail] WEBAPP: ${categoryTemplates.length} templates for category "${this.categoryName}"`);
+
+      // Build organized data from templates and visuals
+      const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
+        comments: [],
+        limitations: [],
+        deficiencies: []
+      };
+
+      for (const template of categoryTemplates) {
+        const templateId = template.TemplateID || template.PK_ID;
+        const kind = (template.Kind || 'Comment').toLowerCase();
+        const templateName = template.Name || '';
+
+        // Find matching visual (user selection) from server
+        // CRITICAL: Match by TemplateID first (most reliable), with type coercion for number/string mismatches
+        // Then fall back to name+category matching
+        let visual = (visuals || []).find((v: any) => {
+          const vTemplateId = v.VisualTemplateID || v.TemplateID;
+          // Use == for type coercion (templateId may be number or string)
+          return vTemplateId == templateId && v.Category === this.categoryName;
+        });
+
+        // Fallback: match by name + category if templateId didn't match
+        if (!visual && templateName) {
+          visual = (visuals || []).find((v: any) =>
+            v.Name === templateName && v.Category === this.categoryName
+          );
+          if (visual) {
+            console.log(`[CategoryDetail] WEBAPP: Matched visual by name fallback: "${templateName}"`);
+          }
+        }
+
+        // WEBAPP: Use key format that matches isItemSelected() and getPhotosForVisual()
+        // These methods use `${category}_${itemId}` format (no serviceId)
+        const itemKey = `${this.categoryName}_${templateId}`;
+
+        const item: VisualItem = {
+          id: visual ? (visual.VisualID || visual.PK_ID) : templateId,
+          templateId: templateId,
+          name: template.Name || '',
+          text: visual?.VisualText || visual?.Text || template.Text || '',
+          originalText: template.Text || '',
+          type: template.Kind || 'Comment',
+          category: template.Category || this.categoryName,
+          answerType: template.AnswerType || 0,
+          required: false,
+          answer: visual?.Answer || '',
+          isSelected: !!visual,
+          key: itemKey
+        };
+
+        // Add to appropriate section
+        if (kind === 'limitation') {
+          organizedData.limitations.push(item);
+        } else if (kind === 'deficiency') {
+          organizedData.deficiencies.push(item);
+        } else {
+          organizedData.comments.push(item);
+        }
+
+        // Track visual record IDs and selection state for photo loading
+        if (visual) {
+          const visualId = visual.VisualID || visual.PK_ID;
+          this.visualRecordIds[itemKey] = String(visualId);
+          // WEBAPP: Populate selectedItems so isItemSelected() returns true
+          this.selectedItems[itemKey] = true;
+        }
+      }
+
+      this.organizedData = organizedData;
+
+      // Count how many items are selected (matched to visuals)
+      const selectedCount = [...organizedData.comments, ...organizedData.limitations, ...organizedData.deficiencies]
+        .filter(item => item.isSelected).length;
+      console.log(`[CategoryDetail] WEBAPP: Organized data - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
+      console.log(`[CategoryDetail] WEBAPP: ${selectedCount} items matched to visuals (should match ${categoryVisuals.length} visuals for this category)`);
+
+      // Load photos for selected visuals from API
+      await this.loadPhotosFromAPI();
+
+      // Load dropdown options
+      await this.loadDropdownOptionsFromAPI();
+
+      // Update tracking variables
+      this.lastLoadedServiceId = this.serviceId;
+      this.lastLoadedCategoryName = this.categoryName;
+      this.initialLoadComplete = true;
+
+    } catch (error) {
+      console.error('[CategoryDetail] WEBAPP: Error loading data from API:', error);
+    } finally {
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  /**
+   * WEBAPP MODE: Load photos from API for all selected visuals
+   */
+  private async loadPhotosFromAPI(): Promise<void> {
+    console.log('[CategoryDetail] WEBAPP MODE: Loading photos from API...');
+
+    // Get all visual IDs that have been selected
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+
+    for (const item of allItems) {
+      if (!item.isSelected || !item.key) continue;
+
+      const visualId = this.visualRecordIds[item.key];
+      if (!visualId) continue;
+
+      try {
+        const attachments = await this.hudData.getVisualAttachments(visualId);
+        console.log(`[CategoryDetail] WEBAPP: Loaded ${attachments?.length || 0} photos for visual ${visualId}`);
+
+        // Convert attachments to photo format
+        const photos: any[] = [];
+        for (const att of attachments || []) {
+          // Debug: Log attachment fields to identify correct photo field
+          if (attachments.length > 0 && photos.length === 0) {
+            console.log('[CategoryDetail] WEBAPP: Attachment fields:', Object.keys(att));
+            console.log('[CategoryDetail] WEBAPP: Sample attachment:', JSON.stringify(att).substring(0, 500));
+          }
+
+          // Try multiple possible field names for the photo URL/key
+          // Note: S3 key is stored in 'Attachment' field, not 'Photo'
+          const rawPhotoValue = att.Attachment || att.Photo || att.photo || att.url || att.displayUrl || att.URL || att.S3Key || att.s3Key;
+          console.log('[CategoryDetail] WEBAPP: Raw photo value for attach', att.AttachID || att.PK_ID, ':', rawPhotoValue?.substring(0, 100));
+
+          let displayUrl = rawPhotoValue || 'assets/img/photo-placeholder.png';
+
+          // WEBAPP: Get S3 signed URL if needed
+          // Check for S3 key (starts with 'uploads/') OR full S3 URL
+          if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.png') {
+            const isS3Key = this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl);
+            const isFullS3Url = displayUrl.startsWith('https://') &&
+                                displayUrl.includes('.s3.') &&
+                                displayUrl.includes('amazonaws.com');
+
+            console.log('[CategoryDetail] WEBAPP: URL analysis - isS3Key:', isS3Key, 'isFullS3Url:', isFullS3Url);
+
+            if (isS3Key) {
+              // S3 key like 'uploads/path/file.jpg' - get signed URL
+              try {
+                console.log('[CategoryDetail] WEBAPP: Getting signed URL for S3 key:', displayUrl);
+                displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+                console.log('[CategoryDetail] WEBAPP: Got signed URL:', displayUrl?.substring(0, 80));
+              } catch (e) {
+                console.warn('[CategoryDetail] WEBAPP: Could not get S3 URL for key:', e);
+              }
+            } else if (isFullS3Url) {
+              // Full S3 URL - extract key and get signed URL
+              try {
+                // Extract S3 key from URL: https://bucket.s3.region.amazonaws.com/uploads/path/file.jpg
+                const urlObj = new URL(displayUrl);
+                const s3Key = urlObj.pathname.substring(1); // Remove leading '/'
+                console.log('[CategoryDetail] WEBAPP: Extracted S3 key from URL:', s3Key);
+                if (s3Key && s3Key.startsWith('uploads/')) {
+                  displayUrl = await this.caspioService.getS3FileUrl(s3Key);
+                  console.log('[CategoryDetail] WEBAPP: Got signed URL:', displayUrl?.substring(0, 80));
+                } else {
+                  console.warn('[CategoryDetail] WEBAPP: S3 URL does not have uploads/ key:', s3Key);
+                }
+              } catch (e) {
+                console.warn('[CategoryDetail] WEBAPP: Could not get signed URL for S3 URL:', e);
+              }
+            } else {
+              console.log('[CategoryDetail] WEBAPP: URL not recognized as S3, using as-is');
+            }
+          }
+
+          const attachId = att.AttachID || att.attachId || att.PK_ID;
+          photos.push({
+            id: attachId,
+            attachId: attachId,
+            AttachID: attachId, // Also set capital version for error handler
+            displayUrl,
+            url: displayUrl,
+            caption: att.Annotation || att.caption || '',
+            uploading: false,
+            isLocal: false,
+            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            drawings: att.Drawings || ''
+          });
+        }
+
+        this.visualPhotos[item.key] = photos;
+        this.photoCountsByKey[item.key] = photos.length;
+      } catch (error) {
+        console.error(`[CategoryDetail] WEBAPP: Error loading photos for visual ${visualId}:`, error);
+      }
+    }
+
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * DEXIE-FIRST: Populate dropdown options from cached data
+   * This enables instant loading of multi-select options without API call
+   */
+  private populateDropdownOptionsFromCache(dropdownData: any[]): void {
+    console.log('[CategoryDetail] Populating dropdown options from cache...');
+
+    // Group dropdown options by TemplateID
+    dropdownData.forEach((row: any) => {
+      const templateId = row.TemplateID;
+      const dropdownValue = row.Dropdown;
+
+      if (templateId && dropdownValue) {
+        if (!this.visualDropdownOptions[templateId]) {
+          this.visualDropdownOptions[templateId] = [];
+        }
+        // Add unique dropdown values for this template (excluding None/Other which we add at end)
+        if (!this.visualDropdownOptions[templateId].includes(dropdownValue) &&
+            dropdownValue !== 'None' && dropdownValue !== 'Other') {
+          this.visualDropdownOptions[templateId].push(dropdownValue);
+        }
+      }
+    });
+
+    // Sort options alphabetically and add "None" and "Other" at the end
+    Object.keys(this.visualDropdownOptions).forEach(templateId => {
+      const options = this.visualDropdownOptions[Number(templateId)];
+      if (options) {
+        // Sort alphabetically
+        options.sort((a, b) => a.localeCompare(b));
+        // Add "None" and "Other" at the end
+        if (!options.includes('None')) {
+          options.push('None');
+        }
+        if (!options.includes('Other')) {
+          options.push('Other');
+        }
+      }
+    });
+
+    console.log('[CategoryDetail] Populated dropdown options for', Object.keys(this.visualDropdownOptions).length, 'templates from cache');
+
+    // Trigger change detection to update UI
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Load dropdown options from LPS_Services_HUD_Drop table (API fallback)
+   * Only called when cached data is not available
+   * These are stored separately from templates and need to be fetched and matched by TemplateID
+   */
+  private async loadDropdownOptionsFromAPI(): Promise<void> {
+    try {
+      console.log('[CategoryDetail] Loading dropdown options from API (fallback)...');
+      const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
+
+      if (dropdownData && dropdownData.length > 0) {
+        // Cache the dropdown data for future use
+        await this.indexedDb.cacheTemplates('visual_dropdown', dropdownData);
+        console.log('[CategoryDetail] Cached dropdown options for future use');
+
+        // Group dropdown options by TemplateID
+        dropdownData.forEach((row: any) => {
+          const templateId = row.TemplateID; // Keep as number for consistency with field.templateId
+          const dropdownValue = row.Dropdown;
+
+          if (templateId && dropdownValue) {
+            if (!this.visualDropdownOptions[templateId]) {
+              this.visualDropdownOptions[templateId] = [];
+            }
+            // Add unique dropdown values for this template (excluding None/Other which we add at end)
+            if (!this.visualDropdownOptions[templateId].includes(dropdownValue) &&
+                dropdownValue !== 'None' && dropdownValue !== 'Other') {
+              this.visualDropdownOptions[templateId].push(dropdownValue);
+            }
+          }
+        });
+
+        // Sort options alphabetically and add "None" and "Other" at the end
+        Object.keys(this.visualDropdownOptions).forEach(templateId => {
+          const options = this.visualDropdownOptions[Number(templateId)];
+          if (options) {
+            // Sort alphabetically
+            options.sort((a, b) => a.localeCompare(b));
+            // Add "None" and "Other" at the end
+            if (!options.includes('None')) {
+              options.push('None');
+            }
+            if (!options.includes('Other')) {
+              options.push('Other');
+            }
+          }
+        });
+
+        console.log('[CategoryDetail] Loaded dropdown options for', Object.keys(this.visualDropdownOptions).length, 'templates');
+
+        // Trigger change detection to update UI
+        this.changeDetectorRef.detectChanges();
+      } else {
+        console.warn('[CategoryDetail] No dropdown data received from API');
+      }
+    } catch (error) {
+      console.error('[CategoryDetail] Error loading dropdown options:', error);
+    }
+  }
+
+  /**
+   * Convert VisualField[] from Dexie to organizedData structure for rendering
+   * This transforms the flat field list into categorized sections
+   */
+  private convertFieldsToOrganizedData(fields: VisualField[]): void {
+    // DEXIE-FIRST: Store fields reference for reactive photo updates
+    this.lastConvertedFields = fields;
+
+    // Reset organized data
+    this.organizedData = {
+      comments: [],
+      limitations: [],
+      deficiencies: []
+    };
+    this.selectedItems = {};
+
+    // Convert each field to VisualItem and add to appropriate section
+    for (const field of fields) {
+      const item: VisualItem = {
+        id: field.visualId || field.tempVisualId || field.templateId,
+        templateId: field.templateId,
+        name: field.templateName,
+        text: field.templateText,
+        originalText: field.templateText,
+        type: field.kind,
+        category: field.category,
+        answerType: field.answerType,
+        required: false,
+        answer: field.answer,
+        isSelected: field.isSelected,
+        photos: [],
+        otherValue: field.otherValue,
+        key: field.key
+      };
+
+      // DEXIE-FIRST: Merge dropdown options from Dexie with cached options
+      // This preserves custom options added via "Other" while keeping base options from cache
+      if (field.answerType === 2) {
+        const existingOptions = this.visualDropdownOptions[field.templateId] || [];
+        const mergedOptions = new Set<string>();
+
+        // Add all existing options (from cache) except None/Other
+        existingOptions.forEach(opt => {
+          if (opt !== 'None' && opt !== 'Other') {
+            mergedOptions.add(opt);
+          }
+        });
+
+        // Add all options from Dexie (includes custom options) except None/Other
+        if (field.dropdownOptions && field.dropdownOptions.length > 0) {
+          field.dropdownOptions.forEach(opt => {
+            if (opt !== 'None' && opt !== 'Other') {
+              mergedOptions.add(opt);
+            }
+          });
+        }
+
+        // Also add any values from the answer that aren't in options (custom values)
+        // This handles backward compatibility when loading saved data
+        if (field.answer) {
+          const answerValues = field.answer.split(',').map(v => v.trim()).filter(v => v);
+          answerValues.forEach(val => {
+            if (val !== 'None' && val !== 'Other') {
+              mergedOptions.add(val);
+            }
+          });
+        }
+
+        // Convert to sorted array and add None/Other at end
+        const sortedOptions = Array.from(mergedOptions).sort((a, b) => a.localeCompare(b));
+        sortedOptions.push('None');
+        sortedOptions.push('Other');
+
+        this.visualDropdownOptions[field.templateId] = sortedOptions;
+      }
+
+      // Add to appropriate section
+      if (field.kind === 'Comment') {
+        this.organizedData.comments.push(item);
+      } else if (field.kind === 'Limitation') {
+        this.organizedData.limitations.push(item);
+      } else if (field.kind === 'Deficiency') {
+        this.organizedData.deficiencies.push(item);
+      }
+
+      // Track selection state
+      const selectionKey = `${field.category}_${field.templateId}`;
+      this.selectedItems[selectionKey] = field.isSelected;
+
+      // Set photo count (will be updated by photo loading)
+      this.photoCountsByKey[selectionKey] = field.photoCount;
+    }
+
+    console.log(`[CategoryDetail] Organized: ${this.organizedData.comments.length} comments, ${this.organizedData.limitations.length} limitations, ${this.organizedData.deficiencies.length} deficiencies`);
+  }
+
+  /**
+   * DEXIE-FIRST: Populate visualPhotos by querying Dexie LocalImages directly
+   * This eliminates the race condition by not relying on bulkLocalImagesMap subscription
+   * Called after convertFieldsToOrganizedData to render photos from Dexie data
+   */
+  private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
+    // MUTEX: Prevent concurrent calls that cause duplicate photos
+    // When sync/rehydration triggers both liveQuery AND fields subscription,
+    // both would read same initial state and both add photos = 2x duplicates
+    if (this.isPopulatingPhotos) {
+      console.log('[DEXIE-FIRST] Skipping - already populating photos (mutex)');
+      return;
+    }
+    this.isPopulatingPhotos = true;
+
+    try {
+      console.log('[DEXIE-FIRST] Populating photos directly from Dexie...');
+
+      // ===== US-001 DEBUG: populatePhotosFromDexie start =====
+      this.logDebug('DEXIE_LOAD', `populatePhotosFromDexie START\nfields count: ${fields.length}\nserviceId: ${this.serviceId}`);
+      // ===== END US-001 DEBUG =====
+
+      // DEXIE-FIRST: Load annotated images in background (non-blocking)
+      // Don't await - let photos render immediately, annotations will update when ready
+      if (this.bulkAnnotatedImagesMap.size === 0) {
+        this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
+          this.bulkAnnotatedImagesMap = annotatedImages;
+          // Trigger change detection to update any thumbnails that now have annotations
+          this.changeDetectorRef.detectChanges();
+        });
+      }
+
+      // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query
+      // This eliminates the race condition - we don't rely on bulkLocalImagesMap being populated
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+
+    // ===== US-001 DEBUG: LocalImages query result =====
+    const localImagesWithDrawings = allLocalImages.filter(img => img.drawings && img.drawings.length > 10);
+    this.logDebug('DEXIE_LOAD', `LocalImages query:\nTotal: ${allLocalImages.length}\nWith drawings (annotations): ${localImagesWithDrawings.length}`);
+    // ===== END US-001 DEBUG =====
+
+    // Group by entityId for efficient lookup
+    const localImagesMap = new Map<string, LocalImage[]>();
+    for (const img of allLocalImages) {
+      if (!img.entityId) continue;
+      const entityId = String(img.entityId);
+      if (!localImagesMap.has(entityId)) {
+        localImagesMap.set(entityId, []);
+      }
+      localImagesMap.get(entityId)!.push(img);
+    }
+
+    console.log(`[DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
+
+    let photosAddedCount = 0;
+
+    for (const field of fields) {
+      // US-002 FIX: Get both real and temp IDs for fallback lookup
+      const realId = field.visualId;
+      const tempId = field.tempVisualId;
+      const visualId = realId || tempId;
+      if (!visualId) continue;
+
+      const key = `${field.category}_${field.templateId}`;
+
+      // Store visual record ID for photo operations
+      this.visualRecordIds[key] = visualId;
+
+      // US-002 FIX: Lookup by real ID first, fallback to temp ID, then check temp-to-real mapping
+      // After sync, LocalImages.entityId is updated to real ID but VisualField may still have tempId
+      let localImages = realId ? (localImagesMap.get(realId) || []) : [];
+      const foundWithRealId = localImages.length;
+      let foundWithTempId = 0;
+      let foundWithMappedId = 0;
+      let mappedRealId: string | null = null;
+
+      // Try tempId lookup
+      if (localImages.length === 0 && tempId && tempId !== realId) {
+        localImages = localImagesMap.get(tempId) || [];
+        foundWithTempId = localImages.length;
+      }
+
+      // US-002 FIX: If still no photos and we have tempId, check IndexedDB for temp-to-real mapping
+      // This handles the case where sync updated LocalImages.entityId to real ID but VisualField
+      // was never updated (e.g., user reloaded page after sync)
+      if (localImages.length === 0 && tempId) {
+        mappedRealId = await this.indexedDb.getRealId(tempId);
+        if (mappedRealId) {
+          localImages = localImagesMap.get(mappedRealId) || [];
+          foundWithMappedId = localImages.length;
+
+          // Also update VisualField with the real ID so future lookups work directly
+          if (localImages.length > 0 && field.templateId) {
+            this.visualFieldRepo.setField(this.serviceId, this.categoryName, field.templateId, {
+              visualId: mappedRealId,
+              tempVisualId: null
+            }).catch(err => {
+              console.error('[US-002] Failed to update VisualField with mapped realId:', err);
+            });
+          }
+        }
+      }
+
+      if (localImages.length === 0) continue;
+
+      // Initialize photos array if not exists
+      if (!this.visualPhotos[key]) {
+        this.visualPhotos[key] = [];
+      }
+
+      // Track already loaded photos to avoid duplicates
+      const loadedPhotoIds = new Set<string>();
+      for (const p of this.visualPhotos[key]) {
+        if (p.imageId) loadedPhotoIds.add(p.imageId);
+        if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
+        if (p.localImageId) loadedPhotoIds.add(p.localImageId);
+      }
+
+      // Add LocalImages to visualPhotos
+      for (const localImage of localImages) {
+        const imageId = localImage.imageId;
+
+        // ===== US-002 FIX: Check if photo already exists and refresh its displayUrl =====
+        // This ensures displayUrl always points to a fresh local blob from LocalImages
+        const existingPhotoIndex = this.visualPhotos[key].findIndex(p =>
+          p.imageId === imageId ||
+          p.localImageId === imageId ||
+          (localImage.attachId && (String(p.AttachID) === localImage.attachId || p.attachId === localImage.attachId))
+        );
+
+        if (existingPhotoIndex !== -1) {
+          // Photo already exists - REFRESH its displayUrl from LocalImages (DEXIE-FIRST)
+          const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
+
+          // DEXIE-FIRST: Always refresh displayUrl from LocalImages table (local blob)
+          // This ensures we NEVER use stale cached URLs or server URLs
+          try {
+            const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+            if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.png') {
+              // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+              const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10) || existingPhoto.hasAnnotations;
+              let thumbnailUrl = freshDisplayUrl;
+              if (hasAnnotations) {
+                const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
+                if (cachedAnnotatedImage) {
+                  thumbnailUrl = cachedAnnotatedImage;
+                }
+              }
+
+              // Update displayUrl to fresh local blob (or annotated for thumbnail)
+              this.visualPhotos[key][existingPhotoIndex] = {
+                ...existingPhoto,
+                displayUrl: thumbnailUrl,  // Use annotated if available
+                url: freshDisplayUrl,      // Keep original for re-editing
+                thumbnailUrl: thumbnailUrl,
+                originalUrl: freshDisplayUrl,
+                // Update metadata that may have changed
+                localBlobId: localImage.localBlobId,
+                caption: localImage.caption || existingPhoto.caption || '',
+                Annotation: localImage.caption || existingPhoto.Annotation || '',
+                Drawings: localImage.drawings || existingPhoto.Drawings || null,
+                hasAnnotations: hasAnnotations,
+                isLocalImage: true,
+                isLocalFirst: true
+              };
+
+            }
+          } catch (e) {
+            console.warn('[DEXIE-FIRST] Failed to refresh displayUrl for existing photo:', e);
+          }
+
+          // Track IDs to prevent duplicates
+          loadedPhotoIds.add(imageId);
+          if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+          continue; // Don't add duplicate
+        }
+
+        // Skip if already loaded by other ID (safety check)
+        if (loadedPhotoIds.has(imageId)) continue;
+        if (localImage.attachId && loadedPhotoIds.has(localImage.attachId)) continue;
+
+        // Get display URL from LocalImageService (original photo)
+        let displayUrl = 'assets/img/photo-placeholder.png';
+        try {
+          displayUrl = await this.localImageService.getDisplayUrl(localImage);
+        } catch (e) {
+          console.warn('[DEXIE-FIRST] Failed to get displayUrl:', e);
+        }
+
+        // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+        // The annotated image is cached separately when user adds annotations
+        // We use it for displayUrl/thumbnailUrl while keeping originalUrl as the base image
+        let thumbnailUrl = displayUrl;
+        const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
+        if (hasAnnotations) {
+          const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
+          if (cachedAnnotatedImage) {
+            thumbnailUrl = cachedAnnotatedImage;
+            console.log(`[DEXIE-FIRST] Using cached annotated image for thumbnail: ${imageId}`);
+          }
+        }
+
+        // Add photo to array
+        this.visualPhotos[key].unshift({
+          AttachID: localImage.attachId || localImage.imageId,
+          attachId: localImage.attachId || localImage.imageId,
+          id: localImage.attachId || localImage.imageId,
+          imageId: localImage.imageId,
+          localImageId: localImage.imageId,
+          localBlobId: localImage.localBlobId,
+          displayUrl: thumbnailUrl,  // Use annotated thumbnail if available
+          url: displayUrl,           // Original photo URL
+          thumbnailUrl: thumbnailUrl,
+          originalUrl: displayUrl,   // Always keep original for re-editing
+          name: localImage.fileName,
+          caption: localImage.caption || '',
+          annotation: localImage.caption || '',
+          Annotation: localImage.caption || '',
+          Drawings: localImage.drawings || null,
+          hasAnnotations: hasAnnotations,
+          loading: false,
+          uploading: false,
+          queued: false,
+          isSkeleton: false,
+          isLocalImage: true,
+          isLocalFirst: true
+        });
+
+        loadedPhotoIds.add(imageId);
+        if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+        photosAddedCount++;
+      }
+
+      // Update photo count
+      this.photoCountsByKey[key] = this.visualPhotos[key].length;
+    }
+
+    // ===== US-001/US-003 DEBUG: populatePhotosFromDexie complete =====
+    const photosWithAnnotations = Object.values(this.visualPhotos)
+      .flat()
+      .filter((p: any) => p.hasAnnotations || (p.Drawings && p.Drawings.length > 10));
+    // US-003: Count photos with data: URLs (indicates cached annotated images loaded)
+    const photosWithDataUrls = Object.values(this.visualPhotos)
+      .flat()
+      .filter((p: any) => p.displayUrl?.startsWith('data:'));
+    const debugSummary = `populatePhotosFromDexie COMPLETE\n` +
+      `Photos added: ${photosAddedCount}\n` +
+      `Total photos in visualPhotos: ${Object.values(this.visualPhotos).flat().length}\n` +
+      `Photos with annotations: ${photosWithAnnotations.length}\n` +
+      `Photos with data: URLs (US-003): ${photosWithDataUrls.length}\n` +
+      `Keys with photos: ${Object.entries(this.visualPhotos).filter(([k, v]) => (v as any[]).length > 0).map(([k, v]) => `${k}:${(v as any[]).length}`).slice(0, 5).join(', ')}`;
+    this.logDebug('DEXIE_LOAD', debugSummary);
+    // ===== END US-001/US-003 DEBUG =====
+
+      console.log('[DEXIE-FIRST] Photos populated directly from Dexie');
+    } finally {
+      // Always release mutex, even if error occurs
+      this.isPopulatingPhotos = false;
+    }
+  }
+
+  /**
+   * Start a cooldown period during which cache invalidation events are ignored.
+   * This prevents UI "flashing" when selecting items or uploading photos.
+   */
+  private startLocalOperationCooldown() {
+    // Clear any existing timers
+    if (this.localOperationCooldownTimer) {
+      clearTimeout(this.localOperationCooldownTimer);
+    }
+    
+    // CRITICAL: Also clear any pending debounce timer to prevent delayed reloads
+    if (this.cacheInvalidationDebounceTimer) {
+      clearTimeout(this.cacheInvalidationDebounceTimer);
+      this.cacheInvalidationDebounceTimer = null;
+    }
+    
+    this.localOperationCooldown = true;
+    
+    // Cooldown lasts 3 seconds - enough time for sync to complete
+    this.localOperationCooldownTimer = setTimeout(() => {
+      this.localOperationCooldown = false;
+      console.log('[COOLDOWN] Local operation cooldown ended');
+    }, 3000);
   }
 
   /**
    * Subscribe to background upload updates
+   * This allows the UI to update as photos upload, even if user navigates away and comes back
    */
   private subscribeToUploadUpdates() {
     this.taskSubscription = this.backgroundUploadService.getTaskUpdates().subscribe(task => {
@@ -248,6 +1436,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
       console.log('[UPLOAD UPDATE] Task:', task.id, 'Status:', task.status, 'Progress:', task.progress);
 
+      // Update the photo in our UI based on task status
       const key = task.key;
       const tempPhotoId = task.tempPhotoId;
 
@@ -260,16 +1449,20 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       if (photoIndex === -1) return;
 
       if (task.status === 'uploading') {
+        // Update progress
         this.visualPhotos[key][photoIndex].uploading = true;
         this.visualPhotos[key][photoIndex].progress = task.progress;
       } else if (task.status === 'completed') {
+        // Upload completed - get result from task
         const result = (task as any).result;
         if (result && result.AttachID) {
           this.updatePhotoAfterUpload(key, photoIndex, result, task.caption);
         }
       } else if (task.status === 'failed') {
+        // Upload failed
         this.visualPhotos[key][photoIndex].uploading = false;
         this.visualPhotos[key][photoIndex].uploadFailed = true;
+        this.visualPhotos[key][photoIndex].isSkeleton = false;  // CRITICAL: Ensure caption button is clickable
         console.error('[UPLOAD UPDATE] Upload failed for task:', task.id, task.error);
       }
 
@@ -277,397 +1470,855 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     });
 
     // Subscribe to background sync photo upload completions
-    // This handles the case where photos are uploaded via IndexedDB queue (offline -> online)
+    // ALWAYS display from LocalImages table - never swap displayUrl to remote URLs
+    // Sync happens in background, but UI always shows local blob until finalization
+    // Only update metadata and cache the remote image for persistence
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
       console.log('[PHOTO SYNC] Photo upload completed:', event.tempFileId);
 
+      // ===== US-001 DEBUG: Sync completion - trace displayUrl changes =====
+      const syncDebugMsg = `SYNC COMPLETE received\n` +
+        `tempFileId: ${event.tempFileId}\n` +
+        `result PK_ID: ${event.result?.Result?.[0]?.PK_ID || event.result?.PK_ID || 'N/A'}\n` +
+        `result AttachID: ${event.result?.Result?.[0]?.AttachID || event.result?.AttachID || 'N/A'}`;
+      this.logDebug('SYNC', syncDebugMsg);
+      // ===== END US-001 DEBUG =====
+
+      // DEBUG: Log all photos in visualPhotos to find the mismatch
+      console.log('[PHOTO SYNC DEBUG] Searching for tempFileId:', event.tempFileId);
+      console.log('[PHOTO SYNC DEBUG] Keys in visualPhotos:', Object.keys(this.visualPhotos));
+      for (const debugKey of Object.keys(this.visualPhotos)) {
+        const photos = this.visualPhotos[debugKey];
+        console.log(`[PHOTO SYNC DEBUG] Key "${debugKey}" has ${photos.length} photos:`);
+        photos.forEach((p: any, i: number) => {
+          console.log(`  [${i}] AttachID: ${p.AttachID}, id: ${p.id}, imageId: ${p.imageId}, _pendingFileId: ${p._pendingFileId}`);
+        });
+      }
+
       // Find the photo in our visualPhotos by temp file ID
+      let foundPhoto = false;
       for (const key of Object.keys(this.visualPhotos)) {
         const photoIndex = this.visualPhotos[key].findIndex(p =>
           p.AttachID === event.tempFileId ||
           p._pendingFileId === event.tempFileId ||
-          p.id === event.tempFileId
+          p.id === event.tempFileId ||
+          p.imageId === event.tempFileId  // Also check imageId field
         );
 
         if (photoIndex !== -1) {
+          foundPhoto = true;
           console.log('[PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
 
-          // Update the photo with the result from sync
           const result = event.result;
           const actualResult = result?.Result?.[0] || result;
-          const caption = this.visualPhotos[key][photoIndex].caption || '';
+          const realAttachId = actualResult.PK_ID || actualResult.AttachID;
 
-          await this.updatePhotoAfterUpload(key, photoIndex, {
-            AttachID: actualResult.PK_ID || actualResult.AttachID,
-            Result: [actualResult],
-            ...actualResult
-          }, caption);
-
-          // Also remove queued flag
-          if (this.visualPhotos[key][photoIndex]) {
-            this.visualPhotos[key][photoIndex].queued = false;
-            this.visualPhotos[key][photoIndex]._pendingFileId = undefined;
+          // Cache the remote image for persistence (used after local blob is pruned)
+          // but do NOT update displayUrl - it stays as local blob from LocalImages
+          let cachedUrl = this.visualPhotos[key][photoIndex].url;
+          try {
+            const cachedBase64 = await this.indexedDb.getCachedPhoto(String(realAttachId));
+            if (cachedBase64) {
+              cachedUrl = cachedBase64;
+              console.log('[PHOTO SYNC] ? Found cached base64 for persistence:', realAttachId);
+            } else {
+              console.log('[PHOTO SYNC] No cached image yet (displayUrl unchanged - staying with LocalImages)');
+            }
+          } catch (err) {
+            console.warn('[PHOTO SYNC] Failed to get cached image:', err);
           }
 
+          // Update photo metadata - preserve displayUrl (local blob from LocalImages)
+          // CRITICAL: Preserve caption - it may have been set locally before sync
+          // The upload includes the caption, so we can safely keep the local one
+          const existingPhoto = this.visualPhotos[key][photoIndex];
+          const serverCaption = actualResult.Annotation || actualResult.Caption || '';
+          const localCaption = existingPhoto.caption || '';
+
+          // Use local caption if it exists, otherwise use server caption
+          // (server caption should match if upload worked correctly)
+          const finalCaption = localCaption || serverCaption;
+
+          this.visualPhotos[key][photoIndex] = {
+            ...existingPhoto,
+            AttachID: realAttachId,
+            attachId: String(realAttachId),  // CRITICAL: Update lowercase for caption lookups
+            id: realAttachId,                 // CRITICAL: Update id for consistency
+            url: cachedUrl,  // Store cached URL for reference, but displayUrl unchanged
+            // displayUrl: unchanged - stays as local blob from LocalImages table
+            // thumbnailUrl: unchanged - stays as local blob from LocalImages table
+            // originalUrl: unchanged - stays as local blob from LocalImages table
+            caption: finalCaption,  // CRITICAL: Preserve caption
+            Annotation: finalCaption,  // Also set Caspio field
+            queued: false,
+            uploading: false,
+            isPending: false,
+            _pendingFileId: undefined,
+            _localUpdate: false,  // Clear local update flag - sync is complete
+            isSkeleton: false
+          };
+
+          // ===== US-001 DEBUG: After sync update - trace final displayUrl =====
+          const updatedPhoto = this.visualPhotos[key][photoIndex];
+          const syncUpdateDebugMsg = `SYNC UPDATE APPLIED\n` +
+            `key: ${key}\n` +
+            `old imageId: ${event.tempFileId}\n` +
+            `new AttachID: ${realAttachId}\n` +
+            `displayUrl: ${updatedPhoto.displayUrl?.substring(0, 80)}...\n` +
+            `displayUrl type: ${updatedPhoto.displayUrl?.startsWith('blob:') ? 'BLOB (local)' : updatedPhoto.displayUrl?.startsWith('data:') ? 'DATA (cached)' : 'OTHER'}\n` +
+            `url: ${updatedPhoto.url?.substring(0, 80)}...`;
+          this.logDebug('SYNC', syncUpdateDebugMsg);
+          // ===== END US-001 DEBUG =====
+
           this.changeDetectorRef.detectChanges();
+          console.log('[PHOTO SYNC] Updated photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
           break;
         }
+      }
+
+      // RECOVERY: If photo was NOT found, try to restore it from LocalImageService
+      if (!foundPhoto) {
+        console.error('[PHOTO SYNC] ? Photo NOT FOUND in visualPhotos! tempFileId:', event.tempFileId);
+        console.error('[PHOTO SYNC] Attempting recovery from LocalImageService...');
+
+        try {
+          // Get the LocalImage
+          const localImage = await this.localImageService.getImage(event.tempFileId);
+          if (localImage) {
+            console.log('[PHOTO SYNC] Found LocalImage:', localImage.imageId, 'entityId:', localImage.entityId);
+
+            // Find the key by entityId (visualId)
+            let recoveryKey: string | null = null;
+            for (const [key, visualId] of Object.entries(this.visualRecordIds)) {
+              if (String(visualId) === String(localImage.entityId) ||
+                  visualId === localImage.entityId) {
+                recoveryKey = key;
+                break;
+              }
+            }
+
+            // Also check if entityId maps to a real ID
+            if (!recoveryKey) {
+              const realId = await this.indexedDb.getRealId(localImage.entityId);
+              if (realId) {
+                for (const [key, visualId] of Object.entries(this.visualRecordIds)) {
+                  if (String(visualId) === String(realId)) {
+                    recoveryKey = key;
+                    break;
+                  }
+                }
+              }
+            }
+
+            if (recoveryKey) {
+              console.log('[PHOTO SYNC] Recovery key found:', recoveryKey);
+
+              // Get display URL
+              const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+              // Get result data
+              const result = event.result;
+              const actualResult = result?.Result?.[0] || result;
+              const realAttachId = actualResult.PK_ID || actualResult.AttachID || event.tempFileId;
+
+              // Create photo entry
+              const recoveredPhoto = {
+                imageId: localImage.imageId,
+                AttachID: realAttachId,
+                attachId: String(realAttachId),
+                id: realAttachId,
+                displayUrl: displayUrl,
+                url: displayUrl,
+                thumbnailUrl: displayUrl,
+                originalUrl: displayUrl,
+                caption: localImage.caption || '',
+                annotation: localImage.caption || '',
+                Annotation: localImage.caption || '',
+                Drawings: localImage.drawings || '',
+                hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
+                status: localImage.status,
+                isLocal: !!localImage.localBlobId,
+                uploading: false,
+                queued: false,
+                isPending: false
+              };
+
+              // Add to visualPhotos with duplicate check
+              if (!this.visualPhotos[recoveryKey]) {
+                this.visualPhotos[recoveryKey] = [];
+              }
+              
+              // CRITICAL FIX: Check if photo already exists before adding to prevent duplicates
+              const existingIndex = this.visualPhotos[recoveryKey].findIndex(p => 
+                String(p.AttachID) === String(realAttachId) ||
+                String(p.attachId) === String(realAttachId) ||
+                p.imageId === localImage.imageId
+              );
+              
+              if (existingIndex === -1) {
+                this.visualPhotos[recoveryKey].push(recoveredPhoto);
+                console.log('[PHOTO SYNC] ? Photo RECOVERED and added to visualPhotos:', recoveryKey);
+              } else {
+                // Update existing photo instead of adding duplicate
+                this.visualPhotos[recoveryKey][existingIndex] = {
+                  ...this.visualPhotos[recoveryKey][existingIndex],
+                  ...recoveredPhoto
+                };
+                console.log('[PHOTO SYNC] ? Photo already exists, updated instead:', recoveryKey);
+              }
+              this.changeDetectorRef.detectChanges();
+            } else {
+              console.error('[PHOTO SYNC] ? Could not find recovery key for entityId:', localImage.entityId);
+            }
+          } else {
+            console.error('[PHOTO SYNC] ? LocalImage not found:', event.tempFileId);
+          }
+        } catch (recoveryErr) {
+          console.error('[PHOTO SYNC] Recovery failed:', recoveryErr);
+        }
+      }
+    });
+
+    // Subscribe to cache invalidation events from HudDataService
+    // When data syncs, in-memory caches are cleared and we should reload fresh data
+    // CRITICAL: Debounce to prevent multiple rapid reloads from causing issues
+    this.cacheInvalidationSubscription = this.hudData.cacheInvalidated$.subscribe((event) => {
+      console.log('[CACHE INVALIDATED] Received event:', event);
+
+      // Skip if in local operation cooldown (prevents flash when selecting items)
+      if (this.localOperationCooldown) {
+        console.log('[CACHE INVALIDATED] Skipping - in local operation cooldown');
+        return;
+      }
+
+      // CRITICAL: Skip reload during active sync - images would disappear
+      const syncStatus = this.backgroundSync.syncStatus$.getValue();
+      if (syncStatus.isSyncing) {
+        console.log('[CACHE INVALIDATED] Skipping - sync in progress, will reload after sync completes');
+        this.pendingSyncReload = true;
+        return;
+      }
+
+      // Only reload if this is our service or a global event
+      if (!event.serviceId || event.serviceId === this.serviceId) {
+        // Clear any existing debounce timer
+        if (this.cacheInvalidationDebounceTimer) {
+          clearTimeout(this.cacheInvalidationDebounceTimer);
+        }
+
+        // Skip if already reloading
+        if (this.isReloadingAfterSync) {
+          console.log('[CACHE INVALIDATED] Skipping - already reloading');
+          return;
+        }
+
+        // Debounce: wait 100ms before reloading to batch multiple rapid events
+        // Reduced from 500ms for faster UI response after sync
+        this.cacheInvalidationDebounceTimer = setTimeout(async () => {
+          console.log('[CACHE INVALIDATED] Debounced reload for service:', this.serviceId);
+          await this.reloadVisualsAfterSync();
+        }, 100);
+      }
+    });
+
+    // Subscribe to sync status changes - reload AFTER sync completes (not during)
+    this.syncStatusSubscription = this.backgroundSync.syncStatus$.subscribe((status) => {
+      // When sync finishes and we have a pending reload, do it now
+      if (!status.isSyncing && this.pendingSyncReload) {
+        console.log('[SYNC COMPLETE] Sync finished, now reloading visuals...');
+        this.pendingSyncReload = false;
+        // Small delay to ensure all sync operations are fully complete
+        setTimeout(() => {
+          this.reloadVisualsAfterSync();
+        }, 300);
       }
     });
   }
 
   /**
-   * HUD-010: Subscribe to liveHudFields$ for reactive UI updates on mobile
-   * Auto-updates UI when field data changes in Dexie
+   * Subscribe to Dexie liveQuery for LocalImages changes
+   * This enables reactive updates when IndexedDB changes (photos added, synced, deleted)
+   * Automatically updates bulkLocalImagesMap without manual refresh
    */
-  private subscribeToLiveHudFields(): void {
-    if (!this.isMobile || !this.serviceId || !this.categoryName) {
+  private subscribeToLocalImagesChanges(): void {
+    // Unsubscribe from previous subscription if exists
+    if (this.localImagesSubscription) {
+      this.localImagesSubscription.unsubscribe();
+    }
+    
+    if (!this.serviceId) {
+      console.log('[LIVEQUERY] No serviceId, skipping subscription');
       return;
     }
+    
+    console.log('[LIVEQUERY] Subscribing to LocalImages changes for service:', this.serviceId);
 
-    console.log('[HUD-010] Subscribing to liveHudFields$ for:', this.serviceId, this.categoryName);
+    // Subscribe to all LocalImages for this service (visual entity type)
+    this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'visual').subscribe(
+      async (localImages) => {
+        console.log('[LIVEQUERY] LocalImages updated:', localImages.length, 'images');
 
-    // Unsubscribe from any existing subscription
-    if (this.hudFieldsSubscription) {
-      this.hudFieldsSubscription.unsubscribe();
-    }
-
-    this.hudFieldsSubscription = this.hudFieldRepo.liveHudFields$(this.serviceId, this.categoryName)
-      .subscribe({
-        next: async (fields: HudField[]) => {
-          console.log('[HUD-010] LiveQuery update received:', fields.length, 'fields');
-
-          // Process field updates and update UI
-          await this.processLiveFieldUpdates(fields);
-        },
-        error: (err) => {
-          console.error('[HUD-010] LiveQuery error:', err);
-        }
-      });
-  }
-
-  /**
-   * HUD-010: Process field updates from liveQuery
-   * Maps Dexie HudField data to UI state
-   */
-  private async processLiveFieldUpdates(fields: HudField[]): Promise<void> {
-    // Skip if camera capture in progress to prevent duplicates with annotated photos
-    if (this.isCameraCaptureInProgress) {
-      console.log('[HUD-CATEGORY-DETAIL] Skipping liveQuery during camera capture');
-      return;
-    }
-
-    // Skip if multi-image upload in progress to prevent race conditions
-    if (this.isMultiImageUploadInProgress) {
-      console.log('[HUD-CATEGORY-DETAIL] Skipping liveQuery during batch upload');
-      return;
-    }
-
-    for (const field of fields) {
-      if (!field.isSelected) {
-        continue;
-      }
-
-      const key = `${field.category}_${field.templateId}`;
-      const hudId = field.hudId || field.tempHudId || '';
-
-      // Update selection state
-      this.selectedItems[key] = true;
-
-      // Store visual record ID if we have one
-      if (hudId) {
-        this.visualRecordIds[key] = hudId;
-      }
-
-      // Update answer in matching template item
-      const item = this.findItemByTemplateId(field.templateId);
-      if (item) {
-        item.answer = field.answer || '';
-        item.otherValue = field.otherValue || '';
-      }
-
-      // HUD-010: Load photos from LocalImages (no server round-trip on mobile)
-      if (hudId) {
-        await this.loadPhotosFromLocalImages(hudId, key);
-      }
-    }
-
-    // Debounce change detection to prevent UI thrashing from rapid liveQuery updates
-    if (this.liveQueryDebounceTimer) {
-      clearTimeout(this.liveQueryDebounceTimer);
-    }
-    this.liveQueryDebounceTimer = setTimeout(() => {
-      this.liveQueryDebounceTimer = null;
-      this.changeDetectorRef.detectChanges();
-    }, 100);
-  }
-
-  /**
-   * HUD-010: Subscribe to sync events for automatic refresh on mobile
-   * Triggers UI update when sync completes
-   */
-  private subscribeToSyncEvents(): void {
-    if (!this.isMobile) {
-      return;
-    }
-
-    console.log('[HUD-010] Subscribing to sync events for automatic refresh');
-
-    // Subscribe to HUD sync complete events
-    this.hudSyncCompleteSubscription = this.backgroundSync.hudSyncComplete$.subscribe(
-      async (event) => {
-        console.log('[HUD-010] Sync complete event:', event.operation, 'for', event.fieldKey);
-
-        // Check if this event is for our current service/category
-        if (event.serviceId === this.serviceId) {
-          const category = event.fieldKey.split(':')[1];
-          if (category === this.categoryName) {
-            console.log('[HUD-010] Sync complete for current category - refreshing photos');
-            // Refresh photos for the affected field
-            const templateId = event.fieldKey.split(':')[2];
-            const key = `${this.categoryName}_${templateId}`;
-            const hudId = this.visualRecordIds[key];
-            if (hudId) {
-              await this.loadPhotosFromLocalImages(hudId, key);
-              this.changeDetectorRef.detectChanges();
-            }
-          }
-        }
-      }
-    );
-
-    // Subscribe to HUD photo upload complete events
-    this.hudPhotoUploadCompleteSubscription = this.backgroundSync.hudPhotoUploadComplete$.subscribe(
-      async (event) => {
-        console.log('[HUD-010] Photo upload complete:', event.imageId);
-
-        // Find and update the photo in our visualPhotos
-        for (const key of Object.keys(this.visualPhotos)) {
-          const photoIndex = this.visualPhotos[key].findIndex(p =>
-            p._localImageId === event.imageId ||
-            p.imageId === event.imageId
-          );
-
-          if (photoIndex !== -1) {
-            console.log('[HUD-010] Found photo at key:', key, 'index:', photoIndex);
-
-            // Refresh the photo display from LocalImages
-            const hudId = this.visualRecordIds[key];
-            if (hudId) {
-              await this.loadPhotosFromLocalImages(hudId, key);
-              this.changeDetectorRef.detectChanges();
-            }
-            break;
-          }
-        }
-      }
-    );
-
-    // HUD-014: Subscribe to caption sync complete events
-    // Updates UI when caption/annotation sync completes in background
-    this.captionSyncCompleteSubscription = this.backgroundSync.captionSyncComplete$.subscribe(
-      async (event) => {
-        console.log('[HUD-014] Caption sync complete:', event.attachId, 'type:', event.attachType);
-
-        // Only process visual type captions for HUD
-        if (event.attachType !== 'visual') {
+        // Suppress during camera capture to prevent duplicate photos with annotations
+        // Camera code manually pushes with annotated URL; liveQuery would add with original URL
+        // Gallery uploads do NOT suppress - they rely on liveQuery for UI updates
+        if (this.isCameraCaptureInProgress) {
+          console.log('[LIVEQUERY] Suppressing - camera capture in progress');
           return;
         }
 
-        // Find and update the photo with the synced caption in our visualPhotos
-        for (const key of Object.keys(this.visualPhotos)) {
-          const photoIndex = this.visualPhotos[key].findIndex(p =>
-            String(p.AttachID) === String(event.attachId) ||
-            String(p.attachId) === String(event.attachId) ||
-            String(p.imageId) === String(event.attachId)
-          );
+        // Update bulkLocalImagesMap reactively (always update data immediately)
+        this.updateBulkLocalImagesMap(localImages);
 
-          if (photoIndex !== -1) {
-            console.log('[HUD-014] Found synced photo at key:', key, 'index:', photoIndex);
-
-            // Mark the photo as synced (remove any pending indicator)
-            if (this.visualPhotos[key][photoIndex]._captionPending) {
-              delete this.visualPhotos[key][photoIndex]._captionPending;
-            }
-
-            // Trigger UI update
-            this.changeDetectorRef.detectChanges();
-            break;
-          }
+        // DEXIE-FIRST: Refresh photos from updated Dexie data
+        if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+          await this.populatePhotosFromDexie(this.lastConvertedFields);
         }
+
+        // CRITICAL: Debounce change detection to prevent multiple rapid UI updates
+        // This prevents the "hard refresh" feeling when multiple operations happen quickly
+        // (e.g., saving caption triggers both local update and IndexedDB update)
+        if (this.liveQueryDebounceTimer) {
+          clearTimeout(this.liveQueryDebounceTimer);
+        }
+        this.liveQueryDebounceTimer = setTimeout(() => {
+          this.changeDetectorRef.detectChanges();
+          this.liveQueryDebounceTimer = null;
+        }, 100); // 100ms debounce - fast enough to feel responsive, slow enough to batch updates
+      },
+      (error) => {
+        console.error('[LIVEQUERY] Error in LocalImages subscription:', error);
       }
     );
   }
 
   /**
-   * HUD-010: Load photos from LocalImages (local-first, no server round-trip)
-   * displayUrl ALWAYS points to local blob on mobile
+   * Update bulkLocalImagesMap from liveQuery results
+   * Groups LocalImages by entityId for efficient lookup
    */
-  private async loadPhotosFromLocalImages(hudId: string, key: string): Promise<void> {
-    if (!this.isMobile) {
-      // Fall back to traditional photo loading for webapp
-      await this.loadPhotosForVisual(hudId, key);
-      return;
+  private updateBulkLocalImagesMap(localImages: LocalImage[]): void {
+    // Clear existing map
+    this.bulkLocalImagesMap.clear();
+
+    // Group LocalImages by entityId
+    for (const img of localImages) {
+      if (!img.entityId) continue;
+
+      const entityId = String(img.entityId);
+      if (!this.bulkLocalImagesMap.has(entityId)) {
+        this.bulkLocalImagesMap.set(entityId, []);
+      }
+      this.bulkLocalImagesMap.get(entityId)!.push(img);
     }
 
-    try {
-      console.log('[HUD-010] Loading photos from LocalImages for HUD:', hudId, 'key:', key);
+    // US-001 FIX: Bidirectional ID mapping using cached temp->real mappings
+    // This handles the race condition where background-sync updates photo entityId to real_ID,
+    // but reloadVisualsAfterSync hasn't run yet to update visualRecordIds from temp_ID to real_ID.
+    // Without this, photos "disappear" between sync completing and UI refresh.
 
-      // Get all local images for this HUD entity
-      const localImages = await this.localImageService.getImagesForEntity('hud', hudId);
-      console.log('[HUD-010] Found', localImages.length, 'local images');
+    // Build reverse mapping: for each temp_ID in visualRecordIds, check tempIdToRealIdCache
+    // and also map images with real_ID back to temp_ID
+    for (const [key, tempOrRealId] of Object.entries(this.visualRecordIds)) {
+      if (!tempOrRealId || !String(tempOrRealId).startsWith('temp_')) continue;
 
-      if (localImages.length === 0) {
-        // No local images - check API cache for synced images
-        await this.loadPhotosForVisual(hudId, key);
-        return;
-      }
+      const tempId = String(tempOrRealId);
+      const realId = this.tempIdToRealIdCache.get(tempId);
 
-      // Initialize photo array if needed
-      if (!this.visualPhotos[key]) {
-        this.visualPhotos[key] = [];
-      }
-
-      // Process each local image
-      for (const localImage of localImages) {
-        // Get display info with resolved URL (always local blob on mobile)
-        const displayInfo = await this.localImageService.getDisplayInfo(localImage);
-
-        const existingIndex = this.visualPhotos[key].findIndex(p =>
-          p.imageId === localImage.imageId ||
-          p._localImageId === localImage.imageId ||
-          (localImage.attachId && String(p.AttachID) === String(localImage.attachId))
-        );
-
-        const photoData: any = {
-          // HUD-010: Use stable imageId as primary key
-          imageId: localImage.imageId,
-          _localImageId: localImage.imageId,
-          AttachID: localImage.attachId || localImage.imageId,
-          attachId: localImage.attachId || localImage.imageId,
-          id: localImage.attachId || localImage.imageId,
-          name: localImage.fileName,
-          filePath: localImage.remoteS3Key || '',
-          Photo: localImage.remoteS3Key || '',
-          // HUD-010: displayUrl ALWAYS points to local blob on mobile
-          url: displayInfo.displayUrl,
-          originalUrl: displayInfo.displayUrl,
-          thumbnailUrl: displayInfo.displayUrl,
-          displayUrl: displayInfo.displayUrl,
-          // Display state
-          displayState: displayInfo.isLocal ? 'local' : 'cached',
-          isLocal: displayInfo.isLocal,
-          loading: displayInfo.isLoading,
-          // Metadata
-          caption: localImage.caption || '',
-          annotation: localImage.caption || '',
-          Annotation: localImage.caption || '',
-          hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
-          Drawings: localImage.drawings || null,
-          // Status
-          uploading: displayInfo.status === 'uploading',
-          queued: displayInfo.status === 'queued',
-          uploadFailed: displayInfo.hasError,
-          status: displayInfo.status
-        };
-
-        if (existingIndex !== -1) {
-          // Update existing photo, preserving upload state
-          const existing = this.visualPhotos[key][existingIndex];
-          this.visualPhotos[key][existingIndex] = {
-            ...photoData,
-            // Preserve upload progress if still uploading
-            uploading: existing.uploading || photoData.uploading,
-            progress: existing.progress
-          };
-        } else {
-          this.visualPhotos[key].push(photoData);
+      if (realId && this.bulkLocalImagesMap.has(realId)) {
+        // Copy images from real_ID to temp_ID for backward compatibility
+        const imagesUnderRealId = this.bulkLocalImagesMap.get(realId)!;
+        if (!this.bulkLocalImagesMap.has(tempId)) {
+          this.bulkLocalImagesMap.set(tempId, []);
+        }
+        const existing = this.bulkLocalImagesMap.get(tempId)!;
+        for (const img of imagesUnderRealId) {
+          if (!existing.some(e => e.imageId === img.imageId)) {
+            existing.push(img);
+          }
         }
       }
-
-      // Update photo count
-      this.photoCountsByKey[key] = this.visualPhotos[key].length;
-      this.loadingPhotosByKey[key] = false;
-
-      console.log('[HUD-010] Loaded', this.visualPhotos[key].length, 'photos for key:', key);
-
-    } catch (error) {
-      console.error('[HUD-010] Error loading photos from LocalImages:', error);
-      // Fall back to traditional loading
-      await this.loadPhotosForVisual(hudId, key);
     }
+
+    // Also do reverse: for each real_ID in visualRecordIds, check if there's a temp_ID mapping
+    // This handles the case where visualRecordIds was already updated to real_ID
+    for (const [tempId, realId] of this.tempIdToRealIdCache.entries()) {
+      if (this.bulkLocalImagesMap.has(tempId) && !this.bulkLocalImagesMap.has(realId)) {
+        // Copy images from temp_ID to real_ID
+        const imagesUnderTempId = this.bulkLocalImagesMap.get(tempId)!;
+        this.bulkLocalImagesMap.set(realId, [...imagesUnderTempId]);
+      }
+    }
+
+    console.log('[LIVEQUERY] Updated bulkLocalImagesMap with', this.bulkLocalImagesMap.size, 'entity groups');
+  }
+
+  /**
+   * Reload visuals after a sync event to ensure UI shows fresh data
+   * CRITICAL FIX: Uses VisualTemplateID for reliable matching, prevents key collisions
+   */
+  private async reloadVisualsAfterSync(): Promise<void> {
+    // Prevent concurrent reloads
+    if (this.isReloadingAfterSync) {
+      console.log('[RELOAD AFTER SYNC] Skipping - already reloading');
+      return;
+    }
+    
+    this.isReloadingAfterSync = true;
+    try {
+      console.log('[RELOAD AFTER SYNC] Starting fresh visual reload...');
+      
+      // Get fresh visuals from IndexedDB (already updated by BackgroundSyncService)
+      const visuals = await this.hudData.getVisualsByService(this.serviceId);
+      console.log('[RELOAD AFTER SYNC] Got', visuals.length, 'visuals from IndexedDB');
+      
+      // Track processed keys to prevent collisions within this reload
+      const processedKeys = new Set<string>();
+      
+      // Update existing items with fresh data from server
+      let anyVisualChanges = false;
+      
+      for (const visual of visuals) {
+        // Skip if not for current category
+        if (visual.Category !== this.categoryName) {
+          continue;
+        }
+        
+        const kind = visual.Kind?.toLowerCase() || '';
+        const templateId = visual.VisualTemplateID || visual.TemplateID;
+        const visualId = String(visual.VisualID || visual.PK_ID);
+        
+        // CRITICAL: Check if this visual is HIDDEN (deselected offline)
+        // If so, we should NOT re-select it in the UI
+        const isHidden = visual.Notes && String(visual.Notes).startsWith('HIDDEN');
+        
+        // Find the item in organizedData by matching templateId or name+category+kind
+        let targetArray: VisualItem[] | null = null;
+        if (kind === 'comment') {
+          targetArray = this.organizedData.comments;
+        } else if (kind === 'limitation') {
+          targetArray = this.organizedData.limitations;
+        } else if (kind === 'deficiency') {
+          targetArray = this.organizedData.deficiencies;
+        }
+        
+        if (targetArray) {
+          // CRITICAL: Find by templateId first (most reliable), then by name+category+kind
+          let existingItem: VisualItem | undefined;
+          
+          if (templateId) {
+            existingItem = targetArray.find(item => item.templateId === templateId);
+            if (existingItem) {
+              console.log(`[RELOAD AFTER SYNC] Matched visual ${visualId} by TemplateID ${templateId}`);
+            }
+          }
+          
+          // If not found by templateId, try name+category+kind match
+          if (!existingItem) {
+            existingItem = targetArray.find(item =>
+              item.name === visual.Name && item.category === visual.Category
+            );
+            if (existingItem && templateId) {
+              console.warn(`[RELOAD AFTER SYNC] Visual ${visualId} TemplateID ${templateId} didn't match, fell back to name: "${visual.Name}"`);
+            }
+          }
+          
+          if (existingItem) {
+            // CRITICAL: Use correct key format to match the rest of the codebase
+            const key = `${visual.Category}_${existingItem.id}`;
+            
+            // CRITICAL: Check for collision - skip if this key was already processed
+            if (processedKeys.has(key)) {
+              console.warn(`[RELOAD AFTER SYNC] ?? KEY COLLISION: Key "${key}" already processed, skipping visual ${visualId} (Name: "${visual.Name}")`);
+              continue;
+            }
+            processedKeys.add(key);
+
+            // US-001 FIX: If we had a temp_ID and now have a real ID, cache the mapping
+            // This allows the synchronous liveQuery handler to resolve temp->real IDs
+            const previousRecordId = this.visualRecordIds[key];
+            if (previousRecordId && String(previousRecordId).startsWith('temp_') && !visualId.startsWith('temp_')) {
+              this.tempIdToRealIdCache.set(String(previousRecordId), visualId);
+              console.log(`[RELOAD AFTER SYNC] Cached temp->real mapping: ${previousRecordId} -> ${visualId}`);
+
+              // US-001 FIX: Update all LocalImages with temp entityId to use the real ID
+              // This fixes the "first album photo stuck" bug where photos captured with temp_ID
+              // never get updated when the visual syncs. The liveQuery will re-fire after this
+              // update and bulkLocalImagesMap will have entries under the correct real ID.
+              this.indexedDb.updateEntityIdForImages(String(previousRecordId), visualId).catch(err => {
+                console.error(`[RELOAD AFTER SYNC] Failed to update LocalImage entityIds:`, err);
+              });
+
+              // US-002 FIX: Update VisualField.visualId in Dexie with the real ID
+              // This ensures populatePhotosFromDexie can find photos on page reload
+              // because VisualField.visualId will now match LocalImages.entityId
+              if (templateId) {
+                this.visualFieldRepo.setField(this.serviceId, this.categoryName, templateId, {
+                  visualId: visualId,
+                  tempVisualId: null  // Clear temp ID since we now have real ID
+                }).catch(err => {
+                  console.error(`[RELOAD AFTER SYNC] Failed to update VisualField.visualId:`, err);
+                });
+                console.log(`[RELOAD AFTER SYNC] Updated VisualField.visualId: ${templateId} -> ${visualId}`);
+              }
+            }
+
+            // Store the visual record ID for later operations (select/unselect/photo uploads)
+            this.visualRecordIds[key] = visualId;
+            
+            // CRITICAL: Handle HIDDEN visuals - they should be DESELECTED
+            if (isHidden) {
+              // Check if currently selected - if so, we need to deselect
+              if (this.selectedItems[key] === true) {
+                console.log('[RELOAD AFTER SYNC] Deselecting HIDDEN visual:', key, 'visualId:', visualId);
+                this.selectedItems[key] = false;
+                existingItem.isSelected = false;
+                existingItem.isSaving = false;
+                this.savingItems[key] = false;
+                anyVisualChanges = true;
+              }
+              continue; // Skip the rest - don't re-select this visual
+            }
+            
+            // OPTIMIZATION: Only update if something actually changed
+            // This prevents UI "flashing" when data is already correct
+            // NOTE: visualRecordIds[key] stores the server record ID, NOT existingItem.id which is the template ID
+            const currentRecordId = this.visualRecordIds[key];
+            const alreadySelected = this.selectedItems[key] === true;
+            const alreadyHasRealId = String(currentRecordId) === visualId;
+            const hasTempMarkers = (existingItem as any)._tempId || (existingItem as any)._syncing;
+            
+            if (alreadySelected && alreadyHasRealId && !hasTempMarkers) {
+              // Data is already up-to-date, skip to avoid UI flash
+              console.log('[RELOAD AFTER SYNC] Item already up-to-date:', key, 'recordId:', currentRecordId);
+              continue;
+            }
+            
+            anyVisualChanges = true;
+            
+            // Update with fresh server data (only if needed)
+            // NOTE: DO NOT change existingItem.id - that's the template ID used for the key format
+            // Only update UI flags and store the visual record ID separately
+            existingItem.isSelected = true;
+            existingItem.isSaving = false;
+            
+            // Clear any temp ID markers
+            delete (existingItem as any)._tempId;
+            delete (existingItem as any)._localOnly;
+            delete (existingItem as any)._syncing;
+            
+            this.selectedItems[key] = true;
+            this.savingItems[key] = false;
+            
+            console.log('[RELOAD AFTER SYNC] Updated item:', key, 'with visual recordId:', visualId);
+          } else {
+            console.log('[RELOAD AFTER SYNC] No matching item found for visual:', visual.Name, 'templateId:', templateId);
+          }
+        }
+      }
+      
+      // Refresh photo counts with fresh attachment data
+      const photosChanged = await this.refreshPhotoCountsAfterSync(visuals);
+      
+      // Only trigger change detection if something actually changed
+      if (anyVisualChanges || photosChanged) {
+        console.log('[RELOAD AFTER SYNC] Changes detected, running change detection');
+        this.changeDetectorRef.detectChanges();
+      } else {
+        console.log('[RELOAD AFTER SYNC] No changes detected, skipping change detection');
+      }
+      console.log('[RELOAD AFTER SYNC] Complete, visualChanges:', anyVisualChanges, 'photosChanged:', photosChanged);
+      
+    } catch (error) {
+      console.error('[RELOAD AFTER SYNC] Error:', error);
+    } finally {
+      this.isReloadingAfterSync = false;
+      
+      // CRITICAL FIX: Set a cooldown period after reload to prevent background_refresh from triggering another reload
+      // This prevents the duplicate photo issue caused by rapid sequential reloads
+      this.localOperationCooldown = true;
+      if (this.localOperationCooldownTimer) {
+        clearTimeout(this.localOperationCooldownTimer);
+      }
+      this.localOperationCooldownTimer = setTimeout(() => {
+        this.localOperationCooldown = false;
+        console.log('[RELOAD AFTER SYNC] Cooldown period ended');
+      }, 2000); // 2 second cooldown after reload
+    }
+  }
+
+  /**
+   * Refresh photo counts for all visuals after sync
+   * Returns true if any photos were added or updated
+   * BULLETPROOF: Never removes or replaces photos with valid displayUrls
+   */
+  private async refreshPhotoCountsAfterSync(visuals: any[]): Promise<boolean> {
+    let anyChanges = false;
+    
+    for (const visual of visuals) {
+      // Skip if not for current category
+      if (visual.Category !== this.categoryName) {
+        continue;
+      }
+      
+      const kind = visual.Kind?.toLowerCase() || '';
+      const templateId = visual.VisualTemplateID || visual.TemplateID;
+      const visualId = visual.VisualID || visual.PK_ID;
+      
+      // Find the matching item to get the correct key
+      let targetArray: VisualItem[] | null = null;
+      if (kind === 'comment') {
+        targetArray = this.organizedData.comments;
+      } else if (kind === 'limitation') {
+        targetArray = this.organizedData.limitations;
+      } else if (kind === 'deficiency') {
+        targetArray = this.organizedData.deficiencies;
+      }
+      
+      if (!targetArray) {
+        continue;
+      }
+      
+      // Find by templateId first, then by name+category
+      let existingItem = targetArray.find(item => item.templateId === templateId);
+      if (!existingItem) {
+        existingItem = targetArray.find(item => 
+          item.name === visual.Name && item.category === visual.Category
+        );
+      }
+      
+      if (!existingItem) {
+        console.log('[RELOAD AFTER SYNC] No matching item for photo refresh:', visual.Name);
+        continue;
+      }
+      
+      // CRITICAL: Use correct key format to match the rest of the codebase
+      const key = `${visual.Category}_${existingItem.id}`;
+      
+      try {
+        const attachments = await this.hudData.getVisualAttachments(visualId);
+        
+        // BULLETPROOF: Get count of EXISTING photos with valid URLs + new from server
+        // Never reduce the count if we have valid photos
+        const existingValidPhotos = (this.visualPhotos[key] || []).filter(p => 
+          p.displayUrl && 
+          p.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          !p.displayUrl.startsWith('assets/')
+        );
+        this.photoCountsByKey[key] = Math.max(existingValidPhotos.length, attachments?.length || 0);
+        
+        // BULLETPROOF: If we already have photos with valid URLs, DON'T touch them
+        if (attachments && attachments.length > 0) {
+          if (!this.visualPhotos[key]) {
+            this.visualPhotos[key] = [];
+          }
+          
+          for (const att of attachments) {
+            const realAttachId = String(att.PK_ID || att.AttachID);
+
+            // BULLETPROOF: Check by multiple identifiers
+            // Photos may have been added with imageId (UUID) but server returns real AttachID
+            // CRITICAL FIX: Also check for LocalImage by attachId to find photos that have synced
+            // This prevents phantom duplicate images when refreshing after multi-image upload
+            let matchedByLocalImage = false;
+            let localImageForAttach: LocalImage | null = null;
+            try {
+              localImageForAttach = await this.localImageService.getImageByAttachId(realAttachId);
+            } catch (e) {
+              // Ignore - LocalImage system not available
+            }
+
+            const existingPhotoIndex = this.visualPhotos[key].findIndex(p =>
+              String(p.AttachID) === realAttachId ||
+              String(p.attachId) === realAttachId ||
+              String(p.id) === realAttachId ||
+              // CRITICAL FIX: Also match by imageId if we found a LocalImage for this attachment
+              (localImageForAttach && p.imageId === localImageForAttach.imageId)
+            );
+
+            // Track if we matched via LocalImage
+            if (existingPhotoIndex !== -1 && localImageForAttach) {
+              const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
+              if (existingPhoto.imageId === localImageForAttach.imageId) {
+                matchedByLocalImage = true;
+                // Update the AttachID on the existing photo so future matches work directly
+                this.visualPhotos[key][existingPhotoIndex] = {
+                  ...existingPhoto,
+                  AttachID: realAttachId,
+                  attachId: realAttachId,
+                  id: realAttachId
+                };
+                console.log('[RELOAD AFTER SYNC] Matched photo by LocalImage imageId:', localImageForAttach.imageId, '-> AttachID:', realAttachId);
+              }
+            }
+            
+            if (existingPhotoIndex !== -1) {
+              const existingPhoto = this.visualPhotos[key][existingPhotoIndex];
+              
+              // CRITICAL: If existing photo has a valid URL, PRESERVE IT
+              // Only update if existing photo is broken (no displayUrl)
+              const hasValidUrl = existingPhoto.displayUrl && 
+                                  existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png' &&
+                                  !existingPhoto.loading;
+              
+              if (hasValidUrl) {
+                // CRITICAL FIX: Check if attachment has local update flag
+                // If so, DON'T overwrite local caption/annotation with server data
+                const hasLocalUpdate = att._localUpdate || existingPhoto._localUpdate;
+                
+                if (hasLocalUpdate) {
+                  console.log('[RELOAD AFTER SYNC] Preserving local update for photo:', realAttachId, 'caption:', existingPhoto.caption);
+                  // Just ensure it's marked as not uploading/queued
+                  if (existingPhoto.uploading || existingPhoto.queued) {
+                    this.visualPhotos[key][existingPhotoIndex] = {
+                      ...existingPhoto,
+                      uploading: false,
+                      queued: false,
+                      isSkeleton: false,
+                    };
+                    anyChanges = true;
+                  }
+                } else {
+                  // No local update - safe to compare with server data
+                  const captionChanged = existingPhoto.caption !== (att.Annotation || att.Caption || '');
+                  if (captionChanged) {
+                    console.log('[RELOAD AFTER SYNC] Updating metadata for photo:', realAttachId);
+                    this.visualPhotos[key][existingPhotoIndex] = {
+                      ...existingPhoto,
+                      caption: att.Annotation || att.Caption || existingPhoto.caption || '',
+                      Attachment: att.Attachment || existingPhoto.Attachment,
+                      uploading: false,
+                      queued: false,
+                      isSkeleton: false,  // CRITICAL: Ensure caption button is clickable
+                    };
+                    anyChanges = true;
+                  } else {
+                    console.log('[RELOAD AFTER SYNC] Photo already up-to-date:', realAttachId);
+                  }
+                }
+              } else if (att.Attachment) {
+                // Existing photo is broken/loading AND server has S3 key - reload it
+                console.log('[RELOAD AFTER SYNC] Reloading broken photo:', realAttachId);
+                this.loadSinglePhoto(att, key);
+                anyChanges = true;
+              }
+              continue; // Already handled this photo
+            }
+            
+            // CRITICAL FIX: Don't try to match temp photos generically here
+            // The photoUploadComplete$ subscription already handles temp->real ID transition
+            // Generic matching causes caption duplication when multiple photos sync at once
+            // Instead, just add the new photo from server if it doesn't already exist
+
+            // CRITICAL FIX FOR PHANTOM IMAGES: Before adding server photo, check if a LocalImage
+            // exists that will be added later when loadPhotosForVisual runs. This prevents
+            // duplicates when refreshPhotoCountsAfterSync runs before photos are expanded.
+            if (localImageForAttach) {
+              // LocalImage exists for this attachment - it will be added when user expands photos
+              // Just update the photo count but don't add to visualPhotos array yet
+              console.log('[RELOAD AFTER SYNC] Skipping server photo - LocalImage exists:', localImageForAttach.imageId, '-> AttachID:', realAttachId);
+              continue;
+            }
+
+            if (att.Attachment) {
+              console.log('[RELOAD AFTER SYNC] Loading new photo from server:', realAttachId);
+              // loadSinglePhoto checks for existing entries and adds if not found
+              this.loadSinglePhoto(att, key);
+              anyChanges = true;
+            } else {
+              console.log('[RELOAD AFTER SYNC] Skipping photo with empty Attachment:', realAttachId);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('[RELOAD AFTER SYNC] Error getting attachments for', key, error);
+      }
+    }
+    
+    return anyChanges;
   }
 
   /**
    * Update photo object after successful upload
+   * LOCAL-FIRST: For local-first images, keep using local blob URLs until remote is verified
    */
   private async updatePhotoAfterUpload(key: string, photoIndex: number, result: any, caption: string) {
-    console.log('[UPLOAD UPDATE] ========== Updating photo after upload ==========');
-    console.log('[UPLOAD UPDATE] Key:', key, 'Index:', photoIndex);
-    console.log('[UPLOAD UPDATE] Result:', JSON.stringify(result, null, 2));
+    // Get existing photo to check if it's local-first
+    const oldPhoto = this.visualPhotos[key][photoIndex];
     
-    // Handle both direct result and Result array format
+    // LOCAL-FIRST: Skip server URL fetching for local-first images
+    // They should continue using their local blob URL until the remote is verified
+    if (oldPhoto && (oldPhoto.isLocalFirst || oldPhoto.isLocalImage || oldPhoto.localImageId)) {
+      console.log('[UPLOAD UPDATE] LOCAL-FIRST image - skipping server URL fetch, keeping local blob URL');
+      // Just update status flags, keep URLs intact
+      this.visualPhotos[key][photoIndex] = {
+        ...oldPhoto,
+        uploading: false,
+        queued: false,
+        isPending: result.status !== 'verified',
+        status: result.status || 'uploaded'
+      };
+      return;
+    }
+    
+    // LEGACY: Handle old-style photos that need server URLs
     const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
     const s3Key = actualResult.Attachment;
     const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url;
     let displayableUrl = uploadedPhotoUrl || '';
 
-    console.log('[UPLOAD UPDATE] Actual result:', actualResult);
-    console.log('[UPLOAD UPDATE] S3 key:', s3Key);
-    console.log('[UPLOAD UPDATE] Photo path (old):', uploadedPhotoUrl);
-
     // Check if this is an S3 image
     if (s3Key && this.caspioService.isS3Key(s3Key)) {
       try {
-        console.log('[UPLOAD UPDATE] ✨ S3 image detected, fetching URL...');
         displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
-        console.log('[UPLOAD UPDATE] ✅ Got S3 URL');
       } catch (err) {
-        console.error('[UPLOAD UPDATE] ❌ Failed to fetch S3 URL:', err);
+        console.error('[UPLOAD UPDATE] S3 failed:', err);
         displayableUrl = 'assets/img/photo-placeholder.png';
       }
     }
-    // Fallback to old Caspio Files API
+    // Fallback to Caspio Files API
     else if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
       try {
-        console.log('[UPLOAD UPDATE] 📁 Caspio Files API, fetching...');
         const imageData = await firstValueFrom(
           this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
         );
-        
         if (imageData && imageData.startsWith('data:')) {
           displayableUrl = imageData;
-          console.log('[UPLOAD UPDATE] ✅ Got displayable image');
         } else {
-          console.warn('[UPLOAD UPDATE] ❌ Invalid data');
           displayableUrl = 'assets/img/photo-placeholder.png';
         }
       } catch (err) {
-        console.error('[UPLOAD UPDATE] ❌ Failed to load uploaded image:', err);
+        console.error('[UPLOAD UPDATE] Failed:', err);
         displayableUrl = 'assets/img/photo-placeholder.png';
       }
-    } else {
-      console.log('[UPLOAD UPDATE] URL already displayable (data: or blob:)');
     }
-
-    console.log('[UPLOAD UPDATE] Final displayableUrl length:', displayableUrl?.length || 0);
-
-    // Get AttachID from the actual result
-    const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
-    console.log('[UPLOAD UPDATE] Using AttachID:', attachId);
-
-    // Revoke old blob URL if it exists
-    const oldPhoto = this.visualPhotos[key][photoIndex];
-    if (oldPhoto && oldPhoto.url && oldPhoto.url.startsWith('blob:')) {
-      console.log('[UPLOAD UPDATE] Revoking old blob URL');
+    
+    // CRITICAL: Preserve existing annotations if user added them while photo was uploading
+    const hasExistingAnnotations = oldPhoto && (
+      oldPhoto.hasAnnotations || 
+      oldPhoto.Drawings || 
+      (oldPhoto.displayUrl && oldPhoto.displayUrl.startsWith('blob:') && oldPhoto.displayUrl !== oldPhoto.url)
+    );
+    
+    // Revoke old blob URL ONLY for LEGACY photos, not local-first ones
+    // And only if it's the base image URL, not an annotation display URL
+    if (oldPhoto && oldPhoto.url && oldPhoto.url.startsWith('blob:') && !hasExistingAnnotations && !oldPhoto.imageId) {
       URL.revokeObjectURL(oldPhoto.url);
     }
 
-    // Update photo object
+    // CRITICAL: Store original temp ID so we can find the photo later if user is editing annotations
+    const originalTempId = oldPhoto?.AttachID && String(oldPhoto.AttachID).startsWith('temp_') 
+      ? oldPhoto.AttachID 
+      : oldPhoto?._originalTempId;
+
+    // Update photo object - PRESERVE annotations if they exist
     this.visualPhotos[key][photoIndex] = {
       ...this.visualPhotos[key][photoIndex],
-      AttachID: attachId,
-      id: attachId,
+      AttachID: result.AttachID,
+      id: result.AttachID,
+      _originalTempId: originalTempId,  // Store for finding photo during annotation save
+      // CRITICAL FIX: Clear temp flags to prevent reloadVisualsAfterSync from matching this photo as "temp"
+      _tempId: undefined,
+      _pendingFileId: undefined,
+      _backgroundSync: undefined,
       uploading: false,
       progress: 100,
       Attachment: s3Key,
@@ -676,293 +2327,1001 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       url: displayableUrl,
       originalUrl: displayableUrl,
       thumbnailUrl: displayableUrl,
-      displayUrl: displayableUrl,
-      caption: caption || '',
-      annotation: caption || '',
-      Annotation: caption || ''
+      // CRITICAL: Preserve displayUrl if user added annotations while uploading
+      displayUrl: hasExistingAnnotations ? oldPhoto.displayUrl : displayableUrl,
+      // CRITICAL: Preserve caption/annotation if user set them while uploading
+      caption: oldPhoto?.caption || caption || '',
+      annotation: oldPhoto?.annotation || caption || '',
+      Annotation: oldPhoto?.Annotation || caption || '',
+      // Preserve annotation data
+      hasAnnotations: oldPhoto?.hasAnnotations || false,
+      Drawings: oldPhoto?.Drawings || '',
+      isSkeleton: false,  // CRITICAL: Ensure caption button is clickable
+      queued: false       // Clear queued state after successful upload
     };
 
-    console.log('[UPLOAD UPDATE] ✅ Photo updated successfully');
-    console.log('[UPLOAD UPDATE] Updated photo object:', {
-      AttachID: this.visualPhotos[key][photoIndex].AttachID,
-      hasUrl: !!this.visualPhotos[key][photoIndex].url,
-      urlLength: this.visualPhotos[key][photoIndex].url?.length || 0
-    });
-    
-    this.changeDetectorRef.detectChanges();
-    console.log('[UPLOAD UPDATE] ✅ Change detection triggered');
+    // If user added annotations while uploading, transfer cached annotated image to real ID
+    if (hasExistingAnnotations && originalTempId) {
+      console.log('[UPLOAD UPDATE] Transferring cached annotated image from temp ID to real ID:', originalTempId, '->', result.AttachID);
+
+      try {
+        // DEXIE-FIRST: Try to use pointer storage instead of copying base64
+        const localImage = await this.localImageService.getImage(originalTempId);
+        if (localImage?.localBlobId) {
+          // Use pointer storage (saves ~930KB)
+          await this.indexedDb.cacheAnnotatedPointer(String(result.AttachID), localImage.localBlobId);
+          console.log('[UPLOAD UPDATE] ? Annotated POINTER transferred to real AttachID:', result.AttachID);
+
+          // Update in-memory map - get displayable URL
+          const displayUrl = await this.indexedDb.getCachedAnnotatedImage(String(result.AttachID));
+          if (displayUrl) {
+            this.bulkAnnotatedImagesMap.set(String(result.AttachID), displayUrl);
+            this.bulkAnnotatedImagesMap.delete(originalTempId);
+          }
+        } else {
+          // FALLBACK: Legacy path - no local blob, use full base64 copy
+          const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(originalTempId);
+          if (cachedAnnotatedImage) {
+            const response = await fetch(cachedAnnotatedImage);
+            const blob = await response.blob();
+            const base64 = await this.indexedDb.cacheAnnotatedImage(String(result.AttachID), blob);
+            console.log('[UPLOAD UPDATE] ? Annotated image transferred (legacy) to real AttachID:', result.AttachID);
+
+            if (base64) {
+              this.bulkAnnotatedImagesMap.set(String(result.AttachID), base64);
+              this.bulkAnnotatedImagesMap.delete(originalTempId);
+            }
+          }
+        }
+      } catch (transferErr) {
+        console.warn('[UPLOAD UPDATE] Failed to transfer annotated image cache:', transferErr);
+      }
+      
+      // Also queue the annotation update to sync with the real AttachID
+      if (oldPhoto?.Drawings) {
+        console.log('[UPLOAD UPDATE] Queueing annotation sync with real AttachID:', result.AttachID);
+        // The annotations are already stored in the photo object and will be synced
+      }
+    }
+
+    console.log('[UPLOAD UPDATE] Photo updated successfully, annotations preserved:', hasExistingAnnotations);
   }
 
   private async loadData() {
-    console.log('[LOAD DATA] ========== STARTING CACHE-FIRST DATA LOAD ==========');
-
-    try {
-      // STEP 1: Check if we have cached visuals data - if so, skip loading spinner
-      const cachedVisuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals');
-      const hasCachedData = cachedVisuals && cachedVisuals.length > 0;
-
-      if (hasCachedData) {
-        console.log('[LOAD DATA] ✅ Cache HIT - Found', cachedVisuals.length, 'cached visuals, loading instantly');
-        // Don't show loading spinner - display cached data immediately
-        this.loading = false;
-      } else {
-        console.log('[LOAD DATA] ⏳ Cache MISS - No cached data, showing loading spinner');
-        this.loading = true;
-      }
-
-      // Reset state but preserve any photo data during background refresh
-      if (!hasCachedData) {
-        // Only fully clear state on initial load (cache empty)
-        this.visualPhotos = {};
-        this.visualRecordIds = {};
-        this.uploadingPhotosByKey = {};
-        this.loadingPhotosByKey = {};
-        this.photoCountsByKey = {};
-        this.selectedItems = {};
-      }
-
-      this.organizedData = {
-        comments: [],
-        limitations: [],
-        deficiencies: []
-      };
-
-      // Load dropdown options for all templates (needed before loading templates)
-      console.log('[LOAD DATA] Step 1: Loading dropdown options...');
-      await this.loadAllDropdownOptions();
-
-      // Load templates for this category
-      console.log('[LOAD DATA] Step 2: Loading templates...');
-      await this.loadCategoryTemplates();
-
-      // Load existing visuals - use cache for instant display, background refresh for freshness
-      console.log('[LOAD DATA] Step 3: Loading existing visuals (cache-first)...');
-      await this.loadExistingVisuals(!!hasCachedData);
-
-      // Restore any pending photos from IndexedDB (offline uploads)
-      console.log('[LOAD DATA] Step 4: Restoring pending photos...');
-      await this.restorePendingPhotosFromIndexedDB();
-
-      console.log('[LOAD DATA] ========== DATA LOAD COMPLETE ==========');
-      console.log('[LOAD DATA] Final state - visualRecordIds:', this.visualRecordIds);
-      console.log('[LOAD DATA] Final state - selectedItems:', this.selectedItems);
-
-      // Hide loading spinner (if it was shown)
-      this.loading = false;
-
-    } catch (error) {
-      console.error('[LOAD DATA] ❌ Error loading category data:', error);
-      this.loading = false;
+    // CRITICAL: Prevent concurrent loadData() calls which can cause race conditions and photo loss
+    if (this.isLoadingData) {
+      console.log('[LOAD DATA] ?? SKIPPING - loadData() already in progress');
+      return;
     }
-  }
+    this.isLoadingData = true;
 
-  private async loadCategoryTemplates() {
-    try {
-      // HUD-012: Use cached templates on mobile, direct API on webapp
-      // ensureHudTemplatesReady() returns cached data if available (mobile)
-      // or fetches from API (webapp) - follows platform-aware pattern
-      const allTemplates = await this.offlineTemplate.ensureHudTemplatesReady();
-      const hudTemplates = (allTemplates || []).filter((template: any) =>
-        template.Category === this.categoryName
-      );
+    console.time('[CategoryDetail] loadData total');
+    console.log('[LOAD DATA] ========== loadData START ==========');
+    console.log('[LOAD DATA] Stack trace:', new Error().stack?.split('\n').slice(1, 4).join(' ? '));
+    const startTime = performance.now();
 
-      console.log(`[HUD CATEGORY] Found ${hudTemplates.length} templates for category:`, this.categoryName);
+    // CRITICAL: Start cooldown to prevent cache invalidation events from causing UI flash
+    this.startLocalOperationCooldown();
 
-      // CRITICAL: Sort templates by OrderID to ensure correct display order
-      hudTemplates.sort((a: any, b: any) => {
-        const orderA = a.OrderID || 0;
-        const orderB = b.OrderID || 0;
-        return orderA - orderB;
+    // CRITICAL FIX: Preserve existing photos before clearing
+    // This prevents images from disappearing during reloads/sync
+    const preservedPhotos: { [key: string]: any[] } = {};
+    const syncStatus = this.backgroundSync.syncStatus$.getValue();
+    const syncInProgress = syncStatus.isSyncing;
+
+    console.log('[LOAD DATA] Checking photos to preserve... (sync in progress:', syncInProgress, ')');
+
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      console.log(`[LOAD DATA] Key "${key}" has ${(photos as any[]).length} photos before filtering`);
+
+      // Log each photo's status for debugging
+      (photos as any[]).forEach((p: any, i: number) => {
+        console.log(`[LOAD DATA]   [${i}] imageId: ${p.imageId}, displayUrl: ${p.displayUrl?.substring(0, 50)}..., uploading: ${p.uploading}, queued: ${p.queued}, status: ${p.status}`);
       });
 
-      console.log('[HUD CATEGORY] Templates sorted by OrderID:', hudTemplates.map((t: any) => `${t.Name} (${t.OrderID || 0})`));
-
-      // Organize templates by Kind (Type field in HUD is called "Kind")
-      hudTemplates.forEach((template: any) => {
-        // Log the Kind value to debug
-        console.log('[HUD CATEGORY] Template:', template.Name, 'PK_ID:', template.PK_ID, 'TemplateID:', template.TemplateID, 'Kind:', template.Kind, 'Type:', template.Type);
-
-        const templateData: VisualItem = {
-          id: template.PK_ID,
-          templateId: template.TemplateID || template.PK_ID,  // Use TemplateID field, fallback to PK_ID
-          name: template.Name || 'Unnamed Item',
-          text: template.Text || '',
-          originalText: template.Text || '',
-          type: template.Kind || template.Type || 'Comment',  // Try Kind first, then Type
-          category: template.Category,
-          answerType: template.AnswerType || 0,
-          required: template.Required === 'Yes',
-          answer: '',
-          isSelected: false,
-          photos: []
-        };
-
-        // Add to appropriate array based on Kind or Type
-        const kind = template.Kind || template.Type || 'Comment';
-        const kindLower = kind.toLowerCase().trim();
-        
-        console.log('[HUD CATEGORY] Processing item:', template.Name, 'Kind value:', kind, 'Lowercased:', kindLower);
-
-        if (kindLower === 'limitation' || kindLower === 'limitations') {
-          this.organizedData.limitations.push(templateData);
-          console.log('[HUD CATEGORY] Added to Limitations');
-        } else if (kindLower === 'deficiency' || kindLower === 'deficiencies') {
-          this.organizedData.deficiencies.push(templateData);
-          console.log('[HUD CATEGORY] Added to Deficiencies');
-        } else {
-          this.organizedData.comments.push(templateData);
-          console.log('[HUD CATEGORY] Added to Comments/Information');
+      // BULLETPROOF PRESERVATION: Preserve photos if ANY of these conditions are true:
+      // 1. Has valid blob/data URL (local image ready for display)
+      // 2. Has imageId (part of LocalImage system - always keep these!)
+      // 3. Has _pendingFileId (old pending system)
+      // 4. Is uploading or queued (in transit - NEVER lose these)
+      // 5. Sync is in progress (preserve EVERYTHING during sync)
+      const validPhotos = (photos as any[]).filter(p => {
+        // During sync, preserve ALL photos to prevent any loss
+        if (syncInProgress) {
+          console.log(`[LOAD DATA]     -> PRESERVING (sync in progress): ${p.imageId || p.AttachID}`);
+          return true;
         }
 
-        // Note: Dropdown options are already loaded via loadAllDropdownOptions()
-        // No need to load them individually here
+        // Always preserve LocalImage system photos
+        if (p.imageId) {
+          console.log(`[LOAD DATA]     -> PRESERVING (has imageId): ${p.imageId}`);
+          return true;
+        }
+
+        // Always preserve old pending system photos
+        if (p._pendingFileId) {
+          console.log(`[LOAD DATA]     -> PRESERVING (has _pendingFileId): ${p._pendingFileId}`);
+          return true;
+        }
+
+        // Always preserve uploading/queued photos
+        if (p.uploading || p.queued) {
+          console.log(`[LOAD DATA]     -> PRESERVING (uploading/queued): ${p.AttachID}`);
+          return true;
+        }
+
+        // Preserve photos with valid display URLs
+        if (p.displayUrl && (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:'))) {
+          console.log(`[LOAD DATA]     -> PRESERVING (valid displayUrl): ${p.AttachID}`);
+          return true;
+        }
+
+        console.log(`[LOAD DATA]     -> NOT preserving: ${p.AttachID} (no valid criteria)`);
+        return false;
       });
 
-      console.log('[HUD CATEGORY] Organized data:', {
-        comments: this.organizedData.comments.length,
-        limitations: this.organizedData.limitations.length,
-        deficiencies: this.organizedData.deficiencies.length
+      if (validPhotos.length > 0) {
+        preservedPhotos[key] = validPhotos;
+        console.log(`[LOAD DATA] Preserving ${validPhotos.length}/${(photos as any[]).length} photos for key: ${key}`);
+      } else {
+        console.log(`[LOAD DATA] ?? NO photos preserved for key: ${key} (all filtered out)`);
+      }
+    }
+
+    // CRITICAL FIX: Also preserve visualRecordIds so recovery can find keys
+    // This was missing before - causing recovery mechanism to fail
+    const preservedVisualRecordIds = { ...this.visualRecordIds };
+    console.log(`[LOAD DATA] Preserved ${Object.keys(preservedVisualRecordIds).length} visualRecordIds`);
+
+    // CRITICAL FIX: Preserve organizedData and selectedItems to prevent black screen
+    // Only clear photo-related state; keep template structure visible during reload
+    // organizedData will be rebuilt after new data loads (NOT cleared upfront)
+    const preservedOrganizedData = { ...this.organizedData };
+    const preservedSelectedItems = { ...this.selectedItems };
+    console.log(`[LOAD DATA] Preserved organizedData: comments=${preservedOrganizedData.comments?.length || 0}, limitations=${preservedOrganizedData.limitations?.length || 0}, deficiencies=${preservedOrganizedData.deficiencies?.length || 0}`);
+
+    // Clear photo-related state only (NOT organizedData - that stays visible)
+    this.visualPhotos = {};
+    this.visualRecordIds = {};
+    this.uploadingPhotosByKey = {};
+    this.loadingPhotosByKey = {};
+    this.photoCountsByKey = {};
+    // Keep selectedItems and organizedData visible during load to prevent black screen
+
+    // Clear bulk caches
+    this.bulkAttachmentsMap.clear();
+    this.bulkCachedPhotosMap.clear();
+    this.bulkAnnotatedImagesMap.clear();
+    this.bulkPendingPhotosMap.clear();
+    this.bulkLocalImagesMap.clear();
+
+    // CRITICAL: Restore preserved photos immediately so UI doesn't flicker
+    for (const [key, photos] of Object.entries(preservedPhotos)) {
+      this.visualPhotos[key] = photos;
+      this.photoCountsByKey[key] = photos.length;
+      console.log(`[LOAD DATA] Restored ${photos.length} preserved photos for key: ${key}`);
+    }
+
+    // CRITICAL FIX: Restore visualRecordIds for preserved photos
+    // This enables recovery mechanism to find the correct key
+    for (const key of Object.keys(preservedPhotos)) {
+      if (preservedVisualRecordIds[key]) {
+        this.visualRecordIds[key] = preservedVisualRecordIds[key];
+        console.log(`[LOAD DATA] Restored visualRecordId for key: ${key} = ${preservedVisualRecordIds[key]}`);
+      }
+    }
+
+    try {
+      // ===== STEP 0: FAST LOAD - All data in ONE parallel batch =====
+      // Photo data loads on-demand when user clicks to expand
+      console.log('[LOAD DATA] Starting fast load (no photo data)...');
+      const bulkLoadStart = Date.now();
+      
+      const [allTemplates, visuals, pendingPhotos, pendingRequests, allLocalImages, cachedPhotos, annotatedImages] = await Promise.all([
+        this.indexedDb.getCachedTemplates('visual') || [],
+        this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [],
+        this.indexedDb.getAllPendingPhotosGroupedByVisual(),
+        this.indexedDb.getPendingRequests(),
+        this.localImageService.getImagesForService(this.serviceId),
+        this.indexedDb.getAllCachedPhotosForService(this.serviceId),  // Load cached photos upfront
+        this.indexedDb.getAllCachedAnnotatedImagesForService()        // Load annotated images upfront
+      ]);
+      
+      // Store ALL bulk data in memory - NO more IndexedDB reads after this
+      this.bulkPendingPhotosMap = pendingPhotos;
+      this.bulkVisualsCache = visuals as any[] || [];
+      this.bulkPendingRequestsCache = pendingRequests || [];
+      this.bulkCachedPhotosMap = cachedPhotos;          // Store cached photos immediately
+      this.bulkAnnotatedImagesMap = annotatedImages;    // Store annotated images immediately
+      
+      // NEW: Group LocalImages by entityId for fast lookup
+      // Also resolves temp IDs to real IDs so photos persist after parent entity syncs
+      // Run outside Angular zone to avoid unnecessary change detection during data processing
+      await this.ngZone.runOutsideAngular(async () => {
+        this.bulkLocalImagesMap.clear();
+        for (const img of allLocalImages) {
+          // BUGFIX: Convert entityId to string to handle numeric IDs from database
+          const entityId = String(img.entityId);
+
+          // Add to map by original entityId
+          if (!this.bulkLocalImagesMap.has(entityId)) {
+            this.bulkLocalImagesMap.set(entityId, []);
+          }
+          this.bulkLocalImagesMap.get(entityId)!.push(img);
+
+          // CRITICAL: Also add by resolved real ID if entityId is a temp ID
+          // This ensures photos show after the parent visual syncs (temp ID -> real ID)
+          // but before the photo itself syncs (which updates entityId)
+          if (entityId.startsWith('temp_')) {
+            const realId = await this.indexedDb.getRealId(entityId);
+            if (realId && realId !== entityId) {
+              // US-001 FIX: Cache the temp->real mapping for synchronous lookup in liveQuery
+              this.tempIdToRealIdCache.set(entityId, realId);
+
+              if (!this.bulkLocalImagesMap.has(realId)) {
+                this.bulkLocalImagesMap.set(realId, []);
+              }
+              // Avoid duplicates
+              const existing = this.bulkLocalImagesMap.get(realId)!;
+              if (!existing.some(e => e.imageId === img.imageId)) {
+                existing.push(img);
+              }
+            }
+          }
+        }
+
+        // CRITICAL FIX: Reverse mapping - for images whose entityId is already a real ID,
+        // also add them under any temp IDs in visualRecordIds that map to that real ID.
+        // This handles the case where the image's entityId was updated to real ID by sync,
+        // but the visual in organizedData is still tracked by temp ID.
+        for (const [key, tempOrRealId] of Object.entries(this.visualRecordIds)) {
+          if (tempOrRealId && tempOrRealId.startsWith('temp_')) {
+            // Check if this temp ID maps to a real ID that has images
+            const realId = await this.indexedDb.getRealId(tempOrRealId);
+            if (realId && realId !== tempOrRealId) {
+              // US-001 FIX: Cache the temp->real mapping for synchronous lookup in liveQuery
+              this.tempIdToRealIdCache.set(tempOrRealId, realId);
+
+              if (this.bulkLocalImagesMap.has(realId)) {
+                // Copy images from real ID to temp ID
+                const imagesForRealId = this.bulkLocalImagesMap.get(realId)!;
+                if (!this.bulkLocalImagesMap.has(tempOrRealId)) {
+                  this.bulkLocalImagesMap.set(tempOrRealId, []);
+                }
+                const existingForTemp = this.bulkLocalImagesMap.get(tempOrRealId)!;
+                for (const img of imagesForRealId) {
+                  if (!existingForTemp.some(e => e.imageId === img.imageId)) {
+                    existingForTemp.push(img);
+                  }
+                }
+                console.log(`[LOAD DATA] Reverse-mapped ${imagesForRealId.length} images from realId ${realId} to tempId ${tempOrRealId}`);
+              }
+            }
+          }
+        }
       });
+
+      console.log(`[LOAD DATA] Loaded ${allLocalImages.length} LocalImages for ${this.bulkLocalImagesMap.size} entities (with bidirectional ID resolution)`);
+      
+      // NOTE: Cached photos and annotated images are now loaded upfront in Step 0
+      // No need for preloadPhotoCachesInBackground() anymore
+      
+      // CRITICAL: Trigger background refresh when online to sync with server
+      // This follows the standard offline-first pattern used by room-elevation.page.ts
+      // The cached data is displayed immediately, then updated when fresh data arrives
+      if (this.offlineService.isOnline()) {
+        console.log('[LOAD DATA] Online - triggering background refresh for visuals');
+        this.offlineTemplate.getVisualsByService(this.serviceId); // Triggers refreshVisualsInBackground
+      }
+      
+      console.log(`[LOAD DATA] ? Fast load complete in ${Date.now() - bulkLoadStart}ms:`, {
+        templates: (allTemplates as any[]).length,
+        visuals: this.bulkVisualsCache.length,
+        pendingPhotos: pendingPhotos.size,
+        pendingRequests: this.bulkPendingRequestsCache.length
+      });
+      
+      // Only show loading if no templates cached AND no existing data visible
+      if ((allTemplates as any[]).length === 0 && 
+          this.organizedData.comments.length === 0 && 
+          this.organizedData.limitations.length === 0 && 
+          this.organizedData.deficiencies.length === 0) {
+        this.loading = true;
+        this.changeDetectorRef.detectChanges();
+      }
+
+      // ===== STEP 1: Load templates (pure CPU, instant) =====
+      // CRITICAL FIX: Clear organizedData and selectedItems right before rebuilding
+      // This prevents black screen by keeping old data visible during async load above
+      this.organizedData = { comments: [], limitations: [], deficiencies: [] };
+      this.selectedItems = {};
+      this.loadCategoryTemplatesFromCache(allTemplates as any[]);
+
+      // ===== STEP 2: Process visuals (uses pre-loaded bulkVisualsCache) =====
+      this.loadExistingVisualsFromCache();
+      console.log('[LOAD DATA] ? Visuals processed');
+      
+      // CRITICAL FIX: Show content immediately after templates and visuals are loaded
+      // Don't wait for photos - they load in background. This prevents black screen.
+      if (this.loading && (allTemplates as any[]).length > 0) {
+        this.loading = false;
+        this.changeDetectorRef.detectChanges();
+        console.log('[LOAD DATA] ? Content visible (photos loading in background)');
+      }
+
+      // ===== STEP 3: Restore pending photos (uses bulkPendingPhotosMap) =====
+      this.restorePendingPhotosFromIndexedDB();
+      console.log('[LOAD DATA] ? Pending photos restored');
+
+      // ===== STEP 3.5: Show initial photo counts from LocalImages (INSTANT - no I/O) =====
+      // This gives users immediate feedback on photo counts while server data loads
+      this.showInitialPhotoCountsFromLocalImages();
+
+      // ===== STEP 3.6: Show page NOW - don't wait for photos =====
+      this.loading = false;
+      this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
+      this.changeDetectorRef.detectChanges();
+      const loadTimeMs = performance.now() - startTime;
+      console.log(`[LOAD DATA] ========== UI READY (skeleton): ${loadTimeMs.toFixed(0)}ms ==========`);
+      console.timeEnd('[CategoryDetail] loadData total');
+
+      // Performance warning if load takes too long
+      if (loadTimeMs > 2000) {
+        console.warn(`[PERF] Page load took ${loadTimeMs.toFixed(0)}ms - exceeds 2s target`);
+      }
+
+      // ===== STEP 3.7: Load attachments + photo URLs in background (NON-BLOCKING) =====
+      // Use requestIdleCallback for better performance, falling back to setTimeout
+      const loadPhotosInBackground = async () => {
+        try {
+          this.isLoadingPhotosInBackground = true;
+
+          const visualIds = this.bulkVisualsCache
+            .filter((v: any) => v.Category === this.categoryName)
+            .map((v: any) => String(v.VisualID || v.PK_ID || v.id))
+            .filter((id: string) => id && !id.startsWith('temp_'));
+
+          if (visualIds.length > 0) {
+            this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(visualIds);
+            console.log(`[LOAD DATA BG] ? Loaded attachments for ${this.bulkAttachmentsMap.size} visuals`);
+          }
+
+          // Pre-load photo URLs
+          await this.preloadAllPhotoUrls();
+          console.log(`[LOAD DATA BG] ? All photo URLs pre-loaded (total: ${Date.now() - startTime}ms)`);
+
+          // Trigger UI update
+          this.changeDetectorRef.detectChanges();
+        } catch (err) {
+          console.warn('[LOAD DATA BG] Background photo loading failed:', err);
+        } finally {
+          this.isLoadingPhotosInBackground = false;
+        }
+      };
+
+      // Use requestIdleCallback for non-blocking execution when browser is idle
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(() => loadPhotosInBackground(), { timeout: 2000 });
+      } else {
+        // Fallback for environments without requestIdleCallback
+        setTimeout(loadPhotosInBackground, 50);
+      }
 
     } catch (error) {
-      console.error('Error loading category templates:', error);
+      console.error('[LOAD DATA] ? Error:', error);
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
+      console.timeEnd('[CategoryDetail] loadData total');
+    } finally {
+      // CRITICAL: Always reset the loading flag to allow future loads
+      this.isLoadingData = false;
     }
+
+    // Track last loaded IDs to detect context changes on re-entry
+    this.lastLoadedServiceId = this.serviceId;
+    this.lastLoadedCategoryName = this.categoryName;
+
+    console.log('[LOAD DATA] ========== loadData END ==========');
   }
 
   /**
-   * Load all dropdown options from Services_HUD_Drop table
-   * This loads all options upfront and groups them by TemplateID
-   * HUD-012: Uses cached dropdown data on mobile, direct API on webapp
+   * Pre-load cached photos and annotated images in background
+   * This ensures synced images display instantly without S3 fetches
+   * Runs in parallel with page rendering - doesn't block UI
    */
-  private async loadAllDropdownOptions() {
-    try {
-      // HUD-012: Use cached dropdown on mobile, direct API on webapp
-      // ensureHudDropdownReady() returns cached data if available (mobile)
-      // or fetches from API (webapp) - follows platform-aware pattern
-      const dropdownData = await this.offlineTemplate.ensureHudDropdownReady();
-
-      console.log('[HUD Category] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
-      
-      if (dropdownData && dropdownData.length > 0) {
-        // Group dropdown options by TemplateID
-        dropdownData.forEach((row: any) => {
-          const templateId = String(row.TemplateID); // Convert to string for consistency
-          const dropdownValue = row.Dropdown;
-          
-          if (templateId && dropdownValue) {
-            if (!this.visualDropdownOptions[templateId]) {
-              this.visualDropdownOptions[templateId] = [];
-            }
-            // Add unique dropdown values for this template
-            if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
-              this.visualDropdownOptions[templateId].push(dropdownValue);
-            }
-          }
-        });
+  private preloadPhotoCachesInBackground(): void {
+    // Use setTimeout to ensure this doesn't block initial render
+    setTimeout(async () => {
+      try {
+        const cacheLoadStart = Date.now();
+        const [cachedPhotos, annotatedImages] = await Promise.all([
+          this.indexedDb.getAllCachedPhotosForService(this.serviceId),
+          this.indexedDb.getAllCachedAnnotatedImagesForService()
+        ]);
         
-        console.log('[HUD Category] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
-        console.log('[HUD Category] All TemplateIDs with options:', Object.keys(this.visualDropdownOptions));
+        this.bulkCachedPhotosMap = cachedPhotos;
+        this.bulkAnnotatedImagesMap = annotatedImages;
         
-        // Add "Other" option to all multi-select dropdowns if not already present
-        Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
-          const optionsArray = options as string[];
-          if (!optionsArray.includes('Other')) {
-            optionsArray.push('Other');
-          }
-          console.log(`[HUD Category] TemplateID ${templateId}: ${optionsArray.length} options -`, optionsArray.join(', '));
-        });
-      } else {
-        console.warn('[HUD Category] No dropdown data received from API');
+        console.log(`[PHOTO CACHE] Pre-loaded ${cachedPhotos.size} photos, ${annotatedImages.size} annotations in ${Date.now() - cacheLoadStart}ms`);
+      } catch (error) {
+        console.warn('[PHOTO CACHE] Failed to pre-load caches:', error);
+        // Not critical - photos will load on-demand as fallback
       }
-    } catch (error) {
-      console.error('[HUD Category] Error loading dropdown options:', error);
-      // Continue without dropdown options - they're optional
-    }
+    }, 50); // Small delay to prioritize UI rendering
   }
 
-  private async loadExistingVisuals(useCacheFirst: boolean = false) {
-    try {
-      // Load all existing HUD visuals for this service and category
-      console.log('[LOAD EXISTING] ========== START ==========');
-      console.log('[LOAD EXISTING] ServiceID:', this.serviceId);
-      console.log('[LOAD EXISTING] Category to match:', this.categoryName);
-      console.log('[LOAD EXISTING] UseCacheFirst:', useCacheFirst);
-
-      // CACHE-FIRST PATTERN: Use cached data for instant display, then refresh in background
-      // If useCacheFirst is true, we use cache (bypassCache=false) and trigger background refresh
-      // If useCacheFirst is false (cache was empty), we do a blocking API call
-      const allVisuals = await this.hudData.getVisualsByService(this.serviceId, !useCacheFirst);
-
-      // If we used cache, schedule a background refresh for freshness
-      if (useCacheFirst && this.offlineService.isOnline()) {
-        this.triggerBackgroundRefresh();
-      }
-
-      console.log('[LOAD EXISTING] Total visuals:', allVisuals.length, useCacheFirst ? '(from cache)' : '(from API)');
-      console.log('[LOAD EXISTING] All visuals:', allVisuals);
+  /**
+   * Pre-load all photo URLs for all visuals in this category
+   * BLOCKING: Ensures all photos are ready before UI renders
+   * This fixes the issue of images not showing on first template load
+   */
+  private async preloadAllPhotoUrls(): Promise<void> {
+    const loadPromises: Promise<void>[] = [];
+    
+    for (const visual of this.bulkVisualsCache) {
+      if (visual.Category !== this.categoryName) continue;
+      if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
       
-      const categoryVisuals = allVisuals.filter((v: any) => v.Category === this.categoryName);
-      console.log('[LOAD EXISTING] Visuals for this category:', categoryVisuals.length);
+      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
+        this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+      
+      if (!item) continue;
+      
+      const key = `${visual.Category}_${item.id}`;
+      
+      // Only load if there are photos (attachments, pending, or local)
+      const attachments = this.bulkAttachmentsMap.get(visualId) || [];
+      const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
+      const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+      
+      if (attachments.length > 0 || pendingPhotos.length > 0 || localImages.length > 0) {
+        loadPromises.push(
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.warn(`[PRELOAD] Failed to load photos for ${key}:`, err);
+          })
+        );
+      }
+    }
+    
+    // Also process pending visuals with LocalImages (temp IDs)
+    for (const [entityId, localImages] of this.bulkLocalImagesMap.entries()) {
+      if (!entityId.startsWith('temp_')) continue;
+      if (localImages.length === 0) continue;
+      
+      // Find matching key from pending visuals
+      const matchingKey = Object.entries(this.visualRecordIds)
+        .find(([_, id]) => id === entityId)?.[0];
+      
+      if (matchingKey) {
+        loadPromises.push(
+          this.loadPhotosForVisual(entityId, matchingKey).catch(err => {
+            console.warn(`[PRELOAD] Failed to load photos for pending ${matchingKey}:`, err);
+          })
+        );
+      }
+    }
+    
+    console.log(`[PRELOAD] Loading photos for ${loadPromises.length} visuals...`);
+    await Promise.all(loadPromises);
+  }
 
-      if (categoryVisuals.length > 0) {
-        console.log('[LOAD EXISTING] Category visuals full data:', categoryVisuals);
+  /**
+   * Show initial photo counts from LocalImages (instant, no I/O)
+   * This provides immediate feedback to users while server data loads in background
+   */
+  private showInitialPhotoCountsFromLocalImages(): void {
+    // Iterate through all visuals in this category and set initial photo counts from LocalImages
+    for (const visual of this.bulkVisualsCache) {
+      if (visual.Category !== this.categoryName) continue;
+      if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
+
+      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
+        this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+        this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+
+      if (!item) continue;
+
+      const key = `${visual.Category}_${item.id}`;
+
+      // Get counts from various sources (already in memory)
+      const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+      const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
+
+      // Set initial photo count (will be updated when server attachments load)
+      const count = localImages.length + pendingPhotos.length;
+      if (count > 0 && this.photoCountsByKey[key] === undefined) {
+        this.photoCountsByKey[key] = count;
+      }
+    }
+
+    // Also handle pending visuals with temp IDs
+    for (const [entityId, localImages] of this.bulkLocalImagesMap.entries()) {
+      if (!entityId.startsWith('temp_')) continue;
+      if (localImages.length === 0) continue;
+
+      // Find matching key from visualRecordIds
+      const matchingKey = Object.entries(this.visualRecordIds)
+        .find(([_, id]) => id === entityId)?.[0];
+
+      if (matchingKey && this.photoCountsByKey[matchingKey] === undefined) {
+        this.photoCountsByKey[matchingKey] = localImages.length;
+      }
+    }
+
+    console.log(`[INITIAL COUNTS] Set photo counts for ${Object.keys(this.photoCountsByKey).length} visuals from LocalImages`);
+  }
+
+  private async waitForSkeletonsReady(): Promise<void> {
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        // Check if all photo counts have been determined (skeletons are ready)
+        const allSkeletonsReady = this.areAllSkeletonsReady();
+
+        console.log('[SKELETON CHECK] All skeletons ready:', allSkeletonsReady);
+
+        if (allSkeletonsReady) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 1000); // Check every second
+
+      // Safety timeout after 10 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        console.warn('[SKELETON CHECK] Timeout - showing page anyway');
+        resolve();
+      }, 10000);
+    });
+  }
+
+  private areAllSkeletonsReady(): boolean {
+    // Get all items that should have photos loaded
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+
+    // If no items at all, we're ready
+    if (allItems.length === 0) {
+      return true;
+    }
+
+    // Count how many items have visual records (photos to load)
+    let itemsWithVisuals = 0;
+    let itemsWithCountsReady = 0;
+
+    // Check each selected item to see if its skeleton count is set
+    for (const item of allItems) {
+      const key = `${item.category}_${item.id}`;
+
+      // If item is selected/has a visual record
+      if (this.selectedItems[key] || this.visualRecordIds[key]) {
+        itemsWithVisuals++;
+
+        // Check if photo count has been determined
+        if (this.photoCountsByKey[key] !== undefined) {
+          itemsWithCountsReady++;
+        }
+      }
+    }
+
+    console.log('[SKELETON CHECK] Items with visuals:', itemsWithVisuals, 'Counts ready:', itemsWithCountsReady);
+
+    // If no items have visuals, we're ready immediately
+    if (itemsWithVisuals === 0) {
+      return true;
+    }
+
+    // All items with visuals have their counts determined
+    return itemsWithCountsReady === itemsWithVisuals;
+  }
+
+  /**
+   * Load category templates from pre-read cache (no IndexedDB read)
+   */
+  private loadCategoryTemplatesFromCache(allTemplates: any[]) {
+    if (!allTemplates || allTemplates.length === 0) {
+      console.warn('[CategoryDetail] No templates in cache');
+      return;
+    }
+    
+    // Filter for this category - pure CPU operation
+    const visualTemplates = allTemplates.filter((template: any) =>
+      template.TypeID === 1 && template.Category === this.categoryName
+    );
+    
+    console.log('[CategoryDetail] Templates for', this.categoryName + ':', visualTemplates.length);
+
+    // Organize into UI structure - pure CPU
+    this.organizeTemplatesIntoData(visualTemplates);
+  }
+
+  /**
+   * Organize templates into organizedData structure - pure CPU, instant
+   */
+  private organizeTemplatesIntoData(visualTemplates: any[]) {
+    visualTemplates.forEach((template: any) => {
+      // CRITICAL: Use TemplateID for consistent key matching with Dexie fields and dropdown lookup
+      // PK_ID is internal record ID, TemplateID is cross-reference for Services_Visuals_Drop
+      const effectiveTemplateId = template.TemplateID || template.PK_ID;
+
+      const templateData: VisualItem = {
+        id: effectiveTemplateId,
+        templateId: effectiveTemplateId,
+        name: template.Name || 'Unnamed Item',
+        text: template.Text || '',
+        originalText: template.Text || '',
+        type: template.Kind || 'Comment',
+        category: template.Category,
+        answerType: template.AnswerType || 0,
+        required: template.Required === 'Yes',
+        answer: '',
+        isSelected: false,
+        photos: []
+      };
+
+      // Parse dropdown options if AnswerType is 2 (multi-select) and embedded in template
+      // Note: Most dropdown options come from LPS_Services_HUD_Drop via loadDropdownOptionsFromAPI()
+      if (template.AnswerType === 2 && template.DropdownOptions) {
+        try {
+          const optionsArray = JSON.parse(template.DropdownOptions);
+          this.visualDropdownOptions[effectiveTemplateId] = optionsArray;
+        } catch (e) {
+          // Options will be loaded from API instead
+        }
       }
 
-      // Get all available template items
-      const allItems = [
-        ...this.organizedData.comments,
-        ...this.organizedData.limitations,
-        ...this.organizedData.deficiencies
-      ];
-      console.log('[LOAD EXISTING] Available template items:', allItems.length);
-      console.log('[LOAD EXISTING] Template item names:', allItems.map(i => i.name));
+      // Add to appropriate section
+      const kind = template.Kind || template.Type || 'Comment';
+      if (kind === 'Comment') {
+        this.organizedData.comments.push(templateData);
+      } else if (kind === 'Limitation') {
+        this.organizedData.limitations.push(templateData);
+      } else if (kind === 'Deficiency') {
+        this.organizedData.deficiencies.push(templateData);
+      } else {
+        this.organizedData.comments.push(templateData);
+      }
 
-      for (const visual of categoryVisuals) {
-        console.log('[LOAD EXISTING] ========== Processing Visual ==========');
-        console.log('[LOAD EXISTING] Visual HUDID:', visual.HUDID);
-        console.log('[LOAD EXISTING] Visual Name:', visual.Name);
-        console.log('[LOAD EXISTING] Visual Notes:', visual.Notes);
-        console.log('[LOAD EXISTING] Visual Answers:', visual.Answers);
-        console.log('[LOAD EXISTING] Visual Kind:', visual.Kind);
+      // Initialize selected state
+      this.selectedItems[`${this.categoryName}_${effectiveTemplateId}`] = false;
+    });
+  }
+
+  /**
+   * Keep old method for compatibility - now calls new fast method
+   */
+  private async loadCategoryTemplates() {
+    const allTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
+    this.loadCategoryTemplatesFromCache(allTemplates);
+  }
+
+  /**
+   * FAST: Load visuals directly from IndexedDB cache - no pending request check
+   * Optimized for instant display with deferred photo loading
+   * CRITICAL FIX: Uses VisualTemplateID for reliable matching, prevents key collisions
+   */
+  private async loadExistingVisualsFromCache() {
+    // USE PRE-LOADED BULK DATA - NO IndexedDB read here
+    const visuals = this.bulkVisualsCache;
+    console.log('[LOAD VISUALS FAST] Using pre-loaded visuals:', visuals.length);
+    
+    // Track which keys have already been assigned to prevent collisions
+    const assignedKeys = new Set<string>();
+    
+    // Process each visual for this category - sync operation, fast
+    for (const visual of visuals) {
+      const category = visual.Category;
+      const name = visual.Name;
+      const kind = visual.Kind;
+      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const templateId = visual.VisualTemplateID || visual.TemplateID;
+
+      // Only process visuals for current category
+      if (category !== this.categoryName) continue;
+      
+      // CRITICAL: Match by VisualTemplateID first (most reliable), then fall back to name
+      let item: VisualItem | undefined;
+      
+      if (templateId) {
+        // Try matching by template ID first (most reliable)
+        item = this.findItemByTemplateId(Number(templateId));
+        if (item) {
+          console.log(`[LOAD VISUALS FAST] Matched visual ${visualId} by TemplateID ${templateId}`);
+        }
+      }
+      
+      // Fall back to name matching if template ID didn't match
+      if (!item) {
+        item = this.findItemByNameAndCategory(name, category, kind);
+        if (item && templateId) {
+          console.warn(`[LOAD VISUALS FAST] Visual ${visualId} TemplateID ${templateId} didn't match, fell back to name: "${name}"`);
+        }
+      }
+      
+      // Skip hidden visuals - but still store the mapping for unhiding later
+      if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) {
+        if (item) {
+          const hiddenKey = `${category}_${item.id}`;
+          // Only assign if not already assigned to prevent collision
+          if (!assignedKeys.has(hiddenKey)) {
+            this.visualRecordIds[hiddenKey] = visualId;
+            assignedKeys.add(hiddenKey);
+            console.log(`[LOAD VISUALS FAST] Stored HIDDEN visual ${visualId} at key ${hiddenKey}`);
+          } else {
+            console.warn(`[LOAD VISUALS FAST] ?? COLLISION: Key ${hiddenKey} already assigned, visual ${visualId} orphaned`);
+          }
+        }
+        continue;
+      }
+
+      // Find or create item (if not found above)
+      if (!item) {
+        // Custom visual - create dynamic item
+        const customItem: VisualItem = {
+          id: `custom_${visualId}`,
+          templateId: 0,
+          name: visual.Name || 'Custom Item',
+          text: visual.Text || '',
+          originalText: visual.Text || '',
+          type: visual.Kind || 'Comment',
+          category: visual.Category,
+          answerType: 0,
+          required: false,
+          answer: visual.Answers || '',
+          isSelected: true,
+          photos: []
+        };
         
+        if (kind === 'Comment') this.organizedData.comments.push(customItem);
+        else if (kind === 'Limitation') this.organizedData.limitations.push(customItem);
+        else if (kind === 'Deficiency') this.organizedData.deficiencies.push(customItem);
+        else this.organizedData.comments.push(customItem);
+        
+        item = customItem;
+        console.log(`[LOAD VISUALS FAST] Created custom item for visual ${visualId}: "${name}"`);
+      }
+
+      const key = `${category}_${item.id}`;
+      
+      // CRITICAL: Check for key collision before assigning
+      if (assignedKeys.has(key)) {
+        console.error(`[LOAD VISUALS FAST] ?? KEY COLLISION DETECTED! Key "${key}" already has visual ${this.visualRecordIds[key]}, visual ${visualId} (Name: "${name}") would overwrite it!`);
+        // Create a custom item for this orphaned visual instead of overwriting
+        const orphanedItem: VisualItem = {
+          id: `orphan_${visualId}`,
+          templateId: 0,
+          name: visual.Name || 'Orphaned Item',
+          text: visual.Text || '',
+          originalText: visual.Text || '',
+          type: visual.Kind || 'Comment',
+          category: visual.Category,
+          answerType: 0,
+          required: false,
+          answer: visual.Answers || '',
+          isSelected: true,
+          photos: []
+        };
+        
+        if (kind === 'Comment') this.organizedData.comments.push(orphanedItem);
+        else if (kind === 'Limitation') this.organizedData.limitations.push(orphanedItem);
+        else if (kind === 'Deficiency') this.organizedData.deficiencies.push(orphanedItem);
+        else this.organizedData.comments.push(orphanedItem);
+        
+        const orphanKey = `${category}_orphan_${visualId}`;
+        this.visualRecordIds[orphanKey] = visualId;
+        assignedKeys.add(orphanKey);
+        this.selectedItems[orphanKey] = true;
+        this.photoCountsByKey[orphanKey] = 0;
+        this.loadingPhotosByKey[orphanKey] = true;
+        console.log(`[LOAD VISUALS FAST] Created orphan item with key ${orphanKey} for visual ${visualId}`);
+        continue;
+      }
+      
+      this.visualRecordIds[key] = visualId;
+      assignedKeys.add(key);
+      
+      // Restore edited values
+      if (visual.Name) item.name = visual.Name;
+      if (visual.Text) item.text = visual.Text;
+      
+      // Set selected state
+      if (!item.answerType || item.answerType === 0) {
+        this.selectedItems[key] = true;
+      }
+      if (item.answerType === 1 && visual.Answers) item.answer = visual.Answers;
+      if (item.answerType === 2 && visual.Answers) {
+        item.answer = visual.Answers;
+        if (visual.Notes) item.otherValue = visual.Notes;
+      }
+      
+      // FAST PATH: Set initial photo count to 0, load in background
+      this.photoCountsByKey[key] = 0;
+      this.loadingPhotosByKey[key] = true;
+    }
+    
+    console.log(`[LOAD VISUALS FAST] Finished loading. Keys assigned: ${assignedKeys.size}, visualRecordIds entries: ${Object.keys(this.visualRecordIds).length}`);
+    
+    // Render immediately
+    this.changeDetectorRef.detectChanges();
+    
+    // Load photos in background (non-blocking)
+    this.loadAllPhotosInBackground(visuals);
+  }
+
+  /**
+   * LAZY LOADING: Only populate photo counts, don't load actual images
+   * Photos are loaded on-demand when user clicks to expand
+   */
+  private loadAllPhotosInBackground(visuals: any[]) {
+    // Preserve accordion state before background loading starts
+    this.isLoadingPhotosInBackground = true;
+    this.preservedAccordionState = [...this.expandedAccordions];
+
+    setTimeout(async () => {
+      // Process synced visuals from cache
+      for (const visual of visuals) {
+        if (visual.Category !== this.categoryName) continue;
+        if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
+
+        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+        const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
+          this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+          this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+          this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+
+        if (!item) continue;
+
+        const key = `${visual.Category}_${item.id}`;
+
+        // LAZY LOADING: Only calculate count from bulk-loaded data (no image loading)
+        // DEDUP: Avoid counting same photo from multiple sources
+        const attachments = this.bulkAttachmentsMap.get(visualId) || [];
+        const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
+        const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+        
+        const uniqueIds = new Set<string>();
+        for (const att of attachments) {
+          const id = String(att.AttachID || att.attachId || '');
+          if (id) uniqueIds.add(id);
+        }
+        for (const p of pendingPhotos) {
+          const id = String(p.AttachID || p.attachId || '');
+          if (id && !uniqueIds.has(id)) uniqueIds.add(id);
+        }
+        for (const img of localImages) {
+          // Skip if local image has real attachId that's already counted
+          if (img.attachId && uniqueIds.has(img.attachId)) continue;
+          if (img.imageId && !uniqueIds.has(img.imageId)) uniqueIds.add(img.imageId);
+        }
+        this.photoCountsByKey[key] = uniqueIds.size;
+
+        // AUTO-LOAD: If there are LocalImages (unsynced photos), load them immediately
+        // This ensures photos captured before navigation persist and show on return
+        if (localImages.length > 0) {
+          console.log(`[LOAD PHOTOS] Auto-loading ${localImages.length} LocalImages for ${key} (visualId: ${visualId})`);
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.error('[LOAD PHOTOS] Auto-load failed for', key, err);
+          });
+        } else {
+          // Photos will load when user clicks expand - NOT automatically
+          this.loadingPhotosByKey[key] = false;
+        }
+      }
+
+      // CRITICAL: Also process pending visuals with LocalImages (temp IDs)
+      // Pending visuals aren't in the visuals array - they're restored from IndexedDB
+      // We need to check bulkLocalImagesMap for any temp IDs that have photos
+      for (const [entityId, localImages] of this.bulkLocalImagesMap.entries()) {
+        // Skip non-temp IDs (already processed above)
+        if (!entityId.startsWith('temp_')) continue;
+        if (localImages.length === 0) continue;
+
+        // CORRECT: Search visualRecordIds which stores the tempId
+        // The tempId is stored in visualRecordIds[key], NOT on item._tempId
+        let matchingKey: string | null = null;
+        for (const [key, recordId] of Object.entries(this.visualRecordIds)) {
+          if (recordId === entityId) {
+            matchingKey = key;
+            break;
+          }
+        }
+
+        if (!matchingKey) {
+          console.log(`[LOAD PHOTOS] No key found in visualRecordIds for temp ID: ${entityId}`);
+          continue;
+        }
+
+        // Update photo count - only add LocalImages that aren't already counted
+        // (existing count should be 0 for temp visuals, but be safe)
+        const existingCount = this.photoCountsByKey[matchingKey] || 0;
+        this.photoCountsByKey[matchingKey] = Math.max(existingCount, localImages.length);
+
+        console.log(`[LOAD PHOTOS] Auto-loading ${localImages.length} LocalImages for PENDING visual ${matchingKey} (tempId: ${entityId})`);
+        this.loadPhotosForVisual(entityId, matchingKey).catch(err => {
+          console.error('[LOAD PHOTOS] Auto-load failed for pending', matchingKey, err);
+        });
+      }
+
+      // Restore preserved accordion state before triggering change detection
+      if (this.preservedAccordionState) {
+        this.expandedAccordions = [...this.preservedAccordionState];
+      }
+
+      this.isLoadingPhotosInBackground = false;
+      this.preservedAccordionState = null;
+      this.changeDetectorRef.detectChanges();
+    }, 200);  // 200ms delay to ensure pending photos are restored first
+  }
+
+  private async loadExistingVisuals() {
+    try {
+      console.log('[LOAD VISUALS] Loading existing visuals for serviceId:', this.serviceId);
+
+      // Get all visuals for this service (slower path - includes pending)
+      const visuals = await this.hudData.getVisualsByService(this.serviceId);
+
+      console.log('[LOAD VISUALS] Found', visuals.length, 'existing visuals');
+
+      // CRITICAL: First pass - get all photo counts before loading any photos
+      // This ensures all skeletons are rendered before the page shows
+      const photoCountPromises: Promise<void>[] = [];
+
+      // Process each visual
+      for (const visual of visuals) {
+        const category = visual.Category;
+        const name = visual.Name;
+        const kind = visual.Kind;
+        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+
+        // CRITICAL: Only process visuals that belong to the current category
+        // This prevents custom visuals from appearing in other categories
+        if (category !== this.categoryName) {
+          console.log('[LOAD VISUALS] Skipping visual from different category:', category, '(current:', this.categoryName + ')');
+          continue;
+        }
+
         // CRITICAL: Skip hidden visuals (soft delete - keeps photos but doesn't show in UI)
+        // Check for HIDDEN marker (can be "HIDDEN" or "HIDDEN|{otherValue}" for multi-select)
         if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
-          console.log('[LOAD EXISTING] ⚠️ Skipping hidden visual:', visual.Name);
-          
+          console.log('[LOAD VISUALS] Skipping hidden visual:', name, visualId);
           // Store visualRecordId so we can unhide it later if user reselects
-          const item = allItems.find(i => i.name === visual.Name);
-          if (item) {
-            const key = `${this.categoryName}_${item.id}`;
-            const hudId = String(visual.HUDID || visual.PK_ID);
-            this.visualRecordIds[key] = hudId;
-            console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', hudId);
+          const tempKey = `${category}_${name}_${kind}`;
+          // Try to find the template ID to use the correct key
+          const templateItem = this.findItemByNameAndCategory(name, category, kind);
+          if (templateItem) {
+            const properKey = `${category}_${templateItem.id}`;
+            this.visualRecordIds[properKey] = visualId;
           }
           continue;
         }
-        
-        const name = visual.Name;
-        const kind = visual.Kind;
-        const hudId = String(visual.HUDID || visual.PK_ID || visual.id);
-        
-        // Find the item by Name
-        let item = allItems.find(i => i.name === visual.Name);
-        
-        // If no template match found, this is a CUSTOM visual - create dynamic item
+
+        // Find matching template by Name, Category, and Kind
+        let item = this.findItemByNameAndCategory(name, category, kind);
+
+        // If no template match found, this is a custom visual - create dynamic item
         if (!item) {
-          console.log('[LOAD EXISTING] Creating dynamic item for custom visual:', name, kind);
+          console.log('[LOAD VISUALS] Creating dynamic item for custom visual:', name, category, kind);
 
           // Create a dynamic VisualItem for custom visuals
           const customItem: VisualItem = {
-            id: `custom_${hudId}`,
-            templateId: 0,
+            id: `custom_${visualId}`, // Use visual ID as item ID
+            templateId: 0, // No template
             name: visual.Name || 'Custom Item',
             text: visual.Text || '',
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',
             category: visual.Category,
-            answerType: 0,
+            answerType: 0, // Default to text type
             required: false,
             answer: visual.Answers || '',
+            isSelected: true, // Custom visuals are always selected
             photos: []
           };
 
@@ -974,156 +3333,122 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           } else if (kind === 'Deficiency') {
             this.organizedData.deficiencies.push(customItem);
           } else {
-            // Default to comments
+            // Default to comments if kind is unknown
             this.organizedData.comments.push(customItem);
           }
 
           item = customItem;
-          console.log('[LOAD EXISTING] ✅ Created and added custom item:', item.name);
-        } else {
-          console.log('[LOAD EXISTING] ✅ Found matching template item:');
-          console.log('[LOAD EXISTING]   - Name:', item.name);
-          console.log('[LOAD EXISTING]   - ID:', item.id);
-          console.log('[LOAD EXISTING]   - TemplateID:', item.templateId);
-          console.log('[LOAD EXISTING]   - AnswerType:', item.answerType);
         }
 
-        const key = `${this.categoryName}_${item.id}`;
+        const key = `${category}_${item.id}`;
 
-        console.log('[LOAD EXISTING] Constructed key:', key);
-        console.log('[LOAD EXISTING] HUDID to store:', hudId);
+        // Store the visual record ID (extract from response)
+        this.visualRecordIds[key] = visualId;
 
-        // Mark as selected
-        this.selectedItems[key] = true;
-        console.log('[LOAD EXISTING] ✅ selectedItems[' + key + '] = true');
+        // CRITICAL: Restore edited Name and Text from saved visual
+        if (visual.Name) {
+          item.name = visual.Name;
+        }
+        if (visual.Text) {
+          item.text = visual.Text;
+        }
 
-        // Store visual record ID
-        this.visualRecordIds[key] = hudId;
-        console.log('[LOAD EXISTING] ✅ visualRecordIds[' + key + '] = ' + hudId);
+        // Set selected state for checkbox items
+        if (!item.answerType || item.answerType === 0) {
+          this.selectedItems[key] = true;
+        }
 
-        // Update item with saved answer
-        item.answer = visual.Answers || '';
-        item.otherValue = visual.OtherValue || '';
-        console.log('[LOAD EXISTING] ✅ item.answer set to:', item.answer);
-
-        // Force change detection to update UI
-        this.changeDetectorRef.detectChanges();
-
-        // Load photos for this visual
-        await this.loadPhotosForVisual(hudId, key);
-      }
-
-      console.log('[LOAD EXISTING] ========== FINAL STATE ==========');
-      console.log('[LOAD EXISTING] visualRecordIds:', JSON.stringify(this.visualRecordIds));
-      console.log('[LOAD EXISTING] selectedItems:', JSON.stringify(this.selectedItems));
-      console.log('[LOAD EXISTING] Items with answers:', allItems.filter(i => i.answer).map(i => ({ name: i.name, answer: i.answer })));
-      console.log('[LOAD EXISTING] ========== END ==========');
-
-    } catch (error) {
-      console.error('[LOAD EXISTING] ❌ Error loading existing visuals:', error);
-    }
-  }
-
-  /**
-   * Trigger a background refresh to update cached data without blocking the UI
-   * This ensures data stays fresh while providing instant page loads
-   */
-  private triggerBackgroundRefresh(): void {
-    console.log('[BACKGROUND REFRESH] Scheduling background data refresh...');
-    this.isRefreshing = true;
-
-    // Use setTimeout to ensure this runs after the current render cycle
-    setTimeout(async () => {
-      try {
-        console.log('[BACKGROUND REFRESH] Starting background refresh...');
-
-        // Fetch fresh data from API (bypass cache)
-        const freshVisuals = await this.hudData.getVisualsByService(this.serviceId, true);
-        console.log('[BACKGROUND REFRESH] Fetched', freshVisuals.length, 'fresh visuals');
-
-        // Cache the fresh data in IndexedDB for future instant loads
-        await this.indexedDb.cacheServiceData(this.serviceId, 'visuals', freshVisuals);
-        console.log('[BACKGROUND REFRESH] Cached fresh data to IndexedDB');
-
-        // Update UI with fresh data (preserving photos that are uploading)
-        const categoryVisuals = freshVisuals.filter((v: any) => v.Category === this.categoryName);
-        await this.processVisualsUpdate(categoryVisuals);
-
-        this.isRefreshing = false;
-        this.changeDetectorRef.detectChanges();
-        console.log('[BACKGROUND REFRESH] ✅ Background refresh complete');
-      } catch (error) {
-        console.error('[BACKGROUND REFRESH] ❌ Error during background refresh:', error);
-        this.isRefreshing = false;
-      }
-    }, 100);
-  }
-
-  /**
-   * Process visual updates from background refresh without losing upload state
-   */
-  private async processVisualsUpdate(categoryVisuals: any[]): Promise<void> {
-    // Get all available template items
-    const allItems = [
-      ...this.organizedData.comments,
-      ...this.organizedData.limitations,
-      ...this.organizedData.deficiencies
-    ];
-
-    for (const visual of categoryVisuals) {
-      // Skip hidden visuals
-      if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
-        continue;
-      }
-
-      const hudId = String(visual.HUDID || visual.PK_ID || visual.id);
-      const item = allItems.find(i => i.name === visual.Name);
-
-      if (item) {
-        const key = `${this.categoryName}_${item.id}`;
-
-        // Update selection state and record ID
-        this.selectedItems[key] = true;
-        this.visualRecordIds[key] = hudId;
-
-        // Update answer but preserve any local edits
-        if (!item.answer && visual.Answers) {
+        // Set answer for Yes/No dropdowns
+        if (item.answerType === 1 && visual.Answers) {
           item.answer = visual.Answers;
         }
 
-        // Only load photos if we don't already have them (preserve uploading photos)
-        if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
-          await this.loadPhotosForVisual(hudId, key);
+        // Set selected options for multi-select
+        if (item.answerType === 2 && visual.Answers) {
+          item.answer = visual.Answers;
+          if (visual.Notes) {
+            item.otherValue = visual.Notes;
+          }
         }
+
+        // CRITICAL: Fetch the photo count FIRST (fast - just metadata)
+        // This ensures we have the real skeleton count before showing the page
+        this.loadingPhotosByKey[key] = true;
+
+        // Add promise to fetch the photo count WITH TIMEOUT to prevent hanging
+        const countPromise = (async () => {
+          try {
+            // Wrap in timeout to prevent hanging - 5 seconds max
+            const timeoutPromise = new Promise<any[]>((_, reject) => {
+              setTimeout(() => reject(new Error('Timeout')), 5000);
+            });
+            
+            const attachments = await Promise.race([
+              this.hudData.getVisualAttachments(visualId),
+              timeoutPromise
+            ]);
+            
+            const count = attachments.length;
+            this.photoCountsByKey[key] = count;
+            console.log(`[LOAD VISUALS] Set photo count for ${key}: ${count}`);
+          } catch (err) {
+            console.error(`[LOAD VISUALS] Error/timeout getting photo count for ${key}:`, err);
+            this.photoCountsByKey[key] = 0; // Set to 0 on error so we don't wait forever
+          }
+        })();
+
+        photoCountPromises.push(countPromise);
       }
+
+      // CRITICAL: Wait for ALL photo counts to be fetched before proceeding
+      // This ensures all skeletons are ready to render
+      console.log('[LOAD VISUALS] Waiting for', photoCountPromises.length, 'photo counts...');
+      await Promise.all(photoCountPromises);
+      console.log('[LOAD VISUALS] All photo counts fetched');
+
+      // Trigger change detection so skeleton counts are set
+      this.changeDetectorRef.detectChanges();
+
+      console.log('[LOAD VISUALS] Photo counts ready - skeletons will now render');
+
+      // CRITICAL: Start loading photos in background but DON'T WAIT for them
+      // This allows skeletons to show immediately while photos load progressively
+      setTimeout(() => {
+        console.log('[LOAD VISUALS] Starting background photo loading...');
+
+        for (const visual of visuals) {
+          const category = visual.Category;
+          const name = visual.Name;
+          const kind = visual.Kind;
+          const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+
+          if (category !== this.categoryName) {
+            continue;
+          }
+
+          const item = this.findItemByNameAndCategory(name, category, kind) ||
+                       this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
+                       this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
+                       this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
+
+          if (!item) continue;
+
+          const key = `${category}_${item.id}`;
+
+          // Load photos in background - no await, happens asynchronously
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.error('[LOAD VISUALS] Error loading photos for visual:', visualId, err);
+          });
+        }
+
+        console.log('[LOAD VISUALS] All photo loads started in background');
+      }, 100); // Small delay to ensure skeletons render before photo loading starts
+
+      console.log('[LOAD VISUALS] Returning to show page with skeletons');
+
+    } catch (error) {
+      console.error('[LOAD VISUALS] Error loading existing visuals:', error);
     }
-  }
-
-  private findItemByName(name: string): VisualItem | undefined {
-    const allItems = [
-      ...this.organizedData.comments,
-      ...this.organizedData.limitations,
-      ...this.organizedData.deficiencies
-    ];
-    return allItems.find(item => item.name === name);
-  }
-
-  private findItemByTemplateId(templateId: number): VisualItem | undefined {
-    const allItems = [
-      ...this.organizedData.comments,
-      ...this.organizedData.limitations,
-      ...this.organizedData.deficiencies
-    ];
-    return allItems.find(item => item.templateId === templateId);
-  }
-
-  private findItemById(id: string | number): VisualItem | undefined {
-    const allItems = [
-      ...this.organizedData.comments,
-      ...this.organizedData.limitations,
-      ...this.organizedData.deficiencies
-    ];
-    return allItems.find(item => item.id === id || item.id === Number(id));
   }
 
   private findItemByNameAndCategory(name: string, category: string, kind: string): VisualItem | undefined {
@@ -1142,163 +3467,338 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     });
   }
 
-  private async loadPhotosForVisual(hudId: string, key: string) {
+  private findItemByTemplateId(templateId: number): VisualItem | undefined {
+    // Search in all three sections
+    let item = this.organizedData.comments.find(i => i.templateId === templateId);
+    if (item) return item;
+
+    item = this.organizedData.limitations.find(i => i.templateId === templateId);
+    if (item) return item;
+
+    item = this.organizedData.deficiencies.find(i => i.templateId === templateId);
+    return item;
+  }
+
+  /**
+   * Load photos for a visual - ON-DEMAND when user clicks to expand
+   * Only loads photo data when needed, not on initial page load
+   * Uses guard to prevent concurrent/duplicate calls for the same key
+   */
+  private async loadPhotosForVisual(visualId: string, key: string): Promise<void> {
+    // GUARD: Return existing promise if already loading this key
+    // This prevents duplicate photos from concurrent calls
+    if (this.loadingPhotoPromises.has(key)) {
+      console.log('[LOAD PHOTOS] Already loading key:', key, '- returning existing promise');
+      return this.loadingPhotoPromises.get(key);
+    }
+    
+    // Create and track the promise
+    const promise = this._loadPhotosForVisualImpl(visualId, key);
+    this.loadingPhotoPromises.set(key, promise);
+    
+    try {
+      await promise;
+    } finally {
+      this.loadingPhotoPromises.delete(key);
+    }
+  }
+
+  /**
+   * Internal implementation of loadPhotosForVisual
+   * Called by the guarded wrapper above
+   */
+  private async _loadPhotosForVisualImpl(visualId: string, key: string): Promise<void> {
     try {
       this.loadingPhotosByKey[key] = true;
+      this.changeDetectorRef.detectChanges();
 
-      // CRITICAL FIX: Check sync status to preserve photos during sync
+      // ===== ON-DEMAND LOAD: Only fetch data when user expands =====
+      // STEP 1: Get attachments from bulk cache (already loaded during initial load)
+      const attachments = this.bulkAttachmentsMap.get(visualId) || [];
+
+      // STEP 2: Get pending photos from bulk cache (old system)
+      const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
+      
+      // STEP 2.5 (NEW): Get LocalImages for this visual (new system)
+      // CRITICAL FIX: Use bulk-loaded data with ID resolution (temp ID -> real ID already resolved)
+      // DO NOT make fresh query - it won't find photos captured with temp IDs after visual syncs
+      const localImages = this.bulkLocalImagesMap.get(visualId) || [];
+      console.log('[LOAD PHOTOS] Found', localImages.length, 'LocalImages for visual', visualId, '(from bulkLocalImagesMap)');
+      
+      if (this.DEBUG) console.log('[LOAD PHOTOS] Visual', visualId, ':', attachments.length, 'synced,', pendingPhotos.length, 'pending,', localImages.length, 'local');
+
+      // STEP 3: Load cached photo data NOW (on-demand, not upfront)
+      // This is the key optimization - photo data only loads when needed
+      if (this.bulkCachedPhotosMap.size === 0 || this.bulkAnnotatedImagesMap.size === 0) {
+        const [cachedPhotos, annotatedImages] = await Promise.all([
+          this.indexedDb.getAllCachedPhotosForService(this.serviceId),
+          this.indexedDb.getAllCachedAnnotatedImagesForService()
+        ]);
+        this.bulkCachedPhotosMap = cachedPhotos;
+        this.bulkAnnotatedImagesMap = annotatedImages;
+      }
+
+      // Calculate total photo count - DEDUP: Avoid counting same photo from multiple sources
+      // Photos may appear in both localImages (new system) and attachments (synced to server)
+      const uniquePhotoIds = new Set<string>();
+      
+      // Count attachments (synced photos from server)
+      for (const att of attachments) {
+        const attId = String(att.AttachID || att.attachId || '');
+        if (attId) uniquePhotoIds.add(attId);
+      }
+      
+      // Count pending photos (legacy system)
+      for (const p of pendingPhotos) {
+        const pendId = String(p.AttachID || p.attachId || '');
+        if (pendId && !uniquePhotoIds.has(pendId)) uniquePhotoIds.add(pendId);
+      }
+      
+      // Count local images (new system) - skip if already synced (attachId exists in uniquePhotoIds)
+      for (const img of localImages) {
+        // If local image has real attachId that's already counted, skip it
+        if (img.attachId && uniquePhotoIds.has(img.attachId)) continue;
+        // Otherwise count by imageId
+        if (img.imageId && !uniquePhotoIds.has(img.imageId)) {
+          uniquePhotoIds.add(img.imageId);
+        }
+      }
+      
+      // Set the photo count based on unique IDs (deduped across all sources)
+      this.photoCountsByKey[key] = uniquePhotoIds.size;
+
+      // CRITICAL FIX: During sync, preserve ALL existing photos to prevent disappearing
+      // Only clear photos when NOT syncing to prevent duplicates on normal reloads
       const syncStatus = this.backgroundSync.syncStatus$.getValue();
       const syncInProgress = syncStatus.isSyncing;
 
-      // Get attachments from database
-      const attachments = await this.hudData.getVisualAttachments(hudId);
+      const existingPhotos = this.visualPhotos[key] || [];
+      let preservedPhotos: any[];
 
-      console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for HUD', hudId, 'key:', key, 'sync:', syncInProgress);
+      if (syncInProgress) {
+        // SYNC IN PROGRESS: Preserve ALL photos to prevent disappearing
+        // This is critical - photos should NEVER disappear during sync
+        preservedPhotos = [...existingPhotos];
+        console.log(`[LOAD PHOTOS] SYNC IN PROGRESS - preserving ALL ${preservedPhotos.length} existing photos for key: ${key}`);
+      } else {
+        // NOT syncing: Preserve photos that have valid displayUrls OR are in-progress captures
+        // US-001 FIX: Must preserve photos with blob:/data: URLs to prevent disappearing after sync
+        preservedPhotos = existingPhotos.filter(p => {
+          // Always preserve in-progress captures
+          if (p._isInProgressCapture === true && p.uploading === true) {
+            return true;
+          }
+          // Preserve photos with valid blob or data URLs (local-first photos)
+          if (p.displayUrl && (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:'))) {
+            return true;
+          }
+          // Preserve LocalImage photos (they have valid local references)
+          if (p.isLocalImage || p.isLocalFirst || p.localImageId) {
+            return true;
+          }
+          return false;
+        });
+        console.log(`[LOAD PHOTOS] Preserving ${preservedPhotos.length}/${existingPhotos.length} photos with valid URLs`);
+      }
 
-      // Set photo count immediately so skeleton loaders can be displayed
-      this.photoCountsByKey[key] = attachments.length;
+      // Start with preserved photos
+      this.visualPhotos[key] = [...preservedPhotos];
+
+      // Build a set of already loaded photo IDs from preserved photos
+      const loadedPhotoIds = new Set<string>();
+      for (const p of this.visualPhotos[key]) {
+        if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
+        if (p.attachId) loadedPhotoIds.add(String(p.attachId));
+        if (p.id) loadedPhotoIds.add(String(p.id));
+        if (p.imageId) loadedPhotoIds.add(String(p.imageId));
+        if (p.localImageId) loadedPhotoIds.add(String(p.localImageId));
+        if (p._pendingFileId) loadedPhotoIds.add(String(p._pendingFileId));
+      }
+      console.log(`[LOAD PHOTOS] Key ${key} starting with ${preservedPhotos.length} preserved photos (sync: ${syncInProgress})`);
+
+      // STEP 4: Add pending photos with regenerated blob URLs (they appear first)
+      // SILENT SYNC: Don't show uploading/queued indicators for legacy pending photos
+      for (const pendingPhoto of pendingPhotos) {
+        const pendingId = String(pendingPhoto.AttachID);
+        if (!loadedPhotoIds.has(pendingId)) {
+          // Use bulk annotated image cache (O(1) lookup)
+          let displayUrl = pendingPhoto.displayUrl;
+          if (pendingPhoto.hasAnnotations) {
+            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(pendingId);
+            if (cachedAnnotatedImage) {
+              displayUrl = cachedAnnotatedImage;
+            }
+          }
+          
+          // Add to the BEGINNING of the array so pending photos show first
+          this.visualPhotos[key].unshift({
+            ...pendingPhoto,
+            displayUrl: displayUrl,
+            thumbnailUrl: displayUrl,
+            isSkeleton: false,
+            uploading: false,         // SILENT SYNC: No spinner
+            queued: false,            // SILENT SYNC: No indicator
+            isPending: true
+          });
+          loadedPhotoIds.add(pendingId);
+        }
+      }
+
+      // STEP 4.5 (NEW): Add LocalImages to the array
+      // These are photos captured with the new local-first system
+      for (const localImage of localImages) {
+        const imageId = localImage.imageId;
+        
+        // Skip if already loaded (by imageId or attachId)
+        if (loadedPhotoIds.has(imageId) || (localImage.attachId && loadedPhotoIds.has(localImage.attachId))) {
+          continue;
+        }
+        
+        // Get display URL from LocalImageService
+        let displayUrl = 'assets/img/photo-placeholder.png';
+        try {
+          displayUrl = await this.localImageService.getDisplayUrl(localImage);
+        } catch (e) {
+          console.warn('[LOAD PHOTOS] Failed to get LocalImage displayUrl:', e);
+        }
+        
+        // Add to the BEGINNING of the array so local photos show first
+        // SILENT SYNC: Don't show uploading/queued indicators - photos appear as normal
+        this.visualPhotos[key].unshift({
+          AttachID: localImage.attachId || localImage.imageId,
+          attachId: localImage.attachId || localImage.imageId,
+          id: localImage.attachId || localImage.imageId,
+          imageId: localImage.imageId,
+          localImageId: localImage.imageId,     // For refreshLocalState() lookup
+          localBlobId: localImage.localBlobId,  // For blob URL regeneration
+          displayUrl: displayUrl,
+          url: displayUrl,
+          thumbnailUrl: displayUrl,
+          originalUrl: displayUrl,
+          name: localImage.fileName,
+          caption: localImage.caption || '',
+          annotation: localImage.caption || '',
+          Annotation: localImage.caption || '',
+          Drawings: localImage.drawings || null,
+          hasAnnotations: !!localImage.drawings && localImage.drawings.length > 10,
+          loading: false,
+          uploading: false,           // SILENT SYNC: Don't show spinner
+          queued: false,              // SILENT SYNC: Don't show queued indicator
+          isSkeleton: false,
+          isPending: localImage.status !== 'verified',  // Internal flag only
+          isLocalImage: true,         // Flag to identify new system photos
+          isLocalFirst: true          // Flag for local-first system
+        });
+        loadedPhotoIds.add(imageId);
+        // CRITICAL FIX: Also add attachId to prevent duplicates when server attachments are processed
+        // After sync, LocalImage has attachId matching server's AttachID - must track both
+        if (localImage.attachId) {
+          loadedPhotoIds.add(localImage.attachId);
+        }
+        
+        console.log('[LOAD PHOTOS] Added LocalImage (silent sync):', imageId, 'attachId:', localImage.attachId || 'none');
+      }
+
+      // Trigger change detection so pending/local photos appear immediately
+      this.changeDetectorRef.detectChanges();
 
       if (attachments.length > 0) {
-        // CRITICAL: Don't reset photo array if it already has photos from uploads
-        if (!this.visualPhotos[key]) {
-          this.visualPhotos[key] = [];
-          console.log('[LOAD PHOTOS] Initialized empty photo array for', key);
-        } else {
-          console.log('[LOAD PHOTOS] Photo array already exists with', this.visualPhotos[key].length, 'photos');
-
-          // CRITICAL FIX: During sync, skip reload to prevent photos from disappearing
-          if (syncInProgress) {
-            console.log('[LOAD PHOTOS] SYNC IN PROGRESS - preserving existing photos, skipping reload for', key);
-            this.loadingPhotosByKey[key] = false;
-            this.changeDetectorRef.detectChanges();
-            return;
-          }
-
-          // Check if we already have all the photos loaded
-          const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => p.AttachID));
-          const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(a.AttachID));
-          if (allPhotosLoaded) {
-            console.log('[LOAD PHOTOS] All photos already loaded - skipping reload');
-            this.loadingPhotosByKey[key] = false;
-            this.changeDetectorRef.detectChanges();
-            return;
-          }
-        }
-
-        // Trigger change detection so skeletons appear
-        this.changeDetectorRef.detectChanges();
-
-        // Load photos sequentially
-        for (let i = 0; i < attachments.length; i++) {
-          const attach = attachments[i];
-
-          // Check if photo already loaded
-          const existingPhotoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === attach.AttachID);
-          if (existingPhotoIndex !== -1) {
-            console.log('[LOAD PHOTOS] Photo', attach.AttachID, 'already loaded - skipping');
-            continue;
-          }
-
-          await this.loadSinglePhoto(attach, key);
-        }
-
-        console.log('[LOAD PHOTOS] Completed loading all photos for', key);
-      } else {
-        // CRITICAL FIX: During sync, don't clear photos even if attachments is empty
-        if (syncInProgress && this.visualPhotos[key]?.length > 0) {
-          console.log('[LOAD PHOTOS] SYNC IN PROGRESS - preserving existing photos despite empty attachments for', key);
+        // Check if all synced photos are already loaded
+        const allPhotosLoaded = attachments.every((a: any) => loadedPhotoIds.has(String(a.AttachID)));
+        if (allPhotosLoaded && pendingPhotos.length === 0) {
           this.loadingPhotosByKey[key] = false;
           this.changeDetectorRef.detectChanges();
           return;
         }
-        this.visualPhotos[key] = [];
+
+        // ============================================================
+        // Use cached photos map (O(1) lookups)
+        // ============================================================
+        const cachedAttachments: any[] = [];
+        const uncachedAttachments: any[] = [];
+
+        // PHASE 1: Categorize attachments as cached or uncached
+        for (const attach of attachments) {
+          const attachIdStr = String(attach.AttachID);
+
+          // Skip if already loaded (either pending or synced)
+          if (loadedPhotoIds.has(attachIdStr)) {
+            continue;
+          }
+
+          // Check bulk cache map (O(1)) 
+          const cachedImage = this.bulkCachedPhotosMap.get(attachIdStr);
+          if (cachedImage) {
+            cachedAttachments.push({ attach, cachedImage });
+          } else {
+            uncachedAttachments.push(attach);
+          }
+        }
+
+        // PHASE 2: Add cached photos to UI IMMEDIATELY (no network needed)
+        for (const { attach, cachedImage } of cachedAttachments) {
+          this.addCachedPhotoToArray(attach, cachedImage, key);
+          loadedPhotoIds.add(String(attach.AttachID));
+        }
+        
+        // Update UI with cached photos right away
+        if (cachedAttachments.length > 0) {
+          this.changeDetectorRef.detectChanges();
+        }
+
+        // PHASE 3: Download uncached photos in parallel batches (non-blocking)
+        if (uncachedAttachments.length > 0) {
+          await this.downloadPhotosInParallel(uncachedAttachments, key);
+        }
       }
+
+      // STEP 6 (NEW): Merge pending caption updates into loaded photos
+      // This ensures captions added after photo creation are visible on page reload
+      await this.mergePendingCaptionsIntoPhotos(key);
 
       this.loadingPhotosByKey[key] = false;
       this.changeDetectorRef.detectChanges();
 
     } catch (error) {
-      console.error('[LOAD PHOTOS] Error loading photos for key:', key, error);
+      console.error('[LOAD PHOTOS] Error loading photos for visual', visualId, error);
       this.loadingPhotosByKey[key] = false;
-      this.photoCountsByKey[key] = 0;
-      this.visualPhotos[key] = [];
+      this.photoCountsByKey[key] = 0; // Set to 0 on error so we don't wait forever
+      this.changeDetectorRef.detectChanges();
     }
   }
 
   /**
-   * Load a single photo with two-field approach for robust UI transitions
-   * Priority: local blob > cached > remote (with preload)
-   * Never changes displayUrl until new source is verified loadable
+   * Add a cached photo to the photos array immediately (no network call needed)
+   * OPTIMIZED: Uses bulk annotated images map for O(1) lookup
    */
-  private async loadSinglePhoto(attach: any, key: string): Promise<void> {
-    const attachId = String(attach.AttachID || attach.PK_ID || attach.id);
-    const s3Key = attach.Attachment;
-    const filePath = attach.Attachment || attach.Photo || '';
-    const hasImageSource = attach.Attachment || attach.Photo;
+  private addCachedPhotoToArray(attach: any, cachedImage: string, key: string): void {
+    const attachId = String(attach.AttachID);
+    const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
     
-    console.log('[LOAD PHOTO] Loading:', attachId, 'key:', key);
-    
-    // TWO-FIELD APPROACH: Determine display state and URL
-    let displayUrl = 'assets/img/photo-placeholder.png';
-    let displayState: 'local' | 'uploading' | 'cached' | 'remote_loading' | 'remote' = 'remote';
-    let localBlobKey: string | undefined;
-    let imageUrl = '';
-    
-    // STEP 1: Check for local pending blob first (highest priority)
-    try {
-      const localBlobUrl = await this.indexedDb.getPhotoBlobUrl(attachId);
-      if (localBlobUrl) {
-        console.log('[LOAD PHOTO] ✅ Using local blob for:', attachId);
-        displayUrl = localBlobUrl;
-        imageUrl = localBlobUrl;
-        displayState = 'local';
-        localBlobKey = attachId;
-      }
-    } catch (err) { /* ignore */ }
-    
-    // STEP 2: Check cached photo (if no local blob)
-    if (!localBlobKey) {
-      try {
-        const cachedImage = await this.indexedDb.getCachedPhoto(attachId);
-        if (cachedImage) {
-          console.log('[LOAD PHOTO] ✅ Using cached image for:', attachId);
-          displayUrl = cachedImage;
-          imageUrl = cachedImage;
-          displayState = 'cached';
-        }
-      } catch (err) { /* ignore */ }
-    }
-    
-    // STEP 3: If no local/cached, determine if we need remote fetch
-    if (displayState !== 'local' && displayState !== 'cached') {
-      if (!hasImageSource) {
-        console.warn('[LOAD PHOTO] ⚠️ No photo path or S3 key in attachment');
-      } else if (this.offlineService && !this.offlineService.isOnline()) {
-        displayState = 'remote';
-      } else {
-        displayState = 'remote_loading';
+    // OPTIMIZED: Use bulk cache map (O(1)) instead of IndexedDB read
+    let displayUrl = cachedImage;
+    if (hasDrawings) {
+      const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
+      if (cachedAnnotatedImage) {
+        displayUrl = cachedAnnotatedImage;
       }
     }
     
-    const hasDrawings = !!(attach.Drawings && attach.Drawings.length > 0 && attach.Drawings !== '{}');
-
-    const photoData: any = {
-      AttachID: attachId,
-      attachId: attachId,
-      id: attachId,
+    const keyParts = key.split('_');
+    const itemId = keyParts.length > 1 ? keyParts.slice(1).join('_') : key;
+    const visualIdFromRecord = this.visualRecordIds[key];
+    
+    const photoData = {
+      AttachID: attach.AttachID,
+      id: attach.AttachID,
+      VisualID: attach.VisualID || visualIdFromRecord || itemId,
       name: attach.Photo || 'photo.jpg',
-      filePath: filePath,
-      Photo: filePath,
-      // Two-field approach
-      localBlobKey: localBlobKey,
-      remoteS3Key: s3Key,
-      displayState: displayState,
-      // Display URLs
-      url: imageUrl || displayUrl,
-      originalUrl: imageUrl || displayUrl,
-      thumbnailUrl: imageUrl || displayUrl,
+      filePath: attach.Attachment || attach.Photo || '',
+      Photo: attach.Attachment || attach.Photo || '',
+      url: cachedImage,
+      originalUrl: cachedImage,
+      thumbnailUrl: cachedImage,
       displayUrl: displayUrl,
-      // Metadata
       caption: attach.Annotation || '',
       annotation: attach.Annotation || '',
       Annotation: attach.Annotation || '',
@@ -1306,96 +3806,467 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
       annotations: null,
       Drawings: attach.Drawings || null,
       rawDrawingsString: attach.Drawings || null,
-      // Status
       uploading: false,
       queued: false,
-      isObjectUrl: !!localBlobKey,
-      loading: displayState === 'remote_loading'
+      isObjectUrl: false,
+      isSkeleton: false
     };
-
+    
     if (!this.visualPhotos[key]) {
       this.visualPhotos[key] = [];
     }
+    this.visualPhotos[key].push(photoData);
+  }
 
-    const existingIndex = this.visualPhotos[key].findIndex(p => 
-      String(p.AttachID) === attachId || String(p.attachId) === attachId
-    );
-    
-    if (existingIndex !== -1) {
-      // Preserve existing displayUrl if valid and we're loading
-      const existingPhoto = this.visualPhotos[key][existingIndex];
-      if (displayState === 'remote_loading' && 
-          existingPhoto.displayUrl && 
-          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png') {
-        photoData.displayUrl = existingPhoto.displayUrl;
-        photoData.displayState = existingPhoto.displayState || 'cached';
+  /**
+   * Download uncached photos in parallel batches for faster loading
+   * Uses staggered loading: first 3 photos load immediately, rest load with 50ms delays
+   * Updates UI after each batch completes
+   */
+  private async downloadPhotosInParallel(attachments: any[], key: string): Promise<void> {
+    const IMMEDIATE_COUNT = 3; // Load first 3 immediately for fast visual feedback
+    const BATCH_SIZE = 5; // Then download 5 at a time
+    const STAGGER_DELAY_MS = 50; // Small delay between batches to prevent UI blocking
+
+    // Load first 3 photos immediately (no delay) for fast visual feedback
+    const immediatePhotos = attachments.slice(0, IMMEDIATE_COUNT);
+    const remainingPhotos = attachments.slice(IMMEDIATE_COUNT);
+
+    if (immediatePhotos.length > 0) {
+      await Promise.all(immediatePhotos.map(attach =>
+        this.loadSinglePhoto(attach, key).catch(err => {
+          console.error('[DOWNLOAD] Failed:', attach.AttachID, err);
+        })
+      ));
+      this.changeDetectorRef.detectChanges();
+    }
+
+    // Load remaining photos in staggered batches
+    for (let i = 0; i < remainingPhotos.length; i += BATCH_SIZE) {
+      // Small delay between batches to prevent UI blocking
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, STAGGER_DELAY_MS));
       }
-      this.visualPhotos[key][existingIndex] = photoData;
-    } else {
-      this.visualPhotos[key].push(photoData);
-    }
 
-    this.changeDetectorRef.detectChanges();
-    
-    // STEP 4: If remote_loading, preload and transition in background
-    if (displayState === 'remote_loading' && hasImageSource) {
-      this.preloadAndTransition(attachId, s3Key || attach.Photo, key, !!s3Key && this.caspioService.isS3Key(s3Key)).catch(err => {
-        console.warn('[LOAD PHOTO] Preload failed:', attachId, err);
-      });
+      const batch = remainingPhotos.slice(i, i + BATCH_SIZE);
+
+      // Download batch in parallel
+      await Promise.all(batch.map(attach =>
+        this.loadSinglePhoto(attach, key).catch(err => {
+          console.error('[DOWNLOAD] Failed:', attach.AttachID, err);
+        })
+      ));
+
+      // Update UI after each batch completes
+      this.changeDetectorRef.detectChanges();
     }
-    
-    console.log('[LOAD PHOTO] ✅ Completed:', attachId, 'state:', displayState);
+  }
+
+  /**
+   * Merge pending caption updates into loaded photos
+   * CRITICAL: This ensures captions added mid-sync or after photo creation are visible
+   * Pending captions take precedence over cached values
+   */
+  private async mergePendingCaptionsIntoPhotos(key: string): Promise<void> {
+    try {
+      const photos = this.visualPhotos[key];
+      if (!photos || photos.length === 0) {
+        return;
+      }
+
+      // Get all attachment IDs for this visual's photos
+      const attachIds = photos.map(p => String(p.AttachID));
+      
+      // Fetch pending captions for these attachments
+      const pendingCaptions = await this.indexedDb.getPendingCaptionsForAttachments(attachIds);
+      
+      if (pendingCaptions.length === 0) {
+        return;
+      }
+      
+      console.log(`[MERGE CAPTIONS] Merging ${pendingCaptions.length} pending captions into ${photos.length} photos for key: ${key}`);
+      
+      // Apply pending captions to matching photos
+      for (const photo of photos) {
+        const photoId = String(photo.AttachID);
+        const pendingCaption = pendingCaptions.find(c => c.attachId === photoId);
+        
+        if (pendingCaption) {
+          // Update caption if pending
+          if (pendingCaption.caption !== undefined) {
+            console.log(`[MERGE CAPTIONS] Applying caption to photo ${photoId}: "${pendingCaption.caption?.substring(0, 30)}..."`);
+            photo.caption = pendingCaption.caption;
+            photo.Annotation = pendingCaption.caption;
+          }
+          
+          // Update drawings if pending
+          if (pendingCaption.drawings !== undefined) {
+            console.log(`[MERGE CAPTIONS] Applying drawings to photo ${photoId}`);
+            photo.Drawings = pendingCaption.drawings;
+            photo.hasAnnotations = !!pendingCaption.drawings;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[MERGE CAPTIONS] Error merging pending captions:', error);
+      // Don't fail the load - captions will sync later
+    }
+  }
+
+  /**
+   * Load a single photo - BULLETPROOF version
+   * NEVER removes or replaces a photo that has a valid displayUrl
+   */
+  private async loadSinglePhoto(attach: any, key: string): Promise<void> {
+    try {
+      const attachId = String(attach.AttachID || attach.PK_ID || '');
+      
+      // Skip invalid attachIds
+      if (!attachId || attachId === 'undefined' || attachId === 'null') {
+        return;
+      }
+      
+      // Initialize array if needed
+      if (!this.visualPhotos[key]) {
+        this.visualPhotos[key] = [];
+      }
+      
+      // BULLETPROOF: Check if ANY photo in this key's array has a valid displayUrl
+      // Also check if this specific photo already exists with a valid URL
+      const existingPhoto = this.visualPhotos[key].find(p => 
+        String(p.AttachID) === attachId || 
+        String(p.id) === attachId ||
+        String(p.attachId) === attachId ||
+        p.imageId === attachId
+      );
+      
+      // If photo exists with valid URL, DON'T touch it - just return
+      if (existingPhoto && existingPhoto.displayUrl && 
+          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          !existingPhoto.displayUrl.startsWith('assets/')) {
+        this.logDebug('SKIP', `Photo ${attachId} already has valid URL`);
+        return;
+      }
+      
+      // Also check if we have a LocalImage that this server photo corresponds to
+      // (The LocalImage may have been created with a different imageId)
+      let localImage: LocalImage | null = null;
+      try {
+        localImage = await this.localImageService.getImageByAttachId(attachId);
+        if (!localImage) {
+          localImage = await this.localImageService.getImage(attachId);
+        }
+      } catch (e) {
+        // Ignore - LocalImage system not available or failed
+      }
+      
+      // If we found a LocalImage, check if it's already in the array by imageId
+      if (localImage) {
+        const localImageInArray = this.visualPhotos[key].find(p => p.imageId === localImage!.imageId);
+        if (localImageInArray && localImageInArray.displayUrl &&
+            localImageInArray.displayUrl !== 'assets/img/photo-placeholder.png') {
+          // Just update the AttachID mapping, but DON'T change the displayUrl
+          this.logDebug('SKIP', `Photo ${attachId} matches LocalImage ${localImage.imageId} with valid URL`);
+      return;
+    }
+      }
+      
+      // Determine display URL
+      let displayUrl = 'assets/img/photo-placeholder.png';
+      let isLoading = false;
+      
+      // Step 1: Try LocalImage blob (local first)
+      if (localImage && localImage.localBlobId) {
+        try {
+          displayUrl = await this.localImageService.getDisplayUrl(localImage);
+          this.logDebug('LOCAL', `Photo ${attachId} from LocalImage blob`);
+        } catch (e) {
+          this.logDebug('WARN', `LocalImage getDisplayUrl failed: ${e}`);
+        }
+      }
+      
+      // Step 2: Try cached photo
+      if (displayUrl === 'assets/img/photo-placeholder.png') {
+        try {
+          const cached = await this.indexedDb.getCachedPhoto(attachId);
+          if (cached) {
+            displayUrl = cached;
+            this.logDebug('CACHE', `Photo ${attachId} from cache`);
+          }
+        } catch (e) {
+          this.logDebug('WARN', `Cache check failed: ${e}`);
+        }
+      }
+      
+      // Step 3: Load from remote (non-blocking)
+      const s3Key = attach.Attachment;
+      const hasImageSource = attach.Attachment || attach.Photo;
+      if (displayUrl === 'assets/img/photo-placeholder.png' && hasImageSource && this.offlineService.isOnline()) {
+        isLoading = true;
+        this.loadPhotoFromRemote(attachId, s3Key || attach.Photo, key, !!s3Key);
+      }
+      
+      // Create photo data
+      const photoData: any = {
+        AttachID: attach.AttachID || attachId,
+        attachId: attachId,
+        id: attach.AttachID || attachId,
+        imageId: localImage?.imageId || attachId,
+        displayUrl: displayUrl,
+        url: displayUrl,
+        thumbnailUrl: displayUrl,
+        originalUrl: displayUrl,
+        name: attach.Photo || 'photo.jpg',
+        caption: attach.Annotation || '',
+        annotation: attach.Annotation || '',
+        Annotation: attach.Annotation || '',
+        Drawings: attach.Drawings || null,
+        hasAnnotations: !!attach.Drawings && attach.Drawings.length > 10,
+        loading: isLoading,
+        uploading: false,
+        queued: false,
+        isSkeleton: false
+      };
+      
+      // Find by any matching ID
+      const existingIndex = this.visualPhotos[key].findIndex(p => 
+        String(p.AttachID) === attachId || 
+        String(p.id) === attachId ||
+        String(p.attachId) === attachId ||
+        (localImage && p.imageId === localImage.imageId)
+      );
+      
+      if (existingIndex !== -1) {
+        // BULLETPROOF: Never replace a valid URL with a placeholder
+        const existing = this.visualPhotos[key][existingIndex];
+        const existingHasValidUrl = existing.displayUrl &&
+          existing.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          !existing.displayUrl.startsWith('assets/');
+
+        // ===== US-002 FIX: DEXIE-FIRST - Explicitly preserve local blob URLs =====
+        const isLocalBlobUrl = existing.displayUrl?.startsWith('blob:') || existing.displayUrl?.startsWith('data:');
+        const isLocalFirst = existing.isLocalFirst || existing.isLocalImage;
+
+        if (existingHasValidUrl || (isLocalFirst && isLocalBlobUrl)) {
+          // Keep the existing valid URL (especially local blob URLs)
+          photoData.displayUrl = existing.displayUrl;
+          photoData.url = existing.displayUrl;
+          photoData.thumbnailUrl = existing.displayUrl;
+          photoData.originalUrl = existing.originalUrl || existing.displayUrl;
+          photoData.loading = false;
+          // Preserve local-first flags
+          photoData.isLocalFirst = existing.isLocalFirst;
+          photoData.isLocalImage = existing.isLocalImage;
+          photoData.localImageId = existing.localImageId;
+          photoData.localBlobId = existing.localBlobId;
+
+        }
+        // ===== END US-002 FIX =====
+
+        // Merge but preserve displayUrl
+        this.visualPhotos[key][existingIndex] = { ...existing, ...photoData };
+      } else {
+        // New photo - add it
+        this.visualPhotos[key].push(photoData);
+      }
+      
+      try {
+        this.changeDetectorRef.detectChanges();
+      } catch (e) {
+        // View destroyed - ignore
+      }
+      
+    } catch (err: any) {
+      this.logDebug('ERROR', `loadSinglePhoto failed: ${err?.message || err}`);
+    }
+  }
+  
+  /**
+   * Load photo from remote in background (non-blocking)
+   */
+  private async loadPhotoFromRemote(attachId: string, imageKey: string, key: string, isS3: boolean): Promise<void> {
+    try {
+      let imageUrl: string | null = null;
+      
+      // All photos should be S3 now, but handle both cases
+      if (imageKey) {
+        if (isS3 || this.caspioService.isS3Key(imageKey)) {
+          imageUrl = await this.caspioService.getS3FileUrl(imageKey);
+        } else {
+          // Legacy: treat as S3 key anyway
+          imageUrl = await this.caspioService.getS3FileUrl(imageKey);
+        }
+      }
+      
+      if (imageUrl) {
+        // BULLETPROOF: Preload the image BEFORE updating the UI
+        // This prevents "broken link" issues
+        const loaded = await this.preloadImage(imageUrl);
+        
+        if (!loaded) {
+          this.logDebug('WARN', `Image ${attachId} failed to preload, keeping placeholder`);
+          return; // Keep placeholder, don't update UI with broken link
+        }
+        
+        // Cache it (with serviceId and s3Key)
+        try {
+          await this.indexedDb.cachePhoto(attachId, this.serviceId, imageUrl, imageKey);
+        } catch (e) {
+          // Cache failed - still continue with display
+          this.logDebug('WARN', `Cache failed for ${attachId}: ${e}`);
+        }
+        
+        // ONLY update UI after image is confirmed loadable
+        if (this.visualPhotos[key]) {
+          const photoIndex = this.visualPhotos[key].findIndex(p =>
+            String(p.AttachID) === attachId || String(p.id) === attachId
+          );
+          if (photoIndex !== -1) {
+            const existingPhoto = this.visualPhotos[key][photoIndex];
+            const currentUrl = existingPhoto.displayUrl;
+
+            // ===== US-002 FIX: DEXIE-FIRST - Never replace local blob URL with server URL =====
+            // If photo is local-first with valid blob: or data: URL, keep it
+            if (existingPhoto.isLocalFirst || existingPhoto.isLocalImage) {
+              const isLocalBlobUrl = currentUrl?.startsWith('blob:') || currentUrl?.startsWith('data:');
+              if (isLocalBlobUrl) {
+                return; // DEXIE-FIRST: Keep local blob URL
+              }
+            }
+            // ===== END US-002 FIX =====
+
+            // Check one more time that we're not replacing a valid URL
+            if (currentUrl &&
+                currentUrl !== 'assets/img/photo-placeholder.png' &&
+                !currentUrl.startsWith('assets/')) {
+              // Already have a valid URL - don't replace
+              this.logDebug('SKIP', `Photo ${attachId} already has valid URL, not replacing`);
+              return;
+            }
+
+            this.visualPhotos[key][photoIndex].displayUrl = imageUrl;
+            this.visualPhotos[key][photoIndex].url = imageUrl;
+            this.visualPhotos[key][photoIndex].thumbnailUrl = imageUrl;
+            this.visualPhotos[key][photoIndex].loading = false;
+            
+            try {
+              this.changeDetectorRef.detectChanges();
+            } catch (e) {
+              // View destroyed - ignore
+            }
+          }
+        }
+        
+        this.logDebug('REMOTE', `Photo ${attachId} loaded from remote (verified)`);
+      }
+    } catch (err: any) {
+      this.logDebug('ERROR', `Remote load failed for ${attachId}: ${err?.message || err}`);
+    }
   }
 
   /**
    * Preload image from remote and transition UI only after success
+   * Never updates displayUrl until image is verified loadable
+   * US-002 FIX: NEVER replace a valid local blob URL with server URL (DEXIE-FIRST)
    */
   private async preloadAndTransition(
-    attachId: string, 
-    imageKey: string, 
-    key: string, 
+    attachId: string,
+    imageKey: string,
+    key: string,
     isS3: boolean
   ): Promise<void> {
     try {
+      // ===== US-002 FIX: Check if photo has valid local blob URL (DEXIE-FIRST) =====
+      // If photo is local-first with valid blob: or data: URL, do NOT replace with server URL
+      const existingPhoto = this.visualPhotos[key]?.find(p =>
+        String(p.attachId) === attachId || String(p.AttachID) === attachId
+      );
+
+      if (existingPhoto && existingPhoto.isLocalFirst && existingPhoto.displayUrl) {
+        const isLocalBlobUrl = existingPhoto.displayUrl.startsWith('blob:') ||
+                               existingPhoto.displayUrl.startsWith('data:');
+        if (isLocalBlobUrl) {
+          return; // DEXIE-FIRST: Keep local blob URL, don't replace with server URL
+        }
+      }
+      // ===== END US-002 FIX =====
+
       let imageDataUrl: string;
-      
-      if (isS3) {
+
+      if (isS3 && this.caspioService.isS3Key(imageKey)) {
+        // S3 image
         const s3Url = await this.caspioService.getS3FileUrl(imageKey);
+        
+        // Preload image first
         const preloaded = await this.preloadImage(s3Url);
         if (!preloaded) throw new Error('Preload failed');
+        
+        // Fetch as data URL for caching
         imageDataUrl = await this.fetchAsDataUrl(s3Url);
-      } else {
-        const imageData = await this.hudData.getImage(imageKey);
+    } else {
+        // Caspio Files API
+        const imageData = await firstValueFrom(
+          this.caspioService.getImageFromFilesAPI(imageKey)
+        );
         if (!imageData || !imageData.startsWith('data:')) {
-          throw new Error('Invalid image data');
+          throw new Error('Invalid image data from Files API');
         }
         imageDataUrl = imageData;
       }
       
+      // Cache the image
       await this.indexedDb.cachePhoto(attachId, this.serviceId, imageDataUrl, isS3 ? imageKey : undefined);
       
+      // NOW update UI (only after success)
       const photoIndex = this.visualPhotos[key]?.findIndex(p => 
         String(p.attachId) === attachId || String(p.AttachID) === attachId
       );
       
       if (photoIndex !== -1) {
+        const existingPhoto = this.visualPhotos[key][photoIndex];
+
+        // Check for cached annotated image
+        let finalDisplayUrl = imageDataUrl;
+        if (existingPhoto.hasAnnotations) {
+          try {
+            const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
+
+            // ===== US-001 DEBUG: Annotation loading from cachedAnnotatedImages =====
+            const annotDebugMsg = `CACHED ANNOTATION CHECK\n` +
+              `attachId: ${attachId}\n` +
+              `hasAnnotations flag: ${existingPhoto.hasAnnotations}\n` +
+              `cachedAnnotated found: ${!!cachedAnnotated}\n` +
+              `cachedAnnotated type: ${cachedAnnotated?.substring(0, 30)}...`;
+            this.logDebug('ANNOTATION', annotDebugMsg);
+            // ===== END US-001 DEBUG =====
+
+            if (cachedAnnotated) {
+              finalDisplayUrl = cachedAnnotated;
+            }
+          } catch (e) { /* ignore */ }
+        }
+
         this.visualPhotos[key][photoIndex] = {
-          ...this.visualPhotos[key][photoIndex],
+          ...existingPhoto,
           url: imageDataUrl,
           originalUrl: imageDataUrl,
           thumbnailUrl: imageDataUrl,
-          displayUrl: imageDataUrl,
+          displayUrl: finalDisplayUrl,
           displayState: 'cached',
           loading: false
         };
-        this.changeDetectorRef.detectChanges();
-        console.log('[PRELOAD] ✅ Transitioned to cached:', attachId);
+
+    this.changeDetectorRef.detectChanges();
+        console.log('[PRELOAD] ? Transitioned to cached image:', attachId);
       }
     } catch (err) {
-      console.warn('[PRELOAD] Failed:', attachId, err);
+      console.warn('[PRELOAD] Failed, keeping current display:', attachId, err);
+      
+      // Mark as remote (failed to load) but don't change displayUrl
       const photoIndex = this.visualPhotos[key]?.findIndex(p => 
         String(p.attachId) === attachId || String(p.AttachID) === attachId
       );
+      
       if (photoIndex !== -1) {
         this.visualPhotos[key][photoIndex] = {
           ...this.visualPhotos[key][photoIndex],
@@ -1407,26 +4278,29 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Preload an image to verify it's loadable before switching
+   */
   private preloadImage(url: string): Promise<boolean> {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => resolve(true);
       img.onerror = () => resolve(false);
       img.src = url;
+      
+      // Timeout after 30 seconds
       setTimeout(() => resolve(false), 30000);
     });
   }
 
+  /**
+   * Fetch image URL and convert to base64 data URL
+   */
   private async fetchAsDataUrl(url: string): Promise<string> {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
     const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    return this.blobToDataUrl(blob);
   }
 
   /**
@@ -1435,13 +4309,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
    */
   private async restorePendingPhotosFromIndexedDB(): Promise<void> {
     try {
-      console.log('[RESTORE PENDING] Checking for pending data in IndexedDB...');
+      console.log('[RESTORE PENDING] Using pre-loaded pending data...');
 
-      // STEP 1: Restore pending VISUAL records first
-      const pendingRequests = await this.indexedDb.getPendingRequests();
-      const pendingVisuals = pendingRequests.filter(r =>
+      // STEP 1: Restore pending VISUAL records first - USE PRE-LOADED DATA
+      const pendingVisuals = this.bulkPendingRequestsCache.filter(r =>
         r.type === 'CREATE' &&
-        r.endpoint?.includes('LPS_Services_HUD_Visuals') &&
+        r.endpoint?.includes('LPS_Services_HUD') &&
         r.status !== 'synced' &&
         r.data?.ServiceID === parseInt(this.serviceId, 10) &&
         r.data?.Category === this.categoryName
@@ -1449,10 +4322,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
       console.log('[RESTORE PENDING] Found', pendingVisuals.length, 'pending visual records');
 
+      // For each pending visual, find matching item and mark as selected
       for (const pendingVisual of pendingVisuals) {
         const visualData = pendingVisual.data;
         const tempId = pendingVisual.tempId;
 
+        // Find the matching item by name, category, and kind
         const matchingItem = this.findItemByNameAndCategory(
           visualData.Name,
           visualData.Category,
@@ -1461,29 +4336,39 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
         if (matchingItem) {
           const key = `${visualData.Category}_${matchingItem.id}`;
+
           console.log('[RESTORE PENDING] Restoring visual:', key, 'tempId:', tempId);
+
+          // Mark as selected
           this.selectedItems[key] = true;
+
+          // Store the temp visual ID
           this.visualRecordIds[key] = tempId || '';
+
+          // Initialize photo array if needed
           if (!this.visualPhotos[key]) {
             this.visualPhotos[key] = [];
           }
+        } else {
+          console.log('[RESTORE PENDING] No matching item found for visual:', visualData.Name);
         }
       }
 
-      // STEP 2: Restore pending photos
-      const pendingPhotosMap = await this.indexedDb.getAllPendingPhotosGroupedByVisual();
-
-      if (pendingPhotosMap.size === 0) {
+      // STEP 2: Restore pending photos - USE PRE-LOADED DATA
+      if (this.bulkPendingPhotosMap.size === 0) {
         console.log('[RESTORE PENDING] No pending photos found');
         this.changeDetectorRef.detectChanges();
         return;
       }
 
-      console.log('[RESTORE PENDING] Found pending photos for', pendingPhotosMap.size, 'visuals');
+      console.log('[RESTORE PENDING] Found pending photos for', this.bulkPendingPhotosMap.size, 'visuals');
 
-      for (const [visualId, photos] of pendingPhotosMap) {
+      // For each visual ID, find the matching key and add photos
+      for (const [visualId, photos] of this.bulkPendingPhotosMap) {
+        // Find the key for this visual ID
         let matchingKey: string | null = null;
 
+        // First check direct match in visualRecordIds
         for (const key of Object.keys(this.visualRecordIds)) {
           if (String(this.visualRecordIds[key]) === visualId) {
             matchingKey = key;
@@ -1491,12 +4376,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
           }
         }
 
+        // If not found, the visual might have been synced - check if real ID exists
         if (!matchingKey) {
+          // Check if there's a real ID mapping for this temp visual
           const realId = await this.indexedDb.getRealId(visualId);
           if (realId) {
             for (const key of Object.keys(this.visualRecordIds)) {
               if (String(this.visualRecordIds[key]) === realId) {
                 matchingKey = key;
+                console.log('[RESTORE PENDING] Found via real ID mapping:', visualId, '?', realId);
                 break;
               }
             }
@@ -1510,23 +4398,35 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
         console.log('[RESTORE PENDING] Restoring', photos.length, 'photos for key:', matchingKey);
 
+        // Initialize array if needed
         if (!this.visualPhotos[matchingKey]) {
           this.visualPhotos[matchingKey] = [];
         }
 
+        // Add pending photos that aren't already in the array
         for (const pendingPhoto of photos) {
+          const pendingAttachIdStr = String(pendingPhoto.AttachID);
+          const pendingFileIdStr = pendingPhoto._pendingFileId ? String(pendingPhoto._pendingFileId) : null;
+          
+          // CRITICAL FIX: Use String() conversion for consistent comparison to avoid type mismatch duplicates
           const existingIndex = this.visualPhotos[matchingKey].findIndex(p =>
-            p.AttachID === pendingPhoto.AttachID ||
-            p._pendingFileId === pendingPhoto._pendingFileId
+            String(p.AttachID) === pendingAttachIdStr ||
+            (pendingFileIdStr && String(p._pendingFileId) === pendingFileIdStr)
           );
 
           if (existingIndex === -1) {
+            console.log('[RESTORE PENDING] Adding pending photo:', pendingPhoto.AttachID);
+            // NOTE: Cached annotated images will be loaded on-demand when user expands photos
             this.visualPhotos[matchingKey].push(pendingPhoto);
+          } else {
+            console.log('[RESTORE PENDING] Photo already exists:', pendingPhoto.AttachID);
           }
         }
 
+        // Update photo count
         this.photoCountsByKey[matchingKey] = this.visualPhotos[matchingKey].length;
 
+        // Also mark item as selected if it has photos
         if (!this.selectedItems[matchingKey] && this.visualPhotos[matchingKey].length > 0) {
           this.selectedItems[matchingKey] = true;
         }
@@ -1540,91 +4440,43 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  // UI Helper Methods
-  goBack() {
-    this.router.navigate(['..'], { relativeTo: this.route });
-  }
+  // Item selection for all answer types
+  isItemSelected(category: string, itemId: string | number): boolean {
+    const key = `${category}_${itemId}`;
 
-  filterItems(items: VisualItem[]): VisualItem[] {
-    if (!this.searchTerm || this.searchTerm.trim() === '') {
-      return items;
+    // For answerType 0 (checkbox items), check selectedItems dictionary
+    if (this.selectedItems[key]) {
+      return true;
     }
 
-    const term = this.searchTerm.toLowerCase().trim();
-    
-    return items.filter(item => {
-      const nameMatch = item.name?.toLowerCase().includes(term);
-      const textMatch = item.text?.toLowerCase().includes(term);
-      const originalTextMatch = item.originalText?.toLowerCase().includes(term);
-      
-      return nameMatch || textMatch || originalTextMatch;
-    });
-  }
-
-  /**
-   * Escape HTML characters to prevent XSS (web only)
-   */
-  private escapeHtml(text: string): string {
-    if (!environment.isWeb) return text;
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  highlightText(text: string | undefined): string {
-    if (!text || !this.searchTerm || this.searchTerm.trim() === '') {
-      // Escape HTML even when no search term to prevent XSS (web only)
-      return environment.isWeb ? this.escapeHtml(text || '') : (text || '');
+    // For answerType 1 (Yes/No) and answerType 2 (multi-select), check if item has an answer
+    const item = this.findItemById(itemId);
+    if (!item) {
+      return false;
     }
 
-    const term = this.searchTerm.trim();
-    // First escape the text to prevent XSS (web only)
-    const escapedText = environment.isWeb ? this.escapeHtml(text) : text;
-    // Create a case-insensitive regex to find all matches
-    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
-
-    // Replace matches with highlighted span
-    return escapedText.replace(regex, '<span class="highlight">$1</span>');
-  }
-
-  private escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  onSearchChange(): void {
-    // Auto-expand accordions that have matches
-    if (!this.searchTerm || this.searchTerm.trim() === '') {
-      // If search is cleared, collapse all accordions
-      this.expandedAccordions = [];
-      this.changeDetectorRef.detectChanges();
-      return;
+    // For answerType 1: Check if answer is selected (Yes or No)
+    if (item.answerType === 1 && item.answer && item.answer !== '') {
+      return true;
     }
 
-    // Expand accordions with matching items
-    const newExpanded: string[] = [];
-    
-    if (this.filterItems(this.organizedData.comments).length > 0) {
-      newExpanded.push('information');
-    }
-    if (this.filterItems(this.organizedData.limitations).length > 0) {
-      newExpanded.push('limitations');
-    }
-    if (this.filterItems(this.organizedData.deficiencies).length > 0) {
-      newExpanded.push('deficiencies');
+    // For answerType 2: Check if any options are selected
+    if (item.answerType === 2 && item.answer && item.answer !== '') {
+      return true;
     }
 
-    this.expandedAccordions = newExpanded;
-    this.changeDetectorRef.detectChanges();
+    return false;
   }
 
-  clearSearch() {
-    this.searchTerm = '';
-    this.expandedAccordions = [];
-    this.changeDetectorRef.detectChanges();
-  }
+  private findItemById(itemId: string | number): VisualItem | undefined {
+    // Search in all three sections
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
 
-  onAccordionChange(event: any) {
-    this.expandedAccordions = event.detail.value;
+    return allItems.find(item => item.id === itemId);
   }
 
   async toggleItemSelection(category: string, itemId: string | number) {
@@ -1634,6 +4486,21 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
 
     console.log('[TOGGLE] Item:', key, 'Selected:', newState);
 
+    // Set cooldown to prevent cache invalidation from causing UI flash
+    this.startLocalOperationCooldown();
+
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    // MUST await to prevent race condition where liveQuery fires before write completes
+    const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
+    try {
+      await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+        isSelected: newState
+      });
+      console.log('[TOGGLE] Persisted isSelected to Dexie:', newState);
+    } catch (err) {
+      console.error('[TOGGLE] Failed to write to Dexie:', err);
+    }
+
     if (newState) {
       // Item was checked - create visual record if it doesn't exist, or unhide if it exists
       const visualId = this.visualRecordIds[key];
@@ -1641,43 +4508,454 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         // Visual exists but was hidden - unhide it
         this.savingItems[key] = true;
         try {
-          const fieldKey = `${this.serviceId}:${category}:${itemId}`;
-          await this.hudData.updateVisual(visualId, { Notes: '' }, fieldKey);
+          await this.hudData.updateVisual(visualId, { Notes: '' }, this.serviceId);
           console.log('[TOGGLE] Unhid visual:', visualId);
+          
+          // CRITICAL: Load photos for this visual since they weren't loaded when hidden
+          // Check if photos are already loaded
+          if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
+            console.log('[TOGGLE] Loading photos for unhidden visual:', visualId);
+            this.loadingPhotosByKey[key] = true;
+            this.photoCountsByKey[key] = 0;
+            this.changeDetectorRef.detectChanges();
+            
+            // Load photos in background
+            this.loadPhotosForVisual(visualId, key).then(() => {
+              console.log('[TOGGLE] Photos loaded for unhidden visual:', visualId);
+              this.changeDetectorRef.detectChanges();
+            }).catch(err => {
+              console.error('[TOGGLE] Error loading photos for unhidden visual:', err);
+              this.loadingPhotosByKey[key] = false;
+              this.changeDetectorRef.detectChanges();
+            });
+          }
         } catch (error) {
           console.error('[TOGGLE] Error unhiding visual:', error);
           this.selectedItems[key] = false;
-        } finally {
-          this.savingItems[key] = false;
-          this.changeDetectorRef.detectChanges();
+          // Toast removed per user request
+          // await this.showToast('Failed to show selection', 'danger');
         }
-      } else {
-        // Create new visual record
-        await this.createVisualRecord(category, itemId);
+        this.savingItems[key] = false;
+      } else if (!visualId) {
+        // No visual record exists - create new one
+        this.savingItems[key] = true;
+        await this.saveVisualSelection(category, itemId);
+        this.savingItems[key] = false;
       }
     } else {
-      // Item was unchecked - HIDE it (don't delete, preserves photos)
+      // Item was unchecked - hide visual instead of deleting (keeps photos intact)
       const visualId = this.visualRecordIds[key];
       if (visualId && !String(visualId).startsWith('temp_')) {
         this.savingItems[key] = true;
         try {
-          const fieldKey = `${this.serviceId}:${category}:${itemId}`;
-          await this.hudData.updateVisual(visualId, { Notes: 'HIDDEN' }, fieldKey);
-          console.log('[TOGGLE] Hid visual (preserving photos):', visualId);
+          // OFFLINE-FIRST: This now queues the update and returns immediately
+          await this.hudData.updateVisual(visualId, { Notes: 'HIDDEN' }, this.serviceId);
+          // Keep visualRecordIds and visualPhotos intact for when user reselects
+          console.log('[TOGGLE] Hid visual (queued for sync):', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error hiding visual:', error);
-          this.selectedItems[key] = true; // Revert on error
-        } finally {
-          this.savingItems[key] = false;
-          this.changeDetectorRef.detectChanges();
+          // Revert selection on error
+          this.selectedItems[key] = true;
+          // Toast removed per user request
+          // await this.showToast('Failed to hide selection', 'danger');
         }
+        this.savingItems[key] = false;
+      } else if (visualId && String(visualId).startsWith('temp_')) {
+        // For temp IDs (created offline, not yet synced), just update local state
+        console.log('[TOGGLE] Hidden temp visual (not yet synced):', visualId);
+        // Clear selection but keep the visual data for potential re-select
       }
     }
+
   }
 
-  isItemSelected(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
-    return this.selectedItems[key] || false;
+  // Answer change for Yes/No dropdowns (answerType 1)
+  async onAnswerChange(category: string, item: VisualItem) {
+    const key = `${category}_${item.id}`;
+    console.log('[ANSWER] Changed:', item.answer, 'for', key);
+
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+      answer: item.answer || '',
+      isSelected: !!(item.answer && item.answer !== '')
+    }).catch(err => {
+      console.error('[ANSWER] Failed to write to Dexie:', err);
+    });
+
+    this.savingItems[key] = true;
+
+    try {
+      // Create or update visual record
+      let visualId = this.visualRecordIds[key];
+
+      // If answer is empty/cleared, hide the visual instead of deleting
+      if (!item.answer || item.answer === '') {
+        if (visualId && !String(visualId).startsWith('temp_')) {
+          await this.hudData.updateVisual(visualId, {
+            Answers: '',
+            Notes: 'HIDDEN'
+          }, this.serviceId);
+          console.log('[ANSWER] Hid visual (queued for sync):', visualId);
+        }
+        this.savingItems[key] = false;
+        return;
+      }
+
+      if (!visualId) {
+        // Create new visual
+        const serviceIdNum = parseInt(this.serviceId, 10);
+        const visualData = {
+          ServiceID: serviceIdNum,
+          Category: category,
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: '',
+          Answers: item.answer || ''
+        };
+
+        const result = await this.hudData.createVisual(visualData);
+        const visualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = visualId;
+        console.log('[ANSWER] Created visual:', visualId);
+      } else if (!String(visualId).startsWith('temp_')) {
+        // Update existing visual and unhide if it was hidden
+        await this.hudData.updateVisual(visualId, {
+          Answers: item.answer || '',
+          Notes: ''
+        }, this.serviceId);
+        console.log('[ANSWER] Updated visual:', visualId);
+        
+        // CRITICAL: Load photos if visual was previously hidden
+        const key = `${category}_${item.id}`;
+        if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
+          console.log('[ANSWER] Loading photos for unhidden visual:', visualId);
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.error('[ANSWER] Error loading photos:', err);
+          });
+        }
+      }
+    } catch (error) {
+      console.error('[ANSWER] Error saving answer:', error);
+      // Toast removed per user request
+      // await this.showToast('Failed to save answer', 'danger');
+    }
+
+    this.savingItems[key] = false;
+  }
+
+  // Multi-select option toggle (answerType 2)
+  async onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
+    const key = `${category}_${item.id}`;
+    const isChecked = event.detail.checked;
+
+    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key);
+
+    // Update the answer string
+    let selectedOptions: string[] = [];
+    if (item.answer) {
+      selectedOptions = item.answer.split(',').map(o => o.trim()).filter(o => o);
+    }
+
+    if (isChecked) {
+      if (option === 'None') {
+        // "None" is mutually exclusive - clear all other selections
+        selectedOptions = ['None'];
+        item.otherValue = '';
+      } else {
+        // Remove "None" if selecting any other option
+        selectedOptions = selectedOptions.filter(o => o !== 'None');
+        if (!selectedOptions.includes(option)) {
+          selectedOptions.push(option);
+        }
+      }
+    } else {
+      selectedOptions = selectedOptions.filter(o => o !== option);
+      if (option === 'Other') {
+        item.otherValue = '';
+      }
+    }
+
+    item.answer = selectedOptions.join(', ');
+
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+      answer: item.answer,
+      isSelected: selectedOptions.length > 0 || !!(item.otherValue && item.otherValue !== '')
+    }).catch(err => {
+      console.error('[OPTION] Failed to write to Dexie:', err);
+    });
+
+    // Save to database
+    this.savingItems[key] = true;
+
+    try {
+      let visualId = this.visualRecordIds[key];
+
+      // If all options are unchecked AND no "Other" value, hide the visual
+      if ((!item.answer || item.answer === '') && (!item.otherValue || item.otherValue === '')) {
+        if (visualId && !String(visualId).startsWith('temp_')) {
+          await this.hudData.updateVisual(visualId, {
+            Answers: '',
+            Notes: 'HIDDEN'
+          }, this.serviceId);
+          console.log('[OPTION] Hid visual (queued for sync):', visualId);
+        }
+        this.savingItems[key] = false;
+        return;
+      }
+
+      if (!visualId) {
+        // Create new visual
+        const serviceIdNum = parseInt(this.serviceId, 10);
+        const visualData = {
+          ServiceID: serviceIdNum,
+          Category: category,
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: item.otherValue || '',  // Store "Other" value in Notes
+          Answers: item.answer
+        };
+
+        const result = await this.hudData.createVisual(visualData);
+        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = newVisualId;
+
+        // DEXIE-FIRST: Store tempVisualId in Dexie for persistence
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          tempVisualId: newVisualId
+        });
+
+        console.log('[OPTION] Created visual:', newVisualId);
+      } else if (!String(visualId).startsWith('temp_')) {
+        // Update existing visual and unhide if it was hidden
+        const notesValue = item.otherValue || '';
+        await this.hudData.updateVisual(visualId, {
+          Answers: item.answer,
+          Notes: notesValue
+        }, this.serviceId);
+        console.log('[OPTION] Updated visual:', visualId);
+      } else {
+        // Temp ID - update the pending request
+        const notesValue = item.otherValue || '';
+        await this.hudData.updateVisual(visualId, {
+          Answers: item.answer,
+          Notes: notesValue
+        }, this.serviceId);
+        console.log('[OPTION] Updated temp visual:', visualId);
+      }
+    } catch (error) {
+      console.error('[OPTION] Error saving option:', error);
+      // Toast removed per user request
+      // await this.showToast('Failed to save option', 'danger');
+    }
+
+    this.savingItems[key] = false;
+  }
+
+  isOptionSelectedV1(item: VisualItem, option: string): boolean {
+    if (!item.answer) return false;
+    const selectedOptions = item.answer.split(',').map(o => o.trim());
+    return selectedOptions.includes(option);
+  }
+
+  async onMultiSelectOtherChange(category: string, item: VisualItem) {
+    const key = `${category}_${item.id}`;
+    console.log('[OTHER] Value changed:', item.otherValue, 'for', key);
+
+    this.savingItems[key] = true;
+
+    try {
+      // DEXIE-FIRST: Save otherValue to Dexie immediately for persistence across reloads
+      await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+        otherValue: item.otherValue || '',
+        isSelected: true  // Selecting "Other" means the item is selected
+      });
+      console.log('[OTHER] Saved otherValue to Dexie:', item.otherValue);
+
+      let visualId = this.visualRecordIds[key];
+
+      // If "Other" value is empty AND no options selected, hide the visual
+      if ((!item.otherValue || item.otherValue === '') && (!item.answer || item.answer === '')) {
+        // Update Dexie to reflect unselected state
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          otherValue: '',
+          isSelected: false
+        });
+
+        if (visualId && !String(visualId).startsWith('temp_')) {
+          await this.hudData.updateVisual(visualId, {
+            Answers: '',
+            Notes: 'HIDDEN'
+          }, this.serviceId);
+          console.log('[OTHER] Hid visual (queued for sync):', visualId);
+        }
+        this.savingItems[key] = false;
+        return;
+      }
+
+      if (!visualId) {
+        // Create new visual
+        const serviceIdNum = parseInt(this.serviceId, 10);
+        const visualData = {
+          ServiceID: serviceIdNum,
+          Category: category,
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: item.otherValue || '',  // Store "Other" value in Notes
+          Answers: item.answer || ''
+        };
+
+        const result = await this.hudData.createVisual(visualData);
+        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = newVisualId;
+
+        // DEXIE-FIRST: Store tempVisualId in Dexie
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          tempVisualId: newVisualId
+        });
+
+        console.log('[OTHER] Created visual:', newVisualId);
+      } else if (!String(visualId).startsWith('temp_')) {
+        // Update existing visual and unhide if it was hidden
+        await this.hudData.updateVisual(visualId, {
+          Notes: item.otherValue || '',
+          Answers: item.answer || ''
+        }, this.serviceId);
+        console.log('[OTHER] Updated visual:', visualId);
+      } else {
+        // Temp ID - update the pending request
+        await this.hudData.updateVisual(visualId, {
+          Notes: item.otherValue || '',
+          Answers: item.answer || ''
+        }, this.serviceId);
+        console.log('[OTHER] Updated temp visual:', visualId);
+      }
+    } catch (error) {
+      console.error('[OTHER] Error saving other value:', error);
+      // Toast removed per user request
+      // await this.showToast('Failed to save other value', 'danger');
+    }
+
+    this.savingItems[key] = false;
+  }
+
+  /**
+   * Add a custom value from "Other" input to the options list
+   * Allows adding multiple custom values to multi-select dropdowns
+   * DEXIE-FIRST: Custom options are persisted to Dexie for instant UI updates
+   */
+  async addMultiSelectOther(category: string, item: VisualItem) {
+    const customValue = item.otherValue?.trim();
+    if (!customValue) {
+      return;
+    }
+
+    const key = `${category}_${item.id}`;
+    console.log('[OTHER] Adding custom option:', customValue, 'for', key);
+
+    // Get current options for this template
+    let options = this.visualDropdownOptions[item.templateId];
+    if (!options) {
+      options = [];
+      this.visualDropdownOptions[item.templateId] = options;
+    }
+
+    // Parse current selections
+    let selectedOptions: string[] = [];
+    if (item.answer) {
+      selectedOptions = item.answer.split(',').map(o => o.trim()).filter(o => o);
+    }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    selectedOptions = selectedOptions.filter(o => o !== 'None');
+
+    // Check if this value already exists in options
+    if (options.includes(customValue)) {
+      console.log(`[OTHER] Option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!selectedOptions.includes(customValue)) {
+        selectedOptions.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneIndex = options.indexOf('None');
+      if (noneIndex > -1) {
+        options.splice(noneIndex, 0, customValue);
+      } else {
+        const otherIndex = options.indexOf('Other');
+        if (otherIndex > -1) {
+          options.splice(otherIndex, 0, customValue);
+        } else {
+          options.push(customValue);
+        }
+      }
+      console.log(`[OTHER] Added custom option: "${customValue}"`);
+
+      // Select the new custom value
+      selectedOptions.push(customValue);
+    }
+
+    // Update item answer
+    item.answer = selectedOptions.join(', ');
+
+    // Clear the input field for the next entry
+    item.otherValue = '';
+
+    // DEXIE-FIRST: Write-through to visualFields including updated dropdownOptions
+    // This ensures custom options persist across page loads and liveQuery updates
+    await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+      answer: item.answer,
+      otherValue: '',
+      isSelected: true,
+      dropdownOptions: [...options]  // Save the updated options array to Dexie
+    });
+
+    console.log('[OTHER] Saved dropdownOptions to Dexie:', options);
+
+    // Save to database
+    this.savingItems[key] = true;
+    try {
+      let visualId = this.visualRecordIds[key];
+
+      if (!visualId) {
+        // Create new visual
+        const serviceIdNum = parseInt(this.serviceId, 10);
+        const visualData = {
+          ServiceID: serviceIdNum,
+          Category: category,
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: '',
+          Answers: item.answer
+        };
+
+        const result = await this.hudData.createVisual(visualData);
+        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = newVisualId;
+
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          tempVisualId: newVisualId
+        });
+
+        console.log('[OTHER] Created visual:', newVisualId);
+      } else {
+        // Update existing visual
+        await this.hudData.updateVisual(visualId, {
+          Answers: item.answer,
+          Notes: ''
+        }, this.serviceId);
+        console.log('[OTHER] Updated visual:', visualId);
+      }
+    } catch (error) {
+      console.error('[OTHER] Error saving custom option:', error);
+    }
+
+    this.savingItems[key] = false;
+    this.changeDetectorRef.detectChanges();
   }
 
   isItemSaving(category: string, itemId: string | number): boolean {
@@ -1685,9 +4963,2650 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     return this.savingItems[key] || false;
   }
 
+  // ============================================
+  // PHOTO RETRIEVAL AND DISPLAY METHODS
+  // ============================================
+
   getPhotosForVisual(category: string, itemId: string | number): any[] {
     const key = `${category}_${itemId}`;
-    return this.visualPhotos[key] || [];
+    const photos = this.visualPhotos[key] || [];
+
+    if (photos.length > 0) {
+      if (!this._loggedPhotoKeys) this._loggedPhotoKeys = new Set();
+      if (!this._loggedPhotoKeys.has(key)) {
+        this._loggedPhotoKeys.add(key);
+        console.log(`[PHOTO] Photos for ${key}:`, photos.length);
+      }
+    }
+
+    return photos;
+  }
+
+  isLoadingPhotosForVisual(category: string, itemId: string | number): boolean {
+    const key = `${category}_${itemId}`;
+    return this.loadingPhotosByKey[key] === true;
+  }
+
+  getExpectedPhotoCount(category: string, itemId: string | number): number {
+    const key = `${category}_${itemId}`;
+    return this.photoCountsByKey[key] || 0;
+  }
+
+  // Get total photo count to display (shows expected count immediately, updates if more photos added)
+  getTotalPhotoCount(category: string, itemId: string | number): number {
+    const key = `${category}_${itemId}`;
+    const expectedCount = this.photoCountsByKey[key] || 0;
+    const actualCount = (this.visualPhotos[key] || []).length;
+    // Return the maximum to handle both initial load (shows expected) and new uploads (shows actual)
+    return Math.max(expectedCount, actualCount);
+  }
+
+  // ===== LAZY IMAGE LOADING METHODS =====
+  
+  /**
+   * Check if photos are expanded for a visual
+   */
+  isPhotosExpanded(category: string, itemId: string | number): boolean {
+    const key = `${category}_${itemId}`;
+    return this.expandedPhotos[key] === true;
+  }
+
+  /**
+   * Toggle photos expansion - expands and loads photos on first click
+   */
+  togglePhotoExpansion(category: string, itemId: string | number): void {
+    const key = `${category}_${itemId}`;
+    
+    if (this.expandedPhotos[key]) {
+      // Collapse
+      this.expandedPhotos[key] = false;
+    } else {
+      // Expand and load photos if not already loaded
+      this.expandedPhotos[key] = true;
+      
+      // Only load photos if we haven't loaded them yet
+      const visualId = this.visualRecordIds[key];
+      if (visualId && (!this.visualPhotos[key] || this.visualPhotos[key].length === 0)) {
+        this.loadPhotosForVisual(visualId, key).catch(err => {
+          console.error('[EXPAND] Error loading photos:', err);
+        });
+      }
+    }
+    
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Expand photos for a visual
+   */
+  expandPhotos(category: string, itemId: string | number): void {
+    const key = `${category}_${itemId}`;
+    this.expandedPhotos[key] = true;
+    
+    // Load photos if not already loaded
+    const visualId = this.visualRecordIds[key];
+    if (visualId && (!this.visualPhotos[key] || this.visualPhotos[key].length === 0)) {
+      this.loadPhotosForVisual(visualId, key).catch(err => {
+        console.error('[EXPAND] Error loading photos:', err);
+      });
+    }
+    
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Collapse photos for a visual
+   */
+  collapsePhotos(category: string, itemId: string | number): void {
+    const key = `${category}_${itemId}`;
+    this.expandedPhotos[key] = false;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  getSkeletonArray(category: string, itemId: string | number): any[] {
+    const count = this.getExpectedPhotoCount(category, itemId);
+    return Array(count).fill({ isSkeleton: true });
+  }
+
+  isUploadingPhotos(category: string, itemId: string | number): boolean {
+    const key = `${category}_${itemId}`;
+    return this.uploadingPhotosByKey[key] || false;
+  }
+
+  getUploadingCount(category: string, itemId: string | number): number {
+    const key = `${category}_${itemId}`;
+    const photos = this.visualPhotos[key] || [];
+    return photos.filter(p => p.uploading).length;
+  }
+
+  /**
+   * TrackBy function for photos - uses stable imageId if available
+   * CRITICAL: Using a stable key prevents Angular from remounting components
+   * which causes the "disappear then reappear" issue
+   */
+  trackByPhotoId(index: number, photo: any): string {
+    // MUST return stable UUID - NEVER fall back to index (causes re-renders)
+    // Priority: imageId (new local-first) > _tempId > AttachID > generated emergency ID
+    const stableId = photo.imageId || photo._tempId || photo.AttachID || photo.id;
+    if (stableId) {
+      return String(stableId);
+    }
+    // Generate emergency stable ID from available data - never use index
+    console.warn('[trackBy] Photo missing stable ID, generating emergency ID:', photo);
+    return `photo_${photo.VisualID || photo.PointID || 'unknown'}_${photo.fileName || photo.Photo || index}`;
+  }
+
+  // NOTE: handleImageError and handleImageLoad are defined at the end of the file
+  // with comprehensive fallback logic (see IMAGE LOAD/ERROR HANDLERS section)
+
+  saveScrollBeforePhotoClick(event: Event): void {
+    // This method is still called from HTML but now handled in viewPhoto() instead
+    // Keeping the method to avoid template errors
+  }
+
+  // ============================================================================
+  // NEW LOCAL-FIRST IMAGE SYSTEM HELPERS
+  // ============================================================================
+
+  /**
+   * Create a photo using the new local-first system
+   * Returns a stable imageId that can be used as UI key
+   */
+  async createLocalImage(
+    file: File,
+    visualId: string,
+    key: string,
+    caption: string = '',
+    drawings: string = ''
+  ): Promise<LocalImage> {
+    const localImage = await this.localImageService.captureImage(
+      file,
+      'visual',
+      visualId,
+      this.serviceId,
+      caption,
+      drawings
+    );
+
+    // Get display URL
+    const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+    // Add to visualPhotos for immediate UI display
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+
+    const photoData: any = {
+      // Stable ID from new system
+      imageId: localImage.imageId,
+      
+      // Legacy fields for compatibility
+      AttachID: localImage.imageId, // Use imageId as AttachID for now
+      id: localImage.imageId,
+      
+      // Display info
+      displayUrl: displayUrl,
+      url: displayUrl,
+      thumbnailUrl: displayUrl,
+      
+      // Status from new system
+      status: localImage.status,
+      isLocal: !!localImage.localBlobId,
+      
+      // Metadata
+      caption: caption,
+      annotation: caption,
+      Annotation: caption,
+      Drawings: drawings,
+      hasAnnotations: !!drawings && drawings.length > 10,
+      
+      // UI state
+      uploading: localImage.status === 'uploading' || localImage.status === 'queued',
+      loading: false,
+      isObjectUrl: true
+    };
+
+    this.visualPhotos[key].push(photoData);
+    this.changeDetectorRef.detectChanges();
+
+    console.log('[LOCAL IMAGE] Created:', localImage.imageId, 'for key:', key);
+    return localImage;
+  }
+
+  /**
+   * Get display URL for a photo (works with both old and new system)
+   */
+  async getPhotoDisplayUrl(photo: any): Promise<string> {
+    // If this is a new-system photo with imageId
+    if (photo.imageId) {
+      const localImage = await this.localImageService.getImage(photo.imageId);
+      if (localImage) {
+        return this.localImageService.getDisplayUrl(localImage);
+      }
+    }
+    
+    // Fall back to existing displayUrl
+    return photo.displayUrl || photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+  }
+
+  /**
+   * Refresh photo display URL after sync
+   * Called when status changes to update from local blob to remote
+   */
+  async refreshPhotoDisplayUrl(imageId: string, key: string): Promise<void> {
+    const localImage = await this.localImageService.getImage(imageId);
+    if (!localImage) return;
+
+    const photoIndex = this.visualPhotos[key]?.findIndex(p => p.imageId === imageId);
+    if (photoIndex === -1) return;
+
+    const newDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+    
+    this.visualPhotos[key][photoIndex] = {
+      ...this.visualPhotos[key][photoIndex],
+      displayUrl: newDisplayUrl,
+      url: newDisplayUrl,
+      thumbnailUrl: newDisplayUrl,
+      status: localImage.status,
+      isLocal: !!localImage.localBlobId,
+      uploading: localImage.status === 'uploading' || localImage.status === 'queued',
+      AttachID: localImage.attachId || localImage.imageId // Update with real AttachID if available
+    };
+
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // ============================================
+  // CAMERA AND GALLERY CAPTURE METHODS
+  // ============================================
+
+  async addPhotoFromCamera(category: string, itemId: string | number) {
+    // Set cooldown to prevent cache invalidation from causing UI flash
+    this.startLocalOperationCooldown();
+    
+    try {
+      // Capture photo with camera
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera
+      });
+
+      if (image.webPath) {
+        // Convert to blob/file
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const imageUrl = URL.createObjectURL(blob);
+
+        // Open photo editor directly
+      const modal = await this.modalController.create({
+        component: FabricPhotoAnnotatorComponent,
+        componentProps: {
+          imageUrl: imageUrl,
+            existingAnnotations: null,
+            existingCaption: '',
+            photoData: {
+              id: 'new',
+              caption: ''
+            },
+            isReEdit: false
+          },
+          cssClass: 'fullscreen-modal'
+        });
+
+        await modal.present();
+
+        // Handle annotated photo returned from annotator
+        const { data } = await modal.onWillDismiss();
+
+        if (data && data.annotatedBlob) {
+          // User saved the annotated photo - upload ORIGINAL (not annotated) and save annotations separately
+          const annotatedBlob = data.blob || data.annotatedBlob;
+          const annotationsData = data.annotationData || data.annotationsData;
+          const caption = data.caption || '';
+
+          // CRITICAL: Upload the ORIGINAL photo, not the annotated one
+          const originalFile = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+          // Compress image before storage
+          const originalSize = originalFile.size;
+          const compressedFile = await this.imageCompression.compressImage(originalFile, {
+            maxSizeMB: 0.8,
+            maxWidthOrHeight: 1280,
+            useWebWorker: true
+          }) as File;
+          const compressedSize = compressedFile.size;
+
+          // Get or create visual ID
+          const key = `${category}_${itemId}`;
+          let visualId = this.visualRecordIds[key];
+
+          if (!visualId) {
+            await this.saveVisualSelection(category, itemId);
+            visualId = this.visualRecordIds[key];
+          }
+
+          if (!visualId) {
+            console.error('[CAMERA UPLOAD] Failed to create visual record');
+            return;
+          }
+
+          // Compress annotations BEFORE creating photo entry
+          let compressedDrawings = '';
+          if (annotationsData) {
+            if (typeof annotationsData === 'object') {
+              compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+            } else if (typeof annotationsData === 'string') {
+              compressedDrawings = compressAnnotationData(annotationsData);
+            }
+          }
+
+          // ============================================
+          // WEBAPP MODE: Direct S3 Upload (No Local Storage)
+          // MOBILE MODE: Local-first with background sync
+          // ============================================
+
+          // WEBAPP MODE: Upload directly to S3
+          if (environment.isWeb) {
+            console.log('[CAMERA UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
+
+            // Initialize photo array if it doesn't exist
+            if (!this.visualPhotos[key]) {
+              this.visualPhotos[key] = [];
+            }
+
+            // Create temp photo entry with loading state (show roller)
+            const tempId = `uploading_${Date.now()}`;
+            const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : URL.createObjectURL(blob);
+            const tempPhotoEntry = {
+              imageId: tempId,
+              AttachID: tempId,
+              attachId: tempId,
+              id: tempId,
+              url: annotatedDisplayUrl,
+              displayUrl: annotatedDisplayUrl,
+              originalUrl: annotatedDisplayUrl,
+              thumbnailUrl: annotatedDisplayUrl,
+              name: 'camera-photo.jpg',
+              caption: caption || '',
+              annotation: caption || '',
+              Annotation: caption || '',
+              Drawings: compressedDrawings,
+              hasAnnotations: !!annotationsData,
+              status: 'uploading',
+              isLocal: false,
+              uploading: true,  // Show loading roller
+              isPending: true,
+              isSkeleton: false,
+              progress: 0
+            };
+
+            // Add temp photo to UI immediately (with loading roller)
+            this.visualPhotos[key].push(tempPhotoEntry);
+            this.loadingPhotosByKey[key] = false;
+            this.expandPhotos(category, itemId);
+            this.changeDetectorRef.detectChanges();
+
+            try {
+              // Upload directly to S3
+              const uploadResult = await this.localImageService.uploadImageDirectToS3(
+                compressedFile,
+                'visual',
+                String(visualId),
+                this.serviceId,
+                caption,
+                compressedDrawings
+              );
+
+              console.log('[CAMERA UPLOAD] WEBAPP: ? Upload complete, AttachID:', uploadResult.attachId);
+
+              // Replace temp photo with real photo (remove loading roller)
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key][tempIndex] = {
+                  ...tempPhotoEntry,
+                  imageId: uploadResult.attachId,
+                  AttachID: uploadResult.attachId,
+                  attachId: uploadResult.attachId,
+                  id: uploadResult.attachId,
+                  url: uploadResult.s3Url,
+                  displayUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
+                  originalUrl: uploadResult.s3Url,
+                  thumbnailUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
+                  status: 'uploaded',
+                  isLocal: false,
+                  uploading: false,  // Remove loading roller
+                  isPending: false
+                };
+              }
+
+              this.changeDetectorRef.detectChanges();
+
+              // Clean up blob URL
+              URL.revokeObjectURL(imageUrl);
+              console.log('[CAMERA UPLOAD] WEBAPP: Photo added successfully');
+              return;
+
+            } catch (uploadError: any) {
+              console.error('[CAMERA UPLOAD] WEBAPP: ? Upload failed:', uploadError?.message || uploadError);
+
+              // Remove temp photo on error
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key].splice(tempIndex, 1);
+              }
+              this.changeDetectorRef.detectChanges();
+
+              // Show error toast
+              const toast = await this.toastController.create({
+                message: 'Failed to upload photo. Please try again.',
+                duration: 3000,
+                color: 'danger'
+              });
+              await toast.present();
+
+              URL.revokeObjectURL(imageUrl);
+              if (annotatedBlob) URL.revokeObjectURL(annotatedDisplayUrl);
+              return;
+            }
+          }
+
+          // ============================================
+          // MOBILE MODE: LOCAL-FIRST IMAGE SYSTEM
+          // Uses stable UUID that NEVER changes
+          // ============================================
+
+          this.logDebug('CAPTURE', `Starting captureImage for visualId: ${visualId}`);
+
+          // RACE CONDITION FIX: Suppress liveQuery during camera capture
+          // Without this, liveQuery fires after Dexie write but BEFORE we push to visualPhotos,
+          // causing populatePhotosFromDexie to add a duplicate entry with the original (non-annotated) URL
+          this.isCameraCaptureInProgress = true;
+
+          // Create LocalImage with stable UUID (this stores blob + creates outbox item)
+          let localImage: LocalImage;
+          try {
+            localImage = await this.localImageService.captureImage(
+              compressedFile,  // Use compressed file
+              'visual',
+              String(visualId),
+              this.serviceId,
+              caption,
+              compressedDrawings
+            );
+            
+            this.logDebug('CAPTURE', `? LocalImage created: ${localImage.imageId} status: ${localImage.status} blobId: ${localImage.localBlobId}`);
+            console.log('[CAMERA UPLOAD] ? Created LocalImage with stable ID:', localImage.imageId);
+          } catch (captureError: any) {
+            this.logDebug('ERROR', `captureImage FAILED: ${captureError?.message || captureError}`);
+            console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
+            throw captureError;
+          }
+
+          // Get display URL from LocalImageService (always uses local blob first)
+          const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+          // ===== US-001 DEBUG: Photo upload - LocalImage creation and displayUrl =====
+          const uploadDebugMsg = `PHOTO UPLOAD SUCCESS\n` +
+            `imageId: ${localImage.imageId}\n` +
+            `entityId (visualId): ${localImage.entityId}\n` +
+            `status: ${localImage.status}\n` +
+            `localBlobId: ${localImage.localBlobId}\n` +
+            `displayUrl: ${displayUrl?.substring(0, 80)}...\n` +
+            `displayUrl type: ${displayUrl?.startsWith('blob:') ? 'BLOB' : displayUrl?.startsWith('data:') ? 'DATA' : 'OTHER'}\n` +
+            `key: ${key}\n` +
+            `hasAnnotations: ${!!annotationsData}`;
+          this.logDebug('UPLOAD', uploadDebugMsg);
+          // ===== END US-001 DEBUG =====
+
+          // For annotated images, create a separate display URL showing annotations
+          let annotatedDisplayUrl = displayUrl;
+          if (annotatedBlob) {
+            annotatedDisplayUrl = URL.createObjectURL(annotatedBlob);
+          }
+
+          // Initialize photo array if it doesn't exist
+          if (!this.visualPhotos[key]) {
+            this.visualPhotos[key] = [];
+          }
+
+          // Ensure loading flag is false so photo displays immediately
+          this.loadingPhotosByKey[key] = false;
+
+          // Create photo entry using STABLE imageId as the key
+          const photoEntry = {
+            // STABLE ID - never changes, safe for UI key
+            imageId: localImage.imageId,
+            
+            // For compatibility with existing code
+            AttachID: localImage.imageId,
+            attachId: localImage.imageId,
+            id: localImage.imageId,
+            
+            // Display URLs
+            url: displayUrl,
+            displayUrl: annotatedDisplayUrl,
+            originalUrl: displayUrl,
+            thumbnailUrl: annotatedDisplayUrl,
+            
+            // Metadata
+            name: 'camera-photo.jpg',
+            caption: caption || '',
+            annotation: caption || '',
+            Annotation: caption || '',
+            Drawings: compressedDrawings,
+            hasAnnotations: !!annotationsData,
+            
+            // Status from LocalImage system - SILENT SYNC
+            status: localImage.status,
+            isLocal: true,
+            isLocalFirst: true,
+            isLocalImage: true,
+            isObjectUrl: true,
+            uploading: false,         // SILENT SYNC: No spinner
+            queued: false,            // SILENT SYNC: No indicator
+            isPending: localImage.status !== 'verified',
+            isSkeleton: false,
+            progress: 0
+          };
+
+          // TASK 5 FIX: Check for duplicates before adding photo
+          // This prevents extra broken images when uploading photos
+          const existingIndex = this.visualPhotos[key].findIndex((p: any) =>
+            p.imageId === localImage.imageId ||
+            p.AttachID === localImage.imageId ||
+            p.id === localImage.imageId
+          );
+
+          if (existingIndex === -1) {
+            // Add photo to UI immediately (no duplicate found)
+            this.visualPhotos[key].push(photoEntry);
+            console.log('[CAMERA UPLOAD] ? Photo added (silent sync):', localImage.imageId);
+          } else {
+            // Duplicate found - update existing entry instead of adding
+            console.log('[CAMERA UPLOAD] ?? Photo already exists, updating:', localImage.imageId);
+            this.visualPhotos[key][existingIndex] = { ...this.visualPhotos[key][existingIndex], ...photoEntry };
+          }
+
+          // Expand photos section so user can see the newly added photo
+          this.expandPhotos(category, itemId);
+          this.changeDetectorRef.detectChanges();
+
+          // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
+          this.isCameraCaptureInProgress = false;
+
+          console.log(`  key: ${key}`);
+          console.log(`  imageId: ${localImage.imageId}`);
+          console.log(`  AttachID: ${photoEntry.AttachID}`);
+          console.log(`  id: ${photoEntry.id}`);
+          console.log(`  Total photos in key: ${this.visualPhotos[key].length}`);
+
+          // Cache annotated image for thumbnail persistence across navigation
+          // STORAGE FIX: Only cache if REAL annotations exist (not just empty canvas data)
+          // Fabric.js serializes to {"version":"x","objects":[...]} - check if objects array has items
+          let hasRealAnnotations = false;
+          if (annotationsData) {
+            try {
+              const parsed = typeof annotationsData === 'string' ? JSON.parse(annotationsData) : annotationsData;
+              hasRealAnnotations = parsed?.objects && Array.isArray(parsed.objects) && parsed.objects.length > 0;
+              console.log(`[CAMERA UPLOAD] Annotation check: objects=${parsed?.objects?.length || 0}, hasReal=${hasRealAnnotations}`);
+            } catch (e) {
+              // If can't parse, check string length as fallback
+              const annotationStr = typeof annotationsData === 'string' ? annotationsData : JSON.stringify(annotationsData);
+              hasRealAnnotations = annotationStr.length > 500; // Much higher threshold for unparseable data
+              console.log(`[CAMERA UPLOAD] Annotation check (fallback): length=${annotationStr.length}, hasReal=${hasRealAnnotations}`);
+            }
+          }
+
+          if (annotatedBlob && hasRealAnnotations) {
+            try {
+              const base64 = await this.indexedDb.cacheAnnotatedImage(localImage.imageId, annotatedBlob);
+              console.log('[CAMERA UPLOAD] ? Annotated image cached for thumbnail persistence');
+              if (base64) {
+                this.bulkAnnotatedImagesMap.set(localImage.imageId, base64);
+              }
+            } catch (cacheErr) {
+              console.warn('[CAMERA UPLOAD] Failed to cache annotated image:', cacheErr);
+            }
+          } else if (annotatedBlob) {
+            console.log('[CAMERA UPLOAD] Skipping annotation cache - no real drawings detected');
+          }
+
+          // Sync will happen on next 60-second interval via upload outbox
+        }
+
+        // Clean up blob URL
+        URL.revokeObjectURL(imageUrl);
+      }
+    } catch (error) {
+      // RACE CONDITION FIX: Ensure flag is reset on error
+      this.isMultiImageUploadInProgress = false;
+
+      // Check if user cancelled - don't show error for cancellations
+      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
+      const isCancelled = errorMessage.includes('cancel') ||
+                         errorMessage.includes('Cancel') ||
+                         errorMessage.includes('User') ||
+                         error === 'User cancelled photos app';
+
+      if (!isCancelled) {
+        console.error('Error capturing photo from camera:', error);
+      }
+    }
+  }
+
+  async addPhotoFromGallery(category: string, itemId: string | number) {
+    // Set cooldown to prevent cache invalidation from causing UI flash
+    this.startLocalOperationCooldown();
+
+    try {
+      // Use pickImages to allow multiple photo selection
+      // STORAGE OPTIMIZATION: Lower picker quality since we compress to 0.8MB anyway
+      // User never sees this temp file - only the final compressed version
+      // quality: 70 reduces temp file from ~3.5MB to ~1.5MB with no visible difference
+      const images = await Camera.pickImages({
+        quality: 70,
+        limit: 0 // 0 = no limit on number of photos
+      });
+
+      if (images.photos && images.photos.length > 0) {
+        const key = `${category}_${itemId}`;
+
+        // Initialize photo array if it doesn't exist
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        // Ensure loading flag is false so photos display immediately
+        this.loadingPhotosByKey[key] = false;
+
+        console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
+
+        // Create visual record if it doesn't exist
+        let visualId = this.visualRecordIds[key];
+        if (!visualId) {
+          await this.saveVisualSelection(category, itemId);
+          visualId = this.visualRecordIds[key];
+        }
+
+        if (!visualId) {
+          console.error('[GALLERY UPLOAD] Failed to create visual record');
+          return;
+        }
+
+        // ============================================
+        // WEBAPP MODE: Direct S3 Upload (No Local Storage)
+        // ============================================
+        if (environment.isWeb) {
+          console.log('[GALLERY UPLOAD] WEBAPP MODE: Direct S3 upload for', images.photos.length, 'photos');
+
+          for (let i = 0; i < images.photos.length; i++) {
+            const image = images.photos[i];
+
+            if (image.webPath) {
+              try {
+                console.log(`[GALLERY UPLOAD] WEBAPP: Processing photo ${i + 1}/${images.photos.length}`);
+
+                // Fetch the blob
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+
+                if (!blob || blob.size === 0) {
+                  console.error(`[GALLERY UPLOAD] WEBAPP: Photo ${i + 1} has empty blob - skipping`);
+                  continue;
+                }
+
+                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+
+                // Compress image
+                const compressedFile = await this.imageCompression.compressImage(file, {
+                  maxSizeMB: 0.8,
+                  maxWidthOrHeight: 1280,
+                  useWebWorker: true
+                }) as File;
+
+                // Create temp photo entry with loading state (show roller)
+                const tempId = `uploading_${Date.now()}_${i}`;
+                const tempDisplayUrl = URL.createObjectURL(blob);
+                const tempPhotoEntry = {
+                  imageId: tempId,
+                  AttachID: tempId,
+                  attachId: tempId,
+                  id: tempId,
+                  url: tempDisplayUrl,
+                  displayUrl: tempDisplayUrl,
+                  originalUrl: tempDisplayUrl,
+                  thumbnailUrl: tempDisplayUrl,
+                  name: `photo_${i}.jpg`,
+                  caption: '',
+                  annotation: '',
+                  Annotation: '',
+                  Drawings: '',
+                  hasAnnotations: false,
+                  status: 'uploading',
+                  isLocal: false,
+                  uploading: true,  // Show loading roller
+                  isPending: true,
+                  isSkeleton: false,
+                  progress: 0
+                };
+
+                // Add temp photo to UI immediately
+                this.visualPhotos[key].push(tempPhotoEntry);
+                this.changeDetectorRef.detectChanges();
+
+                try {
+                  // Upload directly to S3
+                  const uploadResult = await this.localImageService.uploadImageDirectToS3(
+                    compressedFile,
+                    'visual',
+                    String(visualId),
+                    this.serviceId,
+                    '', // caption
+                    ''  // drawings
+                  );
+
+                  console.log(`[GALLERY UPLOAD] WEBAPP: ? Photo ${i + 1} uploaded, AttachID:`, uploadResult.attachId);
+
+                  // Replace temp photo with real photo
+                  const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+                  if (tempIndex >= 0) {
+                    this.visualPhotos[key][tempIndex] = {
+                      ...tempPhotoEntry,
+                      imageId: uploadResult.attachId,
+                      AttachID: uploadResult.attachId,
+                      attachId: uploadResult.attachId,
+                      id: uploadResult.attachId,
+                      url: uploadResult.s3Url,
+                      displayUrl: uploadResult.s3Url,
+                      originalUrl: uploadResult.s3Url,
+                      thumbnailUrl: uploadResult.s3Url,
+                      status: 'uploaded',
+                      isLocal: false,
+                      uploading: false,  // Remove loading roller
+                      isPending: false
+                    };
+                  }
+                  this.changeDetectorRef.detectChanges();
+
+                  // Clean up temp URL
+                  URL.revokeObjectURL(tempDisplayUrl);
+
+                } catch (uploadError: any) {
+                  console.error(`[GALLERY UPLOAD] WEBAPP: ? Photo ${i + 1} upload failed:`, uploadError?.message || uploadError);
+
+                  // Remove failed temp photo
+                  const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+                  if (tempIndex >= 0) {
+                    this.visualPhotos[key].splice(tempIndex, 1);
+                  }
+                  this.changeDetectorRef.detectChanges();
+                  URL.revokeObjectURL(tempDisplayUrl);
+                }
+
+              } catch (processError) {
+                console.error(`[GALLERY UPLOAD] WEBAPP: Error processing photo ${i + 1}:`, processError);
+              }
+            }
+          }
+
+          // Expand photos section
+          this.expandPhotos(category, itemId);
+          this.changeDetectorRef.detectChanges();
+          console.log('[GALLERY UPLOAD] WEBAPP: All photos processed');
+          return;
+        }
+
+        // ============================================
+        // MOBILE MODE: US-003 FIX - IMMEDIATE UPLOAD WITH DUPLICATE PREVENTION
+        // Photos are added to UI immediately so user can view them right away.
+        // batchUploadImageIds tracks added photos to prevent liveQuery duplicates.
+        // ============================================
+
+        // Set batch flag to suppress liveQuery change detection during processing
+        // batchUploadImageIds tracks added photos to prevent liveQuery duplicates
+        this.isMultiImageUploadInProgress = true;
+        this.batchUploadImageIds.clear();
+
+        try {
+          // Process each photo with LocalImageService
+          for (let i = 0; i < images.photos.length; i++) {
+            const image = images.photos[i];
+
+            // US-001 FIX: Add small delay between processing photos on mobile
+            // This helps prevent timing issues where the last image's blob isn't ready yet
+            if (i > 0) {
+              await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+            }
+
+            if (image.webPath) {
+              try {
+                console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
+
+                // Fetch the blob
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+
+                // US-001 FIX: Validate blob has content before creating File
+                // On mobile, gallery-selected images (especially the last in a batch)
+                // can have empty or corrupt blob data due to timing issues
+                if (!blob || blob.size === 0) {
+                  console.error(`[GALLERY UPLOAD] US-001: Photo ${i + 1} has empty blob data - skipping`);
+                  continue;
+                }
+
+                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+
+                // US-001 FIX: Double-check file size after File creation
+                if (file.size === 0) {
+                  console.error(`[GALLERY UPLOAD] US-001: Photo ${i + 1} file size is 0 after creation - skipping`);
+                  continue;
+                }
+
+                // Compress image before storage
+                const compressedFile = await this.imageCompression.compressImage(file, {
+                  maxSizeMB: 0.8,
+                  maxWidthOrHeight: 1280,
+                  useWebWorker: true
+                }) as File;
+
+                // Create LocalImage with stable UUID
+                const localImage = await this.localImageService.captureImage(
+                  compressedFile,  // Use compressed file
+                  'visual',
+                  String(visualId),
+                  this.serviceId,
+                  '', // caption
+                  ''  // drawings
+                );
+
+                console.log(`[GALLERY UPLOAD] ? Created LocalImage ${i + 1} with stable ID:`, localImage.imageId);
+
+                // US-003 FIX: Track this imageId to prevent duplicates from liveQuery race
+                this.batchUploadImageIds.add(localImage.imageId);
+
+                // Get display URL from LocalImageService
+                const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+                // Create photo entry using STABLE imageId as the key
+                const photoEntry = {
+                  // STABLE ID - never changes, safe for UI key
+                  imageId: localImage.imageId,
+
+                  // For compatibility with existing code
+                  AttachID: localImage.imageId,
+                  attachId: localImage.imageId,
+                  id: localImage.imageId,
+
+                  // Display URLs
+                  url: displayUrl,
+                  displayUrl: displayUrl,
+                  originalUrl: displayUrl,
+                  thumbnailUrl: displayUrl,
+
+                  // Metadata
+                  name: `photo_${i}.jpg`,
+                  caption: '',
+                  annotation: '',
+                  Annotation: '',
+                  Drawings: '',
+                  hasAnnotations: false,
+
+                  // Status from LocalImage system - SILENT SYNC
+                  status: localImage.status,
+                  isLocal: true,
+                  isLocalFirst: true,
+                  isLocalImage: true,
+                  isObjectUrl: true,
+                  uploading: false,         // SILENT SYNC: No spinner
+                  queued: false,            // SILENT SYNC: No indicator
+                  isPending: localImage.status !== 'verified',
+                  isSkeleton: false,
+                  progress: 0
+                };
+
+                // US-003 FIX: Check for duplicates in existing photos
+                // batchUploadImageIds tracks what we've added to prevent liveQuery duplicates
+                const existingIndex = this.visualPhotos[key].findIndex((p: any) =>
+                  p.imageId === localImage.imageId ||
+                  p.AttachID === localImage.imageId ||
+                  p.id === localImage.imageId
+                );
+                const alreadyTracked = this.batchUploadImageIds.has(localImage.imageId);
+
+                if (existingIndex === -1 && !alreadyTracked) {
+                  // IMMEDIATE UI UPDATE: Add photo to UI right away so user can view it
+                  // Track in batchUploadImageIds to prevent liveQuery from adding duplicates
+                  this.batchUploadImageIds.add(localImage.imageId);
+                  // Must run inside Angular zone - Camera.pickImages() runs outside zone
+                  this.ngZone.run(() => {
+                    this.visualPhotos[key].push(photoEntry);
+                    this.changeDetectorRef.detectChanges();
+                  });
+                  console.log(`[GALLERY UPLOAD] ? Photo ${i + 1} added to UI immediately:`, localImage.imageId);
+                } else {
+                  // Duplicate found - skip or update existing
+                  console.log(`[GALLERY UPLOAD] ?? Photo ${i + 1} duplicate detected, skipping:`, localImage.imageId);
+                }
+                console.log(`  key: ${key}`);
+                console.log(`  imageId: ${localImage.imageId}`);
+
+                // NOTE: Capacitor temp files cannot be deleted via JS on iOS
+                // iOS will clean them up automatically when storage pressure occurs
+                // We've reduced quality to 50 to minimize temp file size (~1.5MB vs ~3.5MB)
+
+              } catch (error) {
+                console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
+              }
+            }
+          }
+
+          // Photos are now added immediately in the loop above
+          // batchUploadImageIds prevents duplicates from liveQuery
+
+        } finally {
+          // US-003 FIX: Always reset batch flag, even if error occurs
+          this.isMultiImageUploadInProgress = false;
+          this.batchUploadImageIds.clear();
+
+          // Expand photos section so user can see the newly added photos
+          this.expandPhotos(category, itemId);
+
+          // Trigger single change detection after batch completes
+          this.changeDetectorRef.detectChanges();
+        }
+
+        console.log(`[GALLERY UPLOAD] ? All ${images.photos.length} photos processed with stable IDs`);
+        console.log(`[GALLERY UPLOAD] Total photos in key: ${this.visualPhotos[key].length}`);
+        // Sync will happen on next 60-second interval via upload outbox
+      }
+    } catch (error) {
+      // Check if user cancelled - don't show error for cancellations
+      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
+      const isCancelled = errorMessage.includes('cancel') ||
+                         errorMessage.includes('Cancel') ||
+                         errorMessage.includes('User') ||
+                         error === 'User cancelled photos app';
+
+      if (!isCancelled) {
+        console.error('Error selecting photo from gallery:', error);
+      }
+    }
+  }
+
+  private triggerFileInput(source: 'camera' | 'library' | 'system', options: { allowMultiple?: boolean; capture?: string } = {}): void {
+    if (!this.fileInput) {
+      console.error('File input not found');
+      return;
+    }
+
+    const input = this.fileInput.nativeElement;
+    input.accept = 'image/*';
+    input.multiple = options.allowMultiple || false;
+
+    if (source === 'camera') {
+      input.setAttribute('capture', 'environment');
+    } else {
+      input.removeAttribute('capture');
+    }
+
+    input.click();
+  }
+
+  async onFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) {
+      return;
+    }
+
+    const files = Array.from(input.files);
+    console.log(`[FILE INPUT] Selected ${files.length} file(s)`);
+
+    if (!this.currentUploadContext) {
+      console.error('[FILE INPUT] No upload context!');
+      return;
+    }
+
+    const { category, itemId } = this.currentUploadContext;
+    const key = `${category}_${itemId}`;
+
+    // Get or create visual ID
+    let visualId = this.visualRecordIds[key];
+    if (!visualId) {
+      await this.saveVisualSelection(category, itemId);
+      visualId = this.visualRecordIds[key];
+    }
+
+    if (visualId) {
+      for (const file of files) {
+        await this.uploadPhotoForVisual(visualId, file, key, true, null, null, '');
+      }
+    }
+
+    // Clear the input
+    input.value = '';
+    this.currentUploadContext = null;
+  }
+
+  // ============================================
+  // PHOTO UPLOAD METHODS
+  // ============================================
+
+  async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null, caption: string = '', existingTempId?: string): Promise<string | null> {
+    const category = key.split('_')[0];
+
+    // Compress the photo before upload
+    const originalSize = photo.size;
+    const compressedPhoto = await this.imageCompression.compressImage(photo, {
+      maxSizeMB: 0.8,
+      maxWidthOrHeight: 1280,
+      useWebWorker: true
+    }) as File;
+    const compressedSize = compressedPhoto.size;
+
+    const uploadFile = compressedPhoto || photo;
+    const actualVisualId = this.visualRecordIds[key] || visualId;
+    const isPendingVisual = !actualVisualId || actualVisualId === '__pending__' || String(actualVisualId).startsWith('temp_');
+
+    let tempId: string | undefined;
+
+    if (actualVisualId && actualVisualId !== 'undefined') {
+      if (!this.visualPhotos[key]) {
+        this.visualPhotos[key] = [];
+      }
+
+      // CRITICAL: If existingTempId is provided, use that instead of creating a new temp photo
+      // This is used when we already have a skeleton placeholder in the UI
+      if (existingTempId) {
+        tempId = existingTempId;
+        console.log('[UPLOAD] Using existing skeleton placeholder:', tempId);
+
+        // Photo should already be in the array with uploading state from addPhotoFromGallery
+        // Just verify it exists
+        const existingIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
+        if (existingIndex === -1) {
+          console.warn('[UPLOAD] Skeleton not found, will create new temp photo');
+          tempId = undefined; // Fall back to creating new temp photo
+        }
+      }
+
+      // Only create a new temp photo if we don't have an existing one
+      if (!tempId) {
+        const objectUrl = URL.createObjectURL(photo);
+        tempId = `temp_${Date.now()}_${Math.random()}`;
+        const photoData: any = {
+          AttachID: tempId,
+          id: tempId,
+          name: photo.name,
+          url: objectUrl,
+          thumbnailUrl: objectUrl,
+          isObjectUrl: true,
+          uploading: !isPendingVisual,
+          queued: isPendingVisual,
+          hasAnnotations: !!annotationData,
+          annotations: annotationData || null,
+          caption: caption || '',
+          annotation: caption || ''
+        };
+        this.visualPhotos[key].push(photoData);
+        console.log('[UPLOAD] Created new temp photo:', tempId);
+      }
+
+      this.changeDetectorRef.detectChanges();
+
+      if (isPendingVisual) {
+        if (!this.pendingPhotoUploads[key]) {
+          this.pendingPhotoUploads[key] = [];
+        }
+
+        this.pendingPhotoUploads[key].push({
+          file: uploadFile,
+          annotationData,
+          originalPhoto,
+          isBatchUpload,
+          tempId,
+          caption: caption || ''
+        });
+
+        this.showToast('Photo queued and will upload when syncing resumes.', 'warning');
+        return null;
+      }
+    }
+
+    try {
+      const visualIdNum = parseInt(actualVisualId, 10);
+
+      if (isNaN(visualIdNum)) {
+        throw new Error(`Invalid VisualID: ${actualVisualId}`);
+      }
+
+      const attachId = await this.performVisualPhotoUpload(visualIdNum, uploadFile, key, true, annotationData, originalPhoto, tempId, caption);
+      return attachId;
+
+    } catch (error) {
+      console.error('Failed to prepare upload:', error);
+      // Toast removed per user request
+      // await this.showToast('Failed to prepare photo upload', 'danger');
+      return null;
+    }
+  }
+
+  private async performVisualPhotoUpload(visualId: number, photo: File, key: string, isBatchUpload: boolean, annotationData: any, originalPhoto: File | null, tempId: string | undefined, caption: string): Promise<string | null> {
+    try {
+      console.log(`[PHOTO UPLOAD] Starting LOCAL-FIRST upload for VisualID ${visualId}`);
+
+      // CRITICAL: Pass annotations as serialized JSON string (drawings)
+      const drawings = annotationData ? JSON.stringify(annotationData) : '';
+      const result = await this.hudData.uploadVisualPhoto(visualId, photo, caption, drawings, originalPhoto || undefined, this.serviceId);
+
+      console.log(`[PHOTO UPLOAD] Upload complete for VisualID ${visualId}, imageId: ${result.imageId}, AttachID: ${result.AttachID}`);
+
+      // LOCAL-FIRST: The result contains a local blob URL that should NOT be revoked
+      // The displayUrl is from LocalImageService and points to the local blob
+      // DO NOT try to get server URLs - they don't exist yet (offline-first)
+      
+      if (tempId && this.visualPhotos[key]) {
+        const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId || p.imageId === tempId);
+        if (photoIndex !== -1) {
+          // LOCAL-FIRST: Do NOT revoke the blob URL - it's our only source of the image!
+          // The old code revoked blob URLs, causing images to disappear
+          // const oldUrl = this.visualPhotos[key][photoIndex].url;
+          // if (oldUrl && oldUrl.startsWith('blob:')) {
+          //   URL.revokeObjectURL(oldUrl);  // DON'T DO THIS!
+          // }
+
+          // LOCAL-FIRST: Use the displayUrl from the result (already a local blob URL)
+          // No need to fetch from server - the photo will sync in background
+          const displayableUrl = result.displayUrl || result.url || result.thumbnailUrl;
+
+          console.log('[PHOTO UPLOAD] LOCAL-FIRST: Using local blob URL:', displayableUrl?.substring(0, 50));
+
+          this.visualPhotos[key][photoIndex] = {
+            ...this.visualPhotos[key][photoIndex],
+            // STABLE IDs: Use imageId as the primary key (never changes)
+            imageId: result.imageId,
+            AttachID: result.AttachID || result.imageId,
+            id: result.AttachID || result.imageId,
+            // Keep identifiers for lookups
+            _tempId: result.imageId,  // Keep for recovery mechanisms
+            _pendingFileId: result.imageId,
+            localImageId: result.imageId,  // For LocalImage system lookup
+            localBlobId: result.localBlobId,  // For blob URL regeneration
+            // Status flags - SILENT SYNC: Don't show uploading indicators
+            uploading: false,         // SILENT SYNC: No spinner
+            queued: false,            // SILENT SYNC: No indicator
+            isPending: result.isPending || false,
+            isLocalFirst: true,
+            isLocalImage: true,
+            // Display URLs - all point to local blob
+            Photo: displayableUrl,
+            url: displayableUrl,
+            originalUrl: displayableUrl,
+            thumbnailUrl: displayableUrl,
+            displayUrl: displayableUrl,
+            // Content
+            caption: caption || '',
+            annotation: caption || '',
+            Annotation: caption || ''
+          };
+
+          console.log('[PHOTO UPLOAD] Updated photo object:', {
+            AttachID: this.visualPhotos[key][photoIndex].AttachID,
+            displayUrl: this.visualPhotos[key][photoIndex].displayUrl?.substring(0, 50),
+            url: this.visualPhotos[key][photoIndex].url?.substring(0, 50),
+            thumbnailUrl: this.visualPhotos[key][photoIndex].thumbnailUrl?.substring(0, 50)
+          });
+
+          this.changeDetectorRef.detectChanges();
+          console.log('[PHOTO UPLOAD] Called detectChanges()');
+        }
+      }
+
+      if (!isBatchUpload) {
+        // Toast removed per user request
+        // await this.showToast('Photo uploaded successfully', 'success');
+      }
+
+      // Clear PDF cache so new PDFs include this photo
+      this.clearPdfCache();
+
+      // Return the AttachID for immediate use (e.g., saving annotations)
+      return result.AttachID;
+
+    } catch (error) {
+      console.error('[PHOTO UPLOAD] Upload failed:', error);
+
+      if (tempId && this.visualPhotos[key]) {
+        const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
+        if (photoIndex !== -1) {
+          this.visualPhotos[key].splice(photoIndex, 1);
+          this.changeDetectorRef.detectChanges();
+        }
+      }
+
+      // Toast removed per user request
+      // await this.showToast('Failed to upload photo', 'danger');
+      return null;
+    }
+  }
+
+  private async saveVisualSelection(category: string, itemId: string | number) {
+    const key = `${category}_${itemId}`;
+
+    try {
+      // Find the item to get template information
+      const item = this.findItemByTemplateId(Number(itemId));
+      if (!item) {
+        console.error('[SAVE VISUAL] Template item not found for ID:', itemId);
+        return;
+      }
+
+      console.log('[SAVE VISUAL] Creating visual record for', key);
+      console.log('[SAVE VISUAL] Item details:', {
+        name: item.name,
+        type: item.type,
+        category: category
+      });
+
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        console.error('[SAVE VISUAL] Invalid ServiceID:', this.serviceId);
+        return;
+      }
+
+      // Create the Services_Visuals record using EXACT same structure as original
+      const visualData: any = {
+        ServiceID: serviceIdNum,
+        Category: category,
+        Kind: item.type,      // CRITICAL: Use item.type which is now set from template.Kind
+        Name: item.name,
+        Text: item.text || item.originalText || '',
+        Notes: ''
+      };
+
+      console.log('[SAVE VISUAL] Visual data being saved:', visualData);
+
+      // Add Answers field if there are answers to store
+      if (item.answer) {
+        visualData.Answers = item.answer;
+      }
+
+      const result = await this.hudData.createVisual(visualData);
+
+      console.log('[SAVE VISUAL] Raw response from createVisual:', result);
+      console.log('[SAVE VISUAL] Response has VisualID?', !!result.VisualID);
+      console.log('[SAVE VISUAL] Response has PK_ID?', !!result.PK_ID);
+      console.log('[SAVE VISUAL] Response has id?', !!result.id);
+
+      // Extract VisualID using the SAME logic as original (line 8518-8524)
+      let visualId: string | null = null;
+      if (result.VisualID) {
+        visualId = String(result.VisualID);
+        console.log('[SAVE VISUAL] Using VisualID field:', visualId);
+      } else if (result.PK_ID) {
+        visualId = String(result.PK_ID);
+        console.log('[SAVE VISUAL] Using PK_ID field:', visualId);
+      } else if (result.id) {
+        visualId = String(result.id);
+        console.log('[SAVE VISUAL] Using id field:', visualId);
+      }
+
+      if (!visualId) {
+        console.error('[SAVE VISUAL] No VisualID in response:', result);
+        console.error('[SAVE VISUAL] Full response structure:', JSON.stringify(result, null, 2));
+        throw new Error('VisualID not found in response');
+      }
+
+      console.log('[SAVE VISUAL] ✓ Created visual with ID:', visualId);
+      console.log('[SAVE VISUAL] ✓ Storing ID in visualRecordIds[' + key + ']');
+
+      // Store the visual ID for photo uploads
+      this.visualRecordIds[key] = visualId;
+
+      // DEXIE-FIRST: Persist tempVisualId to VisualField for photo matching after reload
+      // This MUST happen before any photo upload so populatePhotosFromDexie can match photos to fields
+      const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
+      try {
+        await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+          tempVisualId: visualId  // Always a temp ID at this point (temp_visual_xxx)
+        });
+        console.log('[SAVE VISUAL] Persisted tempVisualId to Dexie:', visualId);
+      } catch (err) {
+        console.error('[SAVE VISUAL] Failed to persist tempVisualId:', err);
+      }
+
+      // Clear PDF cache so new PDFs show updated data
+      this.clearPdfCache();
+
+      // Process any pending photo uploads for this item
+      if (this.pendingPhotoUploads[key] && this.pendingPhotoUploads[key].length > 0) {
+        console.log('[SAVE VISUAL] Processing', this.pendingPhotoUploads[key].length, 'pending photo uploads');
+
+        const pendingUploads = [...this.pendingPhotoUploads[key]];
+        this.pendingPhotoUploads[key] = [];
+
+        for (const pending of pendingUploads) {
+          // Update the temp photo to uploading state
+          const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === pending.tempId);
+          if (photoIndex !== -1 && this.visualPhotos[key]) {
+            this.visualPhotos[key][photoIndex].uploading = true;
+            this.visualPhotos[key][photoIndex].queued = false;
+          }
+
+          // Upload the photo - CRITICAL: Pass existingTempId to prevent duplicate photo creation
+          await this.uploadPhotoForVisual(
+            result.PK_ID,
+            pending.file,
+            key,
+            pending.isBatchUpload,
+            pending.annotationData,
+            pending.originalFile,
+            pending.caption,
+            pending.tempId  // CRITICAL FIX: Pass existing temp ID to update existing photo instead of creating duplicate
+          );
+        }
+      }
+
+    } catch (error) {
+      console.error('[SAVE VISUAL] Error creating visual record:', error);
+      // Toast removed per user request
+      // await this.showToast('Failed to save selection', 'danger');
+    }
+  }
+
+  // ============================================
+  // PHOTO VIEWING AND DELETION
+  // ============================================
+
+  async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event) {
+    console.log('[VIEW PHOTO] Opening photo annotator for', photo.AttachID);
+
+    try {
+      const key = `${category}_${itemId}`;
+
+      const attachId = photo.AttachID || photo.id;
+      
+      // CRITICAL: Store the photo index BEFORE opening modal
+      // This ensures we can find the photo even if its AttachID changes during editing
+      const photos = this.visualPhotos[key] || [];
+      const originalPhotoIndex = photos.findIndex(p => 
+        (p.AttachID || p.id) === attachId || p === photo
+      );
+      console.log('[VIEW PHOTO] Captured photo index:', originalPhotoIndex, 'for AttachID:', attachId);
+      const isTempPhoto = String(attachId).startsWith('temp_');
+
+      // NEW: Handle LocalImages from the new local-first system (Dexie-based)
+      // These have imageId/localImageId like "img_abc" (not "temp_" which is legacy)
+      // After sync, blob URLs may be stale/revoked, so we need fresh URLs from Dexie
+      const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId || 
+        (photo.imageId && String(photo.imageId).startsWith('img_'));
+      
+      if (isLocalFirstPhoto) {
+        const localImageId = photo.localImageId || photo.imageId;
+        console.log('[VIEW PHOTO] LocalImage detected, refreshing URL from Dexie:', localImageId);
+        
+        // Get fresh URL from LocalImageService (uses Dexie under the hood)
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+        
+        if (localImage) {
+          try {
+            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
+            console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));
+            
+            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
+              photo.url = freshUrl;
+              photo.thumbnailUrl = freshUrl;
+              photo.originalUrl = freshUrl;
+              photo.displayUrl = freshUrl;
+            } else {
+              // Fallback 1: Try cached photo by attachId (uses Dexie cachedPhotos table)
+              let foundUrl = false;
+              if (localImage.attachId) {
+                const cached = await this.indexedDb.getCachedPhoto(String(localImage.attachId));
+                if (cached) {
+                  console.log('[VIEW PHOTO] Using cached photo for LocalImage:', localImage.attachId);
+                  photo.url = cached;
+                  photo.thumbnailUrl = cached;
+                  photo.originalUrl = cached;
+                  photo.displayUrl = cached;
+                  foundUrl = true;
+                }
+              }
+              
+              // Fallback 2: Try S3 URL directly if image has remoteS3Key
+              if (!foundUrl && localImage.remoteS3Key) {
+                try {
+                  console.log('[VIEW PHOTO] Trying S3 URL for LocalImage:', localImage.remoteS3Key);
+                  const s3Url = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
+                  if (s3Url) {
+                    photo.url = s3Url;
+                    photo.thumbnailUrl = s3Url;
+                    photo.originalUrl = s3Url;
+                    photo.displayUrl = s3Url;
+                    foundUrl = true;
+                    console.log('[VIEW PHOTO] Got S3 URL for LocalImage');
+                  }
+                } catch (s3Err) {
+                  console.warn('[VIEW PHOTO] S3 URL fetch failed:', s3Err);
+                }
+              }
+              
+              // Fallback 3: Try to find in bulk cached photos map
+              if (!foundUrl && localImage.attachId) {
+                const bulkCached = this.bulkCachedPhotosMap.get(String(localImage.attachId));
+                if (bulkCached) {
+                  console.log('[VIEW PHOTO] Using bulk cached photo for LocalImage:', localImage.attachId);
+                  photo.url = bulkCached;
+                  photo.thumbnailUrl = bulkCached;
+                  photo.originalUrl = bulkCached;
+                  photo.displayUrl = bulkCached;
+                  foundUrl = true;
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[VIEW PHOTO] Failed to get LocalImage URL:', err);
+          }
+        } else {
+          console.warn('[VIEW PHOTO] LocalImage not found in Dexie:', localImageId);
+        }
+      }
+
+      // LEGACY: If temp photo, get from IndexedDB and use it instead of fetching
+      if (isTempPhoto) {
+        console.log('[VIEW PHOTO] Temp photo, loading from IndexedDB:', attachId);
+
+        // Get file from IndexedDB
+        const file = await this.indexedDb.getStoredFile(attachId);
+        if (file) {
+          const tempImageUrl = URL.createObjectURL(file);
+          console.log('[VIEW PHOTO] Created object URL from IndexedDB file:', tempImageUrl.substring(0, 50));
+
+          // Override ALL photo URLs for annotator - critical for offline viewing
+          photo.url = tempImageUrl;
+          photo.thumbnailUrl = tempImageUrl;
+          photo.originalUrl = tempImageUrl;  // CRITICAL: Must set originalUrl too, used at line 2000
+        } else {
+          // FIX: Fall back to existing blob URL if getStoredFile fails
+          // The photo may already have valid blob URLs from restorePendingPhotosFromIndexedDB
+          const existingBlobUrl = photo.url || photo.displayUrl || photo.originalUrl || photo.thumbnailUrl;
+          if (existingBlobUrl && existingBlobUrl.startsWith('blob:')) {
+            console.log('[VIEW PHOTO] Using existing blob URL for temp photo:', existingBlobUrl.substring(0, 50));
+            // Ensure all URL fields are set consistently for the annotator
+            photo.url = existingBlobUrl;
+            photo.thumbnailUrl = existingBlobUrl;
+            photo.originalUrl = existingBlobUrl;
+          } else {
+            console.warn('[VIEW PHOTO] No blob URL available for temp photo:', attachId);
+            await this.showToast('Photo not available yet', 'warning');
+            return;
+          }
+        }
+      }
+
+      // Check if still uploading (but allow queued photos to be edited)
+      if (photo.uploading && !isTempPhoto) {
+        await this.showToast('Photo is still uploading', 'warning');
+        return;
+      }
+
+      // CRITICAL: Save scroll position BEFORE opening modal using Ionic API
+      const scrollPosition = await this.content?.getScrollElement().then(el => el.scrollTop) || 0;
+      console.log('[SCROLL] Saved scroll position before modal:', scrollPosition);
+
+      // CRITICAL FIX v1.4.340: Always use the original URL (base image without annotations)
+      // The originalUrl is set during loadPhotosForVisual to the base image
+      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+
+      // If no valid URL and we have a file path, try to fetch it
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo || photo.Attachment)) {
+        try {
+          // Check if this is an S3 key
+          if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {
+            console.log('[VIEW PHOTO] ? S3 image detected, fetching URL...');
+            imageUrl = await this.caspioService.getS3FileUrl(photo.Attachment);
+            photo.url = imageUrl;
+            photo.originalUrl = imageUrl;
+            photo.thumbnailUrl = imageUrl;
+            photo.displayUrl = imageUrl;
+            console.log('[VIEW PHOTO] ? Got S3 URL');
+          }
+          // Fallback to Caspio Files API
+          else {
+            const filePath = photo.filePath || photo.Photo;
+            console.log('[VIEW PHOTO] ?? Fetching from Caspio Files API...');
+            const fetchedImage = await firstValueFrom(
+              this.caspioService.getImageFromFilesAPI(filePath)
+            );
+            if (fetchedImage && fetchedImage.startsWith('data:')) {
+              imageUrl = fetchedImage;
+              // Update the photo object for future use
+              photo.url = fetchedImage;
+              photo.originalUrl = fetchedImage;  // CRITICAL: Set originalUrl to base image
+              photo.thumbnailUrl = fetchedImage;
+              photo.displayUrl = fetchedImage;
+              this.changeDetectorRef.detectChanges();
+            }
+          }
+        } catch (err) {
+          console.error('[VIEW PHOTO] Failed to fetch image from file path:', err);
+        }
+      }
+
+      // CRITICAL: Always use the original URL (base image without annotations) for editing
+      // This ensures annotations are applied to the original image, not a previously annotated version
+      const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+
+      // CRITICAL: Don't open annotator if we only have placeholder URL
+      // This prevents the FabricAnnotator from failing to load the placeholder and going black
+      if (!originalImageUrl || originalImageUrl === 'assets/img/photo-placeholder.png') {
+        console.error('[VIEW PHOTO] Cannot open photo - no valid image URL available:', {
+          attachId,
+          originalUrl: photo.originalUrl,
+          url: photo.url,
+          imageUrl,
+          isLocalFirst: isLocalFirstPhoto,
+          isTempPhoto
+        });
+        await this.showToast('Photo not available. Please try again later.', 'warning');
+        return;
+      }
+
+      // Try to load existing annotations (EXACTLY like original at line 12184-12208)
+      let existingAnnotations: any = null;
+      const annotationSources = [
+        photo.annotations,
+        photo.annotationsData,
+        photo.rawDrawingsString,
+        photo.Drawings
+      ];
+
+      console.log('[VIEW PHOTO] AttachID:', attachId, 'Photo object:', {
+        hasAnnotations: !!photo.annotations,
+        hasAnnotationsData: !!photo.annotationsData,
+        hasRawDrawingsString: !!photo.rawDrawingsString,
+        hasDrawings: !!photo.Drawings,
+        hasAnnotationsFlag: photo.hasAnnotations,
+        rawDrawingsStringLength: photo.rawDrawingsString?.length || 0,
+        drawingsLength: photo.Drawings?.length || 0,
+        VisualID: photo.VisualID,
+        caption: photo.caption || photo.Annotation
+      });
+
+      for (const source of annotationSources) {
+        if (!source) {
+          continue;
+        }
+        try {
+          if (typeof source === 'string') {
+            console.log('[VIEW PHOTO] Decompressing string source, length:', source.length);
+            // Using static import for offline support
+            existingAnnotations = decompressAnnotationData(source);
+            console.log('[VIEW PHOTO] Decompressed annotations:', existingAnnotations ? 'SUCCESS' : 'FAILED');
+            if (existingAnnotations && existingAnnotations.objects) {
+              console.log('[VIEW PHOTO] Found', existingAnnotations.objects.length, 'annotation objects');
+            }
+          } else {
+            console.log('[VIEW PHOTO] Using object source directly');
+            existingAnnotations = source;
+          }
+          if (existingAnnotations) {
+            console.log('[VIEW PHOTO] Using annotations from source');
+            break;
+          }
+        } catch (e) {
+          console.error('[VIEW PHOTO] Error loading annotations from source:', e);
+        }
+      }
+
+      console.log('[VIEW PHOTO] Final existingAnnotations:', existingAnnotations ? 'LOADED' : 'NULL');
+
+      // Get existing caption
+      const existingCaption = photo.caption || photo.annotation || photo.Annotation || '';
+
+      // Open FabricPhotoAnnotatorComponent (EXACTLY like original at line 12443)
+      let modal;
+      try {
+        modal = await this.modalController.create({
+          component: FabricPhotoAnnotatorComponent,
+          componentProps: {
+            imageUrl: originalImageUrl,  // CRITICAL: Always use original, not display URL
+            existingAnnotations: existingAnnotations,
+            existingCaption: existingCaption,
+            photoData: {
+              ...photo,
+              AttachID: attachId,
+              id: attachId,
+              caption: existingCaption
+            },
+            isReEdit: !!existingAnnotations
+          },
+          cssClass: 'fullscreen-modal'
+        });
+      } catch (chunkError: any) {
+        // Handle ChunkLoadError when offline - component chunk not cached
+        console.error('[VIEW PHOTO] Failed to load photo editor component:', chunkError);
+        if (chunkError.name === 'ChunkLoadError' || chunkError.message?.includes('Loading chunk')) {
+          await this.showToast('Photo editor not available offline. Please connect to internet and refresh.', 'warning');
+        } else {
+          await this.showToast('Failed to open photo editor', 'danger');
+        }
+        return;
+      }
+
+      await modal.present();
+
+      // Handle annotated photo returned from annotator
+      const { data } = await modal.onWillDismiss();
+
+      // CRITICAL: Restore scroll position AFTER modal dismisses, regardless of save/cancel
+      // Use setTimeout to ensure modal animation completes before restoring
+      setTimeout(async () => {
+        if (this.content) {
+          await this.content.scrollToPoint(0, scrollPosition, 0); // 0ms duration = instant
+          console.log('[SCROLL] Restored scroll position after modal dismiss:', scrollPosition);
+        }
+      }, 100);
+
+      if (!data) {
+        // User cancelled
+        return;
+      }
+
+      if (data && data.annotatedBlob) {
+        // Update photo with new annotations
+        const annotatedBlob = data.blob || data.annotatedBlob;
+        const annotationsData = data.annotationData || data.annotationsData;
+
+        // CRITICAL: Create blob URL for the annotated image (for display only)
+        const newUrl = URL.createObjectURL(annotatedBlob);
+
+        // Find photo in array - use multiple strategies since AttachID might have changed
+        const photos = this.visualPhotos[key] || [];
+        let photoIndex = photos.findIndex(p =>
+          (p.AttachID || p.id) === attachId
+        );
+        
+        // CRITICAL FIX: If not found by attachId, use the stored index (AttachID may have changed during modal)
+        if (photoIndex === -1 && originalPhotoIndex !== -1 && originalPhotoIndex < photos.length) {
+          console.log('[VIEW PHOTO] Photo not found by attachId, using stored index:', originalPhotoIndex);
+          photoIndex = originalPhotoIndex;
+        }
+        
+        // Also try to find by temp ID pattern if we had a temp ID
+        if (photoIndex === -1 && String(attachId).startsWith('temp_')) {
+          // The photo might have a real ID now, but we can find it by looking for our temp reference
+          photoIndex = photos.findIndex(p => p._originalTempId === attachId);
+          if (photoIndex !== -1) {
+            console.log('[VIEW PHOTO] Found photo by _originalTempId:', attachId);
+          }
+        }
+
+        if (photoIndex !== -1) {
+          const currentPhoto = photos[photoIndex];
+          
+          // CRITICAL: Use the CURRENT photo's AttachID, not the original one
+          // The AttachID may have changed from temp to real while the modal was open
+          const currentAttachId = currentPhoto.AttachID || currentPhoto.id || attachId;
+          const isCurrentlyTemp = String(currentAttachId).startsWith('temp_');
+          
+          console.log('[VIEW PHOTO] Saving annotations - Original AttachID:', attachId, 'Current AttachID:', currentAttachId, 'Is temp:', isCurrentlyTemp);
+
+          // Save annotations to database FIRST
+          if (currentAttachId && !isCurrentlyTemp) {
+            try {
+              // CRITICAL: Save and get back the compressed drawings that were saved
+              const compressedDrawings = await this.saveAnnotationToDatabase(currentAttachId, annotatedBlob, annotationsData, data.caption);
+
+              // CRITICAL: Create NEW photo object (immutable update pattern from original line 12518-12542)
+              // This ensures proper change detection and maintains separation between original and annotated
+              this.visualPhotos[key][photoIndex] = {
+                ...currentPhoto,
+                // PRESERVE originalUrl - this is the base image without annotations
+                originalUrl: currentPhoto.originalUrl || currentPhoto.url,
+                // UPDATE displayUrl - this is the annotated version for display
+                displayUrl: newUrl,
+                // Keep url pointing to base image (not the annotated version)
+                url: currentPhoto.url,
+                // ANNOTATION FIX: thumbnailUrl should show annotated image, not original
+                thumbnailUrl: newUrl,
+                // Mark as having annotations
+                hasAnnotations: !!annotationsData,
+                // Store caption
+                caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
+                annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
+                Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
+                // Store annotation data (uncompressed for immediate re-use)
+                annotations: annotationsData,
+                // CRITICAL: Store the COMPRESSED data that matches what's in the database
+                // This is used when reloading or re-editing
+                Drawings: compressedDrawings,
+                rawDrawingsString: compressedDrawings
+              };
+
+              console.log('[SAVE] Updated photo object in visualPhotos[' + key + '][' + photoIndex + ']');
+              console.log('[SAVE] Photo now has Drawings:', !!this.visualPhotos[key][photoIndex].Drawings, 'length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
+              console.log('[SAVE] Photo now has rawDrawingsString:', !!this.visualPhotos[key][photoIndex].rawDrawingsString, 'length:', this.visualPhotos[key][photoIndex].rawDrawingsString?.length || 0);
+              console.log('[SAVE] Photo hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
+
+              // CRITICAL: Clear ALL visual attachment caches (not just this one)
+              // This ensures when the user navigates away and back, ALL fresh data is loaded from database
+              // Clearing only the specific visualId wasn't working reliably on navigation
+              this.hudData.clearVisualAttachmentsCache(); // Clear all caches
+              console.log('[SAVE] Cleared ALL attachment caches to ensure fresh data on navigation');
+
+              // Force change detection to ensure Angular picks up the updated photo object
+              this.changeDetectorRef.detectChanges();
+              console.log('[SAVE] ? Change detection triggered');
+
+              // Success toast removed per user request
+            } catch (error) {
+              console.error('[VIEW PHOTO] Error saving annotations:', error);
+              // Toast removed per user request
+              // await this.showToast('Failed to save annotations', 'danger');
+            }
+          } else if (isCurrentlyTemp) {
+            // OFFLINE PHOTO: Update IndexedDB with the new annotations
+            // This ensures background sync will upload the photo WITH annotations
+            try {
+              console.log('[SAVE OFFLINE] ========== SAVING ANNOTATIONS FOR TEMP PHOTO ==========');
+              console.log('[SAVE OFFLINE] attachId:', attachId);
+              console.log('[SAVE OFFLINE] currentPhoto._pendingFileId:', currentPhoto._pendingFileId);
+              console.log('[SAVE OFFLINE] currentPhoto.attachId:', currentPhoto.attachId);
+              console.log('[SAVE OFFLINE] currentPhoto.AttachID:', currentPhoto.AttachID);
+              console.log('[SAVE OFFLINE] currentPhoto._tempId:', currentPhoto._tempId);
+              console.log('[SAVE OFFLINE] currentPhoto.isPending:', currentPhoto.isPending);
+
+              // Get the pending file ID - use multiple fallbacks
+              const pendingFileId = currentPhoto._pendingFileId || currentPhoto.attachId || currentPhoto._tempId || attachId;
+              console.log('[SAVE OFFLINE] Using pendingFileId:', pendingFileId);
+
+              // Compress the annotation data for storage (using static import for offline)
+              let compressedDrawings = '';
+              if (annotationsData) {
+                if (typeof annotationsData === 'object') {
+                  compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+                } else if (typeof annotationsData === 'string') {
+                  compressedDrawings = compressAnnotationData(annotationsData);
+                }
+              }
+
+              // CRITICAL: Use updatePendingPhotoData for reliable caption/drawings update
+              // This is simpler and more reliable than re-reading and re-storing the entire file
+              const updated = await this.indexedDb.updatePendingPhotoData(pendingFileId, {
+                caption: data.caption || '',
+                drawings: compressedDrawings
+              });
+              
+              if (updated) {
+                console.log('[SAVE OFFLINE] ? Updated IndexedDB with drawings:', compressedDrawings.length, 'chars');
+              } else {
+                console.warn('[SAVE OFFLINE] Could not find pending photo in IndexedDB for:', pendingFileId);
+                
+                // CRITICAL FIX: If file is not found, the photo may have been synced while user was annotating
+                // Try to save to the database using the _originalTempId or look for a real AttachID
+                const realAttachId = currentPhoto._originalTempId ? 
+                  await this.indexedDb.getRealId(String(currentPhoto._originalTempId)) : null;
+                  
+                if (realAttachId) {
+                  console.log('[SAVE OFFLINE] Photo was synced! Saving annotations to database with real ID:', realAttachId);
+                  try {
+                    await this.saveAnnotationToDatabase(realAttachId, annotatedBlob, annotationsData, data.caption || '');
+                    console.log('[SAVE OFFLINE] ? Annotations saved to database with real ID');
+                  } catch (dbError) {
+                    console.error('[SAVE OFFLINE] Failed to save annotations to database:', dbError);
+                  }
+                } else {
+                  console.warn('[SAVE OFFLINE] No real ID found, annotations will only be saved locally');
+                }
+              }
+
+              // Update local photo object with annotated image
+              console.log('[SAVE OFFLINE] Updating local photo object, newUrl:', newUrl ? 'created' : 'missing');
+
+              this.visualPhotos[key][photoIndex] = {
+                ...currentPhoto,
+                originalUrl: currentPhoto.originalUrl || currentPhoto.url,
+                displayUrl: newUrl,  // CRITICAL: Show annotated image immediately
+                thumbnailUrl: newUrl,  // ANNOTATION FIX: thumbnailUrl should show annotated image
+                hasAnnotations: !!annotationsData,
+                caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
+                annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
+                Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
+                annotations: annotationsData,
+                Drawings: compressedDrawings,
+                rawDrawingsString: compressedDrawings,
+                _localUpdate: true  // CRITICAL: Prevent reload from overwriting local annotations
+              };
+
+              console.log('[SAVE OFFLINE] Updated local photo object:');
+              console.log('[SAVE OFFLINE]   - displayUrl:', this.visualPhotos[key][photoIndex].displayUrl ? 'set' : 'missing');
+              console.log('[SAVE OFFLINE]   - hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
+              console.log('[SAVE OFFLINE]   - Drawings length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
+              
+              // CRITICAL FIX: Cache annotated image for temp photos too
+              // This ensures annotations show in thumbnails even for offline photos
+              if (annotatedBlob && annotatedBlob.size > 0) {
+                try {
+                  const base64 = await this.indexedDb.cacheAnnotatedImage(pendingFileId, annotatedBlob);
+                  console.log('[SAVE OFFLINE] ? Annotated image cached for temp photo:', pendingFileId);
+                  // Update in-memory map so same-session navigation shows the annotation
+                  if (base64) {
+                    this.bulkAnnotatedImagesMap.set(pendingFileId, base64);
+                  }
+                } catch (cacheErr) {
+                  console.warn('[SAVE OFFLINE] Failed to cache annotated image:', cacheErr);
+                }
+              }
+
+              // Queue caption/annotation update for sync - background sync will resolve temp ID when photo syncs
+              try {
+                await this.hudData.queueCaptionAndAnnotationUpdate(
+                  pendingFileId,
+                  data.caption || '',
+                  compressedDrawings,
+                  'visual',
+                  { serviceId: this.serviceId }
+                );
+                console.log('[SAVE OFFLINE] ? Caption/annotation queued for sync:', pendingFileId);
+              } catch (queueErr) {
+                console.warn('[SAVE OFFLINE] Failed to queue caption update:', queueErr);
+              }
+
+              // CRITICAL: Force change detection to update UI immediately
+              this.changeDetectorRef.detectChanges();
+              console.log('[SAVE OFFLINE] ? Change detection triggered');
+            } catch (error) {
+              console.error('[SAVE OFFLINE] Error saving annotations to IndexedDB:', error);
+            }
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Error opening photo annotator:', error);
+      // Toast removed per user request
+      // await this.showToast('Failed to open photo annotator', 'danger');
+    }
+  }
+
+  /**
+   * Convert a Blob to a base64 data URL for caching
+   */
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  private async saveAnnotationToDatabase(attachId: string, annotatedBlob: Blob, annotationsData: any, caption: string): Promise<string> {
+    // Using static import for offline support
+
+    // CRITICAL: Process annotation data EXACTLY like the original 15,000 line code
+    // Build the updateData object with Annotation and Drawings fields
+    const updateData: any = {
+      Annotation: caption || ''
+    };
+
+    // Add annotations to Drawings field if provided (EXACT logic from original line 11558-11758)
+    if (annotationsData) {
+      let drawingsData = '';
+
+      // Handle Fabric.js canvas export (object with 'objects' and 'version' properties)
+      if (annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData) {
+        // This is a Fabric.js canvas export - stringify it DIRECTLY
+        // The toJSON() method from Fabric.js already returns the COMPLETE canvas state
+        try {
+          drawingsData = JSON.stringify(annotationsData);
+
+          // Validate the JSON is parseable
+          try {
+            const testParse = JSON.parse(drawingsData);
+          } catch (e) {
+            console.warn('[SAVE] JSON validation failed, but continuing');
+          }
+        } catch (e) {
+          console.error('[SAVE] Failed to stringify Fabric.js object:', e);
+          // Try to create a minimal representation
+          drawingsData = JSON.stringify({ objects: [], version: annotationsData.version || '5.3.0' });
+        }
+      } else if (typeof annotationsData === 'string') {
+        // Already a string - use it
+        drawingsData = annotationsData;
+      } else if (typeof annotationsData === 'object') {
+        // Other object - stringify it
+        try {
+          drawingsData = JSON.stringify(annotationsData);
+        } catch (e) {
+          console.error('[SAVE] Failed to stringify annotations:', e);
+          drawingsData = '';
+        }
+      }
+
+      // CRITICAL: Final validation and compression (EXACT logic from original line 11673-11758)
+      if (drawingsData && drawingsData !== '{}' && drawingsData !== '[]') {
+        // Clean the data
+        const originalLength = drawingsData.length;
+
+        // Remove problematic characters that Caspio might reject
+        drawingsData = drawingsData
+          .replace(/\u0000/g, '') // Remove null bytes
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars
+          .replace(/undefined/g, 'null'); // Replace 'undefined' strings with 'null'
+
+        // COMPRESS the data to fit in 64KB TEXT field
+        try {
+          const parsed = JSON.parse(drawingsData);
+
+          // Re-stringify to ensure clean JSON format
+          drawingsData = JSON.stringify(parsed, (key, value) => {
+            // Replace undefined with null for valid JSON
+            return value === undefined ? null : value;
+          });
+
+          // COMPRESS (this is the key step!)
+          const originalSize = drawingsData.length;
+          // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils - uses proper JSON format, not gzip
+          drawingsData = compressAnnotationData(drawingsData, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+
+          console.log(`[SAVE] Compressed annotations: ${originalSize} �' ${drawingsData.length} bytes`);
+
+          // Final size check
+          if (drawingsData.length > 64000) {
+            console.error('[SAVE] Annotation data exceeds 64KB limit:', drawingsData.length, 'bytes');
+            throw new Error('Annotation data exceeds 64KB limit');
+          }
+        } catch (e: any) {
+          if (e?.message?.includes('64KB')) {
+            throw e; // Re-throw size limit errors
+          }
+          console.warn('[SAVE] Could not re-parse for cleaning, using as-is');
+        }
+
+        // Set the Drawings field with COMPRESSED data
+        updateData.Drawings = drawingsData;
+      } else {
+        // Empty annotations - use proper JSON format from annotation-utils
+        updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
+      }
+    } else {
+      // No annotations provided - use proper JSON format from annotation-utils
+      updateData.Drawings = EMPTY_COMPRESSED_ANNOTATIONS;
+    }
+
+    console.log('[SAVE] Saving annotations to database:', {
+      attachId,
+      hasDrawings: !!updateData.Drawings,
+      drawingsLength: updateData.Drawings?.length || 0,
+      caption: caption || '(empty)',
+      annotation: updateData.Annotation || '(empty)'
+    });
+
+    // Validate attachId before proceeding
+    if (!attachId || String(attachId).startsWith('temp_')) {
+      console.error('[SAVE] Cannot update annotations - invalid or temp AttachID:', attachId);
+      throw new Error('Cannot update annotations for temp photo');
+    }
+
+    // Find the visualId for this attachment by searching visualPhotos (needed for cache and queue)
+    let visualIdForCache: string | null = null;
+    let foundKey: string | null = null;
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      const photo = (photos as any[]).find(p => String(p.AttachID) === String(attachId));
+      if (photo) {
+        foundKey = key;
+        // CRITICAL: Use VisualID from photo, or visualRecordIds, or extract from key
+        const recordId = this.visualRecordIds[key];
+        const photoVisualId = photo.VisualID;
+        visualIdForCache = photoVisualId || recordId || null;
+        
+        // Ensure it's a valid string, not "undefined"
+        if (visualIdForCache && String(visualIdForCache) !== 'undefined') {
+          visualIdForCache = String(visualIdForCache);
+        } else {
+          visualIdForCache = null;
+        }
+        
+        console.log('[SAVE CACHE] Found photo for AttachID:', attachId, 'Key:', key, 'photo.VisualID:', photoVisualId, 'visualRecordIds[key]:', recordId, 'Final visualIdForCache:', visualIdForCache);
+        break;
+      }
+    }
+
+    if (!visualIdForCache) {
+      console.warn('[SAVE CACHE] ?? Could not find visualIdForCache for AttachID:', attachId);
+      console.warn('[SAVE CACHE] ?? Searched keys:', Object.keys(this.visualPhotos));
+      console.warn('[SAVE CACHE] ?? visualRecordIds:', JSON.stringify(this.visualRecordIds));
+    }
+
+    // CRITICAL: Update IndexedDB cache FIRST (offline-first pattern)
+    // This ensures annotations persist locally even if API call fails
+    let isLocalFirstPhoto = false;
+    let localImageId: string | null = null;
+    
+    try {
+      // CRITICAL FIX: Check if this is a local-first photo and update LocalImage record
+      // Find the photo to check for localImageId
+      for (const [key, photos] of Object.entries(this.visualPhotos)) {
+        const photo = (photos as any[]).find(p => 
+          String(p.AttachID) === String(attachId) || 
+          String(p.imageId) === String(attachId) ||
+          String(p.localImageId) === String(attachId)
+        );
+        if (photo) {
+          localImageId = photo.localImageId || photo.imageId || null;
+          isLocalFirstPhoto = !!(localImageId && (photo.isLocalFirst || photo.isLocalImage));
+          
+          if (isLocalFirstPhoto && localImageId) {
+            // Update the LocalImage record with new drawings
+            await this.localImageService.updateCaptionAndDrawings(
+              localImageId,
+              updateData.Annotation || caption,
+              updateData.Drawings
+            );
+            console.log('[SAVE] ? LocalImage record updated with drawings:', localImageId);
+          }
+          break;
+        }
+      }
+      
+      // Also check if attachId itself looks like a local-first ID
+      if (String(attachId).startsWith('img_')) {
+        isLocalFirstPhoto = true;
+      }
+      
+      if (visualIdForCache) {
+        // Get existing cached attachments and update
+        const cachedAttachments = await this.indexedDb.getCachedServiceData(visualIdForCache, 'visual_attachments') || [];
+        console.log('[SAVE CACHE] Found', cachedAttachments.length, 'cached attachments for visual', visualIdForCache);
+        
+        const updatedAttachments = cachedAttachments.map((att: any) => {
+          if (String(att.AttachID) === String(attachId)) {
+            console.log('[SAVE CACHE] Updating attachment', attachId, 'with Drawings length:', updateData.Drawings?.length || 0);
+            return {
+              ...att,
+              Annotation: updateData.Annotation,
+              Drawings: updateData.Drawings,
+              _localUpdate: true,
+              _updatedAt: Date.now()
+            };
+          }
+          return att;
+        });
+        await this.indexedDb.cacheServiceData(visualIdForCache, 'visual_attachments', updatedAttachments);
+        console.log('[SAVE] ? Annotation saved to IndexedDB cache for visual', visualIdForCache, 'with _localUpdate flag');
+      }
+      
+      // CRITICAL FIX: Also cache the annotated blob for thumbnail display on reload
+      // This ensures annotations are visible in thumbnails after page reload
+      if (annotatedBlob && annotatedBlob.size > 0) {
+        try {
+          const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
+          console.log('[SAVE] ? Annotated image blob cached for thumbnail display');
+          // Update in-memory map so same-session navigation shows the annotation
+          if (base64) {
+            this.bulkAnnotatedImagesMap.set(String(attachId), base64);
+          }
+        } catch (annotCacheErr) {
+          console.warn('[SAVE] Failed to cache annotated image blob:', annotCacheErr);
+        }
+      }
+    } catch (cacheError) {
+      console.warn('[SAVE] Failed to update IndexedDB cache:', cacheError);
+      // Continue anyway - still try API
+    }
+
+    // ALWAYS queue annotation updates - sync worker handles ID resolution for local-first photos
+    // The background sync service already handles img_ prefixed IDs and resolves them to real attachIds
+    await this.hudData.queueCaptionAndAnnotationUpdate(
+      isLocalFirstPhoto && localImageId ? localImageId : attachId,
+      caption || '',
+      updateData.Drawings,
+      'visual',
+      {
+        serviceId: this.serviceId,
+        visualId: visualIdForCache || undefined
+      }
+    );
+    console.log('[SAVE] ? Annotation queued for sync:', isLocalFirstPhoto ? `local-first ${localImageId}` : attachId);
+
+    // Return the compressed drawings string so caller can update local photo object
+    return updateData.Drawings;
+  }
+
+  async deletePhoto(photo: any, category: string, itemId: string | number) {
+    try {
+      const alert = await this.alertController.create({
+        header: 'Delete Photo',
+        message: 'Are you sure you want to delete this photo?',
+        cssClass: 'custom-document-alert',
+        buttons: [
+          {
+            text: 'Delete',
+            role: 'destructive',
+            cssClass: 'alert-button-confirm'
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
+          }
+        ]
+      });
+
+      await alert.present();
+      
+      // Wait for dialog to dismiss and check if user confirmed deletion
+      const result = await alert.onDidDismiss();
+      
+      if (result.role === 'destructive') {
+        // OFFLINE-FIRST: No loading spinner - immediate UI update
+        try {
+          const key = `${category}_${itemId}`;
+
+          // Remove from UI IMMEDIATELY (optimistic update)
+          if (this.visualPhotos[key]) {
+            this.visualPhotos[key] = this.visualPhotos[key].filter(
+              (p: any) => p.AttachID !== photo.AttachID
+            );
+            // Update photo count immediately
+            this.photoCountsByKey[key] = this.visualPhotos[key].length;
+          }
+
+          // Force UI update first
+          this.changeDetectorRef.detectChanges();
+
+          // Clear cached photo IMAGE from IndexedDB
+          await this.indexedDb.deleteCachedPhoto(String(photo.AttachID));
+          
+          // Remove from cached ATTACHMENTS LIST in IndexedDB
+          await this.indexedDb.removeAttachmentFromCache(String(photo.AttachID), 'visual_attachments');
+
+          // Handle LocalImage (new local-first system) deletion
+          const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId ||
+            (photo.imageId && String(photo.imageId).startsWith('img_'));
+
+          if (isLocalFirstPhoto) {
+            const localImageId = photo.localImageId || photo.imageId;
+            console.log('[Delete Photo] Deleting LocalImage:', localImageId);
+
+            // CRITICAL: Get LocalImage data BEFORE deleting to check if server deletion is needed
+            const localImage = await this.indexedDb.getLocalImage(localImageId);
+
+            // If the photo was already synced (has real attachId), queue delete for server
+            if (localImage?.attachId && !String(localImage.attachId).startsWith('img_')) {
+              console.log('[Delete Photo] LocalImage was synced, queueing server delete:', localImage.attachId);
+              await this.hudData.deleteVisualPhoto(localImage.attachId);
+            }
+
+            // NOW delete from LocalImage system (after queuing server delete)
+            await this.localImageService.deleteLocalImage(localImageId);
+          }
+          // Legacy photo deletion
+          else if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+            await this.hudData.deleteVisualPhoto(photo.AttachID);
+            console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
+          }
+
+          console.log('[Delete Photo] Photo removed successfully');
+        } catch (error) {
+          console.error('Error deleting photo:', error);
+          // Toast removed per user request
+          // await this.showToast('Failed to delete photo', 'danger');
+        }
+      }
+    } catch (error) {
+      console.error('Error in deletePhoto:', error);
+      // Toast removed per user request
+      // await this.showToast('Failed to delete photo', 'danger');
+    }
+  }
+
+  private isCaptionPopupOpen = false;
+
+  async openCaptionPopup(photo: any, category: string, itemId: string | number) {
+    // Prevent multiple simultaneous popups
+    if (this.isCaptionPopupOpen) {
+      return;
+    }
+
+    this.isCaptionPopupOpen = true;
+
+    try {
+      // Escape HTML to prevent injection and errors
+      const escapeHtml = (text: string) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
+
+      // Create a temporary caption value to work with
+      const tempCaption = escapeHtml(photo.caption || '');
+
+      // Define preset location buttons - 3 columns layout
+      const presetButtons = [
+        ['Front', '1st', 'Laundry'],
+        ['Left', '2nd', 'Kitchen'],
+        ['Right', '3rd', 'Living'],
+        ['Back', '4th', 'Dining'],
+        ['Top', '5th', 'Bedroom'],
+        ['Bottom', 'Floor', 'Bathroom'],
+        ['Middle', 'Unit', 'Closet'],
+        ['Primary', 'Attic', 'Entry'],
+        ['Supply', 'Porch', 'Office'],
+        ['Return', 'Deck', 'Garage'],
+        ['Staircase', 'Roof', 'Indoor'],
+        ['Hall', 'Ceiling', 'Outdoor']
+      ];
+
+      // Build custom HTML for the alert with preset buttons
+      let buttonsHtml = '<div class="preset-buttons-container">';
+      presetButtons.forEach(row => {
+        buttonsHtml += '<div class="preset-row">';
+        row.forEach(label => {
+          buttonsHtml += `<button type="button" class="preset-btn" data-text="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+        });
+        buttonsHtml += '</div>';
+      });
+      buttonsHtml += '</div>';
+
+      const alert = await this.alertController.create({
+        header: 'Photo Caption',
+        cssClass: 'caption-popup-alert',
+        message: ' ', // Empty space to prevent Ionic from hiding the message area
+        buttons: [
+          {
+            text: 'Save',
+            handler: () => {
+              // Get caption value
+              const input = document.getElementById('captionInput') as HTMLInputElement;
+              const newCaption = input?.value || '';
+
+              // Update photo caption in UI immediately
+              photo.caption = newCaption;
+              this.changeDetectorRef.detectChanges();
+
+              // Close popup immediately (don't wait for save)
+              this.isCaptionPopupOpen = false;
+
+              // Save to database using unified caption queue (ALWAYS queues, never direct API)
+              // This ensures captions are never lost during sync operations
+              const visualId = photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);
+              
+              photo._localUpdate = true; // Mark as local update to prevent server overwriting
+              
+              // CRITICAL: For local-first images, update the LocalImage record directly
+              // and use the localImageId for caption queue (will resolve to real attachId on sync)
+              const isLocalFirst = photo.isLocalFirst || photo.isLocalImage;
+              const localImageId = photo.localImageId || photo.imageId;
+              
+              // If local-first image, update LocalImage record and queue with imageId
+              // Otherwise use real AttachID for legacy photos
+              const attachId = isLocalFirst && localImageId 
+                ? localImageId  // Will be resolved to real attachId by sync worker
+                : String(photo.attachId || photo.AttachID || photo._pendingFileId || '');
+              
+              // Also update the LocalImage record directly for local-first photos
+              if (isLocalFirst && localImageId) {
+                this.localImageService.updateCaptionAndDrawings(localImageId, newCaption).catch((e: any) => {
+                  console.warn('[CAPTION] Failed to update LocalImage caption:', e);
+                });
+              }
+              
+              this.hudData.queueCaptionUpdate(
+                attachId,
+                newCaption,
+                'visual',
+                {
+                  serviceId: this.serviceId,
+                  visualId: String(visualId)
+                }
+              ).then(() => {
+                console.log('[CAPTION] ? Caption queued for sync:', attachId);
+              }).catch((error) => {
+                console.error('[CAPTION] Error queueing caption:', error);
+              });
+
+              return true; // Close popup immediately
+            }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              this.isCaptionPopupOpen = false;
+              return true;
+            }
+          }
+        ]
+      });
+
+      await alert.present();
+
+      // Inject HTML content immediately after presentation
+      setTimeout(() => {
+        try {
+          const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+          if (!alertElement) {
+            this.isCaptionPopupOpen = false;
+            return;
+          }
+
+          // Build the full HTML content with inline styles for mobile app compatibility
+          const htmlContent = `
+            <div class="caption-popup-content">
+              <div class="caption-input-container" style="position: relative; margin-bottom: 16px;">
+                <input type="text" id="captionInput" class="caption-text-input"
+                       placeholder="Enter caption..."
+                       value="${tempCaption}"
+                       maxlength="255"
+                       style="width: 100%; padding: 14px 54px 14px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; color: #333; background: white; box-sizing: border-box; height: 52px;" />
+                <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word"
+                        style="position: absolute; right: 5px; top: 5px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 10;">
+                  <ion-icon name="backspace-outline" style="font-size: 20px; color: #666;"></ion-icon>
+                </button>
+              </div>
+              ${buttonsHtml}
+            </div>
+          `;
+          alertElement.innerHTML = htmlContent;
+
+          const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+          const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
+
+          // Use event delegation for better performance
+          const container = document.querySelector('.caption-popup-alert .preset-buttons-container');
+          if (container && captionInput) {
+            container.addEventListener('click', (e) => {
+              try {
+                const target = e.target as HTMLElement;
+                const btn = target.closest('.preset-btn') as HTMLElement;
+                if (btn) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const text = btn.getAttribute('data-text');
+                  if (text && captionInput) {
+                    // Add text + space to current caption
+                    captionInput.value = (captionInput.value || '') + text + ' ';
+                    // CRITICAL: Remove focus from button immediately to prevent orange highlight on mobile
+                    (btn as HTMLButtonElement).blur();
+                  }
+                }
+              } catch (error) {
+                console.error('Error handling preset button click:', error);
+              }
+            }, { passive: false });
+          }
+
+          // Add click handler for undo button
+          if (undoBtn && captionInput) {
+            undoBtn.addEventListener('click', (e) => {
+              try {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentValue = captionInput.value || '';
+                if (currentValue.trim() === '') {
+                  return;
+                }
+                // Trim trailing spaces and split by spaces
+                const words = currentValue.trim().split(' ');
+                // Remove the last word
+                if (words.length > 0) {
+                  words.pop();
+                }
+                // Join back and update input
+                captionInput.value = words.join(' ');
+                // Add trailing space if there are still words
+                if (captionInput.value.length > 0) {
+                  captionInput.value += ' ';
+                }
+              } catch (error) {
+                console.error('Error handling undo button click:', error);
+              }
+            });
+          }
+
+          // CRITICAL: Add Enter key handler to prevent form submission and provide smooth save
+          if (captionInput) {
+            captionInput.addEventListener('keydown', (e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                // Find and click the Save button to trigger the save handler
+                const saveBtn = document.querySelector('.caption-popup-alert button.alert-button:not([data-role="cancel"])') as HTMLButtonElement;
+                if (saveBtn) {
+                  saveBtn.click();
+                }
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error injecting caption popup content:', error);
+          this.isCaptionPopupOpen = false;
+        }
+      }, 0);
+
+      // Reset flag when alert is dismissed
+      alert.onDidDismiss().then(() => {
+        this.isCaptionPopupOpen = false;
+      });
+
+    } catch (error) {
+      console.error('Error opening caption popup:', error);
+      this.isCaptionPopupOpen = false;
+    }
+  }
+
+  // ============================================
+  // HELPER METHODS
+  // ============================================
+
+  async addCustomVisual(category: string, kind: string) {
+    // Using static import for offline support
+    const modal = await this.modalController.create({
+      component: AddCustomVisualModalComponent,
+      componentProps: {
+        kind: kind,
+        category: category
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+
+    if (data && data.name) {
+      // Get processed photos with annotation data and captions
+      const processedPhotos = data.processedPhotos || [];
+      const files = data.files && data.files.length > 0 ? data.files : null;
+
+      // Create the visual with photos
+      await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', files, processedPhotos);
+    }
+  }
+
+  // Create custom visual with photos
+  async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null, processedPhotos: any[] = []) {
+    try {
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        // Toast removed per user request
+        // await this.showToast('Invalid Service ID', 'danger');
+        return;
+      }
+
+      const visualData = {
+        ServiceID: serviceIdNum,
+        Category: category,
+        Kind: kind,
+        Name: name,
+        Text: text,
+        Notes: ''
+      };
+
+      console.log('[CREATE CUSTOM] Creating visual:', visualData);
+
+      // Create the visual record
+      const response = await this.hudData.createVisual(visualData);
+
+      // Extract VisualID
+      let visualId: string | null = null;
+
+      if (Array.isArray(response) && response.length > 0) {
+        visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
+      } else if (response && typeof response === 'object') {
+        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
+          visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
+        } else {
+          visualId = String(response.VisualID || response.PK_ID || response.id || '');
+        }
+      } else if (response) {
+        visualId = String(response);
+      }
+
+      if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
+        throw new Error('No VisualID returned from server');
+      }
+
+      console.log('[CREATE CUSTOM] Created visual with ID:', visualId);
+
+      // Generate a unique templateId for custom visuals (negative to avoid collision with real templates)
+      const customTemplateId = -Date.now();
+
+      // Add to local data structure (must match loadExistingVisuals structure)
+      // DEXIE-FIRST: Use templateId as the item ID for consistency with convertFieldsToOrganizedData
+      // The liveQuery converts fields using field.visualId || field.tempVisualId || field.templateId
+      // So we use tempVisualId as the id, which will be returned by convertFieldsToOrganizedData
+      const customItem: VisualItem = {
+        id: visualId, // Use tempVisualId for consistency with convertFieldsToOrganizedData
+        templateId: customTemplateId, // Use unique negative ID for custom visuals
+        name: name,
+        text: text,
+        originalText: text,
+        answerType: 0,
+        required: false,
+        type: kind,
+        category: category,
+        isSelected: true, // Custom visuals are always selected
+        photos: []
+      };
+
+      // DEXIE-FIRST: Use consistent key format matching convertFieldsToOrganizedData
+      // Key format: ${category}_${templateId} for selection tracking
+      const key = `${category}_${customTemplateId}`;
+      this.visualRecordIds[key] = String(visualId);
+
+      // Mark as selected with the correct key
+      this.selectedItems[key] = true;
+
+      console.log('[CREATE CUSTOM] Stored visualId in visualRecordIds:', key, '=', visualId);
+
+      // DEXIE-FIRST: Upload photos FIRST before calling setField
+      // This ensures photos exist in LocalImages when the liveQuery triggers populatePhotosFromDexie
+      let photoCount = 0;
+      if (files && files.length > 0) {
+        console.log('[CREATE CUSTOM] DEXIE-FIRST: Uploading', files.length, 'photos BEFORE setField');
+
+        // Initialize photos array
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        // Upload ALL photos to LocalImages first (persists to Dexie)
+        const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
+          const photoData = processedPhotos[index] || {};
+          const annotationData = photoData.annotationData || null;
+          const originalFile = photoData.originalFile || null;
+          const caption = photoData.caption || '';
+          const fileToUpload = originalFile || file;
+
+          // Compress the photo
+          const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+            maxSizeMB: 0.8,
+            maxWidthOrHeight: 1280,
+            useWebWorker: true
+          }) as File;
+
+          // Upload to LocalImages via hudData (persists to Dexie)
+          const drawings = annotationData ? JSON.stringify(annotationData) : '';
+          const result = await this.hudData.uploadVisualPhoto(visualId, compressedPhoto, caption, drawings, originalFile || undefined, this.serviceId);
+
+          console.log(`[CREATE CUSTOM] Photo ${index + 1} persisted to LocalImages:`, result.imageId);
+          return result;
+        }));
+
+        photoCount = uploadResults.length;
+
+        // Add photos to in-memory array for immediate display
+        for (const result of uploadResults) {
+          this.visualPhotos[key].push({
+            AttachID: result.imageId,
+            id: result.imageId,
+            imageId: result.imageId,
+            name: result.fileName,
+            url: result.displayUrl,
+            thumbnailUrl: result.displayUrl,
+            displayUrl: result.displayUrl,
+            isObjectUrl: true,
+            uploading: false,
+            queued: false,
+            hasAnnotations: !!(result.drawings && result.drawings.length > 10),
+            caption: result.caption || '',
+            annotation: result.caption || '',
+            isLocalFirst: true
+          });
+        }
+
+        // Update photo count
+        this.photoCountsByKey[key] = photoCount;
+
+        // DEXIE-FIRST: Set expansion state BEFORE setField so photos are visible when liveQuery fires
+        this.expandedPhotos[key] = true;
+
+        console.log('[CREATE CUSTOM] ? All', photoCount, 'photos uploaded to LocalImages BEFORE setField');
+      }
+
+      // NOW persist to VisualField - this triggers liveQuery which will find the photos in LocalImages
+      try {
+        await this.visualFieldRepo.setField(this.serviceId, category, customTemplateId, {
+          isSelected: true,
+          tempVisualId: visualId,
+          visualId: null, // Will be set when synced
+          templateName: name,
+          templateText: text,
+          kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
+          photoCount: photoCount
+        });
+        console.log('[CREATE CUSTOM] ? Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
+      } catch (err) {
+        console.error('[CREATE CUSTOM] Failed to persist to Dexie:', err);
+
+        // Even if Dexie persist fails, add to organizedData for immediate display
+        if (kind === 'Comment') {
+          this.organizedData.comments.push(customItem);
+        } else if (kind === 'Limitation') {
+          this.organizedData.limitations.push(customItem);
+        } else if (kind === 'Deficiency') {
+          this.organizedData.deficiencies.push(customItem);
+        } else {
+          this.organizedData.comments.push(customItem);
+        }
+        this.changeDetectorRef.detectChanges();
+      }
+
+      // Clear PDF cache so new PDFs show updated data
+      this.clearPdfCache();
+
+      console.log('[CREATE CUSTOM] ? Custom visual created with Dexie-first pattern');
+
+    } catch (error) {
+      console.error('[CREATE CUSTOM] Error creating custom visual:', error);
+    }
   }
 
   async showFullText(item: VisualItem) {
@@ -1698,10 +7617,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         type: 'text',
         placeholder: 'Title' + (item.required ? ' *' : ''),
         value: item.name || '',
-        cssClass: 'editor-title-input',
-        attributes: {
-          readonly: true  // Name is used for matching - should not be edited
-        }
+        cssClass: 'editor-title-input'
       }
     ];
 
@@ -1741,17 +7657,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
         checked: item.answer === 'No'
       });
     } else if (item.answerType === 2) {
-      // Multi-select - show options as checkboxes
-      const options = this.getDropdownOptions(item.templateId);
+      // Dropdown from Services_Visuals_Drop
+      const options = this.visualDropdownOptions[item.templateId] || [];
       if (options.length > 0) {
-        // Add each option as a checkbox
+        // Add each option as a radio button
         options.forEach(option => {
           inputs.push({
-            name: option,
-            type: 'checkbox',
+            name: 'description',
+            type: 'radio',
             label: option,
             value: option,
-            checked: this.isOptionSelectedV1(item, option)
+            checked: item.text === option
           });
         });
       } else {
@@ -1795,51 +7711,50 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
               return false;
             }
 
-            // Update the item text if changed (name is read-only)
-            if (item.answerType === 0 || !item.answerType) {
-              // For text items, update the text field
-              if (data.description !== item.text) {
-                const oldText = item.text;
+            // Track what changed
+            const titleChanged = data.title !== item.name;
+            const textChanged = data.description !== item.text;
+
+            if (titleChanged || textChanged) {
+              const oldName = item.name;
+              const oldText = item.text;
+
+              // Update local item
+              if (titleChanged) {
+                item.name = data.title;
+              }
+              if (textChanged) {
                 item.text = data.description;
+              }
 
-                // Save to database if this visual is already created
-                const key = `${item.category}_${item.id}`;
-                const visualId = this.visualRecordIds[key];
+              // Save to database if this visual is already created
+              const key = `${item.category}_${item.id}`;
+              const visualId = this.visualRecordIds[key];
 
-                if (visualId && !String(visualId).startsWith('temp_')) {
-                  try {
-                    // TODO: Implement HUD visual update
-                    // await this.hudData.updateVisual(visualId, { Text: data.description });
-                    console.log('[HUD TEXT EDIT] Updated visual text:', visualId, data.description);
-                    this.changeDetectorRef.detectChanges();
-                  } catch (error) {
-                    console.error('[HUD TEXT EDIT] Error updating visual:', error);
-                    item.text = oldText;
-                    return false;
+              if (visualId && !String(visualId).startsWith('temp_')) {
+                try {
+                  // Build update object with changed fields
+                  const updateData: any = {};
+                  if (titleChanged) {
+                    updateData.Name = data.title;
                   }
-                } else {
+                  if (textChanged) {
+                    updateData.Text = data.description;
+                  }
+
+                  await this.hudData.updateVisual(visualId, updateData, this.serviceId);
+                  console.log('[TEXT EDIT] Updated visual:', visualId, updateData);
                   this.changeDetectorRef.detectChanges();
+                } catch (error) {
+                  console.error('[TEXT EDIT] Error updating visual:', error);
+                  // Revert changes on error
+                  item.name = oldName;
+                  item.text = oldText;
+                  return false;
                 }
-              }
-            } else if (item.answerType === 1) {
-              // For Yes/No items, update the answer
-              if (data.description !== item.answer) {
-                item.answer = data.description;
-                await this.onAnswerChange(item.category, item);
-              }
-            } else if (item.answerType === 2) {
-              // For multi-select, update based on checkboxes
-              const selectedOptions: string[] = [];
-              const options = this.getDropdownOptions(item.templateId);
-              options.forEach(option => {
-                if (data[option]) {
-                  selectedOptions.push(option);
-                }
-              });
-              const newAnswer = selectedOptions.join(', ');
-              if (newAnswer !== item.answer) {
-                item.answer = newAnswer;
-                await this.onAnswerChange(item.category, item);
+              } else {
+                // Just update UI if visual doesn't exist yet
+                this.changeDetectorRef.detectChanges();
               }
             }
             return true;
@@ -1856,1610 +7771,121 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   trackByItemId(index: number, item: VisualItem): any {
-    return item.id;
+    return item.id || index;
   }
 
-  trackByOption(index: number, option: string): any {
+  trackByOption(index: number, option: string): string {
     return option;
   }
 
-  getDropdownOptions(templateId: number): string[] {
-    const templateIdStr = String(templateId);
-    const options = this.visualDropdownOptions[templateIdStr] || [];
-    
-    // Debug logging to see what's available
-    if (options.length === 0 && !this._loggedPhotoKeys.has(templateIdStr)) {
-      console.log('[GET DROPDOWN] No options found for TemplateID:', templateIdStr);
-      console.log('[GET DROPDOWN] Available TemplateIDs:', Object.keys(this.visualDropdownOptions));
-      this._loggedPhotoKeys.add(templateIdStr);
-    } else if (options.length > 0 && !this._loggedPhotoKeys.has(templateIdStr)) {
-      console.log('[GET DROPDOWN] TemplateID', templateIdStr, 'has', options.length, 'options:', options);
-      this._loggedPhotoKeys.add(templateIdStr);
-    }
-    
-    return options;
-  }
-
-  // Data Management Methods
-  // Alias for createVisualRecord to match structural systems naming
-  private async saveVisualSelection(category: string, itemId: string | number) {
-    return this.createVisualRecord(category, itemId);
-  }
-
-  private async createVisualRecord(category: string, itemId: string | number) {
-    const key = `${category}_${itemId}`;
-    const item = this.findItemById(itemId);  // Find by ID, not templateId
-    
-    if (!item) {
-      console.error('[CREATE VISUAL] ❌ Item not found for itemId:', itemId);
-      console.error('[CREATE VISUAL] Available items:', [
-        ...this.organizedData.comments,
-        ...this.organizedData.limitations,
-        ...this.organizedData.deficiencies
-      ].map(i => ({ id: i.id, templateId: i.templateId, name: i.name })));
-      return;
-    }
-
-    console.log('[CREATE VISUAL] ✅ Found item:', { id: item.id, templateId: item.templateId, name: item.name });
-
-    this.savingItems[key] = true;
-
-    try {
-      const hudData = {
-        ServiceID: parseInt(this.serviceId),
-        Category: category,
-        Kind: item.type,
-        Name: item.name,
-        Text: item.text,
-        Notes: '',
-        Answers: item.answer || ''
-      };
-
-      console.log('[CREATE VISUAL] Creating HUD record with data:', hudData);
-      console.log('[CREATE VISUAL] Item details:', { id: item.id, templateId: item.templateId, name: item.name, answer: item.answer });
-      console.log('[CREATE VISUAL] Note: TemplateID is not stored in Services_HUD, only used for dropdown lookup');
-
-      const result = await firstValueFrom(this.caspioService.createServicesHUD(hudData));
-      
-      console.log('[CREATE VISUAL] API response:', result);
-      console.log('[CREATE VISUAL] Response type:', typeof result);
-      console.log('[CREATE VISUAL] Has Result array?', !!result?.Result);
-      console.log('[CREATE VISUAL] Has HUDID directly?', !!result?.HUDID);
-      
-      // Handle BOTH response formats: direct object OR wrapped in Result array
-      let createdRecord = null;
-      if (result && result.HUDID) {
-        // Direct object format
-        createdRecord = result;
-        console.log('[CREATE VISUAL] Using direct result object');
-      } else if (result && result.Result && result.Result.length > 0) {
-        // Wrapped in Result array
-        createdRecord = result.Result[0];
-        console.log('[CREATE VISUAL] Using Result[0]');
-      }
-      
-      if (createdRecord) {
-        const hudId = String(createdRecord.HUDID || createdRecord.PK_ID);
-        
-        // CRITICAL: Store the record ID
-        this.visualRecordIds[key] = hudId;
-        this.selectedItems[key] = true;
-        
-        console.log('[CREATE VISUAL] ✅ Created with HUDID:', hudId);
-        console.log('[CREATE VISUAL] Stored in visualRecordIds[' + key + '] = ' + hudId);
-        console.log('[CREATE VISUAL] Created record full data:', createdRecord);
-        console.log('[CREATE VISUAL] All visualRecordIds after creation:', JSON.stringify(this.visualRecordIds));
-        console.log('[CREATE VISUAL] Verification - can retrieve:', this.visualRecordIds[key]);
-        
-        // Initialize photo array
-        this.visualPhotos[key] = [];
-        this.photoCountsByKey[key] = 0;
-        
-        // CRITICAL: Clear cache so fresh reload will include this new record
-        this.hudData.clearServiceCaches(this.serviceId);
-        
-        // Force change detection to ensure UI updates
-        this.changeDetectorRef.detectChanges();
-      } else {
-        console.error('[CREATE VISUAL] ❌ Could not extract HUD record from response:', result);
-      }
-    } catch (error) {
-      console.error('[CREATE VISUAL] ❌ Error creating visual:', error);
-      this.selectedItems[key] = false; // Revert selection on error
-      await this.showToast('Failed to create visual record', 'danger');
-    } finally {
-      this.savingItems[key] = false;
-      this.changeDetectorRef.detectChanges();
-    }
-  }
-
-  private async deleteVisualRecord(category: string, itemId: string | number) {
-    const key = `${category}_${itemId}`;
-    const visualId = this.visualRecordIds[key];
-    
-    if (!visualId) {
-      console.log('[DELETE VISUAL] No visual ID found, nothing to delete');
-      return;
-    }
-
-    this.savingItems[key] = true;
-
-    try {
-      console.log('[DELETE VISUAL] Deleting HUD record:', visualId);
-      await firstValueFrom(this.caspioService.deleteServicesHUD(visualId));
-      
-      // Clean up local state
-      delete this.visualRecordIds[key];
-      delete this.visualPhotos[key];
-      delete this.photoCountsByKey[key];
-      
-      console.log('[DELETE VISUAL] Deleted successfully');
-    } catch (error) {
-      console.error('[DELETE VISUAL] Error:', error);
-    } finally {
-      this.savingItems[key] = false;
-      this.changeDetectorRef.detectChanges();
-    }
-  }
-
-  async onAnswerChange(category: string, item: VisualItem) {
-    const key = `${category}_${item.id}`;
-    console.log('[ANSWER] Changed:', item.answer, 'for', key);
-
-    this.savingItems[key] = true;
-
-    try {
-      // Create or update visual record
-      let visualId = this.visualRecordIds[key];
-      console.log('[ANSWER] Current visualId:', visualId);
-
-      // If answer is empty/cleared, hide the visual instead of deleting
-      if (!item.answer || item.answer === '') {
-        if (visualId && !String(visualId).startsWith('temp_')) {
-          await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
-            Answers: '',
-            Notes: 'HIDDEN'
-          }));
-          console.log('[ANSWER] Hid visual (preserved photos):', visualId);
-        }
-        this.savingItems[key] = false;
-        this.changeDetectorRef.detectChanges();
-        return;
-      }
-
-      if (!visualId) {
-        // Create new visual
-        console.log('[ANSWER] Creating new visual for key:', key);
-        const serviceIdNum = parseInt(this.serviceId, 10);
-        const visualData = {
-          ServiceID: serviceIdNum,
-          Category: category,
-          Kind: item.type,
-          Name: item.name,
-          Text: item.text || item.originalText || '',
-          Notes: '',
-          Answers: item.answer || ''
-        };
-
-        console.log('[ANSWER] Creating with data:', visualData);
-
-        const result = await firstValueFrom(this.caspioService.createServicesHUD(visualData));
-        
-        console.log('[ANSWER] 🔍 RAW API RESPONSE:', result);
-        
-        // Try multiple ways to extract the HUDID
-        if (result && result.Result && result.Result.length > 0) {
-          visualId = String(result.Result[0].HUDID || result.Result[0].PK_ID || result.Result[0].id);
-        } else if (result && Array.isArray(result) && result.length > 0) {
-          visualId = String(result[0].HUDID || result[0].PK_ID || result[0].id);
-        } else if (result) {
-          visualId = String(result.HUDID || result.PK_ID || result.id);
-        }
-        
-        if (visualId) {
-          this.visualRecordIds[key] = visualId;
-          this.selectedItems[key] = true;
-          
-          // Initialize photo array
-          this.visualPhotos[key] = [];
-          this.photoCountsByKey[key] = 0;
-          
-          console.log('[ANSWER] ✅ Created visual with HUDID:', visualId);
-          console.log('[ANSWER] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
-        } else {
-          console.error('[ANSWER] ❌ FAILED to extract HUDID from response!');
-        }
-      } else if (!String(visualId).startsWith('temp_')) {
-        // Update existing visual and unhide if it was hidden
-        console.log('[ANSWER] Updating existing visual:', visualId);
-        await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
-          Answers: item.answer || '',
-          Notes: ''
-        }));
-        console.log('[ANSWER] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
-      }
-    } catch (error) {
-      console.error('[ANSWER] ❌ Error saving answer:', error);
-      await this.showToast('Failed to save answer', 'danger');
-    }
-
-    this.savingItems[key] = false;
-    this.changeDetectorRef.detectChanges();
-  }
-
-  async onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
-    const key = `${category}_${item.id}`;
-    const isChecked = event.detail.checked;
-
-    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key);
-
-    // Update the answer string
-    let selectedOptions: string[] = [];
-    if (item.answer) {
-      selectedOptions = item.answer.split(',').map(o => o.trim()).filter(o => o);
-    }
-
-    if (isChecked) {
-      if (!selectedOptions.includes(option)) {
-        selectedOptions.push(option);
-      }
-    } else {
-      selectedOptions = selectedOptions.filter(o => o !== option);
-    }
-
-    item.answer = selectedOptions.join(', ');
-
-    // Save to database
-    this.savingItems[key] = true;
-
-    try {
-      let visualId = this.visualRecordIds[key];
-      console.log('[OPTION] Current visualId for key', key, ':', visualId);
-
-      // If all options are unchecked AND no "Other" value, hide the visual
-      if ((!item.answer || item.answer === '') && (!item.otherValue || item.otherValue === '')) {
-        if (visualId && !String(visualId).startsWith('temp_')) {
-          await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
-            Answers: '',
-            Notes: 'HIDDEN'
-          }));
-          console.log('[OPTION] Hid visual (preserved photos):', visualId);
-        }
-        this.savingItems[key] = false;
-        this.changeDetectorRef.detectChanges();
-        return;
-      }
-
-      if (!visualId) {
-        // Create new visual
-        console.log('[OPTION] Creating new visual for key:', key);
-        const serviceIdNum = parseInt(this.serviceId, 10);
-        const visualData = {
-          ServiceID: serviceIdNum,
-          Category: category,
-          Kind: item.type,
-          Name: item.name,
-          Text: item.text || item.originalText || '',
-          Notes: item.otherValue || '',
-          Answers: item.answer
-        };
-
-        console.log('[OPTION] Creating with data:', visualData);
-
-        const result = await firstValueFrom(this.caspioService.createServicesHUD(visualData));
-        
-        console.log('[OPTION] 🔍 RAW API RESPONSE:', result);
-        console.log('[OPTION] 🔍 Response type:', typeof result);
-        console.log('[OPTION] 🔍 Has Result property?', result && 'Result' in result);
-        console.log('[OPTION] 🔍 result.Result:', result?.Result);
-        
-        // Try multiple ways to extract the HUDID
-        if (result && result.Result && result.Result.length > 0) {
-          visualId = String(result.Result[0].HUDID || result.Result[0].PK_ID || result.Result[0].id);
-          console.log('[OPTION] 🔍 Extracted visualId from result.Result[0]:', visualId);
-        } else if (result && Array.isArray(result) && result.length > 0) {
-          visualId = String(result[0].HUDID || result[0].PK_ID || result[0].id);
-          console.log('[OPTION] 🔍 Extracted visualId from result[0]:', visualId);
-        } else if (result) {
-          visualId = String(result.HUDID || result.PK_ID || result.id);
-          console.log('[OPTION] 🔍 Extracted visualId from result:', visualId);
-        }
-        
-        if (visualId) {
-          this.visualRecordIds[key] = visualId;
-          this.selectedItems[key] = true;
-          
-          // Initialize photo array
-          this.visualPhotos[key] = [];
-          this.photoCountsByKey[key] = 0;
-          
-          console.log('[OPTION] ✅ Created visual with HUDID:', visualId);
-          console.log('[OPTION] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
-          console.log('[OPTION] ✅ Verification - can retrieve:', this.visualRecordIds[key]);
-        } else {
-          console.error('[OPTION] ❌ FAILED to extract HUDID from response!');
-        }
-      } else if (!String(visualId).startsWith('temp_')) {
-        // Update existing visual
-        console.log('[OPTION] Updating existing visual:', visualId);
-        const notesValue = item.otherValue || '';
-        await firstValueFrom(this.caspioService.updateServicesHUD(visualId, {
-          Answers: item.answer,
-          Notes: notesValue
-        }));
-        console.log('[OPTION] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
-      }
-    } catch (error) {
-      console.error('[OPTION] ❌ Error saving option:', error);
-      await this.showToast('Failed to save option', 'danger');
-    }
-
-    this.savingItems[key] = false;
-    this.changeDetectorRef.detectChanges();
-  }
-
-  isOptionSelectedV1(item: VisualItem, option: string): boolean {
-    if (!item.answer) return false;
-    const selectedOptions = item.answer.split(',').map(o => o.trim());
-    return selectedOptions.includes(option);
-  }
-
-  async onMultiSelectOtherChange(category: string, item: VisualItem) {
-    if (!item.otherValue || !item.otherValue.trim()) {
-      return;
-    }
-
-    // Update the answer to include the "Other" custom value
-    let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
-    
-    // Replace "Other" with the custom value
-    const otherIndex = selectedOptions.indexOf('Other');
-    if (otherIndex > -1) {
-      selectedOptions[otherIndex] = item.otherValue.trim();
-    } else {
-      // Add custom value if "Other" wasn't in the list
-      selectedOptions.push(item.otherValue.trim());
-    }
-    
-    item.answer = selectedOptions.join(', ');
-    
-    console.log('[OTHER CHANGE] Custom value:', item.otherValue, 'New answer:', item.answer);
-    
-    await this.onAnswerChange(category, item);
+  getDropdownDebugInfo(item: VisualItem): string {
+    return `Template ${item.templateId}, Type ${item.answerType}`;
   }
 
   // ============================================
-  // CAMERA AND GALLERY CAPTURE METHODS (EXACT FROM STRUCTURAL SYSTEMS)
+  // SEARCH/FILTER METHODS
   // ============================================
 
-  async addPhotoFromCamera(category: string, itemId: string | number) {
-    // Set camera capture guard to prevent liveQuery from creating duplicates
-    this.isCameraCaptureInProgress = true;
-
-    try {
-      // Capture photo with camera
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Camera
-      });
-
-      if (image.webPath) {
-        // Convert to blob/file
-        const response = await fetch(image.webPath);
-        const blob = await response.blob();
-        const imageUrl = URL.createObjectURL(blob);
-
-        // Open photo editor directly
-        const modal = await this.modalController.create({
-          component: FabricPhotoAnnotatorComponent,
-          componentProps: {
-            imageUrl: imageUrl,
-            existingAnnotations: null,
-            existingCaption: '',
-            photoData: {
-              id: 'new',
-              caption: ''
-            },
-            isReEdit: false
-          },
-          cssClass: 'fullscreen-modal'
-        });
-
-        await modal.present();
-
-        // Handle annotated photo returned from annotator
-        const { data } = await modal.onWillDismiss();
-
-        if (data && data.annotatedBlob) {
-          // User saved the annotated photo
-          const annotatedBlob = data.blob || data.annotatedBlob;
-          const annotationsData = data.annotationData || data.annotationsData;
-          const caption = data.caption || '';
-
-          // CRITICAL: Upload the ORIGINAL photo, not the annotated one
-          const originalFile = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
-          // Get or create visual ID
-          const key = `${category}_${itemId}`;
-          let visualId = this.visualRecordIds[key];
-
-          if (!visualId) {
-            await this.saveVisualSelection(category, itemId);
-            visualId = this.visualRecordIds[key];
-          }
-
-          if (!visualId) {
-            console.error('[CAMERA UPLOAD] Failed to create visual record');
-            return;
-          }
-
-          // Check if this is a temp ID (offline mode) or real ID
-          const visualIsTempId = String(visualId).startsWith('temp_');
-          const visualIdNum = parseInt(visualId, 10);
-          const isOfflineMode = isNaN(visualIdNum) || visualIsTempId;
-
-          console.log('[CAMERA UPLOAD] Visual ID:', visualId, 'isOffline:', isOfflineMode);
-
-          // Initialize photo array if it doesn't exist
-          if (!this.visualPhotos[key]) {
-            this.visualPhotos[key] = [];
-          }
-
-          // Create photo placeholder for immediate UI feedback
-          const tempId = `temp_camera_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          const objectUrl = URL.createObjectURL(blob);
-
-          const photoEntry = {
-            AttachID: tempId,
-            id: tempId,
-            _pendingFileId: tempId,
-            name: 'camera-photo.jpg',
-            url: objectUrl,
-            originalUrl: objectUrl,
-            thumbnailUrl: objectUrl,
-            isObjectUrl: true,
-            uploading: !isOfflineMode,
-            queued: isOfflineMode,
-            isSkeleton: false,
-            hasAnnotations: !!annotationsData,
-            caption: caption || '',
-            annotation: caption || '',
-            progress: 0
-          };
-
-          // Add photo to UI immediately
-          this.visualPhotos[key].push(photoEntry);
-          this.changeDetectorRef.detectChanges();
-          console.log('[CAMERA UPLOAD] Added photo placeholder, offline:', isOfflineMode);
-
-          // Clear camera capture guard after manual UI push
-          this.isCameraCaptureInProgress = false;
-
-          // Serialize and compress annotations data for IndexedDB storage
-          let drawingsString = '';
-          if (annotationsData) {
-            try {
-              const { compressAnnotationData } = await import('../../../utils/annotation-utils');
-              const rawData = typeof annotationsData === 'string'
-                ? annotationsData
-                : JSON.stringify(annotationsData);
-              drawingsString = compressAnnotationData(rawData);
-              console.log('[CAMERA UPLOAD] Compressed annotations:', drawingsString.length, 'chars');
-            } catch (e) {
-              console.error('[CAMERA UPLOAD] Failed to serialize annotations:', e);
-            }
-          }
-
-          // Store photo WITH drawings in IndexedDB for offline support
-          await this.indexedDb.storePhotoFile(tempId, originalFile, String(visualId), caption, drawingsString);
-          console.log('[CAMERA UPLOAD] Photo stored in IndexedDB with drawings');
-
-          // Queue the upload request in IndexedDB (survives app restart)
-          await this.indexedDb.addPendingRequest({
-            type: 'UPLOAD_FILE',
-            tempId: tempId,
-            endpoint: 'VISUAL_PHOTO_UPLOAD',
-            method: 'POST',
-            data: {
-              visualId: visualId,
-              tempVisualId: visualIsTempId ? visualId : undefined,
-              fileId: tempId,
-              caption: caption || '',
-              drawings: drawingsString,
-              fileName: originalFile.name,
-              fileSize: originalFile.size,
-            },
-            dependencies: [],
-            status: 'pending',
-            priority: 'high',
-          });
-
-          console.log('[CAMERA UPLOAD] Photo queued in IndexedDB for background sync');
-
-          // If online, also add to in-memory queue for immediate upload attempt
-          if (!isOfflineMode) {
-            const uploadFn = async (vId: number, photo: File, cap: string) => {
-              console.log('[CAMERA UPLOAD] Uploading photo via background service');
-              const result = await this.performVisualPhotoUpload(vId, photo, key, true, null, null, tempId, cap);
-
-              if (result) {
-                // In-memory upload succeeded - mark IndexedDB request as synced to prevent duplicate
-                try {
-                  const pendingRequests = await this.indexedDb.getPendingRequests();
-                  const matchingRequest = pendingRequests.find(r =>
-                    r.tempId === tempId && r.endpoint === 'VISUAL_PHOTO_UPLOAD'
-                  );
-                  if (matchingRequest) {
-                    await this.indexedDb.updateRequestStatus(matchingRequest.requestId, 'synced');
-                    await this.indexedDb.deleteStoredFile(tempId);
-                    console.log('[CAMERA UPLOAD] Marked IndexedDB request as synced, cleaned up stored file');
-                  }
-                } catch (cleanupError) {
-                  console.warn('[CAMERA UPLOAD] Failed to cleanup IndexedDB:', cleanupError);
-                }
-              }
-
-              // If there are annotations, save them after upload completes
-              if (annotationsData && result) {
-                try {
-                  console.log('[CAMERA UPLOAD] Saving annotations for AttachID:', result);
-                  await this.saveAnnotationToDatabase(result, annotatedBlob, annotationsData, cap, String(visualId));
-
-                  const displayUrl = URL.createObjectURL(annotatedBlob);
-                  const photos = this.visualPhotos[key] || [];
-                  const photoIndex = photos.findIndex(p => p.AttachID === result);
-                  if (photoIndex !== -1) {
-                    this.visualPhotos[key][photoIndex] = {
-                      ...this.visualPhotos[key][photoIndex],
-                      displayUrl: displayUrl,
-                      hasAnnotations: true,
-                      annotations: annotationsData,
-                      annotationsData: annotationsData
-                    };
-                    this.changeDetectorRef.detectChanges();
-                    console.log('[CAMERA UPLOAD] Annotations saved and display updated');
-                  }
-                } catch (error) {
-                  console.error('[CAMERA UPLOAD] Error saving annotations:', error);
-                }
-              }
-
-              return result;
-            };
-
-            // Add to in-memory background upload queue for immediate attempt
-            this.backgroundUploadService.addToQueue(
-              visualIdNum,
-              originalFile,
-              key,
-              caption,
-              tempId,
-              uploadFn
-            );
-
-            console.log('[CAMERA UPLOAD] Photo queued for immediate background upload');
-          } else {
-            // Sync will happen on next 60-second interval (batched sync)
-            console.log('[CAMERA UPLOAD] Photo queued for background sync (offline mode)');
-          }
-        }
-
-        // Clean up blob URL
-        URL.revokeObjectURL(imageUrl);
-      }
-    } catch (error) {
-      // Check if user cancelled
-      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
-      const isCancelled = errorMessage.includes('cancel') ||
-                         errorMessage.includes('Cancel') ||
-                         errorMessage.includes('User') ||
-                         error === 'User cancelled photos app';
-
-      if (!isCancelled) {
-        console.error('Error capturing photo from camera:', error);
-      }
-    } finally {
-      // Always reset camera capture guard
-      this.isCameraCaptureInProgress = false;
+  filterItems(items: VisualItem[]): VisualItem[] {
+    if (!this.searchTerm || this.searchTerm.trim() === '') {
+      return items;
     }
-  }
 
-  async addPhotoFromGallery(category: string, itemId: string | number) {
-    try {
-      // Use pickImages to allow multiple photo selection
-      const images = await Camera.pickImages({
-        quality: 90,
-        limit: 0 // 0 = no limit on number of photos
-      });
+    const term = this.searchTerm.toLowerCase().trim();
+    return items.filter(item => {
+      const nameMatch = item.name?.toLowerCase().includes(term);
+      const textMatch = item.text?.toLowerCase().includes(term);
+      const originalTextMatch = item.originalText?.toLowerCase().includes(term);
 
-      if (images.photos && images.photos.length > 0) {
-        const key = `${category}_${itemId}`;
-
-        // Initialize photo array if it doesn't exist
-        if (!this.visualPhotos[key]) {
-          this.visualPhotos[key] = [];
-        }
-
-        // Set batch upload guard to prevent liveQuery from creating duplicates
-        this.isMultiImageUploadInProgress = true;
-        this.batchUploadImageIds.clear();
-
-        console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
-
-        // CRITICAL: Create skeleton placeholders IMMEDIATELY for all photos
-        const skeletonPhotos = images.photos.map((image, i) => {
-          const tempId = `temp_skeleton_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
-          // Track imageId in batch to prevent duplicates even if liveQuery fires
-          this.batchUploadImageIds.add(tempId);
-          return {
-            AttachID: tempId,
-            id: tempId,
-            name: `photo_${i}.jpg`,
-            url: 'assets/img/photo-placeholder.png',
-            thumbnailUrl: 'assets/img/photo-placeholder.png',
-            isObjectUrl: false,
-            uploading: false,
-            isSkeleton: true,
-            hasAnnotations: false,
-            caption: '',
-            annotation: '',
-            progress: 0
-          };
-        });
-
-        // Add all skeleton placeholders to UI immediately
-        this.visualPhotos[key].push(...skeletonPhotos);
-        this.changeDetectorRef.detectChanges();
-        console.log('[GALLERY UPLOAD] Added', skeletonPhotos.length, 'skeleton placeholders');
-
-        // NOW create visual record if it doesn't exist
-        let visualId = this.visualRecordIds[key];
-        if (!visualId) {
-          console.log('[GALLERY UPLOAD] Creating HUD record...');
-          await this.saveVisualSelection(category, itemId);
-          visualId = this.visualRecordIds[key];
-        }
-
-        if (!visualId) {
-          console.error('[GALLERY UPLOAD] Failed to create HUD record');
-          // Mark all skeleton photos as failed
-          skeletonPhotos.forEach(skeleton => {
-            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-            if (photoIndex !== -1 && this.visualPhotos[key]) {
-              this.visualPhotos[key][photoIndex].uploading = false;
-              this.visualPhotos[key][photoIndex].uploadFailed = true;
-              this.visualPhotos[key][photoIndex].isSkeleton = false;
-            }
-          });
-          this.changeDetectorRef.detectChanges();
-          return;
-        }
-
-        const visualIdNum = parseInt(visualId, 10);
-        if (isNaN(visualIdNum)) {
-          console.error('[GALLERY UPLOAD] Invalid HUD ID:', visualId);
-          // Mark all skeleton photos as failed
-          skeletonPhotos.forEach(skeleton => {
-            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-            if (photoIndex !== -1 && this.visualPhotos[key]) {
-              this.visualPhotos[key][photoIndex].uploading = false;
-              this.visualPhotos[key][photoIndex].uploadFailed = true;
-              this.visualPhotos[key][photoIndex].isSkeleton = false;
-            }
-          });
-          this.changeDetectorRef.detectChanges();
-          return;
-        }
-
-        console.log('[GALLERY UPLOAD] ✅ Valid HUD ID found:', visualIdNum);
-
-        // CRITICAL: Process photos SEQUENTIALLY
-        setTimeout(async () => {
-          for (let i = 0; i < images.photos.length; i++) {
-            const image = images.photos[i];
-            const skeleton = skeletonPhotos[i];
-
-            if (image.webPath) {
-              try {
-                console.log(`[GALLERY UPLOAD] Processing photo ${i + 1}/${images.photos.length}`);
-
-                // Fetch the blob
-                const response = await fetch(image.webPath);
-                const blob = await response.blob();
-                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
-
-                // Convert blob to data URL for persistent offline storage
-                const dataUrl = await this.blobToDataUrl(blob);
-
-                // Update skeleton to show preview + queued state
-                const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-                if (skeletonIndex !== -1 && this.visualPhotos[key]) {
-                  this.visualPhotos[key][skeletonIndex] = {
-                    ...this.visualPhotos[key][skeletonIndex],
-                    url: dataUrl,
-                    thumbnailUrl: dataUrl,
-                    isObjectUrl: false,
-                    uploading: true,
-                    isSkeleton: false,
-                    progress: 0,
-                    _pendingFileId: skeleton.AttachID  // Track for IndexedDB retrieval
-                  };
-                  this.changeDetectorRef.detectChanges();
-                  console.log(`[GALLERY UPLOAD] Updated skeleton ${i + 1} to show preview (data URL)`);
-                }
-
-                // CRITICAL: Store photo in IndexedDB for offline support
-                await this.indexedDb.storePhotoFile(skeleton.AttachID, file, visualId, '', '');
-                console.log(`[GALLERY UPLOAD] Photo ${i + 1} stored in IndexedDB`);
-
-                // Queue the upload request in IndexedDB (survives app restart)
-                await this.indexedDb.addPendingRequest({
-                  type: 'UPLOAD_FILE',
-                  tempId: skeleton.AttachID,
-                  endpoint: 'VISUAL_PHOTO_UPLOAD',
-                  method: 'POST',
-                  data: {
-                    visualId: visualIdNum,
-                    fileId: skeleton.AttachID,
-                    caption: '',
-                    drawings: '',
-                    fileName: file.name,
-                    fileSize: file.size,
-                  },
-                  dependencies: [],
-                  status: 'pending',
-                  priority: 'high',
-                });
-
-                // Add to in-memory background upload queue for immediate attempt
-                const uploadFn = async (vId: number, photo: File, caption: string) => {
-                  console.log(`[GALLERY UPLOAD] Uploading photo ${i + 1}/${images.photos.length}`);
-                  const result = await this.performVisualPhotoUpload(vId, photo, key, true, null, null, skeleton.AttachID, caption);
-
-                  if (result) {
-                    // In-memory upload succeeded - mark IndexedDB request as synced
-                    try {
-                      const pendingRequests = await this.indexedDb.getPendingRequests();
-                      const matchingRequest = pendingRequests.find(r =>
-                        r.tempId === skeleton.AttachID && r.endpoint === 'VISUAL_PHOTO_UPLOAD'
-                      );
-                      if (matchingRequest) {
-                        await this.indexedDb.updateRequestStatus(matchingRequest.requestId, 'synced');
-                        await this.indexedDb.deleteStoredFile(skeleton.AttachID);
-                        console.log(`[GALLERY UPLOAD] Marked IndexedDB request as synced for photo ${i + 1}`);
-                      }
-                    } catch (cleanupError) {
-                      console.warn('[GALLERY UPLOAD] Failed to cleanup IndexedDB:', cleanupError);
-                    }
-                  }
-
-                  return result;
-                };
-
-                this.backgroundUploadService.addToQueue(
-                  visualIdNum,
-                  file,
-                  key,
-                  '', // caption
-                  skeleton.AttachID,
-                  uploadFn
-                );
-
-                // NOTE: Don't call triggerSync() here - the in-memory upload service handles it
-                // triggerSync would cause duplicate uploads when both services try to upload the same photo
-
-                console.log(`[GALLERY UPLOAD] Photo ${i + 1}/${images.photos.length} queued for upload (in-memory queue)`);
-
-              } catch (error) {
-                console.error(`[GALLERY UPLOAD] Error processing photo ${i + 1}:`, error);
-
-                // Mark the photo as failed
-                const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-                if (photoIndex !== -1 && this.visualPhotos[key]) {
-                  this.visualPhotos[key][photoIndex].uploading = false;
-                  this.visualPhotos[key][photoIndex].uploadFailed = true;
-                  this.changeDetectorRef.detectChanges();
-                }
-              }
-            }
-          }
-
-          console.log(`[GALLERY UPLOAD] All ${images.photos.length} photos queued successfully`);
-
-          // Clear batch upload guard after all photos processed
-          this.isMultiImageUploadInProgress = false;
-          this.batchUploadImageIds.clear();
-
-        }, 150); // Small delay to ensure skeletons render
-      }
-    } catch (error) {
-      // Check if user cancelled
-      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
-      const isCancelled = errorMessage.includes('cancel') ||
-                         errorMessage.includes('Cancel') ||
-                         errorMessage.includes('User') ||
-                         error === 'User cancelled photos app';
-
-      if (!isCancelled) {
-        console.error('Error selecting photo from gallery:', error);
-      }
-    } finally {
-      // Always reset batch upload guard
-      this.isMultiImageUploadInProgress = false;
-      this.batchUploadImageIds.clear();
-    }
-  }
-
-  // Perform HUD photo upload (matches performVisualPhotoUpload from structural systems)
-  private async performVisualPhotoUpload(
-    hudId: number,
-    photo: File,
-    key: string,
-    isBatchUpload: boolean,
-    annotationData: any,
-    originalPhoto: File | null,
-    tempId: string | undefined,
-    caption: string
-  ): Promise<string | null> {
-    try {
-      console.log(`[HUD PHOTO UPLOAD] Starting upload for HUDID ${hudId}`);
-
-      // Upload photo using HUD service
-      const result = await this.hudData.uploadVisualPhoto(hudId, photo, caption);
-
-      console.log(`[HUD PHOTO UPLOAD] Upload complete for HUDID ${hudId}`);
-      console.log(`[HUD PHOTO UPLOAD] Full result object:`, JSON.stringify(result, null, 2));
-      console.log(`[HUD PHOTO UPLOAD] Result.Result:`, result.Result);
-      console.log(`[HUD PHOTO UPLOAD] AttachID:`, result.AttachID || result.Result?.[0]?.AttachID);
-      console.log(`[HUD PHOTO UPLOAD] Photo path:`, result.Photo || result.Result?.[0]?.Photo);
-
-      if (tempId && this.visualPhotos[key]) {
-        const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
-        if (photoIndex !== -1) {
-          const oldUrl = this.visualPhotos[key][photoIndex].url;
-          if (oldUrl && oldUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(oldUrl);
-          }
-
-          // CRITICAL: Get the uploaded photo URL from the result
-          // Handle both direct result and Result array format
-          const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
-          const s3Key = actualResult.Attachment; // S3 key
-          const uploadedPhotoUrl = actualResult.Photo || actualResult.thumbnailUrl || actualResult.url; // Old Caspio path
-          let displayableUrl = uploadedPhotoUrl || '';
-
-          console.log('[HUD PHOTO UPLOAD] Actual result:', actualResult);
-          console.log('[HUD PHOTO UPLOAD] S3 key:', s3Key);
-          console.log('[HUD PHOTO UPLOAD] Uploaded photo path (old):', uploadedPhotoUrl);
-
-          // Check if this is an S3 image
-          if (s3Key && this.caspioService.isS3Key(s3Key)) {
-            try {
-              console.log('[HUD PHOTO UPLOAD] ✨ S3 image detected, fetching pre-signed URL...');
-              displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
-              console.log('[HUD PHOTO UPLOAD] ✅ Got S3 pre-signed URL');
-            } catch (err) {
-              console.error('[HUD PHOTO UPLOAD] ❌ Failed to fetch S3 URL:', err);
-              displayableUrl = 'assets/img/photo-placeholder.png';
-            }
-          }
-          // Fallback to old Caspio Files API logic
-          else if (uploadedPhotoUrl && !uploadedPhotoUrl.startsWith('data:') && !uploadedPhotoUrl.startsWith('blob:')) {
-            try {
-              console.log('[HUD PHOTO UPLOAD] 📁 Caspio Files API path detected, fetching image data...');
-              const imageData = await firstValueFrom(
-                this.caspioService.getImageFromFilesAPI(uploadedPhotoUrl)
-              );
-              console.log('[HUD PHOTO UPLOAD] Files API response:', imageData?.substring(0, 100));
-              
-              if (imageData && imageData.startsWith('data:')) {
-                displayableUrl = imageData;
-                console.log('[HUD PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
-              } else {
-                console.warn('[HUD PHOTO UPLOAD] ❌ Files API returned invalid data');
-                displayableUrl = 'assets/img/photo-placeholder.png';
-              }
-            } catch (err) {
-              console.error('[HUD PHOTO UPLOAD] ❌ Failed to fetch image from Files API:', err);
-              displayableUrl = 'assets/img/photo-placeholder.png';
-            }
-          } else {
-            console.log('[HUD PHOTO UPLOAD] Using URL directly (already data/blob URL)');
-          }
-
-          console.log('[HUD PHOTO UPLOAD] Final displayableUrl length:', displayableUrl?.length || 0);
-          console.log('[HUD PHOTO UPLOAD] Updating photo at index', photoIndex);
-
-          // Get AttachID from the actual result
-          const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
-          console.log('[HUD PHOTO UPLOAD] Using AttachID:', attachId);
-
-          this.visualPhotos[key][photoIndex] = {
-            ...this.visualPhotos[key][photoIndex],
-            AttachID: attachId,
-            id: attachId,
-            uploading: false,
-            queued: false,
-            filePath: uploadedPhotoUrl,
-            Photo: uploadedPhotoUrl,
-            url: displayableUrl,
-            originalUrl: displayableUrl,      // CRITICAL: Set originalUrl to base image
-            thumbnailUrl: displayableUrl,
-            displayUrl: displayableUrl,        // Will be overwritten if user annotates
-            caption: caption || '',
-            annotation: caption || '',
-            Annotation: caption || ''
-          };
-
-          console.log('[HUD PHOTO UPLOAD] ✅ Photo object updated:', {
-            AttachID: this.visualPhotos[key][photoIndex].AttachID,
-            hasUrl: !!this.visualPhotos[key][photoIndex].url,
-            hasThumbnail: !!this.visualPhotos[key][photoIndex].thumbnailUrl,
-            hasDisplay: !!this.visualPhotos[key][photoIndex].displayUrl,
-            urlLength: this.visualPhotos[key][photoIndex].url?.length || 0
-          });
-
-          this.changeDetectorRef.detectChanges();
-          console.log('[HUD PHOTO UPLOAD] ✅ Change detection triggered');
-        } else {
-          console.warn('[HUD PHOTO UPLOAD] ❌ Could not find photo with tempId:', tempId);
-        }
-      }
-
-      // Return the AttachID for immediate use
-      return result.AttachID;
-
-    } catch (error) {
-      console.error('[HUD PHOTO UPLOAD] ❌ Upload failed:', error);
-
-      if (tempId && this.visualPhotos[key]) {
-        const photoIndex = this.visualPhotos[key].findIndex(p => p.AttachID === tempId || p.id === tempId);
-        if (photoIndex !== -1) {
-          this.visualPhotos[key].splice(photoIndex, 1);
-          this.changeDetectorRef.detectChanges();
-        }
-      }
-
-      return null;
-    }
+      return nameMatch || textMatch || originalTextMatch;
+    });
   }
 
   /**
-   * Save annotation data to database
-   * HUD-014: Platform-aware annotation sync with COMPRESSED_V3 format
-   * - MOBILE: Queues annotation update for background sync
-   * - WEBAPP: Direct API call for immediate persistence
-   * - Caches annotated blob for immediate thumbnail display
+   * Escape HTML characters to prevent XSS (web only)
    */
-  private async saveAnnotationToDatabase(
-    attachId: string,
-    annotatedBlob: Blob,
-    annotationsData: any,
-    caption: string,
-    hudId?: string
-  ): Promise<string> {
-    console.log('[SAVE ANNOTATION] Saving annotation for AttachID:', attachId, 'Mobile:', this.isMobile);
+  private escapeHtml(text: string): string {
+    if (!environment.isWeb) return text;
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
 
-    // Prepare drawings data string
-    let drawingsData = '';
-    if (annotationsData) {
-      if (annotationsData && typeof annotationsData === 'object' && 'objects' in annotationsData) {
-        try {
-          drawingsData = JSON.stringify(annotationsData);
-        } catch (e) {
-          console.error('[SAVE] Failed to stringify Fabric.js object:', e);
-          drawingsData = JSON.stringify({ objects: [], version: '5.3.0' });
-        }
-      } else if (typeof annotationsData === 'string') {
-        drawingsData = annotationsData;
-      } else if (typeof annotationsData === 'object') {
-        try {
-          drawingsData = JSON.stringify(annotationsData);
-        } catch (e) {
-          console.error('[SAVE] Failed to stringify annotation data:', e);
-        }
-      }
+  highlightText(text: string | undefined): string {
+    if (!text || !this.searchTerm || this.searchTerm.trim() === '') {
+      // Escape HTML even when no search term to prevent XSS (web only)
+      return environment.isWeb ? this.escapeHtml(text || '') : (text || '');
     }
 
-    // HUD-014: Use platform-aware annotation sync via HudDataService
-    // This handles COMPRESSED_V3 format and queuing for mobile
-    if (drawingsData && drawingsData.length > 0) {
-      try {
-        const result = await this.hudData.updateVisualPhotoCaptionAndAnnotation(
-          attachId,
-          caption || '',
-          drawingsData,
-          {
-            serviceId: this.serviceId,
-            hudId: hudId
-          }
-        );
-        console.log('[SAVE ANNOTATION] ✅ Annotation update initiated:', result?.queued ? 'queued for sync' : 'saved directly');
-      } catch (error) {
-        console.error('[SAVE ANNOTATION] Error saving annotation:', error);
-        // Don't throw - we still want to cache the blob for immediate display
-      }
-    } else {
-      // No drawings - just update caption
-      try {
-        await this.hudData.updateVisualPhotoCaption(attachId, caption || '', {
-          serviceId: this.serviceId,
-          hudId: hudId
-        });
-        console.log('[SAVE ANNOTATION] ✅ Caption saved (no drawings)');
-      } catch (error) {
-        console.error('[SAVE ANNOTATION] Error saving caption:', error);
-      }
-    }
+    const term = this.searchTerm.trim();
+    // First escape the text to prevent XSS (web only)
+    const escapedText = environment.isWeb ? this.escapeHtml(text) : text;
+    // Create a case-insensitive regex to find all matches
+    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
 
-    // Cache the annotated blob for immediate thumbnail display
-    // This ensures annotations are visible in thumbnails immediately
-    if (annotatedBlob && annotatedBlob.size > 0) {
-      try {
-        const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
-        console.log('[SAVE ANNOTATION] ✅ Annotated image blob cached for thumbnail display');
-        // Update in-memory map so same-session navigation shows the annotation
-        if (base64 && this.bulkAnnotatedImagesMap) {
-          this.bulkAnnotatedImagesMap.set(String(attachId), base64);
-        }
-      } catch (annotCacheErr) {
-        console.warn('[SAVE ANNOTATION] Failed to cache annotated image blob:', annotCacheErr);
-      }
-    }
-
-    return attachId;
+    // Replace matches with highlighted span
+    return escapedText.replace(regex, '<span class="highlight">$1</span>');
   }
 
-  // Clear PDF cache (stub for compatibility)
-  private clearPdfCache(): void {
-    // Future: implement PDF cache clearing if needed
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  // Helper methods from structural systems
-  trackByPhotoId(index: number, photo: any): string {
-    // MUST return stable UUID - NEVER fall back to index (causes re-renders)
-    // Priority: imageId (new local-first) > _tempId > AttachID > generated emergency ID
-    const stableId = photo.imageId || photo._tempId || photo.AttachID || photo.id;
-    if (stableId) {
-      return String(stableId);
-    }
-    // Generate emergency stable ID from available data - never use index
-    console.warn('[trackBy] Photo missing stable ID, generating emergency ID:', photo);
-    return `photo_${photo.VisualID || photo.HUDID || 'unknown'}_${photo.fileName || photo.Photo || index}`;
+  clearSearch(): void {
+    this.searchTerm = '';
+    this.updateExpandedAccordions();
   }
 
-  handleImageError(event: any, photo: any) {
-    const target = event.target as HTMLImageElement;
-    target.src = 'assets/img/photo-placeholder.png';
+  onSearchChange(): void {
+    this.updateExpandedAccordions();
   }
 
-  saveScrollBeforePhotoClick(event: Event): void {
-    // Scroll position is handled in viewPhoto
-  }
-
-  isLoadingPhotosForVisual(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
-    return this.loadingPhotosByKey[key] === true;
-  }
-
-  getSkeletonArray(category: string, itemId: string | number): any[] {
-    const key = `${category}_${itemId}`;
-    const count = this.photoCountsByKey[key] || 0;
-    return Array(count).fill({ isSkeleton: true });
-  }
-
-  isUploadingPhotos(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
-    return this.uploadingPhotosByKey[key] === true;
-  }
-
-  getUploadingCount(category: string, itemId: string | number): number {
-    const key = `${category}_${itemId}`;
-    const photos = this.visualPhotos[key] || [];
-    return photos.filter(p => p.uploading).length;
-  }
-
-  getTotalPhotoCount(category: string, itemId: string | number): number {
-    const key = `${category}_${itemId}`;
-    return (this.visualPhotos[key] || []).length;
-  }
-
-  /**
-   * Check if an individual item is completed based on its answer type
-   */
-  isItemCompleted(item: VisualItem): boolean {
-    if (item.answerType === 1) {
-      // Yes/No: completed if answer is 'Yes' or 'No'
-      return item.answer === 'Yes' || item.answer === 'No';
-    } else if (item.answerType === 2) {
-      // Multi-select: completed if any option is selected
-      return !!(item.answer && item.answer.trim());
-    } else {
-      // Text/checkbox (answerType 0 or undefined): completed if selected
-      const key = `${this.categoryName}_${item.id}`;
-      return this.selectedItems[key] || false;
-    }
-  }
-
-  /**
-   * Get section progress data for a given section
-   */
-  getSectionProgress(sectionType: 'comments' | 'limitations' | 'deficiencies'): { completed: number; total: number; percentage: number } {
-    const items = this.organizedData[sectionType] || [];
-    const filteredItems = this.filterItems(items);
-
-    if (filteredItems.length === 0) {
-      return { completed: 0, total: 0, percentage: 0 };
-    }
-
-    const completed = filteredItems.filter(item => this.isItemCompleted(item)).length;
-    const total = filteredItems.length;
-    const percentage = Math.round((completed / total) * 100);
-
-    return { completed, total, percentage };
-  }
-
-  /**
-   * Get color for completion badge based on percentage
-   */
-  getProgressColor(percentage: number): 'success' | 'warning' | 'danger' | 'primary' {
-    if (percentage === 100) return 'success';
-    if (percentage >= 50) return 'warning';
-    if (percentage > 0) return 'primary';
-    return 'danger';
-  }
-
-  async openCaptionPopup(photo: any, category: string, itemId: string | number) {
-    // Prevent multiple popups
-    if ((this as any).isCaptionPopupOpen) {
+  private updateExpandedAccordions(): void {
+    if (!this.searchTerm || this.searchTerm.trim() === '') {
+      // No search term - expand all accordions by default for better UX
+      this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
       return;
     }
 
-    (this as any).isCaptionPopupOpen = true;
+    // Expand only accordions that have matching results
+    const expanded: string[] = [];
 
-    try {
-      // Escape HTML
-      const escapeHtml = (text: string) => {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-      };
-
-      const tempCaption = escapeHtml(photo.caption || '');
-
-      // Define preset location buttons - 3 columns
-      const presetButtons = [
-        ['Front', '1st', 'Laundry'],
-        ['Left', '2nd', 'Kitchen'],
-        ['Right', '3rd', 'Living'],
-        ['Back', '4th', 'Dining'],
-        ['Top', '5th', 'Bedroom'],
-        ['Bottom', 'Floor', 'Bathroom'],
-        ['Middle', 'Unit', 'Closet'],
-        ['Primary', 'Attic', 'Entry'],
-        ['Supply', 'Porch', 'Office'],
-        ['Return', 'Deck', 'Garage'],
-        ['Staircase', 'Roof', 'Indoor'],
-        ['Hall', 'Ceiling', 'Outdoor']
-      ];
-
-      // Build HTML for preset buttons
-      let buttonsHtml = '<div class="preset-buttons-container">';
-      presetButtons.forEach(row => {
-        buttonsHtml += '<div class="preset-row">';
-        row.forEach(label => {
-          buttonsHtml += `<button type="button" class="preset-btn" data-text="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
-        });
-        buttonsHtml += '</div>';
-      });
-      buttonsHtml += '</div>';
-
-      const alert = await this.alertController.create({
-        header: 'Photo Caption',
-        cssClass: 'caption-popup-alert',
-        message: ' ',
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            handler: () => {
-              (this as any).isCaptionPopupOpen = false;
-            }
-          },
-          {
-            text: 'Save',
-            handler: () => {
-              const input = document.getElementById('captionInput') as HTMLInputElement;
-              const newCaption = input?.value || '';
-
-              // Update photo caption in UI immediately
-              photo.caption = newCaption;
-
-              // HUD-014: Mark as pending on mobile until sync completes
-              if (this.isMobile) {
-                photo._captionPending = true;
-              }
-
-              this.changeDetectorRef.detectChanges();
-
-              // Close popup immediately
-              (this as any).isCaptionPopupOpen = false;
-
-              // HUD-014: Get the attachId (could be temp ID, imageId, or real AttachID)
-              const attachId = photo.imageId || photo.AttachID || photo.attachId;
-              const hudId = photo.HUDID || photo.VisualID;
-
-              // Save to database in background (works for both mobile and webapp)
-              if (attachId) {
-                this.hudData.updateVisualPhotoCaption(attachId, newCaption, {
-                  serviceId: this.serviceId,
-                  hudId: hudId ? String(hudId) : undefined
-                })
-                  .then((result) => {
-                    console.log('[CAPTION] Caption update initiated:', result?.queued ? 'queued for sync' : 'saved directly');
-                    if (result?.queued && this.isMobile) {
-                      // Caption queued - will sync in background
-                      console.log('[CAPTION] Caption queued, captionId:', result.captionId);
-                    }
-                  })
-                  .catch((error) => {
-                    console.error('[CAPTION] Error saving caption:', error);
-                    this.showToast('Caption saved to device, will sync when online', 'warning');
-                  });
-              }
-
-              return true;
-            }
-          }
-        ]
-      });
-
-      await alert.present();
-
-      // Inject HTML content immediately after presentation
-      setTimeout(() => {
-        try {
-          const alertElement = document.querySelector('.caption-popup-alert .alert-message');
-          if (!alertElement) {
-            (this as any).isCaptionPopupOpen = false;
-            return;
-          }
-
-          // Build the full HTML content with inline styles for mobile app compatibility
-          const htmlContent = `
-            <div class="caption-popup-content">
-              <div class="caption-input-container" style="position: relative; margin-bottom: 16px;">
-                <input type="text" id="captionInput" class="caption-text-input"
-                       placeholder="Enter caption..."
-                       value="${tempCaption}"
-                       maxlength="255"
-                       style="width: 100%; padding: 14px 54px 14px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; color: #333; background: white; box-sizing: border-box; height: 52px;" />
-                <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word"
-                        style="position: absolute; right: 5px; top: 5px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 10;">
-                  <ion-icon name="backspace-outline" style="font-size: 20px; color: #666;"></ion-icon>
-                </button>
-              </div>
-              ${buttonsHtml}
-            </div>
-          `;
-          alertElement.innerHTML = htmlContent;
-
-          const captionInput = document.getElementById('captionInput') as HTMLInputElement;
-          const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
-
-          // Use event delegation for better performance
-          const container = document.querySelector('.caption-popup-alert .preset-buttons-container');
-          if (container && captionInput) {
-            container.addEventListener('click', (e) => {
-              try {
-                const target = e.target as HTMLElement;
-                const btn = target.closest('.preset-btn') as HTMLElement;
-                if (btn) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const text = btn.getAttribute('data-text');
-                  if (text && captionInput) {
-                    // Add text + space to current caption
-                    captionInput.value = (captionInput.value || '') + text + ' ';
-                    // Remove focus from button to prevent highlight
-                    (btn as HTMLButtonElement).blur();
-                  }
-                }
-              } catch (error) {
-                console.error('Error handling preset button click:', error);
-              }
-            }, { passive: false });
-          }
-
-          // Add undo button handler
-          if (undoBtn && captionInput) {
-            undoBtn.addEventListener('click', (e) => {
-              try {
-                e.preventDefault();
-                e.stopPropagation();
-                const currentValue = captionInput.value || '';
-                if (currentValue.trim() === '') {
-                  return;
-                }
-                const words = currentValue.trim().split(' ');
-                if (words.length > 0) {
-                  words.pop();
-                }
-                captionInput.value = words.join(' ');
-                if (captionInput.value.length > 0) {
-                  captionInput.value += ' ';
-                }
-              } catch (error) {
-                console.error('Error handling undo button click:', error);
-              }
-            });
-          }
-        } catch (error) {
-          console.error('Error injecting caption popup content:', error);
-          (this as any).isCaptionPopupOpen = false;
-        }
-      }, 0);
-
-    } catch (error) {
-      console.error('Error opening caption popup:', error);
-      (this as any).isCaptionPopupOpen = false;
+    if (this.filterItems(this.organizedData.comments).length > 0) {
+      expanded.push('information');
     }
+    if (this.filterItems(this.organizedData.limitations).length > 0) {
+      expanded.push('limitations');
+    }
+    if (this.filterItems(this.organizedData.deficiencies).length > 0) {
+      expanded.push('deficiencies');
+    }
+
+    this.expandedAccordions = expanded;
   }
 
-  async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event) {
-    console.log('[VIEW PHOTO] Opening photo annotator for', photo.AttachID);
-
-    try {
-      const key = `${category}_${itemId}`;
-
-      const attachId = photo.AttachID || photo.id;
-      if (!attachId) {
-        return;
-      }
-
-      // Check if this is a pending/offline photo (temp ID) - these CAN be viewed while uploading
-      const isPendingPhoto = String(attachId).startsWith('temp_') || photo._pendingFileId;
-      const pendingFileId = photo._pendingFileId || attachId;
-
-      // Only block viewing for non-pending photos that are actively uploading
-      // Pending photos should be viewable from IndexedDB even while queued
-      if ((photo.uploading || photo.queued) && !isPendingPhoto) {
-        return;
-      }
-
-      // Save scroll position
-      const scrollPosition = await this.content?.getScrollElement().then(el => el.scrollTop) || 0;
-
-      // Get image URL
-      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
-
-      if (isPendingPhoto) {
-        console.log('[VIEW PHOTO] Pending photo detected, retrieving from IndexedDB:', pendingFileId);
-        try {
-          const photoData = await this.indexedDb.getStoredPhotoData(pendingFileId);
-          if (photoData && photoData.file) {
-            // Convert file to data URL for the annotator
-            const blob = photoData.file;
-            imageUrl = await this.blobToDataUrl(blob);
-            // CRITICAL: Must also set photo.originalUrl - it's checked first at line 2394
-            photo.url = imageUrl;
-            photo.originalUrl = imageUrl;
-            photo.thumbnailUrl = imageUrl;
-            console.log('[VIEW PHOTO] ✅ Retrieved pending photo from IndexedDB, URL set');
-          } else {
-            console.warn('[VIEW PHOTO] Pending photo not found in IndexedDB');
-            // If the photo has a data URL already, use it
-            if (photo.url && photo.url.startsWith('data:')) {
-              imageUrl = photo.url;
-            } else {
-              await this.showToast('Photo not available offline', 'warning');
-              return;
-            }
-          }
-        } catch (err) {
-          console.error('[VIEW PHOTO] Error retrieving pending photo:', err);
-          // Try using existing URL if available
-          if (photo.url && photo.url.startsWith('data:')) {
-            imageUrl = photo.url;
-          } else {
-            await this.showToast('Photo not available offline', 'warning');
-            return;
-          }
-        }
-      }
-      // If no valid URL and we have a file path, try to fetch it
-      else if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo || photo.Attachment)) {
-        try {
-          // Check if this is an S3 key
-          if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {
-            console.log('[VIEW PHOTO] ✨ S3 image detected, fetching URL...');
-            imageUrl = await this.caspioService.getS3FileUrl(photo.Attachment);
-            photo.url = imageUrl;
-            photo.originalUrl = imageUrl;
-            photo.thumbnailUrl = imageUrl;
-            photo.displayUrl = imageUrl;
-            console.log('[VIEW PHOTO] ✅ Got S3 URL');
-          }
-          // Fallback to Caspio Files API
-          else {
-            const filePath = photo.filePath || photo.Photo;
-            console.log('[VIEW PHOTO] 📁 Fetching from Caspio Files API...');
-            const fetchedImage = await firstValueFrom(
-              this.caspioService.getImageFromFilesAPI(filePath)
-            );
-            if (fetchedImage && fetchedImage.startsWith('data:')) {
-              imageUrl = fetchedImage;
-              photo.url = fetchedImage;
-              photo.originalUrl = fetchedImage;
-              photo.thumbnailUrl = fetchedImage;
-              photo.displayUrl = fetchedImage;
-            }
-          }
-          this.changeDetectorRef.detectChanges();
-        } catch (err) {
-          console.error('[VIEW PHOTO] Failed to fetch image:', err);
-        }
-      }
-
-      // Always use the original URL for editing
-      const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
-
-      // Try to load existing annotations
-      let existingAnnotations: any = null;
-      const annotationSources = [
-        photo.annotations,
-        photo.annotationsData,
-        photo.rawDrawingsString,
-        photo.Drawings
-      ];
-
-      for (const source of annotationSources) {
-        if (!source) continue;
-        try {
-          if (typeof source === 'string') {
-            const { decompressAnnotationData } = await import('../../../utils/annotation-utils');
-            existingAnnotations = decompressAnnotationData(source);
-          } else {
-            existingAnnotations = source;
-          }
-          if (existingAnnotations) break;
-        } catch (e) {
-          console.error('[VIEW PHOTO] Error loading annotations:', e);
-        }
-      }
-
-      const existingCaption = photo.caption || photo.annotation || photo.Annotation || '';
-
-      // Open FabricPhotoAnnotatorComponent
-      const modal = await this.modalController.create({
-        component: FabricPhotoAnnotatorComponent,
-        componentProps: {
-          imageUrl: originalImageUrl,
-          existingAnnotations: existingAnnotations,
-          existingCaption: existingCaption,
-          photoData: {
-            ...photo,
-            AttachID: attachId,
-            id: attachId,
-            caption: existingCaption
-          },
-          isReEdit: !!existingAnnotations
-        },
-        cssClass: 'fullscreen-modal'
-      });
-
-      await modal.present();
-      const { data } = await modal.onWillDismiss();
-
-      // Restore scroll position
-      setTimeout(async () => {
-        if (this.content) {
-          await this.content.scrollToPoint(0, scrollPosition, 0);
-        }
-      }, 100);
-
-      if (!data || !data.annotatedBlob) {
-        return;
-      }
-
-      // User saved annotations - update the photo
-      const annotatedBlob = data.blob || data.annotatedBlob;
-      const annotationsData = data.annotationData || data.annotationsData;
-      const newCaption = data.caption || existingCaption;
-
-      // Save annotations to database
-      // HUD-014: Pass hudId for proper metadata
-      const hudId = photo.HUDID || photo.VisualID || this.visualRecordIds[key] || String(itemId);
-      await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationsData, newCaption, hudId);
-
-      // Update UI
-      const photos = this.visualPhotos[key] || [];
-      const photoIndex = photos.findIndex(p => (p.AttachID || p.id) === attachId);
-      if (photoIndex !== -1) {
-        const displayUrl = URL.createObjectURL(annotatedBlob);
-        this.visualPhotos[key][photoIndex] = {
-          ...this.visualPhotos[key][photoIndex],
-          displayUrl: displayUrl,
-          hasAnnotations: true,
-          annotations: annotationsData,
-          annotationsData: annotationsData,
-          caption: newCaption,
-          annotation: newCaption,
-          Annotation: newCaption
-        };
-        this.changeDetectorRef.detectChanges();
-      }
-
-    } catch (error) {
-      console.error('Error viewing photo:', error);
+  // Simple accordion helpers (for offline reliability - ion-accordion can fail offline)
+  toggleSection(section: string): void {
+    const index = this.expandedAccordions.indexOf(section);
+    if (index > -1) {
+      this.expandedAccordions = this.expandedAccordions.filter(s => s !== section);
+    } else {
+      this.expandedAccordions = [...this.expandedAccordions, section];
     }
+    
+    // If background loading is in progress, also update the preserved state
+    // This ensures user's toggle actions are respected when background loading completes
+    if (this.isLoadingPhotosInBackground && this.preservedAccordionState) {
+      this.preservedAccordionState = [...this.expandedAccordions];
+    }
+    
+    this.changeDetectorRef.detectChanges();
   }
 
-  async deletePhoto(photo: any, category: string, itemId: string | number) {
-    try {
-      const alert = await this.alertController.create({
-        header: 'Delete Photo',
-        message: 'Are you sure you want to delete this photo?',
-        cssClass: 'custom-document-alert',
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            cssClass: 'alert-button-cancel'
-          },
-          {
-            text: 'Delete',
-            cssClass: 'alert-button-confirm',
-            handler: () => {
-              // Return true to allow alert to dismiss, then process deletion
-              setTimeout(async () => {
-                const loading = await this.loadingController.create({
-                  message: 'Deleting photo...'
-                });
-                await loading.present();
-
-                try {
-                  const key = `${category}_${itemId}`;
-
-                  // Remove from UI immediately using filter
-                  if (this.visualPhotos[key]) {
-                    this.visualPhotos[key] = this.visualPhotos[key].filter(
-                      (p: any) => p.AttachID !== photo.AttachID
-                    );
-                  }
-
-                  // Delete from database
-                  if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
-                    await this.hudData.deleteVisualPhoto(photo.AttachID);
-                  }
-
-                  // Force UI update
-                  this.changeDetectorRef.detectChanges();
-
-                  await loading.dismiss();
-                } catch (error) {
-                  await loading.dismiss();
-                  console.error('Error deleting photo:', error);
-                  await this.showToast('Failed to delete photo', 'danger');
-                }
-              }, 100);
-
-              return true; // Allow alert to dismiss immediately
-            }
-          }
-        ]
-      });
-
-      await alert.present();
-    } catch (error) {
-      console.error('Error in deletePhoto:', error);
-      await this.showToast('Failed to delete photo', 'danger');
-    }
+  isSectionExpanded(section: string): boolean {
+    return this.expandedAccordions.includes(section);
   }
 
-  private async showToast(message: string, color: string = 'primary') {
+  async showToast(message: string, color: string = 'primary') {
     const toast = await this.toastController.create({
       message,
       duration: 2000,
@@ -3469,254 +7895,198 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy {
     await toast.present();
   }
 
-  /**
-   * HUD-011: Retry failed upload for a photo
-   * Resets the photo status and re-queues for upload
-   */
-  async retryUpload(photo: any, category: string, itemId: string | number): Promise<void> {
-    try {
-      console.log('[HUD-011] Retrying upload for photo:', photo.imageId || photo._localImageId);
+  async onAccordionChange(event: any) {
+    // CRITICAL: Prevent accordion state changes from item selections
+    // This handler should ONLY respond to actual accordion header clicks
+    // Item selection events (checkboxes, dropdowns) now have stopPropagation
+    // so they should not trigger this handler at all
 
-      const key = `${category}_${itemId}`;
-      const imageId = photo.imageId || photo._localImageId;
-
-      if (!imageId) {
-        console.error('[HUD-011] Cannot retry upload - no imageId found');
-        await this.showToast('Cannot retry upload', 'danger');
-        return;
+    if (event.detail && event.detail.value !== undefined) {
+      // Only update if there's no active search
+      if (!this.searchTerm || this.searchTerm.trim() === '') {
+        this.expandedAccordions = Array.isArray(event.detail.value)
+          ? event.detail.value
+          : [event.detail.value].filter(v => v);
       }
+    }
 
-      // Update UI immediately - show uploading state
-      const photoIndex = this.visualPhotos[key]?.findIndex(p =>
-        p.imageId === imageId || p._localImageId === imageId
-      );
+    // Prevent automatic scrolling when accordion expands/collapses
+    if (this.content) {
+      const scrollElement = await this.content.getScrollElement();
+      const currentScrollTop = scrollElement.scrollTop;
 
-      if (photoIndex !== -1 && this.visualPhotos[key]) {
-        this.visualPhotos[key][photoIndex].uploadFailed = false;
-        this.visualPhotos[key][photoIndex].uploading = true;
-        this.visualPhotos[key][photoIndex].status = 'queued';
-        this.changeDetectorRef.detectChanges();
-      }
-
-      // Reset the upload in IndexedDB and re-queue
-      await this.indexedDb.resetFailedUpload(imageId);
-
-      await this.showToast('Retrying upload...', 'primary');
-
-      // The background sync service will pick up the re-queued upload automatically
-
-    } catch (error) {
-      console.error('[HUD-011] Error retrying upload:', error);
-      await this.showToast('Failed to retry upload', 'danger');
+      // Restore scroll position after a brief delay to override Ionic's scroll behavior
+      setTimeout(() => {
+        scrollElement.scrollTop = currentScrollTop;
+      }, 0);
     }
   }
 
   /**
-   * Convert a Blob to a data URL string
-   * Used for persistent offline storage (data URLs survive page navigation unlike blob URLs)
+   * Clear PDF cache when data changes
+   * This ensures the next PDF generation fetches fresh data
    */
-  private blobToDataUrl(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  }
+  private clearPdfCache() {
+    // Clear all PDF cache keys for this service
+    console.log('[CACHE] Clearing PDF cache for serviceId:', this.serviceId);
 
-  // ============================================
-  // ADD CUSTOM VISUAL (from structural systems)
-  // ============================================
-
-  async addCustomVisual(category: string, kind: string) {
-    // Dynamically import the modal component
-    const { AddCustomVisualModalComponent } = await import('../../../modals/add-custom-visual-modal/add-custom-visual-modal.component');
-
-    const modal = await this.modalController.create({
-      component: AddCustomVisualModalComponent,
-      componentProps: {
-        kind: kind,
-        category: category
-      }
-    });
-
-    await modal.present();
-
-    const { data } = await modal.onDidDismiss();
-
-    if (data && data.name) {
-      // Get processed photos with annotation data and captions
-      const processedPhotos = data.processedPhotos || [];
-      const files = data.files && data.files.length > 0 ? data.files : null;
-
-      // Create the visual with photos
-      await this.createCustomVisualWithPhotos(category, kind, data.name, data.description || '', files, processedPhotos);
-    }
-  }
-
-  // Create custom visual with photos
-  async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null, processedPhotos: any[] = []) {
     try {
-      const serviceIdNum = parseInt(this.serviceId, 10);
-      if (isNaN(serviceIdNum)) {
-        return;
-      }
+      const now = Date.now();
 
-      const hudData = {
-        ServiceID: serviceIdNum,
-        Category: category,
-        Kind: kind,
-        Name: name,
-        Text: text,
-        Notes: ''
-      };
-
-      console.log('[CREATE CUSTOM] Creating HUD visual:', hudData);
-
-      // Create the HUD record
-      const response = await this.hudData.createVisual(hudData);
-
-      // Extract HUDID (handle both direct and Result wrapped formats)
-      let visualId: string | null = null;
-
-      if (response && response.HUDID) {
-        visualId = String(response.HUDID);
-      } else if (Array.isArray(response) && response.length > 0) {
-        visualId = String(response[0].HUDID || response[0].PK_ID || response[0].id || '');
-      } else if (response && typeof response === 'object') {
-        if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = String(response.Result[0].HUDID || response.Result[0].PK_ID || response.Result[0].id || '');
-        } else {
-          visualId = String(response.HUDID || response.PK_ID || response.id || '');
-        }
-      } else if (response) {
-        visualId = String(response);
-      }
-
-      if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
-        throw new Error('No HUDID returned from server');
-      }
-
-      console.log('[CREATE CUSTOM] Created HUD visual with ID:', visualId);
-
-      // Add to local data structure
-      const customItem: VisualItem = {
-        id: `custom_${visualId}`,
-        templateId: 0,
-        name: name,
-        text: text,
-        originalText: text,
-        answerType: 0,
-        required: false,
-        type: kind,
-        category: category,
-        isSelected: true,
-        photos: []
-      };
-
-      // Add to appropriate array
-      if (kind === 'Comment') {
-        this.organizedData.comments.push(customItem);
-      } else if (kind === 'Limitation') {
-        this.organizedData.limitations.push(customItem);
-      } else if (kind === 'Deficiency') {
-        this.organizedData.deficiencies.push(customItem);
-      }
-
-      // Store visual ID
-      const key = `${category}_${customItem.id}`;
-      this.visualRecordIds[key] = String(visualId);
-      this.selectedItems[key] = true;
-
-      console.log('[CREATE CUSTOM] Stored HUDID:', key, '=', visualId);
-
-      // Upload photos if provided
-      if (files && files.length > 0) {
-        console.log('[CREATE CUSTOM] Uploading', files.length, 'photos');
-
-        // Initialize photos array
-        if (!this.visualPhotos[key]) {
-          this.visualPhotos[key] = [];
-        }
-
-        // Add placeholder photos
-        const tempPhotos = Array.from(files).map((file, index) => {
-          const photoData = processedPhotos[index] || {};
-          const objectUrl = URL.createObjectURL(file);
-          const tempId = `temp_${Date.now()}_${index}`;
-
-          return {
-            AttachID: tempId,
-            id: tempId,
-            name: file.name,
-            url: objectUrl,
-            thumbnailUrl: objectUrl,
-            displayUrl: photoData.previewUrl || objectUrl,
-            isObjectUrl: true,
-            uploading: true,
-            hasAnnotations: !!photoData.annotationData,
-            annotations: photoData.annotationData || null,
-            caption: photoData.caption || '',
-            annotation: photoData.caption || ''
-          };
+      // Generate cache keys for current and previous timestamp blocks (last 10 minutes)
+      for (let i = 0; i < 10; i++) {
+        const timestamp = Math.floor((now - (i * 60000)) / 300000); // Check last 10 minutes of 5-min blocks
+        const cacheKey = this.cache.getApiCacheKey('pdf_data', {
+          serviceId: this.serviceId,
+          timestamp: timestamp
         });
+        this.cache.clear(cacheKey);
+      }
 
-        this.visualPhotos[key].push(...tempPhotos);
-        this.changeDetectorRef.detectChanges();
+      console.log('[CACHE] �" PDF cache cleared - next PDF will fetch fresh data');
+    } catch (error) {
+      console.error('[CACHE] Error clearing PDF cache:', error);
+    }
+  }
 
-        console.log('[CREATE CUSTOM] Added', tempPhotos.length, 'placeholder photos');
+  // ============================================
+  // IMAGE LOAD/ERROR HANDLERS
+  // ============================================
 
-        // Upload photos in background
-        const uploadPromises = Array.from(files).map(async (file, index) => {
-          const tempId = tempPhotos[index].AttachID;
-          try {
-            const photoData = processedPhotos[index] || {};
-            const annotationData = photoData.annotationData || null;
-            const originalFile = photoData.originalFile || null;
-            const caption = photoData.caption || '';
+  /**
+   * Handle successful image load
+   * Marks the image as successfully loaded in UI for blob pruning decisions
+   */
+  handleImageLoad(event: Event, photo: any): void {
+    const img = event.target as HTMLImageElement;
+    if (!img) return;
 
-            const fileToUpload = originalFile || file;
-            const result = await this.hudData.uploadVisualPhoto(parseInt(visualId!, 10), fileToUpload, caption);
-            
-            // Handle result format
-            const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
-            const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
+    // Mark as successfully loaded
+    photo.loading = false;
+    photo.displayState = 'loaded';
 
-            if (!attachId) {
-              console.error(`[CREATE CUSTOM] No AttachID for photo ${index + 1}`);
-              return;
-            }
+    // If this is a LocalImage with remote URL, mark as loaded in UI
+    // This allows blob pruning to proceed safely
+    if (photo.isLocalImage && photo.imageId) {
+      this.localImageService.markRemoteLoadedInUI(photo.imageId).catch(err => {
+        console.warn('[IMAGE LOAD] Failed to mark remote loaded:', err);
+      });
+    }
+  }
 
-            // If there are annotations, save them
-            // HUD-014: Pass hudId for proper metadata
-            if (annotationData) {
-              const annotatedBlob = photoData.annotatedBlob;
-              if (annotatedBlob) {
-                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationData, caption, String(visualId));
-              }
-            }
+  /**
+   * Handle image load error
+   * Attempts fallback to cached photo or placeholder
+   */
+  async handleImageError(event: Event, photo: any): Promise<void> {
+    const img = event.target as HTMLImageElement;
+    if (!img) return;
 
-            // Update photo in UI
-            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === tempId);
-            if (photoIndex !== -1 && this.visualPhotos[key]) {
-              await this.updatePhotoAfterUpload(key, photoIndex, actualResult, caption);
-            }
+    console.warn('[IMAGE ERROR] Failed to load:', photo.AttachID || photo.imageId, 'url:', img.src?.substring(0, 50));
 
-          } catch (error) {
-            console.error(`[CREATE CUSTOM] Failed to upload photo ${index + 1}:`, error);
+    // Don't retry if already showing placeholder
+    if (img.src === 'assets/img/photo-placeholder.png' || img.src.endsWith('photo-placeholder.png')) {
+      return;
+    }
+
+    // Track retry attempts to prevent infinite loops
+    if (!photo._retryCount) {
+      photo._retryCount = 0;
+    }
+    photo._retryCount++;
+
+    if (photo._retryCount > 2) {
+      console.warn('[IMAGE ERROR] Max retries reached, showing placeholder');
+      img.src = 'assets/img/photo-placeholder.png';
+      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      photo.loading = false;
+      return;
+    }
+
+    // Try fallback chain
+    try {
+      // CRITICAL: Check for cached annotated image FIRST to preserve annotations in thumbnails
+      // This prevents annotations from disappearing when blob URLs become invalid
+      const attachId = String(photo.AttachID || photo.attachId || photo.id || '');
+      const localImageId = photo.localImageId || photo.imageId;
+
+      // Try annotated image from in-memory map first (fastest)
+      let annotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
+      if (!annotatedImage && localImageId) {
+        annotatedImage = this.bulkAnnotatedImagesMap.get(localImageId);
+      }
+
+      // If not in memory, try to get from IndexedDB cache
+      if (!annotatedImage && (photo.hasAnnotations || photo.Drawings)) {
+        try {
+          annotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId) || undefined;
+          if (!annotatedImage && localImageId) {
+            annotatedImage = await this.indexedDb.getCachedAnnotatedImage(localImageId) || undefined;
           }
-        });
-
-        await Promise.all(uploadPromises);
+          // Store in memory map for future use
+          if (annotatedImage) {
+            this.bulkAnnotatedImagesMap.set(attachId || localImageId, annotatedImage);
+          }
+        } catch (e) {
+          console.warn('[IMAGE ERROR] Failed to get cached annotated image:', e);
+        }
       }
 
-      this.changeDetectorRef.detectChanges();
-      console.log('[CREATE CUSTOM] ✅ Custom visual created successfully');
+      if (annotatedImage) {
+        console.log('[IMAGE ERROR] Using cached ANNOTATED image:', attachId || localImageId);
+        img.src = annotatedImage;
+        photo.displayUrl = annotatedImage;
+        photo.thumbnailUrl = annotatedImage;
+        // Don't update photo.url - keep original for re-editing
+        return;
+      }
 
-    } catch (error) {
-      console.error('[CREATE CUSTOM] Error:', error);
-      await this.showToast('Failed to create custom item', 'danger');
+      // Fallback 1: Try LocalImage system
+      if (photo.isLocalImage || photo.localImageId || photo.imageId) {
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+
+        if (localImage) {
+          const fallbackUrl = await this.localImageService.getDisplayUrl(localImage);
+          if (fallbackUrl && fallbackUrl !== 'assets/img/photo-placeholder.png') {
+            console.log('[IMAGE ERROR] Using LocalImage fallback:', localImageId);
+            img.src = fallbackUrl;
+            photo.displayUrl = fallbackUrl;
+            photo.url = fallbackUrl;
+            photo.thumbnailUrl = fallbackUrl;
+            return;
+          }
+        }
+      }
+
+      // Fallback 2: Try cached photo by attachId
+      if (attachId && !attachId.startsWith('temp_') && !attachId.startsWith('img_')) {
+        const cached = await this.indexedDb.getCachedPhoto(attachId);
+        if (cached) {
+          console.log('[IMAGE ERROR] Using cached photo fallback:', attachId);
+          img.src = cached;
+          photo.displayUrl = cached;
+          photo.url = cached;
+          photo.thumbnailUrl = cached;
+          return;
+        }
+      }
+
+      // Fallback 3: Placeholder
+      console.log('[IMAGE ERROR] No fallback available, showing placeholder');
+      img.src = 'assets/img/photo-placeholder.png';
+      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      photo.loading = false;
+
+    } catch (err) {
+      console.error('[IMAGE ERROR] Fallback failed:', err);
+      img.src = 'assets/img/photo-placeholder.png';
+      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      photo.loading = false;
     }
+  }
+
+  openVisualDetail(categoryName: string, item: VisualItem) {
+    // Navigate relative to parent route since HudCategoryDetailPage is at the '' child path
+    this.router.navigate(['visual', item.templateId], { relativeTo: this.route.parent });
   }
 }
-

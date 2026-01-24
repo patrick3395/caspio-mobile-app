@@ -2,12 +2,16 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, AlertController, LoadingController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
+import { HudStateService } from '../services/hud-state.service';
 import { HudValidationService, IncompleteField } from '../services/hud-validation.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { CacheService } from '../../../services/cache.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
-import { HudFieldRepoService } from '../services/hud-field-repo.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
+import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
+import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 import { environment } from '../../../../environments/environment';
 
 interface NavigationCard {
@@ -16,14 +20,6 @@ interface NavigationCard {
   route: string;
   description: string;
   completed: boolean;
-  badges?: CardBadge[];
-}
-
-interface CardBadge {
-  label: string;
-  count: number;
-  color: 'success' | 'warning' | 'danger' | 'primary';
-  icon?: string;
 }
 
 @Component({
@@ -40,71 +36,78 @@ export class HudMainPage implements OnInit {
       icon: 'document-text-outline',
       route: 'project-details',
       description: 'Property information, people, and environmental conditions',
-      completed: false,
-      badges: []
+      completed: false
     },
     {
-      title: 'HUD / Manufactured Home',
+      title: 'Structural Systems',
       icon: 'construct-outline',
-      route: 'categories',
-      description: 'Inspection findings, comments, and photo documentation',
-      completed: false,
-      badges: []
+      route: 'structural',
+      description: 'Visual assessment of foundations, grading, roof, and more',
+      completed: false
+    },
+    {
+      title: 'Elevation Plot',
+      icon: 'analytics-outline',
+      route: 'elevation',
+      description: 'Floor elevation measurements and photos',
+      completed: false
     }
   ];
 
   projectId: string = '';
   serviceId: string = '';
-  loading: boolean = true;
   canFinalize: boolean = false;
-  isWeb: boolean = environment.isWeb;
   statusOptions: any[] = [];
   isReportFinalized: boolean = false;
   hasChangesAfterFinalization: boolean = false;
 
-  private readonly SYNC_TIMEOUT_MS = 45000; // 45 seconds per sync step
-
   constructor(
     private router: Router,
     private route: ActivatedRoute,
+    private stateService: HudStateService,
     private alertController: AlertController,
     private validationService: HudValidationService,
     private caspioService: CaspioService,
     private cache: CacheService,
     private loadingController: LoadingController,
     private navController: NavController,
+    private offlineTemplate: OfflineTemplateService,
     private localImageService: LocalImageService,
     private backgroundSync: BackgroundSyncService,
-    private hudFieldRepo: HudFieldRepoService
+    private indexedDb: IndexedDbService,
+    private efeFieldRepo: EfeFieldRepoService,
+    private visualFieldRepo: VisualFieldRepoService
   ) {}
 
   async ngOnInit() {
-    // Load status options from Status table
-    await this.loadStatusOptions();
-    
-    // Get IDs from parent route (container level)
-    // Route structure: hud/:projectId/:serviceId -> (main hub is here)
+    // Load status options from Status table (non-blocking)
+    this.loadStatusOptions();
+
+    // Get IDs from parent route snapshot immediately (for offline reliability)
+    const parentParams = this.route.parent?.snapshot?.params;
+    if (parentParams) {
+      this.projectId = parentParams['projectId'] || '';
+      this.serviceId = parentParams['serviceId'] || '';
+      console.log('[HUD Main] Got params from snapshot:', this.projectId, this.serviceId);
+    }
+
+    // Also subscribe to param changes (for dynamic updates)
     this.route.parent?.params.subscribe(async params => {
-      console.log('Route params from parent:', params);
       this.projectId = params['projectId'];
       this.serviceId = params['serviceId'];
 
-      console.log('ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+      // Check if report is already finalized (non-blocking - fail silently offline)
+      this.checkIfFinalized();
 
-      if (!this.projectId || !this.serviceId) {
-        console.error('Missing projectId or serviceId');
-      } else {
-        await this.checkCanFinalize();
-      }
-      
-      this.loading = false;
+      // Check if report can be finalized (non-blocking - fail silently offline)
+      this.checkCanFinalize();
     });
   }
 
   async loadStatusOptions() {
     try {
-      const statusData: any = await this.caspioService.get('/tables/LPS_Status/records').toPromise();
-      this.statusOptions = statusData?.Result || [];
+      // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+      this.statusOptions = await this.offlineTemplate.getStatusOptions();
       console.log('[HUD Main] Loaded status options:', this.statusOptions.length);
     } catch (error) {
       console.error('[HUD Main] Error loading status options:', error);
@@ -124,7 +127,33 @@ export class HudMainPage implements OnInit {
   async ionViewWillEnter() {
     // Refresh finalization status when returning to this page
     if (this.projectId && this.serviceId) {
-      await this.checkCanFinalize();
+      // Mark that changes may have been made
+      if (this.isReportFinalized) {
+        this.hasChangesAfterFinalization = true;
+        console.log('[HUD Main] Marked changes after finalization');
+      }
+      // Non-blocking - fail silently offline
+      this.checkCanFinalize();
+    }
+  }
+
+  private async checkIfFinalized() {
+    if (!this.serviceId) return;
+    
+    try {
+      // OFFLINE-FIRST: Try IndexedDB first
+      const serviceData = await this.offlineTemplate.getService(this.serviceId);
+      const status = serviceData?.Status || '';
+      
+      // Check if status indicates report is finalized
+      this.isReportFinalized = status === 'Finalized' || 
+                                status === 'Report Finalized' || 
+                                status === 'Updated' || 
+                                status === 'Under Review';
+      
+      console.log('[HUD Main] Report finalized status:', this.isReportFinalized, 'Status:', status);
+    } catch (error) {
+      console.error('[HUD Main] Error checking finalized status:', error);
     }
   }
 
@@ -156,12 +185,13 @@ export class HudMainPage implements OnInit {
   }
 
   navigateTo(card: NavigationCard) {
-    if (card.route === 'categories') {
-      // Navigate directly to Mobile/Manufactured Homes category
-      // Use encodeURIComponent to handle the / in the category name
-      const encodedCategory = encodeURIComponent('Mobile/Manufactured Homes');
-      this.router.navigate(['category', encodedCategory], { relativeTo: this.route });
+    console.log('[HUD Main] Navigating to:', card.route, 'projectId:', this.projectId, 'serviceId:', this.serviceId);
+
+    // Use absolute navigation to ensure it works even if parent route isn't ready
+    if (this.projectId && this.serviceId) {
+      this.router.navigate(['/engineers-foundation', this.projectId, this.serviceId, card.route]);
     } else {
+      // Fallback to relative navigation
       this.router.navigate([card.route], { relativeTo: this.route.parent });
     }
   }
@@ -250,11 +280,125 @@ export class HudMainPage implements OnInit {
   }
 
 
+  // Guard against double-click on finalize button
+  private isFinalizationInProgress = false;
+
+  // Timeout constants for sync operations (in milliseconds)
+  private readonly SYNC_TIMEOUT_MS = 45000; // 45 seconds per sync step
+
+  /**
+   * Helper to run a promise with timeout
+   * Returns { success: false, timedOut: true } on timeout
+   */
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    operationName: string
+  ): Promise<{ result: T; timedOut: false } | { result: null; timedOut: true }> {
+    return Promise.race([
+      promise.then(result => ({ result, timedOut: false as const })),
+      new Promise<{ result: null; timedOut: true }>((resolve) => {
+        setTimeout(() => {
+          console.log(`[HUD Main] ${operationName} timed out after ${timeoutMs/1000}s`);
+          resolve({ result: null, timedOut: true });
+        }, timeoutMs);
+      })
+    ]);
+  }
+
   async markReportAsFinalized() {
+    // Prevent double-click
+    if (this.isFinalizationInProgress) {
+      console.log('[HUD Main] Finalization already in progress, ignoring');
+      return;
+    }
+    this.isFinalizationInProgress = true;
+
     const isUpdate = this.isReportFinalized;
 
+    // ==========================================
+    // WEBAPP MODE: Simplified finalization (no sync needed)
+    // All data is already saved directly to the API
+    // ==========================================
+    if (environment.isWeb) {
+      console.log('[HUD Main] WEBAPP MODE: Simplified finalization');
+
+      const loading = await this.loadingController.create({
+        message: isUpdate ? 'Updating report...' : 'Finalizing report...',
+        backdropDismiss: false
+      });
+      await loading.present();
+
+      try {
+        // Update the Services table status
+        const currentDateTime = new Date().toISOString();
+        const statusClientValue = isUpdate ? 'Updated' : 'Finalized';
+        const statusAdminValue = this.getStatusAdminByClient(statusClientValue);
+
+        const updateData = {
+          StatusDateTime: currentDateTime,
+          Status: statusAdminValue
+        };
+
+        console.log('[HUD Main] WEBAPP: Updating service status:', updateData);
+
+        await this.caspioService.updateService(this.serviceId, updateData).toPromise();
+        console.log('[HUD Main] WEBAPP: ✅ Status updated successfully');
+
+        // Clear caches
+        console.log('[HUD Main] WEBAPP: Clearing caches');
+        this.cache.clearProjectRelatedCaches(this.projectId);
+        this.cache.clearByPattern('projects_active');
+        this.cache.clearByPattern('projects_all');
+
+        // Reset change tracking
+        this.hasChangesAfterFinalization = false;
+        this.isReportFinalized = true;
+        this.isFinalizationInProgress = false;
+
+        await loading.dismiss();
+
+        // Show success message
+        const successMessage = isUpdate
+          ? 'Your report has been successfully updated.'
+          : 'Your report has been successfully finalized.';
+
+        const alert = await this.alertController.create({
+          header: isUpdate ? 'Report Updated' : 'Report Finalized',
+          message: successMessage,
+          buttons: [{
+            text: 'OK',
+            handler: () => {
+              // Navigate back to project detail
+              console.log('[HUD Main] WEBAPP: Navigating to project detail');
+              this.navController.navigateBack(['/project', this.projectId]);
+            }
+          }]
+        });
+        await alert.present();
+        return;
+
+      } catch (error: any) {
+        await loading.dismiss();
+        this.isFinalizationInProgress = false;
+        console.error('[HUD Main] WEBAPP: Error finalizing report:', error);
+
+        const alert = await this.alertController.create({
+          header: 'Error',
+          message: `Failed to finalize report: ${error?.message || 'Unknown error'}. Please try again.`,
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+    }
+
+    // ==========================================
+    // MOBILE MODE: Full sync workflow
+    // ==========================================
     const loading = await this.loadingController.create({
-      message: isUpdate ? 'Updating report...' : 'Finalizing report...'
+      message: isUpdate ? 'Updating report...' : 'Finalizing report...',
+      backdropDismiss: false
     });
     await loading.present();
 
@@ -290,6 +434,7 @@ export class HudMainPage implements OnInit {
           const reason = syncOutcome.timedOut ? 'Sync timed out' : 'Some images failed';
 
           await loading.dismiss();
+          this.isFinalizationInProgress = false;
 
           const alert = await this.alertController.create({
             header: 'Image Sync Warning',
@@ -334,6 +479,7 @@ export class HudMainPage implements OnInit {
         const reason = dataSyncOutcome.timedOut ? 'Sync timed out' : 'Some items failed';
 
         await loading.dismiss();
+        this.isFinalizationInProgress = false;
 
         const alert = await this.alertController.create({
           header: 'Sync Warning',
@@ -367,6 +513,7 @@ export class HudMainPage implements OnInit {
 
     } catch (error) {
       await loading.dismiss();
+      this.isFinalizationInProgress = false;
       console.error('[HUD Main] Error finalizing report:', error);
       const alert = await this.alertController.create({
         header: 'Error',
@@ -379,7 +526,8 @@ export class HudMainPage implements OnInit {
 
   private async completeFinalization(isUpdate: boolean) {
     const loading = await this.loadingController.create({
-      message: isUpdate ? 'Updating report status...' : 'Finalizing report status...'
+      message: isUpdate ? 'Updating report status...' : 'Finalizing report status...',
+      backdropDismiss: false
     });
     await loading.present();
 
@@ -393,42 +541,83 @@ export class HudMainPage implements OnInit {
 
       const updateData = {
         StatusDateTime: currentDateTime,
-        Status: statusAdminValue  // Use StatusAdmin value from Status table
+        Status: statusAdminValue
       };
 
       console.log('[HUD Main] Updating service status:', updateData);
-      const response = await this.caspioService.updateService(this.serviceId, updateData).toPromise();
-      console.log('[HUD Main] Update response:', response);
 
-      // Clear caches
+      // Try to update with timeout - if it fails, we still complete locally
+      let statusUpdateSuccess = false;
+      try {
+        const statusUpdatePromise = this.caspioService.updateService(this.serviceId, updateData).toPromise();
+        const outcome = await this.withTimeout(statusUpdatePromise, 15000, 'Status update');
+
+        if (!outcome.timedOut) {
+          statusUpdateSuccess = true;
+          console.log('[HUD Main] Update response:', outcome.result);
+        } else {
+          console.warn('[HUD Main] Status update timed out - will sync later');
+        }
+      } catch (statusErr) {
+        console.warn('[HUD Main] Status update failed - will sync later:', statusErr);
+      }
+
+      // ==========================================
+      // CLEANUP STEP 1: Clear any remaining pending items
+      // ==========================================
+      console.log('[HUD Main] Clearing any remaining pending items...');
+      loading.message = 'Cleaning up...';
+
+      try {
+        const clearedItems = await this.indexedDb.clearPendingForService(this.serviceId);
+        console.log('[HUD Main] Cleared pending items:', clearedItems);
+      } catch (err) {
+        console.warn('[HUD Main] Error clearing pending items:', err);
+      }
+
+      // ==========================================
+      // CLEANUP STEP 2: Mark Dexie records as clean
+      // ==========================================
+      try {
+        await this.efeFieldRepo.markAllCleanForService(this.serviceId);
+        await this.visualFieldRepo.markAllCleanForService(this.serviceId);
+        console.log('[HUD Main] Marked all Dexie records as clean');
+      } catch (err) {
+        console.warn('[HUD Main] Error marking records clean:', err);
+      }
+
+      // ==========================================
+      // CLEANUP STEP 3: Clear API caches
+      // ==========================================
       console.log('[HUD Main] Clearing caches for project:', this.projectId);
       this.cache.clearProjectRelatedCaches(this.projectId);
       this.cache.clearByPattern('projects_active');
       this.cache.clearByPattern('projects_all');
 
-      // Clean up local blob data after successful finalization
-      // This frees device storage while preserving metadata (captions, annotations, remoteUrl)
+      // ==========================================
+      // CLEANUP STEP 4: Prune local blobs
+      // ==========================================
       console.log('[HUD Main] Cleaning up local blob data...');
       loading.message = 'Freeing device storage...';
       const cleanupResult = await this.localImageService.cleanupBlobDataAfterFinalization(this.serviceId);
       console.log('[HUD Main] Blob cleanup complete:', cleanupResult);
 
-      // Mark all Dexie records as clean (removes dirty flags)
-      try {
-        await this.hudFieldRepo.markAllCleanForService(this.serviceId);
-        console.log('[HUD Main] Marked all Dexie records as clean');
-      } catch (err) {
-        console.warn('[HUD Main] Failed to mark records clean (non-fatal):', err);
-      }
-
       // Reset change tracking
       this.hasChangesAfterFinalization = false;
       this.isReportFinalized = true;
+      this.isFinalizationInProgress = false;
 
       await loading.dismiss();
 
-      // Show success message
-      const successMessage = isUpdate ? 'Your report has been successfully updated.' : 'Your report has been successfully finalized.';
+      // Show success message (with note if status update failed)
+      let successMessage = isUpdate
+        ? 'Your report has been successfully updated.'
+        : 'Your report has been successfully finalized.';
+
+      if (!statusUpdateSuccess) {
+        successMessage += '\n\nNote: Status update will sync when you have better connectivity.';
+      }
+
       const alert = await this.alertController.create({
         header: isUpdate ? 'Report Updated' : 'Report Finalized',
         message: successMessage,
@@ -444,6 +633,7 @@ export class HudMainPage implements OnInit {
       await alert.present();
     } catch (error) {
       await loading.dismiss();
+      this.isFinalizationInProgress = false;
       console.error('[HUD Main] Error completing finalization:', error);
       const alert = await this.alertController.create({
         header: 'Error',
@@ -454,25 +644,4 @@ export class HudMainPage implements OnInit {
     }
   }
 
-  /**
-   * Helper to run a promise with timeout
-   * Returns { success: false, timedOut: true } on timeout
-   */
-  private async withTimeout<T>(
-    promise: Promise<T>,
-    timeoutMs: number,
-    operationName: string
-  ): Promise<{ result: T; timedOut: false } | { result: null; timedOut: true }> {
-    return Promise.race([
-      promise.then(result => ({ result, timedOut: false as const })),
-      new Promise<{ result: null; timedOut: true }>((resolve) => {
-        setTimeout(() => {
-          console.warn(`[HUD Main] ${operationName} timed out after ${timeoutMs}ms`);
-          resolve({ result: null, timedOut: true });
-        }, timeoutMs);
-      })
-    ]);
-  }
-
 }
-

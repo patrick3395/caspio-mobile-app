@@ -61,14 +61,18 @@
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>
-            <!-- Custom input for "Other" option -->
+            <!-- Custom input for "Other" option - allows adding multiple custom values -->
             <div class="other-input-container" *ngIf="isInAttendanceSelected('Other')">
               <input type="text"
                      [(ngModel)]="inAttendanceOtherValue"
-                     (blur)="onInAttendanceOtherChange()"
+                     (keyup.enter)="addInAttendanceOther()"
                      (click)="$event.stopPropagation()"
-                     placeholder="Please specify..."
+                     placeholder="Type name and press Enter or Add..."
                      class="styled-input other-input">
+              <ion-button size="small" fill="solid" color="primary" (click)="addInAttendanceOther()">
+                <ion-icon name="add-outline" slot="start"></ion-icon>
+                Add
+              </ion-button>
             </div>
           </div>
         </div>
@@ -289,7 +293,7 @@
         </div>
 
         <!-- Second Foundation Type -->
-        <div class="form-group" [class.filled]="serviceData.SecondFoundationType">
+        <div class="form-group filled">
           <label>
             <ion-icon name="construct-outline"></ion-icon>
             Second Foundation Type
@@ -330,14 +334,18 @@
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>
-            <!-- Custom input for "Other" option -->
+            <!-- Custom input for "Other" option - allows adding multiple custom values -->
             <div class="other-input-container" *ngIf="isSecondFoundationRoomsSelected('Other')">
               <input type="text"
                      [(ngModel)]="secondFoundationRoomsOtherValue"
-                     (blur)="onSecondFoundationRoomsOtherChange()"
+                     (keyup.enter)="addSecondFoundationRoomsOther()"
                      (click)="$event.stopPropagation()"
-                     placeholder="Please specify..."
+                     placeholder="Type room name and press Enter or Add..."
                      class="styled-input other-input">
+              <ion-button size="small" fill="solid" color="primary" (click)="addSecondFoundationRoomsOther()">
+                <ion-icon name="add-outline" slot="start"></ion-icon>
+                Add
+              </ion-button>
             </div>
           </div>
         </div>
@@ -385,14 +393,18 @@
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>
-            <!-- Custom input for "Other" option -->
+            <!-- Custom input for "Other" option - allows adding multiple custom values -->
             <div class="other-input-container" *ngIf="isThirdFoundationRoomsSelected('Other')">
               <input type="text"
                      [(ngModel)]="thirdFoundationRoomsOtherValue"
-                     (blur)="onThirdFoundationRoomsOtherChange()"
+                     (keyup.enter)="addThirdFoundationRoomsOther()"
                      (click)="$event.stopPropagation()"
-                     placeholder="Please specify..."
+                     placeholder="Type room name and press Enter or Add..."
                      class="styled-input other-input">
+              <ion-button size="small" fill="solid" color="primary" (click)="addThirdFoundationRoomsOther()">
+                <ion-icon name="add-outline" slot="start"></ion-icon>
+                Add
+              </ion-button>
             </div>
           </div>
         </div>
