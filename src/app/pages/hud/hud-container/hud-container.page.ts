@@ -1,36 +1,36 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef, ChangeDetectionStrategy, NgZone } from '@angular/core';
-import { IndexedDbService } from '../../services/indexed-db.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
-import { CaspioService } from '../../services/caspio.service';
-import { OfflineService } from '../../services/offline.service';
-import { OperationsQueueService } from '../../services/operations-queue.service';
+import { CaspioService } from '../../../services/caspio.service';
+import { OfflineService } from '../../../services/offline.service';
+import { OperationsQueueService } from '../../../services/operations-queue.service';
 import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform, NavController } from '@ionic/angular';
-import { CameraService } from '../../services/camera.service';
-import { ImageCompressionService } from '../../services/image-compression.service';
-import { CacheService } from '../../services/cache.service';
-import { PhotoViewerComponent } from '../../components/photo-viewer/photo-viewer.component';
-// import { PhotoAnnotatorComponent } from '../../components/photo-annotator/photo-annotator.component';
-import { FabricPhotoAnnotatorComponent } from '../../components/fabric-photo-annotator/fabric-photo-annotator.component';
-import { PdfGeneratorService } from '../../services/pdf-generator.service';
-import { PlatformDetectionService } from '../../services/platform-detection.service';
-import { FabricService } from '../../services/fabric.service';
-import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS, renderAnnotationsOnPhoto } from '../../utils/annotation-utils';
-import { HelpModalComponent } from '../../components/help-modal/help-modal.component';
+import { CameraService } from '../../../services/camera.service';
+import { ImageCompressionService } from '../../../services/image-compression.service';
+import { CacheService } from '../../../services/cache.service';
+import { PhotoViewerComponent } from '../../../components/photo-viewer/photo-viewer.component';
+// import { PhotoAnnotatorComponent } from '../../../components/photo-annotator/photo-annotator.component';
+import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
+import { PdfGeneratorService } from '../../../services/pdf-generator.service';
+import { PlatformDetectionService } from '../../../services/platform-detection.service';
+import { FabricService } from '../../../services/fabric.service';
+import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS, renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
+import { HelpModalComponent } from '../../../components/help-modal/help-modal.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { firstValueFrom, Subscription } from 'rxjs';
-import { HudDataService } from './hud-data.service';
-import { OfflineTemplateService } from '../../services/offline-template.service';
-import { LocalImageService } from '../../services/local-image.service';
-import { BackgroundSyncService } from '../../services/background-sync.service';
+import { HudDataService } from '../hud-data.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { LocalImageService } from '../../../services/local-image.service';
+import { BackgroundSyncService } from '../../../services/background-sync.service';
 // STATIC import for offline support - prevents ChunkLoadError when offline
-import { AddCustomVisualModalComponent } from '../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
-import { environment } from '../../../environments/environment';
+import { AddCustomVisualModalComponent } from '../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
+import { environment } from '../../../../environments/environment';
 
-type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
+type PdfPreviewCtor = typeof import('../../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
 // jsPDF is now lazy-loaded via PdfGeneratorService
 
 
@@ -430,7 +430,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
 
   private async loadPdfPreview(): Promise<PdfPreviewCtor> {
     if (!this.pdfPreviewComponent) {
-      const module = await import('../../components/pdf-preview/pdf-preview.component');
+      const module = await import('../../../components/pdf-preview/pdf-preview.component');
       this.pdfPreviewComponent = module.PdfPreviewComponent;
     }
     return this.pdfPreviewComponent;
