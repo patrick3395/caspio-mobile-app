@@ -3,10 +3,10 @@ import { Subject } from 'rxjs';
 
 export interface HudPhotoUploadResult {
   imageId: string;
-  hudId: number;
-  attachId: number;
-  s3Url: string;
+  attachId: string;
   s3Key: string;
+  hudId: string;
+  s3Url?: string;
 }
 
 /**
