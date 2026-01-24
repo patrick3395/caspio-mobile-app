@@ -4,7 +4,7 @@ import { Subject } from 'rxjs';
 export interface HudSyncCompleteEvent {
   serviceId: string;
   fieldKey: string;
-  hudId: number;
+  hudId: string;
   operation: 'create' | 'update' | 'delete';
 }
 

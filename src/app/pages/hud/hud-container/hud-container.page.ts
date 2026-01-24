@@ -11258,7 +11258,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       let response;
       try {
         response = await this.caspioService.createServicesVisualsAttachRecord(
-          visualIdNum,
+          typeof visualIdNum === 'string' ? parseInt(visualIdNum, 10) : visualIdNum,
           caption || '',
           drawingsData
         ).toPromise();

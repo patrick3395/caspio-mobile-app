@@ -9,4 +9,14 @@ import { Injectable } from '@angular/core';
 })
 export class HudFieldRepoService {
   constructor() {}
+
+  isDexieFirstEnabled(): boolean {
+    // Stub - Dexie-first is not enabled for HUD
+    return false;
+  }
+
+  async getDirtyFields(): Promise<any[]> {
+    // Stub - returns empty array
+    return [];
+  }
 }

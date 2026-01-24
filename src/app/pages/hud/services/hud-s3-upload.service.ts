@@ -6,6 +6,7 @@ export interface HudPhotoUploadResult {
   hudId: number;
   attachId: number;
   s3Url: string;
+  s3Key: string;
 }
 
 /**
