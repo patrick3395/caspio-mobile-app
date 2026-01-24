@@ -39,17 +39,10 @@ export class HudMainPage implements OnInit {
       completed: false
     },
     {
-      title: 'Structural Systems',
+      title: 'HUD / Mobile Manufactured',
       icon: 'construct-outline',
-      route: 'structural',
-      description: 'Visual assessment of foundations, grading, roof, and more',
-      completed: false
-    },
-    {
-      title: 'Elevation Plot',
-      icon: 'analytics-outline',
-      route: 'elevation',
-      description: 'Floor elevation measurements and photos',
+      route: 'category/hud',
+      description: 'HUD inspection checklist items and photos',
       completed: false
     }
   ];
