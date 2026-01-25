@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 ## Current Position
 
 Phase: 7 of 7 (HUD Category Detail)
-Plan: 3 of 3 in current phase (gap closure plans added)
+Plan: 6 of 6 in current phase (gap closure plans)
 Status: Gap closure in progress
-Last activity: 2026-01-25 - Completed 07-03-PLAN.md (MOBILE cache type fix)
+Last activity: 2026-01-25 - Completed 07-06-PLAN.md (HUD photo upload routing fix)
 
-Progress: [==========] 100% (v1.0: 8/8, v1.1: 7/7)
+Progress: [==========] 100% (v1.0: 8/8, v1.1: 9/9)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [==========] 100% (v1.0: 8/8, v1.1: 7/7)
 - Total execution time: 29 min
 
 **Current Milestone (v1.1 HUD Page Structure Refactor):**
-- Plans completed: 7
+- Plans completed: 9
 - 05-01: 2 min (research)
 - 05-02: 2 min
 - 06-01: 2 min (verification)
@@ -32,8 +32,9 @@ Progress: [==========] 100% (v1.0: 8/8, v1.1: 7/7)
 - 07-01: 4 min (HUD template loading fix)
 - 07-02: 8 min (HUDID field support)
 - 07-03: 1.5 min (MOBILE cache type fix)
-- **Total:** 22.5 min
-- **Average:** 3.2 min
+- 07-06: 3 min (HUD photo upload routing)
+- **Total:** 25.5 min
+- **Average:** 2.8 min
 
 ## Accumulated Context
 
@@ -62,6 +63,7 @@ New in v1.1:
 - [07-02]: Use HUDID as first fallback in all visual ID extraction patterns
 - [07-02]: Add HUDID property to photo data for HUD table writes
 - [07-03]: MOBILE mode uses 'hud' and 'hud_dropdown' cache types instead of 'visual' and 'visual_dropdown'
+- [07-06]: Use entityType 'hud' for photo uploads to route to LPS_Services_HUD_Attach
 
 ### Pending Todos
 
@@ -71,13 +73,12 @@ None.
 
 Remaining gaps from 07-VERIFICATION.md:
 - Data loading path (getVisualsByService queries LPS_Services_Visuals instead of LPS_Services_HUD)
-- Photo uploads (entityType 'visual' routes to wrong table)
 - ONLINE path cache references still use 'visual' (lines 2524, 3004)
 
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 07-03-PLAN.md - MOBILE cache type fix
+Stopped at: Completed 07-06-PLAN.md - HUD photo upload routing fix
 Resume file: None
 
 ---
