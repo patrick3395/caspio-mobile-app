@@ -592,6 +592,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       return;
     }
 
+    // MOBILE MODE: Load directly from cache for HUD
+    // Note: HUD doesn't use visualFieldRepo (that's designed for EFE TypeID=1)
+    // HUD templates have TypeID=2 and don't filter by category like EFE
+    console.log('[CategoryDetail] MOBILE MODE: Loading HUD data from cache');
+    await this.loadDataFromCache();
+    console.timeEnd('[CategoryDetail] initializeVisualFields');
+    return;
+
+    // LEGACY CODE BELOW - kept for reference but unreachable for HUD
+    // The visualFieldRepo pattern only works for EFE (TypeID=1) templates
+
     // MOBILE MODE: Use Dexie-first pattern
     // Unsubscribe from previous subscription if category changed
     if (this.visualFieldsSubscription) {
@@ -700,6 +711,156 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   /**
+   * MOBILE MODE: Load data from IndexedDB cache (Dexie-first pattern)
+   * HUD uses direct loading instead of visualFieldRepo (which is designed for EFE TypeID=1)
+   */
+  private async loadDataFromCache(): Promise<void> {
+    console.log('[CategoryDetail] MOBILE MODE: loadDataFromCache() starting...');
+    this.loading = true;
+    this.changeDetectorRef.detectChanges();
+
+    try {
+      // Load HUD templates and records from cache
+      const [templates, visuals] = await Promise.all([
+        this.indexedDb.getCachedTemplates('hud'),
+        this.indexedDb.getCachedServiceData(this.serviceId, 'hud')
+      ]);
+
+      console.log(`[CategoryDetail] MOBILE: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} HUD records from cache`);
+
+      // If no templates in cache, fall back to API
+      if (!templates || templates.length === 0) {
+        console.warn('[CategoryDetail] MOBILE: No templates in cache, falling back to API...');
+        await this.loadDataFromAPI();
+        return;
+      }
+
+      // HUD: Use ALL templates - HUD templates table already filtered by TypeID=2
+      const categoryTemplates = templates || [];
+      const categoryVisuals = visuals || [];
+
+      // Build organized data from templates and visuals (same logic as WEBAPP)
+      const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
+        comments: [],
+        limitations: [],
+        deficiencies: []
+      };
+
+      for (const template of categoryTemplates) {
+        const templateId = template.TemplateID || template.PK_ID;
+        const kind = (template.Kind || 'Comment').toLowerCase();
+        const templateName = template.Name || '';
+        const templateCategory = template.Category || '';
+
+        // Find matching visual (user selection)
+        let visual = (categoryVisuals || []).find((v: any) => {
+          const vTemplateId = v.HUDTemplateID || v.VisualTemplateID || v.TemplateID;
+          return vTemplateId == templateId;
+        });
+
+        // Fallback: match by name
+        if (!visual && templateName) {
+          visual = (categoryVisuals || []).find((v: any) => v.Name === templateName);
+        }
+
+        const itemKey = `${templateCategory || this.categoryName}_${templateId}`;
+
+        const item: VisualItem = {
+          id: visual ? (visual.HUDID || visual.VisualID || visual.PK_ID) : templateId,
+          templateId: templateId,
+          name: template.Name || '',
+          text: visual?.VisualText || visual?.Text || template.Text || '',
+          originalText: template.Text || '',
+          type: template.Kind || 'Comment',
+          category: template.Category || this.categoryName,
+          answerType: template.AnswerType || 0,
+          required: false,
+          answer: visual?.Answer || '',
+          isSelected: !!visual,
+          key: itemKey
+        };
+
+        // Add to appropriate section
+        if (kind === 'limitation') {
+          organizedData.limitations.push(item);
+        } else if (kind === 'deficiency') {
+          organizedData.deficiencies.push(item);
+        } else {
+          organizedData.comments.push(item);
+        }
+
+        // Track visual record IDs and selection state
+        if (visual) {
+          const visualId = visual.HUDID || visual.VisualID || visual.PK_ID;
+          this.visualRecordIds[itemKey] = String(visualId);
+          this.selectedItems[itemKey] = true;
+        }
+      }
+
+      this.organizedData = organizedData;
+
+      console.log(`[CategoryDetail] MOBILE: Organized - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
+
+      // Load photos from local storage
+      await this.loadPhotosFromDexie();
+
+      // Load dropdown options from cache
+      const cachedDropdownData = await this.indexedDb.getCachedTemplates('hud_dropdown') || [];
+      if (cachedDropdownData.length > 0) {
+        this.populateDropdownOptionsFromCache(cachedDropdownData);
+      }
+
+      // Update tracking variables
+      this.lastLoadedServiceId = this.serviceId;
+      this.lastLoadedCategoryName = this.categoryName;
+      this.initialLoadComplete = true;
+
+    } catch (error) {
+      console.error('[CategoryDetail] MOBILE: Error loading data from cache:', error);
+    } finally {
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  /**
+   * MOBILE MODE: Load photos from Dexie for all selected visuals
+   */
+  private async loadPhotosFromDexie(): Promise<void> {
+    console.log('[CategoryDetail] MOBILE: Loading photos from Dexie...');
+
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+
+    for (const item of allItems) {
+      if (!item.isSelected || !item.key) continue;
+
+      const visualId = this.visualRecordIds[item.key];
+      if (!visualId) continue;
+
+      try {
+        // Get photos from local storage
+        const localPhotos = await this.indexedDb.getLocalImages(this.serviceId, 'hud', visualId);
+        if (localPhotos && localPhotos.length > 0) {
+          const photos = localPhotos.map(p => ({
+            displayUrl: p.localBlobUrl || p.displayUrl || 'assets/img/photo-placeholder.png',
+            id: p.localId || p.attachId,
+            caption: p.caption || '',
+            localId: p.localId
+          }));
+          this.visualPhotos[item.key] = photos;
+          console.log(`[CategoryDetail] MOBILE: Loaded ${photos.length} photos for visual ${visualId}`);
+        }
+      } catch (error) {
+        console.warn(`[CategoryDetail] MOBILE: Error loading photos for visual ${visualId}:`, error);
+      }
+    }
+  }
+
+  /**
    * WEBAPP MODE: Load data directly from API to see synced data from mobile
    * This bypasses all local Dexie caching and reads fresh from the server
    */
@@ -734,13 +895,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         });
       }
 
-      // Filter visuals for this category to get accurate count
-      const categoryVisuals = (visuals || []).filter((v: any) => v.Category === this.categoryName);
-      console.log(`[CategoryDetail] WEBAPP: ${categoryVisuals.length} visuals for category "${this.categoryName}"`);
-
-      // Filter templates for this category
-      const categoryTemplates = (templates || []).filter((t: any) => t.Category === this.categoryName);
-      console.log(`[CategoryDetail] WEBAPP: ${categoryTemplates.length} templates for category "${this.categoryName}"`);
+      // HUD: Use ALL templates - HUD templates table already filtered by TypeID=2
+      // Unlike EFE which has multiple categories (foundations, floor-structure), HUD shows all templates
+      const categoryTemplates = templates || [];
+      const categoryVisuals = visuals || [];
+      console.log(`[CategoryDetail] WEBAPP: ${categoryVisuals.length} HUD records, ${categoryTemplates.length} templates`);
 
       // Build organized data from templates and visuals
       const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
@@ -753,6 +912,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const templateId = template.TemplateID || template.PK_ID;
         const kind = (template.Kind || 'Comment').toLowerCase();
         const templateName = template.Name || '';
+        const templateCategory = template.Category || '';
 
         // Find matching visual (user selection) from server
         // CRITICAL: Match by TemplateID first (most reliable), with type coercion for number/string mismatches
@@ -760,14 +920,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         let visual = (visuals || []).find((v: any) => {
           const vTemplateId = v.HUDTemplateID || v.VisualTemplateID || v.TemplateID;
           // Use == for type coercion (templateId may be number or string)
-          return vTemplateId == templateId && v.Category === this.categoryName;
+          return vTemplateId == templateId;
         });
 
-        // Fallback: match by name + category if templateId didn't match
+        // Fallback: match by name if templateId didn't match
         if (!visual && templateName) {
-          visual = (visuals || []).find((v: any) =>
-            v.Name === templateName && v.Category === this.categoryName
-          );
+          visual = (visuals || []).find((v: any) => v.Name === templateName);
           if (visual) {
             console.log(`[CategoryDetail] WEBAPP: Matched visual by name fallback: "${templateName}"`);
           }
@@ -775,7 +933,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         // WEBAPP: Use key format that matches isItemSelected() and getPhotosForVisual()
         // These methods use `${category}_${itemId}` format (no serviceId)
-        const itemKey = `${this.categoryName}_${templateId}`;
+        // HUD: Use template's actual category, not the route param 'hud'
+        const itemKey = `${templateCategory || this.categoryName}_${templateId}`;
 
         const item: VisualItem = {
           id: visual ? (visual.HUDID || visual.VisualID || visual.PK_ID) : templateId,
