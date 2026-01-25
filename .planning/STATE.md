@@ -32,9 +32,10 @@ Progress: [==========] 100% (v1.0: 8/8, v1.1: 9/9)
 - 07-01: 4 min (HUD template loading fix)
 - 07-02: 8 min (HUDID field support)
 - 07-03: 1.5 min (MOBILE cache type fix)
+- 07-04: 3 min (getHudByService method)
 - 07-06: 3 min (HUD photo upload routing)
-- **Total:** 25.5 min
-- **Average:** 2.8 min
+- **Total:** 28.5 min
+- **Average:** 2.9 min
 
 ## Accumulated Context
 
@@ -63,6 +64,7 @@ New in v1.1:
 - [07-02]: Use HUDID as first fallback in all visual ID extraction patterns
 - [07-02]: Add HUDID property to photo data for HUD table writes
 - [07-03]: MOBILE mode uses 'hud' and 'hud_dropdown' cache types instead of 'visual' and 'visual_dropdown'
+- [07-04]: getHudByService() loads HUD records from LPS_Services_HUD table via cache-first pattern
 - [07-06]: Use entityType 'hud' for photo uploads to route to LPS_Services_HUD_Attach
 
 ### Pending Todos
@@ -72,7 +74,6 @@ None.
 ### Blockers/Concerns
 
 Remaining gaps from 07-VERIFICATION.md:
-- Data loading path (getVisualsByService queries LPS_Services_Visuals instead of LPS_Services_HUD)
 - ONLINE path cache references still use 'visual' (lines 2524, 3004)
 
 ## Session Continuity
