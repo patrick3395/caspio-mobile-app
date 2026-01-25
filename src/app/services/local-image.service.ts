@@ -1158,6 +1158,14 @@ export class LocalImageService {
           photoType || undefined,
           caption
         );
+      } else if (entityType === 'hud') {
+        // Upload HUD attachment to LPS_Services_HUD_Attach
+        result = await this.caspioService.createServicesHUDAttachWithFile(
+          parseInt(entityId),
+          caption,
+          file,
+          drawings
+        ).toPromise();
       } else {
         throw new Error(`Unsupported entity type for web upload: ${entityType}`);
       }
