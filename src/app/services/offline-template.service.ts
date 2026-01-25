@@ -29,7 +29,7 @@ export class OfflineTemplateService {
   // Event emitted when background refresh completes - pages can subscribe to reload their data
   public backgroundRefreshComplete$ = new Subject<{
     serviceId: string;
-    dataType: 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_records' | 'hud_attachments';
+    dataType: 'visuals' | 'hud' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_records' | 'hud_attachments';
   }>();
 
   constructor(
@@ -1542,12 +1542,113 @@ export class OfflineTemplateService {
 
   /**
    * Background refresh HUD records (non-blocking)
+   * CRITICAL: Preserves local changes (_localUpdate flag and temp IDs) during merge
    */
   private async refreshHudInBackground(serviceId: string): Promise<void> {
     try {
+      // Check for pending UPDATE requests BEFORE fetching from server
+      let pendingHudUpdates = new Set<string>();
+      try {
+        const pendingRequests = await this.indexedDb.getPendingRequests();
+        pendingHudUpdates = new Set<string>(
+          pendingRequests
+            .filter(r => r.type === 'UPDATE' && r.endpoint.includes('LPS_Services_HUD/records') && !r.endpoint.includes('Attach'))
+            .map(r => {
+              const match = r.endpoint.match(/VisualID=(\d+)/);
+              return match ? match[1] : null;
+            })
+            .filter((id): id is string => id !== null)
+        );
+
+        if (pendingHudUpdates.size > 0) {
+          console.log(`[OfflineTemplate] Found ${pendingHudUpdates.size} pending UPDATE requests for HUD:`, [...pendingHudUpdates]);
+        }
+      } catch (pendingErr) {
+        console.warn('[OfflineTemplate] Failed to check pending requests (continuing without):', pendingErr);
+      }
+
       const freshHud = await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId));
-      await this.indexedDb.cacheServiceData(serviceId, 'hud', freshHud);
-      console.log(`[OfflineTemplate] Background HUD refresh complete: ${freshHud?.length || 0} records`);
+
+      // Get existing cached HUD records to find local updates that should be preserved
+      const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'hud') || [];
+
+      // Check if cache has any LOCAL changes that need protection
+      const hasLocalChanges = existingCache.some((item: any) =>
+        item._localUpdate ||
+        (item._tempId && String(item._tempId).startsWith('temp_'))
+      ) || pendingHudUpdates.size > 0;
+
+      // SMART DEFENSIVE GUARD: Only protect if there are actual local changes
+      if ((!freshHud || freshHud.length === 0) && existingCache.length > 0) {
+        if (hasLocalChanges) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned empty but HUD cache has ${existingCache.length} items with local changes - protecting cache`);
+          return; // Preserve cache with local changes
+        }
+        // No local changes - clear cache (data was deleted on server)
+        console.log(`[OfflineTemplate] API returned empty, no local changes - clearing HUD cache for ${serviceId}`);
+        await this.indexedDb.cacheServiceData(serviceId, 'hud', []);
+        this.backgroundRefreshComplete$.next({ serviceId, dataType: 'hud' });
+        return;
+      }
+
+      // Warn if API returns significantly fewer items but still allow if no local changes
+      if (freshHud && existingCache.length > 0 && freshHud.length < existingCache.length * 0.5) {
+        if (hasLocalChanges) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshHud.length} HUD records but cache has ${existingCache.length} with local changes - protecting cache`);
+          return; // Preserve cache with local changes
+        }
+        console.log(`[OfflineTemplate] API returned ${freshHud.length} HUD records (was ${existingCache.length}), no local changes - updating cache`);
+      }
+
+      // Build a map of locally updated HUD records that should NOT be overwritten
+      // Key by HUDID, PK_ID, and VisualID to ensure matches
+      const localUpdates = new Map<string, any>();
+      for (const hud of existingCache) {
+        const hudId = String(hud.HUDID || '');
+        const pkId = String(hud.PK_ID || '');
+        const vId = String(hud.VisualID || '');
+        const tempId = hud._tempId || '';
+
+        // Check if has _localUpdate flag OR has pending UPDATE request
+        const hasPendingByHudId = hudId && pendingHudUpdates.has(hudId);
+        const hasPendingByPkId = pkId && pendingHudUpdates.has(pkId);
+        const hasPendingByVisualId = vId && pendingHudUpdates.has(vId);
+
+        if (hud._localUpdate || hasPendingByHudId || hasPendingByPkId || hasPendingByVisualId) {
+          // Store by all keys to ensure we find it when merging
+          if (hudId) localUpdates.set(hudId, hud);
+          if (pkId) localUpdates.set(pkId, hud);
+          if (vId) localUpdates.set(vId, hud);
+          if (tempId) localUpdates.set(tempId, hud);
+          const reason = hud._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
+          console.log(`[OfflineTemplate] Preserving local HUD HUDID=${hudId} PK_ID=${pkId} (${reason}, Notes: ${hud.Notes})`);
+        }
+      }
+
+      // Merge: use local version for items with pending updates, server version for others
+      const mergedHud = freshHud.map((serverHud: any) => {
+        const hudId = String(serverHud.HUDID || '');
+        const pkId = String(serverHud.PK_ID || '');
+        const vId = String(serverHud.VisualID || serverHud.PK_ID);
+        // Try to find local version by any key
+        const localVersion = localUpdates.get(hudId) || localUpdates.get(pkId) || localUpdates.get(vId);
+        if (localVersion) {
+          // Keep local version since it has pending changes not yet on server
+          console.log(`[OfflineTemplate] Keeping local version of HUD HUDID=${hudId} PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
+          return localVersion;
+        }
+        return serverHud;
+      });
+
+      // Also add any temp HUD records (created offline, not yet synced) from existing cache
+      const tempHud = existingCache.filter((v: any) => v._tempId && String(v._tempId).startsWith('temp_'));
+      const finalHud = [...mergedHud, ...tempHud];
+
+      await this.indexedDb.cacheServiceData(serviceId, 'hud', finalHud);
+      console.log(`[OfflineTemplate] Background HUD refresh: ${freshHud.length} server records, ${localUpdates.size} local updates preserved, ${tempHud.length} temp records for ${serviceId}`);
+
+      // Notify pages that fresh data is available
+      this.backgroundRefreshComplete$.next({ serviceId, dataType: 'hud' });
     } catch (error) {
       console.warn(`[OfflineTemplate] Background HUD refresh failed (non-blocking):`, error);
     }

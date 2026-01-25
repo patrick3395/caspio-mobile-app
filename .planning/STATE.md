@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 ## Current Position
 
 Phase: 7 of 7 (HUD Category Detail)
-Plan: 6 of 6 in current phase (gap closure plans)
-Status: Gap closure in progress
-Last activity: 2026-01-25 - Completed 07-05-PLAN.md (HUD data loading wiring)
+Plan: 7 of 7 in current phase (gap closure plans)
+Status: Gap closure complete
+Last activity: 2026-01-25 - Completed 07-07 (HUD cache persistence fix)
 
-Progress: [==========] 100% (v1.0: 8/8, v1.1: 10/10)
+Progress: [==========] 100% (v1.0: 8/8, v1.1: 11/11)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [==========] 100% (v1.0: 8/8, v1.1: 10/10)
 - Total execution time: 29 min
 
 **Current Milestone (v1.1 HUD Page Structure Refactor):**
-- Plans completed: 10
+- Plans completed: 11
 - 05-01: 2 min (research)
 - 05-02: 2 min
 - 06-01: 2 min (verification)
@@ -35,8 +35,9 @@ Progress: [==========] 100% (v1.0: 8/8, v1.1: 10/10)
 - 07-04: 3 min (getHudByService method)
 - 07-05: 2 min (HUD data loading wiring)
 - 07-06: 3 min (HUD photo upload routing)
-- **Total:** 30.5 min
-- **Average:** 3.05 min
+- 07-07: 5 min (HUD cache persistence fix)
+- **Total:** 35.5 min
+- **Average:** 3.2 min
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ New in v1.1:
 - [07-04]: getHudByService() loads HUD records from LPS_Services_HUD table via cache-first pattern
 - [07-05]: Use getHudByService() and 'hud' cache type for all data loading in hud-category-detail
 - [07-06]: Use entityType 'hud' for photo uploads to route to LPS_Services_HUD_Attach
+- [07-07]: hud-data.service.ts createVisual/updateVisual must write to 'hud' cache (not 'visuals' via offlineTemplate)
+- [07-07]: refreshHudInBackground must preserve local changes (_localUpdate flag and temp IDs) like refreshVisualsInBackground
 
 ### Pending Todos
 
@@ -80,7 +83,7 @@ None - all ONLINE path cache references now use 'hud' (fixed in 07-05).
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 07-05-PLAN.md - HUD data loading wiring
+Stopped at: Completed 07-07 - HUD cache persistence fix
 Resume file: None
 
 ---

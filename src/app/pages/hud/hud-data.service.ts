@@ -746,9 +746,16 @@ export class HudDataService {
       priority: 'high',
     });
 
-    // Clear cache
+    // CRITICAL: Cache placeholder to 'hud' cache for Dexie-first pattern
+    // This ensures loadDataFromCache() can find the record before sync
+    const serviceIdStr = String(visualData.ServiceID);
+    const existingHudRecords = await this.indexedDb.getCachedServiceData(serviceIdStr, 'hud') || [];
+    await this.indexedDb.cacheServiceData(serviceIdStr, 'hud', [...existingHudRecords, placeholder]);
+    console.log('[Visual Data] ✅ Cached HUD placeholder to Dexie:', tempId);
+
+    // Clear in-memory cache
     if (visualData.ServiceID) {
-      this.visualsCache.delete(String(visualData.ServiceID));
+      this.visualsCache.delete(serviceIdStr);
     }
 
     // Sync will happen on next 60-second interval (batched sync)
@@ -793,9 +800,48 @@ export class HudDataService {
 
     const isTempId = String(visualId).startsWith('temp_');
 
-    // OFFLINE-FIRST: Update IndexedDB cache immediately, queue for sync
+    // OFFLINE-FIRST: Update 'hud' cache immediately, queue for sync
+    // CRITICAL: Use 'hud' cache directly (not offlineTemplate which uses 'visuals')
     if (serviceId) {
-      await this.offlineTemplate.updateVisual(visualId, visualData, serviceId);
+      if (isTempId) {
+        // Update pending request data
+        await this.indexedDb.updatePendingRequestData(visualId, visualData);
+        console.log('[Visual Data] Updated pending request:', visualId);
+      } else {
+        // Queue update for sync
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_HUD/records?q.where=VisualID=${visualId}`,
+          method: 'PUT',
+          data: visualData,
+          dependencies: [],
+          status: 'pending',
+          priority: 'normal',
+        });
+        console.log('[Visual Data] Queued update for sync:', visualId);
+      }
+
+      // Update 'hud' cache with _localUpdate flag to preserve during background refresh
+      const existingHudRecords = await this.indexedDb.getCachedServiceData(serviceId, 'hud') || [];
+      let matchFound = false;
+      const updatedRecords = existingHudRecords.map((v: any) => {
+        // Check BOTH PK_ID, VisualID, and HUDID since API may return any of these
+        const vId = String(v.HUDID || v.VisualID || v.PK_ID || v._tempId || '');
+        if (vId === visualId) {
+          matchFound = true;
+          return { ...v, ...visualData, _localUpdate: true };
+        }
+        return v;
+      });
+
+      if (!matchFound && isTempId) {
+        // For temp IDs not in cache, add a new record
+        updatedRecords.push({ ...visualData, _tempId: visualId, PK_ID: visualId, _localUpdate: true });
+        console.log('[Visual Data] Added temp record to hud cache:', visualId);
+      }
+
+      await this.indexedDb.cacheServiceData(serviceId, 'hud', updatedRecords);
+      console.log(`[Visual Data] ✅ Updated 'hud' cache, matchFound=${matchFound}:`, visualId);
     } else {
       // If no serviceId, still queue for sync but skip cache update
       if (!isTempId) {
@@ -808,7 +854,7 @@ export class HudDataService {
           status: 'pending',
           priority: 'normal',
         });
-        console.log('[Visual Data] Queued update for sync:', visualId);
+        console.log('[Visual Data] Queued update for sync (no serviceId):', visualId);
       }
     }
 
