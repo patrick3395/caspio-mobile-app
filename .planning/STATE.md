@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-24)
 
 **Core value:** Field engineers can complete HUD inspections on mobile with offline capability
-**Current focus:** Milestone v1.1 - Phase 7: HUD Category Detail - COMPLETE
+**Current focus:** Milestone v1.1 - Phase 7: HUD Category Detail - Gap Closure
 
 ## Current Position
 
 Phase: 7 of 7 (HUD Category Detail)
-Plan: 2 of 2 in current phase - COMPLETE
-Status: Milestone v1.1 Complete
-Last activity: 2026-01-25 - Completed 07-02-PLAN.md (HUDID field support)
+Plan: 3 of 3 in current phase (gap closure plans added)
+Status: Gap closure in progress
+Last activity: 2026-01-25 - Completed 07-03-PLAN.md (MOBILE cache type fix)
 
-Progress: [==========] 100% (v1.0: 8/8, v1.1: 6/6)
+Progress: [==========] 100% (v1.0: 8/8, v1.1: 7/7)
 
 ## Performance Metrics
 
@@ -24,15 +24,16 @@ Progress: [==========] 100% (v1.0: 8/8, v1.1: 6/6)
 - Total execution time: 29 min
 
 **Current Milestone (v1.1 HUD Page Structure Refactor):**
-- Plans completed: 6
+- Plans completed: 7
 - 05-01: 2 min (research)
 - 05-02: 2 min
 - 06-01: 2 min (verification)
 - 06-02: 3 min (gap closure - router-outlet fix)
 - 07-01: 4 min (HUD template loading fix)
 - 07-02: 8 min (HUDID field support)
-- **Total:** 21 min
-- **Average:** 3.5 min
+- 07-03: 1.5 min (MOBILE cache type fix)
+- **Total:** 22.5 min
+- **Average:** 3.2 min
 
 ## Accumulated Context
 
@@ -60,6 +61,7 @@ New in v1.1:
 - [07-01]: HUDTemplateID takes priority in template matching fallback chain
 - [07-02]: Use HUDID as first fallback in all visual ID extraction patterns
 - [07-02]: Add HUDID property to photo data for HUD table writes
+- [07-03]: MOBILE mode uses 'hud' and 'hud_dropdown' cache types instead of 'visual' and 'visual_dropdown'
 
 ### Pending Todos
 
@@ -67,12 +69,15 @@ None.
 
 ### Blockers/Concerns
 
-None.
+Remaining gaps from 07-VERIFICATION.md:
+- Data loading path (getVisualsByService queries LPS_Services_Visuals instead of LPS_Services_HUD)
+- Photo uploads (entityType 'visual' routes to wrong table)
+- ONLINE path cache references still use 'visual' (lines 2524, 3004)
 
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 07-02-PLAN.md - Milestone v1.1 Complete
+Stopped at: Completed 07-03-PLAN.md - MOBILE cache type fix
 Resume file: None
 
 ---
