@@ -131,11 +131,15 @@ Plans:
   6. All table references use HUD tables (no EFE references remain)
   7. Dexie-first pattern works on mobile (offline reads, queued writes)
   8. Data persists offline and syncs when connectivity returns
-**Plans**: 2 plans
+**Plans**: 6 plans (2 original + 4 gap closure)
 
 Plans:
-- [ ] 07-01-PLAN.md — Fix template loading to use ensureHudTemplatesReady (HUD templates)
-- [ ] 07-02-PLAN.md — Add HUDID fallback to all VisualID references (~38 locations)
+- [x] 07-01-PLAN.md — Fix template loading to use ensureHudTemplatesReady (HUD templates)
+- [x] 07-02-PLAN.md — Add HUDID fallback to all VisualID references (~36 locations)
+- [ ] 07-03-PLAN.md — Fix MOBILE cache type references (visual -> hud) [GAP CLOSURE]
+- [ ] 07-04-PLAN.md — Create getHudByService() method for HUD data loading [GAP CLOSURE]
+- [ ] 07-05-PLAN.md — Wire page to use getHudByService() instead of getVisualsByService() [GAP CLOSURE]
+- [ ] 07-06-PLAN.md — Fix photo upload routing to use entityType 'hud' [GAP CLOSURE]
 
 ## Progress
 
@@ -150,8 +154,8 @@ Phases execute in numeric order: 5 -> 6 -> 7
 | 4. Validation and Polish | v1.0 | 2/2 | Complete | 2026-01-24 |
 | 5. Navigation Refactor | v1.1 | 2/2 | Complete | 2026-01-24 |
 | 6. Project Details Page | v1.1 | 2/2 | Complete | 2026-01-25 |
-| 7. HUD Category Detail | v1.1 | 0/2 | Not started | - |
+| 7. HUD Category Detail | v1.1 | 2/6 | Gap Closure | - |
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-25 (Phase 7 planned)*
+*Last updated: 2026-01-25 (Phase 7 gap closure plans created)*
