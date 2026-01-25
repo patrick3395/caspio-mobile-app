@@ -131,11 +131,11 @@ Plans:
   6. All table references use HUD tables (no EFE references remain)
   7. Dexie-first pattern works on mobile (offline reads, queued writes)
   8. Data persists offline and syncs when connectivity returns
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — TBD
-- [ ] 07-02-PLAN.md — TBD
+- [ ] 07-01-PLAN.md — Fix template loading to use ensureHudTemplatesReady (HUD templates)
+- [ ] 07-02-PLAN.md — Add HUDID fallback to all VisualID references (~38 locations)
 
 ## Progress
 
@@ -154,4 +154,4 @@ Phases execute in numeric order: 5 -> 6 -> 7
 
 ---
 *Roadmap created: 2026-01-23*
-*Last updated: 2026-01-25 (Phase 6 complete)*
+*Last updated: 2026-01-25 (Phase 7 planned)*
