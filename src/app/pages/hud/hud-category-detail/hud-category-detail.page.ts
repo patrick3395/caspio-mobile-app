@@ -312,6 +312,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       try {
         const serviceRecord = await this.hudData.getService(this.serviceId);
         if (serviceRecord) {
+          // Debug: Log available fields to see if ServiceID exists
+          console.log('[CategoryDetail] Service record fields:', Object.keys(serviceRecord));
+          console.log('[CategoryDetail] Service record PK_ID:', serviceRecord.PK_ID, 'ServiceID:', serviceRecord.ServiceID);
           // Use ServiceID field from record, fallback to route param if not available
           this.actualServiceId = String(serviceRecord.ServiceID || this.serviceId);
           console.log('[CategoryDetail] Loaded actualServiceId:', this.actualServiceId, '(route PK_ID:', this.serviceId, ')');
@@ -631,7 +634,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // CRITICAL: Use hudData.getHudByService() to merge cached + pending records (Dexie-first pattern)
       const [templates, visuals] = await Promise.all([
         this.indexedDb.getCachedTemplates('hud'),
-        this.hudData.getHudByService(this.serviceId)
+        this.hudData.getHudByService(this.actualServiceId || this.serviceId)
       ]);
 
       console.log(`[CategoryDetail] MOBILE: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} HUD records from cache+pending`);
@@ -774,6 +777,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    */
   private async loadDataFromAPI(): Promise<void> {
     console.log('[CategoryDetail] WEBAPP MODE: loadDataFromAPI() starting...');
+    console.log('[CategoryDetail] WEBAPP: Query ServiceID:', this.actualServiceId || this.serviceId, '(actualServiceId:', this.actualServiceId, ', serviceId:', this.serviceId, ')');
     this.loading = true;
     this.changeDetectorRef.detectChanges();
 
@@ -783,10 +787,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // NOT getVisualsTemplates() which loads EFE templates (TypeID=1) from LPS_Services_Visuals_Templates
       const [templates, visuals] = await Promise.all([
         this.offlineTemplate.ensureHudTemplatesReady(),
-        this.hudData.getHudByService(this.serviceId)
+        this.hudData.getHudByService(this.actualServiceId || this.serviceId)
       ]);
 
       console.log(`[CategoryDetail] WEBAPP: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} HUD records from API`);
+      if (visuals && visuals.length > 0) {
+        console.log('[CategoryDetail] WEBAPP: First visual ServiceID:', visuals[0].ServiceID);
+      }
 
       // Debug: Log first visual's field names to verify structure
       if (visuals && visuals.length > 0) {
@@ -1951,7 +1958,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       console.log('[RELOAD AFTER SYNC] Starting fresh HUD record reload...');
 
       // Get fresh HUD records from IndexedDB (already updated by BackgroundSyncService)
-      const visuals = await this.hudData.getHudByService(this.serviceId);
+      const visuals = await this.hudData.getHudByService(this.actualServiceId || this.serviceId);
       console.log('[RELOAD AFTER SYNC] Got', visuals.length, 'HUD records from IndexedDB');
       
       // Track processed keys to prevent collisions within this reload
@@ -2596,7 +2603,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // CRITICAL: Use hudData.getHudByService() to merge cached + pending records (Dexie-first pattern)
       const [allTemplates, visuals, pendingPhotos, pendingRequests, allLocalImages, cachedPhotos, annotatedImages] = await Promise.all([
         this.indexedDb.getCachedTemplates('hud') || [],
-        this.hudData.getHudByService(this.serviceId),
+        this.hudData.getHudByService(this.actualServiceId || this.serviceId),
         this.indexedDb.getAllPendingPhotosGroupedByVisual(),
         this.indexedDb.getPendingRequests(),
         this.localImageService.getImagesForService(this.serviceId),
@@ -2688,7 +2695,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // The cached data is displayed immediately, then updated when fresh data arrives
       if (this.offlineService.isOnline()) {
         console.log('[LOAD DATA] Online - triggering background refresh for HUD records');
-        this.offlineTemplate.getHudByService(this.serviceId); // Triggers refreshHudInBackground
+        this.offlineTemplate.getHudByService(this.actualServiceId || this.serviceId); // Triggers refreshHudInBackground
       }
       
       console.log(`[LOAD DATA] ? Fast load complete in ${Date.now() - bulkLoadStart}ms:`, {
@@ -3339,7 +3346,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       console.log('[LOAD VISUALS] Loading existing HUD records for serviceId:', this.serviceId);
 
       // Get all HUD records for this service (slower path - includes pending)
-      const visuals = await this.hudData.getHudByService(this.serviceId);
+      const visuals = await this.hudData.getHudByService(this.actualServiceId || this.serviceId);
 
       console.log('[LOAD VISUALS] Found', visuals.length, 'existing HUD records');
 
