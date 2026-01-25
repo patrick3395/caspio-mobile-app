@@ -12,9 +12,9 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 Phase: 7 of 7 (HUD Category Detail)
 Plan: 6 of 6 in current phase (gap closure plans)
 Status: Gap closure in progress
-Last activity: 2026-01-25 - Completed 07-06-PLAN.md (HUD photo upload routing fix)
+Last activity: 2026-01-25 - Completed 07-05-PLAN.md (HUD data loading wiring)
 
-Progress: [==========] 100% (v1.0: 8/8, v1.1: 9/9)
+Progress: [==========] 100% (v1.0: 8/8, v1.1: 10/10)
 
 ## Performance Metrics
 
@@ -24,7 +24,7 @@ Progress: [==========] 100% (v1.0: 8/8, v1.1: 9/9)
 - Total execution time: 29 min
 
 **Current Milestone (v1.1 HUD Page Structure Refactor):**
-- Plans completed: 9
+- Plans completed: 10
 - 05-01: 2 min (research)
 - 05-02: 2 min
 - 06-01: 2 min (verification)
@@ -33,9 +33,10 @@ Progress: [==========] 100% (v1.0: 8/8, v1.1: 9/9)
 - 07-02: 8 min (HUDID field support)
 - 07-03: 1.5 min (MOBILE cache type fix)
 - 07-04: 3 min (getHudByService method)
+- 07-05: 2 min (HUD data loading wiring)
 - 07-06: 3 min (HUD photo upload routing)
-- **Total:** 28.5 min
-- **Average:** 2.9 min
+- **Total:** 30.5 min
+- **Average:** 3.05 min
 
 ## Accumulated Context
 
@@ -65,6 +66,7 @@ New in v1.1:
 - [07-02]: Add HUDID property to photo data for HUD table writes
 - [07-03]: MOBILE mode uses 'hud' and 'hud_dropdown' cache types instead of 'visual' and 'visual_dropdown'
 - [07-04]: getHudByService() loads HUD records from LPS_Services_HUD table via cache-first pattern
+- [07-05]: Use getHudByService() and 'hud' cache type for all data loading in hud-category-detail
 - [07-06]: Use entityType 'hud' for photo uploads to route to LPS_Services_HUD_Attach
 
 ### Pending Todos
@@ -73,13 +75,12 @@ None.
 
 ### Blockers/Concerns
 
-Remaining gaps from 07-VERIFICATION.md:
-- ONLINE path cache references still use 'visual' (lines 2524, 3004)
+None - all ONLINE path cache references now use 'hud' (fixed in 07-05).
 
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 07-06-PLAN.md - HUD photo upload routing fix
+Stopped at: Completed 07-05-PLAN.md - HUD data loading wiring
 Resume file: None
 
 ---
