@@ -772,7 +772,7 @@ export class HudDataService {
       console.log('[Visual Data] WEBAPP: Updating visual directly via API:', visualId, visualData);
 
       try {
-        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_HUD/records?q.where=VisualID=${visualId}`, {
+        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_HUD/records?q.where=HUDID=${visualId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(visualData)
@@ -811,7 +811,7 @@ export class HudDataService {
         // Queue update for sync
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_HUD/records?q.where=VisualID=${visualId}`,
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_HUD/records?q.where=HUDID=${visualId}`,
           method: 'PUT',
           data: visualData,
           dependencies: [],
@@ -847,7 +847,7 @@ export class HudDataService {
       if (!isTempId) {
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
-          endpoint: `/api/caspio-proxy/tables/LPS_Services_HUD/records?q.where=VisualID=${visualId}`,
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_HUD/records?q.where=HUDID=${visualId}`,
           method: 'PUT',
           data: visualData,
           dependencies: [],
@@ -882,7 +882,7 @@ export class HudDataService {
       // CRITICAL: Use the correct API endpoint format with q.where clause
       await this.indexedDb.addPendingRequest({
         type: 'DELETE',
-        endpoint: `/api/caspio-proxy/tables/LPS_Services_HUD/records?q.where=VisualID=${visualId}`,
+        endpoint: `/api/caspio-proxy/tables/LPS_Services_HUD/records?q.where=HUDID=${visualId}`,
         method: 'DELETE',
         data: { visualId },
         dependencies: [],
