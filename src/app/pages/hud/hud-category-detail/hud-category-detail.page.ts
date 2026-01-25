@@ -611,12 +611,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
     try {
       // Load HUD templates and records from cache
+      // CRITICAL: Use hudData.getHudByService() to merge cached + pending records (Dexie-first pattern)
       const [templates, visuals] = await Promise.all([
         this.indexedDb.getCachedTemplates('hud'),
-        this.indexedDb.getCachedServiceData(this.serviceId, 'hud')
+        this.hudData.getHudByService(this.serviceId)
       ]);
 
-      console.log(`[CategoryDetail] MOBILE: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} HUD records from cache`);
+      console.log(`[CategoryDetail] MOBILE: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} HUD records from cache+pending`);
 
       // If no templates in cache, fall back to API
       if (!templates || templates.length === 0) {
@@ -2583,9 +2584,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       console.log('[LOAD DATA] Starting fast load (no photo data)...');
       const bulkLoadStart = Date.now();
       
+      // CRITICAL: Use hudData.getHudByService() to merge cached + pending records (Dexie-first pattern)
       const [allTemplates, visuals, pendingPhotos, pendingRequests, allLocalImages, cachedPhotos, annotatedImages] = await Promise.all([
         this.indexedDb.getCachedTemplates('hud') || [],
-        this.indexedDb.getCachedServiceData(this.serviceId, 'hud') || [],
+        this.hudData.getHudByService(this.serviceId),
         this.indexedDb.getAllPendingPhotosGroupedByVisual(),
         this.indexedDb.getPendingRequests(),
         this.localImageService.getImagesForService(this.serviceId),

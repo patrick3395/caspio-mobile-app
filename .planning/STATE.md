@@ -71,6 +71,8 @@ New in v1.1:
 - [07-06]: Use entityType 'hud' for photo uploads to route to LPS_Services_HUD_Attach
 - [07-07]: hud-data.service.ts createVisual/updateVisual must write to 'hud' cache (not 'visuals' via offlineTemplate)
 - [07-07]: refreshHudInBackground must preserve local changes (_localUpdate flag and temp IDs) like refreshVisualsInBackground
+- [07-07]: getPendingHudRecords() must return pending CREATE requests from queue (mirrors getPendingVisuals pattern)
+- [07-07]: HUD loadDataFromCache() must use hudData.getHudByService() to merge cached+pending (not direct indexedDb access)
 
 ### Pending Todos
 

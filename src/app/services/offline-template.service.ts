@@ -1533,11 +1533,28 @@ export class OfflineTemplateService {
 
   /**
    * Get pending HUD records from operations queue for a service
+   * Mirrors getPendingVisuals() pattern for LPS_Services_HUD table
    */
   private async getPendingHudRecords(serviceId: string): Promise<any[]> {
-    // Similar to getPendingVisuals but for HUD entity type
-    // For now, return empty array - HUD queue integration can be added later
-    return [];
+    const pendingRequests = await this.indexedDb.getPendingRequests();
+
+    return pendingRequests
+      .filter(r =>
+        r.type === 'CREATE' &&
+        r.endpoint.includes('Services_HUD') &&
+        !r.endpoint.includes('Attach') &&
+        r.data?.ServiceID === parseInt(serviceId) &&
+        r.status !== 'synced'
+      )
+      .map(r => ({
+        ...r.data,
+        PK_ID: r.tempId,
+        HUDID: r.tempId,
+        VisualID: r.tempId,
+        _tempId: r.tempId,
+        _localOnly: true,
+        _syncing: r.status === 'syncing',
+      }));
   }
 
   /**
