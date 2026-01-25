@@ -724,6 +724,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const sampleVisual = visuals[0];
         console.log('[CategoryDetail] WEBAPP: Sample visual fields:', Object.keys(sampleVisual));
         console.log('[CategoryDetail] WEBAPP: Sample visual:', {
+          HUDID: sampleVisual.HUDID,
           VisualID: sampleVisual.VisualID,
           VisualTemplateID: sampleVisual.VisualTemplateID,
           TemplateID: sampleVisual.TemplateID,
@@ -777,7 +778,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const itemKey = `${this.categoryName}_${templateId}`;
 
         const item: VisualItem = {
-          id: visual ? (visual.VisualID || visual.PK_ID) : templateId,
+          id: visual ? (visual.HUDID || visual.VisualID || visual.PK_ID) : templateId,
           templateId: templateId,
           name: template.Name || '',
           text: visual?.VisualText || visual?.Text || template.Text || '',
@@ -802,7 +803,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         // Track visual record IDs and selection state for photo loading
         if (visual) {
-          const visualId = visual.VisualID || visual.PK_ID;
+          const visualId = visual.HUDID || visual.VisualID || visual.PK_ID;
           this.visualRecordIds[itemKey] = String(visualId);
           // WEBAPP: Populate selectedItems so isItemSelected() returns true
           this.selectedItems[itemKey] = true;
@@ -1886,7 +1887,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         
         const kind = visual.Kind?.toLowerCase() || '';
         const templateId = visual.HUDTemplateID || visual.VisualTemplateID || visual.TemplateID;
-        const visualId = String(visual.VisualID || visual.PK_ID);
+        const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID);
 
         // CRITICAL: Check if this visual is HIDDEN (deselected offline)
         // If so, we should NOT re-select it in the UI
@@ -2063,7 +2064,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       
       const kind = visual.Kind?.toLowerCase() || '';
       const templateId = visual.HUDTemplateID || visual.VisualTemplateID || visual.TemplateID;
-      const visualId = visual.VisualID || visual.PK_ID;
+      const visualId = visual.HUDID || visual.VisualID || visual.PK_ID;
 
       // Find the matching item to get the correct key
       let targetArray: VisualItem[] | null = null;
@@ -2680,7 +2681,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           const visualIds = this.bulkVisualsCache
             .filter((v: any) => v.Category === this.categoryName)
-            .map((v: any) => String(v.VisualID || v.PK_ID || v.id))
+            .map((v: any) => String(v.HUDID || v.VisualID || v.PK_ID || v.id))
             .filter((id: string) => id && !id.startsWith('temp_'));
 
           if (visualIds.length > 0) {
@@ -2764,16 +2765,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (visual.Category !== this.categoryName) continue;
       if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
       
-      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
       const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
         this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
         this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
         this.organizedData.deficiencies.find(i => i.id === `custom_${visualId}`);
-      
+
       if (!item) continue;
-      
+
       const key = `${visual.Category}_${item.id}`;
-      
+
       // Only load if there are photos (attachments, pending, or local)
       const attachments = this.bulkAttachmentsMap.get(visualId) || [];
       const pendingPhotos = this.bulkPendingPhotosMap.get(visualId) || [];
@@ -2820,7 +2821,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (visual.Category !== this.categoryName) continue;
       if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
 
-      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
       const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
         this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
         this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
@@ -3022,7 +3023,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const category = visual.Category;
       const name = visual.Name;
       const kind = visual.Kind;
-      const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+      const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
       const templateId = visual.HUDTemplateID || visual.VisualTemplateID || visual.TemplateID;
 
       // Only process visuals for current category
@@ -3172,7 +3173,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         if (visual.Category !== this.categoryName) continue;
         if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
 
-        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+        const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
         const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
           this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
           this.organizedData.limitations.find(i => i.id === `custom_${visualId}`) ||
@@ -3280,7 +3281,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const category = visual.Category;
         const name = visual.Name;
         const kind = visual.Kind;
-        const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+        const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
 
         // CRITICAL: Only process visuals that belong to the current category
         // This prevents custom visuals from appearing in other categories
@@ -3422,7 +3423,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           const category = visual.Category;
           const name = visual.Name;
           const kind = visual.Kind;
-          const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
+          const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
 
           if (category !== this.categoryName) {
             continue;
@@ -3793,7 +3794,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     const photoData = {
       AttachID: attach.AttachID,
       id: attach.AttachID,
-      VisualID: attach.VisualID || visualIdFromRecord || itemId,
+      HUDID: attach.HUDID || attach.VisualID || visualIdFromRecord || itemId,
+      VisualID: attach.HUDID || attach.VisualID || visualIdFromRecord || itemId,
       name: attach.Photo || 'photo.jpg',
       filePath: attach.Attachment || attach.Photo || '',
       Photo: attach.Attachment || attach.Photo || '',
@@ -4617,7 +4619,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         };
 
         const result = await this.hudData.createVisual(visualData);
-        const visualId = String(result.VisualID || result.PK_ID || result.id);
+        const visualId = String(result.HUDID || result.VisualID || result.PK_ID || result.id);
         this.visualRecordIds[key] = visualId;
         console.log('[ANSWER] Created visual:', visualId);
       } else if (!String(visualId).startsWith('temp_')) {
@@ -4721,7 +4723,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         };
 
         const result = await this.hudData.createVisual(visualData);
-        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
+        const newVisualId = String(result.HUDID || result.VisualID || result.PK_ID || result.id);
         this.visualRecordIds[key] = newVisualId;
 
         // DEXIE-FIRST: Store tempVisualId in Dexie for persistence
@@ -4811,7 +4813,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         };
 
         const result = await this.hudData.createVisual(visualData);
-        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
+        const newVisualId = String(result.HUDID || result.VisualID || result.PK_ID || result.id);
         this.visualRecordIds[key] = newVisualId;
 
         // DEXIE-FIRST: Store tempVisualId in Dexie
@@ -4936,7 +4938,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         };
 
         const result = await this.hudData.createVisual(visualData);
-        const newVisualId = String(result.VisualID || result.PK_ID || result.id);
+        const newVisualId = String(result.HUDID || result.VisualID || result.PK_ID || result.id);
         this.visualRecordIds[key] = newVisualId;
 
         await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
@@ -5095,7 +5097,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     }
     // Generate emergency stable ID from available data - never use index
     console.warn('[trackBy] Photo missing stable ID, generating emergency ID:', photo);
-    return `photo_${photo.VisualID || photo.PointID || 'unknown'}_${photo.fileName || photo.Photo || index}`;
+    return `photo_${photo.HUDID || photo.VisualID || photo.PointID || 'unknown'}_${photo.fileName || photo.Photo || index}`;
   }
 
   // NOTE: handleImageError and handleImageLoad are defined at the end of the file
@@ -6237,13 +6239,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const result = await this.hudData.createVisual(visualData);
 
       console.log('[SAVE VISUAL] Raw response from createVisual:', result);
+      console.log('[SAVE VISUAL] Response has HUDID?', !!result.HUDID);
       console.log('[SAVE VISUAL] Response has VisualID?', !!result.VisualID);
       console.log('[SAVE VISUAL] Response has PK_ID?', !!result.PK_ID);
       console.log('[SAVE VISUAL] Response has id?', !!result.id);
 
-      // Extract VisualID using the SAME logic as original (line 8518-8524)
+      // Extract VisualID using HUDID-first fallback pattern for HUD tables
       let visualId: string | null = null;
-      if (result.VisualID) {
+      if (result.HUDID) {
+        visualId = String(result.HUDID);
+        console.log('[SAVE VISUAL] Using HUDID field:', visualId);
+      } else if (result.VisualID) {
         visualId = String(result.VisualID);
         console.log('[SAVE VISUAL] Using VisualID field:', visualId);
       } else if (result.PK_ID) {
@@ -6255,9 +6261,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
 
       if (!visualId) {
-        console.error('[SAVE VISUAL] No VisualID in response:', result);
+        console.error('[SAVE VISUAL] No HUDID/VisualID in response:', result);
         console.error('[SAVE VISUAL] Full response structure:', JSON.stringify(result, null, 2));
-        throw new Error('VisualID not found in response');
+        throw new Error('HUDID/VisualID not found in response');
       }
 
       console.log('[SAVE VISUAL] ✓ Created visual with ID:', visualId);
@@ -6532,6 +6538,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         hasAnnotationsFlag: photo.hasAnnotations,
         rawDrawingsStringLength: photo.rawDrawingsString?.length || 0,
         drawingsLength: photo.Drawings?.length || 0,
+        HUDID: photo.HUDID,
         VisualID: photo.VisualID,
         caption: photo.caption || photo.Annotation
       });
@@ -6963,19 +6970,19 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const photo = (photos as any[]).find(p => String(p.AttachID) === String(attachId));
       if (photo) {
         foundKey = key;
-        // CRITICAL: Use VisualID from photo, or visualRecordIds, or extract from key
+        // CRITICAL: Use HUDID/VisualID from photo, or visualRecordIds, or extract from key
         const recordId = this.visualRecordIds[key];
-        const photoVisualId = photo.VisualID;
+        const photoVisualId = photo.HUDID || photo.VisualID;
         visualIdForCache = photoVisualId || recordId || null;
-        
+
         // Ensure it's a valid string, not "undefined"
         if (visualIdForCache && String(visualIdForCache) !== 'undefined') {
           visualIdForCache = String(visualIdForCache);
         } else {
           visualIdForCache = null;
         }
-        
-        console.log('[SAVE CACHE] Found photo for AttachID:', attachId, 'Key:', key, 'photo.VisualID:', photoVisualId, 'visualRecordIds[key]:', recordId, 'Final visualIdForCache:', visualIdForCache);
+
+        console.log('[SAVE CACHE] Found photo for AttachID:', attachId, 'Key:', key, 'photo.HUDID:', photo.HUDID, 'photo.VisualID:', photo.VisualID, 'visualRecordIds[key]:', recordId, 'Final visualIdForCache:', visualIdForCache);
         break;
       }
     }
@@ -7238,7 +7245,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
               // Save to database using unified caption queue (ALWAYS queues, never direct API)
               // This ensures captions are never lost during sync operations
-              const visualId = photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);
+              const visualId = photo.HUDID || photo.VisualID || this.visualRecordIds[`${category}_${itemId}`] || String(itemId);
               
               photo._localUpdate = true; // Mark as local update to prevent server overwriting
               
@@ -7456,23 +7463,23 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // Create the visual record
       const response = await this.hudData.createVisual(visualData);
 
-      // Extract VisualID
+      // Extract HUDID/VisualID using HUDID-first fallback pattern for HUD tables
       let visualId: string | null = null;
 
       if (Array.isArray(response) && response.length > 0) {
-        visualId = String(response[0].VisualID || response[0].PK_ID || response[0].id || '');
+        visualId = String(response[0].HUDID || response[0].VisualID || response[0].PK_ID || response[0].id || '');
       } else if (response && typeof response === 'object') {
         if (response.Result && Array.isArray(response.Result) && response.Result.length > 0) {
-          visualId = String(response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
+          visualId = String(response.Result[0].HUDID || response.Result[0].VisualID || response.Result[0].PK_ID || response.Result[0].id || '');
         } else {
-          visualId = String(response.VisualID || response.PK_ID || response.id || '');
+          visualId = String(response.HUDID || response.VisualID || response.PK_ID || response.id || '');
         }
       } else if (response) {
         visualId = String(response);
       }
 
       if (!visualId || visualId === 'undefined' || visualId === 'null' || visualId === '') {
-        throw new Error('No VisualID returned from server');
+        throw new Error('No HUDID/VisualID returned from server');
       }
 
       console.log('[CREATE CUSTOM] Created visual with ID:', visualId);
