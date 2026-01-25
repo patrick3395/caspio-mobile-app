@@ -606,14 +606,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     );
 
     // DEXIE-FIRST: Load cached dropdown options (for Walls, Crawlspace, etc.)
-    const cachedDropdownData = await this.indexedDb.getCachedTemplates('visual_dropdown') || [];
-    console.log(`[CategoryDetail] Loaded ${cachedDropdownData.length} cached dropdown options`);
+    const cachedDropdownData = await this.indexedDb.getCachedTemplates('hud_dropdown') || [];
+    console.log(`[CategoryDetail] Loaded ${cachedDropdownData.length} cached HUD dropdown options`);
 
     if (!hasFields) {
       console.log('[CategoryDetail] No fields found, seeding from templates...');
 
-      // Get templates from cache
-      const templates = await this.indexedDb.getCachedTemplates('visual') || [];
+      // Get HUD templates from cache
+      const templates = await this.indexedDb.getCachedTemplates('hud') || [];
 
       if (templates.length === 0) {
         console.warn('[CategoryDetail] No templates in cache, showing loading...');
