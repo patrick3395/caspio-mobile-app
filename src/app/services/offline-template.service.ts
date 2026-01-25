@@ -1476,6 +1476,84 @@ export class OfflineTemplateService {
   }
 
   /**
+   * Get HUD records for a service - CACHE-FIRST for instant loading
+   * Returns cached data immediately, refreshes in background when online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
+   */
+  async getHudByService(serviceId: string): Promise<any[]> {
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching HUD records directly from API for ${serviceId}`);
+      try {
+        const freshHud = await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshHud?.length || 0} HUD records from server`);
+        return freshHud || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for HUD records:`, error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
+    // 1. Read from cache IMMEDIATELY
+    const cached = await this.indexedDb.getCachedServiceData(serviceId, 'hud') || [];
+
+    // 2. Merge with pending offline HUD records (if any in queue)
+    const pending = await this.getPendingHudRecords(serviceId);
+    const merged = [...cached, ...pending];
+
+    // 3. Return immediately if we have data
+    if (merged.length > 0) {
+      console.log(`[OfflineTemplate] HUD: ${cached.length} cached + ${pending.length} pending (instant)`);
+
+      // 4. Background refresh (non-blocking) when online
+      if (this.offlineService.isOnline()) {
+        this.refreshHudInBackground(serviceId);
+      }
+      return merged;
+    }
+
+    // 5. Cache empty - fetch from API if online (blocking only when no cache)
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log(`[OfflineTemplate] No cached HUD records, fetching from API...`);
+        const freshHud = await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId));
+        await this.indexedDb.cacheServiceData(serviceId, 'hud', freshHud);
+        return [...freshHud, ...pending];
+      } catch (error) {
+        console.error(`[OfflineTemplate] HUD API fetch failed:`, error);
+      }
+    }
+
+    // 6. Offline with no cache - return pending only
+    console.log(`[OfflineTemplate] Offline with no HUD cache, returning ${pending.length} pending`);
+    return pending;
+  }
+
+  /**
+   * Get pending HUD records from operations queue for a service
+   */
+  private async getPendingHudRecords(serviceId: string): Promise<any[]> {
+    // Similar to getPendingVisuals but for HUD entity type
+    // For now, return empty array - HUD queue integration can be added later
+    return [];
+  }
+
+  /**
+   * Background refresh HUD records (non-blocking)
+   */
+  private async refreshHudInBackground(serviceId: string): Promise<void> {
+    try {
+      const freshHud = await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId));
+      await this.indexedDb.cacheServiceData(serviceId, 'hud', freshHud);
+      console.log(`[OfflineTemplate] Background HUD refresh complete: ${freshHud?.length || 0} records`);
+    } catch (error) {
+      console.warn(`[OfflineTemplate] Background HUD refresh failed (non-blocking):`, error);
+    }
+  }
+
+  /**
    * Get visual attachments - CACHE-FIRST for instant loading
    * Returns cached data immediately, refreshes in background when online
    * CRITICAL: Preserves local updates (annotations) when merging with server data
