@@ -52,7 +52,7 @@ export interface CachedTemplate {
 
 // HUD uses dynamic attachment keys like 'hud_attach_123'
 export type HudAttachmentKey = `hud_attach_${string}`;
-export type CacheDataType = 'visuals' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments' | 'lbw_dropdown' | 'hud_records' | HudAttachmentKey;
+export type CacheDataType = 'visuals' | 'hud' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments' | 'lbw_dropdown' | 'hud_records' | HudAttachmentKey;
 
 export interface CachedServiceData {
   cacheKey: string;
