@@ -59,7 +59,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   showDebugPopup: boolean = false;
   
   projectId: string = '';
-  serviceId: string = '';
+  serviceId: string = '';  // Route param (PK_ID from Services table)
+  actualServiceId: string = '';  // Actual ServiceID field from Services record (used for Visuals FK)
   categoryName: string = '';
 
   loading: boolean = true;
@@ -306,6 +307,22 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
     if (this.projectId && this.serviceId && this.categoryName) {
       console.log('[CategoryDetail] All params present, initializing reactive data...');
+
+      // Load actual ServiceID from service record (serviceId route param is PK_ID)
+      try {
+        const serviceRecord = await this.hudData.getService(this.serviceId);
+        if (serviceRecord) {
+          // Use ServiceID field from record, fallback to route param if not available
+          this.actualServiceId = String(serviceRecord.ServiceID || this.serviceId);
+          console.log('[CategoryDetail] Loaded actualServiceId:', this.actualServiceId, '(route PK_ID:', this.serviceId, ')');
+        } else {
+          this.actualServiceId = this.serviceId;
+          console.warn('[CategoryDetail] Could not load service record, using route serviceId as actualServiceId');
+        }
+      } catch (err) {
+        console.error('[CategoryDetail] Error loading service record:', err);
+        this.actualServiceId = this.serviceId;
+      }
 
       // ===== DEXIE-FIRST: Seed templates and subscribe to reactive updates =====
       await this.initializeVisualFields();
@@ -4656,11 +4673,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       if (!visualId) {
         // Create new visual
-        const serviceIdNum = parseInt(this.serviceId, 10);
+        const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
-          HUDTemplateID: item.templateId,  // ADD: For better matching
+          HUDTemplateID: item.templateId,  // For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -4761,11 +4778,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       if (!visualId) {
         // Create new visual
-        const serviceIdNum = parseInt(this.serviceId, 10);
+        const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
-          HUDTemplateID: item.templateId,  // ADD: For better matching
+          HUDTemplateID: item.templateId,  // For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -4852,11 +4869,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       if (!visualId) {
         // Create new visual
-        const serviceIdNum = parseInt(this.serviceId, 10);
+        const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
-          HUDTemplateID: item.templateId,  // ADD: For better matching
+          HUDTemplateID: item.templateId,  // For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -4978,11 +4995,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       if (!visualId) {
         // Create new visual
-        const serviceIdNum = parseInt(this.serviceId, 10);
+        const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
-          HUDTemplateID: item.templateId,  // ADD: For better matching
+          HUDTemplateID: item.templateId,  // For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -6266,7 +6283,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         category: category
       });
 
-      const serviceIdNum = parseInt(this.serviceId, 10);
+      const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
       if (isNaN(serviceIdNum)) {
         console.error('[SAVE VISUAL] Invalid ServiceID:', this.serviceId);
         return;
@@ -6276,7 +6293,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const visualData: any = {
         ServiceID: serviceIdNum,
         Category: item.category,  // FIX: Use template's actual category, not route param
-        HUDTemplateID: item.templateId,  // ADD: For better matching
+        HUDTemplateID: item.templateId,  // For better matching
         Kind: item.type,      // CRITICAL: Use item.type which is now set from template.Kind
         Name: item.name,
         Text: item.text || item.originalText || '',
@@ -7496,7 +7513,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   // Create custom visual with photos
   async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null, processedPhotos: any[] = []) {
     try {
-      const serviceIdNum = parseInt(this.serviceId, 10);
+      const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
       if (isNaN(serviceIdNum)) {
         // Toast removed per user request
         // await this.showToast('Invalid Service ID', 'danger');
