@@ -4677,7 +4677,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
-          HUDTemplateID: item.templateId,  // For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -4782,7 +4781,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
-          HUDTemplateID: item.templateId,  // For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -4873,7 +4871,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
-          HUDTemplateID: item.templateId,  // For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -4999,7 +4996,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
-          HUDTemplateID: item.templateId,  // For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -6293,7 +6289,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const visualData: any = {
         ServiceID: serviceIdNum,
         Category: item.category,  // FIX: Use template's actual category, not route param
-        HUDTemplateID: item.templateId,  // For better matching
         Kind: item.type,      // CRITICAL: Use item.type which is now set from template.Kind
         Name: item.name,
         Text: item.text || item.originalText || '',
