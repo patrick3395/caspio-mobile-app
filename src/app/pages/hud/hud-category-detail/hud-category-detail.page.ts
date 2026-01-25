@@ -4526,8 +4526,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       return true;
     }
 
-    // For answerType 1 (Yes/No) and answerType 2 (multi-select), check if item has an answer
+    // HUD FIX: Also check using the item's actual category (template category)
+    // because selectedItems may be stored with actual category (e.g., "Mobile/Manufactured Homes")
+    // but template passes route category (e.g., "hud")
     const item = this.findItemById(itemId);
+    if (item && item.category && item.category !== category) {
+      const itemCategoryKey = `${item.category}_${itemId}`;
+      if (this.selectedItems[itemCategoryKey]) {
+        return true;
+      }
+    }
+
     if (!item) {
       return false;
     }
@@ -4553,7 +4562,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       ...this.organizedData.deficiencies
     ];
 
-    return allItems.find(item => item.id === itemId);
+    // Search by templateId first (what the template passes), then by id
+    return allItems.find(item => item.templateId === itemId || item.id === itemId);
   }
 
   async toggleItemSelection(category: string, itemId: string | number) {
@@ -5046,7 +5056,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   getPhotosForVisual(category: string, itemId: string | number): any[] {
     const key = `${category}_${itemId}`;
-    const photos = this.visualPhotos[key] || [];
+    let photos = this.visualPhotos[key] || [];
+
+    // HUD FIX: Also check using the item's actual category if no photos found with route category
+    if (photos.length === 0) {
+      const item = this.findItemById(itemId);
+      if (item && item.category && item.category !== category) {
+        const itemCategoryKey = `${item.category}_${itemId}`;
+        photos = this.visualPhotos[itemCategoryKey] || [];
+      }
+    }
 
     if (photos.length > 0) {
       if (!this._loggedPhotoKeys) this._loggedPhotoKeys = new Set();
@@ -5061,12 +5080,30 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   isLoadingPhotosForVisual(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
-    return this.loadingPhotosByKey[key] === true;
+    if (this.loadingPhotosByKey[key] === true) return true;
+
+    // HUD FIX: Also check using item's actual category
+    const item = this.findItemById(itemId);
+    if (item && item.category && item.category !== category) {
+      const itemCategoryKey = `${item.category}_${itemId}`;
+      if (this.loadingPhotosByKey[itemCategoryKey] === true) return true;
+    }
+    return false;
   }
 
   getExpectedPhotoCount(category: string, itemId: string | number): number {
     const key = `${category}_${itemId}`;
-    return this.photoCountsByKey[key] || 0;
+    let count = this.photoCountsByKey[key] || 0;
+
+    // HUD FIX: Also check using item's actual category
+    if (count === 0) {
+      const item = this.findItemById(itemId);
+      if (item && item.category && item.category !== category) {
+        const itemCategoryKey = `${item.category}_${itemId}`;
+        count = this.photoCountsByKey[itemCategoryKey] || 0;
+      }
+    }
+    return count;
   }
 
   // Get total photo count to display (shows expected count immediately, updates if more photos added)
@@ -5085,7 +5122,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    */
   isPhotosExpanded(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
-    return this.expandedPhotos[key] === true;
+    if (this.expandedPhotos[key] === true) return true;
+
+    // HUD FIX: Also check using item's actual category
+    const item = this.findItemById(itemId);
+    if (item && item.category && item.category !== category) {
+      const itemCategoryKey = `${item.category}_${itemId}`;
+      if (this.expandedPhotos[itemCategoryKey] === true) return true;
+    }
+    return false;
   }
 
   /**
