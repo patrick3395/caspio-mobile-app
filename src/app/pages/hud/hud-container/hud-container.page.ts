@@ -701,9 +701,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     // Debug logging removed - v1.4.316
 
     // Load all data in parallel for faster initialization
-    console.log('[ngOnInit] About to call presentTemplateLoader()');
-    await this.presentTemplateLoader();
-    console.log('[ngOnInit] presentTemplateLoader() completed');
+    // Note: Removed presentTemplateLoader() popup - child pages handle their own loading state
 
     try {
       console.log('[ngOnInit] Starting Promise.all data loading...');
@@ -734,8 +732,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     } catch (error) {
       console.error('Error loading template data:', error);
     } finally {
-      console.log('[ngOnInit] About to dismiss loader and set isFirstLoad = false');
-      await this.dismissTemplateLoader();
+      // Note: Removed dismissTemplateLoader() - no longer showing loading popup
       this.isFirstLoad = false; // Mark first load as complete
 
       // Set templateReady = true after data loading completes
