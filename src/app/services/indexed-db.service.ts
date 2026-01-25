@@ -1491,7 +1491,7 @@ export class IndexedDbService {
   /**
    * Get ALL cached service data entries of a specific type
    */
-  async getAllCachedServiceData(dataType: 'visuals' | 'visual_attachments' | 'efe_point_attachments' | 'efe_rooms' | 'efe_points'): Promise<{ serviceId: string; data: any[] }[]> {
+  async getAllCachedServiceData(dataType: 'visuals' | 'hud' | 'visual_attachments' | 'efe_point_attachments' | 'efe_rooms' | 'efe_points'): Promise<{ serviceId: string; data: any[] }[]> {
     const allCached = await db.cachedServiceData.toArray();
     const results: { serviceId: string; data: any[] }[] = [];
 

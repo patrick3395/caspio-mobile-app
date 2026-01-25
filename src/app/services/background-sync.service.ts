@@ -1035,6 +1035,68 @@ export class BackgroundSyncService {
             // Remove from pendingEFEData
             await this.indexedDb.removePendingEFE(request.tempId);
           }
+        } else if (request.endpoint.includes('Services_HUD') && !request.endpoint.includes('Attach')) {
+          // For HUD records, use HUDID (or VisualID/PK_ID as fallback)
+          if (result && result.HUDID) {
+            realId = result.HUDID;
+          } else if (result && result.VisualID) {
+            realId = result.VisualID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].HUDID || result.Result[0].VisualID || result.Result[0].PK_ID;
+          }
+
+          // Update IndexedDB 'hud' cache and emit sync complete event
+          if (realId) {
+            const serviceId = String(request.data?.ServiceID || '');
+
+            // Update the IndexedDB cache to replace temp ID with real HUD data
+            if (serviceId) {
+              const existingHud = await this.indexedDb.getCachedServiceData(serviceId, 'hud') || [];
+              const hudData = result.Result?.[0] || result;
+
+              // Find and update the HUD record with temp ID, or add new if not found
+              let hudUpdated = false;
+              const updatedHud = existingHud.map((h: any) => {
+                if (h._tempId === request.tempId || h.HUDID === request.tempId || h.VisualID === request.tempId || h.PK_ID === request.tempId) {
+                  hudUpdated = true;
+                  return {
+                    ...h,
+                    ...hudData,
+                    HUDID: realId,
+                    VisualID: realId,
+                    PK_ID: realId,
+                    _tempId: undefined,
+                    _localOnly: undefined,
+                    _syncing: undefined
+                  };
+                }
+                return h;
+              });
+
+              // If HUD record wasn't in cache (shouldn't happen but just in case), add it
+              if (!hudUpdated && hudData) {
+                updatedHud.push({
+                  ...hudData,
+                  HUDID: realId,
+                  VisualID: realId,
+                  PK_ID: realId
+                });
+              }
+
+              await this.indexedDb.cacheServiceData(serviceId, 'hud', updatedHud);
+              console.log(`[BackgroundSync] ✅ Updated HUD cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
+            }
+
+            // Emit sync complete event for HUD
+            this.ngZone.run(() => {
+              this.hudSyncComplete$.next({
+                serviceId: String(request.data?.ServiceID || ''),
+                fieldKey: '',
+                hudId: String(realId),
+                operation: 'create'
+              });
+            });
+          }
         } else {
           // For other tables, use PK_ID
           if (result && result.PK_ID) {
@@ -1107,6 +1169,15 @@ export class BackgroundSyncService {
               const serviceId = request.data?.ServiceID;
               console.log(`[BackgroundSync] EFE Room UPDATE synced for EFEID ${efeId}, clearing _localUpdate flag`);
               await this.clearEFERoomLocalUpdateFlag(efeId, serviceId);
+            }
+          } else if (request.endpoint.includes('LPS_Services_HUD/records') && !request.endpoint.includes('Attach')) {
+            // Clear _localUpdate flag from HUD cache after successful update (Notes: 'HIDDEN', etc.)
+            const hudMatch = request.endpoint.match(/VisualID=(\d+)/);
+            if (hudMatch) {
+              const hudId = hudMatch[1];
+              const serviceId = request.data?.ServiceID;
+              console.log(`[BackgroundSync] HUD UPDATE synced for VisualID ${hudId}, clearing _localUpdate flag`);
+              await this.clearHudLocalUpdateFlag(hudId, serviceId);
             }
           }
         }
@@ -2584,7 +2655,65 @@ export class BackgroundSyncService {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for EFEID ${efeId}:`, error);
     }
   }
-  
+
+  private async clearHudLocalUpdateFlag(hudId: string, serviceId?: string): Promise<void> {
+    try {
+      // Helper to check if HUD record matches by HUDID, VisualID, or PK_ID
+      const matchesHud = (h: any) => {
+        return (String(h.HUDID) === String(hudId) || String(h.VisualID) === String(hudId) || String(h.PK_ID) === String(hudId)) && h._localUpdate;
+      };
+
+      // If we have the serviceId, update directly
+      if (serviceId) {
+        const hudRecords = await this.indexedDb.getCachedServiceData(String(serviceId), 'hud') || [];
+        let found = false;
+
+        const updatedHud = hudRecords.map((h: any) => {
+          if (matchesHud(h)) {
+            found = true;
+            // Remove the _localUpdate flag - the data is now synced
+            const { _localUpdate, ...rest } = h;
+            return rest;
+          }
+          return h;
+        });
+
+        if (found) {
+          await this.indexedDb.cacheServiceData(String(serviceId), 'hud', updatedHud);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for HUD ${hudId} in service ${serviceId}`);
+          return;
+        }
+      }
+
+      // Otherwise search all services for this HUD record
+      const allCaches = await this.indexedDb.getAllCachedServiceData('hud');
+
+      for (const cache of allCaches) {
+        const hudRecords = cache.data || [];
+        let found = false;
+
+        const updatedHud = hudRecords.map((h: any) => {
+          if (matchesHud(h)) {
+            found = true;
+            const { _localUpdate, ...rest } = h;
+            return rest;
+          }
+          return h;
+        });
+
+        if (found) {
+          await this.indexedDb.cacheServiceData(cache.serviceId, 'hud', updatedHud);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for HUD ${hudId} in ${cache.serviceId}`);
+          return;
+        }
+      }
+
+      console.log(`[BackgroundSync] HUD ${hudId} not found in any cache (may already be cleared)`);
+    } catch (error) {
+      console.warn(`[BackgroundSync] Error clearing _localUpdate flag for HUD ${hudId}:`, error);
+    }
+  }
+
   private async refreshVisualsCache(serviceId: string): Promise<void> {
     try {
       console.log(`[BackgroundSync] Refreshing visuals cache for service ${serviceId}...`);

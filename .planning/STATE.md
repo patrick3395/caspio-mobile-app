@@ -73,6 +73,9 @@ New in v1.1:
 - [07-07]: refreshHudInBackground must preserve local changes (_localUpdate flag and temp IDs) like refreshVisualsInBackground
 - [07-07]: getPendingHudRecords() must return pending CREATE requests from queue (mirrors getPendingVisuals pattern)
 - [07-07]: HUD loadDataFromCache() must use hudData.getHudByService() to merge cached+pending (not direct indexedDb access)
+- [07-07]: background-sync.service.ts must update 'hud' cache after sync (replace temp ID with real HUDID)
+- [07-07]: background-sync.service.ts must clear _localUpdate flag for HUD after UPDATE sync
+- [07-07]: indexed-db.service.ts getAllCachedServiceData() must accept 'hud' dataType
 
 ### Pending Todos
 

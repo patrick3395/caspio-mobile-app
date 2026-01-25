@@ -1944,11 +1944,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       let anyVisualChanges = false;
       
       for (const visual of visuals) {
-        // Skip if not for current category
-        if (visual.Category !== this.categoryName) {
-          continue;
-        }
-        
+        // HUD: Process ALL visuals - HUD doesn't filter by category
         const kind = visual.Kind?.toLowerCase() || '';
         const templateId = visual.HUDTemplateID || visual.VisualTemplateID || visual.TemplateID;
         const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID);
@@ -2121,11 +2117,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     let anyChanges = false;
     
     for (const visual of visuals) {
-      // Skip if not for current category
-      if (visual.Category !== this.categoryName) {
-        continue;
-      }
-      
+      // HUD: Process ALL visuals - HUD doesn't filter by category
       const kind = visual.Kind?.toLowerCase() || '';
       const templateId = visual.HUDTemplateID || visual.VisualTemplateID || visual.TemplateID;
       const visualId = visual.HUDID || visual.VisualID || visual.PK_ID;
@@ -2744,8 +2736,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         try {
           this.isLoadingPhotosInBackground = true;
 
+          // HUD: Process ALL visuals - HUD doesn't filter by category
           const visualIds = this.bulkVisualsCache
-            .filter((v: any) => v.Category === this.categoryName)
             .map((v: any) => String(v.HUDID || v.VisualID || v.PK_ID || v.id))
             .filter((id: string) => id && !id.startsWith('temp_'));
 
@@ -2825,11 +2817,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    */
   private async preloadAllPhotoUrls(): Promise<void> {
     const loadPromises: Promise<void>[] = [];
-    
+
     for (const visual of this.bulkVisualsCache) {
-      if (visual.Category !== this.categoryName) continue;
+      // HUD: Process ALL visuals - visual.Category is template category (e.g., "Foundation"), not route category
       if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
-      
+
       const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
       const item = this.findItemByNameAndCategory(visual.Name, visual.Category, visual.Kind) ||
         this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
@@ -2881,9 +2873,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    * This provides immediate feedback to users while server data loads in background
    */
   private showInitialPhotoCountsFromLocalImages(): void {
-    // Iterate through all visuals in this category and set initial photo counts from LocalImages
+    // Iterate through all visuals and set initial photo counts from LocalImages
+    // HUD: Process ALL visuals - visual.Category is template category (e.g., "Foundation"), not route category
     for (const visual of this.bulkVisualsCache) {
-      if (visual.Category !== this.categoryName) continue;
       if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
 
       const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
@@ -2998,13 +2990,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       console.warn('[CategoryDetail] No templates in cache');
       return;
     }
-    
-    // Filter for this category - pure CPU operation
-    const visualTemplates = allTemplates.filter((template: any) =>
-      template.TypeID === 1 && template.Category === this.categoryName
-    );
-    
-    console.log('[CategoryDetail] Templates for', this.categoryName + ':', visualTemplates.length);
+
+    // HUD: Use ALL templates - HUD templates table already filtered by TypeID=2
+    // Unlike EFE which filters by Category, HUD shows all templates regardless of category
+    const visualTemplates = allTemplates;
+
+    console.log('[CategoryDetail] HUD templates loaded:', visualTemplates.length);
 
     // Organize into UI structure - pure CPU
     this.organizeTemplatesIntoData(visualTemplates);
@@ -3079,20 +3070,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     // USE PRE-LOADED BULK DATA - NO IndexedDB read here
     const visuals = this.bulkVisualsCache;
     console.log('[LOAD VISUALS FAST] Using pre-loaded visuals:', visuals.length);
-    
+
     // Track which keys have already been assigned to prevent collisions
     const assignedKeys = new Set<string>();
-    
-    // Process each visual for this category - sync operation, fast
+
+    // HUD: Process ALL visuals - HUD doesn't filter by category like EFE
+    // The route uses 'category/hud' but visuals have actual categories (Foundation, Roof, etc.)
     for (const visual of visuals) {
       const category = visual.Category;
       const name = visual.Name;
       const kind = visual.Kind;
       const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
       const templateId = visual.HUDTemplateID || visual.VisualTemplateID || visual.TemplateID;
-
-      // Only process visuals for current category
-      if (category !== this.categoryName) continue;
 
       // CRITICAL: Match by HUDTemplateID first (most reliable), then fall back to name
       let item: VisualItem | undefined;
@@ -3234,8 +3223,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
     setTimeout(async () => {
       // Process synced visuals from cache
+      // HUD: Process ALL visuals - visual.Category is template category (e.g., "Foundation"), not route category
       for (const visual of visuals) {
-        if (visual.Category !== this.categoryName) continue;
         if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
 
         const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
@@ -3348,12 +3337,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const kind = visual.Kind;
         const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
 
-        // CRITICAL: Only process visuals that belong to the current category
-        // This prevents custom visuals from appearing in other categories
-        if (category !== this.categoryName) {
-          console.log('[LOAD VISUALS] Skipping visual from different category:', category, '(current:', this.categoryName + ')');
-          continue;
-        }
+        // HUD: Process ALL visuals - visual.Category is template category (e.g., "Foundation"),
+        // not route category ("hud"). The route param is just for page routing, not data filtering.
 
         // CRITICAL: Skip hidden visuals (soft delete - keeps photos but doesn't show in UI)
         // Check for HIDDEN marker (can be "HIDDEN" or "HIDDEN|{otherValue}" for multi-select)
@@ -3490,9 +3475,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           const kind = visual.Kind;
           const visualId = String(visual.HUDID || visual.VisualID || visual.PK_ID || visual.id);
 
-          if (category !== this.categoryName) {
-            continue;
-          }
+          // HUD: Process ALL visuals - visual.Category is template category, not route category
 
           const item = this.findItemByNameAndCategory(name, category, kind) ||
                        this.organizedData.comments.find(i => i.id === `custom_${visualId}`) ||
@@ -3529,7 +3512,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
     return allItems.find(item => {
       const nameMatch = item.name === name;
-      const categoryMatch = item.category === category || category === this.categoryName;
+      // HUD: Match on actual template category, not route category
+      const categoryMatch = item.category === category;
       const kindMatch = item.type?.toLowerCase() === kind?.toLowerCase();
       return nameMatch && categoryMatch && kindMatch;
     });
@@ -4381,12 +4365,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       console.log('[RESTORE PENDING] Using pre-loaded pending data...');
 
       // STEP 1: Restore pending VISUAL records first - USE PRE-LOADED DATA
+      // HUD: Match on ServiceID only - Category is template category (e.g., "Foundation"), not route category ("hud")
       const pendingVisuals = this.bulkPendingRequestsCache.filter(r =>
         r.type === 'CREATE' &&
         r.endpoint?.includes('LPS_Services_HUD') &&
         r.status !== 'synced' &&
-        r.data?.ServiceID === parseInt(this.serviceId, 10) &&
-        r.data?.Category === this.categoryName
+        r.data?.ServiceID === parseInt(this.serviceId, 10)
       );
 
       console.log('[RESTORE PENDING] Found', pendingVisuals.length, 'pending visual records');

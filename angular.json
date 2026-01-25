@@ -87,7 +87,10 @@
                 "dompurify",
                 "html2canvas",
                 "raf",
-                "rgbcolor"
+                "rgbcolor",
+                "react",
+                "react-dom",
+                "agentation"
               ],
               "commonChunk": true
             },
@@ -113,7 +116,21 @@
               "outputHashing": "all",
               "outputPath": "dist/web",
               "baseHref": "/",
-              "deployUrl": "/"
+              "deployUrl": "/",
+              "allowedCommonJsDependencies": [
+                "browser-image-compression",
+                "fabric",
+                "jspdf",
+                "jspdf-autotable",
+                "canvg",
+                "dompurify",
+                "html2canvas",
+                "raf",
+                "rgbcolor",
+                "react",
+                "react-dom",
+                "agentation"
+              ]
             },
             "development": {
               "buildOptimizer": false,

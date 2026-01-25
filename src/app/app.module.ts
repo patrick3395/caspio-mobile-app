@@ -16,10 +16,11 @@ import { ErrorBoundaryComponent } from './components/error-boundary/error-bounda
 import { OfflineIndicatorComponent } from './components/offline-indicator/offline-indicator.component';
 import { SkipLinkComponent } from './components/skip-link/skip-link.component';
 import { GlobalErrorHandlerService } from './services/global-error-handler.service';
+import { AgentationComponent } from './components/agentation/agentation.component';
 
 @NgModule({
   declarations: [AppComponent],
-  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent, UploadProgressComponent, ErrorBoundaryComponent, OfflineIndicatorComponent, SkipLinkComponent],
+  imports: [BrowserModule, HttpClientModule, IonicModule.forRoot(), AppRoutingModule, ThemeToggleComponent, SyncToggleComponent, UploadProgressComponent, ErrorBoundaryComponent, OfflineIndicatorComponent, SkipLinkComponent, AgentationComponent],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: HTTP_INTERCEPTORS, useClass: CaspioInterceptor, multi: true },
