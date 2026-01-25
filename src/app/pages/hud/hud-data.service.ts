@@ -498,7 +498,7 @@ export class HudDataService {
 
         // Status flags
         status: img.status,
-        isPending: img.status === 'pending' || img.status === 'uploading',
+        isPending: img.status === 'queued' || img.status === 'uploading' || img.status === 'local_only',
         isLocal: true
       };
     }));
