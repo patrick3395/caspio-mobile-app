@@ -417,6 +417,27 @@ export class HudDataService {
     return visuals;
   }
 
+  /**
+   * Get HUD records for a service - delegates to OfflineTemplateService
+   * Queries LPS_Services_HUD table (not LPS_Services_Visuals)
+   */
+  async getHudByService(serviceId: string): Promise<any[]> {
+    if (!serviceId) {
+      console.warn('[HUD Data] getHudByService called with empty serviceId');
+      return [];
+    }
+    console.log('[HUD Data] Loading HUD records for ServiceID:', serviceId);
+
+    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+    const hudRecords = await this.offlineTemplate.getHudByService(serviceId);
+    console.log('[HUD Data] Loaded HUD records:', hudRecords.length, '(from IndexedDB + pending)');
+
+    if (hudRecords.length > 0) {
+      console.log('[HUD Data] Sample HUD record:', hudRecords[0]);
+    }
+    return hudRecords;
+  }
+
   async getVisualAttachments(visualId: string | number): Promise<any[]> {
     if (!visualId) {
       return [];
@@ -873,7 +894,7 @@ export class HudDataService {
     // This stores blob + metadata + outbox item in a single atomic transaction
     const localImage = await this.localImageService.captureImage(
       file,
-      'visual',
+      'hud',
       visualIdStr,
       effectiveServiceId,
       caption || '',
@@ -897,8 +918,9 @@ export class HudDataService {
       
       // Entity references
       VisualID: visualIdStr,
+      HUDID: visualIdStr,
       entityId: visualIdStr,
-      entityType: 'visual',
+      entityType: 'hud',
       serviceId: effectiveServiceId,
       
       // Content
