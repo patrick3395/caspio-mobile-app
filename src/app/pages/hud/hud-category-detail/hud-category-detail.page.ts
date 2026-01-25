@@ -281,24 +281,24 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     console.log('[CategoryDetail] Category from route:', this.categoryName);
 
     // Get IDs from container route using snapshot (for offline reliability)
-    // Route structure: '' (Container) -> 'structural' (anonymous) -> 'category/:category' (we are here)
-    // So parent?.parent gets us to the Container which has :projectId/:serviceId
-    const containerParams = this.route.parent?.parent?.snapshot?.params;
-    console.log('[CategoryDetail] Container params:', containerParams);
+    // HUD route structure: 'hud/:projectId/:serviceId' (Container) -> 'category/:category' (we are here)
+    // So parent has :projectId/:serviceId directly (unlike EFE which has intermediate 'structural' route)
+    let containerParams = this.route.parent?.snapshot?.params;
+    console.log('[CategoryDetail] Container params (parent):', containerParams);
 
     if (containerParams) {
       this.projectId = containerParams['projectId'];
       this.serviceId = containerParams['serviceId'];
     }
 
-    // Fallback: Try parent?.parent?.parent for different route structures
+    // Fallback: Try parent?.parent for alternate route structures
     if (!this.projectId || !this.serviceId) {
-      console.log('[CategoryDetail] Trying alternate route structure...');
-      const altParams = this.route.parent?.parent?.parent?.snapshot?.params;
-      console.log('[CategoryDetail] Alt params:', altParams);
-      if (altParams) {
-        this.projectId = this.projectId || altParams['projectId'];
-        this.serviceId = this.serviceId || altParams['serviceId'];
+      console.log('[CategoryDetail] Trying alternate route structure (parent.parent)...');
+      containerParams = this.route.parent?.parent?.snapshot?.params;
+      console.log('[CategoryDetail] Container params (parent.parent):', containerParams);
+      if (containerParams) {
+        this.projectId = this.projectId || containerParams['projectId'];
+        this.serviceId = this.serviceId || containerParams['serviceId'];
       }
     }
 
