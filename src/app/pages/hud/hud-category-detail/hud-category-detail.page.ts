@@ -598,116 +598,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     console.log('[CategoryDetail] MOBILE MODE: Loading HUD data from cache');
     await this.loadDataFromCache();
     console.timeEnd('[CategoryDetail] initializeVisualFields');
-    return;
-
-    // LEGACY CODE BELOW - kept for reference but unreachable for HUD
-    // The visualFieldRepo pattern only works for EFE (TypeID=1) templates
-
-    // MOBILE MODE: Use Dexie-first pattern
-    // Unsubscribe from previous subscription if category changed
-    if (this.visualFieldsSubscription) {
-      this.visualFieldsSubscription.unsubscribe();
-      this.visualFieldsSubscription = undefined;
-    }
-
-    // Check if fields exist for this category
-    const hasFields = await this.visualFieldRepo.hasFieldsForCategory(
-      this.serviceId,
-      this.categoryName
-    );
-
-    // DEXIE-FIRST: Load cached dropdown options (for Walls, Crawlspace, etc.)
-    const cachedDropdownData = await this.indexedDb.getCachedTemplates('hud_dropdown') || [];
-    console.log(`[CategoryDetail] Loaded ${cachedDropdownData.length} cached HUD dropdown options`);
-
-    if (!hasFields) {
-      console.log('[CategoryDetail] No fields found, seeding from templates...');
-
-      // Get HUD templates from cache
-      const templates = await this.indexedDb.getCachedTemplates('hud') || [];
-
-      if (templates.length === 0) {
-        console.warn('[CategoryDetail] No templates in cache, showing loading...');
-        this.loading = true;
-        this.changeDetectorRef.detectChanges();
-        // Fall back to old loadData() for initial template fetch
-        await this.loadData();
-        console.timeEnd('[CategoryDetail] initializeVisualFields');
-        return;
-      }
-
-      // Seed templates into visualFields with cached dropdown options
-      await this.visualFieldRepo.seedFromTemplates(
-        this.serviceId,
-        this.categoryName,
-        templates,
-        cachedDropdownData
-      );
-
-      // Get existing HUD records and merge selections
-      const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'hud') || [];
-      await this.visualFieldRepo.mergeExistingVisuals(
-        this.serviceId,
-        this.categoryName,
-        visuals as any[]
-      );
-
-      console.log('[CategoryDetail] Seeding complete');
-    } else {
-      console.log('[CategoryDetail] Fields already exist, using cached data');
-    }
-
-    // DEXIE-FIRST: Populate visualDropdownOptions from cached data
-    // This replaces the API call with local cache lookup
-    if (cachedDropdownData.length > 0) {
-      this.populateDropdownOptionsFromCache(cachedDropdownData);
-    }
-
-    // DEXIE-FIRST: Set up LocalImages subscription FIRST (before fields subscription)
-    // This ensures bulkLocalImagesMap is populated when populatePhotosFromDexie() runs
-    if (!this.localImagesSubscription && this.serviceId) {
-      this.subscribeToLocalImagesChanges();
-    }
-
-    // Subscribe to reactive updates - this will trigger UI render
-    this.visualFieldsSubscription = this.visualFieldRepo
-      .getFieldsForCategory$(this.serviceId, this.categoryName)
-      .subscribe({
-        next: async (fields) => {
-          console.log(`[CategoryDetail] Received ${fields.length} fields from liveQuery`);
-          this.convertFieldsToOrganizedData(fields);
-
-          // DEXIE-FIRST: Show UI immediately - no loading screen
-          this.loading = false;
-          this.changeDetectorRef.detectChanges();
-
-          // DEXIE-FIRST: Populate photos in background (non-blocking)
-          // Photos will appear as they load, no need to wait
-          this.populatePhotosFromDexie(fields).then(() => {
-            this.changeDetectorRef.detectChanges();
-          });
-        },
-        error: (err) => {
-          console.error('[CategoryDetail] Error in visualFields subscription:', err);
-          this.loading = false;
-          this.changeDetectorRef.detectChanges();
-        }
-      });
-
-    // Update tracking variables
-    this.lastLoadedServiceId = this.serviceId;
-    this.lastLoadedCategoryName = this.categoryName;
-    this.initialLoadComplete = true;
-
-    // DEXIE-FIRST: Only fetch from API if cache was empty (fallback for first-time use)
-    if (cachedDropdownData.length === 0) {
-      console.log('[CategoryDetail] No cached dropdown options, fetching from API as fallback...');
-      await this.loadDropdownOptionsFromAPI();
-    } else {
-      console.log('[CategoryDetail] Using cached dropdown options (Dexie-first)');
-    }
-
-    console.timeEnd('[CategoryDetail] initializeVisualFields');
   }
 
   /**
@@ -842,14 +732,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (!visualId) continue;
 
       try {
-        // Get photos from local storage
-        const localPhotos = await this.indexedDb.getLocalImages(this.serviceId, 'hud', visualId);
+        // Get photos from local storage by entity type and ID
+        const localPhotos = await this.indexedDb.getLocalImagesForEntity('hud', visualId);
         if (localPhotos && localPhotos.length > 0) {
-          const photos = localPhotos.map(p => ({
-            displayUrl: p.localBlobUrl || p.displayUrl || 'assets/img/photo-placeholder.png',
-            id: p.localId || p.attachId,
+          const photos = localPhotos.map((p: any) => ({
+            displayUrl: p.thumbBlobId || p.localBlobId || p.remoteS3Key || 'assets/img/photo-placeholder.png',
+            id: p.imageId || p.attachId,
             caption: p.caption || '',
-            localId: p.localId
+            localId: p.imageId
           }));
           this.visualPhotos[item.key] = photos;
           console.log(`[CategoryDetail] MOBILE: Loaded ${photos.length} photos for visual ${visualId}`);
