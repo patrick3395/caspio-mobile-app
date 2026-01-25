@@ -995,11 +995,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    * This enables instant loading of multi-select options without API call
    */
   private populateDropdownOptionsFromCache(dropdownData: any[]): void {
-    console.log('[CategoryDetail] Populating dropdown options from cache...');
+    console.log('[CategoryDetail] Populating dropdown options from cache, count:', dropdownData.length);
+
+    // Debug: Log sample dropdown data to see field names
+    if (dropdownData.length > 0) {
+      console.log('[CategoryDetail] Sample dropdown row fields:', Object.keys(dropdownData[0]));
+      console.log('[CategoryDetail] Sample dropdown row:', JSON.stringify(dropdownData[0]).substring(0, 200));
+    }
 
     // Group dropdown options by TemplateID
+    // HUD dropdown table may use HUDTemplateID instead of TemplateID
     dropdownData.forEach((row: any) => {
-      const templateId = row.TemplateID;
+      const templateId = row.HUDTemplateID || row.TemplateID;
       const dropdownValue = row.Dropdown;
 
       if (templateId && dropdownValue) {
@@ -1043,17 +1050,24 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    */
   private async loadDropdownOptionsFromAPI(): Promise<void> {
     try {
-      console.log('[CategoryDetail] Loading dropdown options from API (fallback)...');
-      const dropdownData = await this.caspioService.getServicesVisualsDrop().toPromise();
+      console.log('[CategoryDetail] Loading HUD dropdown options from API (fallback)...');
+      // CRITICAL: Use getServicesHUDDrop() for HUD - NOT getServicesVisualsDrop() which is EFE
+      const dropdownData = await this.caspioService.getServicesHUDDrop().toPromise();
 
       if (dropdownData && dropdownData.length > 0) {
-        // Cache the dropdown data for future use
-        await this.indexedDb.cacheTemplates('visual_dropdown', dropdownData);
-        console.log('[CategoryDetail] Cached dropdown options for future use');
+        // Debug: Log sample dropdown data to see field names
+        console.log('[CategoryDetail] HUD dropdown data received, count:', dropdownData.length);
+        console.log('[CategoryDetail] Sample dropdown row fields:', Object.keys(dropdownData[0]));
+        console.log('[CategoryDetail] Sample dropdown row:', JSON.stringify(dropdownData[0]).substring(0, 200));
+
+        // Cache the dropdown data for future use (HUD dropdown cache)
+        await this.indexedDb.cacheTemplates('hud_dropdown', dropdownData);
+        console.log('[CategoryDetail] Cached HUD dropdown options for future use');
 
         // Group dropdown options by TemplateID
+        // HUD dropdown table may use HUDTemplateID instead of TemplateID
         dropdownData.forEach((row: any) => {
-          const templateId = row.TemplateID; // Keep as number for consistency with field.templateId
+          const templateId = row.HUDTemplateID || row.TemplateID; // HUD may use HUDTemplateID
           const dropdownValue = row.Dropdown;
 
           if (templateId && dropdownValue) {
