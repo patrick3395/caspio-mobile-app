@@ -709,9 +709,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     this.changeDetectorRef.detectChanges();
 
     try {
-      // Load templates and visuals from API (via hudData which now fetches from server in webapp mode)
+      // Load HUD templates and visuals from API
+      // CRITICAL: Use ensureHudTemplatesReady() for HUD templates (TypeID=2) from LPS_Services_HUD_Templates
+      // NOT getVisualsTemplates() which loads EFE templates (TypeID=1) from LPS_Services_Visuals_Templates
       const [templates, visuals] = await Promise.all([
-        this.hudData.getVisualsTemplates(),
+        this.offlineTemplate.ensureHudTemplatesReady(),
         this.hudData.getVisualsByService(this.serviceId)
       ]);
 
