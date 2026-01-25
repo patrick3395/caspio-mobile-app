@@ -633,8 +633,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         cachedDropdownData
       );
 
-      // Get existing visuals and merge selections
-      const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
+      // Get existing HUD records and merge selections
+      const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'hud') || [];
       await this.visualFieldRepo.mergeExistingVisuals(
         this.serviceId,
         this.categoryName,
@@ -714,10 +714,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // NOT getVisualsTemplates() which loads EFE templates (TypeID=1) from LPS_Services_Visuals_Templates
       const [templates, visuals] = await Promise.all([
         this.offlineTemplate.ensureHudTemplatesReady(),
-        this.hudData.getVisualsByService(this.serviceId)
+        this.hudData.getHudByService(this.serviceId)
       ]);
 
-      console.log(`[CategoryDetail] WEBAPP: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} visuals from API`);
+      console.log(`[CategoryDetail] WEBAPP: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} HUD records from API`);
 
       // Debug: Log first visual's field names to verify structure
       if (visuals && visuals.length > 0) {
@@ -1867,11 +1867,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     
     this.isReloadingAfterSync = true;
     try {
-      console.log('[RELOAD AFTER SYNC] Starting fresh visual reload...');
-      
-      // Get fresh visuals from IndexedDB (already updated by BackgroundSyncService)
-      const visuals = await this.hudData.getVisualsByService(this.serviceId);
-      console.log('[RELOAD AFTER SYNC] Got', visuals.length, 'visuals from IndexedDB');
+      console.log('[RELOAD AFTER SYNC] Starting fresh HUD record reload...');
+
+      // Get fresh HUD records from IndexedDB (already updated by BackgroundSyncService)
+      const visuals = await this.hudData.getHudByService(this.serviceId);
+      console.log('[RELOAD AFTER SYNC] Got', visuals.length, 'HUD records from IndexedDB');
       
       // Track processed keys to prevent collisions within this reload
       const processedKeys = new Set<string>();
@@ -2521,8 +2521,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const bulkLoadStart = Date.now();
       
       const [allTemplates, visuals, pendingPhotos, pendingRequests, allLocalImages, cachedPhotos, annotatedImages] = await Promise.all([
-        this.indexedDb.getCachedTemplates('visual') || [],
-        this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [],
+        this.indexedDb.getCachedTemplates('hud') || [],
+        this.indexedDb.getCachedServiceData(this.serviceId, 'hud') || [],
         this.indexedDb.getAllPendingPhotosGroupedByVisual(),
         this.indexedDb.getPendingRequests(),
         this.localImageService.getImagesForService(this.serviceId),
@@ -2613,8 +2613,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // This follows the standard offline-first pattern used by room-elevation.page.ts
       // The cached data is displayed immediately, then updated when fresh data arrives
       if (this.offlineService.isOnline()) {
-        console.log('[LOAD DATA] Online - triggering background refresh for visuals');
-        this.offlineTemplate.getVisualsByService(this.serviceId); // Triggers refreshVisualsInBackground
+        console.log('[LOAD DATA] Online - triggering background refresh for HUD records');
+        this.offlineTemplate.getHudByService(this.serviceId); // Triggers refreshHudInBackground
       }
       
       console.log(`[LOAD DATA] ? Fast load complete in ${Date.now() - bulkLoadStart}ms:`, {
@@ -3001,7 +3001,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    * Keep old method for compatibility - now calls new fast method
    */
   private async loadCategoryTemplates() {
-    const allTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
+    const allTemplates = await this.indexedDb.getCachedTemplates('hud') || [];
     this.loadCategoryTemplatesFromCache(allTemplates);
   }
 
@@ -3265,12 +3265,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   private async loadExistingVisuals() {
     try {
-      console.log('[LOAD VISUALS] Loading existing visuals for serviceId:', this.serviceId);
+      console.log('[LOAD VISUALS] Loading existing HUD records for serviceId:', this.serviceId);
 
-      // Get all visuals for this service (slower path - includes pending)
-      const visuals = await this.hudData.getVisualsByService(this.serviceId);
+      // Get all HUD records for this service (slower path - includes pending)
+      const visuals = await this.hudData.getHudByService(this.serviceId);
 
-      console.log('[LOAD VISUALS] Found', visuals.length, 'existing visuals');
+      console.log('[LOAD VISUALS] Found', visuals.length, 'existing HUD records');
 
       // CRITICAL: First pass - get all photo counts before loading any photos
       // This ensures all skeletons are rendered before the page shows
