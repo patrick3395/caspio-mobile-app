@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-24)
 
 **Core value:** Field engineers can complete HUD inspections on mobile with offline capability
-**Current focus:** Milestone v1.1 - Phase 6: Project Details Page
+**Current focus:** Milestone v1.1 - Phase 7: HUD Category Detail
 
 ## Current Position
 
-Phase: 6 of 7 (Project Details Page)
-Plan: 2 of TBD in current phase (gap closure complete)
-Status: Gap closure complete, ready for next plan
-Last activity: 2026-01-24 - Completed 06-02-PLAN.md (HUD container router-outlet gap closure)
+Phase: 7 of 7 (HUD Category Detail)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-01-25 — Phase 6 complete, verified
 
-Progress: [=========-] 87% (v1.0: 8/8, v1.1: 3/5)
+Progress: [=========.] 90% (v1.0: 8/8, v1.1: 4/5)
 
 ## Performance Metrics
 
@@ -24,10 +24,11 @@ Progress: [=========-] 87% (v1.0: 8/8, v1.1: 3/5)
 - Total execution time: 29 min
 
 **Current Milestone (v1.1 HUD Page Structure Refactor):**
-- Plans completed: 3
+- Plans completed: 4
 - 05-01: 2 min (research)
 - 05-02: 2 min
-- 06-02: 3 min (gap closure)
+- 06-01: 2 min (verification)
+- 06-02: 3 min (gap closure - router-outlet fix)
 
 ## Accumulated Context
 
@@ -48,9 +49,9 @@ New in v1.1:
 - [05-01]: HUD navigation uses '/hud' base path, not '/engineers-foundation'
 - [05-02]: Keep Location import - still used in finalize report flow
 - [05-02]: Use router.url.includes() for page context detection
+- [06-02]: HUD container uses router-outlet pattern (critical fix)
+- [06-02]: Split route segments in navigateTo() to prevent URL encoding
 - [06-02]: Use CSS visibility toggle instead of *ngIf for router-outlet wrapper
-- [06-02]: Match EFE container pattern exactly for consistency
-- [06-02]: isGeneratingPDF as getter returning isPDFGenerating for template compatibility
 
 ### Pending Todos
 
@@ -58,13 +59,13 @@ None yet.
 
 ### Blockers/Concerns
 
-None - HUD container now has router-outlet, child routes will render correctly.
+None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-24
-Stopped at: Completed 06-02-PLAN.md (gap closure)
+Last session: 2026-01-25
+Stopped at: Phase 6 complete, ready to plan Phase 7
 Resume file: None
 
 ---
-*State updated: 2026-01-24*
+*State updated: 2026-01-25*
