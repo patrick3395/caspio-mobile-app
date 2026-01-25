@@ -1773,7 +1773,11 @@ export class CaspioService {
   }
 
   getServicesHUDByServiceId(serviceId: string): Observable<any[]> {
+    console.log(`[CaspioService] getServicesHUDByServiceId called with ServiceID=${serviceId}`);
     return this.get<any>(`/tables/LPS_Services_HUD/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
+      tap(response => {
+        console.log(`[CaspioService] LPS_Services_HUD query returned ${response?.Result?.length || 0} records`);
+      }),
       map(response => response.Result || [])
     );
   }

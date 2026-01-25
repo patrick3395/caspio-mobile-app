@@ -931,7 +931,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (!visualId) continue;
 
       try {
-        const attachments = await this.hudData.getVisualAttachments(visualId);
+        const attachments = await this.hudData.getHudAttachments(visualId);
         console.log(`[CategoryDetail] WEBAPP: Loaded ${attachments?.length || 0} photos for visual ${visualId}`);
 
         // Convert attachments to photo format
@@ -2177,7 +2177,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const key = `${visual.Category}_${existingItem.id}`;
       
       try {
-        const attachments = await this.hudData.getVisualAttachments(visualId);
+        const attachments = await this.hudData.getHudAttachments(visualId);
         
         // BULLETPROOF: Get count of EXISTING photos with valid URLs + new from server
         // Never reduce the count if we have valid photos
@@ -3461,7 +3461,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             });
             
             const attachments = await Promise.race([
-              this.hudData.getVisualAttachments(visualId),
+              this.hudData.getHudAttachments(visualId),
               timeoutPromise
             ]);
             

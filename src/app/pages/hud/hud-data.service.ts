@@ -438,6 +438,75 @@ export class HudDataService {
     return hudRecords;
   }
 
+  /**
+   * Get attachments for a HUD record from LPS_Services_HUD_Attach table
+   * Uses HUDID as the foreign key (NOT VisualID)
+   */
+  async getHudAttachments(hudId: string | number): Promise<any[]> {
+    if (!hudId) {
+      return [];
+    }
+    const hudIdStr = String(hudId);
+    console.log('[HUD Data] Loading attachments for HUDID:', hudIdStr);
+
+    // WEBAPP MODE: Return only server data (no local images)
+    if (environment.isWeb) {
+      console.log('[HUD Data] WEBAPP MODE: Loading HUD attachments from server only');
+      try {
+        const serverAttachments = await firstValueFrom(this.caspioService.getServiceHUDAttachByHUDId(hudIdStr));
+        console.log(`[HUD Data] WEBAPP: Loaded ${serverAttachments?.length || 0} HUD attachments from server`);
+        return serverAttachments || [];
+      } catch (error) {
+        console.error('[HUD Data] Error loading HUD attachments:', error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: OFFLINE-FIRST pattern
+    // Get local images for this HUD record from LocalImageService
+    const localImages = await this.localImageService.getImagesForEntity('hud', hudIdStr);
+
+    // Convert local images to attachment format for UI compatibility
+    const localAttachments = await Promise.all(localImages.map(async (img) => {
+      const displayUrl = await this.localImageService.getDisplayUrl(img);
+      return {
+        // Stable identifiers
+        imageId: img.imageId,
+        AttachID: img.attachId || img.imageId,
+        attachId: img.attachId || img.imageId,
+        _tempId: img.imageId,
+        _pendingFileId: img.imageId,
+
+        // Entity references
+        HUDID: img.entityId,
+        entityId: img.entityId,
+        entityType: img.entityType,
+        serviceId: img.serviceId,
+
+        // Content
+        Annotation: img.caption,
+        caption: img.caption,
+        drawings: img.drawings,
+        fileName: img.fileName,
+
+        // Display URLs
+        Photo: displayUrl,
+        url: displayUrl,
+        thumbnailUrl: displayUrl,
+        displayUrl: displayUrl,
+        _thumbnailUrl: displayUrl,
+
+        // Status flags
+        status: img.status,
+        isPending: img.status === 'pending' || img.status === 'uploading',
+        isLocal: true
+      };
+    }));
+
+    console.log(`[HUD Data] MOBILE: Loaded ${localAttachments.length} HUD attachments from LocalImageService`);
+    return localAttachments;
+  }
+
   async getVisualAttachments(visualId: string | number): Promise<any[]> {
     if (!visualId) {
       return [];
