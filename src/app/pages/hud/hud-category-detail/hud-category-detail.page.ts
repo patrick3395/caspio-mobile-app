@@ -4659,7 +4659,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const serviceIdNum = parseInt(this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
-          Category: category,
+          Category: item.category,  // FIX: Use template's actual category, not route param
+          HUDTemplateID: item.templateId,  // ADD: For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -4763,7 +4764,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const serviceIdNum = parseInt(this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
-          Category: category,
+          Category: item.category,  // FIX: Use template's actual category, not route param
+          HUDTemplateID: item.templateId,  // ADD: For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -4853,7 +4855,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const serviceIdNum = parseInt(this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
-          Category: category,
+          Category: item.category,  // FIX: Use template's actual category, not route param
+          HUDTemplateID: item.templateId,  // ADD: For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -4978,7 +4981,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const serviceIdNum = parseInt(this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
-          Category: category,
+          Category: item.category,  // FIX: Use template's actual category, not route param
+          HUDTemplateID: item.templateId,  // ADD: For better matching
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -6271,7 +6275,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // Create the Services_Visuals record using EXACT same structure as original
       const visualData: any = {
         ServiceID: serviceIdNum,
-        Category: category,
+        Category: item.category,  // FIX: Use template's actual category, not route param
+        HUDTemplateID: item.templateId,  // ADD: For better matching
         Kind: item.type,      // CRITICAL: Use item.type which is now set from template.Kind
         Name: item.name,
         Text: item.text || item.originalText || '',
