@@ -755,9 +755,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         // Find matching visual (user selection) from server
         // CRITICAL: Match by TemplateID first (most reliable), with type coercion for number/string mismatches
-        // Then fall back to name+category matching
+        // HUD records use HUDTemplateID, fall back to VisualTemplateID/TemplateID for compatibility
         let visual = (visuals || []).find((v: any) => {
-          const vTemplateId = v.VisualTemplateID || v.TemplateID;
+          const vTemplateId = v.HUDTemplateID || v.VisualTemplateID || v.TemplateID;
           // Use == for type coercion (templateId may be number or string)
           return vTemplateId == templateId && v.Category === this.categoryName;
         });
@@ -1885,9 +1885,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         }
         
         const kind = visual.Kind?.toLowerCase() || '';
-        const templateId = visual.VisualTemplateID || visual.TemplateID;
+        const templateId = visual.HUDTemplateID || visual.VisualTemplateID || visual.TemplateID;
         const visualId = String(visual.VisualID || visual.PK_ID);
-        
+
         // CRITICAL: Check if this visual is HIDDEN (deselected offline)
         // If so, we should NOT re-select it in the UI
         const isHidden = visual.Notes && String(visual.Notes).startsWith('HIDDEN');
@@ -2062,9 +2062,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
       
       const kind = visual.Kind?.toLowerCase() || '';
-      const templateId = visual.VisualTemplateID || visual.TemplateID;
+      const templateId = visual.HUDTemplateID || visual.VisualTemplateID || visual.TemplateID;
       const visualId = visual.VisualID || visual.PK_ID;
-      
+
       // Find the matching item to get the correct key
       let targetArray: VisualItem[] | null = null;
       if (kind === 'comment') {
@@ -3023,12 +3023,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const name = visual.Name;
       const kind = visual.Kind;
       const visualId = String(visual.VisualID || visual.PK_ID || visual.id);
-      const templateId = visual.VisualTemplateID || visual.TemplateID;
+      const templateId = visual.HUDTemplateID || visual.VisualTemplateID || visual.TemplateID;
 
       // Only process visuals for current category
       if (category !== this.categoryName) continue;
-      
-      // CRITICAL: Match by VisualTemplateID first (most reliable), then fall back to name
+
+      // CRITICAL: Match by HUDTemplateID first (most reliable), then fall back to name
       let item: VisualItem | undefined;
       
       if (templateId) {
