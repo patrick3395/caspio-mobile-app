@@ -180,12 +180,16 @@ export class HudMainPage implements OnInit {
   navigateTo(card: NavigationCard) {
     console.log('[HUD Main] Navigating to:', card.route, 'projectId:', this.projectId, 'serviceId:', this.serviceId);
 
+    // Split route by '/' to handle nested routes like 'category/hud'
+    // Without splitting, 'category/hud' becomes URL-encoded as 'category%2Fhud'
+    const routeSegments = card.route.split('/');
+
     // Use absolute navigation to ensure it works even if parent route isn't ready
     if (this.projectId && this.serviceId) {
-      this.router.navigate(['/hud', this.projectId, this.serviceId, card.route]);
+      this.router.navigate(['/hud', this.projectId, this.serviceId, ...routeSegments]);
     } else {
       // Fallback to relative navigation
-      this.router.navigate([card.route], { relativeTo: this.route.parent });
+      this.router.navigate(routeSegments, { relativeTo: this.route.parent });
     }
   }
 
