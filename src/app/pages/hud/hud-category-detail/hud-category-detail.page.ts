@@ -917,6 +917,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   private async loadPhotosFromAPI(): Promise<void> {
     console.log('[CategoryDetail] WEBAPP MODE: Loading photos from API...');
 
+    // WEBAPP FIX: Load cached annotated images FIRST for thumbnail display
+    if (this.bulkAnnotatedImagesMap.size === 0) {
+      try {
+        this.bulkAnnotatedImagesMap = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+        console.log(`[CategoryDetail] WEBAPP: Loaded ${this.bulkAnnotatedImagesMap.size} cached annotated images`);
+      } catch (e) {
+        console.warn('[CategoryDetail] WEBAPP: Failed to load annotated images cache:', e);
+      }
+    }
+
     // Get all visual IDs that have been selected
     const allItems = [
       ...this.organizedData.comments,
@@ -990,17 +1000,32 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             }
           }
 
-          const attachId = att.AttachID || att.attachId || att.PK_ID;
+          const attachId = String(att.AttachID || att.attachId || att.PK_ID);
+          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+
+          // WEBAPP FIX: Check for cached annotated image to use as thumbnail
+          let thumbnailUrl = displayUrl;
+          if (hasAnnotations) {
+            const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
+            if (cachedAnnotated) {
+              thumbnailUrl = cachedAnnotated;
+              console.log(`[CategoryDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+            }
+          }
+
           photos.push({
             id: attachId,
             attachId: attachId,
             AttachID: attachId, // Also set capital version for error handler
-            displayUrl,
-            url: displayUrl,
+            displayUrl: thumbnailUrl,   // Use annotated if available
+            url: displayUrl,            // Original S3 URL
+            thumbnailUrl: thumbnailUrl, // Use annotated if available
+            originalUrl: displayUrl,    // Original for re-annotation
             caption: att.Annotation || att.caption || '',
             uploading: false,
             isLocal: false,
-            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            hasAnnotations: hasAnnotations,
+            Drawings: att.Drawings || null,
             drawings: att.Drawings || ''
           });
         }
