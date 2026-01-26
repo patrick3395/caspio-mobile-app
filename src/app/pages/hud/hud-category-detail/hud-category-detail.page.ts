@@ -5169,16 +5169,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   getPhotosForVisual(category: string, itemId: string | number): any[] {
     const key = `${category}_${itemId}`;
-    let photos = this.visualPhotos[key] || [];
-
-    // HUD FIX: Also check using the item's actual category if no photos found with route category
-    if (photos.length === 0) {
-      const item = this.findItemById(itemId);
-      if (item && item.category && item.category !== category) {
-        const itemCategoryKey = `${item.category}_${itemId}`;
-        photos = this.visualPhotos[itemCategoryKey] || [];
-      }
-    }
+    const photos = this.visualPhotos[key] || [];
 
     if (photos.length > 0) {
       if (!this._loggedPhotoKeys) this._loggedPhotoKeys = new Set();
@@ -5193,39 +5184,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   isLoadingPhotosForVisual(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
-    if (this.loadingPhotosByKey[key] === true) return true;
-
-    // HUD FIX: Also check using item's actual category
-    const item = this.findItemById(itemId);
-    if (item && item.category && item.category !== category) {
-      const itemCategoryKey = `${item.category}_${itemId}`;
-      if (this.loadingPhotosByKey[itemCategoryKey] === true) return true;
-    }
-    return false;
+    return this.loadingPhotosByKey[key] === true;
   }
 
   getExpectedPhotoCount(category: string, itemId: string | number): number {
     const key = `${category}_${itemId}`;
-    let count = this.photoCountsByKey[key] || 0;
-
-    // HUD FIX: Also check using item's actual category
-    if (count === 0) {
-      const item = this.findItemById(itemId);
-      if (item && item.category && item.category !== category) {
-        const itemCategoryKey = `${item.category}_${itemId}`;
-        count = this.photoCountsByKey[itemCategoryKey] || 0;
-      }
-    }
-    return count;
+    return this.photoCountsByKey[key] || 0;
   }
 
-  // Get total photo count to display (shows expected count immediately, updates if more photos added)
+  // Get total photo count to display (direct array length like EFE)
   getTotalPhotoCount(category: string, itemId: string | number): number {
     const key = `${category}_${itemId}`;
-    const expectedCount = this.photoCountsByKey[key] || 0;
-    const actualCount = (this.visualPhotos[key] || []).length;
-    // Return the maximum to handle both initial load (shows expected) and new uploads (shows actual)
-    return Math.max(expectedCount, actualCount);
+    return (this.visualPhotos[key] || []).length;
   }
 
   // ===== LAZY IMAGE LOADING METHODS =====
@@ -5235,15 +5205,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    */
   isPhotosExpanded(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
-    if (this.expandedPhotos[key] === true) return true;
-
-    // HUD FIX: Also check using item's actual category
-    const item = this.findItemById(itemId);
-    if (item && item.category && item.category !== category) {
-      const itemCategoryKey = `${item.category}_${itemId}`;
-      if (this.expandedPhotos[itemCategoryKey] === true) return true;
-    }
-    return false;
+    return this.expandedPhotos[key] === true;
   }
 
   /**
@@ -5514,12 +5476,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           const compressedSize = compressedFile.size;
 
           // Get or create visual ID
-          // WEBAPP FIX: Use item's actual category for consistent key across upload/load
-          // Photos loaded from server use visual.Category, so upload must match
-          const item = this.findItemById(itemId);
-          const effectiveCategory = item?.category || category;
-          const key = `${effectiveCategory}_${itemId}`;
-          console.log('[CAMERA UPLOAD] Using key:', key, '(item category:', item?.category, ', route category:', category, ')');
+          // Template now passes item.category directly, so key is consistent
+          const key = `${category}_${itemId}`;
+          console.log('[CAMERA UPLOAD] Using key:', key);
           let visualId = this.visualRecordIds[key];
 
           if (!visualId) {
@@ -5585,7 +5544,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             // Add temp photo to UI immediately (with loading roller)
             this.visualPhotos[key].push(tempPhotoEntry);
             this.loadingPhotosByKey[key] = false;
-            this.expandPhotos(effectiveCategory, itemId);
+            this.expandPhotos(category, itemId);
             this.changeDetectorRef.detectChanges();
 
             try {
@@ -5774,7 +5733,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
 
           // Expand photos section so user can see the newly added photo
-          this.expandPhotos(effectiveCategory, itemId);
+          this.expandPhotos(category, itemId);
           this.changeDetectorRef.detectChanges();
 
           // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
@@ -5855,12 +5814,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       });
 
       if (images.photos && images.photos.length > 0) {
-        // WEBAPP FIX: Use item's actual category for consistent key across upload/load
-        // Photos loaded from server use visual.Category, so upload must match
-        const item = this.findItemById(itemId);
-        const effectiveCategory = item?.category || category;
-        const key = `${effectiveCategory}_${itemId}`;
-        console.log('[GALLERY UPLOAD] Using key:', key, '(item category:', item?.category, ', route category:', category, ')');
+        // Template now passes item.category directly, so key is consistent
+        const key = `${category}_${itemId}`;
+        console.log('[GALLERY UPLOAD] Using key:', key);
 
         // Initialize photo array if it doesn't exist
         if (!this.visualPhotos[key]) {
@@ -6004,8 +5960,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           this.photoCountsByKey[key] = this.visualPhotos[key].length;
           console.log('[GALLERY UPLOAD] WEBAPP: Updated photoCountsByKey[' + key + '] =', this.photoCountsByKey[key]);
 
-          // Expand photos section - use effectiveCategory for consistency
-          this.expandPhotos(effectiveCategory, itemId);
+          // Expand photos section
+          this.expandPhotos(category, itemId);
           this.changeDetectorRef.detectChanges();
           console.log('[GALLERY UPLOAD] WEBAPP: All photos processed');
           return;
@@ -6164,7 +6120,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           this.batchUploadImageIds.clear();
 
           // Expand photos section so user can see the newly added photos
-          this.expandPhotos(effectiveCategory, itemId);
+          this.expandPhotos(category, itemId);
 
           // Trigger single change detection after batch completes
           this.changeDetectorRef.detectChanges();
@@ -6897,25 +6853,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const newUrl = URL.createObjectURL(annotatedBlob);
 
         // Find photo in array - use multiple strategies since AttachID might have changed
-        // WEBAPP FIX: Re-apply key fallback in case visualPhotos changed while modal was open
-        let savePhotos = this.visualPhotos[key] || [];
-        let saveKey = key;
-
-        // If no photos found under current key, try fallback (same as at method start)
-        if (savePhotos.length === 0) {
-          const item = this.findItemById(itemId);
-          if (item && item.category && item.category !== category) {
-            const itemCategoryKey = `${item.category}_${itemId}`;
-            const itemCategoryPhotos = this.visualPhotos[itemCategoryKey] || [];
-            if (itemCategoryPhotos.length > 0) {
-              console.log('[VIEW PHOTO SAVE] Key fallback: using item category key', itemCategoryKey, 'instead of', key);
-              saveKey = itemCategoryKey;
-              savePhotos = itemCategoryPhotos;
-            }
-          }
-        }
-
-        const photos = savePhotos;
+        // Template now passes item.category directly, so key is consistent
+        const photos = this.visualPhotos[key] || [];
         let photoIndex = photos.findIndex(p =>
           (p.AttachID || p.id) === attachId
         );
@@ -6953,7 +6892,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
               // CRITICAL: Create NEW photo object (immutable update pattern from original line 12518-12542)
               // This ensures proper change detection and maintains separation between original and annotated
-              this.visualPhotos[saveKey][photoIndex] = {
+              this.visualPhotos[key][photoIndex] = {
                 ...currentPhoto,
                 // PRESERVE originalUrl - this is the base image without annotations
                 originalUrl: currentPhoto.originalUrl || currentPhoto.url,
@@ -6977,10 +6916,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 rawDrawingsString: compressedDrawings
               };
 
-              console.log('[SAVE] Updated photo object in visualPhotos[' + saveKey + '][' + photoIndex + ']');
-              console.log('[SAVE] Photo now has Drawings:', !!this.visualPhotos[saveKey][photoIndex].Drawings, 'length:', this.visualPhotos[saveKey][photoIndex].Drawings?.length || 0);
-              console.log('[SAVE] Photo now has rawDrawingsString:', !!this.visualPhotos[saveKey][photoIndex].rawDrawingsString, 'length:', this.visualPhotos[saveKey][photoIndex].rawDrawingsString?.length || 0);
-              console.log('[SAVE] Photo hasAnnotations:', this.visualPhotos[saveKey][photoIndex].hasAnnotations);
+              console.log('[SAVE] Updated photo object in visualPhotos[' + key + '][' + photoIndex + ']');
+              console.log('[SAVE] Photo now has Drawings:', !!this.visualPhotos[key][photoIndex].Drawings, 'length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
+              console.log('[SAVE] Photo now has rawDrawingsString:', !!this.visualPhotos[key][photoIndex].rawDrawingsString, 'length:', this.visualPhotos[key][photoIndex].rawDrawingsString?.length || 0);
+              console.log('[SAVE] Photo hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
 
               // CRITICAL: Clear ALL visual attachment caches (not just this one)
               // This ensures when the user navigates away and back, ALL fresh data is loaded from database
@@ -7057,7 +6996,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               // Update local photo object with annotated image
               console.log('[SAVE OFFLINE] Updating local photo object, newUrl:', newUrl ? 'created' : 'missing');
 
-              this.visualPhotos[saveKey][photoIndex] = {
+              this.visualPhotos[key][photoIndex] = {
                 ...currentPhoto,
                 originalUrl: currentPhoto.originalUrl || currentPhoto.url,
                 displayUrl: newUrl,  // CRITICAL: Show annotated image immediately
@@ -7073,9 +7012,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               };
 
               console.log('[SAVE OFFLINE] Updated local photo object:');
-              console.log('[SAVE OFFLINE]   - displayUrl:', this.visualPhotos[saveKey][photoIndex].displayUrl ? 'set' : 'missing');
-              console.log('[SAVE OFFLINE]   - hasAnnotations:', this.visualPhotos[saveKey][photoIndex].hasAnnotations);
-              console.log('[SAVE OFFLINE]   - Drawings length:', this.visualPhotos[saveKey][photoIndex].Drawings?.length || 0);
+              console.log('[SAVE OFFLINE]   - displayUrl:', this.visualPhotos[key][photoIndex].displayUrl ? 'set' : 'missing');
+              console.log('[SAVE OFFLINE]   - hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
+              console.log('[SAVE OFFLINE]   - Drawings length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
               
               // CRITICAL FIX: Cache annotated image for temp photos too
               // This ensures annotations show in thumbnails even for offline photos
