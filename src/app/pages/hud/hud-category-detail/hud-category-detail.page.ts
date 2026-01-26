@@ -3617,7 +3617,24 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // CRITICAL FIX: Skip complex preservation filter in webapp mode
       // Webapp uploads get S3 URLs (not blob:// or data://) and would be filtered out
       if (environment.isWeb) {
-        const attachments = this.bulkAttachmentsMap.get(visualId) || [];
+        // Try bulk cache first, but FETCH from server if empty (background load may not be complete)
+        let attachments = this.bulkAttachmentsMap.get(visualId) || [];
+
+        if (attachments.length === 0) {
+          // Fetch directly from server - bulk cache may not be ready yet
+          console.log(`[LOAD PHOTOS] WEBAPP: Bulk cache empty for ${visualId}, fetching from server...`);
+          try {
+            attachments = await this.hudData.getHudAttachments(visualId);
+            // Update bulk cache for future use
+            if (attachments.length > 0) {
+              this.bulkAttachmentsMap.set(visualId, attachments);
+            }
+            console.log(`[LOAD PHOTOS] WEBAPP: Fetched ${attachments.length} attachments from server for ${visualId}`);
+          } catch (err) {
+            console.error('[LOAD PHOTOS] WEBAPP: Failed to fetch attachments:', err);
+            attachments = [];
+          }
+        }
 
         // Preserve ONLY in-progress uploads (temp photos with uploading: true)
         const existingPhotos = this.visualPhotos[key] || [];
@@ -3670,6 +3687,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
         this.loadingPhotosByKey[key] = false;
+
+        // WEBAPP FIX: Auto-expand and select items with photos so they're visible
+        // Template requires both isItemSelected AND isPhotosExpanded to show photos
+        if (this.visualPhotos[key].length > 0) {
+          this.expandedPhotos[key] = true;
+          this.selectedItems[key] = true;
+          console.log(`[LOAD PHOTOS] WEBAPP: Auto-expanded and selected ${key} with ${this.visualPhotos[key].length} photos`);
+        }
+
         this.changeDetectorRef.detectChanges();
         return;
       }
