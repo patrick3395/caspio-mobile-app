@@ -2263,127 +2263,153 @@ export class CaspioService {
    * @param originalFile - Optional original file before annotation
    */
   private async uploadHUDAttachWithS3(hudId: number, annotation: string, file: File, drawings?: string, originalFile?: File): Promise<any> {
-    console.log('[HUD ATTACH S3] ========== Starting S3 HUD Attach Upload (Atomic) ==========');
-    console.log('[HUD ATTACH S3] Parameters:', {
-      hudId,
-      annotation: annotation || '(empty)',
-      fileName: file.name,
-      fileSize: `${(file.size / 1024).toFixed(2)} KB`,
-      fileType: file.type,
-      hasDrawings: !!drawings,
-      drawingsLength: drawings?.length || 0,
-      hasOriginalFile: !!originalFile
-    });
+    console.log('[HUD ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
+    console.log('[HUD ATTACH S3] HUDID:', hudId);
+    console.log('[HUD ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
+    console.log('[HUD ATTACH S3] Drawings length:', drawings?.length || 0);
+    console.log('[HUD ATTACH S3] Caption:', annotation || '(none)');
 
-    const accessToken = this.tokenSubject.value;
-    const API_BASE_URL = environment.caspio.apiBaseUrl;
+    // VALIDATION: Reject empty or invalid files
+    if (!file || file.size === 0) {
+      console.error('[HUD ATTACH S3] ❌ REJECTING: Empty or missing file!');
+      throw new Error('Cannot upload empty or missing file');
+    }
+
+    // US-001 FIX: Compress image before upload to avoid 413 Request Entity Too Large
+    // API Gateway has size limits - compress to max 1MB to ensure uploads succeed
+    let fileToUpload: File = file;
+    const MAX_SIZE_MB = 1; // 1MB max to stay under API Gateway limits
+
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      console.log(`[HUD ATTACH S3] File too large (${(file.size / 1024 / 1024).toFixed(2)}MB), compressing...`);
+      try {
+        const compressedBlob = await this.imageCompression.compressImage(file, {
+          maxSizeMB: MAX_SIZE_MB,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true
+        });
+        fileToUpload = new File([compressedBlob], file.name, { type: compressedBlob.type || 'image/jpeg' });
+        console.log(`[HUD ATTACH S3] Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
+      } catch (compressErr) {
+        console.warn('[HUD ATTACH S3] Compression failed, using original:', compressErr);
+        // Continue with original file - may fail with 413 but worth trying
+      }
+    }
 
     try {
-      // Prepare record data
-      const recordData: any = {
-        HUDID: parseInt(hudId.toString()),
-        Annotation: annotation || ''
-      };
-
-      // Add Drawings field if annotation data is provided
+      // Prepare record data for Caspio
+      const recordData: any = { HUDID: parseInt(hudId.toString()), Annotation: annotation || '' };
       if (drawings && drawings.length > 0) {
-        console.log('[HUD ATTACH S3] Adding Drawings field:', drawings.length, 'bytes');
         let compressedDrawings = drawings;
-
-        // Apply compression if needed
-        if (drawings.length > 50000) {
-          compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
-          console.log('[HUD ATTACH S3] Compressed Drawings:', compressedDrawings.length, 'bytes');
-        }
-
-        // Only add if within the field limit after compression
-        if (compressedDrawings.length <= 64000) {
-          recordData.Drawings = compressedDrawings;
-        } else {
-          console.warn('[HUD ATTACH S3] ⚠️ Drawings data too large after compression:', compressedDrawings.length, 'bytes');
-          console.warn('[HUD ATTACH S3] ⚠️ Skipping Drawings field');
-        }
+        if (drawings.length > 50000) compressedDrawings = compressAnnotationData(drawings, { emptyResult: EMPTY_COMPRESSED_ANNOTATIONS });
+        if (compressedDrawings.length <= 64000) recordData.Drawings = compressedDrawings;
       }
 
       // US-002 FIX: ATOMIC UPLOAD - Upload to S3 FIRST, then create record with Attachment
       // This prevents orphaned records without Attachment field
 
-      // Step 1: Generate unique filename and upload to S3 FIRST
+      // Step 1: Generate unique filename and upload to S3 FIRST (before creating record)
       const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 8);
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const uniqueFilename = `hud_${hudId}_${timestamp}_${randomId}.${fileExt}`;
+      const uniqueFilename = `hud_${hudId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
+
+      // Use a temporary placeholder attachId for S3 key generation (will be part of path)
       const tempAttachId = `pending_${timestamp}`;
 
-      const formData = new FormData();
-      formData.append('file', file, uniqueFilename);
-      formData.append('tableName', 'LPS_Services_HUD_Attach');
-      formData.append('attachId', tempAttachId);
+      // US-001 FIX: S3 upload with retry for mobile failures
+      const MAX_S3_RETRIES = 3;
+      const INITIAL_RETRY_DELAY_MS = 500;
 
-      console.log('[HUD ATTACH S3] Step 1: Uploading to S3 FIRST...');
-      const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'POST',
-        body: formData
-      });
+      let s3Key: string | null = null;
+      let lastError: Error | null = null;
 
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('[HUD ATTACH S3] ❌ S3 upload failed:', errorText);
-        throw new Error('Failed to upload file to S3: ' + errorText);
+      for (let attempt = 1; attempt <= MAX_S3_RETRIES; attempt++) {
+        try {
+          // Create fresh FormData for each attempt (FormData can only be consumed once)
+          const formData = new FormData();
+          formData.append('file', fileToUpload, uniqueFilename);
+          formData.append('tableName', 'LPS_Services_HUD_Attach');
+          formData.append('attachId', tempAttachId);
+
+          console.log(`[HUD ATTACH S3] Uploading (attempt ${attempt}/${MAX_S3_RETRIES}), size: ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
+
+          const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            console.error(`[HUD ATTACH S3] S3 upload failed (attempt ${attempt}):`, uploadResponse.status, errorText);
+            throw new Error(`S3 upload failed: ${uploadResponse.status} - ${errorText?.substring(0, 100)}`);
+          }
+
+          const result = await uploadResponse.json();
+          s3Key = result.s3Key;
+
+          if (!s3Key) {
+            throw new Error('S3 upload succeeded but no s3Key returned');
+          }
+
+          console.log(`[HUD ATTACH S3] ✅ S3 upload complete (attempt ${attempt}), key:`, s3Key);
+          break; // Success - exit retry loop
+
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[HUD ATTACH S3] S3 upload attempt ${attempt} failed:`, err?.message || err);
+
+          if (attempt < MAX_S3_RETRIES) {
+            const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+            console.log(`[HUD ATTACH S3] Retrying in ${delayMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+        }
       }
 
-      const uploadResult = await uploadResponse.json();
-      const s3Key = uploadResult.s3Key;
-      console.log('[HUD ATTACH S3] ✅ S3 upload complete, key:', s3Key);
+      // Check if all retries failed
+      if (!s3Key) {
+        console.error('[HUD ATTACH S3] ❌ All S3 upload attempts failed');
+        throw lastError || new Error('S3 upload failed after all retries');
+      }
 
-      // Step 2: Create the Caspio record WITH the Attachment field populated
+      // Step 2: Now create the Caspio record WITH the Attachment field populated
+      // This ensures we NEVER create a record without an Attachment
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
       console.log('[HUD ATTACH S3] Step 2: Creating Caspio record with Attachment...');
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_HUD_Attach/records?response=rows`, {
+      const recordResponse = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_HUD_Attach/records?response=rows`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
       });
 
       if (!recordResponse.ok) {
         const errorText = await recordResponse.text();
         console.error('[HUD ATTACH S3] ❌ Record creation failed:', errorText);
-        throw new Error(`HUD attach record creation failed: ${recordResponse.status} - ${errorText}`);
+        // S3 file was uploaded but record creation failed - file is orphaned in S3
+        // This is acceptable - orphaned S3 files don't cause broken images in UI
+        throw new Error('HUD record creation failed');
       }
 
-      const recordResult = await recordResponse.json();
-      const attachId = recordResult.Result && recordResult.Result[0] ? recordResult.Result[0].AttachID : recordResult.AttachID;
+      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
       if (!attachId) {
         throw new Error('Failed to get AttachID from record creation response');
       }
 
       console.log('[HUD ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
 
-      // Return result in same format as Caspio response
-      const finalResult = {
+      console.log('[HUD ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
+      // Return result with all fields
+      return {
         Result: [{
           AttachID: attachId,
           HUDID: hudId,
-          Annotation: annotation || '',
           Attachment: s3Key,
-          Drawings: recordData.Drawings || ''
+          Drawings: recordData.Drawings || '',
+          Annotation: annotation || ''
         }],
         AttachID: attachId,
-        Attachment: s3Key
+        Attachment: s3Key,
+        Annotation: annotation || ''
       };
-
-      console.log('[HUD ATTACH S3] ✅ Upload complete! (Atomic - no orphaned records)');
-      console.log('[HUD ATTACH S3] Final result:', JSON.stringify(finalResult, null, 2));
-
-      return finalResult;
-
     } catch (error) {
-      console.error('[HUD ATTACH S3] ❌ Upload failed:', error);
+      console.error('[HUD ATTACH S3] ❌ Failed:', error);
       throw error;
     }
   }
