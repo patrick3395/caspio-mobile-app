@@ -8525,7 +8525,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   openVisualDetail(categoryName: string, item: VisualItem) {
-    // Navigate relative to parent route since HudCategoryDetailPage is at the '' child path
-    this.router.navigate(['visual', item.templateId], { relativeTo: this.route.parent });
+    // Use absolute navigation to ensure correct routing
+    // Route: /hud/:projectId/:serviceId/category/:category/visual/:templateId
+    this.router.navigate(['/hud', this.projectId, this.serviceId, 'category', categoryName, 'visual', item.templateId]);
   }
 }
