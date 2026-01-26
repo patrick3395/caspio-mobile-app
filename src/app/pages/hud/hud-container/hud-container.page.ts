@@ -1072,9 +1072,9 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
 
       if (onProgress) onProgress(0.5); // 50% before upload
 
-      // Upload the photo
-      // Function signature: (visualId, annotation, file, drawings?, originalFile?)
-      const response = await this.caspioService.createServicesVisualsAttachWithFile(
+      // Upload the photo to HUD table (not Visuals table)
+      // Function signature: (hudId, annotation, file, drawings?, originalFile?)
+      const response = await this.caspioService.createServicesHUDAttachWithFile(
         parseInt(data.visualId, 10),
         data.caption || '',
         compressedFile,
@@ -1100,8 +1100,8 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
 
       if (onProgress) onProgress(0.5); // 50% after compression
 
-      // Upload photo to existing record
-      const response = await this.caspioService.updateServicesVisualsAttachPhoto(
+      // Upload photo to existing HUD record (not Visuals table)
+      const response = await this.caspioService.updateServicesHUDAttachPhoto(
         data.attachId,
         compressedFile,
         data.originalFile
@@ -11122,7 +11122,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     return { file: photo, annotationData: null, originalFile: undefined, caption: '' };
   }
   
-  // Upload photo to Service_Visuals_Attach - EXACT same approach as working Attach table
+  // Upload photo to Service_HUD_Attach - EXACT same approach as working Attach table
   async uploadPhotoForVisual(visualId: string, photo: File, key: string, isBatchUpload: boolean = false, annotationData: any = null, originalPhoto: File | null = null, caption: string = '') {
     // Extract category from key (format: category_itemId)
     const category = key.split('_')[0];
@@ -11245,9 +11245,9 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Prepare the data that will be sent
       const dataToSend = {
-        table: 'Services_Visuals_Attach',
+        table: 'Services_HUD_Attach',
         fields: {
-          VisualID: visualIdNum,
+          HUDID: visualIdNum,
           Annotation: caption || '', // Use caption from photo editor
           Photo: `[File: ${uploadFile.name}]`
         },
@@ -11278,7 +11278,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
 
       if (false && !isBatchUpload) {
         const alert = await this.alertController.create({
-          header: 'Services_Visuals_Attach Upload Debug',
+          header: 'Services_HUD_Attach Upload Debug',
         message: `
           <div style="text-align: left; font-family: monospace; font-size: 12px;">
             <strong style="color: red;">ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â DEBUG INFO:</strong><br>
@@ -11381,11 +11381,11 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       // Prepare the Drawings field data (annotation JSON)
       let drawingsData = annotationData ? JSON.stringify(annotationData) : undefined;
 
-      // STEP 1: Create attachment record IMMEDIATELY (no file upload yet)
+      // STEP 1: Create HUD attachment record IMMEDIATELY (no file upload yet)
       // This ensures unique AttachID is assigned instantly
       let response;
       try {
-        response = await this.caspioService.createServicesVisualsAttachRecord(
+        response = await this.caspioService.createServicesHUDAttachRecord(
           typeof visualIdNum === 'string' ? parseInt(visualIdNum, 10) : visualIdNum,
           caption || '',
           drawingsData
@@ -11408,13 +11408,13 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
         console.log(`[Fast Upload] Starting queued upload for AttachID: ${attachId}`);
 
         try {
-          const uploadResponse = await this.caspioService.updateServicesVisualsAttachPhoto(
+          const uploadResponse = await this.caspioService.updateServicesHUDAttachPhoto(
             attachId,
             photo,
             originalPhoto || undefined
           ).toPromise();
 
-          console.log(`[Fast Upload] Photo uploaded for AttachID: ${attachId}`);
+          console.log(`[Fast Upload] HUD photo uploaded for AttachID: ${attachId}`);
 
           // CRITICAL: Run UI updates inside NgZone to ensure change detection
           this.ngZone.run(async () => {
@@ -12363,12 +12363,12 @@ Has Annotations: ${!!annotations}`;
             <strong>Original File:</strong> ${originalFile ? originalFile.name : 'None'}<br><br>
             
             <strong>API Call:</strong><br>
-            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Table: Services_Visuals_Attach<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Table: Services_HUD_Attach<br>
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Method: PUT (update)<br>
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Where: AttachID=${attachId}<br><br>
-            
+
             <strong style="color: orange;">What happens next:</strong><br>
-            1. Update Services_Visuals_Attach.Drawings field<br>
+            1. Update Services_HUD_Attach.Drawings field<br>
             2. Photo field remains unchanged (keeps original)<br>
             3. Annotations stored as JSON for re-editing<br>
           </div>
@@ -12580,8 +12580,8 @@ Original File: ${originalFile?.name || 'None'}`;
         } */
       }
       
-      // Send update request
-      const updateResult = await this.caspioService.updateServiceVisualsAttach(attachId, updateData).toPromise();
+      // Send update request to HUD table (not Visuals table)
+      const updateResult = await this.caspioService.updateServicesHUDAttach(attachId, updateData).toPromise();
 
       // Clear PDF cache so changes show immediately
       this.clearPDFCache();
@@ -13153,8 +13153,8 @@ Stack: ${error?.stack}`;
                   const attachId = photo.AttachID || photo.id;
                   const key = `${category}_${itemId}`;
                   
-                  // Delete from database
-                  await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
+                  // Delete from HUD database (not Visuals table)
+                  await this.caspioService.deleteServicesHUDAttach(attachId).toPromise();
 
                   // [v1.4.387] Remove from KEY-BASED storage
                   if (this.visualPhotos[key]) {
@@ -13452,7 +13452,7 @@ Stack: ${error?.stack}`;
     }
   }
   
-  // Save caption to the Annotation field in Services_Visuals_Attach table
+  // Save caption to the Annotation field in Services_HUD_Attach table
   async saveCaption(photo: any, category: string, itemId: string) {
     try {
       // Only save if there's an AttachID and the caption has changed
@@ -13461,12 +13461,12 @@ Stack: ${error?.stack}`;
         return;
       }
 
-      // Update the Services_Visuals_Attach record with the new caption
+      // Update the Services_HUD_Attach record with the new caption
       const updateData = {
         Annotation: photo.caption || ''  // Save caption or empty string
       };
 
-      await this.caspioService.updateServicesVisualsAttach(photo.AttachID, updateData).toPromise();
+      await this.caspioService.updateServicesHUDAttach(photo.AttachID, updateData).toPromise();
 
       // CRITICAL: Update Annotation field locally to match what was saved
       photo.Annotation = photo.caption || '';

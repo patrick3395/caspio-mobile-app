@@ -1130,12 +1130,12 @@ export class HudDataService {
       return { success: true, queued: true };
     }
 
-    // Online - try API
+    // Online - try API (use HUD table, not Visuals table)
     try {
       const result = await firstValueFrom(
-        this.caspioService.updateServicesVisualsAttach(attachId, updateData)
+        this.caspioService.updateServicesHUDAttach(attachId, updateData)
       );
-      console.log('[Visual Photo] ✅ Caption saved via API');
+      console.log('[HUD Photo] ✅ Caption saved via API');
       this.visualAttachmentsCache.clear();
       return result;
     } catch (apiError) {
