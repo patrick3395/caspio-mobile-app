@@ -768,7 +768,9 @@ export class HudDataService {
         const result = await response.json();
         const createdRecord = result.Result?.[0] || result;
 
-        console.log('[Visual Data] WEBAPP: ✅ Visual created with ID:', createdRecord.VisualID || createdRecord.PK_ID);
+        // HUD table uses HUDID as primary key (not VisualID)
+        const hudId = createdRecord.HUDID || createdRecord.PK_ID;
+        console.log('[Visual Data] WEBAPP: ✅ HUD record created with HUDID:', hudId);
 
         // Clear cache
         if (visualData.ServiceID) {
@@ -777,8 +779,9 @@ export class HudDataService {
 
         return {
           ...visualData,
-          VisualID: createdRecord.VisualID || createdRecord.PK_ID,
-          PK_ID: createdRecord.PK_ID || createdRecord.VisualID,
+          HUDID: hudId,
+          VisualID: hudId,  // For compatibility with code expecting VisualID
+          PK_ID: hudId,
           ...createdRecord
         };
       } catch (error: any) {
@@ -790,12 +793,14 @@ export class HudDataService {
     // MOBILE MODE: Offline-first with background sync
     console.log('[Visual Data] Creating new visual (OFFLINE-FIRST):', visualData);
 
-    // Generate temporary ID
-    const tempId = this.tempId.generateTempId('visual');
+    // Generate temporary ID (using 'hud' prefix for HUD records)
+    const tempId = this.tempId.generateTempId('hud');
 
     // Create placeholder for immediate UI
     const placeholder = {
       ...visualData,
+      HUDID: tempId,       // HUD table uses HUDID as primary key
+      VisualID: tempId,    // For compatibility with code expecting VisualID
       PK_ID: tempId,
       _tempId: tempId,
       _localOnly: true,
@@ -962,11 +967,11 @@ export class HudDataService {
       
       // Remove from IndexedDB cache if we have serviceId
       if (serviceId) {
-        const existingVisuals = await this.indexedDb.getCachedServiceData(serviceId, 'visuals') || [];
-        const filteredVisuals = existingVisuals.filter((v: any) => 
-          String(v.PK_ID) !== String(visualId) && String(v.VisualID) !== String(visualId)
+        const existingHuds = await this.indexedDb.getCachedServiceData(serviceId, 'hud') || [];
+        const filteredHuds = existingHuds.filter((v: any) =>
+          String(v.HUDID) !== String(visualId) && String(v.PK_ID) !== String(visualId) && String(v.VisualID) !== String(visualId)
         );
-        await this.indexedDb.cacheServiceData(serviceId, 'visuals', filteredVisuals);
+        await this.indexedDb.cacheServiceData(serviceId, 'hud', filteredHuds);
       }
     }
 
