@@ -3660,6 +3660,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           p.uploading === true && String(p.imageId || '').startsWith('uploading_')
         );
 
+        // WEBAPP FIX: Load cached annotated images if not already loaded
+        if (this.bulkAnnotatedImagesMap.size === 0) {
+          try {
+            this.bulkAnnotatedImagesMap = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+            console.log(`[LOAD PHOTOS] WEBAPP: Loaded ${this.bulkAnnotatedImagesMap.size} cached annotated images`);
+          } catch (e) {
+            console.warn('[LOAD PHOTOS] WEBAPP: Failed to load annotated images cache:', e);
+          }
+        }
+
         // Clear and rebuild from server data (EFE pattern)
         this.visualPhotos[key] = [...inProgressUploads];
         console.log(`[LOAD PHOTOS] WEBAPP: Rebuilding from server. Preserved ${inProgressUploads.length} in-progress uploads, ${attachments.length} server attachments`);
@@ -3682,21 +3692,32 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             }
           }
 
+          // WEBAPP FIX: Check for cached annotated image to use as thumbnail
+          const hasAnnotations = !!(attach.Drawings && attach.Drawings.length > 10);
+          let thumbnailUrl = displayUrl;
+          if (hasAnnotations) {
+            const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
+            if (cachedAnnotated) {
+              thumbnailUrl = cachedAnnotated;
+              console.log(`[LOAD PHOTOS] WEBAPP: Using cached annotated image for ${attachId}`);
+            }
+          }
+
           this.visualPhotos[key].push({
             AttachID: attachId,
             attachId: attachId,
             id: attachId,
             imageId: attachId,
-            displayUrl: displayUrl,
-            url: displayUrl,
-            thumbnailUrl: displayUrl,
-            originalUrl: displayUrl,
+            displayUrl: thumbnailUrl,  // Use annotated if available
+            url: displayUrl,           // Original S3 URL
+            thumbnailUrl: thumbnailUrl, // Use annotated if available
+            originalUrl: displayUrl,   // Original S3 URL for re-annotation
             name: attach.Photo || 'photo.jpg',
             caption: attach.Annotation || '',
             annotation: attach.Annotation || '',
             Annotation: attach.Annotation || '',
             Drawings: attach.Drawings || null,
-            hasAnnotations: !!(attach.Drawings && attach.Drawings.length > 10),
+            hasAnnotations: hasAnnotations,
             uploading: false,
             isLocal: false,
             isSkeleton: false

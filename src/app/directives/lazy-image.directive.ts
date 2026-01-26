@@ -13,6 +13,8 @@ import {
   Input,
   OnInit,
   OnDestroy,
+  OnChanges,
+  SimpleChanges,
   Renderer2,
   NgZone
 } from '@angular/core';
@@ -22,7 +24,7 @@ import { environment } from '../../environments/environment';
   selector: '[appLazyImage]',
   standalone: true
 })
-export class LazyImageDirective implements OnInit, OnDestroy {
+export class LazyImageDirective implements OnInit, OnDestroy, OnChanges {
   @Input('appLazyImage') lazySrc: string = '';
   @Input() lazyPlaceholder: string = 'assets/img/photo-placeholder.png';
   @Input() lazyWidth: string = '';
@@ -30,6 +32,7 @@ export class LazyImageDirective implements OnInit, OnDestroy {
 
   private observer: IntersectionObserver | null = null;
   private hasLoaded = false;
+  private currentSrc: string = '';
 
   constructor(
     private el: ElementRef<HTMLImageElement>,
@@ -49,8 +52,43 @@ export class LazyImageDirective implements OnInit, OnDestroy {
     this.setupIntersectionObserver();
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    // Handle URL changes after initial load
+    if (changes['lazySrc'] && !changes['lazySrc'].firstChange) {
+      const newSrc = changes['lazySrc'].currentValue;
+      // Only reload if URL actually changed
+      if (newSrc && newSrc !== this.currentSrc) {
+        this.reloadImage(newSrc);
+      }
+    }
+  }
+
   ngOnDestroy(): void {
     this.disconnectObserver();
+  }
+
+  /**
+   * Reload image when URL changes (e.g., after annotation)
+   */
+  private reloadImage(newSrc: string): void {
+    const img = this.el.nativeElement;
+    this.currentSrc = newSrc;
+
+    // For mobile, just update directly
+    if (!environment.isWeb) {
+      this.renderer.setAttribute(img, 'src', newSrc);
+      return;
+    }
+
+    // For web, preload then swap
+    const testImage = new Image();
+    testImage.onload = () => {
+      this.renderer.setAttribute(img, 'src', newSrc);
+    };
+    testImage.onerror = () => {
+      console.warn(`[LazyImage] Failed to reload image: ${newSrc}`);
+    };
+    testImage.src = newSrc;
   }
 
   private setupPlaceholder(): void {
@@ -116,6 +154,9 @@ export class LazyImageDirective implements OnInit, OnDestroy {
     if (!srcToLoad) {
       return;
     }
+
+    // Track current source for change detection
+    this.currentSrc = srcToLoad;
 
     // Create a test image to preload
     const testImage = new Image();
