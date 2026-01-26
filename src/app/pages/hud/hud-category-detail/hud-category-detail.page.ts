@@ -3613,6 +3613,68 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       this.loadingPhotosByKey[key] = true;
       this.changeDetectorRef.detectChanges();
 
+      // ===== WEBAPP MODE: Match EFE pattern - simple rebuild from server =====
+      // CRITICAL FIX: Skip complex preservation filter in webapp mode
+      // Webapp uploads get S3 URLs (not blob:// or data://) and would be filtered out
+      if (environment.isWeb) {
+        const attachments = this.bulkAttachmentsMap.get(visualId) || [];
+
+        // Preserve ONLY in-progress uploads (temp photos with uploading: true)
+        const existingPhotos = this.visualPhotos[key] || [];
+        const inProgressUploads = existingPhotos.filter(p =>
+          p.uploading === true && String(p.imageId || '').startsWith('uploading_')
+        );
+
+        // Clear and rebuild from server data (EFE pattern)
+        this.visualPhotos[key] = [...inProgressUploads];
+        console.log(`[LOAD PHOTOS] WEBAPP: Rebuilding from server. Preserved ${inProgressUploads.length} in-progress uploads, ${attachments.length} server attachments`);
+
+        for (const attach of attachments) {
+          const attachId = String(attach.AttachID || attach.attachId || '');
+
+          // Skip if already in array (dedup with in-progress)
+          if (this.visualPhotos[key].some(p => String(p.AttachID) === attachId)) {
+            continue;
+          }
+
+          // Get display URL - convert S3 key if needed
+          let displayUrl = attach.Photo || attach.Attachment || attach.url || 'assets/img/photo-placeholder.png';
+          if (displayUrl && this.caspioService.isS3Key(displayUrl)) {
+            try {
+              displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+            } catch (e) {
+              console.warn('[LOAD PHOTOS] WEBAPP: Could not get S3 URL:', e);
+            }
+          }
+
+          this.visualPhotos[key].push({
+            AttachID: attachId,
+            attachId: attachId,
+            id: attachId,
+            imageId: attachId,
+            displayUrl: displayUrl,
+            url: displayUrl,
+            thumbnailUrl: displayUrl,
+            originalUrl: displayUrl,
+            name: attach.Photo || 'photo.jpg',
+            caption: attach.Annotation || '',
+            annotation: attach.Annotation || '',
+            Annotation: attach.Annotation || '',
+            Drawings: attach.Drawings || null,
+            hasAnnotations: !!(attach.Drawings && attach.Drawings.length > 10),
+            uploading: false,
+            isLocal: false,
+            isSkeleton: false
+          });
+        }
+
+        this.photoCountsByKey[key] = this.visualPhotos[key].length;
+        this.loadingPhotosByKey[key] = false;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // ===== MOBILE MODE: Continue with existing preservation logic =====
       // ===== ON-DEMAND LOAD: Only fetch data when user expands =====
       // STEP 1: Get attachments from bulk cache (already loaded during initial load)
       const attachments = this.bulkAttachmentsMap.get(visualId) || [];
