@@ -52,7 +52,7 @@ export interface CachedTemplate {
 
 // HUD uses dynamic attachment keys like 'hud_attach_123'
 export type HudAttachmentKey = `hud_attach_${string}`;
-export type CacheDataType = 'visuals' | 'hud' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'lbw_records' | 'lbw_attachments' | 'lbw_dropdown' | 'hud_records' | HudAttachmentKey;
+export type CacheDataType = 'visuals' | 'hud' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_attachments' | 'lbw_records' | 'lbw_attachments' | 'lbw_dropdown' | 'hud_records' | HudAttachmentKey;
 
 export interface CachedServiceData {
   cacheKey: string;
@@ -74,7 +74,7 @@ export interface PendingEFEData {
 export interface PendingCaptionUpdate {
   captionId: string;           // Unique ID for this caption update
   attachId: string;            // Attachment ID (can be temp_xxx or real ID)
-  attachType: 'visual' | 'efe_point' | 'fdf';  // Type of attachment
+  attachType: 'visual' | 'efe_point' | 'fdf' | 'hud';  // Type of attachment
   caption?: string;            // New caption text
   drawings?: string;           // New drawings data
   serviceId?: string;          // Service ID for cache lookup
@@ -2253,7 +2253,7 @@ export class IndexedDbService {
    */
   async queueCaptionUpdate(data: {
     attachId: string;
-    attachType: 'visual' | 'efe_point' | 'fdf';
+    attachType: 'visual' | 'efe_point' | 'fdf' | 'hud';
     caption?: string;
     drawings?: string;
     serviceId?: string;
