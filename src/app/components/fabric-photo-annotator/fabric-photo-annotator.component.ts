@@ -594,34 +594,45 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
    * WEBAPP MODE: Uses API Gateway proxy to avoid CORS issues with S3
    */
   private async fetchRemoteImageAsDataUrl(imageUrl: string): Promise<string> {
-    // WEBAPP MODE: Use API Gateway proxy to fetch S3 images (has proper CORS headers)
+    // WEBAPP MODE: For S3 images, get a fresh signed URL and fetch directly
     if (environment.isWeb && imageUrl.includes('.s3.') && imageUrl.includes('amazonaws.com')) {
-      console.log('[FabricAnnotator] WEBAPP: Using API Gateway proxy for S3 image');
+      console.log('[FabricAnnotator] WEBAPP: Fetching S3 image with fresh signed URL');
       try {
         // Extract S3 key from the URL
         const urlObj = new URL(imageUrl);
         const s3Key = urlObj.pathname.substring(1); // Remove leading '/'
 
         if (s3Key) {
-          // Use API Gateway proxy endpoint
-          const proxyUrl = `${environment.apiGatewayUrl}/api/s3/proxy?s3Key=${encodeURIComponent(s3Key)}`;
-          console.log('[FabricAnnotator] WEBAPP: Proxy URL:', proxyUrl.substring(0, 80));
+          // Get a fresh signed URL using the existing /api/s3/url endpoint
+          const urlEndpoint = `${environment.apiGatewayUrl}/api/s3/url?s3Key=${encodeURIComponent(s3Key)}`;
+          console.log('[FabricAnnotator] WEBAPP: Getting signed URL for:', s3Key.substring(0, 50));
 
-          const response = await fetch(proxyUrl);
-          if (!response.ok) {
-            throw new Error(`Proxy fetch failed: ${response.status}`);
+          const urlResponse = await fetch(urlEndpoint);
+          if (!urlResponse.ok) {
+            throw new Error(`Failed to get signed URL: ${urlResponse.status}`);
           }
 
-          const blob = await response.blob();
-          return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error('Failed to read blob as data URL'));
-            reader.readAsDataURL(blob);
-          });
+          const urlResult = await urlResponse.json();
+          const signedUrl = urlResult.url;
+
+          if (signedUrl) {
+            // Fetch the image using the fresh signed URL
+            const imageResponse = await fetch(signedUrl);
+            if (!imageResponse.ok) {
+              throw new Error(`Image fetch failed: ${imageResponse.status}`);
+            }
+
+            const blob = await imageResponse.blob();
+            return new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = () => reject(new Error('Failed to read blob as data URL'));
+              reader.readAsDataURL(blob);
+            });
+          }
         }
       } catch (proxyError) {
-        console.warn('[FabricAnnotator] WEBAPP: Proxy fetch failed, trying direct fetch:', proxyError);
+        console.warn('[FabricAnnotator] WEBAPP: S3 fetch failed, trying direct fetch:', proxyError);
         // Fall through to regular XHR fetch
       }
     }
