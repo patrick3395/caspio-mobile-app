@@ -2760,14 +2760,39 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         try {
           this.isLoadingPhotosInBackground = true;
 
-          // HUD: Process ALL visuals - HUD doesn't filter by category
-          const visualIds = this.bulkVisualsCache
-            .map((v: any) => String(v.HUDID || v.VisualID || v.PK_ID || v.id))
+          // HUD: Process ALL HUD records - get HUDIDs
+          const hudIds = this.bulkVisualsCache
+            .map((v: any) => String(v.HUDID || v.PK_ID || v.id))
             .filter((id: string) => id && !id.startsWith('temp_'));
 
-          if (visualIds.length > 0) {
-            this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(visualIds);
-            console.log(`[LOAD DATA BG] ? Loaded attachments for ${this.bulkAttachmentsMap.size} visuals`);
+          if (hudIds.length > 0) {
+            // WEBAPP MODE: Fetch HUD attachments directly from server
+            // HUD uses LPS_Services_HUD_Attach table with HUDID (NOT VisualID)
+            if (environment.isWeb) {
+              console.log(`[LOAD DATA BG] WEBAPP: Fetching HUD attachments for ${hudIds.length} HUD records`);
+              const attachmentPromises = hudIds.map(async (hudId) => {
+                try {
+                  const attachments = await this.hudData.getHudAttachments(hudId);
+                  return { hudId, attachments };
+                } catch (err) {
+                  console.warn(`[LOAD DATA BG] Failed to load attachments for HUDID ${hudId}:`, err);
+                  return { hudId, attachments: [] };
+                }
+              });
+
+              const results = await Promise.all(attachmentPromises);
+              this.bulkAttachmentsMap = new Map();
+              for (const { hudId, attachments } of results) {
+                if (attachments.length > 0) {
+                  this.bulkAttachmentsMap.set(hudId, attachments);
+                }
+              }
+              console.log(`[LOAD DATA BG] WEBAPP: Loaded attachments for ${this.bulkAttachmentsMap.size} HUD records`);
+            } else {
+              // MOBILE MODE: Use cached visual attachments
+              this.bulkAttachmentsMap = await this.indexedDb.getAllVisualAttachmentsForVisuals(hudIds);
+              console.log(`[LOAD DATA BG] MOBILE: Loaded attachments for ${this.bulkAttachmentsMap.size} visuals`);
+            }
           }
 
           // Pre-load photo URLs
