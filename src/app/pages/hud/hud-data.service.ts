@@ -1187,7 +1187,7 @@ export class HudDataService {
   async queueCaptionUpdate(
     attachId: string,
     caption: string,
-    attachType: 'visual' | 'efe_point' | 'fdf',
+    attachType: 'visual' | 'efe_point' | 'fdf' | 'hud',
     metadata: { serviceId?: string; visualId?: string; pointId?: string } = {}
   ): Promise<string> {
     console.log(`[Caption Queue] Queueing caption update for ${attachType} attach:`, attachId);
@@ -1204,6 +1204,8 @@ export class HudDataService {
         if (attachType === 'efe_point') {
           endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
         } else if (attachType === 'visual') {
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
+        } else if (attachType === 'hud') {
           endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`;
         } else if (attachType === 'fdf') {
           // FDF captions are stored on the EFE room record
@@ -1263,7 +1265,7 @@ export class HudDataService {
   async queueAnnotationUpdate(
     attachId: string,
     drawings: string,
-    attachType: 'visual' | 'efe_point' | 'fdf',
+    attachType: 'visual' | 'efe_point' | 'fdf' | 'hud',
     metadata: { serviceId?: string; visualId?: string; pointId?: string; caption?: string } = {}
   ): Promise<string> {
     console.log(`[Annotation Queue] Queueing annotation update for ${attachType} attach:`, attachId);
@@ -1282,6 +1284,8 @@ export class HudDataService {
         if (attachType === 'efe_point') {
           endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
         } else if (attachType === 'visual') {
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
+        } else if (attachType === 'hud') {
           endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`;
         } else if (attachType === 'fdf') {
           const roomId = attachId;
@@ -1345,7 +1349,7 @@ export class HudDataService {
     attachId: string,
     caption: string,
     drawings: string,
-    attachType: 'visual' | 'efe_point' | 'fdf',
+    attachType: 'visual' | 'efe_point' | 'fdf' | 'hud',
     metadata: { serviceId?: string; visualId?: string; pointId?: string } = {}
   ): Promise<string> {
     console.log(`[Caption+Annotation Queue] Queueing combined update for ${attachType} attach:`, attachId);
@@ -1364,6 +1368,8 @@ export class HudDataService {
         if (attachType === 'efe_point') {
           endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${attachId}`;
         } else if (attachType === 'visual') {
+          endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`;
+        } else if (attachType === 'hud') {
           endpoint = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${attachId}`;
         } else if (attachType === 'fdf') {
           const roomId = attachId;
@@ -1422,7 +1428,7 @@ export class HudDataService {
     attachId: string,
     caption: string | undefined,
     drawings: string | undefined,
-    attachType: 'visual' | 'efe_point' | 'fdf',
+    attachType: 'visual' | 'efe_point' | 'fdf' | 'hud',
     metadata: { serviceId?: string; visualId?: string; pointId?: string }
   ): Promise<void> {
     try {
@@ -1487,6 +1493,26 @@ export class HudDataService {
           console.log(`[Caption Cache] ✅ Updated EFE point attachments cache for pointId:`, metadata.pointId);
         } else if (!isTempId) {
           console.warn(`[Caption Cache] ⚠️ Attachment ${attachIdStr} not found in EFE cache - pendingCaptions will handle it`);
+        }
+      } else if (attachType === 'hud' && metadata.visualId) {
+        // HUD uses visualId as the HUDID for cache lookup
+        const cached = await this.indexedDb.getCachedServiceData(metadata.visualId, 'hud_attachments') || [];
+        let foundInCache = false;
+        const updatedCache = cached.map((att: any) => {
+          if (String(att.AttachID) === attachIdStr) {
+            foundInCache = true;
+            const updated: any = { ...att, _localUpdate: true, _updatedAt: Date.now() };
+            if (caption !== undefined) updated.Annotation = caption;
+            if (drawings !== undefined) updated.Drawings = drawings;
+            return updated;
+          }
+          return att;
+        });
+        if (foundInCache) {
+          await this.indexedDb.cacheServiceData(metadata.visualId, 'hud_attachments', updatedCache);
+          console.log(`[Caption Cache] ✅ Updated HUD attachments cache for HUDID:`, metadata.visualId);
+        } else if (!isTempId) {
+          console.warn(`[Caption Cache] ⚠️ Attachment ${attachIdStr} not found in HUD cache - pendingCaptions will handle it`);
         }
       }
       // FDF type is handled differently (stored in room record, not attachments)
@@ -2281,13 +2307,18 @@ export class HudDataService {
    */
   private async createLocalImageFromAttachment(
     serviceId: string,
-    entityType: 'visual' | 'efe_point',
+    entityType: 'visual' | 'efe_point' | 'hud',
     attachment: any
   ): Promise<void> {
     const attachId = attachment.AttachID || attachment.PK_ID;
-    const entityId = entityType === 'visual'
-      ? String(attachment.VisualID || attachment.visualId)
-      : String(attachment.PointID || attachment.pointId);
+    let entityId: string;
+    if (entityType === 'visual') {
+      entityId = String(attachment.VisualID || attachment.visualId);
+    } else if (entityType === 'hud') {
+      entityId = String(attachment.HUDID || attachment.hudId);
+    } else {
+      entityId = String(attachment.PointID || attachment.pointId);
+    }
     const photoUrl = attachment.Photo || attachment.Attachment;
     const caption = attachment.Caption || '';
 
@@ -2312,7 +2343,7 @@ export class HudDataService {
 
     const localImage: LocalImage = {
       imageId,
-      entityType: entityType === 'visual' ? 'visual' : 'efe_point',
+      entityType: entityType,
       entityId,
       serviceId,
       localBlobId: null,  // No local blob - will load from S3
