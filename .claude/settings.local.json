@@ -69,7 +69,8 @@
       "Bash(powershell -Command:*)",
       "Bash(powershell -ExecutionPolicy Bypass -File replace-hud.ps1:*)",
       "Bash(powershell -ExecutionPolicy Bypass -File fix-imports.ps1)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Skill(gsd:audit-milestone)"
     ],
     "deny": [],
     "ask": []

@@ -11296,7 +11296,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
             <strong>Table:</strong> ${dataToSend.table}<br><br>
             
             <strong>Fields to Send:</strong><br>
-            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ VisualID: <strong style="color: red;">${dataToSend.fields.VisualID}</strong> (Integer)<br>
+            ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ HUDID: <strong style="color: red;">${dataToSend.fields.HUDID}</strong> (Integer)<br>
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Annotation: "${dataToSend.fields.Annotation}" (Text)<br>
             ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Photo: Will store file path after upload<br><br>
             
