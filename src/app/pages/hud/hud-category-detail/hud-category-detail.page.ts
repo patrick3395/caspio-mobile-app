@@ -5243,7 +5243,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   ): Promise<LocalImage> {
     const localImage = await this.localImageService.captureImage(
       file,
-      'visual',
+      'hud',
       visualId,
       this.serviceId,
       caption,
@@ -5474,7 +5474,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               // Upload directly to S3
               const uploadResult = await this.localImageService.uploadImageDirectToS3(
                 compressedFile,
-                'visual',
+                'hud',
                 String(visualId),
                 this.serviceId,
                 caption,
@@ -5551,7 +5551,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           try {
             localImage = await this.localImageService.captureImage(
               compressedFile,  // Use compressed file
-              'visual',
+              'hud',
               String(visualId),
               this.serviceId,
               caption,
@@ -5822,7 +5822,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   // Upload directly to S3
                   const uploadResult = await this.localImageService.uploadImageDirectToS3(
                     compressedFile,
-                    'visual',
+                    'hud',
                     String(visualId),
                     this.serviceId,
                     '', // caption
@@ -5936,7 +5936,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 // Create LocalImage with stable UUID
                 const localImage = await this.localImageService.captureImage(
                   compressedFile,  // Use compressed file
-                  'visual',
+                  'hud',
                   String(visualId),
                   this.serviceId,
                   '', // caption
@@ -6933,7 +6933,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   pendingFileId,
                   data.caption || '',
                   compressedDrawings,
-                  'visual',
+                  'hud',
                   { serviceId: this.serviceId }
                 );
                 console.log('[SAVE OFFLINE] ? Caption/annotation queued for sync:', pendingFileId);
@@ -7194,7 +7194,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       isLocalFirstPhoto && localImageId ? localImageId : attachId,
       caption || '',
       updateData.Drawings,
-      'visual',
+      'hud',
       {
         serviceId: this.serviceId,
         visualId: visualIdForCache || undefined
@@ -7388,7 +7388,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               this.hudData.queueCaptionUpdate(
                 attachId,
                 newCaption,
-                'visual',
+                'hud',
                 {
                   serviceId: this.serviceId,
                   visualId: String(visualId)
