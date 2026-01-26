@@ -6562,17 +6562,33 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     console.log('[VIEW PHOTO] Opening photo annotator for', photo.AttachID);
 
     try {
-      const key = `${category}_${itemId}`;
+      // WEBAPP FIX: Handle key mismatch between route category and item's actual category
+      // Photos may be stored under item.category (e.g., "Foundation") but looked up by route category (e.g., "hud")
+      let key = `${category}_${itemId}`;
+      let photos = this.visualPhotos[key] || [];
+
+      // If no photos found, try the item's actual category (same fallback as getPhotosForVisual)
+      if (photos.length === 0) {
+        const item = this.findItemById(itemId);
+        if (item && item.category && item.category !== category) {
+          const itemCategoryKey = `${item.category}_${itemId}`;
+          const itemCategoryPhotos = this.visualPhotos[itemCategoryKey] || [];
+          if (itemCategoryPhotos.length > 0) {
+            console.log('[VIEW PHOTO] Key fallback: using item category key', itemCategoryKey, 'instead of', key);
+            key = itemCategoryKey;
+            photos = itemCategoryPhotos;
+          }
+        }
+      }
 
       const attachId = photo.AttachID || photo.id;
-      
+
       // CRITICAL: Store the photo index BEFORE opening modal
       // This ensures we can find the photo even if its AttachID changes during editing
-      const photos = this.visualPhotos[key] || [];
-      const originalPhotoIndex = photos.findIndex(p => 
+      const originalPhotoIndex = photos.findIndex(p =>
         (p.AttachID || p.id) === attachId || p === photo
       );
-      console.log('[VIEW PHOTO] Captured photo index:', originalPhotoIndex, 'for AttachID:', attachId);
+      console.log('[VIEW PHOTO] Captured photo index:', originalPhotoIndex, 'for AttachID:', attachId, 'key:', key);
       const isTempPhoto = String(attachId).startsWith('temp_');
 
       // NEW: Handle LocalImages from the new local-first system (Dexie-based)
@@ -6863,7 +6879,25 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const newUrl = URL.createObjectURL(annotatedBlob);
 
         // Find photo in array - use multiple strategies since AttachID might have changed
-        const photos = this.visualPhotos[key] || [];
+        // WEBAPP FIX: Re-apply key fallback in case visualPhotos changed while modal was open
+        let savePhotos = this.visualPhotos[key] || [];
+        let saveKey = key;
+
+        // If no photos found under current key, try fallback (same as at method start)
+        if (savePhotos.length === 0) {
+          const item = this.findItemById(itemId);
+          if (item && item.category && item.category !== category) {
+            const itemCategoryKey = `${item.category}_${itemId}`;
+            const itemCategoryPhotos = this.visualPhotos[itemCategoryKey] || [];
+            if (itemCategoryPhotos.length > 0) {
+              console.log('[VIEW PHOTO SAVE] Key fallback: using item category key', itemCategoryKey, 'instead of', key);
+              saveKey = itemCategoryKey;
+              savePhotos = itemCategoryPhotos;
+            }
+          }
+        }
+
+        const photos = savePhotos;
         let photoIndex = photos.findIndex(p =>
           (p.AttachID || p.id) === attachId
         );
@@ -6901,7 +6935,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
               // CRITICAL: Create NEW photo object (immutable update pattern from original line 12518-12542)
               // This ensures proper change detection and maintains separation between original and annotated
-              this.visualPhotos[key][photoIndex] = {
+              this.visualPhotos[saveKey][photoIndex] = {
                 ...currentPhoto,
                 // PRESERVE originalUrl - this is the base image without annotations
                 originalUrl: currentPhoto.originalUrl || currentPhoto.url,
@@ -6925,10 +6959,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 rawDrawingsString: compressedDrawings
               };
 
-              console.log('[SAVE] Updated photo object in visualPhotos[' + key + '][' + photoIndex + ']');
-              console.log('[SAVE] Photo now has Drawings:', !!this.visualPhotos[key][photoIndex].Drawings, 'length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
-              console.log('[SAVE] Photo now has rawDrawingsString:', !!this.visualPhotos[key][photoIndex].rawDrawingsString, 'length:', this.visualPhotos[key][photoIndex].rawDrawingsString?.length || 0);
-              console.log('[SAVE] Photo hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
+              console.log('[SAVE] Updated photo object in visualPhotos[' + saveKey + '][' + photoIndex + ']');
+              console.log('[SAVE] Photo now has Drawings:', !!this.visualPhotos[saveKey][photoIndex].Drawings, 'length:', this.visualPhotos[saveKey][photoIndex].Drawings?.length || 0);
+              console.log('[SAVE] Photo now has rawDrawingsString:', !!this.visualPhotos[saveKey][photoIndex].rawDrawingsString, 'length:', this.visualPhotos[saveKey][photoIndex].rawDrawingsString?.length || 0);
+              console.log('[SAVE] Photo hasAnnotations:', this.visualPhotos[saveKey][photoIndex].hasAnnotations);
 
               // CRITICAL: Clear ALL visual attachment caches (not just this one)
               // This ensures when the user navigates away and back, ALL fresh data is loaded from database
@@ -7005,7 +7039,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               // Update local photo object with annotated image
               console.log('[SAVE OFFLINE] Updating local photo object, newUrl:', newUrl ? 'created' : 'missing');
 
-              this.visualPhotos[key][photoIndex] = {
+              this.visualPhotos[saveKey][photoIndex] = {
                 ...currentPhoto,
                 originalUrl: currentPhoto.originalUrl || currentPhoto.url,
                 displayUrl: newUrl,  // CRITICAL: Show annotated image immediately
@@ -7021,9 +7055,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               };
 
               console.log('[SAVE OFFLINE] Updated local photo object:');
-              console.log('[SAVE OFFLINE]   - displayUrl:', this.visualPhotos[key][photoIndex].displayUrl ? 'set' : 'missing');
-              console.log('[SAVE OFFLINE]   - hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
-              console.log('[SAVE OFFLINE]   - Drawings length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
+              console.log('[SAVE OFFLINE]   - displayUrl:', this.visualPhotos[saveKey][photoIndex].displayUrl ? 'set' : 'missing');
+              console.log('[SAVE OFFLINE]   - hasAnnotations:', this.visualPhotos[saveKey][photoIndex].hasAnnotations);
+              console.log('[SAVE OFFLINE]   - Drawings length:', this.visualPhotos[saveKey][photoIndex].Drawings?.length || 0);
               
               // CRITICAL FIX: Cache annotated image for temp photos too
               // This ensures annotations show in thumbnails even for offline photos
