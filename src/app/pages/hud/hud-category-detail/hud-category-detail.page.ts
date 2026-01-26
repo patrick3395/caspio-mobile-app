@@ -7812,58 +7812,141 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           this.visualPhotos[key] = [];
         }
 
-        // Upload ALL photos to LocalImages first (persists to Dexie)
-        const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
-          const photoData = processedPhotos[index] || {};
-          const annotationData = photoData.annotationData || null;
-          const originalFile = photoData.originalFile || null;
-          const caption = photoData.caption || '';
-          const fileToUpload = originalFile || file;
+        // ============================================
+        // WEBAPP MODE: Direct S3 Upload
+        // MOBILE MODE: Local-first with background sync
+        // ============================================
 
-          // Compress the photo
-          const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
-            maxSizeMB: 0.8,
-            maxWidthOrHeight: 1280,
-            useWebWorker: true
-          }) as File;
+        if (environment.isWeb) {
+          // WEBAPP MODE: Upload directly to S3
+          console.log('[CREATE CUSTOM] WEBAPP MODE: Uploading', files.length, 'photos directly to S3');
 
-          // Upload to LocalImages via hudData (persists to Dexie)
-          const drawings = annotationData ? JSON.stringify(annotationData) : '';
-          const result = await this.hudData.uploadVisualPhoto(visualId, compressedPhoto, caption, drawings, originalFile || undefined, this.serviceId);
+          const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
+            const photoData = processedPhotos[index] || {};
+            const annotationData = photoData.annotationData || null;
+            const originalFile = photoData.originalFile || null;
+            const caption = photoData.caption || '';
+            const fileToUpload = originalFile || file;
 
-          console.log(`[CREATE CUSTOM] Photo ${index + 1} persisted to LocalImages:`, result.imageId);
-          return result;
-        }));
+            // Compress the photo
+            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+              maxSizeMB: 0.8,
+              maxWidthOrHeight: 1280,
+              useWebWorker: true
+            }) as File;
 
-        photoCount = uploadResults.length;
+            // Compress annotations if present
+            const drawings = annotationData ? compressAnnotationData(JSON.stringify(annotationData)) : '';
 
-        // Add photos to in-memory array for immediate display
-        for (const result of uploadResults) {
-          this.visualPhotos[key].push({
-            AttachID: result.imageId,
-            id: result.imageId,
-            imageId: result.imageId,
-            name: result.fileName,
-            url: result.displayUrl,
-            thumbnailUrl: result.displayUrl,
-            displayUrl: result.displayUrl,
-            isObjectUrl: true,
-            uploading: false,
-            queued: false,
-            hasAnnotations: !!(result.drawings && result.drawings.length > 10),
-            caption: result.caption || '',
-            annotation: result.caption || '',
-            isLocalFirst: true
-          });
+            // Upload directly to S3
+            const result = await this.localImageService.uploadImageDirectToS3(
+              compressedPhoto,
+              'hud',
+              String(visualId),
+              this.serviceId,
+              caption,
+              drawings
+            );
+
+            console.log(`[CREATE CUSTOM] WEBAPP: Photo ${index + 1} uploaded to S3:`, result.attachId);
+            return {
+              imageId: result.attachId,
+              attachId: result.attachId,
+              AttachID: result.attachId,
+              s3Url: result.s3Url,
+              s3Key: result.s3Key,
+              caption: caption,
+              drawings: drawings,
+              hasAnnotations: !!annotationData
+            };
+          }));
+
+          photoCount = uploadResults.length;
+
+          // Add photos to in-memory array for immediate display
+          for (const result of uploadResults) {
+            this.visualPhotos[key].push({
+              AttachID: result.attachId,
+              id: result.attachId,
+              imageId: result.imageId,
+              name: `photo_${result.attachId}.jpg`,
+              url: result.s3Url,
+              thumbnailUrl: result.s3Url,
+              displayUrl: result.s3Url,
+              isObjectUrl: false,
+              uploading: false,
+              queued: false,
+              hasAnnotations: result.hasAnnotations,
+              caption: result.caption || '',
+              annotation: result.caption || '',
+              isLocalFirst: false
+            });
+          }
+
+          // Update photo count
+          this.photoCountsByKey[key] = photoCount;
+
+          // Set expansion state so photos are visible
+          this.expandedPhotos[key] = true;
+
+          console.log('[CREATE CUSTOM] WEBAPP: ✅ All', photoCount, 'photos uploaded to S3');
+
+        } else {
+          // MOBILE MODE: Upload ALL photos to LocalImages first (persists to Dexie)
+          console.log('[CREATE CUSTOM] MOBILE MODE: Uploading', files.length, 'photos to LocalImages');
+
+          const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
+            const photoData = processedPhotos[index] || {};
+            const annotationData = photoData.annotationData || null;
+            const originalFile = photoData.originalFile || null;
+            const caption = photoData.caption || '';
+            const fileToUpload = originalFile || file;
+
+            // Compress the photo
+            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+              maxSizeMB: 0.8,
+              maxWidthOrHeight: 1280,
+              useWebWorker: true
+            }) as File;
+
+            // Upload to LocalImages via hudData (persists to Dexie)
+            const drawings = annotationData ? JSON.stringify(annotationData) : '';
+            const result = await this.hudData.uploadVisualPhoto(visualId, compressedPhoto, caption, drawings, originalFile || undefined, this.serviceId);
+
+            console.log(`[CREATE CUSTOM] MOBILE: Photo ${index + 1} persisted to LocalImages:`, result.imageId);
+            return result;
+          }));
+
+          photoCount = uploadResults.length;
+
+          // Add photos to in-memory array for immediate display
+          for (const result of uploadResults) {
+            this.visualPhotos[key].push({
+              AttachID: result.imageId,
+              id: result.imageId,
+              imageId: result.imageId,
+              name: result.fileName,
+              url: result.displayUrl,
+              thumbnailUrl: result.displayUrl,
+              displayUrl: result.displayUrl,
+              isObjectUrl: true,
+              uploading: false,
+              queued: false,
+              hasAnnotations: !!(result.drawings && result.drawings.length > 10),
+              caption: result.caption || '',
+              annotation: result.caption || '',
+              isLocalFirst: true
+            });
+          }
+
+          // Update photo count
+          this.photoCountsByKey[key] = photoCount;
+
+          // DEXIE-FIRST: Set expansion state BEFORE setField so photos are visible when liveQuery fires
+          this.expandedPhotos[key] = true;
+
+          console.log('[CREATE CUSTOM] MOBILE: ✅ All', photoCount, 'photos uploaded to LocalImages');
         }
-
-        // Update photo count
-        this.photoCountsByKey[key] = photoCount;
-
-        // DEXIE-FIRST: Set expansion state BEFORE setField so photos are visible when liveQuery fires
-        this.expandedPhotos[key] = true;
-
-        console.log('[CREATE CUSTOM] ? All', photoCount, 'photos uploaded to LocalImages BEFORE setField');
       }
 
       // NOW persist to VisualField - this triggers liveQuery which will find the photos in LocalImages
