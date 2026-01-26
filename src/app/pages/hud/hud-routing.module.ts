@@ -6,6 +6,7 @@ import { HudContainerPage } from './hud-container/hud-container.page';
 import { HudMainPage } from './hud-main/hud-main.page';
 import { HudProjectDetailsPage } from './hud-project-details/hud-project-details.page';
 import { HudCategoryDetailPage } from './hud-category-detail/hud-category-detail.page';
+import { HudVisualDetailPage } from './hud-visual-detail/hud-visual-detail.page';
 
 const routes: Routes = [
   {
@@ -22,7 +23,10 @@ const routes: Routes = [
       },
       {
         path: 'category/:category',
-        component: HudCategoryDetailPage
+        children: [
+          { path: '', component: HudCategoryDetailPage },
+          { path: 'visual/:templateId', component: HudVisualDetailPage }
+        ]
       }
     ]
   }

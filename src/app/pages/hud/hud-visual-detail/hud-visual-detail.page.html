@@ -1,0 +1,96 @@
+<div class="page-container">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading visual data...</p>
+  </div>
+
+  <!-- Content -->
+  <div *ngIf="!loading && item" class="content-section">
+    <!-- Title Section -->
+    <div class="edit-section">
+      <label class="section-label">Title</label>
+      <input
+        type="text"
+        class="edit-input title-input"
+        [(ngModel)]="editableTitle"
+        (blur)="saveTitle()"
+        placeholder="Enter title...">
+    </div>
+
+    <!-- Description Section -->
+    <div class="edit-section">
+      <label class="section-label">Description</label>
+      <textarea
+        class="edit-input text-input"
+        [(ngModel)]="editableText"
+        (blur)="saveText()"
+        placeholder="Enter description..."
+        rows="6"></textarea>
+    </div>
+
+    <!-- Photos Section -->
+    <div class="photos-section">
+      <div class="section-header">
+        <label class="section-label">Photos ({{ photos.length }})</label>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-button-grid">
+        <button class="action-btn" (click)="addPhotoFromCamera()">
+          <ion-icon name="camera"></ion-icon>
+          <span>Camera</span>
+        </button>
+        <button class="action-btn" (click)="addPhotoFromGallery()">
+          <ion-icon name="images"></ion-icon>
+          <span>Gallery</span>
+        </button>
+      </div>
+
+      <!-- Photos Grid -->
+      <div class="image-preview-section" *ngIf="photos.length > 0">
+        <div class="image-preview-container">
+          <div class="image-preview structural-photo-preview"
+               *ngFor="let photo of photos; trackBy: trackByPhotoId"
+               [class.uploading]="photo.uploading">
+            <img [appLazyImage]="photo.displayUrl || 'assets/img/photo-placeholder.png'"
+                 [lazyPlaceholder]="'assets/img/photo-placeholder.png'"
+                 alt="Photo"
+                 (click)="viewPhoto(photo)"
+                 [class.loading]="photo.uploading">
+            <div class="upload-indicator" *ngIf="photo.uploading">
+              <ion-spinner name="crescent" color="light"></ion-spinner>
+            </div>
+            <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo); $event.stopPropagation()" title="Delete">
+              <ion-icon name="close"></ion-icon>
+            </button>
+            <button
+              class="room-photo-caption"
+              (click)="openCaptionPopup(photo); $event.stopPropagation()">
+              {{ photo.caption || 'Caption' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- No Photos -->
+      <div class="no-photos-message" *ngIf="!loadingPhotos && photos.length === 0">
+        <ion-icon name="images-outline"></ion-icon>
+        <p>No photos yet. Tap Camera or Gallery to add photos.</p>
+      </div>
+
+      <!-- Loading Photos -->
+      <div class="loading-photos" *ngIf="loadingPhotos">
+        <ion-spinner name="crescent"></ion-spinner>
+        <span>Loading photos...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Item Found -->
+  <div *ngIf="!loading && !item" class="no-item-message">
+    <ion-icon name="alert-circle-outline"></ion-icon>
+    <p>Visual item not found</p>
+    <button class="back-link" (click)="goBack()">Go Back</button>
+  </div>
+</div>

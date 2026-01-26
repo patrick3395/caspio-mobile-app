@@ -7813,15 +7813,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         }
 
         // ============================================
-        // WEBAPP MODE: Direct S3 Upload
+        // WEBAPP MODE: Direct S3 Upload (matches camera/gallery pattern)
         // MOBILE MODE: Local-first with background sync
         // ============================================
 
         if (environment.isWeb) {
-          // WEBAPP MODE: Upload directly to S3
+          // WEBAPP MODE: Upload directly to S3 - follows EXACT same pattern as addPhotoFromCamera
           console.log('[CREATE CUSTOM] WEBAPP MODE: Uploading', files.length, 'photos directly to S3');
 
-          const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
+          // Process each photo sequentially to match camera upload behavior
+          for (let index = 0; index < files.length; index++) {
+            const file = files[index];
             const photoData = processedPhotos[index] || {};
             const annotationData = photoData.annotationData || null;
             const originalFile = photoData.originalFile || null;
@@ -7836,55 +7838,98 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             }) as File;
 
             // Compress annotations if present
-            const drawings = annotationData ? compressAnnotationData(JSON.stringify(annotationData)) : '';
+            const compressedDrawings = annotationData ? compressAnnotationData(JSON.stringify(annotationData)) : '';
 
-            // Upload directly to S3
-            const result = await this.localImageService.uploadImageDirectToS3(
-              compressedPhoto,
-              'hud',
-              String(visualId),
-              this.serviceId,
-              caption,
-              drawings
-            );
-
-            console.log(`[CREATE CUSTOM] WEBAPP: Photo ${index + 1} uploaded to S3:`, result.attachId);
-            return {
-              imageId: result.attachId,
-              attachId: result.attachId,
-              AttachID: result.attachId,
-              s3Url: result.s3Url,
-              s3Key: result.s3Key,
-              caption: caption,
-              drawings: drawings,
-              hasAnnotations: !!annotationData
+            // Create temp photo entry with loading state (show roller) - EXACT same structure as camera upload
+            const tempId = `uploading_${Date.now()}_${index}`;
+            const previewUrl = photoData.previewUrl || URL.createObjectURL(file);
+            const tempPhotoEntry = {
+              imageId: tempId,
+              AttachID: tempId,
+              attachId: tempId,
+              id: tempId,
+              url: previewUrl,
+              displayUrl: previewUrl,
+              originalUrl: previewUrl,
+              thumbnailUrl: previewUrl,
+              name: `photo_${index}.jpg`,
+              caption: caption || '',
+              annotation: caption || '',
+              Annotation: caption || '',
+              Drawings: compressedDrawings,
+              hasAnnotations: !!annotationData,
+              status: 'uploading',
+              isLocal: false,
+              uploading: true,  // Show loading roller
+              isPending: true,
+              isSkeleton: false,
+              progress: 0
             };
-          }));
 
-          photoCount = uploadResults.length;
+            // Add temp photo to UI immediately (with loading roller)
+            this.visualPhotos[key].push(tempPhotoEntry);
+            this.loadingPhotosByKey[key] = false;
+            this.expandPhotos(category, customTemplateId);
+            this.changeDetectorRef.detectChanges();
 
-          // Add photos to in-memory array for immediate display
-          for (const result of uploadResults) {
-            this.visualPhotos[key].push({
-              AttachID: result.attachId,
-              id: result.attachId,
-              imageId: result.imageId,
-              name: `photo_${result.attachId}.jpg`,
-              url: result.s3Url,
-              thumbnailUrl: result.s3Url,
-              displayUrl: result.s3Url,
-              isObjectUrl: false,
-              uploading: false,
-              queued: false,
-              hasAnnotations: result.hasAnnotations,
-              caption: result.caption || '',
-              annotation: result.caption || '',
-              isLocalFirst: false
-            });
+            try {
+              // Upload directly to S3
+              const uploadResult = await this.localImageService.uploadImageDirectToS3(
+                compressedPhoto,
+                'hud',
+                String(visualId),
+                this.serviceId,
+                caption,
+                compressedDrawings
+              );
+
+              console.log(`[CREATE CUSTOM] WEBAPP: Photo ${index + 1} uploaded to S3:`, uploadResult.attachId);
+
+              // Replace temp photo with real photo (remove loading roller) - EXACT same as camera upload
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key][tempIndex] = {
+                  ...tempPhotoEntry,
+                  imageId: uploadResult.attachId,
+                  AttachID: uploadResult.attachId,
+                  attachId: uploadResult.attachId,
+                  id: uploadResult.attachId,
+                  url: uploadResult.s3Url,
+                  displayUrl: annotationData ? previewUrl : uploadResult.s3Url,
+                  originalUrl: uploadResult.s3Url,
+                  thumbnailUrl: annotationData ? previewUrl : uploadResult.s3Url,
+                  status: 'uploaded',
+                  isLocal: false,
+                  uploading: false,  // Remove loading roller
+                  isPending: false
+                };
+              }
+
+              // Update photo count
+              this.photoCountsByKey[key] = this.visualPhotos[key].length;
+              this.changeDetectorRef.detectChanges();
+
+              photoCount++;
+
+            } catch (uploadError: any) {
+              console.error(`[CREATE CUSTOM] WEBAPP: Photo ${index + 1} upload failed:`, uploadError?.message || uploadError);
+
+              // Remove temp photo on error
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key].splice(tempIndex, 1);
+              }
+              this.changeDetectorRef.detectChanges();
+
+              // Show error toast
+              const toast = await this.toastController.create({
+                message: `Failed to upload photo ${index + 1}. Please try again.`,
+                duration: 3000,
+                color: 'danger'
+              });
+              await toast.present();
+            }
           }
-
-          // Update photo count
-          this.photoCountsByKey[key] = photoCount;
 
           // Set expansion state so photos are visible
           this.expandedPhotos[key] = true;
@@ -7960,7 +8005,23 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
           photoCount: photoCount
         });
-        console.log('[CREATE CUSTOM] ? Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
+        console.log('[CREATE CUSTOM] ✅ Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
+
+        // WEBAPP FIX: In webapp mode, explicitly add to organizedData for immediate display
+        // LiveQuery may not trigger UI update in webapp mode
+        if (environment.isWeb) {
+          console.log('[CREATE CUSTOM] WEBAPP: Adding custom item to organizedData for immediate display');
+          if (kind === 'Comment') {
+            this.organizedData.comments.push(customItem);
+          } else if (kind === 'Limitation') {
+            this.organizedData.limitations.push(customItem);
+          } else if (kind === 'Deficiency') {
+            this.organizedData.deficiencies.push(customItem);
+          } else {
+            this.organizedData.comments.push(customItem);
+          }
+          this.changeDetectorRef.detectChanges();
+        }
       } catch (err) {
         console.error('[CREATE CUSTOM] Failed to persist to Dexie:', err);
 
@@ -7980,7 +8041,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // Clear PDF cache so new PDFs show updated data
       this.clearPdfCache();
 
-      console.log('[CREATE CUSTOM] ? Custom visual created with Dexie-first pattern');
+      console.log('[CREATE CUSTOM] ✅ Custom visual created');
 
     } catch (error) {
       console.error('[CREATE CUSTOM] Error creating custom visual:', error);
