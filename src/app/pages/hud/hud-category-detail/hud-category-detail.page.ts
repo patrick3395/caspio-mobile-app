@@ -2009,9 +2009,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
           
           if (existingItem) {
-            // CRITICAL: Use correct key format to match the rest of the codebase
-            const key = `${visual.Category}_${existingItem.id}`;
-            
+            // Use templateId for regular items (matches template), fall back to id for custom items
+            const itemKey = existingItem.templateId || existingItem.id;
+            const key = `${visual.Category}_${itemKey}`;
+
             // CRITICAL: Check for collision - skip if this key was already processed
             if (processedKeys.has(key)) {
               console.warn(`[RELOAD AFTER SYNC] ?? KEY COLLISION: Key "${key}" already processed, skipping visual ${visualId} (Name: "${visual.Name}")`);
@@ -2173,8 +2174,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         continue;
       }
       
-      // CRITICAL: Use correct key format to match the rest of the codebase
-      const key = `${visual.Category}_${existingItem.id}`;
+      // CRITICAL: Use templateId (not id) to match the key format used in template
+      // Template passes item.templateId to photo methods, so key must match
+      const key = `${visual.Category}_${existingItem.templateId}`;
       
       try {
         const attachments = await this.hudData.getHudAttachments(visualId);
@@ -2879,7 +2881,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       if (!item) continue;
 
-      const key = `${visual.Category}_${item.id}`;
+      // Use templateId for regular items (matches template), fall back to id for custom items
+      const itemKey = item.templateId || item.id;
+      const key = `${visual.Category}_${itemKey}`;
 
       // Only load if there are photos (attachments, pending, or local)
       const attachments = this.bulkAttachmentsMap.get(visualId) || [];
@@ -2935,7 +2939,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       if (!item) continue;
 
-      const key = `${visual.Category}_${item.id}`;
+      // Use templateId for regular items (matches template), fall back to id for custom items
+      const itemKey = item.templateId || item.id;
+      const key = `${visual.Category}_${itemKey}`;
 
       // Get counts from various sources (already in memory)
       const localImages = this.bulkLocalImagesMap.get(visualId) || [];
@@ -3007,7 +3013,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
     // Check each selected item to see if its skeleton count is set
     for (const item of allItems) {
-      const key = `${item.category}_${item.id}`;
+      // Use templateId for regular items (matches template), fall back to id for custom items
+      const itemKey = item.templateId || item.id;
+      const key = `${item.category}_${itemKey}`;
 
       // If item is selected/has a visual record
       if (this.selectedItems[key] || this.visualRecordIds[key]) {
@@ -3154,7 +3162,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // Skip hidden visuals - but still store the mapping for unhiding later
       if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) {
         if (item) {
-          const hiddenKey = `${category}_${item.id}`;
+          // Use templateId for regular items (matches template), fall back to id for custom items
+          const hiddenItemKey = item.templateId || item.id;
+          const hiddenKey = `${category}_${hiddenItemKey}`;
           // Only assign if not already assigned to prevent collision
           if (!assignedKeys.has(hiddenKey)) {
             this.visualRecordIds[hiddenKey] = visualId;
@@ -3194,8 +3204,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         console.log(`[LOAD VISUALS FAST] Created custom item for visual ${visualId}: "${name}"`);
       }
 
-      const key = `${category}_${item.id}`;
-      
+      // Use templateId for regular items (matches template), fall back to id for custom items
+      const itemKey = item.templateId || item.id;
+      const key = `${category}_${itemKey}`;
+
       // CRITICAL: Check for key collision before assigning
       if (assignedKeys.has(key)) {
         console.error(`[LOAD VISUALS FAST] ?? KEY COLLISION DETECTED! Key "${key}" already has visual ${this.visualRecordIds[key]}, visual ${visualId} (Name: "${name}") would overwrite it!`);
@@ -3284,7 +3296,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         if (!item) continue;
 
-        const key = `${visual.Category}_${item.id}`;
+        // Use templateId for regular items (matches template), fall back to id for custom items
+        const itemKey = item.templateId || item.id;
+        const key = `${visual.Category}_${itemKey}`;
 
         // LAZY LOADING: Only calculate count from bulk-loaded data (no image loading)
         // DEDUP: Avoid counting same photo from multiple sources
@@ -3442,7 +3456,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           item = customItem;
         }
 
-        const key = `${category}_${item.id}`;
+        // Use templateId for regular items (matches template), fall back to id for custom items
+        const itemKey = item.templateId || item.id;
+        const key = `${category}_${itemKey}`;
 
         // Store the visual record ID (extract from response)
         this.visualRecordIds[key] = visualId;
@@ -3533,7 +3549,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           if (!item) continue;
 
-          const key = `${category}_${item.id}`;
+          // Use templateId for regular items (matches template), fall back to id for custom items
+          const itemKey = item.templateId || item.id;
+          const key = `${category}_${itemKey}`;
 
           // Load photos in background - no await, happens asynchronously
           this.loadPhotosForVisual(visualId, key).catch(err => {
