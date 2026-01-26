@@ -5514,7 +5514,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           const compressedSize = compressedFile.size;
 
           // Get or create visual ID
-          const key = `${category}_${itemId}`;
+          // WEBAPP FIX: Use item's actual category for consistent key across upload/load
+          // Photos loaded from server use visual.Category, so upload must match
+          const item = this.findItemById(itemId);
+          const effectiveCategory = item?.category || category;
+          const key = `${effectiveCategory}_${itemId}`;
+          console.log('[CAMERA UPLOAD] Using key:', key, '(item category:', item?.category, ', route category:', category, ')');
           let visualId = this.visualRecordIds[key];
 
           if (!visualId) {
@@ -5580,7 +5585,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             // Add temp photo to UI immediately (with loading roller)
             this.visualPhotos[key].push(tempPhotoEntry);
             this.loadingPhotosByKey[key] = false;
-            this.expandPhotos(category, itemId);
+            this.expandPhotos(effectiveCategory, itemId);
             this.changeDetectorRef.detectChanges();
 
             try {
@@ -5615,6 +5620,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   isPending: false
                 };
               }
+
+              // WEBAPP FIX: Update photo count so UI reflects the new photo
+              this.photoCountsByKey[key] = this.visualPhotos[key].length;
+              console.log('[CAMERA UPLOAD] WEBAPP: Updated photoCountsByKey[' + key + '] =', this.photoCountsByKey[key]);
 
               this.changeDetectorRef.detectChanges();
 
@@ -5765,7 +5774,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
 
           // Expand photos section so user can see the newly added photo
-          this.expandPhotos(category, itemId);
+          this.expandPhotos(effectiveCategory, itemId);
           this.changeDetectorRef.detectChanges();
 
           // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
@@ -5846,7 +5855,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       });
 
       if (images.photos && images.photos.length > 0) {
-        const key = `${category}_${itemId}`;
+        // WEBAPP FIX: Use item's actual category for consistent key across upload/load
+        // Photos loaded from server use visual.Category, so upload must match
+        const item = this.findItemById(itemId);
+        const effectiveCategory = item?.category || category;
+        const key = `${effectiveCategory}_${itemId}`;
+        console.log('[GALLERY UPLOAD] Using key:', key, '(item category:', item?.category, ', route category:', category, ')');
 
         // Initialize photo array if it doesn't exist
         if (!this.visualPhotos[key]) {
@@ -5986,8 +6000,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             }
           }
 
-          // Expand photos section
-          this.expandPhotos(category, itemId);
+          // WEBAPP FIX: Update photo count so UI reflects the new photos
+          this.photoCountsByKey[key] = this.visualPhotos[key].length;
+          console.log('[GALLERY UPLOAD] WEBAPP: Updated photoCountsByKey[' + key + '] =', this.photoCountsByKey[key]);
+
+          // Expand photos section - use effectiveCategory for consistency
+          this.expandPhotos(effectiveCategory, itemId);
           this.changeDetectorRef.detectChanges();
           console.log('[GALLERY UPLOAD] WEBAPP: All photos processed');
           return;
@@ -6146,7 +6164,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           this.batchUploadImageIds.clear();
 
           // Expand photos section so user can see the newly added photos
-          this.expandPhotos(category, itemId);
+          this.expandPhotos(effectiveCategory, itemId);
 
           // Trigger single change detection after batch completes
           this.changeDetectorRef.detectChanges();
