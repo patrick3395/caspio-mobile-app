@@ -686,7 +686,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           category: template.Category || this.categoryName,
           answerType: template.AnswerType || 0,
           required: false,
-          answer: visual?.Answer || '',
+          answer: visual?.Answers || '',
+          otherValue: (template.AnswerType === 2 && visual?.Notes && !String(visual.Notes).startsWith('HIDDEN')) ? visual.Notes : '',
           isSelected: !!visual,
           key: itemKey
         };
@@ -816,6 +817,23 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const categoryVisuals = visuals || [];
       console.log(`[CategoryDetail] WEBAPP: ${categoryVisuals.length} HUD records, ${categoryTemplates.length} templates`);
 
+      // WEBAPP FIX: Load Dexie fields to get templateId -> visualId mappings
+      // This allows matching even when Name has been edited (the mapping persists in Dexie)
+      const dexieFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray();
+
+      // Build templateId -> visualId map from Dexie
+      const templateToVisualMap = new Map<number, string>();
+      for (const field of dexieFields) {
+        const visualId = field.visualId || field.tempVisualId;
+        if (visualId && field.templateId) {
+          templateToVisualMap.set(field.templateId, visualId);
+        }
+      }
+      console.log(`[CategoryDetail] WEBAPP: Loaded ${templateToVisualMap.size} template->visual mappings from Dexie`);
+
       // Build organized data from templates and visuals
       const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
         comments: [],
@@ -830,19 +848,28 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const templateCategory = template.Category || '';
 
         // Find matching visual (user selection) from server
-        // CRITICAL: Match by TemplateID first (most reliable), with type coercion for number/string mismatches
-        // HUD records use HUDTemplateID, fall back to VisualTemplateID/TemplateID for compatibility
-        let visual = (visuals || []).find((v: any) => {
-          const vTemplateId = v.HUDTemplateID || v.VisualTemplateID || v.TemplateID;
-          // Use == for type coercion (templateId may be number or string)
-          return vTemplateId == templateId;
-        });
+        // PRIORITY 1: Use Dexie mapping (persists even when Name is edited)
+        // PRIORITY 2: Fall back to Name + Category matching
+        let visual: any = null;
 
-        // Fallback: match by name if templateId didn't match
-        if (!visual && templateName) {
-          visual = (visuals || []).find((v: any) => v.Name === templateName);
+        // First try Dexie mapping
+        const dexieVisualId = templateToVisualMap.get(templateId);
+        if (dexieVisualId) {
+          visual = (visuals || []).find((v: any) =>
+            String(v.HUDID || v.PK_ID) === String(dexieVisualId)
+          );
           if (visual) {
-            console.log(`[CategoryDetail] WEBAPP: Matched visual by name fallback: "${templateName}"`);
+            console.log(`[CategoryDetail] WEBAPP: Matched visual by Dexie mapping: templateId=${templateId} -> HUDID=${dexieVisualId}`);
+          }
+        }
+
+        // Fall back to Name + Category matching
+        if (!visual && templateName && templateCategory) {
+          visual = (visuals || []).find((v: any) =>
+            v.Name === templateName && v.Category === templateCategory
+          );
+          if (visual) {
+            console.log(`[CategoryDetail] WEBAPP: Matched visual by name+category: "${templateName}" / "${templateCategory}"`);
           }
         }
 
@@ -854,14 +881,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const item: VisualItem = {
           id: visual ? (visual.HUDID || visual.VisualID || visual.PK_ID) : templateId,
           templateId: templateId,
-          name: template.Name || '',
+          // Use visual's Name if edited, otherwise use template Name
+          name: visual?.Name || template.Name || '',
           text: visual?.VisualText || visual?.Text || template.Text || '',
           originalText: template.Text || '',
           type: template.Kind || 'Comment',
           category: template.Category || this.categoryName,
           answerType: template.AnswerType || 0,
           required: false,
-          answer: visual?.Answer || '',
+          answer: visual?.Answers || '',
+          otherValue: (template.AnswerType === 2 && visual?.Notes && !String(visual.Notes).startsWith('HIDDEN')) ? visual.Notes : '',
           isSelected: !!visual,
           key: itemKey
         };
@@ -3708,7 +3737,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
 
           // Get display URL - convert S3 key if needed
-          let displayUrl = attach.Photo || attach.Attachment || attach.url || 'assets/img/photo-placeholder.png';
+          // HUD S3 uploads store the key in 'Attachment' field, so check that first
+          let displayUrl = attach.Attachment || attach.Photo || attach.url || 'assets/img/photo-placeholder.png';
           if (displayUrl && this.caspioService.isS3Key(displayUrl)) {
             try {
               displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
@@ -4731,6 +4761,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     return false;
   }
 
+  // Count how many items are selected/checked in a section
+  getSelectedCount(items: VisualItem[]): number {
+    if (!items) return 0;
+    return items.filter(item => this.isItemSelected(this.categoryName, item.templateId)).length;
+  }
+
   private findItemById(itemId: string | number): VisualItem | undefined {
     // Search in all three sections
     const allItems = [
@@ -4909,13 +4945,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   // Multi-select option toggle (answerType 2)
-  async onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
+  // Non-blocking: Updates UI immediately, saves in background for responsive rapid selection
+  onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
     const key = `${category}_${item.id}`;
     const isChecked = event.detail.checked;
 
     console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key);
 
-    // Update the answer string
+    // Update the answer string immediately for responsive UI
     let selectedOptions: string[] = [];
     if (item.answer) {
       selectedOptions = item.answer.split(',').map(o => o.trim()).filter(o => o);
@@ -4942,7 +4979,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
     item.answer = selectedOptions.join(', ');
 
-    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update (fire-and-forget)
     this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
       answer: item.answer,
       isSelected: selectedOptions.length > 0 || !!(item.otherValue && item.otherValue !== '')
@@ -4950,9 +4987,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       console.error('[OPTION] Failed to write to Dexie:', err);
     });
 
-    // Save to database
-    this.savingItems[key] = true;
+    // Save to database in background (non-blocking for responsive UI)
+    this.saveOptionToDatabase(category, item, key, selectedOptions);
+  }
 
+  // Background save for multi-select options - separated from UI toggle for responsiveness
+  private async saveOptionToDatabase(category: string, item: VisualItem, key: string, selectedOptions: string[]) {
     try {
       let visualId = this.visualRecordIds[key];
 
@@ -4965,7 +5005,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }, this.serviceId);
           console.log('[OPTION] Hid visual (queued for sync):', visualId);
         }
-        this.savingItems[key] = false;
         return;
       }
 
@@ -4987,9 +5026,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         this.visualRecordIds[key] = newVisualId;
 
         // DEXIE-FIRST: Store tempVisualId in Dexie for persistence
-        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+        this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
           tempVisualId: newVisualId
-        });
+        }).catch(err => console.error('[OPTION] Failed to store tempVisualId:', err));
 
         console.log('[OPTION] Created visual:', newVisualId);
       } else if (!String(visualId).startsWith('temp_')) {
@@ -5011,11 +5050,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
     } catch (error) {
       console.error('[OPTION] Error saving option:', error);
-      // Toast removed per user request
-      // await this.showToast('Failed to save option', 'danger');
     }
-
-    this.savingItems[key] = false;
   }
 
   isOptionSelectedV1(item: VisualItem, option: string): boolean {
@@ -8527,6 +8562,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   openVisualDetail(categoryName: string, item: VisualItem) {
     // Use absolute navigation to ensure correct routing
     // Route: /hud/:projectId/:serviceId/category/:category/visual/:templateId
-    this.router.navigate(['/hud', this.projectId, this.serviceId, 'category', categoryName, 'visual', item.templateId]);
+    // Pass HUDID as query parameter so visual detail can load photos
+    // CRITICAL: Use item.category (actual category like "Mobile/Manufactured Homes") for key lookup,
+    // NOT categoryName (route param "hud") - the keys are stored with actual category names
+    const actualCategory = item.category || categoryName;
+    const key = `${actualCategory}_${item.templateId}`;
+    const hudId = this.visualRecordIds[key] || '';
+    console.log('[CategoryDetail] Navigating to visual detail with HUDID:', hudId, 'for key:', key, 'actualCategory:', actualCategory);
+    // CRITICAL: Pass actualServiceId so visual-detail can query HUD records correctly
+    // Route param serviceId is PK_ID, but HUD records use ServiceID field as FK
+    this.router.navigate(
+      ['/hud', this.projectId, this.serviceId, 'category', categoryName, 'visual', item.templateId],
+      { queryParams: { hudId: hudId, actualServiceId: this.actualServiceId || this.serviceId } }
+    );
   }
 }

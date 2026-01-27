@@ -971,7 +971,7 @@ ion-content {
   padding-left: 12px;
 
   .photo-count {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 4px;
     color: var(--noble-orange, #F15A27);
@@ -980,6 +980,11 @@ ion-content {
 
     ion-icon {
       font-size: 18px;
+      color: var(--noble-orange, #F15A27);
+      display: inline-block;
+      min-width: 18px;
+      visibility: visible !important;
+      opacity: 1 !important;
     }
   }
 

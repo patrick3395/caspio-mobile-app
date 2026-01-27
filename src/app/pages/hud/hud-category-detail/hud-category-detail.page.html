@@ -59,7 +59,7 @@
           <div class="simple-accordion-header" (click)="toggleSection('information')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <span class="count-badge info">{{ organizedData.comments.length }}</span>
+                <span class="count-badge info">{{ getSelectedCount(organizedData.comments) }}</span>
               </div>
               <span class="type-header">Information</span>
             </div>
@@ -119,15 +119,13 @@
                     <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                   </div>
                 </ion-label>
-                <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent" slot="end"></ion-spinner>
               </ion-item>
               <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
                 <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
                   <ion-checkbox
                     slot="start"
                     [checked]="isOptionSelectedV1(item, option)"
-                    (ionChange)="onOptionToggle(categoryName, item, option, $event); $event.stopPropagation()"
-                    [disabled]="isItemSaving(categoryName, item.templateId)">
+                    (ionChange)="onOptionToggle(categoryName, item, option, $event); $event.stopPropagation()">
                   </ion-checkbox>
                   <ion-label>{{ option }}</ion-label>
                 </ion-item>
@@ -172,7 +170,7 @@
                 <!-- Right-aligned photo count indicator -->
                 <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(item.category, item.templateId) > 0">
                   <span class="photo-count">
-                    <ion-icon name="image-outline"></ion-icon>
+                    <ion-icon name="images"></ion-icon>
                     {{ getTotalPhotoCount(item.category, item.templateId) }}
                   </span>
                 </div>
@@ -267,7 +265,7 @@
           <div class="simple-accordion-header" (click)="toggleSection('limitations')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <span class="count-badge limitation">{{ organizedData.limitations.length }}</span>
+                <span class="count-badge limitation">{{ getSelectedCount(organizedData.limitations) }}</span>
               </div>
               <span class="type-header">Limitations</span>
             </div>
@@ -327,15 +325,13 @@
                     <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                   </div>
                 </ion-label>
-                <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent" slot="end"></ion-spinner>
               </ion-item>
               <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
                 <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
                   <ion-checkbox
                     slot="start"
                     [checked]="isOptionSelectedV1(item, option)"
-                    (ionChange)="onOptionToggle(categoryName, item, option, $event); $event.stopPropagation()"
-                    [disabled]="isItemSaving(categoryName, item.templateId)">
+                    (ionChange)="onOptionToggle(categoryName, item, option, $event); $event.stopPropagation()">
                   </ion-checkbox>
                   <ion-label>{{ option }}</ion-label>
                 </ion-item>
@@ -377,7 +373,7 @@
                 <!-- Right-aligned photo count indicator -->
                 <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(item.category, item.templateId) > 0">
                   <span class="photo-count">
-                    <ion-icon name="image-outline"></ion-icon>
+                    <ion-icon name="images"></ion-icon>
                     {{ getTotalPhotoCount(item.category, item.templateId) }}
                   </span>
                 </div>
@@ -469,7 +465,7 @@
           <div class="simple-accordion-header" (click)="toggleSection('deficiencies')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <span class="count-badge deficiency"><span>{{ organizedData.deficiencies.length }}</span></span>
+                <span class="count-badge deficiency"><span>{{ getSelectedCount(organizedData.deficiencies) }}</span></span>
               </div>
               <span class="type-header">Deficiencies</span>
             </div>
@@ -529,15 +525,13 @@
                     <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                   </div>
                 </ion-label>
-                <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent" slot="end"></ion-spinner>
               </ion-item>
               <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
                 <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
                   <ion-checkbox
                     slot="start"
                     [checked]="isOptionSelectedV1(item, option)"
-                    (ionChange)="onOptionToggle(categoryName, item, option, $event); $event.stopPropagation()"
-                    [disabled]="isItemSaving(categoryName, item.templateId)">
+                    (ionChange)="onOptionToggle(categoryName, item, option, $event); $event.stopPropagation()">
                   </ion-checkbox>
                   <ion-label>{{ option }}</ion-label>
                 </ion-item>
@@ -579,7 +573,7 @@
                 <!-- Right-aligned photo count indicator -->
                 <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(item.category, item.templateId) > 0">
                   <span class="photo-count">
-                    <ion-icon name="image-outline"></ion-icon>
+                    <ion-icon name="images"></ion-icon>
                     {{ getTotalPhotoCount(item.category, item.templateId) }}
                   </span>
                 </div>

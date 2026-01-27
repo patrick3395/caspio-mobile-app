@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, AlertController, ModalController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -54,9 +54,11 @@ interface PhotoItem {
 })
 export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
   categoryName: string = '';
+  routeCategory: string = '';  // Original category from route (e.g., 'hud') - used for navigation
   templateId: number = 0;
   projectId: string = '';
   serviceId: string = '';
+  actualServiceId: string = '';  // Actual ServiceID field from Services record (used for HUD FK)
   hudId: string = '';  // The actual HUDID used to store photos
 
   // Visual item data
@@ -81,6 +83,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     private router: Router,
     private route: ActivatedRoute,
     private navController: NavController,
+    private location: Location,
     private caspioService: CaspioService,
     private toastController: ToastController,
     private alertController: AlertController,
@@ -132,6 +135,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     // Get category from parent route params (category/:category level)
     const categoryParams = this.route.parent?.snapshot.params;
     this.categoryName = categoryParams?.['category'] || '';
+    this.routeCategory = this.categoryName;  // Store original route category for back navigation
     console.log('[HudVisualDetail] Category from route:', this.categoryName);
 
     // Get project/service IDs from container (go up through to container)
@@ -154,7 +158,19 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       }
     }
 
-    console.log('[HudVisualDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+    // Get HUDID and actualServiceId from query params (passed from category detail page)
+    const queryParams = this.route.snapshot.queryParams;
+    if (queryParams['hudId']) {
+      this.hudId = queryParams['hudId'];
+      console.log('[HudVisualDetail] HUDID from query params:', this.hudId);
+    }
+    // CRITICAL: actualServiceId is the real FK for HUD records (route param serviceId is PK_ID)
+    if (queryParams['actualServiceId']) {
+      this.actualServiceId = queryParams['actualServiceId'];
+      console.log('[HudVisualDetail] actualServiceId from query params:', this.actualServiceId);
+    }
+
+    console.log('[HudVisualDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId, 'HudId:', this.hudId);
 
     // Get templateId from current route
     this.routeSubscription = this.route.params.subscribe(params => {
@@ -167,77 +183,102 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   private async loadVisualData() {
     this.loading = true;
 
+    // Store HUDID from query params (if provided by category detail page)
+    const hudIdFromQueryParams = this.hudId;
+
     try {
       // WEBAPP MODE: Load from server API to see synced data from mobile
       if (environment.isWeb) {
-        console.log('[HudVisualDetail] WEBAPP MODE: Loading visual data from server');
-        const visuals = await this.hudData.getVisualsByService(this.serviceId);
+        console.log('[HudVisualDetail] WEBAPP MODE: Loading HUD data from server');
+        console.log('[HudVisualDetail] WEBAPP: HUDID from query params:', hudIdFromQueryParams || '(none)');
+        console.log('[HudVisualDetail] WEBAPP: actualServiceId:', this.actualServiceId, 'serviceId:', this.serviceId);
 
-        // Match by TemplateID first with type coercion (number/string mismatch)
-        let visual = visuals.find((v: any) => {
-          const vTemplateId = v.HUDTemplateID || v.TemplateID;
-          return vTemplateId == this.templateId && v.Category === this.categoryName;
-        });
+        // CRITICAL: Use actualServiceId (real FK for HUD records) instead of serviceId (PK_ID from route)
+        const queryServiceId = this.actualServiceId || this.serviceId;
+        const hudRecords = await this.hudData.getHudByService(queryServiceId);
+        console.log('[HudVisualDetail] WEBAPP: Loaded', hudRecords.length, 'HUD records for ServiceID:', queryServiceId);
 
-        // Fallback: load template name and match by name+category if templateId didn't match
-        if (!visual) {
-          const templates = await this.hudData.getHudTemplates();
-          const template = templates.find((t: any) =>
-            ((t.TemplateID || t.PK_ID) == this.templateId) && t.Category === this.categoryName
+        // HUD NOTE: The route uses 'category/hud' but actual HUD records have real categories
+        // like "Foundation", "Roof", etc.
+        // NOTE: LPS_Services_HUD does NOT have HUDTemplateID field
+
+        // Load templates to get the Name and Category for matching (fallback)
+        const templates = (await this.caspioService.getServicesHUDTemplates().toPromise()) || [];
+        const template = templates.find((t: any) =>
+          (t.TemplateID || t.PK_ID) == this.templateId
+        );
+
+        // PRIORITY 1: Find by HUDID from query params (most reliable - direct record lookup)
+        // This ensures we find the record even if Name was edited
+        let visual: any = null;
+        if (hudIdFromQueryParams) {
+          visual = hudRecords.find((v: any) =>
+            String(v.HUDID || v.PK_ID) === String(hudIdFromQueryParams)
           );
-          if (template && template.Name) {
-            visual = visuals.find((v: any) =>
-              v.Name === template.Name && v.Category === this.categoryName
-            );
-            if (visual) {
-              console.log('[HudVisualDetail] WEBAPP: Matched visual by name fallback:', template.Name);
-            }
+          if (visual) {
+            console.log('[HudVisualDetail] WEBAPP: Matched HUD record by HUDID:', hudIdFromQueryParams);
+          }
+        }
+
+        // PRIORITY 2: Fall back to Name + Category matching (same pattern as EFE)
+        if (!visual && template && template.Name) {
+          visual = hudRecords.find((v: any) =>
+            v.Name === template.Name && v.Category === template.Category
+          );
+          if (visual) {
+            console.log('[HudVisualDetail] WEBAPP: Matched HUD record by name+category:', template.Name, template.Category);
           }
         }
 
         if (visual) {
+          // Store the actual category from the data (not from route)
+          const actualCategory = visual.Category || '';
           this.item = {
             id: visual.HUDID || visual.PK_ID,
-            templateId: visual.HUDTemplateID || visual.templateId || this.templateId,
+            templateId: this.templateId,
             name: visual.Name || '',
             text: visual.Text || '',
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',
-            category: visual.Category || this.categoryName,
+            category: actualCategory,
             answerType: visual.AnswerType || 0,
             required: false,
-            answer: visual.Answer || '',
+            answer: visual.Answers || '',
             isSelected: true
           };
           this.hudId = String(visual.HUDID || visual.PK_ID);
+          this.categoryName = actualCategory; // Update to actual category for photo queries
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[HudVisualDetail] WEBAPP: Loaded visual from server:', this.item.name);
-        } else {
-          // No visual found - may be a template that hasn't been selected yet
-          console.log('[HudVisualDetail] WEBAPP: Visual not found, loading template...');
-          const templates = await this.hudData.getHudTemplates();
-          const template = templates.find((t: any) =>
-            ((t.TemplateID || t.PK_ID) == this.templateId) && t.Category === this.categoryName
-          );
+          console.log('[HudVisualDetail] WEBAPP: Loaded HUD record:', this.item.name, 'HUDID:', this.hudId, 'Category:', actualCategory);
+        } else if (template) {
+          // No HUD record found - use template (already loaded above)
+          console.log('[HudVisualDetail] WEBAPP: HUD record not found, using template data');
+          const effectiveTemplateId = template.TemplateID || template.PK_ID;
+          const actualCategory = template.Category || '';
+          this.item = {
+            id: effectiveTemplateId,
+            templateId: effectiveTemplateId,
+            name: template.Name || '',
+            text: template.Text || '',
+            originalText: template.Text || '',
+            type: template.Kind || 'Comment',
+            category: actualCategory,
+            answerType: template.AnswerType || 0,
+            required: false,
+            isSelected: false
+          };
+          this.categoryName = actualCategory; // Update to actual category
+          this.editableTitle = this.item.name;
+          this.editableText = this.item.text;
+          console.log('[HudVisualDetail] WEBAPP: Loaded from template:', this.item.name, 'Category:', actualCategory);
 
-          if (template) {
-            const effectiveTemplateId = template.TemplateID || template.PK_ID;
-            this.item = {
-              id: effectiveTemplateId,
-              templateId: effectiveTemplateId,
-              name: template.Name || '',
-              text: template.Text || '',
-              originalText: template.Text || '',
-              type: template.Kind || 'Comment',
-              category: template.Category || this.categoryName,
-              answerType: template.AnswerType || 0,
-              required: false,
-              isSelected: false
-            };
-            this.editableTitle = this.item.name;
-            this.editableText = this.item.text;
-            console.log('[HudVisualDetail] WEBAPP: Loaded from template:', this.item.name);
+          // CRITICAL: Ensure we have the HUDID from query params for loading photos
+          // The category detail page passes the HUDID so we can load photos even when
+          // no HUD record is found in LPS_Services_HUD (data may only exist in HUD_Attach)
+          if (hudIdFromQueryParams) {
+            this.hudId = hudIdFromQueryParams;
+            console.log('[HudVisualDetail] WEBAPP: Using HUDID from query params for photos:', this.hudId);
           }
         }
 
@@ -247,30 +288,34 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       }
 
       // MOBILE MODE: Try to load from Dexie visualFields first
-      const fields = await db.visualFields
-        .where('[serviceId+category]')
-        .equals([this.serviceId, this.categoryName])
+      // HUD NOTE: Query by serviceId and match by templateId - don't filter by route category
+      // because route uses 'hud' but actual data has real categories
+      const allFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
         .toArray();
 
-      const field = fields.find(f => f.templateId === this.templateId);
+      const field = allFields.find(f => f.templateId === this.templateId);
 
       if (field) {
         this.item = this.convertFieldToItem(field);
+        this.categoryName = field.category || this.categoryName; // Use actual category from data
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
-        console.log('[HudVisualDetail] Loaded item from Dexie field:', this.item.name);
+        console.log('[HudVisualDetail] Loaded item from Dexie field:', this.item.name, 'Category:', field.category);
       } else {
         // FALLBACK: Load from cached templates if field doesn't exist yet
         console.log('[HudVisualDetail] Field not in Dexie, loading from templates...');
         const cachedTemplates = await this.indexedDb.getCachedTemplates('hud') || [];
-        // Match by TemplateID first, fallback to PK_ID (consistent with category-detail)
+        // Match by TemplateID only (not by route category)
         const template = cachedTemplates.find((t: any) =>
-          ((t.TemplateID || t.PK_ID) === this.templateId) && t.Category === this.categoryName
+          (t.TemplateID || t.PK_ID) === this.templateId
         );
 
         if (template) {
           // Create item from template - use effectiveTemplateId for consistency
           const effectiveTemplateId = template.TemplateID || template.PK_ID;
+          const actualCategory = template.Category || '';
           this.item = {
             id: effectiveTemplateId,
             templateId: effectiveTemplateId,
@@ -278,14 +323,15 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             text: template.Text || '',
             originalText: template.Text || '',
             type: template.Kind || 'Comment',
-            category: template.Category || this.categoryName,
+            category: actualCategory,
             answerType: template.AnswerType || 0,
             required: false,
             isSelected: false
           };
+          this.categoryName = actualCategory; // Update to actual category
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[HudVisualDetail] Loaded item from template:', this.item.name);
+          console.log('[HudVisualDetail] Loaded item from template:', this.item.name, 'Category:', actualCategory);
         } else {
           console.warn('[HudVisualDetail] Template not found for ID:', this.templateId);
         }
@@ -337,13 +383,22 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
         this.photos = [];
         for (const att of attachments || []) {
-          // Get display URL from server - use S3 signed URL or Photo field
-          let displayUrl = att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
+          // HUD NOTE: S3 uploads store the key in 'Attachment' field, not 'Photo'
+          // Check Attachment first (S3 key), then Photo (legacy Caspio Files API)
+          let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
+
+          console.log('[HudVisualDetail] WEBAPP: Processing attachment:', {
+            AttachID: att.AttachID,
+            Attachment: att.Attachment,
+            Photo: att.Photo,
+            displayUrl
+          });
 
           // If it's an S3 key, get signed URL
           if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
             try {
               displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+              console.log('[HudVisualDetail] WEBAPP: Got S3 signed URL for:', att.AttachID);
             } catch (e) {
               console.warn('[HudVisualDetail] WEBAPP: Could not get S3 URL:', e);
             }
@@ -366,12 +421,14 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       // MOBILE MODE: Load from local Dexie
       // Get the hudId from visualFields - this is how photos are stored
-      const fields = await db.visualFields
-        .where('[serviceId+category]')
-        .equals([this.serviceId, this.categoryName])
+      // HUD NOTE: Query by serviceId only (not by route category) because
+      // route uses 'hud' but actual data has real categories
+      const allFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
         .toArray();
 
-      const field = fields.find(f => f.templateId === this.templateId);
+      const field = allFields.find(f => f.templateId === this.templateId);
 
       // The entityId for photos is the hudId (temp_visual_xxx or real HUDID)
       // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
@@ -453,13 +510,17 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   // ===== SAVE METHODS =====
 
   /**
-   * Check if hudId is a valid Caspio visual ID (not Dexie auto-increment ID)
+   * Check if hudId is a valid Caspio HUD ID (not Dexie auto-increment ID)
+   * HUD IDs can be small numbers like "93", so we check for valid numeric or temp IDs
    */
   private isValidHudId(id: string): boolean {
     if (!id) return false;
-    // Valid: temp_visual_xxx or numeric Caspio IDs
-    // Invalid: single digit Dexie IDs like "1", "2", etc.
-    return id.startsWith('temp_') || (id.length > 3 && !isNaN(Number(id)));
+    // Valid: temp_visual_xxx OR any numeric Caspio ID (including small numbers like "93")
+    // Invalid: empty strings
+    // Note: HUD IDs can be small numbers, so don't require length > 3
+    if (id.startsWith('temp_')) return true;
+    const numId = Number(id);
+    return !isNaN(numId) && numId > 0;
   }
 
   async saveAll() {
@@ -488,10 +549,13 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         caspioUpdate.Text = this.editableText;
       }
 
+      // Use actual category from item (not route param "hud")
+      const actualCategory = this.item?.category || this.categoryName;
+
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
       await this.visualFieldRepo.setField(
         this.serviceId,
-        this.categoryName,
+        actualCategory,
         this.templateId,
         dexieUpdate
       );
@@ -499,7 +563,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       // Queue update to Caspio for background sync (only if valid hudId)
       if (this.isValidHudId(this.hudId)) {
-        await this.hudData.updateVisual(this.hudId, caspioUpdate, this.serviceId);
+        await this.hudData.updateVisual(this.hudId, caspioUpdate, this.actualServiceId || this.serviceId);
+        console.log('[HudVisualDetail] ✅ Updated Caspio HUD record:', this.hudId, caspioUpdate);
+      } else {
+        console.log('[HudVisualDetail] No valid hudId (' + this.hudId + ') - saved to Dexie only');
       }
 
       // Update local item state for immediate UI feedback
@@ -527,10 +594,13 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
     this.saving = true;
     try {
+      // Use actual category from item (not route param "hud")
+      const actualCategory = this.item?.category || this.categoryName;
+
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
       await this.visualFieldRepo.setField(
         this.serviceId,
-        this.categoryName,
+        actualCategory,
         this.templateId,
         { templateName: this.editableTitle }
       );
@@ -538,10 +608,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       // Queue update to Caspio for background sync (only if valid hudId)
       if (this.isValidHudId(this.hudId)) {
-        await this.hudData.updateVisual(this.hudId, { Name: this.editableTitle }, this.serviceId);
-        console.log('[HudVisualDetail] ✅ Queued title update to Caspio');
+        await this.hudData.updateVisual(this.hudId, { Name: this.editableTitle }, this.actualServiceId || this.serviceId);
+        console.log('[HudVisualDetail] ✅ Updated title in Caspio HUD record:', this.hudId);
       } else {
-        console.log('[HudVisualDetail] No valid hudId - title saved to Dexie only');
+        console.log('[HudVisualDetail] No valid hudId (' + this.hudId + ') - title saved to Dexie only');
       }
 
       // Update local item state for immediate UI feedback
@@ -564,10 +634,13 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
     this.saving = true;
     try {
+      // Use actual category from item (not route param "hud")
+      const actualCategory = this.item?.category || this.categoryName;
+
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
       await this.visualFieldRepo.setField(
         this.serviceId,
-        this.categoryName,
+        actualCategory,
         this.templateId,
         { templateText: this.editableText }
       );
@@ -575,10 +648,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       // Queue update to Caspio for background sync (only if valid hudId)
       if (this.isValidHudId(this.hudId)) {
-        await this.hudData.updateVisual(this.hudId, { Text: this.editableText }, this.serviceId);
-        console.log('[HudVisualDetail] ✅ Queued text update to Caspio');
+        await this.hudData.updateVisual(this.hudId, { Text: this.editableText }, this.actualServiceId || this.serviceId);
+        console.log('[HudVisualDetail] ✅ Updated text in Caspio HUD record:', this.hudId);
       } else {
-        console.log('[HudVisualDetail] No valid hudId - text saved to Dexie only');
+        console.log('[HudVisualDetail] No valid hudId (' + this.hudId + ') - text saved to Dexie only');
       }
 
       // Update local item state for immediate UI feedback
@@ -968,7 +1041,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         caption,
         localImage?.drawings || '',
         'hud',
-        { serviceId: this.serviceId, hudId: this.hudId }
+        { serviceId: this.serviceId, visualId: this.hudId }
       );
       console.log('[HudVisualDetail] ✅ Queued caption update:', attachId, localImage?.attachId ? '(synced)' : '(pending photo sync)');
 
@@ -1060,7 +1133,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
               newCaption,
               compressedDrawings,
               'hud',
-              { serviceId: this.serviceId, hudId: this.hudId }
+              { serviceId: this.serviceId, visualId: this.hudId }
             );
             console.log('[HudVisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
           } else {
@@ -1094,9 +1167,9 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   // ===== NAVIGATION =====
 
   goBack() {
-    // Use NavController for proper Ionic page stack navigation
-    // This ensures proper lifecycle events (ionViewWillEnter) fire on the previous page
-    this.navController.back();
+    // Use Angular's Location service which uses browser history
+    // This is the most reliable way to go back in webapp mode
+    this.location.back();
   }
 
   // ===== UTILITIES =====

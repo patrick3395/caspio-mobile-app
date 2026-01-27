@@ -14,6 +14,18 @@
             </div>
             <div class="title-container">
               <ion-card-title>{{ card.title }}</ion-card-title>
+              <!-- Count indicators: Circle=Info, Square=Limitation, Triangle=Deficiency -->
+              <div class="category-counts" *ngIf="card.commentCount! > 0 || card.limitationCount! > 0 || card.deficiencyCount! > 0">
+                <span class="count-badge info" *ngIf="card.commentCount! > 0">
+                  {{ card.commentCount }}
+                </span>
+                <span class="count-badge limitation" *ngIf="card.limitationCount! > 0">
+                  {{ card.limitationCount }}
+                </span>
+                <span class="count-badge deficiency" *ngIf="card.deficiencyCount! > 0">
+                  <span>{{ card.deficiencyCount }}</span>
+                </span>
+              </div>
             </div>
           </div>
         </ion-card-header>

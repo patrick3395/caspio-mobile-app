@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, AlertController, LoadingController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -12,6 +12,8 @@ import { BackgroundSyncService } from '../../../services/background-sync.service
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { EfeFieldRepoService } from '../../../services/efe-field-repo.service';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
+import { HudDataService } from '../hud-data.service';
+import { db } from '../../../services/caspio-db';
 import { environment } from '../../../../environments/environment';
 
 interface NavigationCard {
@@ -20,6 +22,9 @@ interface NavigationCard {
   route: string;
   description: string;
   completed: boolean;
+  commentCount?: number;
+  limitationCount?: number;
+  deficiencyCount?: number;
 }
 
 @Component({
@@ -69,7 +74,9 @@ export class HudMainPage implements OnInit {
     private backgroundSync: BackgroundSyncService,
     private indexedDb: IndexedDbService,
     private efeFieldRepo: EfeFieldRepoService,
-    private visualFieldRepo: VisualFieldRepoService
+    private visualFieldRepo: VisualFieldRepoService,
+    private hudData: HudDataService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
@@ -94,6 +101,9 @@ export class HudMainPage implements OnInit {
 
       // Check if report can be finalized (non-blocking - fail silently offline)
       this.checkCanFinalize();
+
+      // Load HUD counts for indicators
+      this.loadHudCounts();
     });
   }
 
@@ -127,6 +137,86 @@ export class HudMainPage implements OnInit {
       }
       // Non-blocking - fail silently offline
       this.checkCanFinalize();
+      // Refresh counts when returning to this page
+      this.loadHudCounts();
+    }
+  }
+
+  /**
+   * Load counts for HUD items (comments, limitations, deficiencies)
+   * Updates the HUD card with count indicators
+   */
+  private async loadHudCounts() {
+    if (!this.serviceId) return;
+
+    try {
+      let commentCount = 0;
+      let limitationCount = 0;
+      let deficiencyCount = 0;
+
+      if (environment.isWeb) {
+        // WEBAPP: Load from API
+        const actualServiceId = await this.getActualServiceId();
+        const hudRecords = await this.hudData.getHudByService(actualServiceId || this.serviceId);
+
+        hudRecords.forEach((record: any) => {
+          const kind = (record.Kind || '').toLowerCase();
+          if (kind === 'comment') {
+            commentCount++;
+          } else if (kind === 'limitation') {
+            limitationCount++;
+          } else if (kind === 'deficiency') {
+            deficiencyCount++;
+          }
+        });
+      } else {
+        // MOBILE: Load from Dexie visualFields
+        const visualFields = await db.visualFields
+          .where('serviceId')
+          .equals(this.serviceId)
+          .toArray();
+
+        visualFields.forEach((field: any) => {
+          // Only count SELECTED items
+          if (!field.isSelected) return;
+
+          const kind = (field.kind || '').toLowerCase();
+          if (kind === 'comment') {
+            commentCount++;
+          } else if (kind === 'limitation') {
+            limitationCount++;
+          } else if (kind === 'deficiency') {
+            deficiencyCount++;
+          }
+        });
+      }
+
+      // Update the HUD card with counts
+      const hudCard = this.cards.find(c => c.route === 'category/hud');
+      if (hudCard) {
+        hudCard.commentCount = commentCount;
+        hudCard.limitationCount = limitationCount;
+        hudCard.deficiencyCount = deficiencyCount;
+      }
+
+      console.log('[HUD Main] Counts loaded - Comments:', commentCount, 'Limitations:', limitationCount, 'Deficiencies:', deficiencyCount);
+      this.changeDetectorRef.detectChanges();
+
+    } catch (error) {
+      console.error('[HUD Main] Error loading HUD counts:', error);
+    }
+  }
+
+  /**
+   * Get the actual ServiceID field value (for API queries)
+   * Route param serviceId is PK_ID, but HUD records use ServiceID field as FK
+   */
+  private async getActualServiceId(): Promise<string | null> {
+    try {
+      const serviceData = await this.offlineTemplate.getService(this.serviceId);
+      return serviceData?.ServiceID || null;
+    } catch (error) {
+      return null;
     }
   }
 

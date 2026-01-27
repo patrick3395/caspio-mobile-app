@@ -3335,19 +3335,23 @@ body.dark-theme {
 @media (hover: hover) and (pointer: fine) {
   /* Skip link styles are in the component itself */
 
-  /* Global focus-visible outline for all interactive elements */
+  /* Global focus-visible outline for all interactive elements (excluding inputs) */
   a:focus-visible,
   button:focus-visible,
   [role="button"]:focus-visible,
-  input:focus-visible,
   select:focus-visible,
-  textarea:focus-visible,
   [tabindex]:not([tabindex="-1"]):focus-visible {
     outline: 3px solid var(--noble-orange, #F15A27) !important;
     outline-offset: 2px !important;
   }
 
-  /* Ionic-specific focus-visible styles */
+  /* Inputs have no focus outline */
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: none !important;
+  }
+
+  /* Ionic-specific focus-visible styles (excluding input-like elements) */
   ion-button:focus-visible,
   ion-back-button:focus-visible,
   ion-tab-button:focus-visible,
@@ -3356,10 +3360,14 @@ body.dark-theme {
   ion-checkbox:focus-visible,
   ion-toggle:focus-visible,
   ion-select:focus-visible,
-  ion-searchbar:focus-visible,
   ion-segment-button:focus-visible {
     outline: 3px solid var(--noble-orange, #F15A27) !important;
     outline-offset: 2px !important;
+  }
+
+  /* Searchbar has no focus outline */
+  ion-searchbar:focus-visible {
+    outline: none !important;
   }
 
   /* Focus styles for Ionic native parts */
@@ -3370,12 +3378,11 @@ body.dark-theme {
     outline-offset: 2px !important;
   }
 
-  /* Input fields - enhanced focus with box-shadow for better visibility */
-  /* EXCLUDE login page - it uses border focus instead of highlight bars */
+  /* Input fields - no orange highlight on focus */
   ion-input:focus-within,
   ion-textarea:focus-within,
   ion-searchbar:focus-within {
-    --highlight-color: var(--noble-orange, #F15A27);
+    --highlight-color: transparent;
   }
 
   /* Login page: Remove all highlight bars - uses border-color change instead */
@@ -3390,8 +3397,7 @@ body.dark-theme {
 
   ion-input.has-focus,
   ion-textarea.has-focus {
-    outline: 3px solid var(--noble-orange, #F15A27) !important;
-    outline-offset: 0 !important;
+    outline: none !important;
   }
 
   /* Login page: No outline on inputs - uses container border instead */
@@ -5041,5 +5047,98 @@ body.dark-theme {
   /* 4-column navigation cards on very wide screens */
   .cards-container.desktop-grid-4 {
     grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+// ==========================================================================
+// Global Photo Count Indicator Styles
+// Right-aligned photo count in item row - used by EFE and HUD category-detail
+// ==========================================================================
+.item-photo-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 12px;
+
+  .photo-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--noble-orange, #F15A27);
+    font-size: 14px;
+    font-weight: 600;
+
+    ion-icon {
+      font-size: 18px;
+      color: var(--noble-orange, #F15A27);
+      display: inline-block;
+      min-width: 18px;
+    }
+  }
+
+  .item-chevron {
+    font-size: 20px;
+    color: #999;
+  }
+}
+
+// ==========================================================================
+// Global Count Badge Styles (Circle=Info, Square=Limitation, Triangle=Deficiency)
+// Used by EFE structural-systems-hub and HUD main page
+// ==========================================================================
+.category-counts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+
+    // Green CIRCLE for information/comments
+    &.info {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid #28a745;
+      color: #28a745;
+    }
+
+    // Yellow/Orange SQUARE for limitations
+    &.limitation {
+      width: 22px;
+      height: 22px;
+      border-radius: 3px;
+      border: 2px solid #f0ad4e;
+      color: #f0ad4e;
+    }
+
+    // Red TRIANGLE for deficiencies
+    // Sized to match 22px circle/square - using SVG for uniform stroke
+    &.deficiency {
+      width: 24px;
+      height: 22px;
+      position: relative;
+      color: #dc3545;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='22' viewBox='0 0 24 22'%3E%3Cpolygon points='12,2 22,20 2,20' fill='none' stroke='%23dc3545' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+      background-size: contain;
+
+      // Number inside triangle - visually centered (pushed down due to pointed top)
+      span {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -30%);
+        z-index: 1;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+      }
+    }
   }
 }

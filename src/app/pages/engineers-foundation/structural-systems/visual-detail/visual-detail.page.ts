@@ -337,8 +337,9 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
 
         this.photos = [];
         for (const att of attachments || []) {
-          // Get display URL from server - use S3 signed URL or Photo field
-          let displayUrl = att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
+          // S3 uploads store the key in 'Attachment' field, not 'Photo'
+          // Check Attachment first (S3 key), then Photo (legacy Caspio Files API)
+          let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
 
           // If it's an S3 key, get signed URL
           if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {

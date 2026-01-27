@@ -1488,7 +1488,18 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     const url = this.router.url;
     console.log('[HUD Container] Current URL:', url);
 
-    if (url.includes('/category/')) {
+    // IMPORTANT: Check for /visual/ first since it also contains /category/
+    if (url.includes('/category/') && url.includes('/visual/')) {
+      // On visual-detail page - navigate back to category-detail page
+      const categoryMatch = url.match(/\/category\/([^\/]+)/);
+      if (categoryMatch) {
+        console.log('[HUD Container] On visual page, navigating to category:', categoryMatch[1]);
+        this.router.navigate(['/hud', this.projectId, this.serviceId, 'category', categoryMatch[1]]);
+      } else {
+        console.log('[HUD Container] On visual page, navigating to HUD main');
+        this.router.navigate(['/hud', this.projectId, this.serviceId]);
+      }
+    } else if (url.includes('/category/')) {
       // On category detail page - navigate to HUD main
       console.log('[HUD Container] On category page, navigating to HUD main');
       this.router.navigate(['/hud', this.projectId, this.serviceId]);
@@ -1562,9 +1573,11 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       const categoryMatch = url.match(/\/category\/([^\/]+)/);
       if (categoryMatch) {
         const categoryName = decodeURIComponent(categoryMatch[1]);
-        this.breadcrumbs.push({ label: categoryName, path: `category/${categoryMatch[1]}`, icon: 'checkbox-outline' });
-        this.currentPageTitle = categoryName;
-        this.currentPageShortTitle = categoryName;
+        // Uppercase 'hud' to 'HUD' for display
+        const displayName = categoryName.toLowerCase() === 'hud' ? 'HUD' : categoryName;
+        this.breadcrumbs.push({ label: displayName, path: `category/${categoryMatch[1]}`, icon: 'checkbox-outline' });
+        this.currentPageTitle = displayName;
+        this.currentPageShortTitle = displayName;
       }
     }
 

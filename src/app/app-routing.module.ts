@@ -24,6 +24,7 @@ import { HudContainerPage } from './pages/hud/hud-container/hud-container.page';
 import { HudMainPage } from './pages/hud/hud-main/hud-main.page';
 import { HudProjectDetailsPage } from './pages/hud/hud-project-details/hud-project-details.page';
 import { HudCategoryDetailPage } from './pages/hud/hud-category-detail/hud-category-detail.page';
+import { HudVisualDetailPage } from './pages/hud/hud-visual-detail/hud-visual-detail.page';
 
 // Eager load LBW components for offline support
 import { LbwContainerPage } from './pages/lbw/lbw-container/lbw-container.page';
@@ -114,7 +115,13 @@ const routes: Routes = [
     children: [
       { path: '', component: HudMainPage },
       { path: 'project-details', component: HudProjectDetailsPage, canDeactivate: [UnsavedChangesGuard] },
-      { path: 'category/:category', component: HudCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] }
+      {
+        path: 'category/:category',
+        children: [
+          { path: '', component: HudCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
+          { path: 'visual/:templateId', component: HudVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
+        ]
+      }
     ]
   },
   // LBW routes - eager loaded for offline support
