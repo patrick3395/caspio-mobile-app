@@ -1844,6 +1844,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           this.changeDetectorRef.detectChanges();
           console.log('[HUD PHOTO SYNC] Updated photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
+
+          // ATTEMPT 6: Debug alert to show displayUrl after sync
+          const afterSyncPhoto = this.visualPhotos[key][photoIndex];
+          alert(`[HUD DEBUG SYNC COMPLETE]\nkey: ${key}\nimageId: ${event.imageId}\nnew AttachID: ${realAttachId}\ndisplayUrl: ${afterSyncPhoto.displayUrl?.substring(0, 60)}\nisLocalFirst: ${afterSyncPhoto.isLocalFirst}\nisLocalImage: ${afterSyncPhoto.isLocalImage}`);
           break;
         }
       }
@@ -5744,6 +5748,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           // WEBAPP MODE: Upload directly to S3
           if (environment.isWeb) {
+            // ATTEMPT 6: Alert to show WEBAPP path is being taken
+            alert(`[HUD DEBUG CAMERA WEBAPP] environment.isWeb = TRUE\nGoing to WEBAPP path (direct S3 upload)\nThis should NOT happen on mobile app!`);
             console.log('[CAMERA UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
 
             // Initialize photo array if it doesn't exist
@@ -6101,6 +6107,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // WEBAPP MODE: Direct S3 Upload (No Local Storage)
         // ============================================
         if (environment.isWeb) {
+          // ATTEMPT 6: Alert to show WEBAPP path is being taken
+          alert(`[HUD DEBUG GALLERY WEBAPP] environment.isWeb = TRUE\nGoing to WEBAPP path (direct S3 upload)\nThis should NOT happen on mobile app!`);
           console.log('[GALLERY UPLOAD] WEBAPP MODE: Direct S3 upload for', images.photos.length, 'photos');
 
           for (let i = 0; i < images.photos.length; i++) {
@@ -6290,6 +6298,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   ''  // drawings
                 );
 
+                // ATTEMPT 6: Same debug alert as camera path DEBUG 2
+                alert(`[HUD DEBUG GALLERY 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}`);
                 console.log(`[GALLERY UPLOAD] ? Created LocalImage ${i + 1} with stable ID:`, localImage.imageId);
 
                 // US-003 FIX: Track this imageId to prevent duplicates from liveQuery race
