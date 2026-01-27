@@ -5898,7 +5898,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             console.log('[CAMERA UPLOAD] ? Created LocalImage with stable ID:', localImage.imageId);
 
             // ATTEMPT 8: Immediately verify blob was saved to IndexedDB
-            const blobCheck = await this.indexedDb.verifyBlobExists(localImage.localBlobId);
+            const blobCheck = localImage.localBlobId
+              ? await this.indexedDb.verifyBlobExists(localImage.localBlobId)
+              : { exists: false, sizeBytes: 0, hasData: false };
 
             // DEBUG ALERT 2: LocalImage created with blob verification
             alert(`[HUD DEBUG 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}\n\nBLOB CHECK:\nexists: ${blobCheck.exists}\nhasData: ${blobCheck.hasData}\nsize: ${blobCheck.sizeBytes}`);
@@ -6315,7 +6317,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 );
 
                 // ATTEMPT 8: Immediately verify blob was saved to IndexedDB
-                const galleryBlobCheck = await this.indexedDb.verifyBlobExists(localImage.localBlobId);
+                const galleryBlobCheck = localImage.localBlobId
+                  ? await this.indexedDb.verifyBlobExists(localImage.localBlobId)
+                  : { exists: false, sizeBytes: 0, hasData: false };
 
                 // ATTEMPT 6: Same debug alert as camera path DEBUG 2 (with blob verification)
                 alert(`[HUD DEBUG GALLERY 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}\n\nBLOB CHECK:\nexists: ${galleryBlobCheck.exists}\nhasData: ${galleryBlobCheck.hasData}\nsize: ${galleryBlobCheck.sizeBytes}`);
