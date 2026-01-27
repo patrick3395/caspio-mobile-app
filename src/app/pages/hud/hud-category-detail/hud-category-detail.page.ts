@@ -1413,9 +1413,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         });
       }
 
-      // DIRECT DEXIE QUERY: Get ALL LocalImages for this service in one query
+      // DIRECT DEXIE QUERY: Get ALL LocalImages for this service filtered by 'hud' entity type
+      // ATTEMPT 5 FIX: Filter by 'hud' to match EFE's pattern (EFE filters by 'visual')
       // This eliminates the race condition - we don't rely on bulkLocalImagesMap being populated
-      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, 'hud');
 
     // ===== US-001 DEBUG: LocalImages query result =====
     const localImagesWithDrawings = allLocalImages.filter(img => img.drawings && img.drawings.length > 10);
@@ -1496,8 +1497,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         continue;
       }
 
-      // DEBUG: Show when images ARE found
-      alert(`[HUD DEBUG 10] FOUND IMAGES\ntemplateId: ${field.templateId}\nvisualId: ${visualId}\nimages found: ${localImages.length}\nfirst imageId: ${localImages[0]?.imageId}\nfirst entityId: ${localImages[0]?.entityId}\nlocalBlobId: ${localImages[0]?.localBlobId || 'null'}`);
+      // DEBUG: Show when images ARE found - ATTEMPT 5: Added status, attachId, thumbBlobId
+      const firstImg = localImages[0];
+      alert(`[HUD DEBUG 10] FOUND IMAGES\ntemplateId: ${field.templateId}\nvisualId: ${visualId}\nimages found: ${localImages.length}\nimageId: ${firstImg?.imageId}\nentityId: ${firstImg?.entityId}\nstatus: ${firstImg?.status || 'unknown'}\nlocalBlobId: ${firstImg?.localBlobId || 'NULL'}\nthumbBlobId: ${firstImg?.thumbBlobId || 'NULL'}\nattachId: ${firstImg?.attachId || 'NULL'}\nremoteS3Key: ${firstImg?.remoteS3Key ? 'EXISTS' : 'NULL'}`);
 
       // Initialize photos array if not exists
       if (!this.visualPhotos[key]) {
@@ -1533,8 +1535,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           try {
             const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
 
-            // DEBUG ALERT: Show displayUrl generated
-            alert(`[HUD DEBUG 11] displayUrl generated\nimageId: ${localImage.imageId}\nlocalBlobId: ${localImage.localBlobId || 'null'}\ndisplayUrl type: ${freshDisplayUrl?.startsWith('blob:') ? 'BLOB' : freshDisplayUrl?.startsWith('data:') ? 'DATA' : freshDisplayUrl === 'assets/img/photo-placeholder.png' ? 'PLACEHOLDER' : 'OTHER'}\nurl preview: ${freshDisplayUrl?.substring(0, 50)}`);
+            // DEBUG ALERT: Show displayUrl generated - ATTEMPT 5: Enhanced with status, thumb info
+            const urlType = freshDisplayUrl?.startsWith('blob:') ? 'BLOB (local)' :
+                           freshDisplayUrl?.startsWith('data:') ? 'DATA (cached)' :
+                           freshDisplayUrl === 'assets/img/photo-placeholder.png' ? 'PLACEHOLDER (BROKEN!)' :
+                           freshDisplayUrl?.includes('s3.amazonaws') ? 'S3 URL' : 'OTHER';
+            alert(`[HUD DEBUG 11] displayUrl RESULT\nimageId: ${localImage.imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId || 'NULL!'}\nthumbBlobId: ${localImage.thumbBlobId || 'NULL'}\nattachId: ${localImage.attachId || 'NULL'}\nURL TYPE: ${urlType}\nurl: ${freshDisplayUrl?.substring(0, 60)}`);
 
             if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.png') {
               // ANNOTATION FIX: Check for cached annotated image for thumbnail display
@@ -1564,6 +1570,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 isLocalFirst: true
               };
 
+            } else {
+              // ATTEMPT 5: Alert when placeholder is returned - indicates all fallbacks failed
+              alert(`[HUD DEBUG 11b] PLACEHOLDER RETURNED!\nExisting photo preserved but getDisplayUrl failed\nimageId: ${localImage.imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId || 'NULL!'}\nthumbBlobId: ${localImage.thumbBlobId || 'NULL'}\nattachId: ${localImage.attachId || 'NULL'}\nremoteS3Key: ${localImage.remoteS3Key || 'NULL'}`);
             }
           } catch (e) {
             console.warn('[DEXIE-FIRST] Failed to refresh displayUrl for existing photo:', e);
@@ -1630,8 +1639,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
         photosAddedCount++;
 
-        // DEBUG: Photo added to visualPhotos
-        alert(`[HUD DEBUG 12] NEW PHOTO ADDED\nkey: ${key}\nimageId: ${imageId}\ndisplayUrl type: ${displayUrl?.startsWith('blob:') ? 'BLOB' : displayUrl?.startsWith('data:') ? 'DATA' : 'PLACEHOLDER'}`);
+        // DEBUG: Photo added to visualPhotos - ATTEMPT 5: Enhanced with more LocalImage details
+        const newUrlType = displayUrl?.startsWith('blob:') ? 'BLOB (local)' :
+                          displayUrl?.startsWith('data:') ? 'DATA (cached)' :
+                          displayUrl === 'assets/img/photo-placeholder.png' ? 'PLACEHOLDER (BROKEN!)' : 'OTHER';
+        alert(`[HUD DEBUG 12] NEW PHOTO ADDED\nkey: ${key}\nimageId: ${imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId || 'NULL!'}\nthumbBlobId: ${localImage.thumbBlobId || 'NULL'}\nattachId: ${localImage.attachId || 'NULL'}\nURL TYPE: ${newUrlType}\nurl: ${displayUrl?.substring(0, 60)}`);
       }
 
       // Update photo count
@@ -6039,8 +6051,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   async addPhotoFromGallery(category: string, itemId: string | number) {
-    // DEBUG ALERT: Gallery entry point
-    alert(`[HUD DEBUG GALLERY 0] ENTRY\ncategory: ${category}\nitemId: ${itemId}\nenvironment.isWeb: ${environment.isWeb}`);
+    // ATTEMPT 5: Wrap entire method in try-catch and add console.log for debugging
+    console.log('[HUD GALLERY] Method called - category:', category, 'itemId:', itemId);
+    try {
+      // DEBUG ALERT: Gallery entry point
+      alert(`[HUD DEBUG GALLERY 0] ENTRY\ncategory: ${category}\nitemId: ${itemId}\nenvironment.isWeb: ${environment.isWeb}`);
 
     // Set cooldown to prevent cache invalidation from causing UI flash
     this.startLocalOperationCooldown();
@@ -6386,6 +6401,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (!isCancelled) {
         console.error('Error selecting photo from gallery:', error);
       }
+    }
+    } catch (outerError) {
+      // ATTEMPT 5: Catch any errors before the alert
+      console.error('[HUD GALLERY] Outer error:', outerError);
+      alert(`[HUD DEBUG GALLERY ERROR] Outer exception:\n${outerError}`);
     }
   }
 
