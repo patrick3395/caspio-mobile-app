@@ -1940,8 +1940,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     
     console.log('[LIVEQUERY] Subscribing to LocalImages changes for service:', this.serviceId);
 
-    // Subscribe to all LocalImages for this service (visual entity type)
-    this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'visual').subscribe(
+    // Subscribe to all LocalImages for this service (hud entity type)
+    this.localImagesSubscription = db.liveLocalImages$(this.serviceId, 'hud').subscribe(
       async (localImages) => {
         console.log('[LIVEQUERY] LocalImages updated:', localImages.length, 'images');
 
