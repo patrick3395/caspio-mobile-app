@@ -761,6 +761,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       this.lastConvertedFields = this.buildConvertedFieldsFromOrganizedData(organizedData);
       console.log(`[CategoryDetail] MOBILE: Built ${this.lastConvertedFields.length} converted fields for photo matching`);
 
+      // DEBUG ALERT: lastConvertedFields built
+      const fieldPreview = this.lastConvertedFields.slice(0, 3).map(f => `tid=${f.templateId} vid=${f.visualId || 'null'} tvid=${f.tempVisualId || 'null'}`).join('\n');
+      alert(`[HUD DEBUG INIT] lastConvertedFields BUILT\ncount: ${this.lastConvertedFields.length}\nFirst 3:\n${fieldPreview}`);
+
       // Load photos from local storage
       await this.loadPhotosFromDexie();
 
@@ -1388,6 +1392,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     }
     this.isPopulatingPhotos = true;
 
+    // DEBUG ALERT 7: populatePhotosFromDexie started
+    const fieldInfo = fields.slice(0, 3).map(f => `${f.templateId}: v=${f.visualId || 'null'} t=${f.tempVisualId || 'null'}`).join('\n');
+    alert(`[HUD DEBUG 7] populatePhotosFromDexie START\nfields.length: ${fields.length}\nFirst 3 fields:\n${fieldInfo}`);
+
     try {
       console.log('[DEXIE-FIRST] Populating photos directly from Dexie...');
 
@@ -1426,6 +1434,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     }
 
     console.log(`[DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
+
+    // DEBUG ALERT 8: LocalImages query result
+    const entityIdList = Array.from(localImagesMap.keys()).slice(0, 5).join(', ');
+    alert(`[HUD DEBUG 8] LocalImages Query\nTotal images: ${allLocalImages.length}\nUnique entityIds: ${localImagesMap.size}\nFirst 5 entityIds: ${entityIdList}`);
 
     let photosAddedCount = 0;
 
@@ -1985,11 +1997,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       async (localImages) => {
         console.log('[LIVEQUERY] LocalImages updated:', localImages.length, 'images');
 
+        // DEBUG ALERT 5: liveQuery fired
+        const entityIds = localImages.map(img => img.entityId).join(', ');
+        alert(`[HUD DEBUG 5] LIVEQUERY FIRED\nimages count: ${localImages.length}\nentityIds: ${entityIds.substring(0, 100)}\nisCameraCaptureInProgress: ${this.isCameraCaptureInProgress}\nlastConvertedFields.length: ${this.lastConvertedFields?.length || 0}`);
+
         // Suppress during camera capture to prevent duplicate photos with annotations
         // Camera code manually pushes with annotated URL; liveQuery would add with original URL
         // Gallery uploads do NOT suppress - they rely on liveQuery for UI updates
         if (this.isCameraCaptureInProgress) {
           console.log('[LIVEQUERY] Suppressing - camera capture in progress');
+          alert(`[HUD DEBUG 5b] LIVEQUERY SUPPRESSED - camera capture in progress`);
           return;
         }
 
@@ -1998,7 +2015,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         // DEXIE-FIRST: Refresh photos from updated Dexie data
         if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+          alert(`[HUD DEBUG 6] Calling populatePhotosFromDexie with ${this.lastConvertedFields.length} fields`);
           await this.populatePhotosFromDexie(this.lastConvertedFields);
+        } else {
+          alert(`[HUD DEBUG 6b] SKIPPING populatePhotosFromDexie - no lastConvertedFields!`);
         }
 
         // CRITICAL: Debounce change detection to prevent multiple rapid UI updates
@@ -5805,6 +5825,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           // Uses stable UUID that NEVER changes
           // ============================================
 
+          // DEBUG ALERT 1: Entering mobile capture
+          alert(`[HUD DEBUG 1] MOBILE CAPTURE START\nkey: ${key}\nvisualId: ${visualId}\nserviceId: ${this.serviceId}`);
+
           this.logDebug('CAPTURE', `Starting captureImage for visualId: ${visualId}`);
 
           // RACE CONDITION FIX: Suppress liveQuery during camera capture
@@ -5826,6 +5849,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             
             this.logDebug('CAPTURE', `? LocalImage created: ${localImage.imageId} status: ${localImage.status} blobId: ${localImage.localBlobId}`);
             console.log('[CAMERA UPLOAD] ? Created LocalImage with stable ID:', localImage.imageId);
+
+            // DEBUG ALERT 2: LocalImage created
+            alert(`[HUD DEBUG 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}`);
           } catch (captureError: any) {
             this.logDebug('ERROR', `captureImage FAILED: ${captureError?.message || captureError}`);
             console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
@@ -5911,15 +5937,24 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             // Add photo to UI immediately (no duplicate found)
             this.visualPhotos[key].push(photoEntry);
             console.log('[CAMERA UPLOAD] ? Photo added (silent sync):', localImage.imageId);
+
+            // DEBUG ALERT 3: Photo added to visualPhotos
+            alert(`[HUD DEBUG 3] PHOTO ADDED TO UI\nkey: ${key}\nimageId: ${localImage.imageId}\ndisplayUrl type: ${photoEntry.displayUrl?.startsWith('blob:') ? 'BLOB' : 'OTHER'}\ntotal photos: ${this.visualPhotos[key].length}`);
           } else {
             // Duplicate found - update existing entry instead of adding
             console.log('[CAMERA UPLOAD] ?? Photo already exists, updating:', localImage.imageId);
             this.visualPhotos[key][existingIndex] = { ...this.visualPhotos[key][existingIndex], ...photoEntry };
+
+            // DEBUG ALERT 3b: Photo updated (duplicate)
+            alert(`[HUD DEBUG 3b] PHOTO UPDATED (duplicate)\nkey: ${key}\nimageId: ${localImage.imageId}`);
           }
 
           // Expand photos section so user can see the newly added photo
           this.expandPhotos(category, itemId);
           this.changeDetectorRef.detectChanges();
+
+          // DEBUG ALERT 4: After detectChanges
+          alert(`[HUD DEBUG 4] AFTER detectChanges\nvisualPhotos[${key}].length: ${this.visualPhotos[key]?.length}\nexpandedPhotos[${key}]: ${this.expandedPhotos[key]}`);
 
           // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
           this.isCameraCaptureInProgress = false;
@@ -6681,8 +6716,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             tempVisualId: visualId
           };
           console.log('[SAVE VISUAL] Updated lastConvertedFields[' + fieldIndex + '] with tempVisualId:', visualId);
+
+          // DEBUG ALERT: lastConvertedFields updated
+          alert(`[HUD DEBUG SAVE_VISUAL] lastConvertedFields UPDATED\nfieldIndex: ${fieldIndex}\ntemplateId: ${templateId}\nnew tempVisualId: ${visualId}`);
         } else {
           console.log('[SAVE VISUAL] Field not found in lastConvertedFields for templateId:', templateId);
+          alert(`[HUD DEBUG SAVE_VISUAL] FIELD NOT FOUND!\ntemplateId: ${templateId}\nlastConvertedFields.length: ${this.lastConvertedFields?.length || 0}`);
         }
       } catch (err) {
         console.error('[SAVE VISUAL] Failed to persist tempVisualId:', err);
