@@ -3308,7 +3308,20 @@ export class BackgroundSyncService {
           );
           console.log('[BackgroundSync] FDF photo upload completed:', item.imageId, 'result:', result);
           break;
-        // Add more entity types as needed
+        case 'hud':
+          // HUD photos are stored in LPS_Services_HUD_Attach table
+          console.log('[BackgroundSync] HUD photo upload starting:', item.imageId, 'hudId:', entityId);
+          result = await uploadWithTimeout(
+            this.caspioService.createServicesHUDAttachWithFile(
+              parseInt(entityId),
+              image.caption || '',
+              file,
+              image.drawings || ''
+            ).toPromise(),
+            `hud upload for ${item.imageId}`
+          );
+          console.log('[BackgroundSync] HUD photo upload completed:', item.imageId, 'result:', result);
+          break;
         default:
           throw new Error(`Unsupported entity type: ${image.entityType}`);
       }
@@ -3369,6 +3382,15 @@ export class BackgroundSyncService {
           tempPointId: image.entityId,
           realPointId: parseInt(entityId),
           result
+        });
+      });
+    } else if (image.entityType === 'hud') {
+      this.ngZone.run(() => {
+        this.hudPhotoUploadComplete$.next({
+          imageId: item.imageId,
+          attachId: attachId,
+          s3Key: s3Key,
+          hudId: entityId
         });
       });
     }
