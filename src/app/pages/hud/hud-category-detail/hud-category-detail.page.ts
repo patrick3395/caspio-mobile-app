@@ -1656,23 +1656,24 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       this.changeDetectorRef.detectChanges();
     });
 
-    // Subscribe to background sync photo upload completions
+    // Subscribe to background sync HUD photo upload completions
     // ALWAYS display from LocalImages table - never swap displayUrl to remote URLs
     // Sync happens in background, but UI always shows local blob until finalization
     // Only update metadata and cache the remote image for persistence
-    this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {
-      console.log('[PHOTO SYNC] Photo upload completed:', event.tempFileId);
+    // NOTE: HUD uses hudPhotoUploadComplete$ (not photoUploadComplete$ which is for EFE)
+    this.photoSyncSubscription = this.backgroundSync.hudPhotoUploadComplete$.subscribe(async (event) => {
+      console.log('[HUD PHOTO SYNC] Photo upload completed:', event.imageId);
 
       // ===== US-001 DEBUG: Sync completion - trace displayUrl changes =====
-      const syncDebugMsg = `SYNC COMPLETE received\n` +
-        `tempFileId: ${event.tempFileId}\n` +
-        `result PK_ID: ${event.result?.Result?.[0]?.PK_ID || event.result?.PK_ID || 'N/A'}\n` +
-        `result AttachID: ${event.result?.Result?.[0]?.AttachID || event.result?.AttachID || 'N/A'}`;
+      const syncDebugMsg = `HUD SYNC COMPLETE received\n` +
+        `imageId: ${event.imageId}\n` +
+        `attachId: ${event.attachId}\n` +
+        `hudId: ${event.hudId}`;
       this.logDebug('SYNC', syncDebugMsg);
       // ===== END US-001 DEBUG =====
 
       // DEBUG: Log all photos in visualPhotos to find the mismatch
-      console.log('[PHOTO SYNC DEBUG] Searching for tempFileId:', event.tempFileId);
+      console.log('[HUD PHOTO SYNC DEBUG] Searching for imageId:', event.imageId);
       console.log('[PHOTO SYNC DEBUG] Keys in visualPhotos:', Object.keys(this.visualPhotos));
       for (const debugKey of Object.keys(this.visualPhotos)) {
         const photos = this.visualPhotos[debugKey];
@@ -1682,23 +1683,22 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         });
       }
 
-      // Find the photo in our visualPhotos by temp file ID
+      // Find the photo in our visualPhotos by imageId
       let foundPhoto = false;
       for (const key of Object.keys(this.visualPhotos)) {
         const photoIndex = this.visualPhotos[key].findIndex(p =>
-          p.AttachID === event.tempFileId ||
-          p._pendingFileId === event.tempFileId ||
-          p.id === event.tempFileId ||
-          p.imageId === event.tempFileId  // Also check imageId field
+          p.imageId === event.imageId ||
+          p.AttachID === event.imageId ||
+          p._pendingFileId === event.imageId ||
+          p.id === event.imageId
         );
 
         if (photoIndex !== -1) {
           foundPhoto = true;
-          console.log('[PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
+          console.log('[HUD PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
 
-          const result = event.result;
-          const actualResult = result?.Result?.[0] || result;
-          const realAttachId = actualResult.PK_ID || actualResult.AttachID;
+          // HUD event provides attachId directly (not nested in result object)
+          const realAttachId = event.attachId;
 
           // Cache the remote image for persistence (used after local blob is pruned)
           // but do NOT update displayUrl - it stays as local blob from LocalImages
@@ -1707,9 +1707,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             const cachedBase64 = await this.indexedDb.getCachedPhoto(String(realAttachId));
             if (cachedBase64) {
               cachedUrl = cachedBase64;
-              console.log('[PHOTO SYNC] ? Found cached base64 for persistence:', realAttachId);
+              console.log('[HUD PHOTO SYNC] Found cached base64 for persistence:', realAttachId);
             } else {
-              console.log('[PHOTO SYNC] No cached image yet (displayUrl unchanged - staying with LocalImages)');
+              console.log('[HUD PHOTO SYNC] No cached image yet (displayUrl unchanged - staying with LocalImages)');
             }
           } catch (err) {
             console.warn('[PHOTO SYNC] Failed to get cached image:', err);
@@ -1719,12 +1719,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           // CRITICAL: Preserve caption - it may have been set locally before sync
           // The upload includes the caption, so we can safely keep the local one
           const existingPhoto = this.visualPhotos[key][photoIndex];
-          const serverCaption = actualResult.Annotation || actualResult.Caption || '';
-          const localCaption = existingPhoto.caption || '';
-
-          // Use local caption if it exists, otherwise use server caption
-          // (server caption should match if upload worked correctly)
-          const finalCaption = localCaption || serverCaption;
+          // HUD event doesn't include caption - use existing local caption
+          const finalCaption = existingPhoto.caption || '';
 
           this.visualPhotos[key][photoIndex] = {
             ...existingPhoto,
@@ -1747,9 +1743,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           // ===== US-001 DEBUG: After sync update - trace final displayUrl =====
           const updatedPhoto = this.visualPhotos[key][photoIndex];
-          const syncUpdateDebugMsg = `SYNC UPDATE APPLIED\n` +
+          const syncUpdateDebugMsg = `HUD SYNC UPDATE APPLIED\n` +
             `key: ${key}\n` +
-            `old imageId: ${event.tempFileId}\n` +
+            `imageId: ${event.imageId}\n` +
             `new AttachID: ${realAttachId}\n` +
             `displayUrl: ${updatedPhoto.displayUrl?.substring(0, 80)}...\n` +
             `displayUrl type: ${updatedPhoto.displayUrl?.startsWith('blob:') ? 'BLOB (local)' : updatedPhoto.displayUrl?.startsWith('data:') ? 'DATA (cached)' : 'OTHER'}\n` +
@@ -1758,21 +1754,21 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           // ===== END US-001 DEBUG =====
 
           this.changeDetectorRef.detectChanges();
-          console.log('[PHOTO SYNC] Updated photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
+          console.log('[HUD PHOTO SYNC] Updated photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
           break;
         }
       }
 
       // RECOVERY: If photo was NOT found, try to restore it from LocalImageService
       if (!foundPhoto) {
-        console.error('[PHOTO SYNC] ? Photo NOT FOUND in visualPhotos! tempFileId:', event.tempFileId);
-        console.error('[PHOTO SYNC] Attempting recovery from LocalImageService...');
+        console.error('[HUD PHOTO SYNC] Photo NOT FOUND in visualPhotos! imageId:', event.imageId);
+        console.error('[HUD PHOTO SYNC] Attempting recovery from LocalImageService...');
 
         try {
           // Get the LocalImage
-          const localImage = await this.localImageService.getImage(event.tempFileId);
+          const localImage = await this.localImageService.getImage(event.imageId);
           if (localImage) {
-            console.log('[PHOTO SYNC] Found LocalImage:', localImage.imageId, 'entityId:', localImage.entityId);
+            console.log('[HUD PHOTO SYNC] Found LocalImage:', localImage.imageId, 'entityId:', localImage.entityId);
 
             // Find the key by entityId (visualId)
             let recoveryKey: string | null = null;
@@ -1798,15 +1794,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             }
 
             if (recoveryKey) {
-              console.log('[PHOTO SYNC] Recovery key found:', recoveryKey);
+              console.log('[HUD PHOTO SYNC] Recovery key found:', recoveryKey);
 
               // Get display URL
               const displayUrl = await this.localImageService.getDisplayUrl(localImage);
 
-              // Get result data
-              const result = event.result;
-              const actualResult = result?.Result?.[0] || result;
-              const realAttachId = actualResult.PK_ID || actualResult.AttachID || event.tempFileId;
+              // HUD event provides attachId directly
+              const realAttachId = event.attachId || event.imageId;
 
               // Create photo entry
               const recoveredPhoto = {
@@ -1844,24 +1838,24 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               
               if (existingIndex === -1) {
                 this.visualPhotos[recoveryKey].push(recoveredPhoto);
-                console.log('[PHOTO SYNC] ? Photo RECOVERED and added to visualPhotos:', recoveryKey);
+                console.log('[HUD PHOTO SYNC] Photo RECOVERED and added to visualPhotos:', recoveryKey);
               } else {
                 // Update existing photo instead of adding duplicate
                 this.visualPhotos[recoveryKey][existingIndex] = {
                   ...this.visualPhotos[recoveryKey][existingIndex],
                   ...recoveredPhoto
                 };
-                console.log('[PHOTO SYNC] ? Photo already exists, updated instead:', recoveryKey);
+                console.log('[HUD PHOTO SYNC] Photo already exists, updated instead:', recoveryKey);
               }
               this.changeDetectorRef.detectChanges();
             } else {
-              console.error('[PHOTO SYNC] ? Could not find recovery key for entityId:', localImage.entityId);
+              console.error('[HUD PHOTO SYNC] Could not find recovery key for entityId:', localImage.entityId);
             }
           } else {
-            console.error('[PHOTO SYNC] ? LocalImage not found:', event.tempFileId);
+            console.error('[HUD PHOTO SYNC] LocalImage not found:', event.imageId);
           }
         } catch (recoveryErr) {
-          console.error('[PHOTO SYNC] Recovery failed:', recoveryErr);
+          console.error('[HUD PHOTO SYNC] Recovery failed:', recoveryErr);
         }
       }
     });
