@@ -1518,6 +1518,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       for (const localImage of localImages) {
         const imageId = localImage.imageId;
 
+        // ATTEMPT 8: Verify blob exists in IndexedDB before processing
+        if (localImage.localBlobId) {
+          const blobCheck = await this.indexedDb.verifyBlobExists(localImage.localBlobId);
+          if (!blobCheck.hasData) {
+            alert(`[HUD DEBUG BLOB MISSING]\nimageId: ${imageId}\nblobId: ${localImage.localBlobId}\nexists: ${blobCheck.exists}\nhasData: ${blobCheck.hasData}\nsize: ${blobCheck.sizeBytes}`);
+          }
+        } else {
+          alert(`[HUD DEBUG NO BLOBID]\nimageId: ${imageId}\nlocalBlobId is NULL!\nstatus: ${localImage.status}`);
+        }
+
         // ===== US-002 FIX: Check if photo already exists and refresh its displayUrl =====
         // This ensures displayUrl always points to a fresh local blob from LocalImages
         const existingPhotoIndex = this.visualPhotos[key].findIndex(p =>
@@ -5887,8 +5897,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             this.logDebug('CAPTURE', `? LocalImage created: ${localImage.imageId} status: ${localImage.status} blobId: ${localImage.localBlobId}`);
             console.log('[CAMERA UPLOAD] ? Created LocalImage with stable ID:', localImage.imageId);
 
-            // DEBUG ALERT 2: LocalImage created
-            alert(`[HUD DEBUG 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}`);
+            // ATTEMPT 8: Immediately verify blob was saved to IndexedDB
+            const blobCheck = await this.indexedDb.verifyBlobExists(localImage.localBlobId);
+
+            // DEBUG ALERT 2: LocalImage created with blob verification
+            alert(`[HUD DEBUG 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}\n\nBLOB CHECK:\nexists: ${blobCheck.exists}\nhasData: ${blobCheck.hasData}\nsize: ${blobCheck.sizeBytes}`);
           } catch (captureError: any) {
             this.logDebug('ERROR', `captureImage FAILED: ${captureError?.message || captureError}`);
             console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
@@ -6057,6 +6070,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   async addPhotoFromGallery(category: string, itemId: string | number) {
+    // ATTEMPT 8: Ultra-early alert BEFORE any other code - if this doesn't show, method isn't being called
+    alert(`[HUD GALLERY ULTRA-EARLY] Method invoked!\ncat: ${category}\nitem: ${itemId}`);
+
     // ATTEMPT 5: Wrap entire method in try-catch and add console.log for debugging
     console.log('[HUD GALLERY] Method called - category:', category, 'itemId:', itemId);
     try {
@@ -6298,8 +6314,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   ''  // drawings
                 );
 
-                // ATTEMPT 6: Same debug alert as camera path DEBUG 2
-                alert(`[HUD DEBUG GALLERY 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}`);
+                // ATTEMPT 8: Immediately verify blob was saved to IndexedDB
+                const galleryBlobCheck = await this.indexedDb.verifyBlobExists(localImage.localBlobId);
+
+                // ATTEMPT 6: Same debug alert as camera path DEBUG 2 (with blob verification)
+                alert(`[HUD DEBUG GALLERY 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}\n\nBLOB CHECK:\nexists: ${galleryBlobCheck.exists}\nhasData: ${galleryBlobCheck.hasData}\nsize: ${galleryBlobCheck.sizeBytes}`);
                 console.log(`[GALLERY UPLOAD] ? Created LocalImage ${i + 1} with stable ID:`, localImage.imageId);
 
                 // US-003 FIX: Track this imageId to prevent duplicates from liveQuery race
