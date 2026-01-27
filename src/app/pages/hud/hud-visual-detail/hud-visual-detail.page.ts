@@ -731,10 +731,88 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         useWebWorker: true
       });
 
-      // Create File object for LocalImageService
+      // Create File object
       const file = new File([compressedBlob], `photo_${Date.now()}.webp`, {
         type: compressedBlob.type || 'image/webp'
       });
+
+      // ============================================
+      // WEBAPP MODE: Direct S3 Upload
+      // MOBILE MODE: Local-first with background sync
+      // ============================================
+
+      if (environment.isWeb) {
+        console.log('[HudVisualDetail] WEBAPP MODE: Direct S3 upload starting...');
+
+        // Create temp display URL
+        const tempDisplayUrl = URL.createObjectURL(compressedBlob);
+        const tempId = `uploading_${Date.now()}`;
+
+        // Add temp photo entry with loading state
+        this.photos.unshift({
+          id: tempId,
+          displayUrl: tempDisplayUrl,
+          originalUrl: tempDisplayUrl,
+          caption: '',
+          uploading: true,
+          isLocal: false
+        });
+        this.changeDetectorRef.detectChanges();
+
+        try {
+          // Upload directly to S3
+          const uploadResult = await this.localImageService.uploadImageDirectToS3(
+            file,
+            'hud',
+            this.hudId,
+            this.serviceId,
+            '', // caption
+            ''  // drawings
+          );
+
+          console.log('[HudVisualDetail] WEBAPP: ✅ Upload complete, AttachID:', uploadResult.attachId);
+
+          // Replace temp photo with real photo
+          const tempIndex = this.photos.findIndex(p => p.id === tempId);
+          if (tempIndex >= 0) {
+            this.photos[tempIndex] = {
+              id: uploadResult.attachId,
+              displayUrl: uploadResult.s3Url,
+              originalUrl: uploadResult.s3Url,
+              caption: '',
+              uploading: false,
+              isLocal: false,
+              hasAnnotations: false,
+              drawings: ''
+            };
+          }
+
+          this.changeDetectorRef.detectChanges();
+          await this.showToast('Photo uploaded successfully', 'success');
+
+          // Clean up temp blob URL
+          URL.revokeObjectURL(tempDisplayUrl);
+
+        } catch (uploadError: any) {
+          console.error('[HudVisualDetail] WEBAPP: ❌ Upload failed:', uploadError?.message || uploadError);
+
+          // Remove temp photo on error
+          const tempIndex = this.photos.findIndex(p => p.id === tempId);
+          if (tempIndex >= 0) {
+            this.photos.splice(tempIndex, 1);
+          }
+          this.changeDetectorRef.detectChanges();
+
+          URL.revokeObjectURL(tempDisplayUrl);
+          await this.showToast('Failed to upload photo. Please try again.', 'danger');
+        }
+
+        return;
+      }
+
+      // ============================================
+      // MOBILE MODE: Local-first with background sync
+      // ============================================
 
       // DEXIE-FIRST: Use LocalImageService.captureImage() which:
       // 1. Stores blob + metadata atomically
@@ -766,6 +844,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('[HudVisualDetail] Error processing photo:', error);
+      await this.showToast('Error processing photo', 'danger');
     }
   }
 
@@ -1106,38 +1185,61 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             }
           }
 
-          // DEXIE-FIRST: Update LocalImages table with new drawings
-          await db.localImages.update(photo.id, {
-            drawings: compressedDrawings,
-            caption: newCaption,
-            updatedAt: Date.now()
-          });
-          console.log('[HudVisualDetail] ✅ Updated LocalImages with drawings:', compressedDrawings.length, 'chars');
-
-          // DEXIE-FIRST: Cache annotated image for thumbnail display
-          if (annotatedBlob && annotatedBlob.size > 0) {
-            try {
-              await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
-              console.log('[HudVisualDetail] ✅ Cached annotated image for:', photo.id);
-            } catch (cacheErr) {
-              console.warn('[HudVisualDetail] Failed to cache annotated image:', cacheErr);
+          // WEBAPP MODE: Photos come from server, not localImages
+          if (environment.isWeb && !photo.isLocal) {
+            // Cache annotated image for thumbnail display (use photo.id which is AttachID)
+            if (annotatedBlob && annotatedBlob.size > 0) {
+              try {
+                await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
+                console.log('[HudVisualDetail] WEBAPP: ✅ Cached annotated image for AttachID:', photo.id);
+              } catch (cacheErr) {
+                console.warn('[HudVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
+              }
             }
-          }
 
-          // Get the localImage to check if it has an attachId (synced to Caspio)
-          const localImage = await db.localImages.get(photo.id);
-          if (localImage?.attachId) {
-            // Queue annotation update to Caspio for background sync
+            // Queue annotation update directly to Caspio (photo.id IS the AttachID in webapp mode)
             await this.hudData.queueCaptionAndAnnotationUpdate(
-              localImage.attachId,
+              photo.id,
               newCaption,
               compressedDrawings,
               'hud',
               { serviceId: this.serviceId, visualId: this.hudId }
             );
-            console.log('[HudVisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
+            console.log('[HudVisualDetail] WEBAPP: ✅ Queued annotation update to Caspio for AttachID:', photo.id);
           } else {
-            console.log('[HudVisualDetail] Photo not yet synced, annotations stored locally for upload');
+            // MOBILE MODE: Update LocalImages table with new drawings
+            await db.localImages.update(photo.id, {
+              drawings: compressedDrawings,
+              caption: newCaption,
+              updatedAt: Date.now()
+            });
+            console.log('[HudVisualDetail] ✅ Updated LocalImages with drawings:', compressedDrawings.length, 'chars');
+
+            // Cache annotated image for thumbnail display
+            if (annotatedBlob && annotatedBlob.size > 0) {
+              try {
+                await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
+                console.log('[HudVisualDetail] ✅ Cached annotated image for:', photo.id);
+              } catch (cacheErr) {
+                console.warn('[HudVisualDetail] Failed to cache annotated image:', cacheErr);
+              }
+            }
+
+            // Get the localImage to check if it has an attachId (synced to Caspio)
+            const localImage = await db.localImages.get(photo.id);
+            if (localImage?.attachId) {
+              // Queue annotation update to Caspio for background sync
+              await this.hudData.queueCaptionAndAnnotationUpdate(
+                localImage.attachId,
+                newCaption,
+                compressedDrawings,
+                'hud',
+                { serviceId: this.serviceId, visualId: this.hudId }
+              );
+              console.log('[HudVisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
+            } else {
+              console.log('[HudVisualDetail] Photo not yet synced, annotations stored locally for upload');
+            }
           }
 
           // Update local photo object immediately for UI

@@ -507,7 +507,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     // 4. Merge any pending captions/drawings
     await this.mergePendingCaptions();
 
-    console.log('[CategoryDetail] Local state refreshed - URLs regenerated, captions merged');
+    // 5. CRITICAL: Refresh annotated image URLs for photos with annotations
+    // This ensures thumbnails show annotated versions, not base images
+    await this.refreshAnnotatedImageUrls();
+
+    console.log('[CategoryDetail] Local state refreshed - URLs regenerated, captions merged, annotations loaded');
   }
 
   /**
@@ -540,6 +544,44 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             photo.Drawings = pending.drawings;
             photo.hasAnnotations = !!(pending.drawings && pending.drawings.length > 100);
           }
+        }
+      }
+    }
+  }
+
+  /**
+   * Refresh annotated image URLs for photos that have annotations
+   * This ensures thumbnails show the annotated version, not the base image
+   */
+  private async refreshAnnotatedImageUrls(): Promise<void> {
+    // First, refresh the bulkAnnotatedImagesMap from IndexedDB
+    const annotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+    this.bulkAnnotatedImagesMap = annotatedImages;
+
+    console.log(`[CategoryDetail] Loaded ${annotatedImages.size} cached annotated images`);
+
+    // Update in-memory photos with annotated image URLs
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      for (const photo of photos as any[]) {
+        // Check if this photo has annotations
+        const hasAnnotations = photo.hasAnnotations || (photo.Drawings && photo.Drawings.length > 10);
+        if (!hasAnnotations) continue;
+
+        // Try to find cached annotated image by various IDs
+        const attachId = photo.AttachID || photo.attachId || photo.id || '';
+        const localImageId = photo.localImageId || photo.imageId;
+
+        let annotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
+        if (!annotatedImage && localImageId) {
+          annotatedImage = this.bulkAnnotatedImagesMap.get(localImageId);
+        }
+
+        // If found, update the display URL
+        if (annotatedImage) {
+          console.log(`[CategoryDetail] Applying cached annotated image for ${attachId || localImageId}`);
+          photo.displayUrl = annotatedImage;
+          photo.thumbnailUrl = annotatedImage;
+          // Keep photo.url as original for re-editing
         }
       }
     }
@@ -3748,14 +3790,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
 
           // WEBAPP FIX: Check for cached annotated image to use as thumbnail
-          const hasAnnotations = !!(attach.Drawings && attach.Drawings.length > 10);
+          // CRITICAL: Always check cache, not just when server has Drawings
+          // Annotations added locally may not be synced yet but are cached
+          const hasServerAnnotations = !!(attach.Drawings && attach.Drawings.length > 10);
           let thumbnailUrl = displayUrl;
-          if (hasAnnotations) {
-            const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
-            if (cachedAnnotated) {
-              thumbnailUrl = cachedAnnotated;
-              console.log(`[LOAD PHOTOS] WEBAPP: Using cached annotated image for ${attachId}`);
-            }
+          let hasAnnotations = hasServerAnnotations;
+
+          // Always check for cached annotated image (may be local-only annotation)
+          const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
+          if (cachedAnnotated) {
+            thumbnailUrl = cachedAnnotated;
+            hasAnnotations = true;
+            console.log(`[LOAD PHOTOS] WEBAPP: Using cached annotated image for ${attachId}`);
           }
 
           this.visualPhotos[key].push({
