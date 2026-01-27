@@ -1488,7 +1488,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         }
       }
 
-      if (localImages.length === 0) continue;
+      if (localImages.length === 0) {
+        // DEBUG: Show when no images found for a field with visualId
+        if (visualId) {
+          alert(`[HUD DEBUG 9] NO IMAGES for field\ntemplateId: ${field.templateId}\nvisualId: ${visualId}\ntempId: ${tempId}\nrealId lookup: ${foundWithRealId}\ntempId lookup: ${foundWithTempId}\nmappedId lookup: ${foundWithMappedId}`);
+        }
+        continue;
+      }
+
+      // DEBUG: Show when images ARE found
+      alert(`[HUD DEBUG 10] FOUND IMAGES\ntemplateId: ${field.templateId}\nvisualId: ${visualId}\nimages found: ${localImages.length}\nfirst imageId: ${localImages[0]?.imageId}\nfirst entityId: ${localImages[0]?.entityId}\nlocalBlobId: ${localImages[0]?.localBlobId || 'null'}`);
 
       // Initialize photos array if not exists
       if (!this.visualPhotos[key]) {
@@ -1523,6 +1532,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           // This ensures we NEVER use stale cached URLs or server URLs
           try {
             const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+            // DEBUG ALERT: Show displayUrl generated
+            alert(`[HUD DEBUG 11] displayUrl generated\nimageId: ${localImage.imageId}\nlocalBlobId: ${localImage.localBlobId || 'null'}\ndisplayUrl type: ${freshDisplayUrl?.startsWith('blob:') ? 'BLOB' : freshDisplayUrl?.startsWith('data:') ? 'DATA' : freshDisplayUrl === 'assets/img/photo-placeholder.png' ? 'PLACEHOLDER' : 'OTHER'}\nurl preview: ${freshDisplayUrl?.substring(0, 50)}`);
+
             if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.png') {
               // ANNOTATION FIX: Check for cached annotated image for thumbnail display
               const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10) || existingPhoto.hasAnnotations;
@@ -1616,11 +1629,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         loadedPhotoIds.add(imageId);
         if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
         photosAddedCount++;
+
+        // DEBUG: Photo added to visualPhotos
+        alert(`[HUD DEBUG 12] NEW PHOTO ADDED\nkey: ${key}\nimageId: ${imageId}\ndisplayUrl type: ${displayUrl?.startsWith('blob:') ? 'BLOB' : displayUrl?.startsWith('data:') ? 'DATA' : 'PLACEHOLDER'}`);
       }
 
       // Update photo count
       this.photoCountsByKey[key] = this.visualPhotos[key].length;
     }
+
+    // DEBUG: Final summary
+    alert(`[HUD DEBUG 13] populatePhotosFromDexie COMPLETE\nPhotos added: ${photosAddedCount}\nTotal in visualPhotos: ${Object.values(this.visualPhotos).flat().length}`);
 
     // ===== US-001/US-003 DEBUG: populatePhotosFromDexie complete =====
     const photosWithAnnotations = Object.values(this.visualPhotos)
@@ -6020,6 +6039,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   async addPhotoFromGallery(category: string, itemId: string | number) {
+    // DEBUG ALERT: Gallery entry point
+    alert(`[HUD DEBUG GALLERY 0] ENTRY\ncategory: ${category}\nitemId: ${itemId}\nenvironment.isWeb: ${environment.isWeb}`);
+
     // Set cooldown to prevent cache invalidation from causing UI flash
     this.startLocalOperationCooldown();
 
@@ -6192,6 +6214,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // Photos are added to UI immediately so user can view them right away.
         // batchUploadImageIds tracks added photos to prevent liveQuery duplicates.
         // ============================================
+
+        // DEBUG ALERT: Gallery MOBILE mode starting
+        alert(`[HUD DEBUG GALLERY 1] MOBILE MODE START\nkey: ${key}\nvisualId: ${visualId}\nphoto count: ${images.photos.length}`);
 
         // Set batch flag to suppress liveQuery change detection during processing
         // batchUploadImageIds tracks added photos to prevent liveQuery duplicates
