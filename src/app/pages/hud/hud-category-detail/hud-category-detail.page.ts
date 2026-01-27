@@ -755,6 +755,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       console.log(`[CategoryDetail] MOBILE: Organized - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
 
+      // MOBILE FIX: Populate lastConvertedFields from organizedData
+      // This is required for populatePhotosFromDexie() to work when liveQuery fires
+      // HUD doesn't use visualFieldRepo subscription like EFE, so we must manually populate
+      this.lastConvertedFields = this.buildConvertedFieldsFromOrganizedData(organizedData);
+      console.log(`[CategoryDetail] MOBILE: Built ${this.lastConvertedFields.length} converted fields for photo matching`);
+
       // Load photos from local storage
       await this.loadPhotosFromDexie();
 
@@ -775,6 +781,46 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       this.loading = false;
       this.changeDetectorRef.detectChanges();
     }
+  }
+
+  /**
+   * MOBILE FIX: Build VisualField-like objects from organizedData
+   * Required for populatePhotosFromDexie() to work since HUD doesn't use visualFieldRepo
+   */
+  private buildConvertedFieldsFromOrganizedData(data: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] }): VisualField[] {
+    const fields: VisualField[] = [];
+    const allItems = [...data.comments, ...data.limitations, ...data.deficiencies];
+
+    for (const item of allItems) {
+      const key = item.key || `${item.category || this.categoryName}_${item.templateId}`;
+      const visualId = this.visualRecordIds[key];
+
+      // Only include items that have a visual record (selected items)
+      // For photos to be found, we need the visualId to match LocalImage.entityId
+      fields.push({
+        key: `${this.serviceId}:${item.category || this.categoryName}:${item.templateId}`,
+        serviceId: this.serviceId,
+        category: item.category || this.categoryName,
+        templateId: item.templateId,
+        templateName: item.name || '',
+        templateText: item.text || '',
+        kind: (item.type || 'Comment') as 'Comment' | 'Limitation' | 'Deficiency',
+        answerType: item.answerType || 0,
+        isSelected: item.isSelected || false,
+        answer: item.answer || '',
+        otherValue: item.otherValue || '',
+        // CRITICAL: Set visualId for photo matching
+        // If visualId starts with 'temp_', it goes in tempVisualId; otherwise in visualId
+        visualId: visualId && !String(visualId).startsWith('temp_') ? visualId : null,
+        tempVisualId: visualId && String(visualId).startsWith('temp_') ? visualId : null,
+        photoCount: this.visualPhotos[key]?.length || 0,
+        rev: 0,
+        updatedAt: Date.now(),
+        dirty: false
+      });
+    }
+
+    return fields;
   }
 
   /**
@@ -6624,6 +6670,20 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           tempVisualId: visualId  // Always a temp ID at this point (temp_visual_xxx)
         });
         console.log('[SAVE VISUAL] Persisted tempVisualId to Dexie:', visualId);
+
+        // MOBILE FIX: Update lastConvertedFields with the new visualId
+        // HUD doesn't have a reactive visualFieldsSubscription like EFE, so we must
+        // manually update lastConvertedFields for populatePhotosFromDexie to work correctly
+        const fieldIndex = this.lastConvertedFields.findIndex(f => f.templateId === templateId);
+        if (fieldIndex !== -1) {
+          this.lastConvertedFields[fieldIndex] = {
+            ...this.lastConvertedFields[fieldIndex],
+            tempVisualId: visualId
+          };
+          console.log('[SAVE VISUAL] Updated lastConvertedFields[' + fieldIndex + '] with tempVisualId:', visualId);
+        } else {
+          console.log('[SAVE VISUAL] Field not found in lastConvertedFields for templateId:', templateId);
+        }
       } catch (err) {
         console.error('[SAVE VISUAL] Failed to persist tempVisualId:', err);
       }
