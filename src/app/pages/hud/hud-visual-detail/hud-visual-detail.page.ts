@@ -293,7 +293,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       console.log('[HudVisualDetail] MOBILE MODE: Loading data from Dexie');
 
       // Query visualFields by serviceId, then filter by templateId
-      // Note: HUD uses 'hud' as category in route but actual categories vary
       const allFields = await db.visualFields
         .where('serviceId')
         .equals(this.serviceId)
@@ -301,8 +300,18 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       const field = allFields.find(f => f.templateId === this.templateId);
 
-      if (field) {
-        // Found field in Dexie - use it (matches EFE pattern)
+      // ALWAYS load cached templates - needed for fallback when field.templateName is empty
+      const cachedTemplates = await this.indexedDb.getCachedTemplates('hud') || [];
+      const template = cachedTemplates.find((t: any) =>
+        Number(t.TemplateID || t.PK_ID) === this.templateId
+      );
+
+      console.log('[HudVisualDetail] MOBILE: Field found:', !!field, 'templateName:', field?.templateName);
+      console.log('[HudVisualDetail] MOBILE: Template found:', !!template, 'Name:', template?.Name);
+
+      // CRITICAL: If field exists but templateName is empty (old data), use template.Name as fallback
+      if (field && field.templateName) {
+        // Field has templateName - use it directly (matches EFE pattern)
         this.item = this.convertFieldToItem(field);
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
@@ -313,43 +322,58 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         }
 
         console.log('[HudVisualDetail] MOBILE: Loaded from Dexie field:', this.item.name, 'hudId:', this.hudId);
-      } else {
-        // FALLBACK: Load from cached templates if field doesn't exist yet
-        console.log('[HudVisualDetail] MOBILE: Field not in Dexie, loading from templates...');
-        const cachedTemplates = await this.indexedDb.getCachedTemplates('hud') || [];
+      } else if (field && template) {
+        // Field exists but templateName is empty - merge field data with template name
+        // This handles data created before templateName was stored
+        this.item = {
+          id: field.visualId || field.tempVisualId || field.templateId,
+          templateId: field.templateId,
+          name: template.Name || '',  // Use template name since field.templateName is empty
+          text: field.templateText || template.Text || '',
+          originalText: template.Text || '',
+          type: field.kind || template.Kind || 'Comment',
+          category: field.category || template.Category || this.categoryName,
+          answerType: field.answerType || template.AnswerType || 0,
+          required: false,
+          answer: field.answer,
+          isSelected: field.isSelected,
+          key: field.key
+        };
+        this.editableTitle = this.item.name;
+        this.editableText = this.item.text;
 
-        // Match by TemplateID (use Number for type safety)
-        const template = cachedTemplates.find((t: any) =>
-          Number(t.TemplateID || t.PK_ID) === this.templateId
-        );
-
-        if (template) {
-          // Create item from template - matches EFE pattern
-          const effectiveTemplateId = template.TemplateID || template.PK_ID;
-          this.item = {
-            id: effectiveTemplateId,
-            templateId: effectiveTemplateId,
-            name: template.Name || '',
-            text: template.Text || '',
-            originalText: template.Text || '',
-            type: template.Kind || 'Comment',
-            category: template.Category || this.categoryName,
-            answerType: template.AnswerType || 0,
-            required: false,
-            isSelected: false
-          };
-          this.editableTitle = this.item.name;
-          this.editableText = this.item.text;
-
-          // Use hudId from query params if available
-          if (!this.hudId && hudIdFromQueryParams) {
-            this.hudId = hudIdFromQueryParams;
-          }
-
-          console.log('[HudVisualDetail] MOBILE: Loaded from template:', this.item.name);
-        } else {
-          console.warn('[HudVisualDetail] MOBILE: Template not found for ID:', this.templateId);
+        // Store hudId for photo loading
+        if (!this.hudId) {
+          this.hudId = field.visualId || field.tempVisualId || '';
         }
+
+        console.log('[HudVisualDetail] MOBILE: Merged field+template - Name:', this.item.name, 'hudId:', this.hudId);
+      } else if (template) {
+        // No field exists - use template (item not yet selected)
+        const effectiveTemplateId = template.TemplateID || template.PK_ID;
+        this.item = {
+          id: effectiveTemplateId,
+          templateId: effectiveTemplateId,
+          name: template.Name || '',
+          text: template.Text || '',
+          originalText: template.Text || '',
+          type: template.Kind || 'Comment',
+          category: template.Category || this.categoryName,
+          answerType: template.AnswerType || 0,
+          required: false,
+          isSelected: false
+        };
+        this.editableTitle = this.item.name;
+        this.editableText = this.item.text;
+
+        // Use hudId from query params if available
+        if (!this.hudId && hudIdFromQueryParams) {
+          this.hudId = hudIdFromQueryParams;
+        }
+
+        console.log('[HudVisualDetail] MOBILE: Loaded from template:', this.item.name);
+      } else {
+        console.warn('[HudVisualDetail] MOBILE: No field or template found for ID:', this.templateId);
       }
 
       // Load photos
