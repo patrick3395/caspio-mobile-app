@@ -878,6 +878,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             // Check if this custom visual is already in organizedData
             const existingItem = allItems.find(item => item.templateId === templateId);
             if (!existingItem) {
+              // PHOTO FIX: Calculate key FIRST so it can be set on the item
+              // Without item.key, loadPhotosFromDexie() skips photo loading
+              const key = `${dexieField.category}_${templateId}`;
+              const visualId = dexieField.tempVisualId || dexieField.visualId;
+
               // Create custom item from Dexie field
               const customItem: VisualItem = {
                 id: dexieField.tempVisualId || dexieField.visualId || templateId,
@@ -891,7 +896,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 required: false,
                 answer: dexieField.answer || '',
                 isSelected: true,
-                photos: []
+                photos: [],
+                key: key  // CRITICAL: Set key for photo loading to work
               };
 
               // Add to appropriate section
@@ -907,15 +913,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               }
 
               // Set up tracking with consistent key
-              const key = `${dexieField.category}_${templateId}`;
-              const visualId = dexieField.tempVisualId || dexieField.visualId;
               if (visualId) {
                 this.visualRecordIds[key] = visualId;
               }
               this.selectedItems[key] = true;
               this.photoCountsByKey[key] = dexieField.photoCount || 0;
 
-              console.log(`[CategoryDetail] MOBILE: Added custom visual from Dexie: templateId=${templateId}, name="${customItem.name}", key=${key}`);
+              console.log(`[CategoryDetail] MOBILE: Added custom visual from Dexie: templateId=${templateId}, name="${customItem.name}", key=${key}, visualId=${visualId}`);
             }
           }
         }
@@ -3163,6 +3167,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               // Check if this custom visual is already in organizedData
               const existingItem = allItems.find(item => item.templateId === templateId);
               if (!existingItem) {
+                // PHOTO FIX: Calculate key FIRST so it can be set on the item
+                // Without item.key, loadPhotosFromDexie() skips photo loading
+                const key = `${dexieField.category}_${templateId}`;
+                const visualId = dexieField.tempVisualId || dexieField.visualId;
+
                 // Create custom item from Dexie field
                 const customItem: VisualItem = {
                   id: dexieField.tempVisualId || dexieField.visualId || templateId,
@@ -3176,7 +3185,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   required: false,
                   answer: dexieField.answer || '',
                   isSelected: true,
-                  photos: []
+                  photos: [],
+                  key: key  // CRITICAL: Set key for photo loading to work
                 };
 
                 // Add to appropriate section
@@ -3192,15 +3202,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 }
 
                 // Set up tracking with consistent key
-                const key = `${dexieField.category}_${templateId}`;
-                const visualId = dexieField.tempVisualId || dexieField.visualId;
                 if (visualId) {
                   this.visualRecordIds[key] = visualId;
                 }
                 this.selectedItems[key] = true;
                 this.photoCountsByKey[key] = dexieField.photoCount || 0;
 
-                console.log(`[LOAD DATA] Added custom visual from Dexie: templateId=${templateId}, name="${customItem.name}", key=${key}`);
+                console.log(`[LOAD DATA] Added custom visual from Dexie: templateId=${templateId}, name="${customItem.name}", key=${key}, visualId=${visualId}`);
               }
             }
           }

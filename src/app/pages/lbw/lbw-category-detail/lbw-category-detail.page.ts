@@ -3606,9 +3606,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     console.log('[LBW] openVisualDetail - navigating to visual detail page for:', item?.name, 'category:', category);
     const key = `${category}_${item.templateId}`;
     const lbwId = this.visualRecordIds[key] || '';
-    console.log('[LBW] openVisualDetail - lbwId:', lbwId, 'templateId:', item.templateId);
-    this.router.navigate(['visual', item.templateId], {
-      relativeTo: this.route.parent,
+    console.log('[LBW] openVisualDetail - projectId:', this.projectId, 'serviceId:', this.serviceId, 'category:', category, 'templateId:', item.templateId, 'lbwId:', lbwId);
+    // Use absolute navigation to ensure correct path
+    this.router.navigate(['/lbw', this.projectId, this.serviceId, 'category', category, 'visual', item.templateId], {
       queryParams: { lbwId }
     });
   }
