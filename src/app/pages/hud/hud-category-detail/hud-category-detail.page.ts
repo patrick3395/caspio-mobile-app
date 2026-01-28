@@ -2994,7 +2994,64 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // ===== STEP 2: Process visuals (uses pre-loaded bulkVisualsCache) =====
       this.loadExistingVisualsFromCache();
       console.log('[LOAD DATA] ? Visuals processed');
-      
+
+      // ===== STEP 2.5: MULTI-SELECT FIX - Merge Dexie fields for local changes =====
+      // loadExistingVisualsFromCache() only reads from cached HUD records.
+      // Multi-select changes are saved to Dexie (write-through in onOptionToggle).
+      // Without this merge, selections made before sync would be lost after reload.
+      try {
+        const savedFields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName);
+        if (savedFields.length > 0) {
+          // Build a map for quick lookup by templateId
+          const dexieFieldMap = new Map<number, any>();
+          for (const field of savedFields) {
+            dexieFieldMap.set(field.templateId, field);
+          }
+
+          // Merge Dexie field data into items
+          for (const section of [this.organizedData.comments, this.organizedData.limitations, this.organizedData.deficiencies]) {
+            for (const item of section) {
+              const dexieField = dexieFieldMap.get(item.templateId);
+              if (dexieField) {
+                const key = `${dexieField.category}_${dexieField.templateId}`;
+
+                // Restore visualId for photo matching
+                const visualId = dexieField.visualId || dexieField.tempVisualId;
+                if (visualId && !this.visualRecordIds[key]) {
+                  this.visualRecordIds[key] = visualId;
+                }
+
+                // MULTI-SELECT FIX: Restore answer from Dexie (local changes)
+                // Dexie answer takes precedence over cached HUD record
+                if (dexieField.answer !== undefined && dexieField.answer !== null && dexieField.answer !== '') {
+                  item.answer = dexieField.answer;
+                  console.log(`[LOAD DATA] Merged answer from Dexie - templateId: ${item.templateId}, answer: ${dexieField.answer}`);
+                }
+
+                // Restore otherValue from Dexie
+                if (dexieField.otherValue !== undefined && dexieField.otherValue !== null) {
+                  item.otherValue = dexieField.otherValue;
+                }
+
+                // Restore isSelected from Dexie
+                if (dexieField.isSelected) {
+                  item.isSelected = true;
+                  this.selectedItems[key] = true;
+                }
+
+                // Restore dropdownOptions from Dexie (includes custom options added via "Other")
+                if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
+                  this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
+                }
+              }
+            }
+          }
+          console.log(`[LOAD DATA] ? Merged ${savedFields.length} VisualFields from Dexie`);
+        }
+      } catch (err) {
+        console.error('[LOAD DATA] Failed to merge VisualFields from Dexie:', err);
+      }
+
       // CRITICAL FIX: Show content immediately after templates and visuals are loaded
       // Don't wait for photos - they load in background. This prevents black screen.
       if (this.loading && (allTemplates as any[]).length > 0) {
