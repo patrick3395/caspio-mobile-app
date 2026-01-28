@@ -167,16 +167,6 @@ export class LocalImageService {
     // Rule 1: ALWAYS prefer local blob if it exists
     // This is the key to preventing disappearing photos
     if (image.localBlobId) {
-      // ATTEMPT 8: Verify blob exists before trying to get URL
-      const blobCheck = await this.indexedDb.verifyBlobExists(image.localBlobId);
-      if (!blobCheck.hasData) {
-        console.error('[LocalImage] ATTEMPT 8: BLOB MISSING in IndexedDB!',
-          'imageId:', image.imageId,
-          'blobId:', image.localBlobId,
-          'exists:', blobCheck.exists,
-          'hasData:', blobCheck.hasData);
-      }
-
       const blobUrl = await this.getBlobUrl(image.localBlobId);
       if (blobUrl) {
         return cacheAndReturn(blobUrl);

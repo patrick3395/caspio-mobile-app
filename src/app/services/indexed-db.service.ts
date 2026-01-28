@@ -3031,21 +3031,6 @@ export class IndexedDbService {
   }
 
   /**
-   * ATTEMPT 8: Verify blob exists in IndexedDB (for debugging)
-   * Returns detailed info about whether blob data is actually present
-   */
-  async verifyBlobExists(blobId: string): Promise<{exists: boolean, sizeBytes: number, hasData: boolean}> {
-    if (!blobId) {
-      return { exists: false, sizeBytes: 0, hasData: false };
-    }
-    const blob = await db.localBlobs.get(blobId);
-    const hasData = !!(blob && blob.data && blob.data.byteLength > 0);
-    const sizeBytes = blob?.sizeBytes || blob?.data?.byteLength || 0;
-    console.log(`[IndexedDB] BLOB VERIFY: ${blobId} exists=${!!blob} hasData=${hasData} size=${sizeBytes}`);
-    return { exists: !!blob, sizeBytes, hasData };
-  }
-
-  /**
    * Get blob URL for a local image
    */
   async getLocalBlobUrl(blobId: string): Promise<string | null> {

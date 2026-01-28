@@ -761,10 +761,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       this.lastConvertedFields = this.buildConvertedFieldsFromOrganizedData(organizedData);
       console.log(`[CategoryDetail] MOBILE: Built ${this.lastConvertedFields.length} converted fields for photo matching`);
 
-      // DEBUG ALERT: lastConvertedFields built
-      const fieldPreview = this.lastConvertedFields.slice(0, 3).map(f => `tid=${f.templateId} vid=${f.visualId || 'null'} tvid=${f.tempVisualId || 'null'}`).join('\n');
-      alert(`[HUD DEBUG INIT] lastConvertedFields BUILT\ncount: ${this.lastConvertedFields.length}\nFirst 3:\n${fieldPreview}`);
-
       // Load photos from local storage
       await this.loadPhotosFromDexie();
 
@@ -1392,10 +1388,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     }
     this.isPopulatingPhotos = true;
 
-    // DEBUG ALERT 7: populatePhotosFromDexie started
-    const fieldInfo = fields.slice(0, 3).map(f => `${f.templateId}: v=${f.visualId || 'null'} t=${f.tempVisualId || 'null'}`).join('\n');
-    alert(`[HUD DEBUG 7] populatePhotosFromDexie START\nfields.length: ${fields.length}\nFirst 3 fields:\n${fieldInfo}`);
-
     try {
       console.log('[DEXIE-FIRST] Populating photos directly from Dexie...');
 
@@ -1435,10 +1427,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     }
 
     console.log(`[DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
-
-    // DEBUG ALERT 8: LocalImages query result
-    const entityIdList = Array.from(localImagesMap.keys()).slice(0, 5).join(', ');
-    alert(`[HUD DEBUG 8] LocalImages Query\nTotal images: ${allLocalImages.length}\nUnique entityIds: ${localImagesMap.size}\nFirst 5 entityIds: ${entityIdList}`);
 
     let photosAddedCount = 0;
 
@@ -1490,16 +1478,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
 
       if (localImages.length === 0) {
-        // DEBUG: Show when no images found for a field with visualId
-        if (visualId) {
-          alert(`[HUD DEBUG 9] NO IMAGES for field\ntemplateId: ${field.templateId}\nvisualId: ${visualId}\ntempId: ${tempId}\nrealId lookup: ${foundWithRealId}\ntempId lookup: ${foundWithTempId}\nmappedId lookup: ${foundWithMappedId}`);
-        }
         continue;
       }
-
-      // DEBUG: Show when images ARE found - ATTEMPT 5: Added status, attachId, thumbBlobId
-      const firstImg = localImages[0];
-      alert(`[HUD DEBUG 10] FOUND IMAGES\ntemplateId: ${field.templateId}\nvisualId: ${visualId}\nimages found: ${localImages.length}\nimageId: ${firstImg?.imageId}\nentityId: ${firstImg?.entityId}\nstatus: ${firstImg?.status || 'unknown'}\nlocalBlobId: ${firstImg?.localBlobId || 'NULL'}\nthumbBlobId: ${firstImg?.thumbBlobId || 'NULL'}\nattachId: ${firstImg?.attachId || 'NULL'}\nremoteS3Key: ${firstImg?.remoteS3Key ? 'EXISTS' : 'NULL'}`);
 
       // Initialize photos array if not exists
       if (!this.visualPhotos[key]) {
@@ -1518,16 +1498,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       for (const localImage of localImages) {
         const imageId = localImage.imageId;
 
-        // ATTEMPT 8: Verify blob exists in IndexedDB before processing
-        if (localImage.localBlobId) {
-          const blobCheck = await this.indexedDb.verifyBlobExists(localImage.localBlobId);
-          if (!blobCheck.hasData) {
-            alert(`[HUD DEBUG BLOB MISSING]\nimageId: ${imageId}\nblobId: ${localImage.localBlobId}\nexists: ${blobCheck.exists}\nhasData: ${blobCheck.hasData}\nsize: ${blobCheck.sizeBytes}`);
-          }
-        } else {
-          alert(`[HUD DEBUG NO BLOBID]\nimageId: ${imageId}\nlocalBlobId is NULL!\nstatus: ${localImage.status}`);
-        }
-
         // ===== US-002 FIX: Check if photo already exists and refresh its displayUrl =====
         // This ensures displayUrl always points to a fresh local blob from LocalImages
         const existingPhotoIndex = this.visualPhotos[key].findIndex(p =>
@@ -1544,13 +1514,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           // This ensures we NEVER use stale cached URLs or server URLs
           try {
             const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
-
-            // DEBUG ALERT: Show displayUrl generated - ATTEMPT 5: Enhanced with status, thumb info
-            const urlType = freshDisplayUrl?.startsWith('blob:') ? 'BLOB (local)' :
-                           freshDisplayUrl?.startsWith('data:') ? 'DATA (cached)' :
-                           freshDisplayUrl === 'assets/img/photo-placeholder.png' ? 'PLACEHOLDER (BROKEN!)' :
-                           freshDisplayUrl?.includes('s3.amazonaws') ? 'S3 URL' : 'OTHER';
-            alert(`[HUD DEBUG 11] displayUrl RESULT\nimageId: ${localImage.imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId || 'NULL!'}\nthumbBlobId: ${localImage.thumbBlobId || 'NULL'}\nattachId: ${localImage.attachId || 'NULL'}\nURL TYPE: ${urlType}\nurl: ${freshDisplayUrl?.substring(0, 60)}`);
 
             if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.png') {
               // ANNOTATION FIX: Check for cached annotated image for thumbnail display
@@ -1580,9 +1543,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 isLocalFirst: true
               };
 
-            } else {
-              // ATTEMPT 5: Alert when placeholder is returned - indicates all fallbacks failed
-              alert(`[HUD DEBUG 11b] PLACEHOLDER RETURNED!\nExisting photo preserved but getDisplayUrl failed\nimageId: ${localImage.imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId || 'NULL!'}\nthumbBlobId: ${localImage.thumbBlobId || 'NULL'}\nattachId: ${localImage.attachId || 'NULL'}\nremoteS3Key: ${localImage.remoteS3Key || 'NULL'}`);
             }
           } catch (e) {
             console.warn('[DEXIE-FIRST] Failed to refresh displayUrl for existing photo:', e);
@@ -1648,20 +1608,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         loadedPhotoIds.add(imageId);
         if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
         photosAddedCount++;
-
-        // DEBUG: Photo added to visualPhotos - ATTEMPT 5: Enhanced with more LocalImage details
-        const newUrlType = displayUrl?.startsWith('blob:') ? 'BLOB (local)' :
-                          displayUrl?.startsWith('data:') ? 'DATA (cached)' :
-                          displayUrl === 'assets/img/photo-placeholder.png' ? 'PLACEHOLDER (BROKEN!)' : 'OTHER';
-        alert(`[HUD DEBUG 12] NEW PHOTO ADDED\nkey: ${key}\nimageId: ${imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId || 'NULL!'}\nthumbBlobId: ${localImage.thumbBlobId || 'NULL'}\nattachId: ${localImage.attachId || 'NULL'}\nURL TYPE: ${newUrlType}\nurl: ${displayUrl?.substring(0, 60)}`);
       }
 
       // Update photo count
       this.photoCountsByKey[key] = this.visualPhotos[key].length;
     }
-
-    // DEBUG: Final summary
-    alert(`[HUD DEBUG 13] populatePhotosFromDexie COMPLETE\nPhotos added: ${photosAddedCount}\nTotal in visualPhotos: ${Object.values(this.visualPhotos).flat().length}`);
 
     // ===== US-001/US-003 DEBUG: populatePhotosFromDexie complete =====
     const photosWithAnnotations = Object.values(this.visualPhotos)
@@ -1854,10 +1805,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           this.changeDetectorRef.detectChanges();
           console.log('[HUD PHOTO SYNC] Updated photo with real ID:', realAttachId, '(displayUrl unchanged - staying with LocalImages)');
-
-          // ATTEMPT 6: Debug alert to show displayUrl after sync
-          const afterSyncPhoto = this.visualPhotos[key][photoIndex];
-          alert(`[HUD DEBUG SYNC COMPLETE]\nkey: ${key}\nimageId: ${event.imageId}\nnew AttachID: ${realAttachId}\ndisplayUrl: ${afterSyncPhoto.displayUrl?.substring(0, 60)}\nisLocalFirst: ${afterSyncPhoto.isLocalFirst}\nisLocalImage: ${afterSyncPhoto.isLocalImage}`);
           break;
         }
       }
@@ -2042,16 +1989,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       async (localImages) => {
         console.log('[LIVEQUERY] LocalImages updated:', localImages.length, 'images');
 
-        // DEBUG ALERT 5: liveQuery fired
-        const entityIds = localImages.map(img => img.entityId).join(', ');
-        alert(`[HUD DEBUG 5] LIVEQUERY FIRED\nimages count: ${localImages.length}\nentityIds: ${entityIds.substring(0, 100)}\nisCameraCaptureInProgress: ${this.isCameraCaptureInProgress}\nlastConvertedFields.length: ${this.lastConvertedFields?.length || 0}`);
-
         // Suppress during camera capture to prevent duplicate photos with annotations
         // Camera code manually pushes with annotated URL; liveQuery would add with original URL
         // Gallery uploads do NOT suppress - they rely on liveQuery for UI updates
         if (this.isCameraCaptureInProgress) {
           console.log('[LIVEQUERY] Suppressing - camera capture in progress');
-          alert(`[HUD DEBUG 5b] LIVEQUERY SUPPRESSED - camera capture in progress`);
           return;
         }
 
@@ -2060,10 +2002,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         // DEXIE-FIRST: Refresh photos from updated Dexie data
         if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
-          alert(`[HUD DEBUG 6] Calling populatePhotosFromDexie with ${this.lastConvertedFields.length} fields`);
           await this.populatePhotosFromDexie(this.lastConvertedFields);
-        } else {
-          alert(`[HUD DEBUG 6b] SKIPPING populatePhotosFromDexie - no lastConvertedFields!`);
         }
 
         // CRITICAL: Debounce change detection to prevent multiple rapid UI updates
@@ -5758,8 +5697,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           // WEBAPP MODE: Upload directly to S3
           if (environment.isWeb) {
-            // ATTEMPT 6: Alert to show WEBAPP path is being taken
-            alert(`[HUD DEBUG CAMERA WEBAPP] environment.isWeb = TRUE\nGoing to WEBAPP path (direct S3 upload)\nThis should NOT happen on mobile app!`);
             console.log('[CAMERA UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
 
             // Initialize photo array if it doesn't exist
@@ -5872,9 +5809,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           // Uses stable UUID that NEVER changes
           // ============================================
 
-          // DEBUG ALERT 1: Entering mobile capture
-          alert(`[HUD DEBUG 1] MOBILE CAPTURE START\nkey: ${key}\nvisualId: ${visualId}\nserviceId: ${this.serviceId}`);
-
           this.logDebug('CAPTURE', `Starting captureImage for visualId: ${visualId}`);
 
           // RACE CONDITION FIX: Suppress liveQuery during camera capture
@@ -5896,14 +5830,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             
             this.logDebug('CAPTURE', `? LocalImage created: ${localImage.imageId} status: ${localImage.status} blobId: ${localImage.localBlobId}`);
             console.log('[CAMERA UPLOAD] ? Created LocalImage with stable ID:', localImage.imageId);
-
-            // ATTEMPT 8: Immediately verify blob was saved to IndexedDB
-            const blobCheck = localImage.localBlobId
-              ? await this.indexedDb.verifyBlobExists(localImage.localBlobId)
-              : { exists: false, sizeBytes: 0, hasData: false };
-
-            // DEBUG ALERT 2: LocalImage created with blob verification
-            alert(`[HUD DEBUG 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}\n\nBLOB CHECK:\nexists: ${blobCheck.exists}\nhasData: ${blobCheck.hasData}\nsize: ${blobCheck.sizeBytes}`);
           } catch (captureError: any) {
             this.logDebug('ERROR', `captureImage FAILED: ${captureError?.message || captureError}`);
             console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
@@ -5989,24 +5915,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             // Add photo to UI immediately (no duplicate found)
             this.visualPhotos[key].push(photoEntry);
             console.log('[CAMERA UPLOAD] ? Photo added (silent sync):', localImage.imageId);
-
-            // DEBUG ALERT 3: Photo added to visualPhotos
-            alert(`[HUD DEBUG 3] PHOTO ADDED TO UI\nkey: ${key}\nimageId: ${localImage.imageId}\ndisplayUrl type: ${photoEntry.displayUrl?.startsWith('blob:') ? 'BLOB' : 'OTHER'}\ntotal photos: ${this.visualPhotos[key].length}`);
           } else {
             // Duplicate found - update existing entry instead of adding
             console.log('[CAMERA UPLOAD] ?? Photo already exists, updating:', localImage.imageId);
             this.visualPhotos[key][existingIndex] = { ...this.visualPhotos[key][existingIndex], ...photoEntry };
-
-            // DEBUG ALERT 3b: Photo updated (duplicate)
-            alert(`[HUD DEBUG 3b] PHOTO UPDATED (duplicate)\nkey: ${key}\nimageId: ${localImage.imageId}`);
           }
 
           // Expand photos section so user can see the newly added photo
           this.expandPhotos(category, itemId);
           this.changeDetectorRef.detectChanges();
-
-          // DEBUG ALERT 4: After detectChanges
-          alert(`[HUD DEBUG 4] AFTER detectChanges\nvisualPhotos[${key}].length: ${this.visualPhotos[key]?.length}\nexpandedPhotos[${key}]: ${this.expandedPhotos[key]}`);
 
           // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
           this.isCameraCaptureInProgress = false;
@@ -6072,15 +5989,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   async addPhotoFromGallery(category: string, itemId: string | number) {
-    // ATTEMPT 8: Ultra-early alert BEFORE any other code - if this doesn't show, method isn't being called
-    alert(`[HUD GALLERY ULTRA-EARLY] Method invoked!\ncat: ${category}\nitem: ${itemId}`);
-
-    // ATTEMPT 5: Wrap entire method in try-catch and add console.log for debugging
     console.log('[HUD GALLERY] Method called - category:', category, 'itemId:', itemId);
     try {
-      // DEBUG ALERT: Gallery entry point
-      alert(`[HUD DEBUG GALLERY 0] ENTRY\ncategory: ${category}\nitemId: ${itemId}\nenvironment.isWeb: ${environment.isWeb}`);
-
     // Set cooldown to prevent cache invalidation from causing UI flash
     this.startLocalOperationCooldown();
 
@@ -6125,8 +6035,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // WEBAPP MODE: Direct S3 Upload (No Local Storage)
         // ============================================
         if (environment.isWeb) {
-          // ATTEMPT 6: Alert to show WEBAPP path is being taken
-          alert(`[HUD DEBUG GALLERY WEBAPP] environment.isWeb = TRUE\nGoing to WEBAPP path (direct S3 upload)\nThis should NOT happen on mobile app!`);
           console.log('[GALLERY UPLOAD] WEBAPP MODE: Direct S3 upload for', images.photos.length, 'photos');
 
           for (let i = 0; i < images.photos.length; i++) {
@@ -6256,9 +6164,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // batchUploadImageIds tracks added photos to prevent liveQuery duplicates.
         // ============================================
 
-        // DEBUG ALERT: Gallery MOBILE mode starting
-        alert(`[HUD DEBUG GALLERY 1] MOBILE MODE START\nkey: ${key}\nvisualId: ${visualId}\nphoto count: ${images.photos.length}`);
-
         // Set batch flag to suppress liveQuery change detection during processing
         // batchUploadImageIds tracks added photos to prevent liveQuery duplicates
         this.isMultiImageUploadInProgress = true;
@@ -6316,17 +6221,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   ''  // drawings
                 );
 
-                // ATTEMPT 8: Immediately verify blob was saved to IndexedDB
-                const galleryBlobCheck = localImage.localBlobId
-                  ? await this.indexedDb.verifyBlobExists(localImage.localBlobId)
-                  : { exists: false, sizeBytes: 0, hasData: false };
-
-                // ATTEMPT 6: Same debug alert as camera path DEBUG 2 (with blob verification)
-                alert(`[HUD DEBUG GALLERY 2] LocalImage CREATED\nimageId: ${localImage.imageId}\nentityType: ${localImage.entityType}\nentityId: ${localImage.entityId}\nlocalBlobId: ${localImage.localBlobId}\nstatus: ${localImage.status}\n\nBLOB CHECK:\nexists: ${galleryBlobCheck.exists}\nhasData: ${galleryBlobCheck.hasData}\nsize: ${galleryBlobCheck.sizeBytes}`);
                 console.log(`[GALLERY UPLOAD] ? Created LocalImage ${i + 1} with stable ID:`, localImage.imageId);
-
-                // US-003 FIX: Track this imageId to prevent duplicates from liveQuery race
-                this.batchUploadImageIds.add(localImage.imageId);
 
                 // Get display URL from LocalImageService
                 const displayUrl = await this.localImageService.getDisplayUrl(localImage);
@@ -6436,9 +6331,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
     }
     } catch (outerError) {
-      // ATTEMPT 5: Catch any errors before the alert
       console.error('[HUD GALLERY] Outer error:', outerError);
-      alert(`[HUD DEBUG GALLERY ERROR] Outer exception:\n${outerError}`);
     }
   }
 
@@ -6794,12 +6687,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             tempVisualId: visualId
           };
           console.log('[SAVE VISUAL] Updated lastConvertedFields[' + fieldIndex + '] with tempVisualId:', visualId);
-
-          // DEBUG ALERT: lastConvertedFields updated
-          alert(`[HUD DEBUG SAVE_VISUAL] lastConvertedFields UPDATED\nfieldIndex: ${fieldIndex}\ntemplateId: ${templateId}\nnew tempVisualId: ${visualId}`);
         } else {
           console.log('[SAVE VISUAL] Field not found in lastConvertedFields for templateId:', templateId);
-          alert(`[HUD DEBUG SAVE_VISUAL] FIELD NOT FOUND!\ntemplateId: ${templateId}\nlastConvertedFields.length: ${this.lastConvertedFields?.length || 0}`);
         }
       } catch (err) {
         console.error('[SAVE VISUAL] Failed to persist tempVisualId:', err);
