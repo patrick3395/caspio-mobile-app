@@ -1,15 +1,15 @@
 .main-container {
-  padding: 20px;
+  padding: 0;
   max-width: 1200px;
   margin: 0 auto;
 }
 
 .white-container {
-  background: white;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  padding: 12px;
-  margin-bottom: 20px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  margin-bottom: 0;
 }
 
 .cards-container {
@@ -40,16 +40,16 @@
 
 .navigation-card {
   margin: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  border-radius: 4px;
-  transition: box-shadow 0.2s, background-color 0.2s;
+  box-shadow: none;
+  border-radius: 0;
+  border-bottom: 1px solid #e8e8e8;
+  transition: background-color 0.2s;
   cursor: pointer;
-  background: #f8f9fa;
+  background: white;
 
   @media (hover: hover) and (pointer: fine) {
     &:hover {
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-      background: #f0f0f0;
+      background: #f8f8f8;
     }
   }
 
@@ -139,7 +139,7 @@
 
 @media (max-width: 768px) {
   .main-container {
-    padding: 12px;
+    padding: 0;
   }
 }
 
@@ -151,7 +151,7 @@
 @media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
   .main-container {
     max-width: 1200px;
-    padding: 24px;
+    padding: 0;
   }
 
   // 2-column navigation cards at 1024px+
@@ -165,7 +165,7 @@
 @media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
   .main-container {
     max-width: 1400px;
-    padding: 28px 32px;
+    padding: 0;
   }
 
   // 3-column navigation cards at 1200px+

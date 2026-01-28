@@ -420,70 +420,56 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       }
 
       // MOBILE MODE: Load from local Dexie
-      // Get the hudId from visualFields - this is how photos are stored
+      // PRIORITY 1: Use hudId from query params (passed from category-detail)
+      // PRIORITY 2: Fall back to visualFields lookup
       // HUD NOTE: Query by serviceId only (not by route category) because
       // route uses 'hud' but actual data has real categories
-      const allFields = await db.visualFields
-        .where('serviceId')
-        .equals(this.serviceId)
-        .toArray();
 
-      const field = allFields.find(f => f.templateId === this.templateId);
+      // Only query visualFields if we don't have hudId from query params
+      if (!this.hudId) {
+        const allFields = await db.visualFields
+          .where('serviceId')
+          .equals(this.serviceId)
+          .toArray();
 
-      // The entityId for photos is the hudId (temp_visual_xxx or real HUDID)
-      // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
-      this.hudId = field?.tempVisualId || field?.visualId || '';
+        const field = allFields.find(f => f.templateId === this.templateId);
+
+        // The entityId for photos is the hudId (temp_visual_xxx or real HUDID)
+        // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
+        this.hudId = field?.tempVisualId || field?.visualId || '';
+      }
 
       if (!this.hudId) {
+        console.log('[HudVisualDetail] MOBILE: No hudId found, cannot load photos');
         this.photos = [];
         return;
       }
 
-      console.log('[HudVisualDetail] Loading photos for hudId:', this.hudId);
+      console.log('[HudVisualDetail] MOBILE: Loading photos for hudId:', this.hudId);
 
       // Load local images from IndexedDB using hudId as entityId
-      const localImages = await db.localImages
-        .where('entityId')
-        .equals(this.hudId)
-        .toArray();
+      // Filter by 'hud' entity type to match how photos are stored in category-detail
+      const localImages = await this.localImageService.getImagesForEntity('hud', this.hudId);
 
-      console.log('[HudVisualDetail] Found localImages:', localImages.length);
+      console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'localImages for hudId:', this.hudId);
 
-      // Convert to PhotoItem format
+      // Convert to PhotoItem format using localImageService.getDisplayUrl() for proper blob URLs
       this.photos = [];
 
       for (const img of localImages) {
         // Check if image has annotations
         const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
 
-        // Get the blob data if available
-        let displayUrl = 'assets/img/photo-placeholder.png';
+        // Get display URL using localImageService (handles all fallbacks properly)
+        let displayUrl = await this.localImageService.getDisplayUrl(img);
         let originalUrl = displayUrl;
 
-        // DEXIE-FIRST: Check for cached annotated image first (for thumbnails with annotations)
+        // DEXIE-FIRST: Check for cached annotated image for thumbnail display
         if (hasAnnotations) {
           const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(img.imageId);
           if (cachedAnnotated) {
             displayUrl = cachedAnnotated;
-            console.log('[HudVisualDetail] Using cached annotated image for:', img.imageId);
-          }
-        }
-
-        // Get original blob URL
-        if (img.localBlobId) {
-          const blob = await db.localBlobs.get(img.localBlobId);
-          if (blob) {
-            const blobObj = new Blob([blob.data], { type: blob.contentType });
-            originalUrl = URL.createObjectURL(blobObj);
-            // If no cached annotated image, use original
-            if (displayUrl === 'assets/img/photo-placeholder.png') {
-              displayUrl = originalUrl;
-            }
-          }
-        } else if (img.remoteUrl) {
-          originalUrl = img.remoteUrl;
-          if (displayUrl === 'assets/img/photo-placeholder.png') {
-            displayUrl = img.remoteUrl;
+            console.log('[HudVisualDetail] MOBILE: Using cached annotated image for:', img.imageId);
           }
         }
 

@@ -1,5 +1,5 @@
 .page-container {
-  padding: 20px;
+  padding: 0;
   max-width: 1200px;
   margin: 0 auto;
   background: #f5f5f5;
@@ -7,27 +7,27 @@
 }
 
 .content-section {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  background: #f5f5f5;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 // Info Groups
 .info-group {
   padding: 24px;
   background: white;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid #e8e8e8;
 
   &:first-child {
     padding-top: 24px;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
   }
 
   &:last-child {
     border-bottom: none;
-    border-bottom-left-radius: 16px;
-    border-bottom-right-radius: 16px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
   }
 
   .group-title {
@@ -261,7 +261,7 @@
 
 @media (max-width: 768px) {
   .page-container {
-    padding: 12px;
+    padding: 0;
   }
 
   .info-group {

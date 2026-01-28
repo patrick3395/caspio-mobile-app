@@ -2,6 +2,10 @@ ion-content {
   --background: #f5f5f5;
 }
 
+// ===========================================
+// EDGE-TO-EDGE FULL-SCREEN LAYOUT
+// ===========================================
+
 // Template loading overlay
 // US-002 FIX: Changed from *ngIf to CSS class-based visibility
 // This prevents the overlay from destroying the router-outlet

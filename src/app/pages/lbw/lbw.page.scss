@@ -393,8 +393,8 @@ ion-app.modal-open {
 }
 
 .template-container {
-  padding: 12px;
-  background: #f9f9f9;
+  padding: 0;
+  background: #f5f5f5;
   min-height: 100%;
   overflow: visible;
   padding-bottom: 120px; // Increased padding for mobile sync control bar to ensure finalize button is accessible (was 80px)
@@ -678,15 +678,16 @@ ion-app.modal-open {
 // Sections
 .section-card {
   background: white;
-  border-radius: 16px;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border-radius: 0;
+  margin-bottom: 0;
+  box-shadow: none;
   border: none;
+  border-bottom: 1px solid #e8e8e8;
   overflow: visible;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: none;
   transform: translateZ(0); // Hardware acceleration
   backface-visibility: hidden; // Prevent flickering
-  will-change: transform;
+  will-change: auto;
   
   // Hover effect removed for mobile optimization
   
@@ -871,59 +872,61 @@ ion-app.modal-open {
   }
   
   .section-header {
-    padding: 20px 24px;
-    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
-    border-bottom: 2px solid #f0f0f0;
+    padding: 14px 16px;
+    background: #909090;
+    border-bottom: none;
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    transition: all 0.3s ease;
-    
-    // Hover effect removed for mobile optimization
-    
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background: #838383;
+    }
+
     .section-info {
       flex: 1;
-      
+
       .section-title {
-        font-size: 18px;
-        font-weight: 700;
-        color: #333;
+        font-size: 17px;
+        font-weight: 600;
+        color: white;
         display: flex;
         align-items: center;
         gap: 12px;
-        transition: color 0.3s ease;
-        
+        transition: none;
+
         ion-icon {
           font-size: 24px;
-          color: var(--noble-orange);
-          transition: color 0.3s ease;
+          color: white;
+          transition: none;
         }
-        
+
         &.complete {
-          color: #28a745;
-          
+          color: white;
+
           ion-icon {
-            color: #28a745;
+            color: white;
           }
         }
       }
-      
+
       .section-description {
         font-size: 13px;
-        color: var(--noble-gray);
+        color: rgba(255, 255, 255, 0.8);
         margin-top: 4px;
-        opacity: 0.8;
+        opacity: 1;
       }
     }
-    
+
     .section-toggle {
       display: flex;
       align-items: center;
       gap: 12px;
-      
+
       .completion-badge {
-        background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+        background: white;
         color: #666;
         padding: 3px 10px;
         border-radius: 12px;
@@ -931,16 +934,16 @@ ion-app.modal-open {
         font-weight: 600;
         min-width: 35px;
         text-align: center;
-        
+
         &.complete {
-          background: linear-gradient(135deg, #28a745 0%, #20c047 100%);
+          background: #28a745;
           color: white;
         }
       }
-      
+
       ion-icon {
         font-size: 24px;
-        color: #999;
+        color: white;
         transition: transform 0.3s ease;
       }
     }
@@ -952,8 +955,8 @@ ion-app.modal-open {
 }
 
 .section-content {
-    padding: 16px;
-    background: white;
+    padding: 0;
+    background: #f5f5f5;
     overflow: visible;
     
     .info-group {
@@ -1041,9 +1044,9 @@ ion-app.modal-open {
     overflow: visible !important; // CRITICAL: Allow delete buttons to show outside
 
     ion-accordion {
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      margin-bottom: 10px;
+      border: none;
+      border-radius: 0;
+      margin-bottom: 0;
       overflow: visible !important;
       scroll-margin: 0 !important;
 
@@ -1058,78 +1061,89 @@ ion-app.modal-open {
         transform-origin: top !important;
         overflow: visible !important; // CRITICAL: Allow delete buttons to show outside
       }
-      
+
       // Also target the internal accordion container
       .accordion-content {
         overflow: visible !important;
       }
-      
+
       ion-item[slot="header"] {
-        --background: #f9f9f9;
-        --color: #333;
+        --background: #909090;
+        --color: white;
         --padding-top: 12px;
         --padding-bottom: 12px;
         --padding-start: 16px;
         --padding-end: 16px;
-        border-radius: 7px 7px 7px 7px; // All corners rounded by default (collapsed state)
-        overflow: hidden; // Clip corners properly
+        border-radius: 0;
+        overflow: hidden;
 
-        // Hover effect removed for mobile optimization
+        // Hover effect
+        @media (hover: hover) and (pointer: fine) {
+          &:hover {
+            --background: #838383;
+          }
+        }
       }
 
-      // When accordion is in expanding/expanded state, only round top corners of header
+      // When accordion is in expanding/expanded state
       &[class*="expand"] ion-item[slot="header"],
       &.accordion-expanding ion-item[slot="header"],
       &.accordion-expanded ion-item[slot="header"] {
-        border-radius: 7px 7px 0 0; // Only top corners when expanded
+        border-radius: 0;
       }
       
       .category-content {
-        background: white;
-        padding: 20px;
-        overflow: hidden; // Clip corners properly to prevent white hue at bottom corners
-        border-radius: 0 0 7px 7px; // Match header approach - round bottom corners to align with parent (8px)
-        
+        background: #f5f5f5;
+        padding: 0;
+        overflow: visible;
+        border-radius: 0;
+
         .type-section {
-          margin-bottom: 20px;
+          margin-bottom: 0;
           overflow: visible; // CRITICAL: Allow delete buttons to show outside
-          
+          background: white;
+
           &:last-child {
             margin-bottom: 0;
           }
-          
+
           .type-header {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--noble-gray);
-            margin-bottom: 12px;
-            padding: 10px 16px;
-            background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
-            border-radius: 8px;
-            border-left: 4px solid var(--noble-orange);
+            font-size: 17px;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 0;
+            padding: 14px 16px;
+            background: #909090;
+            border-radius: 0;
+            border-left: none;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            
+
             .add-visual-btn {
-              background: var(--noble-orange);
+              background: transparent;
               color: white;
               border: none;
-              border-radius: 50%;
-              width: 28px;
-              height: 28px;
+              border-radius: 0;
+              width: auto;
+              height: auto;
               display: flex;
               align-items: center;
               justify-content: center;
               cursor: pointer;
-              transition: all 0.3s ease;
-              
+              transition: opacity 0.2s ease;
+
               ion-icon {
-                font-size: 20px;
+                font-size: 28px;
+                color: white;
               }
-              
-              // Hover effect removed for mobile optimization
-              
+
+              @media (hover: hover) and (pointer: fine) {
+                &:hover {
+                  opacity: 0.8;
+                }
+              }
+
               &:active {
                 transform: scale(0.95);
               }
@@ -1137,55 +1151,58 @@ ion-app.modal-open {
           }
           
           .no-items-message {
-            padding: 20px;
+            padding: 24px 16px;
             text-align: center;
             color: #999;
             font-size: 14px;
             font-style: italic;
-            background: rgba(0, 0, 0, 0.02);
-            border-radius: 8px;
-            margin-bottom: 12px;
+            background: white;
+            border-radius: 0;
+            margin-bottom: 0;
+            border-bottom: 1px solid #e8e8e8;
           }
-          
+
           .template-item {
-            margin-bottom: 12px;
+            margin-bottom: 0;
             overflow: visible; // CRITICAL: Allow delete buttons to show outside
-            
+
             .visual-item-container {
               position: relative;
-              border-radius: 12px;
-              transition: all 0.3s ease;
+              border-radius: 0;
+              transition: background-color 0.2s ease;
               display: block;
               width: 100%;
-              margin-bottom: 12px;
+              margin-bottom: 0;
               overflow: visible; // CRITICAL: Allow delete buttons to show outside
+              border-bottom: 1px solid #e8e8e8;
+              background: white;
 
               &.selected {
-                border: 2px solid #000000;
-                box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1);
-                background: transparent; // Changed from gradient to prevent corner fading
-                border-radius: 12px 12px 0 0; // Only round top corners to prevent clipping delete buttons
+                border: none;
+                border-bottom: 1px solid #e8e8e8;
+                box-shadow: none;
+                background: #fff8f5;
+                border-radius: 0;
 
                 .checkbox-item {
                   border-color: transparent;
-                  --background: #f8f8f8;
-                  background: #f8f8f8 !important; // Solid color instead of gradient to prevent corner fading
+                  --background: #fff8f5;
+                  background: #fff8f5 !important;
                 }
               }
             }
-            
+
             .checkbox-item {
-              --background: white;
+              --background: transparent;
               --inner-border-width: 0;
               --border-width: 0;
               --highlight-height: 0;
-              // --background-hover removed for mobile optimization
-              padding: 12px;
-              border-radius: 9px; // Reduced from 11px to create more clearance from parent (12px) to eliminate corner overlap
-              transition: all 0.3s ease;
-              border: none; // Remove border to prevent light hue over parent container border in corners
+              padding: 16px;
+              border-radius: 0;
+              transition: background-color 0.2s ease;
+              border: none;
               overflow: visible; // CRITICAL: Allow delete buttons to show outside
-              background: white; // Explicitly set to ensure no transparency
+              background: transparent;
               
               // Hover effect removed for mobile optimization
               
@@ -1253,97 +1270,113 @@ ion-app.modal-open {
             
             // Multi-select container styling - moved to correct level
             .multi-select-container {
-              margin-bottom: 4px; // Reduced from 10px to 4px for more condensed spacing
-              border: 1px solid #f0f0f0;
-              border-radius: 8px;
-              background: white;
-              transition: all 0.3s ease;
-              overflow: visible; // Prevent corner clipping
-
-              // Hover effect removed for mobile optimization
+              margin-bottom: 0;
+              border: none;
+              border-radius: 0;
+              background: transparent;
+              transition: background-color 0.2s ease;
+              overflow: visible;
 
               // Remove border from checkbox-item when inside multi-select
               .checkbox-item {
-                --background: white;
+                --background: transparent;
                 --inner-border-width: 0;
                 --border-width: 0;
                 --highlight-height: 0;
                 border: none !important;
-                border-radius: 8px 8px 0 0;
-                padding: 10px 12px 6px 12px !important; // Reduced padding: less top/bottom
-                background: white; // Explicitly set to ensure no transparency
-
-                // Hover effect removed for mobile optimization
+                border-radius: 0;
+                padding: 16px 16px 8px 16px !important;
+                background: transparent;
 
                 .item-label {
                   h3 {
-                    margin-bottom: 6px !important; // Add bottom margin for spacing between title and text
+                    margin-bottom: 0 !important;
                   }
 
                   .item-text-wrapper {
-                    display: block !important; // Show description text above options
-                    margin-bottom: 8px !important; // Add spacing between text and options
-                    max-height: none !important; // Remove height restriction to show full text
-                    overflow: visible !important; // Show all content
+                    display: block !important;
+                    margin-top: 4px;
+                    margin-bottom: 8px !important;
+                    max-height: none !important;
+                    overflow: visible !important;
 
                     .item-text {
-                      max-height: none !important; // Remove height restriction
-                      overflow: visible !important; // Show all content
-                      -webkit-line-clamp: unset !important; // Remove line clamp
-                      display: block !important; // Change from -webkit-box to block
-                      text-overflow: clip !important; // Don't use ellipsis
-                      white-space: normal !important; // Allow text to wrap
+                      max-height: none !important;
+                      overflow: visible !important;
+                      -webkit-line-clamp: unset !important;
+                      display: block !important;
+                      text-overflow: clip !important;
+                      white-space: normal !important;
                     }
                   }
                 }
               }
 
               .multi-select-options {
-                padding-left: 16px;
-                padding-right: 12px;
-                padding-top: 4px; // Reduced top padding to minimize gap between title and options
-                padding-bottom: 8px;
-                background: white;
+                padding: 8px 16px 12px 16px;
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 4px 16px;
+                background: transparent;
                 border-top: 1px solid #f0f0f0;
                 margin-top: 0;
                 margin-right: 0;
-                border-radius: 0 0 8px 8px;
+                border-radius: 0;
+
+                @media (min-width: 600px) {
+                  grid-template-columns: repeat(3, 1fr);
+                }
 
                 .option-item {
                   --background: transparent;
-                  --padding-start: 8px;
+                  --inner-border-width: 0;
+                  --border-width: 0;
+                  --highlight-height: 0;
+                  --padding-start: 0;
+                  --padding-end: 8px;
+                  --min-height: 32px;
+                  margin: 0;
+                  border-radius: 6px;
+                  transition: background-color 0.15s ease;
                   font-size: 14px;
 
                   ion-checkbox {
                     --size: 18px;
-                    margin-right: 10px;
+                    margin-right: 8px;
                   }
                 }
               }
 
               .no-options-message {
-                padding: 12px 16px;
-                color: #666;
+                padding: 16px;
+                text-align: center;
+                color: #999;
+                font-size: 13px;
                 font-style: italic;
-                font-size: 14px;
               }
 
               // "Other" custom input field
               .other-input-container {
-                padding: 8px 16px 12px; // Reduced top/bottom padding for more condensed spacing
-                background: white;
+                padding: 8px 16px 12px;
+                border-top: 1px solid #f0f0f0;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: transparent;
 
                 .other-input {
-                  width: 100%;
+                  flex: 1;
+                  min-width: 0;
                   padding: 10px 12px;
-                  border: 1px solid #ddd;
+                  border: 1px solid #e0e0e0;
                   border-radius: 6px;
                   font-size: 14px;
                   transition: border-color 0.2s;
 
                   &:focus {
                     outline: none;
-                    border-color: var(--noble-orange);
+                    border-color: var(--ion-color-primary);
+                    box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb), 0.1);
                   }
 
                   &::placeholder {
@@ -1356,10 +1389,10 @@ ion-app.modal-open {
             
             // Image preview section
             .image-preview-section {
-              padding: 12px; // Increased padding to give space for delete buttons at edges
-              background: #f8f8f8;
-              border-top: 1px solid #e0e0e0;
-              border-radius: 0 0 12px 12px;
+              padding: 16px;
+              background: white;
+              border-top: none;
+              border-radius: 0;
               clear: both; // Clear any floats
               display: block; // Ensure block display
               width: 100%; // Full width
