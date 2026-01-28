@@ -51,6 +51,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   isRefreshing: boolean = false;  // Track background refresh status
   searchTerm: string = '';
   expandedAccordions: string[] = ['information', 'limitations', 'deficiencies']; // Start expanded like EFE
+
+  // WEBAPP: Expose isWeb for template skeleton loader conditionals
+  isWeb = environment.isWeb;
+
+  // Track expanded photos per visual item
+  expandedPhotos: { [key: string]: boolean } = {};
   organizedData: {
     comments: VisualItem[];
     limitations: VisualItem[];
@@ -3187,6 +3193,67 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       console.error('[CREATE CUSTOM] Error:', error);
       await this.showToast('Failed to create custom item', 'danger');
     }
+  }
+
+  // ============================================
+  // SIMPLE ACCORDION METHODS (EFE-style)
+  // ============================================
+
+  /**
+   * Toggle accordion section expansion
+   */
+  toggleSection(section: string): void {
+    const index = this.expandedAccordions.indexOf(section);
+    if (index > -1) {
+      this.expandedAccordions.splice(index, 1);
+    } else {
+      this.expandedAccordions.push(section);
+    }
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Check if accordion section is expanded
+   */
+  isSectionExpanded(section: string): boolean {
+    return this.expandedAccordions.includes(section);
+  }
+
+  /**
+   * Toggle photo expansion for a visual item
+   */
+  togglePhotoExpansion(category: string, templateId: string | number): void {
+    const key = `${category}_${templateId}`;
+    this.expandedPhotos[key] = !this.expandedPhotos[key];
+    this.changeDetectorRef.detectChanges();
+  }
+
+  /**
+   * Check if photos are expanded for a visual item
+   */
+  isPhotosExpanded(category: string, templateId: string | number): boolean {
+    const key = `${category}_${templateId}`;
+    return this.expandedPhotos[key] === true;
+  }
+
+  /**
+   * Navigate to visual detail page
+   */
+  openVisualDetail(category: string, item: any): void {
+    // Navigate to a detail page if it exists, or show full text modal
+    this.showFullText(item);
+  }
+
+  // Debug panel properties and methods
+  debugLogs: { time: string; type: string; message: string }[] = [];
+  showDebugPopup: boolean = false;
+
+  showDebugPanel(): void {
+    this.showDebugPopup = true;
+  }
+
+  toggleDebugPopup(): void {
+    this.showDebugPopup = !this.showDebugPopup;
   }
 }
 

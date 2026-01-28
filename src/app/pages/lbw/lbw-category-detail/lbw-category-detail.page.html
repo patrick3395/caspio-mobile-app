@@ -1,12 +1,34 @@
 <div class="page-container">
-  <!-- Hidden file input (not used with Camera API but kept for compatibility) -->
+  <!-- Hidden file input for camera/gallery -->
   <input #fileInput type="file" style="display: none;" accept="image/*">
 
   <div class="content-section">
-    <!-- Loading State -->
-    <div *ngIf="loading" class="loading-container">
+    <!-- Loading State - Mobile only (spinner) -->
+    <div *ngIf="loading && !isWeb" class="loading-container">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Loading items...</p>
+    </div>
+
+    <!-- WEBAPP: Skeleton loaders -->
+    <div *ngIf="loading && isWeb" class="skeleton-category-container">
+      <!-- Search bar skeleton -->
+      <div class="skeleton-search-bar"></div>
+      <!-- Accordion section skeletons -->
+      <div class="skeleton-accordion-section" *ngFor="let section of [1,2,3]">
+        <div class="skeleton-accordion-header">
+          <div class="skeleton-badge"></div>
+          <div class="skeleton-section-title"></div>
+        </div>
+        <div class="skeleton-accordion-content">
+          <div class="skeleton-visual-item" *ngFor="let item of [1,2,3,4]">
+            <div class="skeleton-checkbox"></div>
+            <div class="skeleton-item-content">
+              <div class="skeleton-item-title"></div>
+              <div class="skeleton-item-text"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Category Content -->
@@ -28,28 +50,30 @@
         </div>
       </div>
 
-      <!-- White container wrapper -->
+      <!-- White container wrapper matching other pages -->
       <div class="white-container">
-        <ion-accordion-group [value]="expandedAccordions" [multiple]="true" (ionChange)="onAccordionChange($event)">
-        <!-- General Information Section -->
-        <ion-accordion *ngIf="organizedData.comments" value="information">
-          <ion-item slot="header" lines="none" class="accordion-header-item">
+        <!-- Simple accordion fallback for offline reliability -->
+
+        <!-- Information Section -->
+        <div class="simple-accordion" *ngIf="organizedData.comments">
+          <div class="simple-accordion-header" (click)="toggleSection('information')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <ion-icon name="information-circle-outline"></ion-icon>
+                <span class="count-badge info">{{ organizedData.comments.length }}</span>
               </div>
-              <ion-label class="accordion-label">
-                <h4 class="type-header">Information</h4>
-              </ion-label>
+              <span class="type-header">Information</span>
             </div>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom information">
-              <ion-icon name="add-circle-outline"></ion-icon>
-            </button>
-          </ion-item>
-          <div slot="content" class="accordion-content">
+            <div class="accordion-header-actions">
+              <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Comment'); $event.stopPropagation()" title="Add custom information">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </button>
+              <ion-icon [name]="isSectionExpanded('information') ? 'chevron-up' : 'chevron-down'" class="expand-icon"></ion-icon>
+            </div>
+          </div>
+          <div class="simple-accordion-content" *ngIf="isSectionExpanded('information')">
             <div class="type-section">
               <div *ngIf="filterItems(organizedData.comments).length === 0 && !searchTerm" class="no-items-message">
-                No information items yet.
+                No information yet.<br>Click + to add one.
               </div>
               <div *ngIf="filterItems(organizedData.comments).length === 0 && searchTerm" class="no-items-message">
                 No results found for "{{ searchTerm }}"
@@ -57,15 +81,15 @@
               <div class="template-item" *ngFor="let item of filterItems(organizedData.comments); trackBy: trackByItemId">
           <div class="visual-item-container" [class.selected]="isItemSelected(categoryName, item.id)">
 
-            <!-- Yes/No questions -->
+            <!-- Yes/No questions - vertical layout with dropdown below -->
             <div class="answer-type-1-container" *ngIf="item.answerType === 1">
-              <div class="item-header" (click)="showFullText(item)">
+              <div class="item-header" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
                 <h3 class="item-name">
                   <span [innerHTML]="highlightText(item.name)"></span>
                   <span class="required-indicator" *ngIf="item.required">*</span>
                 </h3>
               </div>
-              <div class="item-text-wrapper" (click)="showFullText(item)">
+              <div class="item-text-wrapper" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
                 <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
               </div>
               <div class="dropdown-container" (click)="$event.stopPropagation()">
@@ -81,35 +105,34 @@
                 </select>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
               </div>
-              <!-- Camera and Gallery buttons for Yes/No items -->
-              <div *ngIf="item.answer" style="display: flex; gap: 16px; margin-top: 12px; align-items: center; justify-content: flex-end; padding-right: 8px;">
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
-                        title="Take photo from camera"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
-                        title="Select from gallery"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-              </div>
             </div>
 
-            <!-- Multi-select questions -->
+            <!-- Multi-select questions - show checkboxes for each option -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
-              <ion-item lines="none" class="checkbox-item">
-                <ion-label class="item-label" (click)="showFullText(item)">
-                  <h3>
-                    <span [innerHTML]="highlightText(item.name)"></span>
-                    <span class="required-indicator" *ngIf="item.required">*</span>
-                  </h3>
-                  <div class="item-text-wrapper">
-                    <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
+              <ion-item lines="none" class="checkbox-item with-camera" [class.has-photos]="getPhotosForVisual(categoryName, item.id).length > 0">
+                <ion-checkbox
+                  slot="start"
+                  [checked]="isItemSelected(categoryName, item.id)"
+                  [disabled]="isItemSaving(categoryName, item.id)"
+                  (ionChange)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
+                </ion-checkbox>
+                <div style="flex: 1; display: flex; align-items: center;">
+                  <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()" style="flex: 1;">
+                    <h3>
+                      <span [innerHTML]="highlightText(item.name)"></span>
+                      <span class="required-indicator" *ngIf="item.required">*</span>
+                    </h3>
+                    <div class="item-text-wrapper">
+                      <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
+                    </div>
+                  </ion-label>
+                  <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(categoryName, item.id) > 0">
+                    <span class="photo-count">
+                      <ion-icon name="images"></ion-icon>
+                      {{ getTotalPhotoCount(categoryName, item.id) }}
+                    </span>
                   </div>
-                </ion-label>
+                </div>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
               </ion-item>
               <div class="multi-select-options" *ngIf="getDropdownOptions(item.templateId).length > 0">
@@ -131,65 +154,130 @@
                        placeholder="Please specify..."
                        class="styled-input other-input">
               </div>
-              <!-- Camera and Gallery buttons for multi-select items -->
-              <div *ngIf="item.answer && item.answer.trim()" style="display: flex; gap: 16px; margin-top: 8px; margin-bottom: 8px; align-items: center; justify-content: flex-end; padding-right: 16px;">
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
-                        title="Take photo from camera"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+
+              <!-- Action button grid for multi-select -->
+              <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.id)">
+                <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
+                  <ion-icon name="camera"></ion-icon>
+                  <span>Camera</span>
                 </button>
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
-                        title="Select from gallery"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
+                <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()">
+                  <ion-icon name="images"></ion-icon>
+                  <span>Gallery</span>
                 </button>
+                <button class="action-btn secondary"
+                        (click)="togglePhotoExpansion(categoryName, item.id); $event.stopPropagation()">
+                  <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
+                  <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
+                </button>
+                <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
+                  <ion-icon name="arrow-forward"></ion-icon>
+                  <span>Details</span>
+                </button>
+              </div>
+
+              <!-- Image preview section for multi-select -->
+              <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && isPhotosExpanded(categoryName, item.id)" style="position: relative;">
+                <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
+                  <ion-spinner name="dots" color="primary"></ion-spinner>
+                  <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
+                </div>
+                <div class="image-preview-container">
+                  <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.id)">
+                    <div class="image-preview structural-photo-preview skeleton-loader" *ngFor="let skeleton of getSkeletonArray(categoryName, item.id); let i = index">
+                      <div class="skeleton-image"></div>
+                      <div class="skeleton-caption"></div>
+                    </div>
+                  </ng-container>
+                  <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
+                    <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
+                         [class.uploading]="photo.uploading"
+                         [class.annotated]="photo.hasAnnotations"
+                         [class.skeleton-loader]="photo.isSkeleton">
+                      <ng-container *ngIf="photo.isSkeleton">
+                        <div class="skeleton-image"></div>
+                        <div class="skeleton-caption"></div>
+                      </ng-container>
+                      <ng-container *ngIf="!photo.isSkeleton">
+                        <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                             width="90" height="90"
+                             [alt]="photo.name"
+                             (mousedown)="saveScrollBeforePhotoClick($event)"
+                             (click)="viewPhoto(photo, categoryName, item.id, $event)"
+                             (error)="handleImageError($event, photo)"
+                             [class.has-annotations]="photo.hasAnnotations"
+                             [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
+                        <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
+                          <ion-spinner name="crescent" color="light"></ion-spinner>
+                        </div>
+                        <button class="delete-btn" *ngIf="!photo.uploading" (click)="deletePhoto(photo, categoryName, item.id); $event.stopPropagation()" title="Delete">
+                          <ion-icon name="close"></ion-icon>
+                        </button>
+                        <button
+                          class="room-photo-caption"
+                          (click)="openCaptionPopup(photo, categoryName, item.id); $event.stopPropagation()">
+                          {{ photo.caption || 'Caption' }}
+                        </button>
+                      </ng-container>
+                    </div>
+                  </ng-container>
+                </div>
               </div>
             </div>
 
-            <!-- Text questions - checkbox behavior with camera buttons -->
+            <!-- Text questions - checkbox behavior with large action buttons -->
             <ion-item lines="none"
                       class="checkbox-item with-camera"
                       [class.has-photos]="getPhotosForVisual(categoryName, item.id).length > 0"
-                      *ngIf="!item.answerType || item.answerType === 0"
-                      style="min-height: 100px; align-items: flex-start; position: relative;">
+                      *ngIf="!item.answerType || item.answerType === 0">
               <ion-checkbox
                 slot="start"
                 [checked]="isItemSelected(categoryName, item.id)"
                 [disabled]="isItemSaving(categoryName, item.id)"
-                (ionChange)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()"
-                style="margin-top: 8px;">
+                (ionChange)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
               </ion-checkbox>
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-                <ion-label class="item-label" (click)="showFullText(item)">
+              <div style="flex: 1; display: flex; align-items: center;">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()" style="flex: 1;">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
                   </h3>
                   <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                 </ion-label>
-                <!-- Camera and Gallery buttons -->
-                <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
-                  <button class="camera-button-structural"
-                          (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
-                          title="Take photo from camera"
-                          style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                    <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                  </button>
-                  <button class="camera-button-structural"
-                          (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
-                          title="Select from gallery"
-                          style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                    <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                  </button>
+                <!-- Right-aligned photo count indicator -->
+                <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(categoryName, item.id) > 0">
+                  <span class="photo-count">
+                    <ion-icon name="images"></ion-icon>
+                    {{ getTotalPhotoCount(categoryName, item.id) }}
+                  </span>
                 </div>
               </div>
               <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
             </ion-item>
 
-            <!-- Image preview section - EXACT FROM STRUCTURAL SYSTEMS -->
-            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
+            <!-- Large action button grid - shows when item is selected -->
+            <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0)">
+              <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
+                <ion-icon name="camera"></ion-icon>
+                <span>Camera</span>
+              </button>
+              <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()">
+                <ion-icon name="images"></ion-icon>
+                <span>Gallery</span>
+              </button>
+              <button class="action-btn secondary"
+                      (click)="togglePhotoExpansion(categoryName, item.id); $event.stopPropagation()">
+                <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
+                <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
+              </button>
+              <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
+                <ion-icon name="arrow-forward"></ion-icon>
+                <span>Details</span>
+              </button>
+            </div>
+
+            <!-- Image preview section - ONLY shows when expanded -->
+            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && isPhotosExpanded(categoryName, item.id)" style="position: relative;">
               <!-- Upload status indicator -->
               <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
                 <ion-spinner name="dots" color="primary"></ion-spinner>
@@ -240,32 +328,32 @@
                 </ng-container>
               </div>
             </div>
-
           </div>
         </div>
-            </div>
-          </div>
-        </ion-accordion>
+            </div> <!-- Close type-section -->
+          </div> <!-- Close simple-accordion-content -->
+        </div> <!-- Close simple-accordion (Information) -->
 
         <!-- Limitations Section -->
-        <ion-accordion *ngIf="organizedData.limitations" value="limitations">
-          <ion-item slot="header" lines="none" class="accordion-header-item">
+        <div class="simple-accordion" *ngIf="organizedData.limitations">
+          <div class="simple-accordion-header" (click)="toggleSection('limitations')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <ion-icon name="alert-circle-outline"></ion-icon>
+                <span class="count-badge limitation">{{ organizedData.limitations.length }}</span>
               </div>
-              <ion-label class="accordion-label">
-                <h4 class="type-header">Limitations</h4>
-              </ion-label>
+              <span class="type-header">Limitations</span>
             </div>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Limitation'); $event.stopPropagation()" title="Add custom limitation">
-              <ion-icon name="add-circle-outline"></ion-icon>
-            </button>
-          </ion-item>
-          <div slot="content" class="accordion-content">
+            <div class="accordion-header-actions">
+              <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Limitation'); $event.stopPropagation()" title="Add custom limitation">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </button>
+              <ion-icon [name]="isSectionExpanded('limitations') ? 'chevron-up' : 'chevron-down'" class="expand-icon"></ion-icon>
+            </div>
+          </div>
+          <div class="simple-accordion-content" *ngIf="isSectionExpanded('limitations')">
             <div class="type-section">
               <div *ngIf="filterItems(organizedData.limitations).length === 0 && !searchTerm" class="no-items-message">
-                No limitations items yet.
+                No limitations yet.<br>Click + to add one.
               </div>
               <div *ngIf="filterItems(organizedData.limitations).length === 0 && searchTerm" class="no-items-message">
                 No results found for "{{ searchTerm }}"
@@ -275,13 +363,13 @@
 
             <!-- Yes/No questions -->
             <div class="answer-type-1-container" *ngIf="item.answerType === 1">
-              <div class="item-header" (click)="showFullText(item)">
+              <div class="item-header" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
                 <h3 class="item-name">
                   <span [innerHTML]="highlightText(item.name)"></span>
                   <span class="required-indicator" *ngIf="item.required">*</span>
                 </h3>
               </div>
-              <div class="item-text-wrapper" (click)="showFullText(item)">
+              <div class="item-text-wrapper" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
                 <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
               </div>
               <div class="dropdown-container" (click)="$event.stopPropagation()">
@@ -297,27 +385,12 @@
                 </select>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
               </div>
-              <!-- Camera and Gallery buttons for Yes/No items -->
-              <div *ngIf="item.answer" style="display: flex; gap: 16px; margin-top: 12px; align-items: center; justify-content: flex-end; padding-right: 8px;">
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
-                        title="Take photo from camera"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
-                        title="Select from gallery"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-              </div>
             </div>
 
             <!-- Multi-select questions -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
               <ion-item lines="none" class="checkbox-item">
-                <ion-label class="item-label" (click)="showFullText(item)">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -347,79 +420,72 @@
                        placeholder="Please specify..."
                        class="styled-input other-input">
               </div>
-              <!-- Camera and Gallery buttons for multi-select items -->
-              <div *ngIf="item.answer && item.answer.trim()" style="display: flex; gap: 16px; margin-top: 8px; margin-bottom: 8px; align-items: center; justify-content: flex-end; padding-right: 16px;">
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
-                        title="Take photo from camera"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
-                        title="Select from gallery"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-              </div>
             </div>
 
-            <!-- Text questions - checkbox behavior with camera buttons -->
+            <!-- Text questions with large action buttons -->
             <ion-item lines="none"
                       class="checkbox-item with-camera"
                       [class.has-photos]="getPhotosForVisual(categoryName, item.id).length > 0"
-                      *ngIf="!item.answerType || item.answerType === 0"
-                      style="min-height: 100px; align-items: flex-start; position: relative;">
+                      *ngIf="!item.answerType || item.answerType === 0">
               <ion-checkbox
                 slot="start"
                 [checked]="isItemSelected(categoryName, item.id)"
                 [disabled]="isItemSaving(categoryName, item.id)"
-                (ionChange)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()"
-                style="margin-top: 8px;">
+                (ionChange)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
               </ion-checkbox>
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-                <ion-label class="item-label" (click)="showFullText(item)">
+              <div style="flex: 1; display: flex; align-items: center;">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()" style="flex: 1;">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
                   </h3>
                   <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                 </ion-label>
-                <!-- Camera and Gallery buttons -->
-                <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
-                  <button class="camera-button-structural"
-                          (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
-                          title="Take photo from camera"
-                          style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                    <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                  </button>
-                  <button class="camera-button-structural"
-                          (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
-                          title="Select from gallery"
-                          style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                    <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                  </button>
+                <!-- Right-aligned photo count indicator -->
+                <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(categoryName, item.id) > 0">
+                  <span class="photo-count">
+                    <ion-icon name="images"></ion-icon>
+                    {{ getTotalPhotoCount(categoryName, item.id) }}
+                  </span>
                 </div>
               </div>
               <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
             </ion-item>
 
-            <!-- Image preview section - EXACT FROM STRUCTURAL SYSTEMS -->
-            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
-              <!-- Upload status indicator -->
+            <!-- Large action button grid - shows when item is selected -->
+            <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0)">
+              <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
+                <ion-icon name="camera"></ion-icon>
+                <span>Camera</span>
+              </button>
+              <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()">
+                <ion-icon name="images"></ion-icon>
+                <span>Gallery</span>
+              </button>
+              <button class="action-btn secondary"
+                      (click)="togglePhotoExpansion(categoryName, item.id); $event.stopPropagation()">
+                <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
+                <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
+              </button>
+              <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
+                <ion-icon name="arrow-forward"></ion-icon>
+                <span>Details</span>
+              </button>
+            </div>
+
+            <!-- Image preview section (Limitations) - ONLY shows when expanded -->
+            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && isPhotosExpanded(categoryName, item.id)" style="position: relative;">
               <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
                 <ion-spinner name="dots" color="primary"></ion-spinner>
                 <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
               </div>
               <div class="image-preview-container">
-                <!-- Skeleton loaders when photos are loading -->
                 <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview skeleton-loader" *ngFor="let skeleton of getSkeletonArray(categoryName, item.id); let i = index">
                     <div class="skeleton-image"></div>
                     <div class="skeleton-caption"></div>
                   </div>
                 </ng-container>
-                <!-- Actual photos when loaded -->
                 <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
                        [class.uploading]="photo.uploading"
@@ -456,32 +522,32 @@
                 </ng-container>
               </div>
             </div>
-
           </div>
         </div>
-            </div>
-          </div>
-        </ion-accordion>
+            </div> <!-- Close type-section -->
+          </div> <!-- Close simple-accordion-content -->
+        </div> <!-- Close simple-accordion (Limitations) -->
 
         <!-- Deficiencies Section -->
-        <ion-accordion *ngIf="organizedData.deficiencies" value="deficiencies">
-          <ion-item slot="header" lines="none" class="accordion-header-item">
+        <div class="simple-accordion" *ngIf="organizedData.deficiencies">
+          <div class="simple-accordion-header" (click)="toggleSection('deficiencies')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <ion-icon name="warning-outline"></ion-icon>
+                <span class="count-badge deficiency"><span>{{ organizedData.deficiencies.length }}</span></span>
               </div>
-              <ion-label class="accordion-label">
-                <h4 class="type-header">Deficiencies</h4>
-              </ion-label>
+              <span class="type-header">Deficiencies</span>
             </div>
-            <button class="add-visual-btn" slot="end" (click)="addCustomVisual(categoryName, 'Deficiency'); $event.stopPropagation()" title="Add custom deficiency">
-              <ion-icon name="add-circle-outline"></ion-icon>
-            </button>
-          </ion-item>
-          <div slot="content" class="accordion-content">
+            <div class="accordion-header-actions">
+              <button class="add-visual-btn" (click)="addCustomVisual(categoryName, 'Deficiency'); $event.stopPropagation()" title="Add custom deficiency">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </button>
+              <ion-icon [name]="isSectionExpanded('deficiencies') ? 'chevron-up' : 'chevron-down'" class="expand-icon"></ion-icon>
+            </div>
+          </div>
+          <div class="simple-accordion-content" *ngIf="isSectionExpanded('deficiencies')">
             <div class="type-section">
               <div *ngIf="filterItems(organizedData.deficiencies).length === 0 && !searchTerm" class="no-items-message">
-                No deficiency items yet.
+                No deficiencies yet.<br>Click + to add one.
               </div>
               <div *ngIf="filterItems(organizedData.deficiencies).length === 0 && searchTerm" class="no-items-message">
                 No results found for "{{ searchTerm }}"
@@ -491,13 +557,13 @@
 
             <!-- Yes/No questions -->
             <div class="answer-type-1-container" *ngIf="item.answerType === 1">
-              <div class="item-header" (click)="showFullText(item)">
+              <div class="item-header" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
                 <h3 class="item-name">
                   <span [innerHTML]="highlightText(item.name)"></span>
                   <span class="required-indicator" *ngIf="item.required">*</span>
                 </h3>
               </div>
-              <div class="item-text-wrapper" (click)="showFullText(item)">
+              <div class="item-text-wrapper" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
                 <p class="item-text" [innerHTML]="highlightText(item.originalText)"></p>
               </div>
               <div class="dropdown-container" (click)="$event.stopPropagation()">
@@ -513,27 +579,12 @@
                 </select>
                 <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" class="saving-spinner"></ion-spinner>
               </div>
-              <!-- Camera and Gallery buttons for Yes/No items -->
-              <div *ngIf="item.answer" style="display: flex; gap: 16px; margin-top: 12px; align-items: center; justify-content: flex-end; padding-right: 8px;">
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
-                        title="Take photo from camera"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
-                        title="Select from gallery"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-              </div>
             </div>
 
             <!-- Multi-select questions -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
               <ion-item lines="none" class="checkbox-item">
-                <ion-label class="item-label" (click)="showFullText(item)">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
@@ -563,79 +614,72 @@
                        placeholder="Please specify..."
                        class="styled-input other-input">
               </div>
-              <!-- Camera and Gallery buttons for multi-select items -->
-              <div *ngIf="item.answer && item.answer.trim()" style="display: flex; gap: 16px; margin-top: 8px; margin-bottom: 8px; align-items: center; justify-content: flex-end; padding-right: 16px;">
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
-                        title="Take photo from camera"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-                <button class="camera-button-structural"
-                        (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
-                        title="Select from gallery"
-                        style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                  <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                </button>
-              </div>
             </div>
 
-            <!-- Text questions - checkbox behavior with camera buttons -->
+            <!-- Text questions with large action buttons -->
             <ion-item lines="none"
                       class="checkbox-item with-camera"
                       [class.has-photos]="getPhotosForVisual(categoryName, item.id).length > 0"
-                      *ngIf="!item.answerType || item.answerType === 0"
-                      style="min-height: 100px; align-items: flex-start; position: relative;">
+                      *ngIf="!item.answerType || item.answerType === 0">
               <ion-checkbox
                 slot="start"
                 [checked]="isItemSelected(categoryName, item.id)"
                 [disabled]="isItemSaving(categoryName, item.id)"
-                (ionChange)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()"
-                style="margin-top: 8px;">
+                (ionChange)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()">
               </ion-checkbox>
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-                <ion-label class="item-label" (click)="showFullText(item)">
+              <div style="flex: 1; display: flex; align-items: center;">
+                <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.id); $event.stopPropagation()" style="flex: 1;">
                   <h3>
                     <span [innerHTML]="highlightText(item.name)"></span>
                     <span class="required-indicator" *ngIf="item.required">*</span>
                   </h3>
                   <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
                 </ion-label>
-                <!-- Camera and Gallery buttons -->
-                <div *ngIf="isItemSelected(categoryName, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
-                  <button class="camera-button-structural"
-                          (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()"
-                          title="Take photo from camera"
-                          style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                    <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                  </button>
-                  <button class="camera-button-structural"
-                          (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()"
-                          title="Select from gallery"
-                          style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
-                    <ion-icon name="images" style="font-size: 32px; color: var(--noble-orange, #F15A27);"></ion-icon>
-                  </button>
+                <!-- Right-aligned photo count indicator -->
+                <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(categoryName, item.id) > 0">
+                  <span class="photo-count">
+                    <ion-icon name="images"></ion-icon>
+                    {{ getTotalPhotoCount(categoryName, item.id) }}
+                  </span>
                 </div>
               </div>
               <ion-spinner *ngIf="isItemSaving(categoryName, item.id)" name="crescent" slot="end"></ion-spinner>
             </ion-item>
 
-            <!-- Image preview section - EXACT FROM STRUCTURAL SYSTEMS -->
-            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && (getPhotosForVisual(categoryName, item.id).length > 0 || isLoadingPhotosForVisual(categoryName, item.id) || isUploadingPhotos(categoryName, item.id))" style="position: relative;">
-              <!-- Upload status indicator -->
+            <!-- Large action button grid - shows when item is selected -->
+            <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0)">
+              <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
+                <ion-icon name="camera"></ion-icon>
+                <span>Camera</span>
+              </button>
+              <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.id); $event.stopPropagation()">
+                <ion-icon name="images"></ion-icon>
+                <span>Gallery</span>
+              </button>
+              <button class="action-btn secondary"
+                      (click)="togglePhotoExpansion(categoryName, item.id); $event.stopPropagation()">
+                <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
+                <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
+              </button>
+              <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
+                <ion-icon name="arrow-forward"></ion-icon>
+                <span>Details</span>
+              </button>
+            </div>
+
+            <!-- Image preview section (Deficiencies) - ONLY shows when expanded -->
+            <div class="image-preview-section" *ngIf="isItemSelected(categoryName, item.id) && (!item.answerType || item.answerType === 0) && isPhotosExpanded(categoryName, item.id)" style="position: relative;">
               <div class="upload-status" *ngIf="isUploadingPhotos(categoryName, item.id)">
                 <ion-spinner name="dots" color="primary"></ion-spinner>
                 <span>Uploading {{ getUploadingCount(categoryName, item.id) }} photo(s)...</span>
               </div>
               <div class="image-preview-container">
-                <!-- Skeleton loaders when photos are loading -->
                 <ng-container *ngIf="isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview skeleton-loader" *ngFor="let skeleton of getSkeletonArray(categoryName, item.id); let i = index">
                     <div class="skeleton-image"></div>
                     <div class="skeleton-caption"></div>
                   </div>
                 </ng-container>
-                <!-- Actual photos when loaded -->
                 <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
                        [class.uploading]="photo.uploading"
@@ -672,15 +716,14 @@
                 </ng-container>
               </div>
             </div>
-
           </div>
         </div>
-            </div>
-          </div>
-        </ion-accordion>
-        </ion-accordion-group>
-      </div>
+            </div> <!-- Close type-section -->
+          </div> <!-- Close simple-accordion-content -->
+        </div> <!-- Close simple-accordion (Deficiencies) -->
+
+      </div> <!-- Close white-container -->
+
     </div>
   </div>
 </div>
-

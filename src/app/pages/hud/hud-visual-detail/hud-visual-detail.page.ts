@@ -292,6 +292,17 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       console.log('[HudVisualDetail] MOBILE MODE: Loading data from cache');
       console.log('[HudVisualDetail] MOBILE: HUDID from query params:', hudIdFromQueryParams || '(none)');
 
+      // DEXIE-FIRST: Check visualFields for edited title/text (saved via visualFieldRepo.setField)
+      // This takes priority because user edits are stored here
+      const visualField = await db.visualFields
+        .where('[serviceId+templateId]')
+        .equals([this.serviceId, this.templateId])
+        .first();
+
+      if (visualField) {
+        console.log('[HudVisualDetail] MOBILE: Found visualField:', visualField.templateName, 'visualId:', visualField.visualId || visualField.tempVisualId);
+      }
+
       // Load cached HUD records (contains user's edited Title/Description)
       const queryServiceId = this.actualServiceId || this.serviceId;
       const hudRecords = await this.hudData.getHudByService(queryServiceId);
@@ -314,7 +325,20 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         }
       }
 
-      // PRIORITY 2: Fall back to Name + Category matching
+      // PRIORITY 2: Find by visualId from Dexie visualField (handles edited titles)
+      if (!visual && visualField) {
+        const dexieVisualId = visualField.visualId || visualField.tempVisualId;
+        if (dexieVisualId) {
+          visual = hudRecords.find((v: any) =>
+            String(v.HUDID || v.PK_ID) === String(dexieVisualId)
+          );
+          if (visual) {
+            console.log('[HudVisualDetail] MOBILE: Matched HUD record by Dexie visualId:', dexieVisualId);
+          }
+        }
+      }
+
+      // PRIORITY 3: Fall back to Name + Category matching
       if (!visual && template && template.Name) {
         visual = hudRecords.find((v: any) =>
           v.Name === template.Name && v.Category === template.Category
@@ -327,11 +351,17 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       if (visual) {
         // Found HUD record - use its Name and Text (contains user edits)
         const actualCategory = visual.Category || '';
+
+        // DEXIE-FIRST: Use visualField values as PRIORITY 1 (local edits take precedence)
+        // Then fall back to visual (HUD record), then template
+        const titleValue = visualField?.templateName || visual.Name || template?.Name || '';
+        const textValue = visualField?.templateText || visual.Text || visual.VisualText || template?.Text || '';
+
         this.item = {
           id: visual.HUDID || visual.PK_ID,
           templateId: this.templateId,
-          name: visual.Name || '',
-          text: visual.Text || visual.VisualText || '',
+          name: titleValue,
+          text: textValue,
           originalText: template?.Text || '',
           type: visual.Kind || template?.Kind || 'Comment',
           category: actualCategory,
@@ -349,29 +379,40 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           this.hudId = String(visual.HUDID || visual.PK_ID);
         }
 
-        console.log('[HudVisualDetail] MOBILE: Loaded from HUD record - Name:', this.item.name, 'Text:', this.item.text?.substring(0, 50));
-      } else if (template) {
-        // No HUD record - use template values (item not yet selected/edited)
-        const effectiveTemplateId = template.TemplateID || template.PK_ID;
-        const actualCategory = template.Category || '';
+        console.log('[HudVisualDetail] MOBILE: Loaded - Name:', this.item.name, '(from:', visualField?.templateName ? 'visualField' : 'visual', ')');
+      } else if (visualField || template) {
+        // No HUD record found - use visualField (local edits) or template values
+        const effectiveTemplateId = template?.TemplateID || template?.PK_ID || this.templateId;
+        const actualCategory = visualField?.category || template?.Category || '';
+
+        // DEXIE-FIRST: visualField values take priority over template
+        const titleValue = visualField?.templateName || template?.Name || '';
+        const textValue = visualField?.templateText || template?.Text || '';
+
         this.item = {
           id: effectiveTemplateId,
           templateId: effectiveTemplateId,
-          name: template.Name || '',
-          text: template.Text || '',
-          originalText: template.Text || '',
-          type: template.Kind || 'Comment',
+          name: titleValue,
+          text: textValue,
+          originalText: template?.Text || '',
+          type: visualField?.kind || template?.Kind || 'Comment',
           category: actualCategory,
-          answerType: template.AnswerType || 0,
+          answerType: template?.AnswerType || 0,
           required: false,
-          isSelected: false
+          isSelected: !!visualField?.isSelected
         };
         this.categoryName = actualCategory;
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
-        console.log('[HudVisualDetail] MOBILE: Loaded from template - Name:', this.item.name);
+
+        // Store visualId for photo loading (temp or real)
+        if (!this.hudId && visualField) {
+          this.hudId = visualField.visualId || visualField.tempVisualId || '';
+        }
+
+        console.log('[HudVisualDetail] MOBILE: Loaded from', visualField ? 'visualField' : 'template', '- Name:', this.item.name);
       } else {
-        console.warn('[HudVisualDetail] MOBILE: No HUD record or template found for ID:', this.templateId);
+        console.warn('[HudVisualDetail] MOBILE: No HUD record, visualField, or template found for ID:', this.templateId);
       }
 
       // Load photos
