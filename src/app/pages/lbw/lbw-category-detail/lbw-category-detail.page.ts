@@ -3600,15 +3600,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
   /**
    * Navigate to visual detail page
-   * LBW uses an alert dialog for item details (unlike HUD/EFE which have dedicated pages)
+   * LBW now uses a dedicated visual detail page (like HUD/EFE)
    */
-  async openVisualDetail(category: string, item: any): Promise<void> {
-    console.log('[LBW] openVisualDetail called for:', item?.name, 'category:', category);
-    try {
-      await this.showFullText(item);
-    } catch (error) {
-      console.error('[LBW] Error opening visual detail:', error);
-    }
+  openVisualDetail(category: string, item: any): void {
+    console.log('[LBW] openVisualDetail - navigating to visual detail page for:', item?.name, 'category:', category);
+    const key = `${category}_${item.templateId}`;
+    const lbwId = this.visualRecordIds[key] || '';
+    console.log('[LBW] openVisualDetail - lbwId:', lbwId, 'templateId:', item.templateId);
+    this.router.navigate(['visual', item.templateId], {
+      relativeTo: this.route.parent,
+      queryParams: { lbwId }
+    });
   }
 
   // Debug panel properties and methods

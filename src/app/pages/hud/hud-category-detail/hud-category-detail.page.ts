@@ -803,6 +803,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
         }
 
+        // CUSTOM VISUAL FIX: Also query the route param category ("hud")
+        // Custom visuals created via Add Modal are stored with category=categoryName (route param)
+        // Without this, custom visuals won't be restored on page refresh
+        if (this.categoryName) {
+          uniqueCategories.add(this.categoryName);
+        }
+
         // Query Dexie for each category and build a combined map
         const dexieFieldMap = new Map<number, any>();
         let totalFieldsLoaded = 0;
@@ -3079,6 +3086,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           if (item.category) {
             uniqueCategories.add(item.category);
           }
+        }
+
+        // CUSTOM VISUAL FIX: Also query the route param category ("hud")
+        // Custom visuals created via Add Modal are stored with category=categoryName (route param)
+        // Without this, custom visuals won't be restored on page refresh
+        if (this.categoryName) {
+          uniqueCategories.add(this.categoryName);
         }
 
         // Query Dexie for each category and build a combined map

@@ -7,6 +7,7 @@ import { LbwMainPage } from './lbw-main/lbw-main.page';
 import { LbwProjectDetailsPage } from './lbw-project-details/lbw-project-details.page';
 import { LbwCategoriesPage } from './lbw-categories/lbw-categories.page';
 import { LbwCategoryDetailPage } from './lbw-category-detail/lbw-category-detail.page';
+import { LbwVisualDetailPage } from './lbw-visual-detail/lbw-visual-detail.page';
 
 const routes: Routes = [
   {
@@ -27,7 +28,10 @@ const routes: Routes = [
       },
       {
         path: 'category/:category',
-        component: LbwCategoryDetailPage
+        children: [
+          { path: '', component: LbwCategoryDetailPage },
+          { path: 'visual/:templateId', component: LbwVisualDetailPage }
+        ]
       }
     ]
   }
