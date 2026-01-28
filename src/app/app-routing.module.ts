@@ -32,6 +32,7 @@ import { LbwMainPage } from './pages/lbw/lbw-main/lbw-main.page';
 import { LbwProjectDetailsPage } from './pages/lbw/lbw-project-details/lbw-project-details.page';
 import { LbwCategoriesPage } from './pages/lbw/lbw-categories/lbw-categories.page';
 import { LbwCategoryDetailPage } from './pages/lbw/lbw-category-detail/lbw-category-detail.page';
+import { LbwVisualDetailPage } from './pages/lbw/lbw-visual-detail/lbw-visual-detail.page';
 
 // Eager load DTE components for offline support
 import { DteContainerPage } from './pages/dte/dte-container/dte-container.page';
@@ -133,7 +134,13 @@ const routes: Routes = [
       { path: '', component: LbwMainPage },
       { path: 'project-details', component: LbwProjectDetailsPage, canDeactivate: [UnsavedChangesGuard] },
       { path: 'categories', component: LbwCategoriesPage },
-      { path: 'category/:category', component: LbwCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] }
+      {
+        path: 'category/:category',
+        children: [
+          { path: '', component: LbwCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
+          { path: 'visual/:templateId', component: LbwVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
+        ]
+      }
     ]
   },
   // DTE routes - eager loaded for offline support

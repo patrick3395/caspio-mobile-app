@@ -2388,14 +2388,28 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               // US-002 FIX: Update VisualField.visualId in Dexie with the real ID
               // This ensures populatePhotosFromDexie can find photos on page reload
               // because VisualField.visualId will now match LocalImages.entityId
-              if (templateId) {
-                this.visualFieldRepo.setField(this.serviceId, this.categoryName, templateId, {
+              // CUSTOM VISUAL FIX: Use existingItem.templateId for custom visuals (negative ID)
+              // Backend templateId is null for custom visuals, but we need to update their VisualField
+              const effectiveTemplateId = templateId || existingItem.templateId;
+              if (effectiveTemplateId) {
+                // For custom visuals, use the item's category (stored in Dexie) not this.categoryName
+                const effectiveCategory = existingItem.category || this.categoryName;
+                this.visualFieldRepo.setField(this.serviceId, effectiveCategory, effectiveTemplateId, {
                   visualId: visualId,
                   tempVisualId: null  // Clear temp ID since we now have real ID
                 }).catch(err => {
                   console.error(`[RELOAD AFTER SYNC] Failed to update VisualField.visualId:`, err);
                 });
-                console.log(`[RELOAD AFTER SYNC] Updated VisualField.visualId: ${templateId} -> ${visualId}`);
+                console.log(`[RELOAD AFTER SYNC] Updated VisualField.visualId: ${effectiveTemplateId} -> ${visualId} (category: ${effectiveCategory})`);
+
+                // CRITICAL: Also update lastConvertedFields in-memory so populatePhotosFromDexie
+                // can find photos immediately (liveQuery fires after LocalImages.entityId is updated)
+                const fieldToUpdate = this.lastConvertedFields.find(f => f.templateId === effectiveTemplateId);
+                if (fieldToUpdate) {
+                  fieldToUpdate.visualId = visualId;
+                  fieldToUpdate.tempVisualId = null;
+                  console.log(`[RELOAD AFTER SYNC] Updated lastConvertedFields for templateId ${effectiveTemplateId}`);
+                }
               }
             }
 
