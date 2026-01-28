@@ -17,6 +17,7 @@ import { IndexedDbService } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { environment } from '../../../../environments/environment';
+import { db } from '../../../services/caspio-db';
 
 interface VisualItem {
   id: string | number;
@@ -124,14 +125,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     // Subscribe to background upload task updates
     this.subscribeToUploadUpdates();
 
-    // Get category name from route
-    this.route.params.subscribe(params => {
+    // Get route params
+    // Route structure after nesting: lbw/:projectId/:serviceId (container) -> category/:category -> '' (we are here)
+    // - this.route = empty path component
+    // - this.route.parent = category/:category (has category param)
+    // - this.route.parent.parent = container (has projectId, serviceId)
+    this.route.parent?.params.subscribe(params => {
       this.categoryName = params['category'];
 
-      // Get IDs from container route
-      // Route structure: lbw/:projectId/:serviceId (container) -> category/:category (we are here)
-      // Container is direct parent, so we only go up 1 level
-      this.route.parent?.params.subscribe(parentParams => {
+      // Get IDs from container route (go up 2 levels)
+      this.route.parent?.parent?.params.subscribe(parentParams => {
         this.projectId = parentParams['projectId'];
         this.serviceId = parentParams['serviceId'];
 
@@ -150,11 +153,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   async ionViewWillEnter() {
     console.log('[LBW] ionViewWillEnter - serviceId:', this.serviceId, 'categoryName:', this.categoryName);
 
-    // WEBAPP: Reload photos when returning to this page
+    // WEBAPP: Reload photos and merge Dexie edits when returning to this page
     // This ensures photos uploaded on this session appear after navigation
+    // and title/text edits from visual-detail are displayed
     if (environment.isWeb && this.serviceId && this.categoryName) {
-      console.log('[LBW] WEBAPP: Reloading photos on page return...');
+      console.log('[LBW] WEBAPP: Reloading data on page return...');
       this.loading = false;
+
+      // TITLE/TEXT FIX: Merge edited names and text from Dexie visualFields
+      // This ensures title edits from visual-detail are displayed
+      await this.mergeDexieVisualFields();
 
       // If we have visual record IDs, reload photos from API
       if (Object.keys(this.visualRecordIds).length > 0) {
@@ -392,6 +400,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       console.log('[LOAD DATA] Step 4: Restoring pending photos...');
       await this.restorePendingPhotosFromIndexedDB();
 
+      // TITLE/TEXT FIX: Merge edited names and text from Dexie visualFields
+      console.log('[LOAD DATA] Step 5: Merging Dexie visualFields (title/text edits)...');
+      await this.mergeDexieVisualFields();
+
       console.log('[LOAD DATA] ========== DATA LOAD COMPLETE ==========');
       console.log('[LOAD DATA] Final state - visualRecordIds:', this.visualRecordIds);
       console.log('[LOAD DATA] Final state - selectedItems:', this.selectedItems);
@@ -402,6 +414,83 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     } catch (error) {
       console.error('[LOAD DATA] ❌ Error loading category data:', error);
       this.loading = false;
+    }
+  }
+
+  /**
+   * TITLE/TEXT FIX: Merge edited names and text from Dexie visualFields
+   * When user edits title/text in visual-detail, it's saved to Dexie.
+   * This method merges those edits back into the displayed items.
+   */
+  private async mergeDexieVisualFields(): Promise<void> {
+    try {
+      // Load all Dexie visualFields for this service
+      const dexieFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray();
+
+      if (!dexieFields || dexieFields.length === 0) {
+        console.log('[MERGE DEXIE] No Dexie fields found for service:', this.serviceId);
+        return;
+      }
+
+      console.log('[MERGE DEXIE] Found', dexieFields.length, 'Dexie fields for service:', this.serviceId);
+
+      // Build a map of templateId -> dexieField for quick lookup
+      const fieldMap = new Map<number, any>();
+      for (const field of dexieFields) {
+        if (field.templateId) {
+          fieldMap.set(field.templateId, field);
+        }
+      }
+
+      // Merge into all organized data arrays
+      const allItems = [
+        ...this.organizedData.comments,
+        ...this.organizedData.limitations,
+        ...this.organizedData.deficiencies
+      ];
+
+      for (const item of allItems) {
+        const dexieField = fieldMap.get(item.templateId);
+        if (!dexieField) continue;
+
+        const key = `${item.category || this.categoryName}_${item.templateId}`;
+
+        // Store visualId from Dexie if we don't already have it
+        const visualId = dexieField.visualId || dexieField.tempVisualId;
+        if (visualId && !this.visualRecordIds[key]) {
+          this.visualRecordIds[key] = visualId;
+          console.log(`[MERGE DEXIE] Stored visualId from Dexie: ${key} = ${visualId}`);
+        }
+
+        // TITLE/TEXT FIX: Restore edited name and text from Dexie
+        if (dexieField.templateName && dexieField.templateName !== item.name) {
+          console.log(`[MERGE DEXIE] Restored title from Dexie - key: ${key}, old: "${item.name}", new: "${dexieField.templateName}"`);
+          item.name = dexieField.templateName;
+        }
+        if (dexieField.templateText && dexieField.templateText !== item.text) {
+          console.log(`[MERGE DEXIE] Restored text from Dexie - key: ${key}`);
+          item.text = dexieField.templateText;
+        }
+
+        // Restore selection state
+        if (dexieField.isSelected) {
+          this.selectedItems[key] = true;
+        }
+
+        // Restore answer if present
+        if (dexieField.answer && !item.answer) {
+          item.answer = dexieField.answer;
+        }
+      }
+
+      this.changeDetectorRef.detectChanges();
+      console.log('[MERGE DEXIE] Merge complete');
+
+    } catch (error) {
+      console.error('[MERGE DEXIE] Error merging Dexie fields:', error);
     }
   }
 

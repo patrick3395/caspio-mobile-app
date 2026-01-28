@@ -2406,9 +2406,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 // can find photos immediately (liveQuery fires after LocalImages.entityId is updated)
                 const fieldToUpdate = this.lastConvertedFields.find(f => f.templateId === effectiveTemplateId);
                 if (fieldToUpdate) {
+                  // IMPORTANT: Set visualId to real ID but KEEP tempVisualId for fallback lookup!
+                  // LocalImages.entityId is updated asynchronously by updateEntityIdForImages.
+                  // Until that completes, populatePhotosFromDexie needs tempVisualId for the US-002
+                  // fallback lookup (tries realId first, then tempId, then mapped ID).
+                  // If we clear tempVisualId here, the fallback fails and photos disappear.
+                  const previousTempId = fieldToUpdate.tempVisualId;
                   fieldToUpdate.visualId = visualId;
-                  fieldToUpdate.tempVisualId = null;
-                  console.log(`[RELOAD AFTER SYNC] Updated lastConvertedFields for templateId ${effectiveTemplateId}`);
+                  // Don't clear tempVisualId - it's needed for fallback lookup until LocalImages are updated
+                  // fieldToUpdate.tempVisualId = null;  // REMOVED - breaks US-002 fallback!
+                  console.log(`[RELOAD AFTER SYNC] Updated lastConvertedFields for templateId ${effectiveTemplateId}: visualId=${visualId}, keeping tempVisualId=${previousTempId} for fallback`);
                 }
               }
             }
