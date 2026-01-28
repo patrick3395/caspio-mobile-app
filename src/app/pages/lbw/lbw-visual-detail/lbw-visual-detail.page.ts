@@ -3,7 +3,7 @@ import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, AlertController, ModalController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../services/caspio.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -187,7 +187,7 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         console.log('[LbwVisualDetail] WEBAPP: LBWID from query params:', lbwIdFromQueryParams || '(none)');
         console.log('[LbwVisualDetail] WEBAPP: serviceId:', this.serviceId);
 
-        const lbwRecords = await this.lbwData.getVisualsByService(this.serviceId, this.categoryName);
+        const lbwRecords = await this.lbwData.getVisualsByService(this.serviceId);
         console.log('[LbwVisualDetail] WEBAPP: Loaded', lbwRecords.length, 'LBW records for ServiceID:', this.serviceId);
 
         // Load templates to get the Name and Category for matching (fallback)
@@ -1130,18 +1130,19 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // Get the localImage to check status
       const localImage = await db.localImages.get(photo.id);
 
-      // DEXIE-FIRST: Always queue caption update
-      // Use attachId if synced, otherwise use imageId (sync worker will resolve it)
+      // Use attachId if synced, otherwise use imageId
       const attachId = localImage?.attachId || photo.id;
 
-      await this.lbwData.queueCaptionAndAnnotationUpdate(
-        attachId,
-        caption,
-        localImage?.drawings || '',
-        'lbw',
-        { serviceId: this.serviceId, visualId: this.lbwId }
-      );
-      console.log('[LbwVisualDetail] ✅ Queued caption update:', attachId, localImage?.attachId ? '(synced)' : '(pending photo sync)');
+      // WEBAPP MODE: Update directly via Caspio API
+      if (environment.isWeb && attachId && !String(attachId).startsWith('temp_') && !String(attachId).startsWith('img_')) {
+        await firstValueFrom(this.caspioService.updateServicesLBWAttach(String(attachId), {
+          Annotation: caption,
+          Drawings: localImage?.drawings || ''
+        }));
+        console.log('[LbwVisualDetail] WEBAPP: ✅ Updated caption via API:', attachId);
+      } else {
+        console.log('[LbwVisualDetail] Caption stored locally, will sync later:', attachId);
+      }
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {
@@ -1216,15 +1217,12 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
               }
             }
 
-            // Queue annotation update directly to Caspio (photo.id IS the AttachID in webapp mode)
-            await this.lbwData.queueCaptionAndAnnotationUpdate(
-              photo.id,
-              newCaption,
-              compressedDrawings,
-              'lbw',
-              { serviceId: this.serviceId, visualId: this.lbwId }
-            );
-            console.log('[LbwVisualDetail] WEBAPP: ✅ Queued annotation update to Caspio for AttachID:', photo.id);
+            // Update annotation directly via Caspio API (photo.id IS the AttachID in webapp mode)
+            await firstValueFrom(this.caspioService.updateServicesLBWAttach(String(photo.id), {
+              Annotation: newCaption,
+              Drawings: compressedDrawings
+            }));
+            console.log('[LbwVisualDetail] WEBAPP: ✅ Updated annotation via API for AttachID:', photo.id);
           } else {
             // MOBILE MODE: Update LocalImages table with new drawings
             await db.localImages.update(photo.id, {
@@ -1247,15 +1245,12 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             // Get the localImage to check if it has an attachId (synced to Caspio)
             const localImage = await db.localImages.get(photo.id);
             if (localImage?.attachId) {
-              // Queue annotation update to Caspio for background sync
-              await this.lbwData.queueCaptionAndAnnotationUpdate(
-                localImage.attachId,
-                newCaption,
-                compressedDrawings,
-                'lbw',
-                { serviceId: this.serviceId, visualId: this.lbwId }
-              );
-              console.log('[LbwVisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
+              // Update annotation via Caspio API
+              await firstValueFrom(this.caspioService.updateServicesLBWAttach(String(localImage.attachId), {
+                Annotation: newCaption,
+                Drawings: compressedDrawings
+              }));
+              console.log('[LbwVisualDetail] ✅ Updated annotation via API:', localImage.attachId);
             } else {
               console.log('[LbwVisualDetail] Photo not yet synced, annotations stored locally for upload');
             }
