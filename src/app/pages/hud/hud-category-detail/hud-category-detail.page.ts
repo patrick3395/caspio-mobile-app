@@ -5214,9 +5214,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const newVisualId = String(result.HUDID || result.VisualID || result.PK_ID || result.id);
         this.visualRecordIds[key] = newVisualId;
 
-        // DEXIE-FIRST: Store tempVisualId in Dexie for persistence
+        // DEXIE-FIRST: Store tempVisualId AND templateName/Text in Dexie for persistence
         this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
-          tempVisualId: newVisualId
+          tempVisualId: newVisualId,
+          templateName: item.name || '',
+          templateText: item.text || item.originalText || '',
+          category: item.category || category,
+          kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
+          isSelected: true
         }).catch(err => console.error('[OPTION] Failed to store tempVisualId:', err));
 
         console.log('[OPTION] Created visual:', newVisualId);
@@ -5300,9 +5305,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const newVisualId = String(result.HUDID || result.VisualID || result.PK_ID || result.id);
         this.visualRecordIds[key] = newVisualId;
 
-        // DEXIE-FIRST: Store tempVisualId in Dexie
+        // DEXIE-FIRST: Store tempVisualId AND templateName/Text in Dexie
         await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
-          tempVisualId: newVisualId
+          tempVisualId: newVisualId,
+          templateName: item.name || '',
+          templateText: item.text || item.originalText || '',
+          category: item.category || category,
+          kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
+          isSelected: true
         });
 
         console.log('[OTHER] Created visual:', newVisualId);
@@ -5426,7 +5436,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         this.visualRecordIds[key] = newVisualId;
 
         await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
-          tempVisualId: newVisualId
+          tempVisualId: newVisualId,
+          templateName: item.name || '',
+          templateText: item.text || item.originalText || '',
+          category: item.category || category,
+          kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
+          isSelected: true
         });
 
         console.log('[OTHER] Created visual:', newVisualId);
@@ -6767,14 +6782,20 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // Store the visual ID for photo uploads
       this.visualRecordIds[key] = visualId;
 
-      // DEXIE-FIRST: Persist tempVisualId to VisualField for photo matching after reload
+      // DEXIE-FIRST: Persist tempVisualId AND templateName/Text to VisualField
       // This MUST happen before any photo upload so populatePhotosFromDexie can match photos to fields
+      // CRITICAL: Include templateName and templateText so visual-detail can load the title
       const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
       try {
         await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
-          tempVisualId: visualId  // Always a temp ID at this point (temp_visual_xxx)
+          tempVisualId: visualId,  // Always a temp ID at this point (temp_visual_xxx)
+          templateName: item.name || '',  // Store template name for visual-detail
+          templateText: item.text || item.originalText || '',  // Store template text
+          category: item.category || category,  // Store actual category
+          kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',  // Store kind
+          isSelected: true
         });
-        console.log('[SAVE VISUAL] Persisted tempVisualId to Dexie:', visualId);
+        console.log('[SAVE VISUAL] Persisted tempVisualId and templateName to Dexie:', visualId, item.name);
 
         // MOBILE FIX: Update lastConvertedFields with the new visualId
         // HUD doesn't have a reactive visualFieldsSubscription like EFE, so we must

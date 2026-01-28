@@ -15,6 +15,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { LocalImageService } from '../../../services/local-image.service';
 import { environment } from '../../../../environments/environment';
 
 interface VisualItem {
@@ -115,7 +116,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     private backgroundUploadService: BackgroundPhotoUploadService,
     private cache: CacheService,
     private indexedDb: IndexedDbService,
-    private backgroundSync: BackgroundSyncService
+    private backgroundSync: BackgroundSyncService,
+    private localImageService: LocalImageService
   ) {}
 
   async ngOnInit() {
@@ -1933,6 +1935,132 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             return;
           }
 
+          // Compress annotations BEFORE creating photo entry
+          let compressedDrawings = '';
+          if (annotationsData) {
+            try {
+              const { compressAnnotationData } = await import('../../../utils/annotation-utils');
+              if (typeof annotationsData === 'object') {
+                compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+              } else if (typeof annotationsData === 'string') {
+                compressedDrawings = compressAnnotationData(annotationsData);
+              }
+            } catch (e) {
+              console.error('[CAMERA UPLOAD] Failed to compress annotations:', e);
+            }
+          }
+
+          // ============================================
+          // WEBAPP MODE: Direct S3 Upload (No Local Storage)
+          // MOBILE MODE: Local-first with background sync
+          // ============================================
+
+          // WEBAPP MODE: Upload directly to S3
+          if (environment.isWeb) {
+            console.log('[CAMERA UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
+
+            // Initialize photo array if it doesn't exist
+            if (!this.visualPhotos[key]) {
+              this.visualPhotos[key] = [];
+            }
+
+            // Create temp photo entry with loading state (show roller)
+            const tempId = `uploading_${Date.now()}`;
+            const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : URL.createObjectURL(blob);
+            const tempPhotoEntry = {
+              imageId: tempId,
+              AttachID: tempId,
+              attachId: tempId,
+              id: tempId,
+              url: annotatedDisplayUrl,
+              displayUrl: annotatedDisplayUrl,
+              originalUrl: annotatedDisplayUrl,
+              thumbnailUrl: annotatedDisplayUrl,
+              name: 'camera-photo.jpg',
+              caption: caption || '',
+              annotation: caption || '',
+              Annotation: caption || '',
+              Drawings: compressedDrawings,
+              hasAnnotations: !!annotationsData,
+              status: 'uploading',
+              isLocal: false,
+              uploading: true,  // Show loading roller
+              isPending: true,
+              isSkeleton: false,
+              progress: 0
+            };
+
+            // Add temp photo to UI immediately (with loading roller)
+            this.visualPhotos[key].push(tempPhotoEntry);
+            this.expandedPhotos[`${category}_${itemId}`] = true;
+            this.changeDetectorRef.detectChanges();
+
+            try {
+              // Upload directly to S3
+              const uploadResult = await this.localImageService.uploadImageDirectToS3(
+                originalFile,
+                'lbw',
+                String(visualId),
+                this.serviceId,
+                caption,
+                compressedDrawings
+              );
+
+              console.log('[CAMERA UPLOAD] WEBAPP: Upload complete, AttachID:', uploadResult.attachId);
+
+              // Replace temp photo with real photo (remove loading roller)
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key][tempIndex] = {
+                  ...tempPhotoEntry,
+                  imageId: uploadResult.attachId,
+                  AttachID: uploadResult.attachId,
+                  attachId: uploadResult.attachId,
+                  id: uploadResult.attachId,
+                  url: uploadResult.s3Url,
+                  displayUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
+                  originalUrl: uploadResult.s3Url,
+                  thumbnailUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
+                  status: 'uploaded',
+                  isLocal: false,
+                  uploading: false,  // Remove loading roller
+                  isPending: false,
+                  _pendingFileId: undefined  // Clear pending flag - photo is now on backend
+                };
+              }
+
+              this.changeDetectorRef.detectChanges();
+
+              // Clean up blob URL
+              URL.revokeObjectURL(imageUrl);
+              console.log('[CAMERA UPLOAD] WEBAPP: Photo added successfully');
+              return;
+
+            } catch (uploadError: any) {
+              console.error('[CAMERA UPLOAD] WEBAPP: Upload failed:', uploadError?.message || uploadError);
+
+              // Remove temp photo on error
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key].splice(tempIndex, 1);
+              }
+              this.changeDetectorRef.detectChanges();
+
+              // Show error toast
+              const toast = await this.toastController.create({
+                message: 'Failed to upload photo. Please try again.',
+                duration: 3000,
+                color: 'danger'
+              });
+              await toast.present();
+              return;
+            }
+          }
+
+          // ============================================
+          // MOBILE MODE: Local-first with background sync
+          // ============================================
+
           // Check if this is a temp ID (offline mode) or real ID
           const visualIsTempId = String(visualId).startsWith('temp_');
           const visualIdNum = parseInt(visualId, 10);
@@ -2179,7 +2307,106 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           return;
         }
 
-        console.log('[GALLERY UPLOAD] ✅ Valid HUD ID found:', visualIdNum);
+        console.log('[GALLERY UPLOAD] ✅ Valid LBW ID found:', visualIdNum);
+
+        // ============================================
+        // WEBAPP MODE: Direct S3 Upload (No Local Storage)
+        // MOBILE MODE: Local-first with background sync
+        // ============================================
+
+        if (environment.isWeb) {
+          console.log('[GALLERY UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
+
+          // Expand photos section
+          this.expandedPhotos[`${category}_${itemId}`] = true;
+
+          // Process photos sequentially for WEBAPP
+          for (let i = 0; i < images.photos.length; i++) {
+            const image = images.photos[i];
+            const skeleton = skeletonPhotos[i];
+
+            if (image.webPath) {
+              try {
+                console.log(`[GALLERY UPLOAD] WEBAPP: Processing photo ${i + 1}/${images.photos.length}`);
+
+                // Fetch the blob
+                const response = await fetch(image.webPath);
+                const blob = await response.blob();
+                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
+
+                // Update skeleton to show preview + uploading state
+                const previewUrl = URL.createObjectURL(blob);
+                const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+                if (skeletonIndex !== -1 && this.visualPhotos[key]) {
+                  this.visualPhotos[key][skeletonIndex] = {
+                    ...this.visualPhotos[key][skeletonIndex],
+                    url: previewUrl,
+                    displayUrl: previewUrl,
+                    thumbnailUrl: previewUrl,
+                    isObjectUrl: true,
+                    uploading: true,
+                    isSkeleton: false,
+                    progress: 0
+                  };
+                  this.changeDetectorRef.detectChanges();
+                }
+
+                // Upload directly to S3
+                const uploadResult = await this.localImageService.uploadImageDirectToS3(
+                  file,
+                  'lbw',
+                  String(visualId),
+                  this.serviceId,
+                  '', // caption
+                  ''  // drawings
+                );
+
+                console.log(`[GALLERY UPLOAD] WEBAPP: Photo ${i + 1} uploaded, AttachID:`, uploadResult.attachId);
+
+                // Replace skeleton with real photo
+                const finalIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+                if (finalIndex !== -1 && this.visualPhotos[key]) {
+                  this.visualPhotos[key][finalIndex] = {
+                    ...this.visualPhotos[key][finalIndex],
+                    imageId: uploadResult.attachId,
+                    AttachID: uploadResult.attachId,
+                    attachId: uploadResult.attachId,
+                    id: uploadResult.attachId,
+                    url: uploadResult.s3Url,
+                    displayUrl: uploadResult.s3Url,
+                    originalUrl: uploadResult.s3Url,
+                    thumbnailUrl: uploadResult.s3Url,
+                    status: 'uploaded',
+                    isLocal: false,
+                    uploading: false,
+                    isPending: false,
+                    _pendingFileId: undefined  // Clear pending flag - photo is now on backend
+                  };
+                }
+                this.changeDetectorRef.detectChanges();
+
+              } catch (error) {
+                console.error(`[GALLERY UPLOAD] WEBAPP: Error uploading photo ${i + 1}:`, error);
+
+                // Mark the photo as failed
+                const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
+                if (photoIndex !== -1 && this.visualPhotos[key]) {
+                  this.visualPhotos[key][photoIndex].uploading = false;
+                  this.visualPhotos[key][photoIndex].uploadFailed = true;
+                  this.visualPhotos[key][photoIndex].isSkeleton = false;
+                  this.changeDetectorRef.detectChanges();
+                }
+              }
+            }
+          }
+
+          console.log(`[GALLERY UPLOAD] WEBAPP: All ${images.photos.length} photos processed`);
+          return;
+        }
+
+        // ============================================
+        // MOBILE MODE: Local-first with background sync
+        // ============================================
 
         // CRITICAL: Process photos SEQUENTIALLY
         setTimeout(async () => {

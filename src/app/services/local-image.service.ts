@@ -1166,6 +1166,14 @@ export class LocalImageService {
           file,
           drawings
         ).toPromise();
+      } else if (entityType === 'lbw') {
+        // Upload LBW attachment to LPS_Services_LBW_Attach
+        result = await this.caspioService.createServicesLBWAttachWithFile(
+          parseInt(entityId),
+          caption,
+          file,
+          drawings
+        ).toPromise();
       } else {
         throw new Error(`Unsupported entity type for web upload: ${entityType}`);
       }
