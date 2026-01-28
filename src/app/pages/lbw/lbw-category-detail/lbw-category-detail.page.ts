@@ -147,10 +147,20 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     });
   }
 
-  ionViewWillEnter() {
-    // WEBAPP: Clear loading state when returning to this page
-    if (environment.isWeb) {
+  async ionViewWillEnter() {
+    console.log('[LBW] ionViewWillEnter - serviceId:', this.serviceId, 'categoryName:', this.categoryName);
+
+    // WEBAPP: Reload photos when returning to this page
+    // This ensures photos uploaded on this session appear after navigation
+    if (environment.isWeb && this.serviceId && this.categoryName) {
+      console.log('[LBW] WEBAPP: Reloading photos on page return...');
       this.loading = false;
+
+      // If we have visual record IDs, reload photos from API
+      if (Object.keys(this.visualRecordIds).length > 0) {
+        await this.loadPhotosFromAPI();
+      }
+
       this.changeDetectorRef.detectChanges();
     }
   }
@@ -648,8 +658,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Force change detection to update UI
         this.changeDetectorRef.detectChanges();
 
-        // Load photos for this visual
-        await this.loadPhotosForVisual(LBWID, key);
+        // MOBILE MODE: Load photos for this visual individually
+        // WEBAPP MODE: Photos will be loaded in batch below
+        if (!environment.isWeb) {
+          await this.loadPhotosForVisual(LBWID, key);
+        }
+      }
+
+      // WEBAPP MODE: Load all photos from API in one batch with signed URLs
+      // This ensures photos are loaded synchronously before the page renders
+      if (environment.isWeb) {
+        console.log('[LOAD EXISTING] WEBAPP: Loading all photos from API...');
+        await this.loadPhotosFromAPI();
       }
 
       console.log('[LOAD EXISTING] ========== FINAL STATE ==========');
@@ -779,6 +799,87 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       const kindMatch = item.type?.toLowerCase() === kind?.toLowerCase();
       return nameMatch && categoryMatch && kindMatch;
     });
+  }
+
+  /**
+   * WEBAPP MODE: Load photos from API for all selected visuals
+   * This method loads photos synchronously with signed S3 URLs
+   * Mirrors EFE's loadPhotosFromAPI approach for WEBAPP mode
+   */
+  private async loadPhotosFromAPI(): Promise<void> {
+    console.log('[LBW] WEBAPP MODE: Loading photos from API...');
+
+    // Get all visual IDs that have been selected
+    for (const [key, lbwId] of Object.entries(this.visualRecordIds)) {
+      if (!lbwId) continue;
+
+      try {
+        const attachments = await this.hudData.getVisualAttachments(lbwId);
+        console.log(`[LBW] WEBAPP: Loaded ${attachments?.length || 0} photos for LBW ${lbwId}`);
+
+        // Convert attachments to photo format
+        const photos: any[] = [];
+        for (const att of attachments || []) {
+          // Debug: Log attachment fields to identify correct photo field
+          if (attachments.length > 0 && photos.length === 0) {
+            console.log('[LBW] WEBAPP: Attachment fields:', Object.keys(att));
+          }
+
+          // Try multiple possible field names for the S3 key
+          const rawPhotoValue = att.Attachment || att.attachment || att.Photo || att.photo || att.S3Key || att.s3Key || '';
+          console.log('[LBW] WEBAPP: Raw photo value for attach', att.AttachID || att.PK_ID, ':', rawPhotoValue?.substring(0, 100));
+
+          let displayUrl = rawPhotoValue || 'assets/img/photo-placeholder.svg';
+
+          // WEBAPP: Get S3 signed URL if needed
+          if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+            const isS3Key = displayUrl.startsWith('uploads/') || (this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl));
+
+            if (isS3Key) {
+              // S3 key - get signed URL
+              try {
+                console.log('[LBW] WEBAPP: Getting signed URL for S3 key:', displayUrl);
+                displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+                console.log('[LBW] WEBAPP: Got signed URL:', displayUrl?.substring(0, 80));
+              } catch (e) {
+                console.warn('[LBW] WEBAPP: Could not get S3 URL for key:', e);
+                displayUrl = 'assets/img/photo-placeholder.svg';
+              }
+            } else {
+              console.log('[LBW] WEBAPP: URL not recognized as S3 key, using as-is:', displayUrl?.substring(0, 50));
+            }
+          }
+
+          const attachId = att.AttachID || att.attachId || att.PK_ID;
+          photos.push({
+            id: attachId,
+            attachId: attachId,
+            AttachID: attachId,
+            displayUrl,
+            url: displayUrl,
+            thumbnailUrl: displayUrl,
+            originalUrl: displayUrl,
+            caption: att.Annotation || att.caption || '',
+            annotation: att.Annotation || '',
+            Annotation: att.Annotation || '',
+            uploading: false,
+            isLocal: false,
+            isPending: false,
+            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            Drawings: att.Drawings || ''
+          });
+        }
+
+        this.visualPhotos[key] = photos;
+        this.photoCountsByKey[key] = photos.length;
+        console.log(`[LBW] WEBAPP: Stored ${photos.length} photos for key ${key}`);
+      } catch (error) {
+        console.error(`[LBW] WEBAPP: Error loading photos for LBW ${lbwId}:`, error);
+      }
+    }
+
+    this.changeDetectorRef.detectChanges();
+    console.log('[LBW] WEBAPP MODE: Photo loading complete');
   }
 
   private async loadPhotosForVisual(LBWID: string, key: string) {
@@ -1329,6 +1430,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async showFullText(item: VisualItem) {
+    console.log('[LBW] showFullText called for item:', item?.name, 'answerType:', item?.answerType);
+
+    if (!item) {
+      console.error('[LBW] showFullText called with null/undefined item');
+      return;
+    }
+
+    try {
     // Build inputs based on AnswerType
     const inputs: any[] = [
       {
@@ -1490,7 +1599,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         }
       ]
     });
+    console.log('[LBW] Alert created, presenting...');
     await alert.present();
+    console.log('[LBW] Alert presented successfully');
+    } catch (error) {
+      console.error('[LBW] Error in showFullText:', error);
+      await this.showToast('Failed to open item details', 'danger');
+    }
   }
 
   trackByItemId(index: number, item: VisualItem): any {
@@ -3485,10 +3600,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
   /**
    * Navigate to visual detail page
+   * LBW uses an alert dialog for item details (unlike HUD/EFE which have dedicated pages)
    */
-  openVisualDetail(category: string, item: any): void {
-    // Navigate to a detail page if it exists, or show full text modal
-    this.showFullText(item);
+  async openVisualDetail(category: string, item: any): Promise<void> {
+    console.log('[LBW] openVisualDetail called for:', item?.name, 'category:', category);
+    try {
+      await this.showFullText(item);
+    } catch (error) {
+      console.error('[LBW] Error opening visual detail:', error);
+    }
   }
 
   // Debug panel properties and methods

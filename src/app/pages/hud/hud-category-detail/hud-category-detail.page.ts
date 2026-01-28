@@ -792,55 +792,66 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // On page reload, cached HUD records don't include unsynced changes.
       // VisualFields in Dexie have the local changes (multi-select answers, tempVisualId, etc.)
       // Without this, selections made before sync would be lost after reload.
+      // CRITICAL: HUD shows ALL categories on one page, so we must query by each item's actual category
       try {
-        const savedFields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName);
+        // Collect unique categories from organizedData items
+        const allItems = [...organizedData.comments, ...organizedData.limitations, ...organizedData.deficiencies];
+        const uniqueCategories = new Set<string>();
+        for (const item of allItems) {
+          if (item.category) {
+            uniqueCategories.add(item.category);
+          }
+        }
 
-        // Build a map for quick lookup by templateId
+        // Query Dexie for each category and build a combined map
         const dexieFieldMap = new Map<number, any>();
-        for (const field of savedFields) {
-          dexieFieldMap.set(field.templateId, field);
+        let totalFieldsLoaded = 0;
+        for (const cat of uniqueCategories) {
+          const fieldsForCat = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, cat);
+          for (const field of fieldsForCat) {
+            dexieFieldMap.set(field.templateId, field);
+          }
+          totalFieldsLoaded += fieldsForCat.length;
         }
 
         // Merge Dexie field data into items (Dexie has local changes that aren't synced yet)
-        for (const section of [organizedData.comments, organizedData.limitations, organizedData.deficiencies]) {
-          for (const item of section) {
-            const dexieField = dexieFieldMap.get(item.templateId);
-            if (dexieField) {
-              const key = `${dexieField.category}_${dexieField.templateId}`;
+        for (const item of allItems) {
+          const dexieField = dexieFieldMap.get(item.templateId);
+          if (dexieField) {
+            const key = `${dexieField.category}_${dexieField.templateId}`;
 
-              // Restore visualId for photo matching
-              const visualId = dexieField.visualId || dexieField.tempVisualId;
-              if (visualId && !this.visualRecordIds[key]) {
-                this.visualRecordIds[key] = visualId;
-              }
+            // Restore visualId for photo matching
+            const visualId = dexieField.visualId || dexieField.tempVisualId;
+            if (visualId && !this.visualRecordIds[key]) {
+              this.visualRecordIds[key] = visualId;
+            }
 
-              // MULTI-SELECT FIX: Restore answer from Dexie if it has local changes
-              // Dexie answer takes precedence over cached HUD record (Dexie has unsync'd changes)
-              if (dexieField.answer !== undefined && dexieField.answer !== null && dexieField.answer !== '') {
-                item.answer = dexieField.answer;
-                console.log(`[CategoryDetail] MOBILE: Restored answer from Dexie - key: ${key}, answer: ${dexieField.answer}`);
-              }
+            // MULTI-SELECT FIX: Restore answer from Dexie if it has local changes
+            // Dexie answer takes precedence over cached HUD record (Dexie has unsync'd changes)
+            if (dexieField.answer !== undefined && dexieField.answer !== null && dexieField.answer !== '') {
+              item.answer = dexieField.answer;
+              console.log(`[CategoryDetail] MOBILE: Restored answer from Dexie - key: ${key}, answer: ${dexieField.answer}`);
+            }
 
-              // Restore otherValue from Dexie
-              if (dexieField.otherValue !== undefined && dexieField.otherValue !== null) {
-                item.otherValue = dexieField.otherValue;
-              }
+            // Restore otherValue from Dexie
+            if (dexieField.otherValue !== undefined && dexieField.otherValue !== null) {
+              item.otherValue = dexieField.otherValue;
+            }
 
-              // Restore isSelected from Dexie
-              if (dexieField.isSelected) {
-                item.isSelected = true;
-                this.selectedItems[key] = true;
-              }
+            // Restore isSelected from Dexie
+            if (dexieField.isSelected) {
+              item.isSelected = true;
+              this.selectedItems[key] = true;
+            }
 
-              // Restore dropdownOptions from Dexie (includes custom options added via "Other")
-              if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
-                this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
-              }
+            // Restore dropdownOptions from Dexie (includes custom options added via "Other")
+            if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
+              this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
             }
           }
         }
 
-        console.log(`[CategoryDetail] MOBILE: Merged ${savedFields.length} VisualFields from Dexie`);
+        console.log(`[CategoryDetail] MOBILE: Merged ${totalFieldsLoaded} VisualFields from Dexie (${uniqueCategories.size} categories)`);
       } catch (err) {
         console.error('[CategoryDetail] MOBILE: Failed to load VisualFields from Dexie:', err);
       }
@@ -2999,54 +3010,66 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // loadExistingVisualsFromCache() only reads from cached HUD records.
       // Multi-select changes are saved to Dexie (write-through in onOptionToggle).
       // Without this merge, selections made before sync would be lost after reload.
+      // CRITICAL: HUD shows ALL categories on one page, so we must query by each item's actual category
       try {
-        const savedFields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName);
-        if (savedFields.length > 0) {
-          // Build a map for quick lookup by templateId
-          const dexieFieldMap = new Map<number, any>();
-          for (const field of savedFields) {
+        // Collect unique categories from organizedData items
+        const allItems = [...this.organizedData.comments, ...this.organizedData.limitations, ...this.organizedData.deficiencies];
+        const uniqueCategories = new Set<string>();
+        for (const item of allItems) {
+          if (item.category) {
+            uniqueCategories.add(item.category);
+          }
+        }
+
+        // Query Dexie for each category and build a combined map
+        const dexieFieldMap = new Map<number, any>();
+        let totalFieldsLoaded = 0;
+        for (const cat of uniqueCategories) {
+          const fieldsForCat = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, cat);
+          for (const field of fieldsForCat) {
             dexieFieldMap.set(field.templateId, field);
           }
+          totalFieldsLoaded += fieldsForCat.length;
+        }
 
+        if (dexieFieldMap.size > 0) {
           // Merge Dexie field data into items
-          for (const section of [this.organizedData.comments, this.organizedData.limitations, this.organizedData.deficiencies]) {
-            for (const item of section) {
-              const dexieField = dexieFieldMap.get(item.templateId);
-              if (dexieField) {
-                const key = `${dexieField.category}_${dexieField.templateId}`;
+          for (const item of allItems) {
+            const dexieField = dexieFieldMap.get(item.templateId);
+            if (dexieField) {
+              const key = `${dexieField.category}_${dexieField.templateId}`;
 
-                // Restore visualId for photo matching
-                const visualId = dexieField.visualId || dexieField.tempVisualId;
-                if (visualId && !this.visualRecordIds[key]) {
-                  this.visualRecordIds[key] = visualId;
-                }
+              // Restore visualId for photo matching
+              const visualId = dexieField.visualId || dexieField.tempVisualId;
+              if (visualId && !this.visualRecordIds[key]) {
+                this.visualRecordIds[key] = visualId;
+              }
 
-                // MULTI-SELECT FIX: Restore answer from Dexie (local changes)
-                // Dexie answer takes precedence over cached HUD record
-                if (dexieField.answer !== undefined && dexieField.answer !== null && dexieField.answer !== '') {
-                  item.answer = dexieField.answer;
-                  console.log(`[LOAD DATA] Merged answer from Dexie - templateId: ${item.templateId}, answer: ${dexieField.answer}`);
-                }
+              // MULTI-SELECT FIX: Restore answer from Dexie (local changes)
+              // Dexie answer takes precedence over cached HUD record
+              if (dexieField.answer !== undefined && dexieField.answer !== null && dexieField.answer !== '') {
+                item.answer = dexieField.answer;
+                console.log(`[LOAD DATA] Merged answer from Dexie - templateId: ${item.templateId}, answer: ${dexieField.answer}`);
+              }
 
-                // Restore otherValue from Dexie
-                if (dexieField.otherValue !== undefined && dexieField.otherValue !== null) {
-                  item.otherValue = dexieField.otherValue;
-                }
+              // Restore otherValue from Dexie
+              if (dexieField.otherValue !== undefined && dexieField.otherValue !== null) {
+                item.otherValue = dexieField.otherValue;
+              }
 
-                // Restore isSelected from Dexie
-                if (dexieField.isSelected) {
-                  item.isSelected = true;
-                  this.selectedItems[key] = true;
-                }
+              // Restore isSelected from Dexie
+              if (dexieField.isSelected) {
+                item.isSelected = true;
+                this.selectedItems[key] = true;
+              }
 
-                // Restore dropdownOptions from Dexie (includes custom options added via "Other")
-                if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
-                  this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
-                }
+              // Restore dropdownOptions from Dexie (includes custom options added via "Other")
+              if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
+                this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
               }
             }
           }
-          console.log(`[LOAD DATA] ? Merged ${savedFields.length} VisualFields from Dexie`);
+          console.log(`[LOAD DATA] ? Merged ${totalFieldsLoaded} VisualFields from Dexie (${uniqueCategories.size} categories)`);
         }
       } catch (err) {
         console.error('[LOAD DATA] Failed to merge VisualFields from Dexie:', err);
@@ -5222,10 +5245,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   // Multi-select option toggle (answerType 2)
   // Non-blocking: Updates UI immediately, saves in background for responsive rapid selection
   onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
-    const key = `${category}_${item.id}`;
+    // CRITICAL FIX: Use item.templateId (not item.id) to match how visualRecordIds is keyed
+    // Also use item.category (actual category like "Mobile/Manufactured Homes") not route param
+    const actualCategory = item.category || category;
+    const key = `${actualCategory}_${item.templateId}`;
     const isChecked = event.detail.checked;
 
-    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key);
+    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key, 'templateId:', item.templateId);
 
     // Update the answer string immediately for responsive UI
     let selectedOptions: string[] = [];
@@ -5261,7 +5287,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     item.answer = selectedOptions.join(', ');
 
     // DEXIE-FIRST: Write-through to visualFields for instant reactive update (fire-and-forget)
-    this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+    // Use actualCategory (item's real category) not route param
+    this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
       answer: item.answer,
       isSelected: selectedOptions.length > 0 || !!(item.otherValue && item.otherValue !== '')
     }).catch(err => {
@@ -5269,7 +5296,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     });
 
     // Save to database in background (non-blocking for responsive UI)
-    this.saveOptionToDatabase(category, item, key, selectedOptions);
+    this.saveOptionToDatabase(actualCategory, item, key, selectedOptions);
   }
 
   // Background save for multi-select options - separated from UI toggle for responsiveness
@@ -5346,14 +5373,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   async onMultiSelectOtherChange(category: string, item: VisualItem) {
-    const key = `${category}_${item.id}`;
-    console.log('[OTHER] Value changed:', item.otherValue, 'for', key);
+    // CRITICAL FIX: Use item.templateId (not item.id) and item.category to match visualRecordIds keys
+    const actualCategory = item.category || category;
+    const key = `${actualCategory}_${item.templateId}`;
+    console.log('[OTHER] Value changed:', item.otherValue, 'for', key, 'templateId:', item.templateId);
 
     this.savingItems[key] = true;
 
     try {
       // DEXIE-FIRST: Save otherValue to Dexie immediately for persistence across reloads
-      await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+      await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
         otherValue: item.otherValue || '',
         isSelected: true  // Selecting "Other" means the item is selected
       });
@@ -5364,7 +5393,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // If "Other" value is empty AND no options selected, hide the visual
       if ((!item.otherValue || item.otherValue === '') && (!item.answer || item.answer === '')) {
         // Update Dexie to reflect unselected state
-        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+        await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
           otherValue: '',
           isSelected: false
         });
@@ -5398,11 +5427,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         this.visualRecordIds[key] = newVisualId;
 
         // DEXIE-FIRST: Store tempVisualId AND templateName/Text in Dexie
-        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+        await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
           tempVisualId: newVisualId,
           templateName: item.name || '',
           templateText: item.text || item.originalText || '',
-          category: item.category || category,
+          category: actualCategory,
           kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
           isSelected: true
         });
@@ -5443,8 +5472,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       return;
     }
 
-    const key = `${category}_${item.id}`;
-    console.log('[OTHER] Adding custom option:', customValue, 'for', key);
+    // CRITICAL FIX: Use item.templateId (not item.id) and item.category to match visualRecordIds keys
+    const actualCategory = item.category || category;
+    const key = `${actualCategory}_${item.templateId}`;
+    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'templateId:', item.templateId);
 
     // Get current options for this template
     let options = this.visualDropdownOptions[item.templateId];
@@ -5496,7 +5527,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
     // DEXIE-FIRST: Write-through to visualFields including updated dropdownOptions
     // This ensures custom options persist across page loads and liveQuery updates
-    await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+    await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
       answer: item.answer,
       otherValue: '',
       isSelected: true,
@@ -5527,11 +5558,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const newVisualId = String(result.HUDID || result.VisualID || result.PK_ID || result.id);
         this.visualRecordIds[key] = newVisualId;
 
-        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+        await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
           tempVisualId: newVisualId,
           templateName: item.name || '',
           templateText: item.text || item.originalText || '',
-          category: item.category || category,
+          category: actualCategory,
           kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
           isSelected: true
         });
