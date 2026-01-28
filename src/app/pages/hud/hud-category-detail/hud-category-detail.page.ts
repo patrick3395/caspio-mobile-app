@@ -847,6 +847,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   /**
    * MOBILE MODE: Load photos from Dexie for all selected visuals
+   * FIXED: Uses localImageService.getDisplayUrl() to get proper blob URLs
+   * (Previously was using blob IDs directly which don't work as URLs)
    */
   private async loadPhotosFromDexie(): Promise<void> {
     console.log('[CategoryDetail] MOBILE: Loading photos from Dexie...');
@@ -867,12 +869,48 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // Get photos from local storage by entity type and ID
         const localPhotos = await this.indexedDb.getLocalImagesForEntity('hud', visualId);
         if (localPhotos && localPhotos.length > 0) {
-          const photos = localPhotos.map((p: any) => ({
-            displayUrl: p.thumbBlobId || p.localBlobId || p.remoteS3Key || 'assets/img/photo-placeholder.png',
-            id: p.imageId || p.attachId,
-            caption: p.caption || '',
-            localId: p.imageId
+          // FIXED: Get proper blob URLs using localImageService.getDisplayUrl()
+          // Previously was using blob IDs directly (p.localBlobId) which are NOT valid URLs
+          const photos = await Promise.all(localPhotos.map(async (localImage: any) => {
+            // Get fresh display URL from LocalImageService (creates proper blob URL from IndexedDB blob)
+            const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+            return {
+              // STABLE ID - never changes, safe for UI key
+              imageId: localImage.imageId,
+
+              // For compatibility with existing code
+              AttachID: localImage.attachId || localImage.imageId,
+              attachId: localImage.attachId || localImage.imageId,
+              id: localImage.imageId,
+              localId: localImage.imageId,
+
+              // Display URLs - properly resolved from IndexedDB blob
+              url: displayUrl,
+              displayUrl: displayUrl,
+              originalUrl: displayUrl,
+              thumbnailUrl: displayUrl,
+
+              // Metadata
+              caption: localImage.caption || '',
+              annotation: localImage.caption || '',
+              Annotation: localImage.caption || '',
+              Drawings: localImage.drawings || '',
+              hasAnnotations: !!(localImage.drawings && localImage.drawings.length > 10),
+
+              // Status from LocalImage system
+              status: localImage.status,
+              isLocal: true,
+              isLocalFirst: true,
+              isLocalImage: true,
+              isObjectUrl: displayUrl?.startsWith('blob:'),
+              uploading: false,
+              queued: false,
+              isPending: localImage.status !== 'verified',
+              isSkeleton: false,
+              progress: 0
+            };
           }));
+
           this.visualPhotos[item.key] = photos;
           console.log(`[CategoryDetail] MOBILE: Loaded ${photos.length} photos for visual ${visualId}`);
         }
