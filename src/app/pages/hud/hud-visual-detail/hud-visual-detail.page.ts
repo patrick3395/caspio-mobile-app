@@ -287,54 +287,91 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         return;
       }
 
-      // MOBILE MODE: Try to load from Dexie visualFields first
-      // HUD NOTE: Query by serviceId and match by templateId - don't filter by route category
-      // because route uses 'hud' but actual data has real categories
-      const allFields = await db.visualFields
-        .where('serviceId')
-        .equals(this.serviceId)
-        .toArray();
+      // MOBILE MODE: Load from cached HUD records (contains user edits) + templates
+      // Similar pattern to WEBAPP mode but using cached data instead of API
+      console.log('[HudVisualDetail] MOBILE MODE: Loading data from cache');
+      console.log('[HudVisualDetail] MOBILE: HUDID from query params:', hudIdFromQueryParams || '(none)');
 
-      const field = allFields.find(f => f.templateId === this.templateId);
+      // Load cached HUD records (contains user's edited Title/Description)
+      const queryServiceId = this.actualServiceId || this.serviceId;
+      const hudRecords = await this.hudData.getHudByService(queryServiceId);
+      console.log('[HudVisualDetail] MOBILE: Loaded', hudRecords.length, 'HUD records from cache');
 
-      if (field) {
-        this.item = this.convertFieldToItem(field);
-        this.categoryName = field.category || this.categoryName; // Use actual category from data
+      // Load cached templates for fallback
+      const cachedTemplates = await this.indexedDb.getCachedTemplates('hud') || [];
+      const template = cachedTemplates.find((t: any) =>
+        (t.TemplateID || t.PK_ID) === this.templateId
+      );
+
+      // PRIORITY 1: Find HUD record by HUDID from query params (most reliable)
+      let visual: any = null;
+      if (hudIdFromQueryParams) {
+        visual = hudRecords.find((v: any) =>
+          String(v.HUDID || v.PK_ID) === String(hudIdFromQueryParams)
+        );
+        if (visual) {
+          console.log('[HudVisualDetail] MOBILE: Matched HUD record by HUDID:', hudIdFromQueryParams);
+        }
+      }
+
+      // PRIORITY 2: Fall back to Name + Category matching
+      if (!visual && template && template.Name) {
+        visual = hudRecords.find((v: any) =>
+          v.Name === template.Name && v.Category === template.Category
+        );
+        if (visual) {
+          console.log('[HudVisualDetail] MOBILE: Matched HUD record by name+category:', template.Name, template.Category);
+        }
+      }
+
+      if (visual) {
+        // Found HUD record - use its Name and Text (contains user edits)
+        const actualCategory = visual.Category || '';
+        this.item = {
+          id: visual.HUDID || visual.PK_ID,
+          templateId: this.templateId,
+          name: visual.Name || '',
+          text: visual.Text || visual.VisualText || '',
+          originalText: template?.Text || '',
+          type: visual.Kind || template?.Kind || 'Comment',
+          category: actualCategory,
+          answerType: template?.AnswerType || 0,
+          required: false,
+          answer: visual.Answers || '',
+          isSelected: true
+        };
+        this.categoryName = actualCategory;
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
-        console.log('[HudVisualDetail] Loaded item from Dexie field:', this.item.name, 'Category:', field.category);
-      } else {
-        // FALLBACK: Load from cached templates if field doesn't exist yet
-        console.log('[HudVisualDetail] Field not in Dexie, loading from templates...');
-        const cachedTemplates = await this.indexedDb.getCachedTemplates('hud') || [];
-        // Match by TemplateID only (not by route category)
-        const template = cachedTemplates.find((t: any) =>
-          (t.TemplateID || t.PK_ID) === this.templateId
-        );
 
-        if (template) {
-          // Create item from template - use effectiveTemplateId for consistency
-          const effectiveTemplateId = template.TemplateID || template.PK_ID;
-          const actualCategory = template.Category || '';
-          this.item = {
-            id: effectiveTemplateId,
-            templateId: effectiveTemplateId,
-            name: template.Name || '',
-            text: template.Text || '',
-            originalText: template.Text || '',
-            type: template.Kind || 'Comment',
-            category: actualCategory,
-            answerType: template.AnswerType || 0,
-            required: false,
-            isSelected: false
-          };
-          this.categoryName = actualCategory; // Update to actual category
-          this.editableTitle = this.item.name;
-          this.editableText = this.item.text;
-          console.log('[HudVisualDetail] Loaded item from template:', this.item.name, 'Category:', actualCategory);
-        } else {
-          console.warn('[HudVisualDetail] Template not found for ID:', this.templateId);
+        // Store HUDID for photo loading
+        if (!this.hudId) {
+          this.hudId = String(visual.HUDID || visual.PK_ID);
         }
+
+        console.log('[HudVisualDetail] MOBILE: Loaded from HUD record - Name:', this.item.name, 'Text:', this.item.text?.substring(0, 50));
+      } else if (template) {
+        // No HUD record - use template values (item not yet selected/edited)
+        const effectiveTemplateId = template.TemplateID || template.PK_ID;
+        const actualCategory = template.Category || '';
+        this.item = {
+          id: effectiveTemplateId,
+          templateId: effectiveTemplateId,
+          name: template.Name || '',
+          text: template.Text || '',
+          originalText: template.Text || '',
+          type: template.Kind || 'Comment',
+          category: actualCategory,
+          answerType: template.AnswerType || 0,
+          required: false,
+          isSelected: false
+        };
+        this.categoryName = actualCategory;
+        this.editableTitle = this.item.name;
+        this.editableText = this.item.text;
+        console.log('[HudVisualDetail] MOBILE: Loaded from template - Name:', this.item.name);
+      } else {
+        console.warn('[HudVisualDetail] MOBILE: No HUD record or template found for ID:', this.templateId);
       }
 
       // Load photos

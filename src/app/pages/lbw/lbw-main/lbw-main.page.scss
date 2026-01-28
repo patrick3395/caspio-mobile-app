@@ -1,21 +1,23 @@
+:host {
+  display: block;
+  width: 100%;
+  min-height: 100%;
+}
+
 .main-container {
-  padding: 0;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 20px !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+  background: #f5f5f5 !important;
+  min-height: 100vh;
 }
 
 .white-container {
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 0;
-  margin-bottom: 0;
-}
-
-.cards-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  background: white !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+  padding: 24px !important;
+  min-height: 200px;
 }
 
 .loading-container {
@@ -37,19 +39,24 @@
   }
 }
 
+.cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
 .navigation-card {
   margin: 0;
-  box-shadow: none;
-  border-radius: 0;
-  border-bottom: 1px solid #e8e8e8;
-  transition: background-color 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  transition: box-shadow 0.2s, background-color 0.2s;
   cursor: pointer;
-  background: white;
+  background: #f8f9fa;
 
   @media (hover: hover) and (pointer: fine) {
     &:hover {
-      background: #f8f8f8;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+      background: #f0f0f0;
     }
   }
 
@@ -130,60 +137,32 @@
   }
 }
 
-// Keep stacked bar layout on all screen sizes
-@media (min-width: 768px) {
-  .cards-container {
-    gap: 10px;
+.empty-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #999;
+
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    color: #ccc;
+  }
+
+  p {
+    margin: 0;
+    font-size: 15px;
   }
 }
 
 @media (max-width: 768px) {
   .main-container {
-    padding: 0;
+    padding: 12px;
+  }
+
+  .white-container {
+    padding: 16px;
   }
 }
-
-// ==============================================
-// G2-RESP-002: Desktop Layout Optimizations (Web Only)
-// ==============================================
-
-// Desktop: Wider container and multi-column layout for navigation cards
-@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
-  .main-container {
-    max-width: 1200px;
-    padding: 0;
-  }
-
-  // 2-column navigation cards at 1024px+
-  .cards-container {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
-  .main-container {
-    max-width: 1400px;
-    padding: 0;
-  }
-
-  // 3-column navigation cards at 1200px+
-  .cards-container {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) and (min-width: 1600px) {
-  .main-container {
-    max-width: 1600px;
-  }
-
-  // 4-column navigation cards for very large screens
-  .cards-container {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
-  }
-}
-
