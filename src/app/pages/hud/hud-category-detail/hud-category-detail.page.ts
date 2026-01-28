@@ -788,24 +788,59 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       console.log(`[CategoryDetail] MOBILE: Organized - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
 
-      // PHOTO PERSISTENCE FIX: Load VisualFields from Dexie to restore tempVisualId for unsynced photos
-      // On page reload, server data doesn't include unsynced visual records.
-      // VisualFields in Dexie have the tempVisualId that matches LocalImage.entityId.
-      // Without this, photos taken before sync would show as broken images after reload.
+      // DEXIE-FIRST: Load VisualFields from Dexie to restore local changes (visualId, answer, otherValue)
+      // On page reload, cached HUD records don't include unsynced changes.
+      // VisualFields in Dexie have the local changes (multi-select answers, tempVisualId, etc.)
+      // Without this, selections made before sync would be lost after reload.
       try {
         const savedFields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName);
+
+        // Build a map for quick lookup by templateId
+        const dexieFieldMap = new Map<number, any>();
         for (const field of savedFields) {
-          const visualId = field.visualId || field.tempVisualId;
-          if (visualId && field.templateId) {
-            const key = `${field.category}_${field.templateId}`;
-            // Only set if not already set from server data (server data takes precedence)
-            if (!this.visualRecordIds[key]) {
-              this.visualRecordIds[key] = visualId;
-              console.log(`[CategoryDetail] MOBILE: Restored visualId from Dexie - key: ${key}, visualId: ${visualId}`);
+          dexieFieldMap.set(field.templateId, field);
+        }
+
+        // Merge Dexie field data into items (Dexie has local changes that aren't synced yet)
+        for (const section of [organizedData.comments, organizedData.limitations, organizedData.deficiencies]) {
+          for (const item of section) {
+            const dexieField = dexieFieldMap.get(item.templateId);
+            if (dexieField) {
+              const key = `${dexieField.category}_${dexieField.templateId}`;
+
+              // Restore visualId for photo matching
+              const visualId = dexieField.visualId || dexieField.tempVisualId;
+              if (visualId && !this.visualRecordIds[key]) {
+                this.visualRecordIds[key] = visualId;
+              }
+
+              // MULTI-SELECT FIX: Restore answer from Dexie if it has local changes
+              // Dexie answer takes precedence over cached HUD record (Dexie has unsync'd changes)
+              if (dexieField.answer !== undefined && dexieField.answer !== null && dexieField.answer !== '') {
+                item.answer = dexieField.answer;
+                console.log(`[CategoryDetail] MOBILE: Restored answer from Dexie - key: ${key}, answer: ${dexieField.answer}`);
+              }
+
+              // Restore otherValue from Dexie
+              if (dexieField.otherValue !== undefined && dexieField.otherValue !== null) {
+                item.otherValue = dexieField.otherValue;
+              }
+
+              // Restore isSelected from Dexie
+              if (dexieField.isSelected) {
+                item.isSelected = true;
+                this.selectedItems[key] = true;
+              }
+
+              // Restore dropdownOptions from Dexie (includes custom options added via "Other")
+              if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
+                this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
+              }
             }
           }
         }
-        console.log(`[CategoryDetail] MOBILE: Loaded ${savedFields.length} VisualFields from Dexie`);
+
+        console.log(`[CategoryDetail] MOBILE: Merged ${savedFields.length} VisualFields from Dexie`);
       } catch (err) {
         console.error('[CategoryDetail] MOBILE: Failed to load VisualFields from Dexie:', err);
       }
