@@ -755,6 +755,28 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       console.log(`[CategoryDetail] MOBILE: Organized - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
 
+      // PHOTO PERSISTENCE FIX: Load VisualFields from Dexie to restore tempVisualId for unsynced photos
+      // On page reload, server data doesn't include unsynced visual records.
+      // VisualFields in Dexie have the tempVisualId that matches LocalImage.entityId.
+      // Without this, photos taken before sync would show as broken images after reload.
+      try {
+        const savedFields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName);
+        for (const field of savedFields) {
+          const visualId = field.visualId || field.tempVisualId;
+          if (visualId && field.templateId) {
+            const key = `${field.category}_${field.templateId}`;
+            // Only set if not already set from server data (server data takes precedence)
+            if (!this.visualRecordIds[key]) {
+              this.visualRecordIds[key] = visualId;
+              console.log(`[CategoryDetail] MOBILE: Restored visualId from Dexie - key: ${key}, visualId: ${visualId}`);
+            }
+          }
+        }
+        console.log(`[CategoryDetail] MOBILE: Loaded ${savedFields.length} VisualFields from Dexie`);
+      } catch (err) {
+        console.error('[CategoryDetail] MOBILE: Failed to load VisualFields from Dexie:', err);
+      }
+
       // MOBILE FIX: Populate lastConvertedFields from organizedData
       // This is required for populatePhotosFromDexie() to work when liveQuery fires
       // HUD doesn't use visualFieldRepo subscription like EFE, so we must manually populate
