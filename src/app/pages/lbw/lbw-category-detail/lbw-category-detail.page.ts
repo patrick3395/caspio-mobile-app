@@ -444,6 +444,19 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // No need to load them individually here
       });
 
+      // Sort each section: multi-select (answerType 2) first, then yes/no (answerType 1), then text (answerType 0)
+      // This ensures "External or Internal wall" appears before "Sketch of area to be removed"
+      const sortByAnswerType = (a: VisualItem, b: VisualItem) => {
+        // Multi-select (2) comes first, then yes/no (1), then text (0)
+        const orderA = a.answerType === 2 ? 0 : (a.answerType === 1 ? 1 : 2);
+        const orderB = b.answerType === 2 ? 0 : (b.answerType === 1 ? 1 : 2);
+        return orderA - orderB;
+      };
+
+      this.organizedData.comments.sort(sortByAnswerType);
+      this.organizedData.limitations.sort(sortByAnswerType);
+      this.organizedData.deficiencies.sort(sortByAnswerType);
+
       console.log('[LBW CATEGORY] Organized data:', {
         comments: this.organizedData.comments.length,
         limitations: this.organizedData.limitations.length,

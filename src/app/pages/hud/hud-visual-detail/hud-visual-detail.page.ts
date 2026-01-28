@@ -316,9 +316,11 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       // Load cached templates for fallback
       const cachedTemplates = await this.indexedDb.getCachedTemplates('hud') || [];
+      // Use Number() to handle string/number type mismatch in ID comparison
       const template = cachedTemplates.find((t: any) =>
-        (t.TemplateID || t.PK_ID) === this.templateId
+        Number(t.TemplateID || t.PK_ID) === this.templateId
       );
+      console.log('[HudVisualDetail] MOBILE: Template lookup for ID', this.templateId, '- found:', !!template, template?.Name);
 
       // PRIORITY 1: Find HUD record by HUDID from query params (most reliable)
       let visual: any = null;
@@ -358,9 +360,15 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         // Found HUD record - use its Name and Text (contains user edits)
         const actualCategory = visual.Category || '';
 
+        // DEBUG: Log all possible title sources
+        console.log('[HudVisualDetail] MOBILE: Title sources - visualField.templateName:', visualField?.templateName,
+          '| visual.Name:', visual.Name, '| template.Name:', template?.Name);
+
         // DEXIE-FIRST: Use visualField values as PRIORITY 1 (local edits take precedence)
         // Then fall back to visual (HUD record), then template
-        const titleValue = visualField?.templateName || visual.Name || template?.Name || '';
+        // IMPORTANT: Skip "Custom Item" fallback value - use template name instead
+        const visualName = (visual.Name && visual.Name !== 'Custom Item') ? visual.Name : '';
+        const titleValue = visualField?.templateName || visualName || template?.Name || '';
         const textValue = visualField?.templateText || visual.Text || visual.VisualText || template?.Text || '';
 
         this.item = {
