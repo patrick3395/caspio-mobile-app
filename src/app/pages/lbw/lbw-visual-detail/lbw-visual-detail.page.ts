@@ -617,13 +617,18 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       const actualCategory = this.item?.category || this.categoryName;
 
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
+      // CRITICAL: Also save visualId so category-detail can restore it
+      const dexieUpdate: any = { templateName: this.editableTitle };
+      if (this.lbwId) {
+        dexieUpdate.visualId = this.lbwId;
+      }
       await this.visualFieldRepo.setField(
         this.serviceId,
         actualCategory,
         this.templateId,
-        { templateName: this.editableTitle }
+        dexieUpdate
       );
-      console.log('[LbwVisualDetail] ✅ Updated title in Dexie');
+      console.log('[LbwVisualDetail] ✅ Updated title in Dexie with visualId:', this.lbwId);
 
       // Queue update to Caspio for background sync (only if valid lbwId)
       if (this.isValidLbwId(this.lbwId)) {
@@ -657,13 +662,18 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       const actualCategory = this.item?.category || this.categoryName;
 
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
+      // CRITICAL: Also save visualId so category-detail can restore it
+      const dexieUpdate: any = { templateText: this.editableText };
+      if (this.lbwId) {
+        dexieUpdate.visualId = this.lbwId;
+      }
       await this.visualFieldRepo.setField(
         this.serviceId,
         actualCategory,
         this.templateId,
-        { templateText: this.editableText }
+        dexieUpdate
       );
-      console.log('[LbwVisualDetail] ✅ Updated text in Dexie');
+      console.log('[LbwVisualDetail] ✅ Updated text in Dexie with visualId:', this.lbwId);
 
       // Queue update to Caspio for background sync (only if valid lbwId)
       if (this.isValidLbwId(this.lbwId)) {
