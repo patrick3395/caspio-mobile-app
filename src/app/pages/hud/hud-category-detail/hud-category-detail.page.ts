@@ -5078,21 +5078,30 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   async toggleItemSelection(category: string, itemId: string | number) {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Find item to get actual category (not route param "hud")
+    const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
+    const item = this.findItemByTemplateId(templateId);
+    const actualCategory = item?.category || category;
+
+    // Use actualCategory for key to match how visualRecordIds and Dexie merge work
+    const key = `${actualCategory}_${itemId}`;
     const newState = !this.selectedItems[key];
     this.selectedItems[key] = newState;
 
-    console.log('[TOGGLE] Item:', key, 'Selected:', newState);
+    console.log('[TOGGLE] Item:', key, 'Selected:', newState, 'actualCategory:', actualCategory);
 
     // Set cooldown to prevent cache invalidation from causing UI flash
     this.startLocalOperationCooldown();
 
     // DEXIE-FIRST: Write-through to visualFields for instant reactive update
     // MUST await to prevent race condition where liveQuery fires before write completes
-    const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
     try {
-      await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
-        isSelected: newState
+      await this.visualFieldRepo.setField(this.serviceId, actualCategory, templateId, {
+        isSelected: newState,
+        category: actualCategory,  // Store actual category for proper lookup
+        templateName: item?.name || '',
+        templateText: item?.text || item?.originalText || '',
+        kind: (item?.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment'
       });
       console.log('[TOGGLE] Persisted isSelected to Dexie:', newState);
     } catch (err) {
@@ -5137,7 +5146,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       } else if (!visualId) {
         // No visual record exists - create new one
         this.savingItems[key] = true;
-        await this.saveVisualSelection(category, itemId);
+        await this.saveVisualSelection(actualCategory, itemId);
         this.savingItems[key] = false;
       }
     } else {
@@ -5169,11 +5178,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   // Answer change for Yes/No dropdowns (answerType 1)
   async onAnswerChange(category: string, item: VisualItem) {
-    const key = `${category}_${item.id}`;
-    console.log('[ANSWER] Changed:', item.answer, 'for', key);
+    // CRITICAL FIX: Use item.category (not route param) to match visualRecordIds keys
+    const actualCategory = item.category || category;
+    const key = `${actualCategory}_${item.templateId}`;
+    console.log('[ANSWER] Changed:', item.answer, 'for', key, 'actualCategory:', actualCategory);
 
     // DEXIE-FIRST: Write-through to visualFields for instant reactive update
-    this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+    this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
       answer: item.answer || '',
       isSelected: !!(item.answer && item.answer !== '')
     }).catch(err => {
@@ -5223,9 +5234,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Notes: ''
         }, this.serviceId);
         console.log('[ANSWER] Updated visual:', visualId);
-        
+
         // CRITICAL: Load photos if visual was previously hidden
-        const key = `${category}_${item.id}`;
         if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
           console.log('[ANSWER] Loading photos for unhidden visual:', visualId);
           this.loadPhotosForVisual(visualId, key).catch(err => {
@@ -5586,7 +5596,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   isItemSaving(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
-    return this.savingItems[key] || false;
+    if (this.savingItems[key]) {
+      return true;
+    }
+    // HUD FIX: Also check using item's actual category
+    const item = this.findItemByTemplateId(typeof itemId === 'string' ? parseInt(itemId, 10) : itemId);
+    if (item && item.category && item.category !== category) {
+      const itemCategoryKey = `${item.category}_${itemId}`;
+      return this.savingItems[itemCategoryKey] || false;
+    }
+    return false;
   }
 
   // ============================================
@@ -8387,40 +8406,27 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           templateName: name,
           templateText: text,
           kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
+          category: category,  // Store actual category for Dexie lookup
           photoCount: photoCount
         });
         console.log('[CREATE CUSTOM] ✅ Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
-
-        // WEBAPP FIX: In webapp mode, explicitly add to organizedData for immediate display
-        // LiveQuery may not trigger UI update in webapp mode
-        if (environment.isWeb) {
-          console.log('[CREATE CUSTOM] WEBAPP: Adding custom item to organizedData for immediate display');
-          if (kind === 'Comment') {
-            this.organizedData.comments.push(customItem);
-          } else if (kind === 'Limitation') {
-            this.organizedData.limitations.push(customItem);
-          } else if (kind === 'Deficiency') {
-            this.organizedData.deficiencies.push(customItem);
-          } else {
-            this.organizedData.comments.push(customItem);
-          }
-          this.changeDetectorRef.detectChanges();
-        }
       } catch (err) {
         console.error('[CREATE CUSTOM] Failed to persist to Dexie:', err);
-
-        // Even if Dexie persist fails, add to organizedData for immediate display
-        if (kind === 'Comment') {
-          this.organizedData.comments.push(customItem);
-        } else if (kind === 'Limitation') {
-          this.organizedData.limitations.push(customItem);
-        } else if (kind === 'Deficiency') {
-          this.organizedData.deficiencies.push(customItem);
-        } else {
-          this.organizedData.comments.push(customItem);
-        }
-        this.changeDetectorRef.detectChanges();
       }
+
+      // CRITICAL FIX: Add custom item to organizedData for BOTH webapp AND mobile modes
+      // HUD mobile doesn't use liveQuery like EFE does, so we must explicitly add the item
+      console.log('[CREATE CUSTOM] Adding custom item to organizedData for immediate display');
+      if (kind === 'Comment') {
+        this.organizedData.comments.push(customItem);
+      } else if (kind === 'Limitation') {
+        this.organizedData.limitations.push(customItem);
+      } else if (kind === 'Deficiency') {
+        this.organizedData.deficiencies.push(customItem);
+      } else {
+        this.organizedData.comments.push(customItem);
+      }
+      this.changeDetectorRef.detectChanges();
 
       // Clear PDF cache so new PDFs show updated data
       this.clearPdfCache();
