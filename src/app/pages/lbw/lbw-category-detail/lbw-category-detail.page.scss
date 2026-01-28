@@ -388,6 +388,51 @@ ion-content {
         transition: background-color 0.2s ease;
         overflow: visible;
 
+        // New header without checkbox
+        .multi-select-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          padding: 16px 16px 8px 16px;
+          background: transparent;
+
+          .multi-select-title {
+            flex: 1;
+
+            h3 {
+              font-size: 15px;
+              font-weight: 600;
+              color: #333;
+              margin: 0 0 4px 0;
+
+              .required-indicator {
+                color: var(--ion-color-danger);
+                font-weight: bold;
+                margin-left: 4px;
+              }
+            }
+
+            .item-text-wrapper {
+              margin-top: 4px;
+
+              .item-text {
+                font-size: 13px;
+                color: #666;
+                line-height: 1.5;
+                margin: 0;
+              }
+            }
+          }
+
+          .multi-select-indicators {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            margin-left: 12px;
+          }
+        }
+
         .checkbox-item {
           --background: transparent;
           --inner-border-width: 0;

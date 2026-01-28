@@ -109,33 +109,26 @@
 
             <!-- Multi-select questions - show checkboxes for each option -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
-              <ion-item lines="none" class="checkbox-item with-camera" [class.has-photos]="getPhotosForVisual(item.category, item.templateId).length > 0">
-                <ion-checkbox
-                  slot="start"
-                  [checked]="isItemSelected(categoryName, item.templateId)"
-                  [disabled]="isItemSaving(categoryName, item.templateId)"
-                  (ionChange)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
-                </ion-checkbox>
-                <div style="flex: 1; display: flex; align-items: center;">
-                  <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()" style="flex: 1;">
-                    <h3>
-                      <span [innerHTML]="highlightText(item.name)"></span>
-                      <span class="required-indicator" *ngIf="item.required">*</span>
-                    </h3>
-                    <div class="item-text-wrapper">
-                      <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
-                    </div>
-                  </ion-label>
-                  <!-- Right-aligned photo count indicator -->
+              <div class="multi-select-header" [class.has-photos]="getPhotosForVisual(item.category, item.templateId).length > 0">
+                <div class="multi-select-title">
+                  <h3>
+                    <span [innerHTML]="highlightText(item.name)"></span>
+                    <span class="required-indicator" *ngIf="item.required">*</span>
+                  </h3>
+                  <div class="item-text-wrapper">
+                    <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
+                  </div>
+                </div>
+                <div class="multi-select-indicators">
                   <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(item.category, item.templateId) > 0">
                     <span class="photo-count">
                       <ion-icon name="images"></ion-icon>
                       {{ getTotalPhotoCount(item.category, item.templateId) }}
                     </span>
                   </div>
+                  <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent"></ion-spinner>
                 </div>
-                <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent" slot="end"></ion-spinner>
-              </ion-item>
+              </div>
               <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
                 <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
                   <ion-checkbox
@@ -403,32 +396,26 @@
 
             <!-- Multi-select questions -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
-              <ion-item lines="none" class="checkbox-item with-camera" [class.has-photos]="getPhotosForVisual(item.category, item.templateId).length > 0">
-                <ion-checkbox
-                  slot="start"
-                  [checked]="isItemSelected(categoryName, item.templateId)"
-                  [disabled]="isItemSaving(categoryName, item.templateId)"
-                  (ionChange)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
-                </ion-checkbox>
-                <div style="flex: 1; display: flex; align-items: center;">
-                  <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()" style="flex: 1;">
-                    <h3>
-                      <span [innerHTML]="highlightText(item.name)"></span>
-                      <span class="required-indicator" *ngIf="item.required">*</span>
-                    </h3>
-                    <div class="item-text-wrapper">
-                      <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
-                    </div>
-                  </ion-label>
+              <div class="multi-select-header" [class.has-photos]="getPhotosForVisual(item.category, item.templateId).length > 0">
+                <div class="multi-select-title">
+                  <h3>
+                    <span [innerHTML]="highlightText(item.name)"></span>
+                    <span class="required-indicator" *ngIf="item.required">*</span>
+                  </h3>
+                  <div class="item-text-wrapper">
+                    <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
+                  </div>
+                </div>
+                <div class="multi-select-indicators">
                   <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(item.category, item.templateId) > 0">
                     <span class="photo-count">
                       <ion-icon name="images"></ion-icon>
                       {{ getTotalPhotoCount(item.category, item.templateId) }}
                     </span>
                   </div>
+                  <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent"></ion-spinner>
                 </div>
-                <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent" slot="end"></ion-spinner>
-              </ion-item>
+              </div>
               <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
                 <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
                   <ion-checkbox
@@ -689,32 +676,26 @@
 
             <!-- Multi-select questions -->
             <div class="multi-select-container" *ngIf="item.answerType === 2">
-              <ion-item lines="none" class="checkbox-item with-camera" [class.has-photos]="getPhotosForVisual(item.category, item.templateId).length > 0">
-                <ion-checkbox
-                  slot="start"
-                  [checked]="isItemSelected(categoryName, item.templateId)"
-                  [disabled]="isItemSaving(categoryName, item.templateId)"
-                  (ionChange)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()">
-                </ion-checkbox>
-                <div style="flex: 1; display: flex; align-items: center;">
-                  <ion-label class="item-label" (click)="toggleItemSelection(categoryName, item.templateId); $event.stopPropagation()" style="flex: 1;">
-                    <h3>
-                      <span [innerHTML]="highlightText(item.name)"></span>
-                      <span class="required-indicator" *ngIf="item.required">*</span>
-                    </h3>
-                    <div class="item-text-wrapper">
-                      <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
-                    </div>
-                  </ion-label>
+              <div class="multi-select-header" [class.has-photos]="getPhotosForVisual(item.category, item.templateId).length > 0">
+                <div class="multi-select-title">
+                  <h3>
+                    <span [innerHTML]="highlightText(item.name)"></span>
+                    <span class="required-indicator" *ngIf="item.required">*</span>
+                  </h3>
+                  <div class="item-text-wrapper">
+                    <p class="item-text" [innerHTML]="highlightText(item.text)"></p>
+                  </div>
+                </div>
+                <div class="multi-select-indicators">
                   <div class="item-photo-indicator" *ngIf="getTotalPhotoCount(item.category, item.templateId) > 0">
                     <span class="photo-count">
                       <ion-icon name="images"></ion-icon>
                       {{ getTotalPhotoCount(item.category, item.templateId) }}
                     </span>
                   </div>
+                  <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent"></ion-spinner>
                 </div>
-                <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent" slot="end"></ion-spinner>
-              </ion-item>
+              </div>
               <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
                 <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
                   <ion-checkbox

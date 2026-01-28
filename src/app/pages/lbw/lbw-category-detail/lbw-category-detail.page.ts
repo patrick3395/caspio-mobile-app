@@ -1725,8 +1725,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       if (!selectedOptions.includes(option)) {
         selectedOptions.push(option);
       }
+      // Auto-select the item when any option is checked
+      this.selectedItems[key] = true;
     } else {
       selectedOptions = selectedOptions.filter(o => o !== option);
+      // If no options remain selected and no "Other" value, deselect the item
+      if (selectedOptions.length === 0 && (!item.otherValue || item.otherValue === '')) {
+        this.selectedItems[key] = false;
+      }
     }
 
     item.answer = selectedOptions.join(', ');

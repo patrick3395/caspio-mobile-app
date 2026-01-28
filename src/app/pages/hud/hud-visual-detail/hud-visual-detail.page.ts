@@ -294,13 +294,19 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       // DEXIE-FIRST: Check visualFields for edited title/text (saved via visualFieldRepo.setField)
       // This takes priority because user edits are stored here
-      const visualField = await db.visualFields
-        .where('[serviceId+templateId]')
-        .equals([this.serviceId, this.templateId])
-        .first();
+      let visualField: VisualField | undefined;
+      try {
+        const allFields = await db.visualFields
+          .where('serviceId')
+          .equals(this.serviceId)
+          .toArray();
+        visualField = allFields.find(f => f.templateId === this.templateId);
 
-      if (visualField) {
-        console.log('[HudVisualDetail] MOBILE: Found visualField:', visualField.templateName, 'visualId:', visualField.visualId || visualField.tempVisualId);
+        if (visualField) {
+          console.log('[HudVisualDetail] MOBILE: Found visualField:', visualField.templateName, 'visualId:', visualField.visualId || visualField.tempVisualId);
+        }
+      } catch (e) {
+        console.warn('[HudVisualDetail] MOBILE: Error loading visualField:', e);
       }
 
       // Load cached HUD records (contains user's edited Title/Description)

@@ -4669,10 +4669,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           selectedOptions.push(option);
         }
       }
+      // Auto-select the item when any option is checked
+      this.selectedItems[key] = true;
     } else {
       selectedOptions = selectedOptions.filter(o => o !== option);
       if (option === 'Other') {
         item.otherValue = '';
+      }
+      // If no options remain selected and no "Other" value, deselect the item
+      if (selectedOptions.length === 0 && (!item.otherValue || item.otherValue === '')) {
+        this.selectedItems[key] = false;
       }
     }
 
