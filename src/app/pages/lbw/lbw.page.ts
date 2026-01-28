@@ -5755,7 +5755,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
                   console.log('[Fast Upload] ✅ Got S3 pre-signed URL');
                 } catch (err) {
                   console.error('[Fast Upload] ❌ Failed to fetch S3 URL:', err);
-                  imageUrl = 'assets/img/photo-placeholder.png';
+                  imageUrl = 'assets/img/photo-placeholder.svg';
                 }
               }
               // Fallback to old Caspio Files API
@@ -7061,7 +7061,7 @@ Stack: ${error?.stack}`;
         return;
       }
 
-      const imageUrl = latestPhoto.url || latestPhoto.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      const imageUrl = latestPhoto.url || latestPhoto.thumbnailUrl || 'assets/img/photo-placeholder.svg';
       const photoName = latestPhoto.name || 'Photo';
       // Save scroll position before opening modal (for both mobile and web)
       const scrollPosition = window.scrollY || document.documentElement.scrollTop;
@@ -7255,7 +7255,7 @@ Stack: ${error?.stack}`;
       }
 
       photo = latestPhoto;
-      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.svg';
       const photoName = photo.name || 'Photo';
       
       // CRITICAL FIX v1.4.340: Always use the original URL (base image without annotations)

@@ -26,7 +26,7 @@ import { environment } from '../../environments/environment';
 })
 export class LazyImageDirective implements OnInit, OnDestroy, OnChanges {
   @Input('appLazyImage') lazySrc: string = '';
-  @Input() lazyPlaceholder: string = 'assets/img/photo-placeholder.png';
+  @Input() lazyPlaceholder: string = 'assets/img/photo-placeholder.svg';
   @Input() lazyWidth: string = '';
   @Input() lazyHeight: string = '';
 

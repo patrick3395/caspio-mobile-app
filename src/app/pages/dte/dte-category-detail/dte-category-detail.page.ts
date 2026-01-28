@@ -262,7 +262,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         console.log('[UPLOAD UPDATE] ✅ Got S3 URL');
       } catch (err) {
         console.error('[UPLOAD UPDATE] ❌ S3 failed:', err);
-        displayableUrl = 'assets/img/photo-placeholder.png';
+        displayableUrl = 'assets/img/photo-placeholder.svg';
       }
     }
     // Fallback to Caspio Files API
@@ -274,11 +274,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         if (imageData && imageData.startsWith('data:')) {
           displayableUrl = imageData;
         } else {
-          displayableUrl = 'assets/img/photo-placeholder.png';
+          displayableUrl = 'assets/img/photo-placeholder.svg';
         }
       } catch (err) {
         console.error('[UPLOAD UPDATE] ❌ Failed to load uploaded image:', err);
-        displayableUrl = 'assets/img/photo-placeholder.png';
+        displayableUrl = 'assets/img/photo-placeholder.svg';
       }
     } else {
       console.log('[UPLOAD UPDATE] URL already displayable (data: or blob:)');
@@ -866,7 +866,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     console.log('[LOAD PHOTO] Loading:', attachId, 'key:', key);
     
     // TWO-FIELD APPROACH: Determine display state and URL
-    let displayUrl = 'assets/img/photo-placeholder.png';
+    let displayUrl = 'assets/img/photo-placeholder.svg';
     let displayState: 'local' | 'uploading' | 'cached' | 'remote_loading' | 'remote' = 'remote';
     let localBlobKey: string | undefined;
     let imageUrl = '';
@@ -953,7 +953,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
       const existingPhoto = this.visualPhotos[key][existingIndex];
       if (displayState === 'remote_loading' && 
           existingPhoto.displayUrl && 
-          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png') {
+          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.svg') {
         photoData.displayUrl = existingPhoto.displayUrl;
         photoData.displayState = existingPhoto.displayState || 'cached';
       }
@@ -2107,8 +2107,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
             AttachID: tempId,
             id: tempId,
             name: `photo_${i}.jpg`,
-            url: 'assets/img/photo-placeholder.png',
-            thumbnailUrl: 'assets/img/photo-placeholder.png',
+            url: 'assets/img/photo-placeholder.svg',
+            thumbnailUrl: 'assets/img/photo-placeholder.svg',
             isObjectUrl: false,
             uploading: false,
             isSkeleton: true,
@@ -2344,7 +2344,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
               console.log('[DTE PHOTO UPLOAD] ✅ Got S3 pre-signed URL');
             } catch (err) {
               console.error('[DTE PHOTO UPLOAD] ❌ Failed to fetch S3 URL:', err);
-              displayableUrl = 'assets/img/photo-placeholder.png';
+              displayableUrl = 'assets/img/photo-placeholder.svg';
             }
           }
           // Fallback to old Caspio Files API logic
@@ -2361,11 +2361,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
                 console.log('[DTE PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
               } else {
                 console.warn('[DTE PHOTO UPLOAD] ❌ Files API returned invalid data');
-                displayableUrl = 'assets/img/photo-placeholder.png';
+                displayableUrl = 'assets/img/photo-placeholder.svg';
               }
             } catch (err) {
               console.error('[DTE PHOTO UPLOAD] ❌ Failed to fetch image from Files API:', err);
-              displayableUrl = 'assets/img/photo-placeholder.png';
+              displayableUrl = 'assets/img/photo-placeholder.svg';
             }
           } else {
             console.log('[DTE PHOTO UPLOAD] Using URL directly (already data/blob URL)');
@@ -2519,7 +2519,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
 
   handleImageError(event: any, photo: any) {
     const target = event.target as HTMLImageElement;
-    target.src = 'assets/img/photo-placeholder.png';
+    target.src = 'assets/img/photo-placeholder.svg';
   }
 
   saveScrollBeforePhotoClick(event: Event): void {
@@ -2753,7 +2753,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
       const scrollPosition = await this.content?.getScrollElement().then(el => el.scrollTop) || 0;
 
       // Get image URL
-      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.svg';
 
       // Check if this is a pending/offline photo (temp ID) - retrieve from IndexedDB
       const isPendingPhoto = String(attachId).startsWith('temp_') || photo._pendingFileId;
@@ -2794,7 +2794,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         }
       }
       // If no valid URL and we have a file path, try to fetch it
-      else if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo || photo.Attachment)) {
+      else if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') && (photo.filePath || photo.Photo || photo.Attachment)) {
         try {
           // Check if this is an S3 key
           if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {

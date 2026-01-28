@@ -3139,7 +3139,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     const fdfPhotos = roomData.fdfPhotos;
     const storedUrl = fdfPhotos[`${photoKey}Url`];
 
-    if (storedUrl && !storedUrl.includes('photo-placeholder.png') && !storedUrl.startsWith('blob:')) {
+    if (storedUrl && !storedUrl.includes('photo-placeholder.svg') && !storedUrl.startsWith('blob:')) {
       return storedUrl;
     }
 
@@ -3898,7 +3898,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                         console.log('[Load Points] ✅ Got S3 URL');
                       } catch (err) {
                         console.error('[Load Points] ❌ Failed to load S3 image:', err);
-                        photoUrl = 'assets/img/photo-placeholder.png';
+                        photoUrl = 'assets/img/photo-placeholder.svg';
                       }
                     }
                     // Fallback to old Caspio Files API
@@ -3908,11 +3908,11 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                         if (imageData && imageData.startsWith('data:')) {
                           photoUrl = imageData;
                         } else {
-                          photoUrl = 'assets/img/photo-placeholder.png';
+                          photoUrl = 'assets/img/photo-placeholder.svg';
                         }
                       } catch (err) {
                         console.error('[Load Points] Failed to load Caspio image:', err);
-                        photoUrl = 'assets/img/photo-placeholder.png';
+                        photoUrl = 'assets/img/photo-placeholder.svg';
                       }
                     }
                     
@@ -4728,7 +4728,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                   console.log('[Fast Upload Room Point] ✅ Got S3 pre-signed URL');
                 } catch (err) {
                   console.error('[Fast Upload Room Point] ❌ Failed to fetch S3 URL:', err);
-                  imageUrl = 'assets/img/photo-placeholder.png';
+                  imageUrl = 'assets/img/photo-placeholder.svg';
                 }
               }
               // Fallback to old Caspio Files API
@@ -7703,7 +7703,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       let imageUrl = photo.url || photo.thumbnailUrl || photo.displayUrl;
       
       // If no valid URL and we have a file path or attachment, try to fetch it
-      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Attachment || photo.Photo)) {
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') && (photo.filePath || photo.Attachment || photo.Photo)) {
         try {
           // Check if this is an S3 key
           if (this.caspioService.isS3Key(photo.Attachment) || this.caspioService.isS3Key(photo.filePath)) {
@@ -7729,7 +7729,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Fallback to placeholder if still no URL
       if (!imageUrl) {
-        imageUrl = 'assets/img/photo-placeholder.png';
+        imageUrl = 'assets/img/photo-placeholder.svg';
       }
       
       const photoName = photo.name || 'Elevation Photo';
@@ -11452,7 +11452,7 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
                   console.log('[Fast Upload] ✅ Got S3 pre-signed URL');
                 } catch (err) {
                   console.error('[Fast Upload] ❌ Failed to fetch S3 URL:', err);
-                  imageUrl = 'assets/img/photo-placeholder.png';
+                  imageUrl = 'assets/img/photo-placeholder.svg';
                 }
               }
               // Fallback to old Caspio Files API
@@ -12756,7 +12756,7 @@ Stack: ${error?.stack}`;
         return;
       }
 
-      const imageUrl = latestPhoto.url || latestPhoto.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      const imageUrl = latestPhoto.url || latestPhoto.thumbnailUrl || 'assets/img/photo-placeholder.svg';
       const photoName = latestPhoto.name || 'Photo';
       // Save scroll position before opening modal (for both mobile and web)
       const scrollPosition = window.scrollY || document.documentElement.scrollTop;
@@ -12953,7 +12953,7 @@ Stack: ${error?.stack}`;
 
       // [PERFORMANCE] Load full quality if currently showing low-quality thumbnail
       // On slow connections, we already loaded full blob directly, so skip this
-      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.svg';
       if (photo.isLowQuality && !photo.fullQualityLoaded && !this.isSlowConnection) {
         console.log(`📸 [viewPhoto] Loading full quality for AttachID ${attachId}...`);
         const loadingToast = await this.toastController.create({

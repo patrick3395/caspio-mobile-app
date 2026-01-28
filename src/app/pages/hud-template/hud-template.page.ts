@@ -1179,7 +1179,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     let viewableUrl = finalPhotoUrl;
 
     // If we don't have fresh data and the stored URL is a blob, we need to fetch from database
-    if (!freshImageData && photoUrl && (photoUrl.startsWith('blob:') || photoUrl === 'assets/img/photo-placeholder.png')) {
+    if (!freshImageData && photoUrl && (photoUrl.startsWith('blob:') || photoUrl === 'assets/img/photo-placeholder.svg')) {
       // The blob URL is expired or placeholder, we need to fetch from database path
       if (databasePath && databasePath.startsWith('/') && databasePath !== '/undefined') {
         try {
@@ -1197,7 +1197,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    if (viewableUrl && !viewableUrl.includes('photo-placeholder.png')) {
+    if (viewableUrl && !viewableUrl.includes('photo-placeholder.svg')) {
       try {
         const modal = await this.modalController.create({
           component: PhotoViewerComponent,
@@ -3462,7 +3462,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       let imageUrl = photo.url || photo.thumbnailUrl || photo.displayUrl;
       
       // If no valid URL and we have a file path, try to fetch it
-      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && photo.filePath) {
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') && photo.filePath) {
         try {
           const fetchedImage = await this.caspioService.getImageFromFilesAPI(photo.filePath).toPromise();
           if (fetchedImage && fetchedImage.startsWith('data:')) {
@@ -3478,7 +3478,7 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
       
       // Fallback to placeholder if still no URL
       if (!imageUrl) {
-        imageUrl = 'assets/img/photo-placeholder.png';
+        imageUrl = 'assets/img/photo-placeholder.svg';
       }
       
       const photoName = photo.name || 'Elevation Photo';
@@ -6562,7 +6562,7 @@ Stack: ${error?.stack}`;
       await photoDebugAlert.present();
       await photoDebugAlert.onDidDismiss();
       
-      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.svg';
       const photoName = photo.name || 'Photo';
       
       // Parse existing annotations if available
@@ -6724,7 +6724,7 @@ Stack: ${error?.stack}`;
         return;
       }
       
-      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      const imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.svg';
       const photoName = photo.name || 'Photo';
       const key = `${category}_${itemId}`;
       const visualId = this.visualRecordIds[key];
@@ -7125,8 +7125,8 @@ Stack: ${error?.stack}`;
             AttachID: tempId,
             id: tempId,
             name: `photo_${i}.jpg`,
-            url: 'assets/img/photo-placeholder.png',
-            thumbnailUrl: 'assets/img/photo-placeholder.png',
+            url: 'assets/img/photo-placeholder.svg',
+            thumbnailUrl: 'assets/img/photo-placeholder.svg',
             isObjectUrl: false,
             uploading: false,
             isSkeleton: true,
@@ -7357,7 +7357,7 @@ Stack: ${error?.stack}`;
               }
             } catch (err) {
               console.error('[HUD PHOTO UPLOAD] Failed to load uploaded image:', err);
-              displayableUrl = 'assets/img/photo-placeholder.png';
+              displayableUrl = 'assets/img/photo-placeholder.svg';
             }
           }
 

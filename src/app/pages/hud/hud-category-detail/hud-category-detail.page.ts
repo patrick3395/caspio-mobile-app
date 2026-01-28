@@ -1168,11 +1168,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           const rawPhotoValue = att.Attachment || att.Photo || att.photo || att.url || att.displayUrl || att.URL || att.S3Key || att.s3Key;
           console.log('[CategoryDetail] WEBAPP: Raw photo value for attach', att.AttachID || att.PK_ID, ':', rawPhotoValue?.substring(0, 100));
 
-          let displayUrl = rawPhotoValue || 'assets/img/photo-placeholder.png';
+          let displayUrl = rawPhotoValue || 'assets/img/photo-placeholder.svg';
 
           // WEBAPP: Get S3 signed URL if needed
           // Check for S3 key (starts with 'uploads/') OR full S3 URL
-          if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.png') {
+          if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
             const isS3Key = this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl);
             const isFullS3Url = displayUrl.startsWith('https://') &&
                                 displayUrl.includes('.s3.') &&
@@ -1608,7 +1608,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           try {
             const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
 
-            if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.png') {
+            if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
               // ANNOTATION FIX: Check for cached annotated image for thumbnail display
               const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10) || existingPhoto.hasAnnotations;
               let thumbnailUrl = freshDisplayUrl;
@@ -1652,7 +1652,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         if (localImage.attachId && loadedPhotoIds.has(localImage.attachId)) continue;
 
         // Get display URL from LocalImageService (original photo)
-        let displayUrl = 'assets/img/photo-placeholder.png';
+        let displayUrl = 'assets/img/photo-placeholder.svg';
         try {
           displayUrl = await this.localImageService.getDisplayUrl(localImage);
         } catch (e) {
@@ -2418,7 +2418,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // Never reduce the count if we have valid photos
         const existingValidPhotos = (this.visualPhotos[key] || []).filter(p => 
           p.displayUrl && 
-          p.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          p.displayUrl !== 'assets/img/photo-placeholder.svg' &&
           !p.displayUrl.startsWith('assets/')
         );
         this.photoCountsByKey[key] = Math.max(existingValidPhotos.length, attachments?.length || 0);
@@ -2474,7 +2474,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               // CRITICAL: If existing photo has a valid URL, PRESERVE IT
               // Only update if existing photo is broken (no displayUrl)
               const hasValidUrl = existingPhoto.displayUrl && 
-                                  existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png' &&
+                                  existingPhoto.displayUrl !== 'assets/img/photo-placeholder.svg' &&
                                   !existingPhoto.loading;
               
               if (hasValidUrl) {
@@ -2589,7 +2589,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         displayableUrl = await this.caspioService.getS3FileUrl(s3Key);
       } catch (err) {
         console.error('[UPLOAD UPDATE] S3 failed:', err);
-        displayableUrl = 'assets/img/photo-placeholder.png';
+        displayableUrl = 'assets/img/photo-placeholder.svg';
       }
     }
     // Fallback to Caspio Files API
@@ -2601,11 +2601,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         if (imageData && imageData.startsWith('data:')) {
           displayableUrl = imageData;
         } else {
-          displayableUrl = 'assets/img/photo-placeholder.png';
+          displayableUrl = 'assets/img/photo-placeholder.svg';
         }
       } catch (err) {
         console.error('[UPLOAD UPDATE] Failed:', err);
-        displayableUrl = 'assets/img/photo-placeholder.png';
+        displayableUrl = 'assets/img/photo-placeholder.svg';
       }
     }
     
@@ -3917,7 +3917,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           // Get display URL - convert S3 key if needed
           // HUD S3 uploads store the key in 'Attachment' field, so check that first
-          let displayUrl = attach.Attachment || attach.Photo || attach.url || 'assets/img/photo-placeholder.png';
+          let displayUrl = attach.Attachment || attach.Photo || attach.url || 'assets/img/photo-placeholder.svg';
           if (displayUrl && this.caspioService.isS3Key(displayUrl)) {
             try {
               displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
@@ -4121,7 +4121,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         }
         
         // Get display URL from LocalImageService
-        let displayUrl = 'assets/img/photo-placeholder.png';
+        let displayUrl = 'assets/img/photo-placeholder.svg';
         try {
           displayUrl = await this.localImageService.getDisplayUrl(localImage);
         } catch (e) {
@@ -4409,7 +4409,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       
       // If photo exists with valid URL, DON'T touch it - just return
       if (existingPhoto && existingPhoto.displayUrl && 
-          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.svg' &&
           !existingPhoto.displayUrl.startsWith('assets/')) {
         this.logDebug('SKIP', `Photo ${attachId} already has valid URL`);
         return;
@@ -4431,7 +4431,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (localImage) {
         const localImageInArray = this.visualPhotos[key].find(p => p.imageId === localImage!.imageId);
         if (localImageInArray && localImageInArray.displayUrl &&
-            localImageInArray.displayUrl !== 'assets/img/photo-placeholder.png') {
+            localImageInArray.displayUrl !== 'assets/img/photo-placeholder.svg') {
           // Just update the AttachID mapping, but DON'T change the displayUrl
           this.logDebug('SKIP', `Photo ${attachId} matches LocalImage ${localImage.imageId} with valid URL`);
       return;
@@ -4439,7 +4439,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
       
       // Determine display URL
-      let displayUrl = 'assets/img/photo-placeholder.png';
+      let displayUrl = 'assets/img/photo-placeholder.svg';
       let isLoading = false;
       
       // Step 1: Try LocalImage blob (local first)
@@ -4453,7 +4453,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
       
       // Step 2: Try cached photo
-      if (displayUrl === 'assets/img/photo-placeholder.png') {
+      if (displayUrl === 'assets/img/photo-placeholder.svg') {
         try {
           const cached = await this.indexedDb.getCachedPhoto(attachId);
           if (cached) {
@@ -4468,7 +4468,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // Step 3: Load from remote (non-blocking)
       const s3Key = attach.Attachment;
       const hasImageSource = attach.Attachment || attach.Photo;
-      if (displayUrl === 'assets/img/photo-placeholder.png' && hasImageSource && this.offlineService.isOnline()) {
+      if (displayUrl === 'assets/img/photo-placeholder.svg' && hasImageSource && this.offlineService.isOnline()) {
         isLoading = true;
         this.loadPhotoFromRemote(attachId, s3Key || attach.Photo, key, !!s3Key);
       }
@@ -4507,7 +4507,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // BULLETPROOF: Never replace a valid URL with a placeholder
         const existing = this.visualPhotos[key][existingIndex];
         const existingHasValidUrl = existing.displayUrl &&
-          existing.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          existing.displayUrl !== 'assets/img/photo-placeholder.svg' &&
           !existing.displayUrl.startsWith('assets/');
 
         // ===== US-002 FIX: DEXIE-FIRST - Explicitly preserve local blob URLs =====
@@ -4604,7 +4604,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
             // Check one more time that we're not replacing a valid URL
             if (currentUrl &&
-                currentUrl !== 'assets/img/photo-placeholder.png' &&
+                currentUrl !== 'assets/img/photo-placeholder.svg' &&
                 !currentUrl.startsWith('assets/')) {
               // Already have a valid URL - don't replace
               this.logDebug('SKIP', `Photo ${attachId} already has valid URL, not replacing`);
@@ -5686,7 +5686,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     }
     
     // Fall back to existing displayUrl
-    return photo.displayUrl || photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+    return photo.displayUrl || photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.svg';
   }
 
   /**
@@ -6908,7 +6908,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             const freshUrl = await this.localImageService.getDisplayUrl(localImage);
             console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));
             
-            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
+            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
               photo.url = freshUrl;
               photo.thumbnailUrl = freshUrl;
               photo.originalUrl = freshUrl;
@@ -7011,10 +7011,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       // CRITICAL FIX v1.4.340: Always use the original URL (base image without annotations)
       // The originalUrl is set during loadPhotosForVisual to the base image
-      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.svg';
 
       // If no valid URL and we have a file path, try to fetch it
-      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo || photo.Attachment)) {
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') && (photo.filePath || photo.Photo || photo.Attachment)) {
         try {
           // Check if this is an S3 key
           if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {
@@ -7054,7 +7054,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       // CRITICAL: Don't open annotator if we only have placeholder URL
       // This prevents the FabricAnnotator from failing to load the placeholder and going black
-      if (!originalImageUrl || originalImageUrl === 'assets/img/photo-placeholder.png') {
+      if (!originalImageUrl || originalImageUrl === 'assets/img/photo-placeholder.svg') {
         console.error('[VIEW PHOTO] Cannot open photo - no valid image URL available:', {
           attachId,
           originalUrl: photo.originalUrl,
@@ -8685,7 +8685,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     console.warn('[IMAGE ERROR] Failed to load:', photo.AttachID || photo.imageId, 'url:', img.src?.substring(0, 50));
 
     // Don't retry if already showing placeholder
-    if (img.src === 'assets/img/photo-placeholder.png' || img.src.endsWith('photo-placeholder.png')) {
+    if (img.src === 'assets/img/photo-placeholder.svg' || img.src.endsWith('photo-placeholder.svg')) {
       return;
     }
 
@@ -8697,8 +8697,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
     if (photo._retryCount > 2) {
       console.warn('[IMAGE ERROR] Max retries reached, showing placeholder');
-      img.src = 'assets/img/photo-placeholder.png';
-      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      img.src = 'assets/img/photo-placeholder.svg';
+      photo.displayUrl = 'assets/img/photo-placeholder.svg';
       photo.loading = false;
       return;
     }
@@ -8747,7 +8747,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         if (localImage) {
           const fallbackUrl = await this.localImageService.getDisplayUrl(localImage);
-          if (fallbackUrl && fallbackUrl !== 'assets/img/photo-placeholder.png') {
+          if (fallbackUrl && fallbackUrl !== 'assets/img/photo-placeholder.svg') {
             console.log('[IMAGE ERROR] Using LocalImage fallback:', localImageId);
             img.src = fallbackUrl;
             photo.displayUrl = fallbackUrl;
@@ -8773,14 +8773,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       // Fallback 3: Placeholder
       console.log('[IMAGE ERROR] No fallback available, showing placeholder');
-      img.src = 'assets/img/photo-placeholder.png';
-      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      img.src = 'assets/img/photo-placeholder.svg';
+      photo.displayUrl = 'assets/img/photo-placeholder.svg';
       photo.loading = false;
 
     } catch (err) {
       console.error('[IMAGE ERROR] Fallback failed:', err);
-      img.src = 'assets/img/photo-placeholder.png';
-      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      img.src = 'assets/img/photo-placeholder.svg';
+      photo.displayUrl = 'assets/img/photo-placeholder.svg';
       photo.loading = false;
     }
   }

@@ -140,7 +140,7 @@ export class LocalImageService {
     // Helper to cache and return result
     const cacheAndReturn = (url: string): string => {
       // Don't cache placeholders - they should be re-evaluated
-      if (url !== 'assets/img/photo-placeholder.png') {
+      if (url !== 'assets/img/photo-placeholder.svg') {
         this.displayUrlCache.set(image.imageId, { url, cachedAt: now });
       }
       return url;
@@ -266,7 +266,7 @@ export class LocalImageService {
       'localBlobId:', image.localBlobId,
       'attachId:', image.attachId,
       'remoteS3Key:', image.remoteS3Key ? 'present' : 'none');
-    return 'assets/img/photo-placeholder.png';
+    return 'assets/img/photo-placeholder.svg';
   }
 
   /**

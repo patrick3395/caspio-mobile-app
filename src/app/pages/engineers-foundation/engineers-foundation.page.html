@@ -685,7 +685,7 @@
                             <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId"
                                  [class.uploading]="photo.uploading"
                                  [class.annotated]="photo.hasAnnotations">
-                              <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                              <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.svg'"
                                    width="90" height="90"
                                    [alt]="photo.name"
                                    (mousedown)="saveScrollBeforePhotoClick($event)"
@@ -855,7 +855,7 @@
                             <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId"
                                  [class.uploading]="photo.uploading"
                                  [class.annotated]="photo.hasAnnotations">
-                              <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                              <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.svg'"
                                    width="90" height="90"
                                    [alt]="photo.name"
                                    (mousedown)="saveScrollBeforePhotoClick($event)"
@@ -1025,7 +1025,7 @@
                             <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(category, item.id); trackBy: trackByPhotoId"
                                  [class.uploading]="photo.uploading"
                                  [class.annotated]="photo.hasAnnotations">
-                              <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.png'"
+                              <img [src]="photo.displayUrl || photo.thumbnailUrl || photo.url || 'assets/img/photo-placeholder.svg'"
                                    width="90" height="90"
                                    [alt]="photo.name"
                                    (mousedown)="saveScrollBeforePhotoClick($event)"
@@ -1256,7 +1256,7 @@
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top && roomElevationData[room.RoomName]?.fdfPhotos?.topUrl" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.topUploading"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.svg'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Top')"
                              alt="Top"
@@ -1310,7 +1310,7 @@
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom && roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUploading"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.svg'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
                              alt="Bottom"
@@ -1364,7 +1364,7 @@
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold && roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.svg'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
                              alt="Location"
@@ -1796,7 +1796,7 @@
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.top" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.topUploading"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.png'"
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.topDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.topUrl || 'assets/img/photo-placeholder.svg'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Top')"
                              alt="Top"
@@ -1844,7 +1844,7 @@
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.bottom" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomUploading"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.png'"
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.bottomDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.bottomUrl || 'assets/img/photo-placeholder.svg'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Bottom')"
                              alt="Bottom"
@@ -1892,7 +1892,7 @@
                       <div *ngIf="roomElevationData[room.RoomName]?.fdfPhotos?.threshold" class="image-preview fdf-photo-preview"
                            [class.uploading]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUploading"
                            style="margin-top: 4px; display: flex !important; flex-direction: column !important; align-items: center !important; margin-left: auto !important; margin-right: auto !important;">
-                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.png'"
+                        <img [src]="roomElevationData[room.RoomName]?.fdfPhotos?.thresholdDisplayUrl || roomElevationData[room.RoomName]?.fdfPhotos?.thresholdUrl || 'assets/img/photo-placeholder.svg'"
                              width="90" height="90"
                              (click)="annotateFDFPhoto(room.RoomName, 'Threshold')"
                              alt="Location"

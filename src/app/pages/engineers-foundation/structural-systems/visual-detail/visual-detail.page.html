@@ -53,8 +53,8 @@
           <div class="image-preview structural-photo-preview"
                *ngFor="let photo of photos; trackBy: trackByPhotoId"
                [class.uploading]="photo.uploading">
-            <img [appLazyImage]="photo.displayUrl || 'assets/img/photo-placeholder.png'"
-                 [lazyPlaceholder]="'assets/img/photo-placeholder.png'"
+            <img [appLazyImage]="photo.displayUrl || 'assets/img/photo-placeholder.svg'"
+                 [lazyPlaceholder]="'assets/img/photo-placeholder.svg'"
                  alt="Photo"
                  (click)="viewPhoto(photo)"
                  [class.loading]="photo.uploading">

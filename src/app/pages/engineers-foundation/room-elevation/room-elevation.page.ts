@@ -813,11 +813,11 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               freshUrl = await this.localImageService.getDisplayUrl(localImage);
             }
 
-            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
+            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
               // Only update if we got a valid URL and current one is invalid
               const currentUrl = photo.displayUrl;
               const needsUpdate = !currentUrl ||
-                currentUrl === 'assets/img/photo-placeholder.png' ||
+                currentUrl === 'assets/img/photo-placeholder.svg' ||
                 currentUrl.includes('placeholder') ||
                 (currentUrl.startsWith('blob:') && !await this.isValidBlobUrl(currentUrl));
 
@@ -948,7 +948,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           freshUrl = await this.localImageService.getDisplayUrl(localImage);
         }
 
-        if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
+        if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
           // DEXIE-FIRST: Always apply fresh URL from LocalImages (source of truth)
           console.log('[RoomElevation] Refreshing FDF displayUrl for:', photoKey, localImage.imageId);
           fdfPhotos[photoKey] = true;
@@ -1178,7 +1178,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         if (point.photos && point.photos.length > 0) {
           const photosToPreserve = point.photos.filter((p: any) =>
             p.displayUrl &&
-            p.displayUrl !== 'assets/img/photo-placeholder.png' &&
+            p.displayUrl !== 'assets/img/photo-placeholder.svg' &&
             !p.displayUrl.includes('placeholder')
           );
           if (photosToPreserve.length > 0) {
@@ -1415,7 +1415,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                     const matchingLocalImage = localImagesForPoint.find((li: any) => li.imageId === imageId);
                     if (matchingLocalImage) {
                       const freshUrl = await this.localImageService.getDisplayUrl(matchingLocalImage);
-                      if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.png') {
+                      if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
                         photo.displayUrl = freshUrl;
                         photo.url = freshUrl;
                         photo.thumbnailUrl = freshUrl;
@@ -1433,7 +1433,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                   for (const localImg of localImagesForPoint) {
                     // TASK 1 FIX: Add photo UNCONDITIONALLY even with placeholder URL
                     // Matches category-detail pattern - placeholder will be updated via liveQuery
-                    let displayUrl = 'assets/img/photo-placeholder.png';
+                    let displayUrl = 'assets/img/photo-placeholder.svg';
                     try {
                       displayUrl = await this.localImageService.getDisplayUrl(localImg);
                     } catch (e) {
@@ -1535,12 +1535,12 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                   // BULLETPROOF: Any displayUrl that isn't a placeholder is valid
                   // Matches category-detail.page.ts pattern at line 1071-1073
                   const hasValidDisplayUrl = existingPhoto.displayUrl &&
-                    existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png' &&
+                    existingPhoto.displayUrl !== 'assets/img/photo-placeholder.svg' &&
                     !existingPhoto.displayUrl.includes('placeholder') &&
                     !existingPhoto.loading;
 
                   // If photo is still loading/placeholder AND doesn't have local blob, try to load from S3
-                  if (!hasValidDisplayUrl && (existingPhoto.loading || existingPhoto.url === 'assets/img/photo-placeholder.png')) {
+                  if (!hasValidDisplayUrl && (existingPhoto.loading || existingPhoto.url === 'assets/img/photo-placeholder.svg')) {
                     const s3Key = attach.Attachment || attach.Photo;
                     if (s3Key && this.caspioService.isS3Key(s3Key)) {
                       this.loadPointPhotoImage(s3Key, existingPhoto).catch(err => {
@@ -1582,8 +1582,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               const photoData: any = {
                 attachId: attach.AttachID || attach.PK_ID,
                 photoType: photoType,
-                url: cachedDisplayUrl || 'assets/img/photo-placeholder.png',
-                displayUrl: cachedDisplayUrl || 'assets/img/photo-placeholder.png',
+                url: cachedDisplayUrl || 'assets/img/photo-placeholder.svg',
+                displayUrl: cachedDisplayUrl || 'assets/img/photo-placeholder.svg',
                 caption: attach.Annotation || '',
                 drawings: attach.Drawings || null,
                 hasAnnotations: !!(attach.Drawings && attach.Drawings !== 'null' && attach.Drawings !== '' && attach.Drawings !== EMPTY_COMPRESSED_ANNOTATIONS),
@@ -1744,7 +1744,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               }
 
               // Get display URL from LocalImageService
-              let displayUrl = 'assets/img/photo-placeholder.png';
+              let displayUrl = 'assets/img/photo-placeholder.svg';
               try {
                 displayUrl = await this.localImageService.getDisplayUrl(localImage);
               } catch (e) {
@@ -1806,7 +1806,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           if (point.photos && point.photos.length > 0) {
             const photosWithUrls = point.photos.filter((p: any) =>
               p.displayUrl &&
-              p.displayUrl !== 'assets/img/photo-placeholder.png' &&
+              p.displayUrl !== 'assets/img/photo-placeholder.svg' &&
               !p.displayUrl.includes('placeholder')
             );
             if (photosWithUrls.length > 0) {
@@ -2054,7 +2054,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 drawings: a.Drawings || '',
                 hasAnnotations: !!a.Drawings,
                 loading: true,  // Show loading state until S3 image loads
-                displayUrl: 'assets/img/photo-placeholder.png'  // Placeholder until resolved
+                displayUrl: 'assets/img/photo-placeholder.svg'  // Placeholder until resolved
               }));
 
             // Debug: Log photos mapped for this point
@@ -2347,7 +2347,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         point.photos = [];
         for (const localImage of localImagesForPoint) {
           // Get display URL
-          let displayUrl = 'assets/img/photo-placeholder.png';
+          let displayUrl = 'assets/img/photo-placeholder.svg';
           try {
             displayUrl = await this.localImageService.getDisplayUrl(localImage);
           } catch (e) {
@@ -2431,7 +2431,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       if (!fdfKey) continue;
 
-      let displayUrl = 'assets/img/photo-placeholder.png';
+      let displayUrl = 'assets/img/photo-placeholder.svg';
       try {
         displayUrl = await this.localImageService.getDisplayUrl(localImage);
       } catch (e) {
@@ -2517,7 +2517,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               p.queued ||           // Queued for upload
               p.isLocalImage ||     // LocalImage flag
               p.isLocalFirst ||     // Local-first flag
-              (p.displayUrl && p.displayUrl !== 'assets/img/photo-placeholder.png')  // Has any real URL
+              (p.displayUrl && p.displayUrl !== 'assets/img/photo-placeholder.svg')  // Has any real URL
             );
 
             if (photosToPreserve.length > 0) {
@@ -2679,8 +2679,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         console.log('[RoomElevation] ✅ Restored preserved FDF top photo URL');
       } else {
         fdfPhotos.topLoading = true; // Skeleton state
-        fdfPhotos.topUrl = 'assets/img/photo-placeholder.png'; // Placeholder
-        fdfPhotos.topDisplayUrl = 'assets/img/photo-placeholder.png';
+        fdfPhotos.topUrl = 'assets/img/photo-placeholder.svg'; // Placeholder
+        fdfPhotos.topDisplayUrl = 'assets/img/photo-placeholder.svg';
 
         // Load actual image in background - PREFER S3 key
         this.loadFDFPhotoImage(topS3Key || topLegacyPath, 'top').catch(err => {
@@ -2724,8 +2724,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         console.log('[RoomElevation] ✅ Restored preserved FDF bottom photo URL');
       } else {
         fdfPhotos.bottomLoading = true; // Skeleton state
-        fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.png';
-        fdfPhotos.bottomDisplayUrl = 'assets/img/photo-placeholder.png';
+        fdfPhotos.bottomUrl = 'assets/img/photo-placeholder.svg';
+        fdfPhotos.bottomDisplayUrl = 'assets/img/photo-placeholder.svg';
 
         // Load actual image in background - PREFER S3 key
         this.loadFDFPhotoImage(bottomS3Key || bottomLegacyPath, 'bottom').catch(err => {
@@ -2769,8 +2769,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         console.log('[RoomElevation] ✅ Restored preserved FDF threshold photo URL');
       } else {
         fdfPhotos.thresholdLoading = true; // Skeleton state
-        fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.png';
-        fdfPhotos.thresholdDisplayUrl = 'assets/img/photo-placeholder.png';
+        fdfPhotos.thresholdUrl = 'assets/img/photo-placeholder.svg';
+        fdfPhotos.thresholdDisplayUrl = 'assets/img/photo-placeholder.svg';
 
         // Load actual image in background - PREFER S3 key
         this.loadFDFPhotoImage(thresholdS3Key || thresholdLegacyPath, 'threshold').catch(err => {
@@ -2858,7 +2858,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           // Get display URL
           // TASK 1 FIX: Set photo UNCONDITIONALLY even with placeholder URL
           // Matches category-detail pattern - placeholder will be updated via liveQuery
-          let displayUrl = 'assets/img/photo-placeholder.png';
+          let displayUrl = 'assets/img/photo-placeholder.svg';
           try {
             displayUrl = await this.localImageService.getDisplayUrl(localImage);
           } catch (e) {
@@ -3014,8 +3014,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // If offline and no cache, use placeholder
       if (!this.offlineService.isOnline()) {
         console.log(`[FDF Photo] Offline and no cache for ${photoKey}, using placeholder`);
-        fdfPhotos[`${photoKey}Url`] = 'assets/img/photo-placeholder.png';
-        fdfPhotos[`${photoKey}DisplayUrl`] = 'assets/img/photo-placeholder.png';
+        fdfPhotos[`${photoKey}Url`] = 'assets/img/photo-placeholder.svg';
+        fdfPhotos[`${photoKey}DisplayUrl`] = 'assets/img/photo-placeholder.svg';
         fdfPhotos[`${photoKey}DisplayState`] = 'remote';
         fdfPhotos[`${photoKey}Loading`] = false;
         this.changeDetectorRef.detectChanges();
@@ -3066,8 +3066,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     } catch (error) {
       console.error(`[FDF Photo] Error loading ${photoKey} image:`, error);
       // Keep placeholder but mark as remote (failed)
-      fdfPhotos[`${photoKey}Url`] = 'assets/img/photo-placeholder.png';
-      fdfPhotos[`${photoKey}DisplayUrl`] = 'assets/img/photo-placeholder.png';
+      fdfPhotos[`${photoKey}Url`] = 'assets/img/photo-placeholder.svg';
+      fdfPhotos[`${photoKey}DisplayUrl`] = 'assets/img/photo-placeholder.svg';
       fdfPhotos[`${photoKey}DisplayState`] = 'remote';
       fdfPhotos[`${photoKey}Loading`] = false;
       this.changeDetectorRef.detectChanges();
@@ -3136,8 +3136,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       // If offline and no cache, use placeholder
       if (!this.offlineService.isOnline()) {
         if (this.DEBUG) console.log(`[Point Photo] Offline and no cache for ${attachId}, using placeholder`);
-        photoData.url = 'assets/img/photo-placeholder.png';
-        photoData.displayUrl = 'assets/img/photo-placeholder.png';
+        photoData.url = 'assets/img/photo-placeholder.svg';
+        photoData.displayUrl = 'assets/img/photo-placeholder.svg';
         photoData.displayState = 'remote';
         photoData.loading = false;
         this.changeDetectorRef.detectChanges();
@@ -3186,16 +3186,16 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         this.changeDetectorRef.detectChanges();
       } else {
         // Keep placeholder
-        photoData.url = 'assets/img/photo-placeholder.png';
-        photoData.displayUrl = 'assets/img/photo-placeholder.png';
+        photoData.url = 'assets/img/photo-placeholder.svg';
+        photoData.displayUrl = 'assets/img/photo-placeholder.svg';
         photoData.displayState = 'remote';
         photoData.loading = false;
         this.changeDetectorRef.detectChanges();
       }
     } catch (error) {
       console.error(`[Point Photo] Error loading image:`, error);
-      photoData.url = 'assets/img/photo-placeholder.png';
-      photoData.displayUrl = 'assets/img/photo-placeholder.png';
+      photoData.url = 'assets/img/photo-placeholder.svg';
+      photoData.displayUrl = 'assets/img/photo-placeholder.svg';
       photoData.displayState = 'remote';
       photoData.loading = false;
       this.changeDetectorRef.detectChanges();
@@ -3459,7 +3459,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         // Matches category-detail.page.ts pattern at line 1071-1073
         const hasValidPreservedPhotos = preservedPhotos.some((p: any) =>
           p.displayUrl &&
-          p.displayUrl !== 'assets/img/photo-placeholder.png' &&
+          p.displayUrl !== 'assets/img/photo-placeholder.svg' &&
           !p.displayUrl.includes('placeholder') &&
           !p.loading
         );
@@ -3505,7 +3505,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               // Get displayUrl from LocalImage
               // TASK 1 FIX: Add photo UNCONDITIONALLY even with placeholder URL
               // Matches category-detail pattern - placeholder will be updated via liveQuery when URL becomes available
-              let displayUrl = 'assets/img/photo-placeholder.png';
+              let displayUrl = 'assets/img/photo-placeholder.svg';
               try {
                 displayUrl = await this.localImageService.getDisplayUrl(localImg);
               } catch (e) {
@@ -3655,8 +3655,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             const photoData: any = {
               attachId: attach.AttachID || attach.PK_ID,
               photoType: photoType,
-              url: cachedDisplayUrl || 'assets/img/photo-placeholder.png',
-              displayUrl: cachedDisplayUrl || 'assets/img/photo-placeholder.png',
+              url: cachedDisplayUrl || 'assets/img/photo-placeholder.svg',
+              displayUrl: cachedDisplayUrl || 'assets/img/photo-placeholder.svg',
               displayState: displayState,
               caption: attach.Annotation || '',
               Annotation: attach.Annotation || '',
@@ -3793,7 +3793,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             }
             
             // Get display URL from LocalImageService
-            let displayUrl = 'assets/img/photo-placeholder.png';
+            let displayUrl = 'assets/img/photo-placeholder.svg';
             try {
               displayUrl = await this.localImageService.getDisplayUrl(localImage);
             } catch (e) {
@@ -3973,8 +3973,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               const hasPhotoPath = !!attach.Photo;
               
               if (hasS3Key || hasPhotoPath) {
-                photoData.url = 'assets/img/photo-placeholder.png';
-                photoData.displayUrl = 'assets/img/photo-placeholder.png';
+                photoData.url = 'assets/img/photo-placeholder.svg';
+                photoData.displayUrl = 'assets/img/photo-placeholder.svg';
                 photoData.loading = true;
                 console.log(`[RoomElevation]         Setting photo to loading state (S3: ${hasS3Key})`);
               }
@@ -4003,7 +4003,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
                 
                 if (alreadyExists) continue;
 
-                let displayUrl = 'assets/img/photo-placeholder.png';
+                let displayUrl = 'assets/img/photo-placeholder.svg';
                 try {
                   displayUrl = await this.localImageService.getDisplayUrl(localImage);
                 } catch (e) {
@@ -4867,7 +4867,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
       }
       
       // If still no valid data URL and we have an S3 path, fetch and cache it
-      if ((!photoUrl || photoUrl === 'assets/img/photo-placeholder.png' || photoUrl.startsWith('https://')) && s3Key) {
+      if ((!photoUrl || photoUrl === 'assets/img/photo-placeholder.svg' || photoUrl.startsWith('https://')) && s3Key) {
         if (this.caspioService.isS3Key(s3Key)) {
           console.log('[FDF Annotate] Fetching S3 image as data URL via XMLHttpRequest:', s3Key);
           try {
@@ -4890,7 +4890,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         }
       }
 
-      if (!photoUrl || photoUrl === 'assets/img/photo-placeholder.png') {
+      if (!photoUrl || photoUrl === 'assets/img/photo-placeholder.svg') {
         console.warn('[FDF Annotate] No valid image URL available');
         return;
       }
@@ -5829,7 +5829,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // If still no valid data URL and we have a path, fetch and cache it
       // WEBAPP FIX: Also check for S3 keys (start with 'uploads/')
-      if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.png' || imageUrl.startsWith('https://') || this.caspioService.isS3Key(imageUrl)) {
+      if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg' || imageUrl.startsWith('https://') || this.caspioService.isS3Key(imageUrl)) {
         const s3Key = photo.Attachment || photo.path || (this.caspioService.isS3Key(photo.url) ? photo.url : null);
         
         // For S3 images, fetch via XMLHttpRequest to get data URL (avoids CORS issues with fabric.js canvas)
@@ -5859,7 +5859,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         
       }
 
-      if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') {
+      if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') {
         console.warn('[Point Annotate] No valid image URL available');
         return;
       }
@@ -7084,7 +7084,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     console.warn('[IMAGE ERROR] Failed to load:', photo.attachId || photo.imageId, 'url:', img.src?.substring(0, 50));
 
     // Don't retry if already showing placeholder
-    if (img.src === 'assets/img/photo-placeholder.png' || img.src.endsWith('photo-placeholder.png')) {
+    if (img.src === 'assets/img/photo-placeholder.svg' || img.src.endsWith('photo-placeholder.svg')) {
       return;
     }
 
@@ -7096,8 +7096,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
     if (photo._retryCount > 2) {
       console.warn('[IMAGE ERROR] Max retries reached, showing placeholder');
-      img.src = 'assets/img/photo-placeholder.png';
-      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      img.src = 'assets/img/photo-placeholder.svg';
+      photo.displayUrl = 'assets/img/photo-placeholder.svg';
       photo.loading = false;
       return;
     }
@@ -7144,7 +7144,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
         if (localImage) {
           const fallbackUrl = await this.localImageService.getDisplayUrl(localImage);
-          if (fallbackUrl && fallbackUrl !== 'assets/img/photo-placeholder.png') {
+          if (fallbackUrl && fallbackUrl !== 'assets/img/photo-placeholder.svg') {
             console.log('[IMAGE ERROR] Using LocalImage fallback:', localImageId);
             img.src = fallbackUrl;
             photo.displayUrl = fallbackUrl;
@@ -7170,14 +7170,14 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // Fallback 3: Placeholder
       console.log('[IMAGE ERROR] No fallback available, showing placeholder');
-      img.src = 'assets/img/photo-placeholder.png';
-      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      img.src = 'assets/img/photo-placeholder.svg';
+      photo.displayUrl = 'assets/img/photo-placeholder.svg';
       photo.loading = false;
 
     } catch (err) {
       console.error('[IMAGE ERROR] Fallback failed:', err);
-      img.src = 'assets/img/photo-placeholder.png';
-      photo.displayUrl = 'assets/img/photo-placeholder.png';
+      img.src = 'assets/img/photo-placeholder.svg';
+      photo.displayUrl = 'assets/img/photo-placeholder.svg';
       photo.loading = false;
     }
   }
@@ -7245,7 +7245,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             console.log('[RoomElevation] WEBAPP: ✅ Created data URL for photo:', photo.attachId, 'type:', photo.photoType);
           } catch (err) {
             console.warn('[RoomElevation] WEBAPP: Failed to resolve S3 URL:', err);
-            photo.displayUrl = 'assets/img/photo-placeholder.png';
+            photo.displayUrl = 'assets/img/photo-placeholder.svg';
             photo.loading = false;
           }
         } else if (photo.url) {

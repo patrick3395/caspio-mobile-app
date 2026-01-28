@@ -316,15 +316,19 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
 
+        // CRITICAL: Update categoryName to actual category (needed for saveTitle to find correct Dexie field)
+        this.categoryName = field.category || this.categoryName;
+
         // Store hudId for photo loading
         if (!this.hudId) {
           this.hudId = field.visualId || field.tempVisualId || '';
         }
 
-        console.log('[HudVisualDetail] MOBILE: Loaded from Dexie field:', this.item.name, 'hudId:', this.hudId);
+        console.log('[HudVisualDetail] MOBILE: Loaded from Dexie field:', this.item.name, 'category:', this.categoryName, 'hudId:', this.hudId);
       } else if (field && template) {
         // Field exists but templateName is empty - merge field data with template name
         // This handles data created before templateName was stored
+        const actualCategory = field.category || template.Category || this.categoryName;
         this.item = {
           id: field.visualId || field.tempVisualId || field.templateId,
           templateId: field.templateId,
@@ -332,7 +336,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           text: field.templateText || template.Text || '',
           originalText: template.Text || '',
           type: field.kind || template.Kind || 'Comment',
-          category: field.category || template.Category || this.categoryName,
+          category: actualCategory,
           answerType: field.answerType || template.AnswerType || 0,
           required: false,
           answer: field.answer,
@@ -342,15 +346,19 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
 
+        // CRITICAL: Update categoryName to actual category (needed for saveTitle to find correct Dexie field)
+        this.categoryName = actualCategory;
+
         // Store hudId for photo loading
         if (!this.hudId) {
           this.hudId = field.visualId || field.tempVisualId || '';
         }
 
-        console.log('[HudVisualDetail] MOBILE: Merged field+template - Name:', this.item.name, 'hudId:', this.hudId);
+        console.log('[HudVisualDetail] MOBILE: Merged field+template - Name:', this.item.name, 'category:', this.categoryName, 'hudId:', this.hudId);
       } else if (template) {
         // No field exists - use template (item not yet selected)
         const effectiveTemplateId = template.TemplateID || template.PK_ID;
+        const actualCategory = template.Category || this.categoryName;
         this.item = {
           id: effectiveTemplateId,
           templateId: effectiveTemplateId,
@@ -358,7 +366,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           text: template.Text || '',
           originalText: template.Text || '',
           type: template.Kind || 'Comment',
-          category: template.Category || this.categoryName,
+          category: actualCategory,
           answerType: template.AnswerType || 0,
           required: false,
           isSelected: false
@@ -366,12 +374,15 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         this.editableTitle = this.item.name;
         this.editableText = this.item.text;
 
+        // CRITICAL: Update categoryName to actual category (needed for saveTitle to find correct Dexie field)
+        this.categoryName = actualCategory;
+
         // Use hudId from query params if available
         if (!this.hudId && hudIdFromQueryParams) {
           this.hudId = hudIdFromQueryParams;
         }
 
-        console.log('[HudVisualDetail] MOBILE: Loaded from template:', this.item.name);
+        console.log('[HudVisualDetail] MOBILE: Loaded from template:', this.item.name, 'category:', this.categoryName);
       } else {
         console.warn('[HudVisualDetail] MOBILE: No field or template found for ID:', this.templateId);
       }
@@ -424,7 +435,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         for (const att of attachments || []) {
           // HUD NOTE: S3 uploads store the key in 'Attachment' field, not 'Photo'
           // Check Attachment first (S3 key), then Photo (legacy Caspio Files API)
-          let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
+          let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.svg';
 
           console.log('[HudVisualDetail] WEBAPP: Processing attachment:', {
             AttachID: att.AttachID,

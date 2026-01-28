@@ -270,7 +270,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         console.log('[UPLOAD UPDATE] ✅ Got S3 URL');
       } catch (err) {
         console.error('[UPLOAD UPDATE] ❌ S3 failed:', err);
-        displayableUrl = 'assets/img/photo-placeholder.png';
+        displayableUrl = 'assets/img/photo-placeholder.svg';
       }
     }
     // Fallback to Caspio Files API
@@ -282,11 +282,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         if (imageData && imageData.startsWith('data:')) {
           displayableUrl = imageData;
         } else {
-          displayableUrl = 'assets/img/photo-placeholder.png';
+          displayableUrl = 'assets/img/photo-placeholder.svg';
         }
       } catch (err) {
         console.error('[UPLOAD UPDATE] ❌ Failed to load uploaded image:', err);
-        displayableUrl = 'assets/img/photo-placeholder.png';
+        displayableUrl = 'assets/img/photo-placeholder.svg';
       }
     } else {
       console.log('[UPLOAD UPDATE] URL already displayable (data: or blob:)');
@@ -871,14 +871,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
    */
   private async loadSinglePhoto(attach: any, key: string): Promise<void> {
     const attachId = String(attach.AttachID || attach.PK_ID || attach.id);
-    const s3Key = attach.Attachment;
-    const filePath = attach.Attachment || attach.Photo || '';
-    const hasImageSource = attach.Attachment || attach.Photo;
-    
-    console.log('[LOAD PHOTO] Loading:', attachId, 'key:', key);
+    // Try multiple possible field names for S3 key (Caspio may use different casing)
+    const s3Key = attach.Attachment || attach.attachment || attach.S3Key || attach.s3Key || attach.Photo || attach.photo || '';
+    const filePath = s3Key;
+    const hasImageSource = !!s3Key;
+
+    console.log('[LOAD PHOTO] Loading:', attachId, 'key:', key, 's3Key:', s3Key, 'hasImageSource:', hasImageSource);
+    console.log('[LOAD PHOTO] Attachment record fields:', Object.keys(attach).join(', '));
     
     // TWO-FIELD APPROACH: Determine display state and URL
-    let displayUrl = 'assets/img/photo-placeholder.png';
+    let displayUrl = 'assets/img/photo-placeholder.svg';
     let displayState: 'local' | 'uploading' | 'cached' | 'remote_loading' | 'remote' = 'remote';
     let localBlobKey: string | undefined;
     let imageUrl = '';
@@ -965,7 +967,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       const existingPhoto = this.visualPhotos[key][existingIndex];
       if (displayState === 'remote_loading' && 
           existingPhoto.displayUrl && 
-          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.png') {
+          existingPhoto.displayUrl !== 'assets/img/photo-placeholder.svg') {
         photoData.displayUrl = existingPhoto.displayUrl;
         photoData.displayState = existingPhoto.displayState || 'cached';
       }
@@ -978,7 +980,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     
     // STEP 4: If remote_loading, preload and transition in background
     if (displayState === 'remote_loading' && hasImageSource) {
-      this.preloadAndTransition(attachId, s3Key || attach.Photo, key, !!s3Key && this.caspioService.isS3Key(s3Key)).catch(err => {
+      console.log('[LOAD PHOTO] Starting remote preload for:', attachId, 'with s3Key:', s3Key);
+      this.preloadAndTransition(attachId, s3Key, key, true).catch(err => {
         console.warn('[LOAD PHOTO] Preload failed:', attachId, err);
       });
     }
@@ -990,28 +993,26 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
    * Preload image from remote and transition UI only after success
    */
   private async preloadAndTransition(
-    attachId: string, 
-    imageKey: string, 
-    key: string, 
+    attachId: string,
+    imageKey: string,
+    key: string,
     isS3: boolean
   ): Promise<void> {
     try {
       let imageDataUrl: string;
-      
-      if (isS3) {
+
+      // All LBW photos should be S3 now - always use getS3FileUrl
+      // This matches HUD's approach which treats all photos as S3
+      if (imageKey) {
         const s3Url = await this.caspioService.getS3FileUrl(imageKey);
         const preloaded = await this.preloadImage(s3Url);
         if (!preloaded) throw new Error('Preload failed');
         imageDataUrl = await this.fetchAsDataUrl(s3Url);
       } else {
-        const imageData = await this.hudData.getImage(imageKey);
-        if (!imageData || !imageData.startsWith('data:')) {
-          throw new Error('Invalid image data');
-        }
-        imageDataUrl = imageData;
+        throw new Error('No image key provided');
       }
-      
-      await this.indexedDb.cachePhoto(attachId, this.serviceId, imageDataUrl, isS3 ? imageKey : undefined);
+
+      await this.indexedDb.cachePhoto(attachId, this.serviceId, imageDataUrl, imageKey);
       
       const photoIndex = this.visualPhotos[key]?.findIndex(p => 
         String(p.attachId) === attachId || String(p.AttachID) === attachId
@@ -2251,8 +2252,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             AttachID: tempId,
             id: tempId,
             name: `photo_${i}.jpg`,
-            url: 'assets/img/photo-placeholder.png',
-            thumbnailUrl: 'assets/img/photo-placeholder.png',
+            url: 'assets/img/photo-placeholder.svg',
+            thumbnailUrl: 'assets/img/photo-placeholder.svg',
             isObjectUrl: false,
             uploading: false,
             isSkeleton: true,
@@ -2587,7 +2588,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
               console.log('[LBW PHOTO UPLOAD] ✅ Got S3 pre-signed URL');
             } catch (err) {
               console.error('[LBW PHOTO UPLOAD] ❌ Failed to fetch S3 URL:', err);
-              displayableUrl = 'assets/img/photo-placeholder.png';
+              displayableUrl = 'assets/img/photo-placeholder.svg';
             }
           }
           // Fallback to old Caspio Files API logic
@@ -2604,11 +2605,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                 console.log('[LBW PHOTO UPLOAD] ✅ Successfully converted to data URL, length:', imageData.length);
               } else {
                 console.warn('[LBW PHOTO UPLOAD] ❌ Files API returned invalid data');
-                displayableUrl = 'assets/img/photo-placeholder.png';
+                displayableUrl = 'assets/img/photo-placeholder.svg';
               }
             } catch (err) {
               console.error('[LBW PHOTO UPLOAD] ❌ Failed to fetch image from Files API:', err);
-              displayableUrl = 'assets/img/photo-placeholder.png';
+              displayableUrl = 'assets/img/photo-placeholder.svg';
             }
           } else {
             console.log('[LBW PHOTO UPLOAD] Using URL directly (already data/blob URL)');
@@ -2762,7 +2763,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
   handleImageError(event: any, photo: any) {
     const target = event.target as HTMLImageElement;
-    target.src = 'assets/img/photo-placeholder.png';
+    target.src = 'assets/img/photo-placeholder.svg';
   }
 
   saveScrollBeforePhotoClick(event: Event): void {
@@ -2996,7 +2997,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       const scrollPosition = await this.content?.getScrollElement().then(el => el.scrollTop) || 0;
 
       // Get image URL
-      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.png';
+      let imageUrl = photo.url || photo.thumbnailUrl || 'assets/img/photo-placeholder.svg';
 
       // Check if this is a pending/offline photo (temp ID) - retrieve from IndexedDB
       const isPendingPhoto = String(attachId).startsWith('temp_') || photo._pendingFileId;
@@ -3037,7 +3038,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         }
       }
       // If no valid URL and we have a file path, try to fetch it
-      else if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.png') && (photo.filePath || photo.Photo || photo.Attachment)) {
+      else if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') && (photo.filePath || photo.Photo || photo.Attachment)) {
         try {
           // Check if this is an S3 key
           if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {

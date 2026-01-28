@@ -339,7 +339,7 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         for (const att of attachments || []) {
           // S3 uploads store the key in 'Attachment' field, not 'Photo'
           // Check Attachment first (S3 key), then Photo (legacy Caspio Files API)
-          let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.png';
+          let displayUrl = att.Attachment || att.Photo || att.url || att.displayUrl || 'assets/img/photo-placeholder.svg';
 
           // If it's an S3 key, get signed URL
           if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
@@ -401,7 +401,7 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
 
         // Get the blob data if available
-        let displayUrl = 'assets/img/photo-placeholder.png';
+        let displayUrl = 'assets/img/photo-placeholder.svg';
         let originalUrl = displayUrl;
 
         // DEXIE-FIRST: Check for cached annotated image first (for thumbnails with annotations)
@@ -420,13 +420,13 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
             const blobObj = new Blob([blob.data], { type: blob.contentType });
             originalUrl = URL.createObjectURL(blobObj);
             // If no cached annotated image, use original
-            if (displayUrl === 'assets/img/photo-placeholder.png') {
+            if (displayUrl === 'assets/img/photo-placeholder.svg') {
               displayUrl = originalUrl;
             }
           }
         } else if (img.remoteUrl) {
           originalUrl = img.remoteUrl;
-          if (displayUrl === 'assets/img/photo-placeholder.png') {
+          if (displayUrl === 'assets/img/photo-placeholder.svg') {
             displayUrl = img.remoteUrl;
           }
         }
