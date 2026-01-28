@@ -826,6 +826,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               this.visualRecordIds[key] = visualId;
             }
 
+            // TITLE/TEXT FIX: Restore edited name and text from Dexie
+            // When user edits title in visual-detail, it's saved to Dexie but not cached HUD records
+            if (dexieField.templateName && dexieField.templateName !== item.name) {
+              console.log(`[CategoryDetail] MOBILE: Restored title from Dexie - key: ${key}, old: "${item.name}", new: "${dexieField.templateName}"`);
+              item.name = dexieField.templateName;
+            }
+            if (dexieField.templateText && dexieField.templateText !== item.text) {
+              console.log(`[CategoryDetail] MOBILE: Restored text from Dexie - key: ${key}`);
+              item.text = dexieField.templateText;
+            }
+
             // MULTI-SELECT FIX: Restore answer from Dexie if it has local changes
             // Dexie answer takes precedence over cached HUD record (Dexie has unsync'd changes)
             if (dexieField.answer !== undefined && dexieField.answer !== null && dexieField.answer !== '') {
@@ -852,6 +863,55 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         }
 
         console.log(`[CategoryDetail] MOBILE: Merged ${totalFieldsLoaded} VisualFields from Dexie (${uniqueCategories.size} categories)`);
+
+        // CUSTOM VISUAL FIX: Add custom visuals from Dexie that aren't in organizedData
+        // Custom visuals have negative templateIds (created via Add Modal)
+        for (const [templateId, dexieField] of dexieFieldMap.entries()) {
+          if (templateId < 0 && dexieField.isSelected) {
+            // Check if this custom visual is already in organizedData
+            const existingItem = allItems.find(item => item.templateId === templateId);
+            if (!existingItem) {
+              // Create custom item from Dexie field
+              const customItem: VisualItem = {
+                id: dexieField.tempVisualId || dexieField.visualId || templateId,
+                templateId: templateId,
+                name: dexieField.templateName || 'Custom Item',
+                text: dexieField.templateText || '',
+                originalText: dexieField.templateText || '',
+                type: dexieField.kind || 'Comment',
+                category: dexieField.category,
+                answerType: 0,
+                required: false,
+                answer: dexieField.answer || '',
+                isSelected: true,
+                photos: []
+              };
+
+              // Add to appropriate section
+              const kind = dexieField.kind || 'Comment';
+              if (kind === 'Comment') {
+                organizedData.comments.push(customItem);
+              } else if (kind === 'Limitation') {
+                organizedData.limitations.push(customItem);
+              } else if (kind === 'Deficiency') {
+                organizedData.deficiencies.push(customItem);
+              } else {
+                organizedData.comments.push(customItem);
+              }
+
+              // Set up tracking with consistent key
+              const key = `${dexieField.category}_${templateId}`;
+              const visualId = dexieField.tempVisualId || dexieField.visualId;
+              if (visualId) {
+                this.visualRecordIds[key] = visualId;
+              }
+              this.selectedItems[key] = true;
+              this.photoCountsByKey[key] = dexieField.photoCount || 0;
+
+              console.log(`[CategoryDetail] MOBILE: Added custom visual from Dexie: templateId=${templateId}, name="${customItem.name}", key=${key}`);
+            }
+          }
+        }
       } catch (err) {
         console.error('[CategoryDetail] MOBILE: Failed to load VisualFields from Dexie:', err);
       }
@@ -3045,6 +3105,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 this.visualRecordIds[key] = visualId;
               }
 
+              // TITLE/TEXT FIX: Restore edited name and text from Dexie
+              // When user edits title in visual-detail, it's saved to Dexie but not cached HUD records
+              if (dexieField.templateName && dexieField.templateName !== item.name) {
+                console.log(`[LOAD DATA] Merged title from Dexie - templateId: ${item.templateId}, old: "${item.name}", new: "${dexieField.templateName}"`);
+                item.name = dexieField.templateName;
+              }
+              if (dexieField.templateText && dexieField.templateText !== item.text) {
+                console.log(`[LOAD DATA] Merged text from Dexie - templateId: ${item.templateId}`);
+                item.text = dexieField.templateText;
+              }
+
               // MULTI-SELECT FIX: Restore answer from Dexie (local changes)
               // Dexie answer takes precedence over cached HUD record
               if (dexieField.answer !== undefined && dexieField.answer !== null && dexieField.answer !== '') {
@@ -3070,6 +3141,55 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             }
           }
           console.log(`[LOAD DATA] ? Merged ${totalFieldsLoaded} VisualFields from Dexie (${uniqueCategories.size} categories)`);
+
+          // CUSTOM VISUAL FIX: Add custom visuals from Dexie that aren't in organizedData
+          // Custom visuals have negative templateIds (created via Add Modal)
+          for (const [templateId, dexieField] of dexieFieldMap.entries()) {
+            if (templateId < 0 && dexieField.isSelected) {
+              // Check if this custom visual is already in organizedData
+              const existingItem = allItems.find(item => item.templateId === templateId);
+              if (!existingItem) {
+                // Create custom item from Dexie field
+                const customItem: VisualItem = {
+                  id: dexieField.tempVisualId || dexieField.visualId || templateId,
+                  templateId: templateId,
+                  name: dexieField.templateName || 'Custom Item',
+                  text: dexieField.templateText || '',
+                  originalText: dexieField.templateText || '',
+                  type: dexieField.kind || 'Comment',
+                  category: dexieField.category,
+                  answerType: 0,
+                  required: false,
+                  answer: dexieField.answer || '',
+                  isSelected: true,
+                  photos: []
+                };
+
+                // Add to appropriate section
+                const kind = dexieField.kind || 'Comment';
+                if (kind === 'Comment') {
+                  this.organizedData.comments.push(customItem);
+                } else if (kind === 'Limitation') {
+                  this.organizedData.limitations.push(customItem);
+                } else if (kind === 'Deficiency') {
+                  this.organizedData.deficiencies.push(customItem);
+                } else {
+                  this.organizedData.comments.push(customItem);
+                }
+
+                // Set up tracking with consistent key
+                const key = `${dexieField.category}_${templateId}`;
+                const visualId = dexieField.tempVisualId || dexieField.visualId;
+                if (visualId) {
+                  this.visualRecordIds[key] = visualId;
+                }
+                this.selectedItems[key] = true;
+                this.photoCountsByKey[key] = dexieField.photoCount || 0;
+
+                console.log(`[LOAD DATA] Added custom visual from Dexie: templateId=${templateId}, name="${customItem.name}", key=${key}`);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error('[LOAD DATA] Failed to merge VisualFields from Dexie:', err);
