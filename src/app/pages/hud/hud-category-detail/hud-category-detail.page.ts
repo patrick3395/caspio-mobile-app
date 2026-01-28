@@ -692,6 +692,23 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const categoryTemplates = templates || [];
       const categoryVisuals = visuals || [];
 
+      // TITLE EDIT FIX: Load Dexie visualFields FIRST to get templateId -> visualId mappings
+      // This allows finding visuals even when Name has been edited (Name+Category match would fail)
+      const dexieFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray();
+
+      // Build templateId -> visualId map from Dexie
+      const templateToVisualMap = new Map<number, string>();
+      for (const field of dexieFields) {
+        const visualId = field.visualId || field.tempVisualId;
+        if (visualId && field.templateId) {
+          templateToVisualMap.set(field.templateId, visualId);
+        }
+      }
+      console.log(`[CategoryDetail] MOBILE: Built templateId->visualId map with ${templateToVisualMap.size} entries from Dexie`);
+
       // Build organized data from templates and visuals (same logic as WEBAPP)
       const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
         comments: [],
@@ -705,13 +722,28 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const templateName = template.Name || '';
         const templateCategory = template.Category || '';
 
-        // Find matching visual (user selection)
-        let visual = (categoryVisuals || []).find((v: any) => {
-          const vTemplateId = v.HUDTemplateID || v.VisualTemplateID || v.TemplateID;
-          return vTemplateId == templateId;
-        });
+        // TITLE EDIT FIX: PRIORITY 1 - Find by HUDID from Dexie mapping
+        // This ensures visual stays selected even after Name is edited
+        let visual: any = null;
+        const dexieVisualId = templateToVisualMap.get(templateId);
+        if (dexieVisualId) {
+          visual = (categoryVisuals || []).find((v: any) =>
+            String(v.HUDID || v.PK_ID) === String(dexieVisualId)
+          );
+          if (visual) {
+            console.log(`[CategoryDetail] MOBILE: Matched visual by Dexie HUDID for template ${templateId}:`, dexieVisualId);
+          }
+        }
 
-        // Fallback: match by name
+        // PRIORITY 2: Find by HUDTemplateID/VisualTemplateID/TemplateID
+        if (!visual) {
+          visual = (categoryVisuals || []).find((v: any) => {
+            const vTemplateId = v.HUDTemplateID || v.VisualTemplateID || v.TemplateID;
+            return vTemplateId == templateId;
+          });
+        }
+
+        // PRIORITY 3: Fallback match by name
         if (!visual && templateName) {
           visual = (categoryVisuals || []).find((v: any) => v.Name === templateName);
         }
@@ -721,7 +753,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const item: VisualItem = {
           id: visual ? (visual.HUDID || visual.VisualID || visual.PK_ID) : templateId,
           templateId: templateId,
-          name: template.Name || '',
+          // TITLE EDIT FIX: Use visual's Name if available (contains user edits)
+          name: visual?.Name || template.Name || '',
           text: visual?.VisualText || visual?.Text || template.Text || '',
           originalText: template.Text || '',
           type: template.Kind || 'Comment',

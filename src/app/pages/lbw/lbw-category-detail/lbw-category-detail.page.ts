@@ -50,7 +50,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   loading: boolean = false;  // Start false - show cached data instantly, only show spinner if cache empty
   isRefreshing: boolean = false;  // Track background refresh status
   searchTerm: string = '';
-  expandedAccordions: string[] = []; // Start collapsed
+  expandedAccordions: string[] = ['information', 'limitations', 'deficiencies']; // Start expanded like EFE
   organizedData: {
     comments: VisualItem[];
     limitations: VisualItem[];
@@ -121,9 +121,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       this.categoryName = params['category'];
 
       // Get IDs from container route
-      // Route structure: hud/:projectId/:serviceId -> category/:category (we are here)
-      // So we need to go up 2 levels to get to container
-      this.route.parent?.parent?.params.subscribe(parentParams => {
+      // Route structure: lbw/:projectId/:serviceId (container) -> category/:category (we are here)
+      // Container is direct parent, so we only go up 1 level
+      this.route.parent?.params.subscribe(parentParams => {
         this.projectId = parentParams['projectId'];
         this.serviceId = parentParams['serviceId'];
 

@@ -1079,7 +1079,7 @@ export class CaspioService {
 
   // Services LBW Templates methods
   getServicesLBWTemplates(): Observable<any[]> {
-    return this.get<any>('/tables/LPS_Services_LBW_Template/records').pipe(
+    return this.get<any>('/tables/LPS_Services_LBW_Templates/records').pipe(
       map(response => response.Result || []),
       catchError(error => {
         console.error('LBW templates error:', error);
@@ -2582,7 +2582,7 @@ export class CaspioService {
 
       const formData = new FormData();
       formData.append('file', file, uniqueFilename);
-      formData.append('tableName', 'LPS_Services_LPS_Attach');
+      formData.append('tableName', 'LPS_Services_LBW_Attach');
       formData.append('attachId', tempAttachId);
 
       console.log('[LBW ATTACH S3] Step 1: Uploading to S3 FIRST...');
@@ -2599,7 +2599,7 @@ export class CaspioService {
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
 
       console.log('[LBW ATTACH S3] Step 2: Creating Caspio record with Attachment...');
-      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LPS_Attach/records?response=rows`, {
+      const recordResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(recordData)
@@ -2852,7 +2852,7 @@ export class CaspioService {
   // ============================================
 
   createServicesLBW(lbwData: any): Observable<any> {
-    return this.post<any>('/tables/LPS_Services_LPS/records?response=rows', lbwData).pipe(
+    return this.post<any>('/tables/LPS_Services_LBW/records?response=rows', lbwData).pipe(
       tap(response => {
         if (response && response.Result && response.Result.length > 0) {
           console.log('✅ LBW record created:', response.Result[0]);
@@ -2866,7 +2866,7 @@ export class CaspioService {
   }
 
   updateServicesLBW(lbwId: string, lbwData: any): Observable<any> {
-    const url = `/tables/LPS_Services_LPS/records?q.where=LBWID=${lbwId}`;
+    const url = `/tables/LPS_Services_LBW/records?q.where=LBWID=${lbwId}`;
     return this.put<any>(url, lbwData).pipe(
       catchError(error => {
         console.error('❌ Failed to update Services_LPS:', error);
@@ -2876,18 +2876,18 @@ export class CaspioService {
   }
 
   getServicesLBWByServiceId(serviceId: string): Observable<any[]> {
-    return this.get<any>(`/tables/LPS_Services_LPS/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
+    return this.get<any>(`/tables/LPS_Services_LBW/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
       map(response => response.Result || [])
     );
   }
 
   deleteServicesLBW(lbwId: string): Observable<any> {
-    return this.delete<any>(`/tables/LPS_Services_LPS/records?q.where=PK_ID=${lbwId}`);
+    return this.delete<any>(`/tables/LPS_Services_LBW/records?q.where=PK_ID=${lbwId}`);
   }
 
   // Services_LPS_Attach methods (for LBW photos)
   getServiceLBWAttachByLBWId(lbwId: string): Observable<any[]> {
-    return this.get<any>(`/tables/LPS_Services_LPS_Attach/records?q.where=LBWID=${lbwId}&q.limit=1000`).pipe(
+    return this.get<any>(`/tables/LPS_Services_LBW_Attach/records?q.where=LBWID=${lbwId}&q.limit=1000`).pipe(
       map(response => response.Result || [])
     );
   }
@@ -2906,7 +2906,7 @@ export class CaspioService {
   }
 
   updateServicesLBWAttach(attachId: string, data: any): Observable<any> {
-    const url = `/tables/LPS_Services_LPS_Attach/records?q.where=AttachID=${attachId}`;
+    const url = `/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`;
     return this.put<any>(url, data);
   }
 
@@ -2937,7 +2937,7 @@ export class CaspioService {
   }
 
   deleteServicesLBWAttach(attachId: string): Observable<any> {
-    return this.delete<any>(`/tables/LPS_Services_LPS_Attach/records?q.where=AttachID=${attachId}`);
+    return this.delete<any>(`/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`);
   }
 
   // Private helper methods for LBW file uploads
@@ -3031,7 +3031,7 @@ export class CaspioService {
 
       console.log('[LBW ATTACH] Record data:', recordData);
 
-      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LPS_Attach/records?response=rows`, {
+      const createResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -3124,7 +3124,7 @@ export class CaspioService {
         Photo: originalFilePath || filePath
       };
 
-      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LPS_Attach/records?q.where=AttachID=${attachId}`, {
+      const updateResponse = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -3159,7 +3159,7 @@ export class CaspioService {
       Drawings: drawings || ''
     };
 
-    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_LPS_Attach/records?response=rows`, {
+    const response = await fetch(`${API_BASE_URL}/tables/LPS_Services_LBW_Attach/records?response=rows`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
