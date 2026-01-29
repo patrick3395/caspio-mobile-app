@@ -107,7 +107,7 @@ export class LbwDataService {
       this.indexedDb.imageChange$.subscribe(event => {
         console.log('[LBW DataService] IndexedDB image change:', event.action, event.key, 'entity:', event.entityType, event.entityId);
 
-        if (event.entityType === 'lbw_records') {
+        if (event.entityType === 'lbw') {
           this.lbwAttachmentsCache.clear();
         }
 
@@ -400,8 +400,8 @@ export class LbwDataService {
     // MOBILE MODE: Offline-first with background sync
     console.log('[LBW Data] Creating new LBW record (OFFLINE-FIRST):', lbwData);
 
-    // Generate temporary ID (using 'lbw_records' prefix for LBW records)
-    const tempId = this.tempId.generateTempId('lbw_records');
+    // Generate temporary ID (using 'lbw' prefix for LBW records)
+    const tempId = this.tempId.generateTempId('lbw');
 
     // Create placeholder for immediate UI
     const placeholder = {
@@ -550,7 +550,7 @@ export class LbwDataService {
       // Entity references
       LBWID: lbwIdStr,
       entityId: lbwIdStr,
-      entityType: 'lbw_records',
+      entityType: 'lbw',
       serviceId: effectiveServiceId,
 
       // Content

@@ -1735,7 +1735,7 @@ export class OfflineTemplateService {
       try {
         console.log(`[OfflineTemplate] No cached LBW records, fetching from API...`);
         const freshLbw = await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId));
-        await this.indexedDb.cacheServiceData(serviceId, 'lbw', freshLbw);
+        await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', freshLbw);
         return [...freshLbw, ...pending];
       } catch (error) {
         console.error(`[OfflineTemplate] LBW API fetch failed:`, error);
@@ -1818,7 +1818,7 @@ export class OfflineTemplateService {
         }
         // No local changes - clear cache (data was deleted on server)
         console.log(`[OfflineTemplate] API returned empty, no local changes - clearing LBW cache for ${serviceId}`);
-        await this.indexedDb.cacheServiceData(serviceId, 'lbw', []);
+        await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', []);
         this.backgroundRefreshComplete$.next({ serviceId, dataType: 'lbw_records' });
         return;
       }
@@ -1871,7 +1871,7 @@ export class OfflineTemplateService {
       const tempLbw = existingCache.filter((v: any) => v._tempId && String(v._tempId).startsWith('temp_'));
       const finalLbw = [...mergedLbw, ...tempLbw];
 
-      await this.indexedDb.cacheServiceData(serviceId, 'lbw', finalLbw);
+      await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', finalLbw);
       console.log(`[OfflineTemplate] Background LBW refresh: ${freshLbw.length} server records, ${localUpdates.size} local updates preserved, ${tempLbw.length} temp records for ${serviceId}`);
 
       // Notify pages that fresh data is available
