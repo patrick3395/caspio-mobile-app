@@ -3845,6 +3845,27 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     const visuals = this.bulkVisualsCache;
     console.log('[LOAD VISUALS FAST] Using pre-loaded visuals:', visuals.length);
 
+    // CUSTOM ITEM NAME FIX: Build dexieFieldMap to lookup VisualField names from Dexie
+    // This preserves custom visual names when server cache returns empty Name
+    const dexieFieldMap = new Map<string, any>();
+    try {
+      if (this.serviceId) {
+        const dexieFields = await firstValueFrom(this.visualFieldRepo.getAllFieldsForService$(this.serviceId));
+        for (const field of dexieFields) {
+          // Map by visualId or tempVisualId for lookup when creating custom items
+          if (field.visualId) {
+            dexieFieldMap.set(String(field.visualId), field);
+          }
+          if (field.tempVisualId) {
+            dexieFieldMap.set(String(field.tempVisualId), field);
+          }
+        }
+        console.log(`[LOAD VISUALS FAST] Built dexieFieldMap with ${dexieFieldMap.size} entries for name fallback`);
+      }
+    } catch (err) {
+      console.warn('[LOAD VISUALS FAST] Failed to build dexieFieldMap:', err);
+    }
+
     // Track which keys have already been assigned to prevent collisions
     const assignedKeys = new Set<string>();
 
@@ -3896,11 +3917,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       // Find or create item (if not found above)
       if (!item) {
+        // CUSTOM ITEM NAME FIX: Look up name from dexieFieldMap when visual.Name is empty
+        // This preserves custom visual names after background refresh replaces cache with server data
+        const dexieField = dexieFieldMap.get(visualId);
+        const customName = visual.Name || (dexieField?.templateName) || 'Custom Item';
+
         // Custom visual - create dynamic item
         const customItem: VisualItem = {
           id: `custom_${visualId}`,
           templateId: 0,
-          name: visual.Name || 'Custom Item',
+          name: customName,
           text: visual.Text || '',
           originalText: visual.Text || '',
           type: visual.Kind || 'Comment',
@@ -3911,14 +3937,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           isSelected: true,
           photos: []
         };
-        
+
         if (kind === 'Comment') this.organizedData.comments.push(customItem);
         else if (kind === 'Limitation') this.organizedData.limitations.push(customItem);
         else if (kind === 'Deficiency') this.organizedData.deficiencies.push(customItem);
         else this.organizedData.comments.push(customItem);
-        
+
         item = customItem;
-        console.log(`[LOAD VISUALS FAST] Created custom item for visual ${visualId}: "${name}"`);
+        console.log(`[LOAD VISUALS FAST] Created custom item for visual ${visualId}: "${customName}" (source: ${visual.Name ? 'visual.Name' : dexieField?.templateName ? 'dexieField' : 'default'})`);
       }
 
       // Use templateId for regular items (matches template), fall back to id for custom items
@@ -3928,11 +3954,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // CRITICAL: Check for key collision before assigning
       if (assignedKeys.has(key)) {
         console.error(`[LOAD VISUALS FAST] ?? KEY COLLISION DETECTED! Key "${key}" already has visual ${this.visualRecordIds[key]}, visual ${visualId} (Name: "${name}") would overwrite it!`);
+        // CUSTOM ITEM NAME FIX: Look up name from dexieFieldMap when visual.Name is empty
+        const orphanDexieField = dexieFieldMap.get(visualId);
+        const orphanName = visual.Name || (orphanDexieField?.templateName) || 'Orphaned Item';
+
         // Create a custom item for this orphaned visual instead of overwriting
         const orphanedItem: VisualItem = {
           id: `orphan_${visualId}`,
           templateId: 0,
-          name: visual.Name || 'Orphaned Item',
+          name: orphanName,
           text: visual.Text || '',
           originalText: visual.Text || '',
           type: visual.Kind || 'Comment',

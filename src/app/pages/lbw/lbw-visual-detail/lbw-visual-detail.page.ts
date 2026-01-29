@@ -39,6 +39,7 @@ interface PhotoItem {
   displayUrl: string;
   caption: string;
   uploading: boolean;
+  loading?: boolean;
   isLocal: boolean;
   hasAnnotations?: boolean;
   drawings?: string;
@@ -501,12 +502,20 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           }
 
           const attachId = String(att.AttachID || att.attachId || att.PK_ID);
-          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
-
-          // WEBAPP FIX: Render annotations on photo if they exist
+          const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
           let thumbnailUrl = displayUrl;
-          if (hasAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
-            try {
+          let hasAnnotations = hasServerAnnotations;
+
+          // WEBAPP FIX: ALWAYS check for cached annotated image first
+          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          try {
+            const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
+            if (cachedAnnotated) {
+              thumbnailUrl = cachedAnnotated;
+              hasAnnotations = true;
+              console.log(`[LbwVisualDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+            } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+              // No cached image but server has Drawings - render annotations on the fly
               console.log(`[LbwVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);
               const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
               if (renderedUrl && renderedUrl !== displayUrl) {
@@ -519,11 +528,11 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
                 } catch (cacheErr) {
                   console.warn('[LbwVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
                 }
-                console.log(`[LbwVisualDetail] WEBAPP: Rendered annotations for ${attachId}`);
+                console.log(`[LbwVisualDetail] WEBAPP: Rendered and cached annotations for ${attachId}`);
               }
-            } catch (renderErr) {
-              console.warn(`[LbwVisualDetail] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
             }
+          } catch (annotErr) {
+            console.warn(`[LbwVisualDetail] WEBAPP: Failed to process annotations for ${attachId}:`, annotErr);
           }
 
           this.photos.push({

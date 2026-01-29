@@ -951,38 +951,38 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           }
 
           const attachId = String(att.AttachID || att.attachId || att.PK_ID);
-          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
-
-          // WEBAPP FIX: Check for cached annotated image, or render if annotations exist
+          const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
           let thumbnailUrl = displayUrl;
-          if (hasAnnotations) {
-            // First check cache
-            const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
-            if (cachedAnnotated) {
-              thumbnailUrl = cachedAnnotated;
-              console.log(`[LBW] WEBAPP: Using cached annotated image for ${attachId}`);
-            } else if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
-              // No cached image - render annotations on the fly
-              try {
-                console.log(`[LBW] WEBAPP: Rendering annotations for ${attachId}...`);
-                const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
-                if (renderedUrl && renderedUrl !== displayUrl) {
-                  thumbnailUrl = renderedUrl;
-                  // Cache in memory for immediate use
-                  this.bulkAnnotatedImagesMap.set(attachId, renderedUrl);
-                  // Also persist to IndexedDB (convert data URL to blob first)
-                  try {
-                    const response = await fetch(renderedUrl);
-                    const blob = await response.blob();
-                    await this.indexedDb.cacheAnnotatedImage(attachId, blob);
-                  } catch (cacheErr) {
-                    console.warn('[LBW] WEBAPP: Failed to cache annotated image:', cacheErr);
-                  }
-                  console.log(`[LBW] WEBAPP: Rendered and cached annotations for ${attachId}`);
+          let hasAnnotations = hasServerAnnotations;
+
+          // WEBAPP FIX: ALWAYS check for cached annotated image first
+          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
+          if (cachedAnnotated) {
+            thumbnailUrl = cachedAnnotated;
+            hasAnnotations = true;
+            console.log(`[LBW] WEBAPP: Using cached annotated image for ${attachId}`);
+          } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+            // No cached image but server has Drawings - render annotations on the fly
+            try {
+              console.log(`[LBW] WEBAPP: Rendering annotations for ${attachId}...`);
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                thumbnailUrl = renderedUrl;
+                // Cache in memory for immediate use
+                this.bulkAnnotatedImagesMap.set(attachId, renderedUrl);
+                // Also persist to IndexedDB (convert data URL to blob first)
+                try {
+                  const response = await fetch(renderedUrl);
+                  const blob = await response.blob();
+                  await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+                } catch (cacheErr) {
+                  console.warn('[LBW] WEBAPP: Failed to cache annotated image:', cacheErr);
                 }
-              } catch (renderErr) {
-                console.warn(`[LBW] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
+                console.log(`[LBW] WEBAPP: Rendered and cached annotations for ${attachId}`);
               }
+            } catch (renderErr) {
+              console.warn(`[LBW] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
             }
           }
 
@@ -1157,14 +1157,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       }
     }
 
-    const hasDrawings = !!(attach.Drawings && attach.Drawings.length > 0 && attach.Drawings !== '{}');
+    const hasServerDrawings = !!(attach.Drawings && attach.Drawings.length > 0 && attach.Drawings !== '{}');
 
-    // WEBAPP FIX: Check for cached annotated image for thumbnail display
+    // WEBAPP FIX: ALWAYS check for cached annotated image for thumbnail display
+    // CRITICAL: Annotations added locally may not be synced yet but are cached
     let thumbnailUrl = imageUrl || displayUrl;
-    if (hasDrawings && environment.isWeb) {
+    let hasAnnotations = hasServerDrawings;
+    if (environment.isWeb) {
       const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
       if (cachedAnnotated) {
         thumbnailUrl = cachedAnnotated;
+        hasAnnotations = true;
         console.log(`[LOAD PHOTO] Using cached annotated image for ${attachId}`);
       }
     }
@@ -1189,7 +1192,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       caption: attach.Annotation || '',
       annotation: attach.Annotation || '',
       Annotation: attach.Annotation || '',
-      hasAnnotations: hasDrawings,
+      hasAnnotations: hasAnnotations,
       annotations: null,
       Drawings: attach.Drawings || null,
       rawDrawingsString: attach.Drawings || null,
