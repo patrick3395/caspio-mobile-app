@@ -447,35 +447,46 @@ export class LbwDataService {
    * Update LBW record - OFFLINE-FIRST with background sync
    */
   async updateVisual(lbwId: string, updateData: any, serviceId?: string): Promise<any> {
+    // WEBAPP MODE: Update directly via API
+    if (environment.isWeb) {
+      console.log('[LBW Data] WEBAPP: Updating LBW record directly via API:', lbwId, updateData);
+
+      try {
+        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_LBW/records?q.where=LBWID=${lbwId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateData)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to update LBW record: ${errorText}`);
+        }
+
+        console.log('[LBW Data] WEBAPP: LBW record updated:', lbwId);
+
+        // Clear in-memory cache
+        this.lbwCache.clear();
+
+        return { success: true, lbwId, ...updateData };
+      } catch (error: any) {
+        console.error('[LBW Data] WEBAPP: Error updating LBW record:', error?.message || error);
+        throw error;
+      }
+    }
+
+    // MOBILE MODE: Offline-first
     console.log('[LBW Data] Updating LBW record (OFFLINE-FIRST):', lbwId, updateData);
 
     const isTempId = String(lbwId).startsWith('temp_');
 
-    // OFFLINE-FIRST: Update IndexedDB cache immediately, queue update for sync
-    if (isTempId) {
-      // For temp IDs, update the pending request data
-      await this.indexedDb.updatePendingRequestData(lbwId, updateData);
-      console.log('[LBW Data] Updated pending LBW request:', lbwId);
-    } else {
-      // Queue update for background sync
-      if (serviceId) {
-        // Update IndexedDB cache immediately with _localUpdate flag
-        const existingLbwRecords = await this.indexedDb.getCachedServiceData(serviceId, 'lbw_records') || [];
-        let matchFound = false;
-        const updatedRecords = existingLbwRecords.map((v: any) => {
-          const vId = String(v.LBWID || v.PK_ID || v._tempId || '');
-          if (vId === lbwId) {
-            matchFound = true;
-            return { ...v, ...updateData, _localUpdate: true };
-          }
-          return v;
-        });
-
-        if (matchFound) {
-          await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', updatedRecords);
-          console.log('[LBW Data] Updated LBW record in IndexedDB cache:', lbwId);
-        }
-
+    // OFFLINE-FIRST: Update 'lbw_records' cache immediately, queue for sync
+    if (serviceId) {
+      if (isTempId) {
+        // Update pending request data
+        await this.indexedDb.updatePendingRequestData(lbwId, updateData);
+        console.log('[LBW Data] Updated pending request:', lbwId);
+      } else {
         // Queue update for sync
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
@@ -486,9 +497,33 @@ export class LbwDataService {
           status: 'pending',
           priority: 'normal',
         });
-        console.log('[LBW Data] Queued LBW update for sync:', lbwId);
-      } else {
-        // No serviceId - just queue the update
+        console.log('[LBW Data] Queued update for sync:', lbwId);
+      }
+
+      // Update 'lbw_records' cache with _localUpdate flag to preserve during background refresh
+      const existingLbwRecords = await this.indexedDb.getCachedServiceData(serviceId, 'lbw_records') || [];
+      let matchFound = false;
+      const updatedRecords = existingLbwRecords.map((v: any) => {
+        // Check BOTH PK_ID, LBWID, and _tempId since API may return any of these
+        const vId = String(v.LBWID || v.PK_ID || v._tempId || '');
+        if (vId === lbwId) {
+          matchFound = true;
+          return { ...v, ...updateData, _localUpdate: true };
+        }
+        return v;
+      });
+
+      if (!matchFound && isTempId) {
+        // For temp IDs not in cache, add a new record
+        updatedRecords.push({ ...updateData, _tempId: lbwId, PK_ID: lbwId, LBWID: lbwId, _localUpdate: true });
+        console.log('[LBW Data] Added temp record to lbw_records cache:', lbwId);
+      }
+
+      await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', updatedRecords);
+      console.log(`[LBW Data] Updated 'lbw_records' cache, matchFound=${matchFound}:`, lbwId);
+    } else {
+      // If no serviceId, still queue for sync but skip cache update
+      if (!isTempId) {
         await this.indexedDb.addPendingRequest({
           type: 'UPDATE',
           endpoint: `/api/caspio-proxy/tables/LPS_Services_LBW/records?q.where=LBWID=${lbwId}`,
@@ -504,6 +539,8 @@ export class LbwDataService {
 
     // Clear in-memory cache
     this.lbwCache.clear();
+
+    // Sync will happen on next 60-second interval (batched sync)
 
     // Return immediately with the updated data
     return { success: true, lbwId, ...updateData };
@@ -602,6 +639,13 @@ export class LbwDataService {
 
   /**
    * Queue caption update for background sync
+   * ALWAYS queues to pendingCaptions store, regardless of online status or photo sync state
+   * This ensures caption changes are NEVER lost due to race conditions
+   *
+   * @param attachId - The attachment ID (can be temp_xxx, img_xxx, or real ID)
+   * @param caption - The new caption text
+   * @param drawings - Optional annotation JSON data
+   * @param metadata - Additional context (serviceId, lbwId)
    */
   async queueCaptionUpdate(
     attachId: string,
@@ -609,13 +653,15 @@ export class LbwDataService {
     drawings?: string,
     metadata: { serviceId?: string; lbwId?: string } = {}
   ): Promise<string> {
-    const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
+    console.log('[LBW Caption Queue] Queueing caption update for lbw attach:', attachId);
 
-    // Update local cache immediately
+    // 1. Update local cache immediately with _localUpdate flag
     await this.updateLocalCacheWithCaption(attachId, caption, drawings, metadata);
 
-    // WEBAPP MODE: Call API directly (if not temp ID)
+    // WEBAPP MODE: Call API directly for immediate persistence (if not a temp ID)
+    const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
     if (environment.isWeb && !isTempId) {
+      console.log('[LBW Caption Queue] WEBAPP: Updating caption directly via API:', attachId);
       try {
         const updateData: any = { Annotation: caption };
         if (drawings !== undefined) {
@@ -631,16 +677,20 @@ export class LbwDataService {
           }
         );
 
-        if (response.ok) {
-          console.log('[LBW Data] WEBAPP: ✅ Caption updated directly via API:', attachId);
-          return `webapp_direct_${Date.now()}`;
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
         }
-      } catch (apiError) {
-        console.warn('[LBW Data] WEBAPP: API call failed, falling through to queue:', apiError);
+
+        console.log('[LBW Caption Queue] WEBAPP: Caption updated successfully');
+        return `webapp_direct_${Date.now()}`;
+      } catch (apiError: any) {
+        console.error('[LBW Caption Queue] WEBAPP: API call failed, falling back to queue:', apiError?.message || apiError);
+        // Fall through to queue-based approach
       }
     }
 
-    // MOBILE MODE: Queue for background sync
+    // MOBILE MODE (or webapp fallback): Queue the caption update for background sync
+    // ALWAYS queue - this is the authoritative source for caption data
     const captionId = await this.indexedDb.queueCaptionUpdate({
       attachId,
       attachType: 'lbw',
@@ -650,7 +700,10 @@ export class LbwDataService {
       visualId: metadata.lbwId
     });
 
-    console.log('[LBW Data] ✅ Queued caption update:', attachId, 'captionId:', captionId);
+    console.log('[LBW Caption Queue] Caption queued:', captionId);
+
+    // Sync will happen on next 60-second interval (batched sync)
+
     return captionId;
   }
 
@@ -664,7 +717,9 @@ export class LbwDataService {
   }
 
   /**
-   * Update local cache with caption/drawings
+   * Update local IndexedDB cache with caption/drawings changes
+   * Sets _localUpdate flag to prevent background refresh from overwriting
+   * ROBUST: Updates multiple stores for redundancy - pendingCaptions is authoritative
    */
   private async updateLocalCacheWithCaption(
     attachId: string,
@@ -672,19 +727,95 @@ export class LbwDataService {
     drawings?: string,
     metadata: { serviceId?: string; lbwId?: string } = {}
   ): Promise<void> {
-    // Update LocalImages table
     try {
-      const localImage = await db.localImages.get(attachId);
-      if (localImage) {
-        const updateData: any = { caption, updatedAt: Date.now() };
-        if (drawings !== undefined) {
-          updateData.drawings = drawings;
+      const attachIdStr = String(attachId);
+      const isTempId = attachIdStr.startsWith('temp_') || attachIdStr.startsWith('img_');
+
+      // For temp IDs, TRY to update the pending photo data in pendingImages store
+      // This is a BEST-EFFORT update - pendingCaptions store is authoritative
+      if (isTempId) {
+        const updated = await this.indexedDb.updatePendingPhotoData(attachIdStr, {
+          caption: caption,
+          drawings: drawings
+        });
+        if (updated) {
+          console.log('[LBW Caption Cache] Updated pending photo data for temp ID:', attachIdStr);
+        } else {
+          // Photo might not be in pendingImages store yet or was already synced
+          // This is OK - pendingCaptions store will handle it as the authoritative source
+          console.warn(`[LBW Caption Cache] Photo ${attachIdStr} not found in pendingImages - relying on pendingCaptions as authoritative source`);
         }
-        await db.localImages.update(attachId, updateData);
-        console.log('[LBW Data] Updated LocalImages with caption:', attachId);
+        // DON'T return early - also try to update synced cache if it exists
+        // This handles the edge case where photo synced but temp ID is still being used
       }
-    } catch (err) {
-      console.warn('[LBW Data] Failed to update LocalImages:', err);
+
+      // Update LocalImages table (works for both img_ IDs and temp_ IDs)
+      try {
+        const localImage = await db.localImages.get(attachIdStr);
+        if (localImage) {
+          const updateData: any = { caption, updatedAt: Date.now() };
+          if (drawings !== undefined) {
+            updateData.drawings = drawings;
+          }
+          await db.localImages.update(attachIdStr, updateData);
+          console.log('[LBW Caption Cache] Updated LocalImages with caption:', attachIdStr);
+        }
+      } catch (err) {
+        console.warn('[LBW Caption Cache] Failed to update LocalImages:', err);
+      }
+
+      // For real IDs (or temp IDs that might have synced), update the lbw_attachments cache
+      if (metadata.lbwId) {
+        const cached = await this.indexedDb.getCachedServiceData(metadata.lbwId, 'lbw_attachments') || [];
+        let foundInCache = false;
+        const updatedCache = cached.map((att: any) => {
+          if (String(att.AttachID) === attachIdStr || String(att.attachId) === attachIdStr || String(att.imageId) === attachIdStr) {
+            foundInCache = true;
+            const updated: any = { ...att, _localUpdate: true, _updatedAt: Date.now() };
+            if (caption !== undefined) {
+              updated.Annotation = caption;
+              updated.caption = caption;
+            }
+            if (drawings !== undefined) {
+              updated.Drawings = drawings;
+              updated.drawings = drawings;
+            }
+            return updated;
+          }
+          return att;
+        });
+        if (foundInCache) {
+          await this.indexedDb.cacheServiceData(metadata.lbwId, 'lbw_attachments', updatedCache);
+          this.lbwAttachmentsCache.clear();
+          console.log('[LBW Caption Cache] Updated lbw_attachments cache for LBWID:', metadata.lbwId);
+        } else if (!isTempId) {
+          console.warn(`[LBW Caption Cache] Attachment ${attachIdStr} not found in LBW cache - pendingCaptions will handle it`);
+        }
+      }
+    } catch (error) {
+      console.warn('[LBW Caption Cache] Failed to update local cache:', error);
+      // Continue anyway - pendingCaptions store is authoritative and will sync correctly
+    }
+  }
+
+  /**
+   * Get count of pending caption updates for sync status display
+   */
+  async getPendingCaptionCount(): Promise<number> {
+    return this.indexedDb.getPendingCaptionCount();
+  }
+
+  /**
+   * Clear cache for a specific LBW's attachments
+   */
+  clearLbwAttachmentsCache(lbwId?: string | number): void {
+    if (lbwId) {
+      const key = String(lbwId);
+      this.lbwAttachmentsCache.delete(key);
+      console.log('[LBW Photo] Cleared cache for LBWID:', lbwId);
+    } else {
+      this.lbwAttachmentsCache.clear();
+      console.log('[LBW Photo] Cleared all attachment caches');
     }
   }
 }

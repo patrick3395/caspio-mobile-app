@@ -121,9 +121,13 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   }
 
   ngOnDestroy() {
+    // Unsubscribe from route subscription
     this.routeSubscription?.unsubscribe();
+    // Unsubscribe from local images subscription
     this.localImagesSubscription?.unsubscribe();
+    // Unsubscribe from visualFieldsSubscription (Dexie liveQuery)
     this.visualFieldsSubscription?.unsubscribe();
+    // Note: No timer cleanups needed in this component - timers are managed locally in methods
   }
 
   /**
@@ -188,7 +192,14 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   }
 
   private async loadVisualData() {
-    this.loading = true;
+    // PHASE 7.1: For MOBILE mode, set loading = false early for cache-first instant display
+    // Only show loading spinner for WEBAPP mode API calls
+    if (environment.isWeb) {
+      this.loading = true;
+    } else {
+      // MOBILE: Cache-first - no loading spinner, instant display from Dexie
+      this.loading = false;
+    }
 
     // Store LBWID from query params (if provided by category detail page)
     const lbwIdFromQueryParams = this.lbwId;
@@ -513,10 +524,17 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           }
         }
 
-        // If lbwId changed (sync completed), reload photos with correct entityId
+        // If lbwId changed (sync completed), update item.id and reload photos with correct entityId
         if (lbwIdChanged) {
           console.log('[LbwVisualDetail] liveQuery: LbwId changed from', this.lastKnownLbwId, 'to', currentLbwId, '- reloading photos');
           this.lastKnownLbwId = currentLbwId;
+
+          // Update item.id reference to new visualId (temp -> real ID transition)
+          if (this.item) {
+            this.item.id = field.visualId || field.tempVisualId || this.item.id;
+            console.log('[LbwVisualDetail] liveQuery: Updated item.id to', this.item.id);
+          }
+
           // Note: Don't set this.lbwId here - let loadPhotos() do it from fresh field data
           await this.loadPhotos();
           this.changeDetectorRef.detectChanges();
@@ -532,7 +550,8 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
   private convertFieldToItem(field: VisualField): VisualItem {
     return {
-      id: field.id || field.templateId,
+      // EFE PATTERN: Use tempVisualId || visualId for the item id (not field.id which is Dexie auto-increment)
+      id: field.tempVisualId || field.visualId || field.templateId,
       templateId: field.templateId,
       name: field.templateName || '',
       text: field.templateText || '',
@@ -665,10 +684,18 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       // DEXIE-FIRST: Load local images from IndexedDB using lbwId as entityId
       // DIRECT Dexie query - matching EFE pattern EXACTLY (no service wrapper)
+      // 4-TIER FALLBACK: Track which tier found photos for debugging
+      let foundAtTier = 0;
+
       let localImages = await db.localImages
         .where('entityId')
         .equals(this.lbwId)
         .toArray();
+
+      if (localImages.length > 0) {
+        foundAtTier = 1;
+        console.log('[LbwVisualDetail] MOBILE: TIER 1 (primary) - Found', localImages.length, 'photos with lbwId:', this.lbwId);
+      }
 
       // FALLBACK 1: If no photos found and we have both tempVisualId and visualId, try the other ID
       // This handles the race condition where updateEntityIdForImages() hasn't completed yet
@@ -682,7 +709,8 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             .equals(alternateId)
             .toArray();
           if (localImages.length > 0) {
-            console.log('[LbwVisualDetail] MOBILE: Found', localImages.length, 'photos with alternate ID');
+            foundAtTier = 2;
+            console.log('[LbwVisualDetail] MOBILE: TIER 2 (alternate ID) - Found', localImages.length, 'photos with alternateId:', alternateId);
           }
         }
       }
@@ -699,7 +727,8 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             .equals(mappedRealId)
             .toArray();
           if (localImages.length > 0) {
-            console.log('[LbwVisualDetail] MOBILE: Found', localImages.length, 'photos with mapped realId');
+            foundAtTier = 3;
+            console.log('[LbwVisualDetail] MOBILE: TIER 3 (tempIdMappings) - Found', localImages.length, 'photos with mappedRealId:', mappedRealId);
             // Update VisualField with realId so future lookups work directly
             this.visualFieldRepo.setField(this.serviceId, this.categoryName, this.templateId, {
               visualId: mappedRealId
@@ -721,12 +750,18 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             .equals(reverseLookupTempId)
             .toArray();
           if (localImages.length > 0) {
-            console.log('[LbwVisualDetail] MOBILE: Found', localImages.length, 'photos with reverse-lookup tempId');
+            foundAtTier = 4;
+            console.log('[LbwVisualDetail] MOBILE: TIER 4 (reverse lookup) - Found', localImages.length, 'photos with reverseLookupTempId:', reverseLookupTempId);
           }
         }
       }
 
-      console.log('[LbwVisualDetail] MOBILE: Found', localImages.length, 'localImages for lbwId:', this.lbwId);
+      // Log final result with tier information
+      if (foundAtTier > 0) {
+        console.log('[LbwVisualDetail] MOBILE: Photos found at TIER', foundAtTier, '- Total:', localImages.length, 'photos');
+      } else {
+        console.log('[LbwVisualDetail] MOBILE: No photos found after all 4 tiers for lbwId:', this.lbwId);
+      }
 
       // Convert to PhotoItem format
       this.photos = [];

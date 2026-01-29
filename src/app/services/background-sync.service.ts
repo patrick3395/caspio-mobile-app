@@ -71,6 +71,12 @@ export interface LbwPhotoUploadComplete {
   lbwId: string;
 }
 
+export interface LbwSyncComplete {
+  serviceId: string;
+  lbwId: string;
+  operation: 'create' | 'update' | 'delete';
+}
+
 export interface SyncStatus {
   isSyncing: boolean;
   pendingCount: number;
@@ -136,6 +142,7 @@ export class BackgroundSyncService {
   public hudPhotoUploadComplete$ = new Subject<HudPhotoUploadComplete>();
 
   // LBW sync events - pages can subscribe to update UI when LBW data syncs
+  public lbwSyncComplete$ = new Subject<LbwSyncComplete>();
   public lbwPhotoUploadComplete$ = new Subject<LbwPhotoUploadComplete>();
 
   // ==========================================================================
@@ -1107,6 +1114,65 @@ export class BackgroundSyncService {
               });
             });
           }
+        } else if (request.endpoint.includes('Services_LBW') && !request.endpoint.includes('Attach')) {
+          // For LBW records, use LBWID (or PK_ID as fallback)
+          if (result && result.LBWID) {
+            realId = result.LBWID;
+          } else if (result && result.PK_ID) {
+            realId = result.PK_ID;
+          } else if (result && result.Result && result.Result[0]) {
+            realId = result.Result[0].LBWID || result.Result[0].PK_ID;
+          }
+
+          // Update IndexedDB 'lbw_records' cache and emit sync complete event
+          if (realId) {
+            const serviceId = String(request.data?.ServiceID || '');
+
+            // Update the IndexedDB cache to replace temp ID with real LBW data
+            if (serviceId) {
+              const existingLbw = await this.indexedDb.getCachedServiceData(serviceId, 'lbw_records') || [];
+              const lbwData = result.Result?.[0] || result;
+
+              // Find and update the LBW record with temp ID, or add new if not found
+              let lbwUpdated = false;
+              const updatedLbw = existingLbw.map((l: any) => {
+                if (l._tempId === request.tempId || l.LBWID === request.tempId || l.PK_ID === request.tempId) {
+                  lbwUpdated = true;
+                  return {
+                    ...l,
+                    ...lbwData,
+                    LBWID: realId,
+                    PK_ID: realId,
+                    _tempId: undefined,
+                    _localOnly: undefined,
+                    _syncing: undefined
+                  };
+                }
+                return l;
+              });
+
+              // If LBW record wasn't in cache (shouldn't happen but just in case), add it
+              if (!lbwUpdated && lbwData) {
+                updatedLbw.push({
+                  ...lbwData,
+                  LBWID: realId,
+                  PK_ID: realId
+                });
+              }
+
+              await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', updatedLbw);
+              console.log(`[BackgroundSync] ✅ Updated LBW cache for service ${serviceId}: temp ${request.tempId} -> real ${realId}`);
+            }
+
+            // Emit sync complete event for LBW
+            this.ngZone.run(() => {
+              this.lbwSyncComplete$.next({
+                serviceId: String(request.data?.ServiceID || ''),
+                lbwId: String(realId),
+                operation: 'create'
+              });
+            });
+          }
         } else {
           // For other tables, use PK_ID
           if (result && result.PK_ID) {
@@ -1188,6 +1254,15 @@ export class BackgroundSyncService {
               const serviceId = request.data?.ServiceID;
               console.log(`[BackgroundSync] HUD UPDATE synced for VisualID ${hudId}, clearing _localUpdate flag`);
               await this.clearHudLocalUpdateFlag(hudId, serviceId);
+            }
+          } else if (request.endpoint.includes('LPS_Services_LBW/records') && !request.endpoint.includes('Attach')) {
+            // Clear _localUpdate flag from LBW cache after successful update
+            const lbwMatch = request.endpoint.match(/LBWID=(\d+)/);
+            if (lbwMatch) {
+              const lbwId = lbwMatch[1];
+              const serviceId = request.data?.ServiceID;
+              console.log(`[BackgroundSync] LBW UPDATE synced for LBWID ${lbwId}, clearing _localUpdate flag`);
+              await this.clearLbwLocalUpdateFlag(lbwId, serviceId);
             }
           }
         }
@@ -2721,6 +2796,64 @@ export class BackgroundSyncService {
       console.log(`[BackgroundSync] HUD ${hudId} not found in any cache (may already be cleared)`);
     } catch (error) {
       console.warn(`[BackgroundSync] Error clearing _localUpdate flag for HUD ${hudId}:`, error);
+    }
+  }
+
+  private async clearLbwLocalUpdateFlag(lbwId: string, serviceId?: string): Promise<void> {
+    try {
+      // Helper to check if LBW record matches by LBWID or PK_ID
+      const matchesLbw = (l: any) => {
+        return (String(l.LBWID) === String(lbwId) || String(l.PK_ID) === String(lbwId)) && l._localUpdate;
+      };
+
+      // If we have the serviceId, update directly
+      if (serviceId) {
+        const lbwRecords = await this.indexedDb.getCachedServiceData(String(serviceId), 'lbw_records') || [];
+        let found = false;
+
+        const updatedLbw = lbwRecords.map((l: any) => {
+          if (matchesLbw(l)) {
+            found = true;
+            // Remove the _localUpdate flag - the data is now synced
+            const { _localUpdate, ...rest } = l;
+            return rest;
+          }
+          return l;
+        });
+
+        if (found) {
+          await this.indexedDb.cacheServiceData(String(serviceId), 'lbw_records', updatedLbw);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for LBW ${lbwId} in service ${serviceId}`);
+          return;
+        }
+      }
+
+      // Otherwise search all services for this LBW record
+      const allCaches = await this.indexedDb.getAllCachedServiceData('lbw_records');
+
+      for (const cache of allCaches) {
+        const lbwRecords = cache.data || [];
+        let found = false;
+
+        const updatedLbw = lbwRecords.map((l: any) => {
+          if (matchesLbw(l)) {
+            found = true;
+            const { _localUpdate, ...rest } = l;
+            return rest;
+          }
+          return l;
+        });
+
+        if (found) {
+          await this.indexedDb.cacheServiceData(cache.serviceId, 'lbw_records', updatedLbw);
+          console.log(`[BackgroundSync] ✅ Cleared _localUpdate flag for LBW ${lbwId} in ${cache.serviceId}`);
+          return;
+        }
+      }
+
+      console.log(`[BackgroundSync] LBW ${lbwId} not found in any cache (may already be cleared)`);
+    } catch (error) {
+      console.warn(`[BackgroundSync] Error clearing _localUpdate flag for LBW ${lbwId}:`, error);
     }
   }
 

@@ -935,10 +935,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   /**
    * MOBILE MODE: Load data from Dexie cache first for instant page loads
    * This is the DEXIE-first pattern - no loading spinners, instant UI
+   * PHASE 7.1: Set loading = false early for cache-first instant display
    */
   private async loadDataFromCache(): Promise<void> {
     console.log('[LBW CategoryDetail] MOBILE MODE: loadDataFromCache() starting...');
-    this.loading = true;
+    // PHASE 7.1: For MOBILE cache-first, don't show loading spinner initially
+    // Only show spinner if we need to fall back to API (no cached templates)
+    this.loading = false;
     this.changeDetectorRef.detectChanges();
 
     try {
@@ -954,7 +957,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // If no templates in cache, fall back to API
       if (!templates || templates.length === 0) {
         console.warn('[LBW CategoryDetail] MOBILE: No templates in cache, falling back to API...');
-        // Reset loading state and use original WEBAPP pattern
+        // Show loading spinner for API fallback (no cached data available)
         this.loading = true;
         await this.loadAllDropdownOptions();
         await this.loadCategoryTemplates();
@@ -4301,7 +4304,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  // Create custom visual with photos
+  // Create custom visual with photos - DEXIE-FIRST pattern
   async createCustomVisualWithPhotos(category: string, kind: string, name: string, text: string, files: FileList | File[] | null, processedPhotos: any[] = []) {
     try {
       const serviceIdNum = parseInt(this.serviceId, 10);
@@ -4309,7 +4312,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         return;
       }
 
-      const hudData = {
+      const visualData = {
         ServiceID: serviceIdNum,
         Category: category,
         Kind: kind,
@@ -4318,10 +4321,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         Notes: ''
       };
 
-      console.log('[CREATE CUSTOM] Creating HUD visual:', hudData);
+      console.log('[CREATE CUSTOM] Creating LBW visual:', visualData);
 
-      // Create the HUD record
-      const response = await this.hudData.createVisual(hudData);
+      // Create the LBW record
+      const response = await this.hudData.createVisual(visualData);
 
       // Extract LBWID (handle both direct and Result wrapped formats)
       let visualId: string | null = null;
@@ -4344,12 +4347,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         throw new Error('No LBWID returned from server');
       }
 
-      console.log('[CREATE CUSTOM] Created HUD visual with ID:', visualId);
+      console.log('[CREATE CUSTOM] Created LBW visual with ID:', visualId);
 
-      // Add to local data structure
+      // Generate a unique templateId for custom visuals (negative to avoid collision with real templates)
+      const customTemplateId = -Date.now();
+
+      // Add to local data structure (must match loadExistingVisuals structure)
+      // DEXIE-FIRST: Use templateId as the item ID for consistency with convertFieldsToOrganizedData
       const customItem: VisualItem = {
-        id: `custom_${visualId}`,
-        templateId: 0,
+        id: visualId, // Use visualId for consistency with convertFieldsToOrganizedData
+        templateId: customTemplateId, // Use unique negative ID for custom visuals
         name: name,
         text: text,
         originalText: text,
@@ -4357,110 +4364,254 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         required: false,
         type: kind,
         category: category,
-        isSelected: true,
+        isSelected: true, // Custom visuals are always selected
         photos: []
       };
 
-      // Add to appropriate array
-      if (kind === 'Comment') {
-        this.organizedData.comments.push(customItem);
-      } else if (kind === 'Limitation') {
-        this.organizedData.limitations.push(customItem);
-      } else if (kind === 'Deficiency') {
-        this.organizedData.deficiencies.push(customItem);
-      }
-
-      // Store visual ID
-      const key = `${category}_${customItem.id}`;
+      // DEXIE-FIRST: Use consistent key format matching convertFieldsToOrganizedData
+      // Key format: ${category}_${templateId} for selection tracking
+      const key = `${category}_${customTemplateId}`;
       this.visualRecordIds[key] = String(visualId);
+
+      // Mark as selected with the correct key
       this.selectedItems[key] = true;
 
-      console.log('[CREATE CUSTOM] Stored LBWID:', key, '=', visualId);
+      console.log('[CREATE CUSTOM] Stored visualId in visualRecordIds:', key, '=', visualId);
 
-      // Upload photos if provided
+      // DEXIE-FIRST: Upload photos FIRST before calling setField
+      // This ensures photos exist in LocalImages when the liveQuery triggers populatePhotosFromDexie
+      let photoCount = 0;
       if (files && files.length > 0) {
-        console.log('[CREATE CUSTOM] Uploading', files.length, 'photos');
+        console.log('[CREATE CUSTOM] DEXIE-FIRST: Uploading', files.length, 'photos BEFORE setField');
 
         // Initialize photos array
         if (!this.visualPhotos[key]) {
           this.visualPhotos[key] = [];
         }
 
-        // Add placeholder photos
-        const tempPhotos = Array.from(files).map((file, index) => {
-          const photoData = processedPhotos[index] || {};
-          const objectUrl = URL.createObjectURL(file);
-          const tempId = `temp_${Date.now()}_${index}`;
+        // ============================================
+        // WEBAPP MODE: Direct S3 Upload (matches camera/gallery pattern)
+        // MOBILE MODE: Local-first with background sync
+        // ============================================
 
-          return {
-            AttachID: tempId,
-            id: tempId,
-            name: file.name,
-            url: objectUrl,
-            thumbnailUrl: objectUrl,
-            displayUrl: photoData.previewUrl || objectUrl,
-            isObjectUrl: true,
-            uploading: true,
-            hasAnnotations: !!photoData.annotationData,
-            annotations: photoData.annotationData || null,
-            caption: photoData.caption || '',
-            annotation: photoData.caption || ''
-          };
-        });
+        if (environment.isWeb) {
+          // WEBAPP MODE: Upload directly to S3 - follows EXACT same pattern as addPhotoFromCamera
+          console.log('[CREATE CUSTOM] WEBAPP MODE: Uploading', files.length, 'photos directly to S3');
 
-        this.visualPhotos[key].push(...tempPhotos);
-        this.changeDetectorRef.detectChanges();
+          // Import compressAnnotationData for annotation handling
+          const { compressAnnotationData } = await import('../../../utils/annotation-utils');
 
-        console.log('[CREATE CUSTOM] Added', tempPhotos.length, 'placeholder photos');
-
-        // Upload photos in background
-        const uploadPromises = Array.from(files).map(async (file, index) => {
-          const tempId = tempPhotos[index].AttachID;
-          try {
+          // Process each photo sequentially to match camera upload behavior
+          for (let index = 0; index < files.length; index++) {
+            const file = files[index];
             const photoData = processedPhotos[index] || {};
             const annotationData = photoData.annotationData || null;
             const originalFile = photoData.originalFile || null;
             const caption = photoData.caption || '';
-
             const fileToUpload = originalFile || file;
-            const result = await this.hudData.uploadVisualPhoto(parseInt(visualId!, 10), fileToUpload, caption);
-            
-            // Handle result format
-            const actualResult = result.Result && result.Result[0] ? result.Result[0] : result;
-            const attachId = actualResult.AttachID || actualResult.PK_ID || actualResult.id;
 
-            if (!attachId) {
-              console.error(`[CREATE CUSTOM] No AttachID for photo ${index + 1}`);
-              return;
-            }
+            // Compress the photo
+            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+              maxSizeMB: 0.8,
+              maxWidthOrHeight: 1280,
+              useWebWorker: true
+            }) as File;
 
-            // If there are annotations, save them
-            if (annotationData) {
-              const annotatedBlob = photoData.annotatedBlob;
-              if (annotatedBlob) {
-                await this.saveAnnotationToDatabase(attachId, annotatedBlob, annotationData, caption);
+            // Compress annotations if present
+            const compressedDrawings = annotationData ? compressAnnotationData(JSON.stringify(annotationData)) : '';
+
+            // Create temp photo entry with loading state (show roller) - EXACT same structure as camera upload
+            const tempId = `uploading_${Date.now()}_${index}`;
+            const previewUrl = photoData.previewUrl || URL.createObjectURL(file);
+            const tempPhotoEntry = {
+              imageId: tempId,
+              AttachID: tempId,
+              attachId: tempId,
+              id: tempId,
+              url: previewUrl,
+              displayUrl: previewUrl,
+              originalUrl: previewUrl,
+              thumbnailUrl: previewUrl,
+              name: `photo_${index}.jpg`,
+              caption: caption || '',
+              annotation: caption || '',
+              Annotation: caption || '',
+              Drawings: compressedDrawings,
+              hasAnnotations: !!annotationData,
+              status: 'uploading',
+              isLocal: false,
+              uploading: true,  // Show loading roller
+              isPending: true,
+              isSkeleton: false,
+              progress: 0
+            };
+
+            // Add temp photo to UI immediately (with loading roller)
+            this.visualPhotos[key].push(tempPhotoEntry);
+            this.loadingPhotosByKey[key] = false;
+            this.expandedPhotos[key] = true;
+            this.changeDetectorRef.detectChanges();
+
+            try {
+              // Upload directly to S3
+              const uploadResult = await this.localImageService.uploadImageDirectToS3(
+                compressedPhoto,
+                'lbw',
+                String(visualId),
+                this.serviceId,
+                caption,
+                compressedDrawings
+              );
+
+              console.log(`[CREATE CUSTOM] WEBAPP: Photo ${index + 1} uploaded to S3:`, uploadResult.attachId);
+
+              // Replace temp photo with real photo (remove loading roller) - EXACT same as camera upload
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key][tempIndex] = {
+                  ...tempPhotoEntry,
+                  imageId: uploadResult.attachId,
+                  AttachID: uploadResult.attachId,
+                  attachId: uploadResult.attachId,
+                  id: uploadResult.attachId,
+                  url: uploadResult.s3Url,
+                  displayUrl: annotationData ? previewUrl : uploadResult.s3Url,
+                  originalUrl: uploadResult.s3Url,
+                  thumbnailUrl: annotationData ? previewUrl : uploadResult.s3Url,
+                  status: 'uploaded',
+                  isLocal: false,
+                  uploading: false,  // Remove loading roller
+                  isPending: false
+                };
               }
-            }
 
-            // Update photo in UI
-            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === tempId);
-            if (photoIndex !== -1 && this.visualPhotos[key]) {
-              await this.updatePhotoAfterUpload(key, photoIndex, actualResult, caption);
-            }
+              // Update photo count
+              this.photoCountsByKey[key] = this.visualPhotos[key].length;
+              this.changeDetectorRef.detectChanges();
 
-          } catch (error) {
-            console.error(`[CREATE CUSTOM] Failed to upload photo ${index + 1}:`, error);
+              photoCount++;
+
+            } catch (uploadError: any) {
+              console.error(`[CREATE CUSTOM] WEBAPP: Photo ${index + 1} upload failed:`, uploadError?.message || uploadError);
+
+              // Remove temp photo on error
+              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+              if (tempIndex >= 0) {
+                this.visualPhotos[key].splice(tempIndex, 1);
+              }
+              this.changeDetectorRef.detectChanges();
+
+              // Show error toast
+              const toast = await this.toastController.create({
+                message: `Failed to upload photo ${index + 1}. Please try again.`,
+                duration: 3000,
+                color: 'danger'
+              });
+              await toast.present();
+            }
           }
-        });
 
-        await Promise.all(uploadPromises);
+          // Set expansion state so photos are visible
+          this.expandedPhotos[key] = true;
+
+          console.log('[CREATE CUSTOM] WEBAPP: All', photoCount, 'photos uploaded to S3');
+
+        } else {
+          // MOBILE MODE: Upload ALL photos to LocalImages first (persists to Dexie)
+          console.log('[CREATE CUSTOM] MOBILE MODE: Uploading', files.length, 'photos to LocalImages');
+
+          const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
+            const photoData = processedPhotos[index] || {};
+            const annotationData = photoData.annotationData || null;
+            const originalFile = photoData.originalFile || null;
+            const caption = photoData.caption || '';
+            const fileToUpload = originalFile || file;
+
+            // Compress the photo
+            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+              maxSizeMB: 0.8,
+              maxWidthOrHeight: 1280,
+              useWebWorker: true
+            }) as File;
+
+            // Upload to LocalImages via hudData (persists to Dexie)
+            const drawings = annotationData ? JSON.stringify(annotationData) : '';
+            const result = await this.hudData.uploadVisualPhoto(visualId, compressedPhoto, caption, drawings, originalFile || undefined, this.serviceId);
+
+            console.log(`[CREATE CUSTOM] MOBILE: Photo ${index + 1} persisted to LocalImages:`, result.imageId);
+            return result;
+          }));
+
+          photoCount = uploadResults.length;
+
+          // Add photos to in-memory array for immediate display
+          for (const result of uploadResults) {
+            this.visualPhotos[key].push({
+              AttachID: result.imageId,
+              id: result.imageId,
+              imageId: result.imageId,
+              name: result.fileName,
+              url: result.displayUrl,
+              thumbnailUrl: result.displayUrl,
+              displayUrl: result.displayUrl,
+              isObjectUrl: true,
+              uploading: false,
+              queued: false,
+              hasAnnotations: !!(result.drawings && result.drawings.length > 10),
+              caption: result.caption || '',
+              annotation: result.caption || '',
+              isLocalFirst: true
+            });
+          }
+
+          // Update photo count
+          this.photoCountsByKey[key] = photoCount;
+
+          // DEXIE-FIRST: Set expansion state BEFORE setField so photos are visible when liveQuery fires
+          this.expandedPhotos[key] = true;
+
+          console.log('[CREATE CUSTOM] MOBILE: All', photoCount, 'photos uploaded to LocalImages');
+        }
       }
 
+      // NOW persist to VisualField - this triggers liveQuery which will find the photos in LocalImages
+      try {
+        await this.visualFieldRepo.setField(this.serviceId, category, customTemplateId, {
+          isSelected: true,
+          tempVisualId: visualId,
+          visualId: null, // Will be set when synced
+          templateName: name,
+          templateText: text,
+          kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
+          category: category,  // Store actual category for Dexie lookup
+          photoCount: photoCount
+        });
+        console.log('[CREATE CUSTOM] Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
+      } catch (err) {
+        console.error('[CREATE CUSTOM] Failed to persist to Dexie:', err);
+      }
+
+      // CRITICAL FIX: Add custom item to organizedData for BOTH webapp AND mobile modes
+      // LBW mobile doesn't use liveQuery like EFE does, so we must explicitly add the item
+      console.log('[CREATE CUSTOM] Adding custom item to organizedData for immediate display');
+      if (kind === 'Comment') {
+        this.organizedData.comments.push(customItem);
+      } else if (kind === 'Limitation') {
+        this.organizedData.limitations.push(customItem);
+      } else if (kind === 'Deficiency') {
+        this.organizedData.deficiencies.push(customItem);
+      } else {
+        this.organizedData.comments.push(customItem);
+      }
       this.changeDetectorRef.detectChanges();
-      console.log('[CREATE CUSTOM] ✅ Custom visual created successfully');
+
+      // Clear PDF cache so new PDFs show updated data
+      this.clearPdfCache();
+
+      console.log('[CREATE CUSTOM] Custom visual created successfully');
 
     } catch (error) {
-      console.error('[CREATE CUSTOM] Error:', error);
+      console.error('[CREATE CUSTOM] Error creating custom visual:', error);
       await this.showToast('Failed to create custom item', 'danger');
     }
   }

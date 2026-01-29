@@ -1389,16 +1389,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       cssClass: 'custom-document-alert',
       buttons: [
         {
-          text: 'CANCEL',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
           text: 'REMOVE',
           cssClass: 'alert-button-save',
           handler: async () => {
             await this.performRemoveService(service);
           }
+        },
+        {
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -3558,11 +3558,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       ],
       buttons: [
         {
-          text: 'CANCEL',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
           text: 'SAVE',
           cssClass: 'alert-button-save',
           handler: (data) => {
@@ -3572,6 +3567,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             }
             return false;
           }
+        },
+        {
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -5688,14 +5688,14 @@ Time: ${debugInfo.timestamp}
       message: `Are you sure you want to submit the finalized ${service.typeName} report?`,
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Submit',
           handler: async () => {
             await this.processReportSubmission(service);
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel'
         }
       ]
     });
