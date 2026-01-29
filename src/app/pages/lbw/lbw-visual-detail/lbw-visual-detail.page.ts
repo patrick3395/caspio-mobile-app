@@ -738,7 +738,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       if (this.item) {
         this.item.name = this.editableTitle;
       }
-      await this.showToast('Title saved', 'success');
     } catch (error) {
       console.error('[LbwVisualDetail] Error saving title:', error);
       await this.showToast('Error saving title', 'danger');
@@ -783,7 +782,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       if (this.item) {
         this.item.text = this.editableText;
       }
-      await this.showToast('Description saved', 'success');
     } catch (error) {
       console.error('[LbwVisualDetail] Error saving text:', error);
       await this.showToast('Error saving description', 'danger');

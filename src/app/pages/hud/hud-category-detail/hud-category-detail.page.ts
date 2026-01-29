@@ -2348,6 +2348,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   console.log(`[VISUALFIELDS LIVEQUERY] Updating custom item templateId: ${item.templateId} -> ${field.templateId} for visualId ${visualId}`);
                   item.templateId = field.templateId;
                 }
+
+                // DEXIE-FIRST: Update item name from Dexie templateName (authoritative source)
+                // This fixes "Custom Item" display when server data doesn't have Name
+                if (item.id === `custom_${visualId}` && field.templateName) {
+                  if (item.name !== field.templateName) {
+                    console.log(`[VISUALFIELDS LIVEQUERY] Updating item name: "${item.name}" -> "${field.templateName}" for visualId ${visualId}`);
+                    item.name = field.templateName;
+                  }
+                }
               }
             }
           }

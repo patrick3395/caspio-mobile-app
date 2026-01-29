@@ -219,10 +219,14 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
             
             // Simple services loading for each project
             this.loadServicesSimple();
-            
+
             this.applySearchFilter();
             this.loading = false;
             this.lastLoadTime = Date.now(); // Track load time for smart caching
+
+            // G2-PERF-003: Trigger change detection for OnPush components
+            // This ensures the UI updates even when there are no projects
+            this.cdr.markForCheck();
             const elapsed = performance.now() - startTime;
             console.log(`🏁 Total loading time: ${elapsed.toFixed(2)}ms`);
           },
@@ -230,6 +234,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
             console.error('Error loading service types:', typeError);
             this.loading = false;
             this.error = 'Failed to load service types';
+            this.cdr.markForCheck();
           }
         });
       },
@@ -237,6 +242,7 @@ export class ActiveProjectsPage implements OnInit, OnDestroy {
         console.error('Error loading projects:', error);
         this.error = 'Failed to load projects';
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }

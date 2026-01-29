@@ -484,7 +484,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
         const field = allFields.find(f => f.templateId === this.templateId);
 
-        // The entityId for photos is the hudId (temp_visual_xxx or real HUDID)
+        // The entityId for photos is the hudId (temp_hud_xxx or real HUDID)
         // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
         this.hudId = field?.tempVisualId || field?.visualId || '';
       }
@@ -497,29 +497,50 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       console.log('[HudVisualDetail] MOBILE: Loading photos for hudId:', this.hudId);
 
-      // Load local images from IndexedDB using hudId as entityId
-      // Filter by 'hud' entity type to match how photos are stored in category-detail
-      const localImages = await this.localImageService.getImagesForEntity('hud', this.hudId);
+      // DEXIE-FIRST: Load local images from IndexedDB using hudId as entityId
+      // DIRECT Dexie query - matching EFE pattern EXACTLY (no service wrapper)
+      const localImages = await db.localImages
+        .where('entityId')
+        .equals(this.hudId)
+        .toArray();
 
       console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'localImages for hudId:', this.hudId);
 
-      // Convert to PhotoItem format using localImageService.getDisplayUrl() for proper blob URLs
+      // Convert to PhotoItem format
       this.photos = [];
 
       for (const img of localImages) {
         // Check if image has annotations
         const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
 
-        // Get display URL using localImageService (handles all fallbacks properly)
-        let displayUrl = await this.localImageService.getDisplayUrl(img);
+        // Get the blob data if available
+        let displayUrl = 'assets/img/photo-placeholder.svg';
         let originalUrl = displayUrl;
 
-        // DEXIE-FIRST: Check for cached annotated image for thumbnail display
+        // DEXIE-FIRST: Check for cached annotated image first (for thumbnails with annotations)
         if (hasAnnotations) {
           const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(img.imageId);
           if (cachedAnnotated) {
             displayUrl = cachedAnnotated;
             console.log('[HudVisualDetail] MOBILE: Using cached annotated image for:', img.imageId);
+          }
+        }
+
+        // Get original blob URL
+        if (img.localBlobId) {
+          const blob = await db.localBlobs.get(img.localBlobId);
+          if (blob) {
+            const blobObj = new Blob([blob.data], { type: blob.contentType });
+            originalUrl = URL.createObjectURL(blobObj);
+            // If no cached annotated image, use original
+            if (displayUrl === 'assets/img/photo-placeholder.svg') {
+              displayUrl = originalUrl;
+            }
+          }
+        } else if (img.remoteUrl) {
+          originalUrl = img.remoteUrl;
+          if (displayUrl === 'assets/img/photo-placeholder.svg') {
+            displayUrl = img.remoteUrl;
           }
         }
 
@@ -654,7 +675,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       if (this.item) {
         this.item.name = this.editableTitle;
       }
-      await this.showToast('Title saved', 'success');
     } catch (error) {
       console.error('[HudVisualDetail] Error saving title:', error);
       await this.showToast('Error saving title', 'danger');
@@ -694,7 +714,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       if (this.item) {
         this.item.text = this.editableText;
       }
-      await this.showToast('Description saved', 'success');
     } catch (error) {
       console.error('[HudVisualDetail] Error saving text:', error);
       await this.showToast('Error saving description', 'danger');

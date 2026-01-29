@@ -9,6 +9,9 @@ interface CategoryCard {
   title: string;
   icon: string;
   count: number;
+  commentCount: number;
+  limitationCount: number;
+  deficiencyCount: number;
 }
 
 @Component({
@@ -48,23 +51,29 @@ export class LbwCategoriesPage implements OnInit {
     });
   }
 
-  ionViewWillEnter() {
-    // WEBAPP: Clear loading state when returning to this page
-    if (environment.isWeb) {
+  async ionViewWillEnter() {
+    // WEBAPP: Reload categories to refresh counts when returning to this page
+    if (environment.isWeb && this.serviceId) {
       this.loading = false;
+      await this.loadCategories();
     }
   }
 
   async loadCategories() {
     try {
       console.log('[LBW Categories] Loading categories from LPS_Services_LBW_Templates...');
-      const templates = await this.caspioService.getServicesLBWTemplates().toPromise();
-      
+
+      // Load templates and existing LBW records in parallel
+      const [templates, existingRecords] = await Promise.all([
+        this.caspioService.getServicesLBWTemplates().toPromise(),
+        this.caspioService.getServicesLBWByServiceId(this.serviceId).toPromise()
+      ]);
+
       // Extract unique categories in order they appear (preserve database order)
       const categoriesSet = new Set<string>();
       const categoriesOrder: string[] = [];
       const categoryCounts = new Map<string, number>();
-      
+
       (templates || []).forEach((template: any) => {
         if (template.Category && !categoriesSet.has(template.Category)) {
           categoriesSet.add(template.Category);
@@ -77,14 +86,48 @@ export class LbwCategoriesPage implements OnInit {
         }
       });
 
+      // Count existing records by category and kind (excluding hidden items)
+      const kindCounts: { [category: string]: { comments: number; limitations: number; deficiencies: number } } = {};
+
+      console.log('[LBW Categories] Existing records count:', (existingRecords || []).length);
+      if (existingRecords && existingRecords.length > 0) {
+        console.log('[LBW Categories] Sample record:', existingRecords[0]);
+      }
+
+      (existingRecords || []).forEach((record: any) => {
+        const category = record.Category || '';
+        const kind = record.Kind || '';
+        // Use startsWith for hidden check (consistent with category-detail page)
+        const isHidden = record.Notes && String(record.Notes).startsWith('HIDDEN');
+
+        if (!category || isHidden) return;
+
+        if (!kindCounts[category]) {
+          kindCounts[category] = { comments: 0, limitations: 0, deficiencies: 0 };
+        }
+
+        if (kind === 'Comment') {
+          kindCounts[category].comments += 1;
+        } else if (kind === 'Limitation') {
+          kindCounts[category].limitations += 1;
+        } else if (kind === 'Deficiency') {
+          kindCounts[category].deficiencies += 1;
+        }
+      });
+
+      console.log('[LBW Categories] Kind counts by category:', kindCounts);
+
       // Create category cards in database order (not alphabetically sorted)
       this.categories = categoriesOrder.map(title => ({
         title,
         icon: 'construct-outline',
-        count: categoryCounts.get(title) || 0
+        count: categoryCounts.get(title) || 0,
+        commentCount: kindCounts[title]?.comments || 0,
+        limitationCount: kindCounts[title]?.limitations || 0,
+        deficiencyCount: kindCounts[title]?.deficiencies || 0
       }));
 
-      console.log('[LBW Categories] Loaded categories in order:', this.categories);
+      console.log('[LBW Categories] Loaded categories with counts:', this.categories);
     } catch (error) {
       console.error('[LBW Categories] Error loading categories:', error);
     }

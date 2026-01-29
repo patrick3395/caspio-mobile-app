@@ -142,17 +142,22 @@ export class AllProjectsPage implements OnInit {
         this.projectsService.getServiceTypes().subscribe({
           next: (serviceTypes) => {
             this.serviceTypes = serviceTypes || [];
-            
+
             // Load services for each project
             this.loadServicesSimple();
-            
+
             this.rebuildBuckets();
             this.loading = false;
+
+            // G2-PERF-003: Trigger change detection for OnPush components
+            // This ensures the UI updates even when there are no projects
+            this.changeDetectorRef.markForCheck();
           },
           error: (typeError) => {
             console.error('Error loading service types:', typeError);
             this.rebuildBuckets();
             this.loading = false;
+            this.changeDetectorRef.markForCheck();
           }
         });
       },
@@ -160,6 +165,7 @@ export class AllProjectsPage implements OnInit {
         this.error = 'Failed to load projects';
         this.loading = false;
         console.error('Error loading projects:', error);
+        this.changeDetectorRef.markForCheck();
       }
     });
   }
