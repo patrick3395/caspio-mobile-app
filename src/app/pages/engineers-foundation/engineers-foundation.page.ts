@@ -691,61 +691,6 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
     this.ensureButtonsEnabled();
     // Add direct event listeners as fallback
     this.addButtonEventListeners();
-
-    // DEBUG: Monitor header for size/style changes
-    this.setupHeaderDebugMonitor();
-  }
-
-  private setupHeaderDebugMonitor() {
-    if (!this.platformIonic.is('mobile')) {
-      return; // Only monitor on mobile
-    }
-
-    setTimeout(() => {
-      const header = document.querySelector('ion-header');
-      if (!header) {
-        console.error('[DEBUG] No ion-header found');
-        return;
-      }
-
-      let lastHeight = header.getBoundingClientRect().height;
-      let lastPaddingTop = window.getComputedStyle(header).paddingTop;
-
-      console.log(`[DEBUG] Initial header height: ${lastHeight}px, paddingTop: ${lastPaddingTop}`);
-
-      const observer = new MutationObserver(() => {
-        const currentHeight = header.getBoundingClientRect().height;
-        const currentPaddingTop = window.getComputedStyle(header).paddingTop;
-
-        if (currentHeight !== lastHeight || currentPaddingTop !== lastPaddingTop) {
-          const message = `HEADER CHANGED!\nHeight: ${lastHeight}px → ${currentHeight}px\nPadding-Top: ${lastPaddingTop} → ${currentPaddingTop}`;
-          console.error('[DEBUG]', message);
-
-          // Show alert to user
-          this.alertController.create({
-            header: 'Debug: Header Changed',
-            message: message,
-            buttons: ['OK']
-          }).then(alert => alert.present());
-
-          lastHeight = currentHeight;
-          lastPaddingTop = currentPaddingTop;
-        }
-      });
-
-      observer.observe(header, {
-        attributes: true,
-        attributeFilter: ['style', 'class'],
-        childList: true,
-        subtree: true
-      });
-
-      observer.observe(document.body, {
-        attributes: true,
-        attributeFilter: ['style', 'class']
-      });
-
-    }, 1000);
   }
 
   /**

@@ -592,8 +592,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           item.text = dexieField.templateText;
         }
 
-        // Restore selection state
+        // Restore selection state - CRITICAL: Update BOTH item.isSelected AND selectedItems map
         if (dexieField.isSelected) {
+          item.isSelected = true;
           this.selectedItems[key] = true;
         }
 
@@ -2357,6 +2358,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     const key = `${actualCategory}_${itemId}`;
     const newState = !this.selectedItems[key];
     this.selectedItems[key] = newState;
+
+    // CRITICAL: Also update item.isSelected for UI sync
+    if (item) {
+      item.isSelected = newState;
+    }
 
     console.log('[TOGGLE] Item:', key, 'Selected:', newState, 'actualCategory:', actualCategory);
 
