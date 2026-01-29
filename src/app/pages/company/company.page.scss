@@ -2833,7 +2833,11 @@ ion-alert.custom-alert {
 
 // Section header styling
 .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
+  gap: 16px;
 
   h3 {
     margin: 0 0 4px 0;
@@ -2846,6 +2850,13 @@ ion-alert.custom-alert {
     margin: 0;
     font-size: 0.9rem;
     color: #6c757d;
+  }
+
+  .add-button {
+    --background: #f15a27;
+    --background-hover: #d94d1a;
+    --border-radius: 8px;
+    font-weight: 500;
   }
 }
 

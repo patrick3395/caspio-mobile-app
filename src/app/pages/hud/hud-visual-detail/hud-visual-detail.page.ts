@@ -322,6 +322,16 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       console.log('[HudVisualDetail] MOBILE: Field found:', !!field, 'templateName:', field?.templateName);
       console.log('[HudVisualDetail] MOBILE: Template found:', !!template, 'Name:', template?.Name);
 
+      // DEBUG ALERT: Show field data found
+      await this.showDebugAlert('loadVisualData MOBILE', {
+        fieldFound: !!field,
+        templateName: field?.templateName || '(empty)',
+        tempVisualId: field?.tempVisualId || '(none)',
+        visualId: field?.visualId || '(none)',
+        templateFound: !!template,
+        templateNameFromTemplate: template?.Name || '(empty)'
+      });
+
       // CRITICAL: If field exists but templateName is empty (old data), use template.Name as fallback
       if (field && field.templateName) {
         // Field has templateName - use it directly (matches EFE pattern)
@@ -441,6 +451,17 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
         // Check if hudId changed (indicates sync completed and assigned real ID)
         const hudIdChanged = currentHudId !== this.lastKnownHudId && this.lastKnownHudId !== '';
+
+        // DEBUG ALERT: Show liveQuery update
+        await this.showDebugAlert('liveQuery UPDATE', {
+          templateName: field.templateName || '(empty)',
+          tempVisualId: field.tempVisualId || '(none)',
+          visualId: field.visualId || '(none)',
+          currentHudId: currentHudId,
+          lastKnownHudId: this.lastKnownHudId,
+          hudIdChanged: hudIdChanged,
+          currentItemName: this.item?.name || '(no item)'
+        });
 
         // Update item data from field
         if (field.templateName && this.item) {
@@ -603,6 +624,15 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       }
 
       console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'localImages for hudId:', this.hudId);
+
+      // DEBUG ALERT: Show photo loading results
+      await this.showDebugAlert('loadPhotos MOBILE', {
+        hudId: this.hudId,
+        tempVisualId: field?.tempVisualId || '(none)',
+        visualId: field?.visualId || '(none)',
+        photosFound: localImages.length,
+        photoEntityIds: localImages.slice(0, 3).map(img => img.entityId).join(', ') || '(none)'
+      });
 
       // Convert to PhotoItem format
       this.photos = [];
@@ -1449,6 +1479,27 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       position: 'bottom'
     });
     await toast.present();
+  }
+
+  /**
+   * DEBUG: Show alert popup with debug information
+   * Only shows in MOBILE mode for debugging sync issues
+   */
+  private async showDebugAlert(title: string, data: Record<string, any>) {
+    // Only show in mobile mode
+    if (environment.isWeb) return;
+
+    const message = Object.entries(data)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n');
+
+    const alert = await this.alertController.create({
+      header: `DEBUG: ${title}`,
+      message: message,
+      buttons: ['OK'],
+      cssClass: 'debug-alert'
+    });
+    await alert.present();
   }
 
   trackByPhotoId(index: number, photo: PhotoItem): string {

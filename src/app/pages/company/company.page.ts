@@ -216,6 +216,7 @@ interface InvoicePairWithService extends InvoicePair {
 export class CompanyPage implements OnInit, OnDestroy {
   isCompanyOne = false;
   currentUserCompanyId: number | null = null;
+  currentUserCompanyName: string = '';
   organizationUsers: any[] = [];
 
   selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' = 'users';
@@ -552,6 +553,11 @@ export class CompanyPage implements OnInit, OnDestroy {
   }
 
   async loadOrganizationUsers() {
+    if (!this.currentUserCompanyId) {
+      this.isLoading = false;
+      return;
+    }
+
     this.isLoading = true;
     try {
       // Load users from the Users table filtered by the current user's CompanyID
@@ -562,6 +568,9 @@ export class CompanyPage implements OnInit, OnDestroy {
       if (response && response.Result) {
         this.organizationUsers = response.Result;
       }
+
+      // Load company name separately (non-blocking for user display)
+      this.loadCurrentUserCompanyName();
     } catch (error) {
       console.error('Error loading organization users:', error);
       const toast = await this.toastController.create({
@@ -572,6 +581,23 @@ export class CompanyPage implements OnInit, OnDestroy {
       await toast.present();
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  async loadCurrentUserCompanyName() {
+    if (!this.currentUserCompanyId) return;
+
+    try {
+      const response = await firstValueFrom(
+        this.caspioService.get<any>(`/tables/LPS_Companies/records?q.where=CompanyID=${this.currentUserCompanyId}`)
+      );
+
+      if (response && response.Result && response.Result.length > 0) {
+        const company = response.Result[0];
+        this.currentUserCompanyName = company.CompanyName || company.Name || '';
+      }
+    } catch (error) {
+      console.error('Error loading company name:', error);
     }
   }
 
@@ -1665,12 +1691,17 @@ export class CompanyPage implements OnInit, OnDestroy {
 
       console.log('User created successfully:', response);
 
-      // Reload users data to include the new user - don't exclude any company for users
-      const userRecords = await this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' });
-      this.allUsers = userRecords;
-
-      // Reapply filters
-      this.applyUserFilters();
+      // Reload users data based on user type
+      if (this.isCompanyOne) {
+        // Admin user - reload all users
+        const userRecords = await this.fetchTableRecords('Users', { 'q.orderBy': 'Name', 'q.limit': '2000' });
+        this.allUsers = userRecords;
+        // Reapply filters
+        this.applyUserFilters();
+      } else {
+        // Non-admin user - reload organization users
+        await this.loadOrganizationUsers();
+      }
 
       await this.showToast('User created successfully', 'success');
       this.closeAddUserModal();

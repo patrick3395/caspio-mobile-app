@@ -1159,8 +1159,12 @@
       <div class="section-header">
         <div>
           <h3>Organization Users</h3>
-          <p>View users in your organization</p>
+          <p>Manage users in your organization</p>
         </div>
+        <ion-button size="small" (click)="openAddUserModal()" class="add-button">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Add User
+        </ion-button>
       </div>
 
       <!-- Loading State - Skeleton loader -->
@@ -2516,10 +2520,7 @@
           <div class="form-row">
             <div class="form-field full-width">
               <label>Company</label>
-              <select [(ngModel)]="newUser.CompanyID" class="form-input" [disabled]="true">
-                <option [ngValue]="null">-- Select --</option>
-                <option [ngValue]="currentUserCompanyId" selected>{{ getCompanyName(currentUserCompanyId) }}</option>
-              </select>
+              <input type="text" class="form-input" [value]="currentUserCompanyName || getCompanyName(currentUserCompanyId)" disabled readonly>
             </div>
           </div>
           <div class="form-row">
