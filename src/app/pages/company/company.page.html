@@ -1190,26 +1190,30 @@
         </div>
       </div>
 
-      <!-- Users List -->
-      <div *ngIf="!isLoading && organizationUsers.length > 0" class="responsive-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Role</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let user of organizationUsers">
-              <td>{{ user.Name }}</td>
-              <td><a [href]="'mailto:' + user.Email">{{ user.Email }}</a></td>
-              <td>{{ user.Phone || '—' }}</td>
-              <td>{{ user.Role || '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Users Cards -->
+      <div *ngIf="!isLoading && organizationUsers.length > 0" class="org-users-grid">
+        <div class="org-user-card" *ngFor="let user of organizationUsers">
+          <div class="org-user-avatar">
+            <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name">
+            <div *ngIf="!getUserHeadshot(user)" class="org-user-initials">
+              {{ user.Name ? user.Name.charAt(0).toUpperCase() : '?' }}
+            </div>
+          </div>
+          <div class="org-user-info">
+            <h4 class="org-user-name">{{ user.Name }}</h4>
+            <p *ngIf="user.Title" class="org-user-title">{{ user.Title }}</p>
+            <div class="org-user-contact">
+              <a *ngIf="user.Email" [href]="'mailto:' + user.Email" class="org-user-email">
+                <ion-icon name="mail-outline"></ion-icon>
+                {{ user.Email }}
+              </a>
+              <span *ngIf="user.Phone" class="org-user-phone">
+                <ion-icon name="call-outline"></ion-icon>
+                {{ user.Phone }}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Empty State -->

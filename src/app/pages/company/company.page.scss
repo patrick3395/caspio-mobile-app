@@ -5,6 +5,13 @@
   height: 100%;
 }
 
+// Center the header title
+::ng-deep .custom-header ion-toolbar ion-title {
+  text-align: center;
+  padding-left: 56px;
+  padding-right: 56px;
+}
+
 ion-content {
   --overflow: auto;
   --offset-bottom: 0;
@@ -46,8 +53,11 @@ ion-content {
       display: flex;
       align-items: center;
       justify-content: center;
+      text-align: center;
       font-size: 17px;
       font-weight: 600;
+      padding-inline-start: 56px;
+      padding-inline-end: 56px;
       letter-spacing: 0.3px;
       color: #ffffff;
       text-align: center;
@@ -429,6 +439,148 @@ ion-content {
 // Client tab content
 .client-tab-content {
   margin-top: 16px;
+}
+
+// Organization Users Grid
+.org-users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+.org-user-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  }
+
+  .org-user-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #f5f5f5;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 4px solid #ffffff;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .org-user-initials {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      font-weight: 600;
+      color: #ffffff;
+      background: linear-gradient(135deg, #f15a27, #ff7b4d);
+    }
+  }
+
+  .org-user-info {
+    width: 100%;
+
+    .org-user-name {
+      margin: 0 0 6px 0;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #333333;
+    }
+
+    .org-user-title {
+      margin: 0 0 20px 0;
+      font-size: 0.95rem;
+      color: #69635d;
+      font-weight: 500;
+    }
+
+    .org-user-contact {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #f8f8f8;
+      border-radius: 12px;
+      padding: 16px;
+
+      .org-user-email,
+      .org-user-phone {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-size: 0.9rem;
+        color: #69635d;
+        text-decoration: none;
+
+        ion-icon {
+          font-size: 18px;
+          color: #f15a27;
+          flex-shrink: 0;
+        }
+      }
+
+      .org-user-email {
+        color: #f15a27;
+        font-weight: 500;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .org-users-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .org-user-card {
+    padding: 24px;
+
+    .org-user-avatar {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 16px;
+
+      .org-user-initials {
+        font-size: 1.8rem;
+      }
+    }
+
+    .org-user-info {
+      .org-user-name {
+        font-size: 1.15rem;
+      }
+
+      .org-user-title {
+        margin-bottom: 16px;
+      }
+
+      .org-user-contact {
+        padding: 14px;
+      }
+    }
+  }
 }
 
 // Client Stats Row - Modern stat cards
@@ -2251,13 +2403,22 @@ ion-segment.filter-segment {
 }
 
 // Modal Header Styling
-ion-modal {
+::ng-deep ion-modal {
   ion-header {
     ion-toolbar {
       ion-title {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         text-align: center;
-        padding-left: 0;
-        padding-right: 0;
+        padding-left: 56px;
+        padding-right: 56px;
+        pointer-events: none;
       }
     }
   }

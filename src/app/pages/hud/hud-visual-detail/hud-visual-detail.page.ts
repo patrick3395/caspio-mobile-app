@@ -625,13 +625,21 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'localImages for hudId:', this.hudId);
 
-      // DEBUG ALERT: Show photo loading results
+      // DEBUG: Query ALL localImages for this service to see what entityIds exist
+      const allImagesForService = await db.localImages
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray();
+
+      // DEBUG ALERT: Show photo loading results AND all entityIds in service
       await this.showDebugAlert('loadPhotos MOBILE', {
         hudId: this.hudId,
         tempVisualId: field?.tempVisualId || '(none)',
         visualId: field?.visualId || '(none)',
         photosFound: localImages.length,
-        photoEntityIds: localImages.slice(0, 3).map(img => img.entityId).join(', ') || '(none)'
+        photoEntityIds: localImages.slice(0, 3).map(img => img.entityId).join(', ') || '(none)',
+        '---ALL IMAGES IN SERVICE---': allImagesForService.length,
+        allEntityIds: [...new Set(allImagesForService.map(img => img.entityId))].join(', ') || '(none)'
       });
 
       // Convert to PhotoItem format
@@ -997,6 +1005,13 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // MOBILE MODE: Local-first with background sync
       // ============================================
 
+      // DEBUG ALERT: Show what entityId will be used for this photo
+      await this.showDebugAlert('SAVING PHOTO with entityId', {
+        hudId: this.hudId,
+        serviceId: this.serviceId,
+        entityType: 'hud'
+      });
+
       // DEXIE-FIRST: Use LocalImageService.captureImage() which:
       // 1. Stores blob + metadata atomically
       // 2. Adds to upload outbox for background sync
@@ -1011,6 +1026,13 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       );
 
       console.log('[HudVisualDetail] ✅ Photo captured via LocalImageService:', localImage.imageId);
+
+      // DEBUG ALERT: Confirm photo was saved
+      await this.showDebugAlert('PHOTO SAVED', {
+        imageId: localImage.imageId,
+        entityId: localImage.entityId,
+        serviceId: localImage.serviceId
+      });
 
       // Get display URL from LocalImageService
       const displayUrl = await this.localImageService.getDisplayUrl(localImage);
