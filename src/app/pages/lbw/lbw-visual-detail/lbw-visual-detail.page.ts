@@ -219,8 +219,17 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             String(v.LBWID || v.PK_ID) === String(lbwIdFromQueryParams)
           );
           console.log('[LbwVisualDetail] WEBAPP: Visual found by LBWID:', visual ? 'YES' : 'NO');
+        }
+
+        // PRIORITY 1.5: For custom visuals, templateId might BE the LBWID - try matching directly
+        if (!visual && this.templateId > 0) {
+          console.log('[LbwVisualDetail] WEBAPP: Looking for visual by templateId as LBWID:', this.templateId);
+          visual = lbwRecords.find((v: any) =>
+            String(v.LBWID || v.PK_ID) === String(this.templateId)
+          );
           if (visual) {
-            console.log('[LbwVisualDetail] WEBAPP: Matched LBW record by LBWID:', lbwIdFromQueryParams);
+            console.log('[LbwVisualDetail] WEBAPP: Found custom visual by LBWID:', this.templateId);
+            this.lbwId = String(visual.LBWID || visual.PK_ID);
           }
         }
 

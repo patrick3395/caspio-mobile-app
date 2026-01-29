@@ -3693,11 +3693,21 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
    */
   openVisualDetail(category: string, item: any): void {
     console.log('[LBW] openVisualDetail - navigating to visual detail page for:', item?.name, 'category:', category);
-    const key = `${category}_${item.templateId}`;
+
+    // For custom visuals (templateId = 0), use item.id as the key
+    // For template visuals, use templateId
+    const isCustomVisual = !item.templateId || item.templateId === 0;
+    const keyId = isCustomVisual ? item.id : item.templateId;
+    const key = `${category}_${keyId}`;
     const lbwId = this.visualRecordIds[key] || '';
-    console.log('[LBW] openVisualDetail - projectId:', this.projectId, 'serviceId:', this.serviceId, 'category:', category, 'templateId:', item.templateId, 'lbwId:', lbwId);
+
+    // For navigation, use the templateId (or item.id for custom visuals)
+    const routeId = isCustomVisual ? item.id : item.templateId;
+
+    console.log('[LBW] openVisualDetail - projectId:', this.projectId, 'serviceId:', this.serviceId, 'category:', category, 'routeId:', routeId, 'lbwId:', lbwId, 'isCustomVisual:', isCustomVisual);
+
     // Use absolute navigation to ensure correct path
-    this.router.navigate(['/lbw', this.projectId, this.serviceId, 'category', category, 'visual', item.templateId], {
+    this.router.navigate(['/lbw', this.projectId, this.serviceId, 'category', category, 'visual', routeId], {
       queryParams: { lbwId }
     });
   }

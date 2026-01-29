@@ -1708,6 +1708,21 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         }
       }
 
+      // ATTEMPT 4 FIX: If no photos found, have realId but no tempId, do REVERSE lookup
+      // This handles the case where:
+      // 1. Sync completed, visualRecordIds[key] has real ID
+      // 2. LocalImages.entityId still has temp_hud_xxx (updateEntityIdForImages hasn't run)
+      // 3. tempVisualId is null because buildConvertedFieldsFromOrganizedData couldn't find it
+      //    (tempIdToRealIdCache is empty on page refresh)
+      // Solution: Query tempIdMappings table by realId to find original tempId
+      if (localImages.length === 0 && realId && !tempId) {
+        const reverseLookupTempId = await this.indexedDb.getTempId(realId);
+        if (reverseLookupTempId) {
+          localImages = localImagesMap.get(reverseLookupTempId) || [];
+          console.log(`[DEXIE-FIRST] REVERSE LOOKUP: realId=${realId} -> tempId=${reverseLookupTempId}, found ${localImages.length} photos`);
+        }
+      }
+
       if (localImages.length === 0) {
         continue;
       }

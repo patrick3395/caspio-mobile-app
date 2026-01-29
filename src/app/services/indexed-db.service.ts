@@ -449,6 +449,15 @@ export class IndexedDbService {
   }
 
   /**
+   * Get temp ID from real ID (reverse lookup)
+   * Used to find original temp ID when photos still have temp entityId but visual has real ID
+   */
+  async getTempId(realId: string): Promise<string | null> {
+    const mapping = await db.tempIdMappings.where('realId').equals(realId).first();
+    return mapping ? mapping.tempId : null;
+  }
+
+  /**
    * Delete synced requests (cleanup)
    */
   async cleanupSyncedRequests(olderThanDays: number = 7): Promise<number> {
