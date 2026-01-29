@@ -2505,12 +2505,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
   async toggleItemSelection(category: string, itemId: string | number) {
     // CRITICAL FIX: Find item to get actual category (not route param)
-    const templateId = typeof itemId === 'string' ? parseInt(String(itemId), 10) : Number(itemId);
     const item = this.findItemById(itemId);
+    // CRITICAL FIX: Use item.templateId for Dexie (not item.id which is PK_ID)
+    // item.templateId = template.TemplateID || template.PK_ID
+    // The Dexie lookup in loadDataFromCache uses item.templateId, so save must match
+    const templateId = item?.templateId ?? (typeof itemId === 'string' ? parseInt(String(itemId), 10) : Number(itemId));
     const actualCategory = item?.category || category;
 
     // Use actualCategory for key to match how visualRecordIds and Dexie merge work
-    const key = `${actualCategory}_${itemId}`;
+    // Use templateId (not itemId) to match Dexie lookup pattern
+    const key = `${actualCategory}_${templateId}`;
     const newState = !this.selectedItems[key];
     this.selectedItems[key] = newState;
 
@@ -2601,7 +2605,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   isItemSelected(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Use item.templateId for key (not item.id) to match Dexie lookup pattern
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
 
     // For answerType 0 (checkbox items), check selectedItems dictionary
     if (this.selectedItems[key]) {
@@ -2609,9 +2616,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
 
     // Also check using the item's actual category (in case it differs from route category)
-    const item = this.findItemById(itemId);
     if (item && item.category && item.category !== category) {
-      const itemCategoryKey = `${item.category}_${itemId}`;
+      const itemCategoryKey = `${item.category}_${templateId}`;
       if (this.selectedItems[itemCategoryKey]) {
         return true;
       }
@@ -2641,12 +2647,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   isItemSaving(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Use item.templateId for key (not item.id) to match Dexie lookup pattern
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
     return this.savingItems[key] || false;
   }
 
   getPhotosForVisual(category: string, itemId: string | number): any[] {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
     return this.visualPhotos[key] || [];
   }
 
@@ -2861,8 +2873,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   private async createVisualRecord(category: string, itemId: string | number) {
-    const key = `${category}_${itemId}`;
     const item = this.findItemById(itemId);  // Find by ID, not templateId
+    // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
 
     if (!item) {
       console.error('[CREATE VISUAL] ❌ Item not found for itemId:', itemId);
@@ -2968,7 +2982,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   private async deleteVisualRecord(category: string, itemId: string | number) {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
     const visualId = this.visualRecordIds[key];
     
     if (!visualId) {
@@ -3317,7 +3334,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           const originalFile = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
           // Get or create visual ID
-          const key = `${category}_${itemId}`;
+          // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+          const item = this.findItemById(itemId);
+          const templateId = item?.templateId ?? itemId;
+          const key = `${category}_${templateId}`;
           let visualId = this.visualRecordIds[key];
 
           if (!visualId) {
@@ -3387,7 +3407,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
             // Add temp photo to UI immediately (with loading roller)
             this.visualPhotos[key].push(tempPhotoEntry);
-            this.expandedPhotos[`${category}_${itemId}`] = true;
+            this.expandedPhotos[key] = true;
             this.changeDetectorRef.detectChanges();
 
             try {
@@ -3624,7 +3644,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       });
 
       if (images.photos && images.photos.length > 0) {
-        const key = `${category}_${itemId}`;
+        // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+        const item = this.findItemById(itemId);
+        const templateId = item?.templateId ?? itemId;
+        const key = `${category}_${templateId}`;
 
         // Initialize photo array if it doesn't exist
         if (!this.visualPhotos[key]) {
@@ -3707,7 +3730,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           console.log('[GALLERY UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
 
           // Expand photos section
-          this.expandedPhotos[`${category}_${itemId}`] = true;
+          this.expandedPhotos[key] = true;
 
           // Process photos sequentially for WEBAPP
           for (let i = 0; i < images.photos.length; i++) {
@@ -4188,29 +4211,44 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   isLoadingPhotosForVisual(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
     return this.loadingPhotosByKey[key] === true;
   }
 
   getSkeletonArray(category: string, itemId: string | number): any[] {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
     const count = this.photoCountsByKey[key] || 0;
     return Array(count).fill({ isSkeleton: true });
   }
 
   isUploadingPhotos(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
     return this.uploadingPhotosByKey[key] === true;
   }
 
   getUploadingCount(category: string, itemId: string | number): number {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
     const photos = this.visualPhotos[key] || [];
     return photos.filter(p => p.uploading).length;
   }
 
   getTotalPhotoCount(category: string, itemId: string | number): number {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
     return (this.visualPhotos[key] || []).length;
   }
 
@@ -4398,7 +4436,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     console.log('[VIEW PHOTO] Opening photo annotator for', photo.AttachID);
 
     try {
-      const key = `${category}_${itemId}`;
+      // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+      const item = this.findItemById(itemId);
+      const templateId = item?.templateId ?? itemId;
+      const key = `${category}_${templateId}`;
 
       // Check if photo is still uploading
       if (photo.uploading || photo.queued) {
@@ -4581,6 +4622,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async deletePhoto(photo: any, category: string, itemId: string | number) {
+    // CRITICAL FIX: Use item.templateId for key (not itemId) to match Dexie lookup pattern
+    // Capture these values BEFORE the setTimeout closure
+    const item = this.findItemById(itemId);
+    const templateId = item?.templateId ?? itemId;
+    const key = `${category}_${templateId}`;
+
     try {
       const alert = await this.alertController.create({
         header: 'Delete Photo',
@@ -4604,8 +4651,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                 await loading.present();
 
                 try {
-                  const key = `${category}_${itemId}`;
-
                   // Remove from UI immediately using filter
                   if (this.visualPhotos[key]) {
                     this.visualPhotos[key] = this.visualPhotos[key].filter(
