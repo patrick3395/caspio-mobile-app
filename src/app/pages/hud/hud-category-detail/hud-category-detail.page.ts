@@ -2311,49 +2311,50 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     console.log('[VISUALFIELDS LIVEQUERY] Subscribing to VisualFields changes for service:', this.serviceId);
 
     // Subscribe to ALL VisualFields for this service (HUD shows multiple categories)
+    // EFE PATTERN: Use fresh fields directly from liveQuery, don't try to match by templateId
     this.visualFieldsSubscription = this.visualFieldRepo
       .getAllFieldsForService$(this.serviceId)
       .subscribe({
         next: async (fields) => {
           console.log(`[VISUALFIELDS LIVEQUERY] Received ${fields.length} fields from liveQuery`);
 
-          // Update lastConvertedFields with fresh IDs from the liveQuery
-          let updatedCount = 0;
-          for (const freshField of fields) {
-            // Find corresponding field in lastConvertedFields by templateId
-            const existingField = this.lastConvertedFields.find(
-              f => f.templateId === freshField.templateId && f.category === freshField.category
-            );
+          // EFE PATTERN: Store fresh fields as lastConvertedFields
+          // This ensures populatePhotosFromDexie uses correct templateIds from Dexie
+          this.lastConvertedFields = fields;
 
-            if (existingField) {
-              // Update with fresh visualId/tempVisualId from Dexie
-              const visualIdChanged = existingField.visualId !== freshField.visualId;
-              const tempVisualIdChanged = existingField.tempVisualId !== freshField.tempVisualId;
+          // Build a map of visualId -> Dexie field for updating organizedData
+          const fieldsByVisualId = new Map<string, any>();
+          for (const field of fields) {
+            const visualId = field.visualId || field.tempVisualId;
+            if (visualId) {
+              fieldsByVisualId.set(String(visualId), field);
+            }
+          }
 
-              if (visualIdChanged || tempVisualIdChanged) {
-                existingField.visualId = freshField.visualId;
-                existingField.tempVisualId = freshField.tempVisualId;
-                updatedCount++;
+          // Update visualRecordIds and organizedData items with correct templateIds from Dexie
+          // This is CRITICAL for custom items where organizedData has templateId=0 but Dexie has negative templateId
+          for (const field of fields) {
+            const key = `${field.category}_${field.templateId}`;
+            const visualId = field.visualId || field.tempVisualId;
+            if (visualId) {
+              this.visualRecordIds[key] = visualId;
 
-                // Also update visualRecordIds for consistency
-                const recordKey = `${existingField.category}_${existingField.templateId}`;
-                const newVisualId = freshField.visualId || freshField.tempVisualId;
-                if (newVisualId) {
-                  this.visualRecordIds[recordKey] = newVisualId;
+              // Find matching item in organizedData and update its templateId
+              // For custom items, match by visualId since templateId won't match (0 vs negative)
+              const allItems = [...this.organizedData.comments, ...this.organizedData.limitations, ...this.organizedData.deficiencies];
+              for (const item of allItems) {
+                // Match custom items by their id which contains the visualId
+                if (item.id === `custom_${visualId}` && item.templateId !== field.templateId) {
+                  console.log(`[VISUALFIELDS LIVEQUERY] Updating custom item templateId: ${item.templateId} -> ${field.templateId} for visualId ${visualId}`);
+                  item.templateId = field.templateId;
                 }
               }
             }
           }
 
-          if (updatedCount > 0) {
-            console.log(`[VISUALFIELDS LIVEQUERY] Updated ${updatedCount} fields with fresh IDs`);
-
-            // CRITICAL: Re-populate photos with the updated IDs
-            if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
-              await this.populatePhotosFromDexie(this.lastConvertedFields);
-              this.changeDetectorRef.detectChanges();
-            }
-          }
+          // EFE PATTERN: Populate photos with fresh fields directly
+          await this.populatePhotosFromDexie(fields);
+          this.changeDetectorRef.detectChanges();
         },
         error: (err) => {
           console.error('[VISUALFIELDS LIVEQUERY] Error in VisualFields subscription:', err);
@@ -2565,9 +2566,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
           
           if (existingItem) {
-            // Use templateId for regular items (matches template), fall back to id for custom items
-            const itemKey = existingItem.templateId || existingItem.id;
-            const key = `${visual.Category}_${itemKey}`;
+            // EFE PATTERN: Use item.id for key (matches loadExistingVisualsFromCache)
+            const key = `${visual.Category}_${existingItem.id}`;
 
             // CRITICAL: Check for collision - skip if this key was already processed
             if (processedKeys.has(key)) {

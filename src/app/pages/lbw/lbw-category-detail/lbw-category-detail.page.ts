@@ -1565,7 +1565,42 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
   isItemSelected(category: string, itemId: string | number): boolean {
     const key = `${category}_${itemId}`;
-    return this.selectedItems[key] || false;
+
+    // For answerType 0 (checkbox items), check selectedItems dictionary
+    if (this.selectedItems[key]) {
+      return true;
+    }
+
+    // Also check using the item's actual category (in case it differs from route category)
+    const item = this.findItemById(itemId);
+    if (item && item.category && item.category !== category) {
+      const itemCategoryKey = `${item.category}_${itemId}`;
+      if (this.selectedItems[itemCategoryKey]) {
+        return true;
+      }
+    }
+
+    if (!item) {
+      return false;
+    }
+
+    // For answerType 1: Check if answer is selected (Yes or No)
+    if (item.answerType === 1 && item.answer && item.answer !== '') {
+      return true;
+    }
+
+    // For answerType 2: Check if any options are selected
+    if (item.answerType === 2 && item.answer && item.answer !== '') {
+      return true;
+    }
+
+    return false;
+  }
+
+  // Count how many items are selected/checked in a section
+  getSelectedCount(items: VisualItem[]): number {
+    if (!items) return 0;
+    return items.filter(item => this.isItemSelected(item.category || this.categoryName, item.id)).length;
   }
 
   isItemSaving(category: string, itemId: string | number): boolean {

@@ -59,7 +59,7 @@
           <div class="simple-accordion-header" (click)="toggleSection('information')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <span class="count-badge info">{{ organizedData.comments.length }}</span>
+                <span class="count-badge info">{{ getSelectedCount(organizedData.comments) }}</span>
               </div>
               <span class="type-header">Information</span>
             </div>
@@ -336,7 +336,7 @@
           <div class="simple-accordion-header" (click)="toggleSection('limitations')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <span class="count-badge limitation">{{ organizedData.limitations.length }}</span>
+                <span class="count-badge limitation">{{ getSelectedCount(organizedData.limitations) }}</span>
               </div>
               <span class="type-header">Limitations</span>
             </div>
@@ -610,7 +610,7 @@
           <div class="simple-accordion-header" (click)="toggleSection('deficiencies')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <span class="count-badge deficiency"><span>{{ organizedData.deficiencies.length }}</span></span>
+                <span class="count-badge deficiency"><span>{{ getSelectedCount(organizedData.deficiencies) }}</span></span>
               </div>
               <span class="type-header">Deficiencies</span>
             </div>

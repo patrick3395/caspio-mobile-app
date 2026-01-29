@@ -96,15 +96,34 @@ export class LbwCategoriesPage implements OnInit {
   }
 
   getCategoryIcon(categoryName: string): string {
-    // Map category names to icons
+    // Map category names to icons - matching EFE structural-systems-hub pattern
     const iconMap: { [key: string]: string } = {
-      'Target wall': 'construct-outline',
-      'Foundation': 'business-outline',
-      'Structure': 'construct-outline',
-      'Default': 'document-text-outline'
+      'Target wall': 'build-outline',
+      'Target Wall': 'build-outline',
+      '1st Floor above': 'document-text-outline',
+      'Attic and roof above': 'document-text-outline',
+      '1st Floor below': 'document-text-outline',
+      'Basement': 'cube-outline',
+      'Foundation below': 'document-text-outline',
+      'Conclusion': 'document-text-outline',
+      'Foundations': 'reorder-four-outline',
+      'Grading and Drainage': 'water-outline',
+      'General Conditions': 'document-text-outline',
+      'Roof Structure': 'home-outline',
+      'Floor Framing': 'grid-outline',
+      'Wall Framing': 'apps-outline',
+      'Attic': 'triangle-outline',
+      'Crawlspace': 'arrow-down-outline',
+      'Crawlspaces': 'arrow-down-outline',
+      'Walls (Interior and Exterior)': 'albums-outline',
+      'Ceilings and Floors': 'layers-outline',
+      'Doors (Interior and Exterior)': 'enter-outline',
+      'Windows': 'scan-outline',
+      'Other': 'ellipsis-horizontal-circle-outline',
+      'Basements': 'cube-outline'
     };
 
-    return iconMap[categoryName] || iconMap['Default'];
+    return iconMap[categoryName] || 'document-text-outline';
   }
 }
 
