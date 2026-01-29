@@ -319,18 +319,15 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         // CRITICAL: Update categoryName to actual category (needed for saveTitle to find correct Dexie field)
         this.categoryName = field.category || this.categoryName;
 
-        // Store hudId for photo loading
-        if (!this.hudId) {
-          this.hudId = field.visualId || field.tempVisualId || '';
-        }
+        // NOTE: hudId is set in loadPhotos() using tempVisualId || visualId (EFE pattern)
 
-        console.log('[HudVisualDetail] MOBILE: Loaded from Dexie field:', this.item.name, 'category:', this.categoryName, 'hudId:', this.hudId);
+        console.log('[HudVisualDetail] MOBILE: Loaded from Dexie field:', this.item.name, 'category:', this.categoryName);
       } else if (field && template) {
         // Field exists but templateName is empty - merge field data with template name
         // This handles data created before templateName was stored
         const actualCategory = field.category || template.Category || this.categoryName;
         this.item = {
-          id: field.visualId || field.tempVisualId || field.templateId,
+          id: field.tempVisualId || field.visualId || field.templateId,
           templateId: field.templateId,
           name: template.Name || '',  // Use template name since field.templateName is empty
           text: field.templateText || template.Text || '',
@@ -349,12 +346,9 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         // CRITICAL: Update categoryName to actual category (needed for saveTitle to find correct Dexie field)
         this.categoryName = actualCategory;
 
-        // Store hudId for photo loading
-        if (!this.hudId) {
-          this.hudId = field.visualId || field.tempVisualId || '';
-        }
+        // NOTE: hudId is set in loadPhotos() using tempVisualId || visualId (EFE pattern)
 
-        console.log('[HudVisualDetail] MOBILE: Merged field+template - Name:', this.item.name, 'category:', this.categoryName, 'hudId:', this.hudId);
+        console.log('[HudVisualDetail] MOBILE: Merged field+template - Name:', this.item.name, 'category:', this.categoryName);
       } else if (template) {
         // No field exists - use template (item not yet selected)
         const effectiveTemplateId = template.TemplateID || template.PK_ID;
@@ -377,7 +371,8 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         // CRITICAL: Update categoryName to actual category (needed for saveTitle to find correct Dexie field)
         this.categoryName = actualCategory;
 
-        // Use hudId from query params if available
+        // NOTE: hudId is set in loadPhotos() - but for template-only case, use query params
+        // This is needed because no field exists yet to provide visualId/tempVisualId
         if (!this.hudId && hudIdFromQueryParams) {
           this.hudId = hudIdFromQueryParams;
         }
@@ -401,7 +396,8 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
   private convertFieldToItem(field: VisualField): VisualItem {
     return {
-      id: field.id || field.templateId,
+      // EFE PATTERN: Use tempVisualId || visualId for the item id (not field.id which is Dexie auto-increment)
+      id: field.tempVisualId || field.visualId || field.templateId,
       templateId: field.templateId,
       name: field.templateName || '',
       text: field.templateText || '',
@@ -470,24 +466,23 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       }
 
       // MOBILE MODE: Load from local Dexie
-      // PRIORITY 1: Use hudId from query params (passed from category-detail)
-      // PRIORITY 2: Fall back to visualFields lookup
+      // EFE PATTERN: ALWAYS re-query visualFields and OVERWRITE hudId
+      // This ensures we use the correct entityId for photo lookup after sync
       // HUD NOTE: Query by serviceId only (not by route category) because
       // route uses 'hud' but actual data has real categories
 
-      // Only query visualFields if we don't have hudId from query params
-      if (!this.hudId) {
-        const allFields = await db.visualFields
-          .where('serviceId')
-          .equals(this.serviceId)
-          .toArray();
+      const allFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray();
 
-        const field = allFields.find(f => f.templateId === this.templateId);
+      const field = allFields.find(f => f.templateId === this.templateId);
 
-        // The entityId for photos is the hudId (temp_hud_xxx or real HUDID)
-        // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
-        this.hudId = field?.tempVisualId || field?.visualId || '';
-      }
+      // EFE PATTERN: The entityId for photos is the visualId (temp_hud_xxx or real HUDID)
+      // CRITICAL: Use tempVisualId FIRST because localImages are stored with the original temp ID
+      // After sync, visualId contains the real ID but photos still have entityId = tempVisualId
+      // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
+      this.hudId = field?.tempVisualId || field?.visualId || '';
 
       if (!this.hudId) {
         console.log('[HudVisualDetail] MOBILE: No hudId found, cannot load photos');

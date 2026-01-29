@@ -533,6 +533,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         console.error('❌ No project data returned for ID:', this.projectId);
         this.error = 'Failed to load project';
         this.loading = false;
+        this.changeDetectorRef.markForCheck();
 
         // Show debug alert on mobile
         await this.showDebugAlert('Project Load Error',
@@ -722,6 +723,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       this.loading = false;
       this.loadingServices = false;
+      this.changeDetectorRef.markForCheck();
 
       // G2-NAV-002: Update breadcrumbs now that project is loaded (web only)
       this.updateBreadcrumbs();
@@ -739,17 +741,19 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       this.error = 'Failed to load project';
       this.loading = false;
       this.loadingServices = false;
+      this.changeDetectorRef.markForCheck();
     }
   }
 
   async fetchProject() {
     this.loading = true;
     this.error = '';
-    
+
     this.projectsService.getProjectById(this.projectId).subscribe({
       next: async (project) => {
         this.project = project;
         this.loading = false;
+        this.changeDetectorRef.markForCheck();
         
         // Determine if the project has been completed (StatusID = 2)
         // StatusID: 1 = Active, 2 = Completed, 3 = Cancelled, 4 = On Hold
@@ -802,6 +806,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       error: (error) => {
         this.error = 'Failed to load project';
         this.loading = false;
+        this.changeDetectorRef.markForCheck();
         console.error('Error loading project:', error);
       }
     });
@@ -1114,87 +1119,31 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       });
       
       if (currentMode === 'add-service' && this.project) {
-        // Debug: Show all project IDs and current status
-        let debugInfo = '=== PROJECT STATUS UPDATE ATTEMPT ===\n\n';
-        debugInfo += '1. CURRENT PROJECT DATA:\n';
-        debugInfo += `   PK_ID: ${this.project.PK_ID}\n`;
-        debugInfo += `   ProjectID: ${this.project.ProjectID}\n`;
-        debugInfo += `   Current StatusID: ${this.project.StatusID}\n`;
-        debugInfo += `   StatusID Type: ${typeof this.project.StatusID}\n\n`;
-        
-        debugInfo += '2. IDs TO USE:\n';
-        debugInfo += `   Will use PK_ID for WHERE: ${this.project.PK_ID}\n`;
-        debugInfo += `   Will update StatusID to: 1 (integer)\n\n`;
-        
         // Update project status to Active (StatusID = 1) when adding service to completed project
         const projectPkId = this.project.PK_ID;
         const projectId = this.project.ProjectID;
-        
+
         if (projectPkId) {
           try {
-            // Try using ProjectID in WHERE clause instead of PK_ID
             const updateUrl = `/tables/LPS_Projects/records?q.where=ProjectID=${projectId}`;
-            const updateData = { 
-              StatusID: 1  // Integer 1
+            const updateData = {
+              StatusID: 1  // Active status
             };
-            
-            // Debug: Show exact API call
-            let apiDebug = '=== API CALL DETAILS ===\n\n';
-            apiDebug += '1. UPDATE URL:\n';
-            apiDebug += `   ${updateUrl}\n\n`;
-            apiDebug += '2. UPDATE DATA:\n';
-            apiDebug += `   ${JSON.stringify(updateData, null, 2)}\n\n`;
-            apiDebug += '3. DATA TYPES:\n';
-            apiDebug += `   StatusID type: ${typeof updateData.StatusID}\n`;
-            apiDebug += `   StatusID value: ${updateData.StatusID}\n\n`;
-            apiDebug += '4. WHERE CLAUSE:\n';
-            apiDebug += `   Using ProjectID=${projectId} to find record\n`;
-            
+
             await this.caspioService.put<any>(updateUrl, updateData).toPromise();
-            
+
             // Update local project object
             this.project.StatusID = 1;
             this.isReadOnly = false;
-            await this.showToast('Project moved to Active status', 'success');
-            
-            // Debug: Confirm update
-            alert(`SUCCESS - Status Update Complete:\n\nProject ${projectId} (PK_ID: ${projectPkId})\nStatusID updated to: ${this.project.StatusID}`);
+            this.changeDetectorRef.markForCheck();
+            // Toast removed per user request
           } catch (error: any) {
             console.error('Error updating project status:', error);
-            
-            // Detailed error debug
-            let errorDebug = '=== STATUS UPDATE FAILED ===\n\n';
-            errorDebug += '1. ERROR MESSAGE:\n';
-            errorDebug += `   ${error.message || error}\n\n`;
-            
-            if (error.error) {
-              errorDebug += '2. ERROR DETAILS:\n';
-              errorDebug += `   ${JSON.stringify(error.error, null, 2)}\n\n`;
-            }
-            
-            if (error.status) {
-              errorDebug += '3. HTTP STATUS:\n';
-              errorDebug += `   ${error.status} ${error.statusText || ''}\n\n`;
-            }
-            
-            errorDebug += '4. ATTEMPTED UPDATE:\n';
-            errorDebug += `   ProjectID: ${projectId}\n`;
-            errorDebug += `   PK_ID: ${projectPkId}\n`;
-            errorDebug += `   Tried to set StatusID to: 1\n`;
-            
-            console.error(errorDebug);
             // Continue with service creation even if status update fails
+            await this.showToast('Warning: Could not update project status', 'warning');
           }
         } else {
           console.error('No PK_ID available for status update');
-          
-          let noIdDebug = '=== NO PROJECT ID AVAILABLE ===\n\n';
-          noIdDebug += 'Project object:\n';
-          noIdDebug += `PK_ID: ${this.project?.PK_ID}\n`;
-          noIdDebug += `ProjectID: ${this.project?.ProjectID}\n`;
-          noIdDebug += '\nCannot update status without project ID';
-          
-          console.error(noIdDebug);
         }
       }
       

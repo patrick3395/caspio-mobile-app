@@ -247,7 +247,8 @@
       <!-- Empty state -->
       <div class="empty-state" *ngIf="filteredProjects.length === 0" role="status" aria-live="polite">
         <ion-icon name="folder-open-outline" aria-hidden="true"></ion-icon>
-        <p>No projects found</p>
+        <h3>{{ searchTerm.trim() ? 'No Matches Found' : 'No Completed Projects' }}</h3>
+        <p>{{ searchTerm.trim() ? 'Try adjusting your search terms' : 'There are no completed projects at this time' }}</p>
       </div>
     </div>
   </div>

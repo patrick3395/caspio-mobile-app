@@ -52,8 +52,14 @@
 
     <!-- Read-only indicator for non-active projects -->
     <div *ngIf="isReadOnly" class="read-only-banner">
-      <ion-icon name="eye-outline"></ion-icon>
-      <span>Project is not active</span>
+      <div class="read-only-content">
+        <ion-icon name="eye-outline"></ion-icon>
+        <span>Project is not active</span>
+      </div>
+      <button class="reactivate-btn" (click)="addAdditionalService()">
+        <ion-icon name="add-circle-outline"></ion-icon>
+        Add Service
+      </button>
     </div>
 
     <!-- Project Information Section -->
