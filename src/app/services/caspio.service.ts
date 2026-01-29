@@ -4497,7 +4497,6 @@ export class CaspioService {
 
   updateProject(projectId: string | number, updateData: any): Observable<any> {
     // Note: Use PK_ID for updates (matches mobile app pattern)
-    // PK_ID is numeric, so no quotes needed in the query
     const endpoint = `/tables/LPS_Projects/records?q.where=PK_ID=${projectId}`;
     console.log('[CaspioService] updateProject called with:', { projectId, updateData, endpoint });
     return this.put<any>(endpoint, updateData).pipe(

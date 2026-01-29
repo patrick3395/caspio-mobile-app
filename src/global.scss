@@ -1354,22 +1354,16 @@ textarea.styled-input {
 
   .alert-message {
     padding: 0 24px 20px;
-    color: #666666;
+    color: #0066cc;
     font-size: 14px;
     text-align: center;
-    line-height: 1.5;
+    line-height: 1.6;
     word-break: break-all;
-
-    strong {
-      display: block;
-      margin-top: 8px;
-      padding: 12px;
-      background: #f5f5f5;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #0066cc;
-      font-weight: 500;
-    }
+    white-space: pre-line;
+    background: #f8f9fa;
+    margin: 0 16px;
+    padding: 16px;
+    border-radius: 8px;
   }
 
   .alert-button-group {

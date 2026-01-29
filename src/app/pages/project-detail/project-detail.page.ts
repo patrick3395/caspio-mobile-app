@@ -2544,12 +2544,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       console.error('No serviceId provided for document upload');
       return;
     }
-    
-    // If document already exists (uploaded), show options: Replace or Add Additional
+
+    // If document already exists (uploaded or has a link), show Replace or Cancel
     if (doc.uploaded && doc.attachId) {
       const confirm = await this.alertController.create({
-        header: 'Upload Document',
-        message: `"${doc.title}" already exists. What would you like to do?`,
+        header: 'Replace Document',
+        message: `"${doc.title}" already exists. Do you want to replace it?`,
         cssClass: 'custom-document-alert',
         buttons: [
           {
@@ -2557,16 +2557,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             role: 'cancel'
           },
           {
-            text: 'Replace Existing',
+            text: 'Replace',
             handler: () => {
               this.currentUploadContext = { serviceId, typeId, doc, action: 'replace' };
-              this.fileInput.nativeElement.click();
-            }
-          },
-          {
-            text: 'Add Additional',
-            handler: () => {
-              this.currentUploadContext = { serviceId, typeId, doc, action: 'additional' };
               this.fileInput.nativeElement.click();
             }
           }
@@ -2628,7 +2621,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         let uploadCancelled = false;
         if (environment.isWeb) {
           loading = await this.loadingController.create({
-            message: `Uploading ${file.name}...<br><small>Tap outside to cancel</small>`,
+            message: `Uploading ${file.name}... (tap outside to cancel)`,
             backdropDismiss: true
           });
           loading.onDidDismiss().then((result: any) => {
@@ -2682,7 +2675,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         let replaceCancelled = false;
         if (environment.isWeb) {
           loading = await this.loadingController.create({
-            message: `Replacing with ${file.name}...<br><small>Tap outside to cancel</small>`,
+            message: `Replacing with ${file.name}... (tap outside to cancel)`,
             backdropDismiss: true
           });
           loading.onDidDismiss().then((result: any) => {
@@ -2909,7 +2902,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         // Mobile: Show popup with the URL
         const alert = await this.alertController.create({
           header: 'External Link',
-          message: `To view, visit this URL:<br><br><strong>${linkToOpen}</strong>`,
+          message: `To view, visit this URL:\n\n${linkToOpen}`,
           buttons: [
             {
               text: 'Copy URL',
@@ -4313,27 +4306,32 @@ Troubleshooting:
     await loading.present();
 
     try {
-      // Find state abbreviation from StateID
+      // Find state abbreviation from StateID (for local display only)
       const stateOption = this.stateOptions.find(s => s.StateID === data.stateId);
       const stateAbbr = stateOption?.Abbr || '';
 
+      // Only send fields that exist in the LPS_Projects table
+      // Note: State field doesn't exist in table, only StateID
       const updateData: any = {
         Address: data.address,
         City: data.city,
         StateID: data.stateId,
-        State: stateAbbr,
         Zip: data.zip
       };
 
       // Update via API - use PK_ID for Caspio REST API updates (matches mobile app pattern)
       await this.caspioService.updateProject(this.project?.PK_ID || this.projectId, updateData).toPromise();
 
-      // Update local project object
+      // Update local project object (including State for display purposes)
       this.project.Address = data.address;
       this.project.City = data.city;
       this.project.StateID = data.stateId ?? undefined;
       this.project.State = stateAbbr;
       this.project.Zip = data.zip;
+
+      // Update cache and trigger UI refresh
+      this.cacheCurrentState();
+      this.changeDetectorRef.markForCheck();
 
       await loading.dismiss();
 
