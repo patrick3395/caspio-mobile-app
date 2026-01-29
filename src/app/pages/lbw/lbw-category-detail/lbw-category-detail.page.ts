@@ -725,6 +725,56 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Populate dropdown options from cached data (instant, no API call)
+   * This is called during loadDataFromCache() to prevent "jumping" multi-select options
+   */
+  private populateDropdownOptionsFromCache(dropdownData: any[]): void {
+    if (!dropdownData || dropdownData.length === 0) {
+      return;
+    }
+
+    console.log('[LBW CategoryDetail] Populating dropdown options from cache, count:', dropdownData.length);
+
+    // Group dropdown options by TemplateID
+    dropdownData.forEach((row: any) => {
+      const templateId = String(row.TemplateID); // Convert to string for consistency
+      const dropdownValue = row.Dropdown;
+
+      if (templateId && dropdownValue) {
+        if (!this.visualDropdownOptions[templateId]) {
+          this.visualDropdownOptions[templateId] = [];
+        }
+        // Add unique dropdown values (excluding None/Other which we add at end)
+        if (!this.visualDropdownOptions[templateId].includes(dropdownValue) &&
+            dropdownValue !== 'None' && dropdownValue !== 'Other') {
+          this.visualDropdownOptions[templateId].push(dropdownValue);
+        }
+      }
+    });
+
+    // Sort options alphabetically and add "None" and "Other" at the end
+    Object.keys(this.visualDropdownOptions).forEach(templateId => {
+      const options = this.visualDropdownOptions[templateId];
+      if (options) {
+        // Sort alphabetically
+        options.sort((a: string, b: string) => a.localeCompare(b));
+        // Add "None" and "Other" at the end
+        if (!options.includes('None')) {
+          options.push('None');
+        }
+        if (!options.includes('Other')) {
+          options.push('Other');
+        }
+      }
+    });
+
+    console.log('[LBW CategoryDetail] Populated dropdown options for', Object.keys(this.visualDropdownOptions).length, 'templates from cache');
+
+    // Trigger change detection to update UI immediately
+    this.changeDetectorRef.detectChanges();
+  }
+
   private async loadExistingVisuals(useCacheFirst: boolean = false) {
     try {
       // Load all existing LBW visuals for this service and category
@@ -971,14 +1021,21 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     this.changeDetectorRef.detectChanges();
 
     try {
-      // Load LBW templates and records from cache
-      // CRITICAL: Use hudData.getVisualsByService() to merge cached + pending records (Dexie-first pattern)
-      const [templates, visuals] = await Promise.all([
+      // Load LBW templates, visuals, AND dropdown options from cache IN PARALLEL
+      // CRITICAL: Load dropdown options with templates for instant multi-select display (no jumping)
+      const [templates, visuals, dropdownData] = await Promise.all([
         this.indexedDb.getCachedTemplates('lbw'),
-        this.hudData.getVisualsByService(this.serviceId, false) // false = use cache
+        this.hudData.getVisualsByService(this.serviceId, false), // false = use cache
+        this.indexedDb.getCachedTemplates('lbw_dropdown')
       ]);
 
-      console.log(`[LBW CategoryDetail] MOBILE: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} LBW records from cache+pending`);
+      console.log(`[LBW CategoryDetail] MOBILE: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} LBW records, ${dropdownData?.length || 0} dropdown options from cache`);
+
+      // INSTANT DROPDOWN OPTIONS: Populate dropdown options from cache immediately
+      // This prevents "jumping" where multi-select options appear after a delay
+      if (dropdownData && dropdownData.length > 0) {
+        this.populateDropdownOptionsFromCache(dropdownData);
+      }
 
       // If no templates in cache, fall back to API
       if (!templates || templates.length === 0) {
@@ -1556,31 +1613,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           console.error('[LBW VISUALFIELDS] Error in VisualFields subscription:', err);
         }
       });
-  }
-
-  /**
-   * Populate dropdown options from cached data
-   */
-  private populateDropdownOptionsFromCache(dropdownData: any[]): void {
-    for (const row of dropdownData) {
-      const templateId = String(row.TemplateID);
-      const dropdownValue = row.Dropdown;
-      if (templateId && dropdownValue) {
-        if (!this.visualDropdownOptions[templateId]) {
-          this.visualDropdownOptions[templateId] = [];
-        }
-        if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
-          this.visualDropdownOptions[templateId].push(dropdownValue);
-        }
-      }
-    }
-    // Add "Other" option
-    Object.keys(this.visualDropdownOptions).forEach(templateId => {
-      if (!this.visualDropdownOptions[templateId].includes('Other')) {
-        this.visualDropdownOptions[templateId].push('Other');
-      }
-    });
-    console.log(`[LBW CategoryDetail] MOBILE: Populated dropdown options for ${Object.keys(this.visualDropdownOptions).length} templates from cache`);
   }
 
   private findItemByName(name: string): VisualItem | undefined {
@@ -2889,7 +2921,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
       answer: item.answer,
       isSelected: !!(item.answer && item.answer !== ''),
-      notes: item.otherValue || ''
+      otherValue: item.otherValue || ''
     }).catch(err => {
       console.error('[OPTION] Failed to write to Dexie:', err);
     });
