@@ -156,10 +156,18 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  ionViewWillEnter() {
-    // WEBAPP: Clear loading state when returning to this page
-    if (environment.isWeb) {
+  async ionViewWillEnter() {
+    // WEBAPP: Reload photos when returning to this page
+    // This ensures photos persist after page navigation and reload
+    if (environment.isWeb && this.serviceId && this.categoryName) {
+      console.log('[DTE] WEBAPP: ionViewWillEnter - reloading photos...');
       this.loading = false;
+
+      // If we have visual record IDs, reload photos from API
+      if (Object.keys(this.visualRecordIds).length > 0) {
+        await this.loadPhotosFromAPI();
+      }
+
       this.changeDetectorRef.detectChanges();
     }
   }
@@ -657,8 +665,17 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         // Force change detection to update UI
         this.changeDetectorRef.detectChanges();
 
-        // Load photos for this visual
-        await this.loadPhotosForVisual(DTEID, key);
+        // MOBILE MODE: Load photos for this visual individually
+        if (!environment.isWeb) {
+          await this.loadPhotosForVisual(DTEID, key);
+        }
+      }
+
+      // WEBAPP MODE: Load all photos from API in one batch with signed URLs
+      // This ensures photos are loaded synchronously before the page renders
+      if (environment.isWeb) {
+        console.log('[LOAD EXISTING] WEBAPP: Loading all photos from API...');
+        await this.loadPhotosFromAPI();
       }
 
       console.log('[LOAD EXISTING] ========== FINAL STATE ==========');
@@ -788,6 +805,81 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
       const kindMatch = item.type?.toLowerCase() === kind?.toLowerCase();
       return nameMatch && categoryMatch && kindMatch;
     });
+  }
+
+  /**
+   * WEBAPP MODE: Load photos from API for all selected visuals
+   * This method loads photos synchronously with signed S3 URLs
+   * Mirrors LBW/EFE's loadPhotosFromAPI approach for WEBAPP mode
+   */
+  private async loadPhotosFromAPI(): Promise<void> {
+    console.log('[DTE] WEBAPP MODE: Loading photos from API...');
+
+    // Get all visual IDs that have been selected
+    for (const [key, dteId] of Object.entries(this.visualRecordIds)) {
+      if (!dteId) continue;
+
+      try {
+        const attachments = await this.hudData.getVisualAttachments(dteId);
+        console.log(`[DTE] WEBAPP: Loaded ${attachments?.length || 0} photos for DTE ${dteId}`);
+
+        // Convert attachments to photo format
+        const photos: any[] = [];
+        for (const att of attachments || []) {
+          // Try multiple possible field names for the S3 key
+          const rawPhotoValue = att.Attachment || att.attachment || att.Photo || att.photo || '';
+          let displayUrl = rawPhotoValue || 'assets/img/photo-placeholder.svg';
+
+          // WEBAPP: Get S3 signed URL if needed
+          if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+            const isS3Key = this.caspioService.isS3Key(displayUrl);
+
+            if (isS3Key) {
+              // S3 key - get signed URL
+              try {
+                console.log('[DTE] WEBAPP: Getting signed URL for S3 key:', displayUrl?.substring(0, 50));
+                displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+              } catch (e) {
+                console.warn('[DTE] WEBAPP: Could not get S3 URL:', e);
+                displayUrl = 'assets/img/photo-placeholder.svg';
+              }
+            }
+          }
+
+          const attachId = String(att.AttachID || att.attachId || att.PK_ID);
+          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+
+          photos.push({
+            id: attachId,
+            attachId: attachId,
+            AttachID: attachId,
+            displayUrl: displayUrl,
+            url: displayUrl,
+            thumbnailUrl: displayUrl,
+            originalUrl: displayUrl,
+            caption: att.Annotation || att.caption || '',
+            annotation: att.Annotation || '',
+            Annotation: att.Annotation || '',
+            Attachment: rawPhotoValue,
+            uploading: false,
+            loading: false,
+            isLocal: false,
+            isPending: false,
+            hasAnnotations,
+            Drawings: att.Drawings || ''
+          });
+        }
+
+        this.visualPhotos[key] = photos;
+        this.photoCountsByKey[key] = photos.length;
+        console.log(`[DTE] WEBAPP: Stored ${photos.length} photos for key ${key}`);
+      } catch (error) {
+        console.error(`[DTE] WEBAPP: Error loading photos for DTE ${dteId}:`, error);
+      }
+    }
+
+    this.changeDetectorRef.detectChanges();
+    console.log('[DTE] WEBAPP MODE: Photo loading complete');
   }
 
   private async loadPhotosForVisual(DTEID: string, key: string) {

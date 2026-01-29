@@ -3524,14 +3524,34 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             throw captureError;
           }
 
+          // US-001 FIX: Cache annotated image FIRST (before getDisplayUrl calls)
+          // This ensures liveQuery callbacks can find the cached annotated image
+          if (annotationsData && annotatedBlob) {
+            try {
+              await this.indexedDb.cacheAnnotatedImage(localImage.imageId, annotatedBlob);
+              console.log('[CAMERA UPLOAD] Cached annotated image for thumbnail:', localImage.imageId);
+            } catch (cacheError) {
+              console.warn('[CAMERA UPLOAD] Failed to cache annotated image:', cacheError);
+            }
+          }
+
           // Get display URL from LocalImageService (always uses local blob first)
-          const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+          let displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+          // US-001 FIX: If getDisplayUrl returns placeholder, create blob URL directly from compressed file
+          // This handles timing issues where the Dexie transaction may not have fully committed
+          if (!displayUrl || displayUrl === 'assets/img/photo-placeholder.svg') {
+            console.warn('[CAMERA UPLOAD] US-001 FIX: getDisplayUrl returned placeholder, creating direct blob URL');
+            displayUrl = URL.createObjectURL(compressedFile);
+          }
 
           // For annotated images, create a separate display URL showing annotations
           let annotatedDisplayUrl = displayUrl;
           if (annotatedBlob) {
             annotatedDisplayUrl = URL.createObjectURL(annotatedBlob);
           }
+
+          console.log('[CAMERA UPLOAD] MOBILE: displayUrl type:', displayUrl?.startsWith('blob:') ? 'BLOB' : 'OTHER');
 
           // Initialize photo array if it doesn't exist
           if (!this.visualPhotos[key]) {
@@ -3606,16 +3626,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           console.log('  key:', key);
           console.log('  imageId:', localImage.imageId);
           console.log('  Total photos in key:', this.visualPhotos[key].length);
-
-          // Cache annotated image for thumbnail persistence across navigation
-          if (annotationsData && annotatedBlob) {
-            try {
-              await this.indexedDb.cacheAnnotatedImage(localImage.imageId, annotatedBlob);
-              console.log('[CAMERA UPLOAD] Cached annotated image for thumbnail:', localImage.imageId);
-            } catch (cacheError) {
-              console.warn('[CAMERA UPLOAD] Failed to cache annotated image:', cacheError);
-            }
-          }
         }
 
         // Clean up blob URL
@@ -3887,7 +3897,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
               }
 
               // Get display URL from LocalImageService
-              const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+              let displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+              // US-001 FIX: If getDisplayUrl returns placeholder, create blob URL directly from compressed file
+              if (!displayUrl || displayUrl === 'assets/img/photo-placeholder.svg') {
+                console.warn(`[GALLERY UPLOAD] US-001 FIX: getDisplayUrl returned placeholder for photo ${i + 1}, creating direct blob URL`);
+                displayUrl = URL.createObjectURL(compressedFile);
+              }
 
               // Replace skeleton with actual photo entry
               const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);

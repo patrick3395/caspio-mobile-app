@@ -571,7 +571,14 @@ export class LbwDataService {
     );
 
     // Get display URL (will be local blob URL)
-    const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+    let displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+    // US-001 FIX: If getDisplayUrl returns placeholder, create blob URL directly from file
+    // This handles timing issues where the Dexie transaction may not have fully committed
+    if (!displayUrl || displayUrl === 'assets/img/photo-placeholder.svg') {
+      console.warn('[LBW Photo] US-001 FIX: getDisplayUrl returned placeholder, creating direct blob URL');
+      displayUrl = URL.createObjectURL(file);
+    }
 
     console.log('[LBW Photo] ✅ Image captured with stable ID:', localImage.imageId, 'status:', localImage.status);
 
