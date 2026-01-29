@@ -223,6 +223,9 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   // Client-only tabs (for non-CompanyID 1 users)
   clientTab: 'company' | 'metrics' = 'company';
+  usersExpanded = true;
+  servicesExpanded = true;
+  clientOffers: any[] = [];
   clientMetrics: { totalProjects: number; activeProjects: number; completedProjects: number } | null = null;
   clientProjectsChart: Chart | null = null;
   clientServicesChart: Chart | null = null;
@@ -569,8 +572,9 @@ export class CompanyPage implements OnInit, OnDestroy {
         this.organizationUsers = response.Result;
       }
 
-      // Load company name separately (non-blocking for user display)
+      // Load company name and offers separately (non-blocking for user display)
       this.loadCurrentUserCompanyName();
+      this.loadClientOffers();
     } catch (error) {
       console.error('Error loading organization users:', error);
       const toast = await this.toastController.create({
@@ -598,6 +602,44 @@ export class CompanyPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('Error loading company name:', error);
+    }
+  }
+
+  async loadClientOffers() {
+    if (!this.currentUserCompanyId) return;
+
+    try {
+      // Load offers and types in parallel
+      const [offersResponse, typesResponse] = await Promise.all([
+        firstValueFrom(
+          this.caspioService.get<any>(`/tables/LPS_Offers/records?q.where=CompanyID=${this.currentUserCompanyId}`)
+        ),
+        firstValueFrom(
+          this.caspioService.get<any>('/tables/LPS_Type/records')
+        )
+      ]);
+
+      // Build type lookup
+      const typeLookup = new Map<number, string>();
+      if (typesResponse && typesResponse.Result) {
+        typesResponse.Result.forEach((type: any) => {
+          const typeId = Number(type.TypeID || type.PK_ID);
+          typeLookup.set(typeId, type.TypeShort || type.TypeName || 'Unknown');
+        });
+      }
+
+      // Process offers with type names
+      if (offersResponse && offersResponse.Result) {
+        this.clientOffers = offersResponse.Result.map((offer: any) => {
+          const typeId = offer.TypeID !== undefined && offer.TypeID !== null ? Number(offer.TypeID) : null;
+          return {
+            ...offer,
+            typeName: typeId !== null ? (typeLookup.get(typeId) || 'Unknown Service') : 'Unknown Service'
+          };
+        });
+      }
+    } catch (error) {
+      console.error('Error loading client offers:', error);
     }
   }
 

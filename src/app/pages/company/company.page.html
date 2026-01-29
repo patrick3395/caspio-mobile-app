@@ -1156,73 +1156,119 @@
 
     <!-- Company Tab Content -->
     <div *ngIf="clientTab === 'company'" class="client-tab-content">
-      <div class="section-header">
-        <div>
-          <h3>Organization Users</h3>
-          <p>Manage users in your organization</p>
+      <!-- Users Collapsible Section -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" (click)="usersExpanded = !usersExpanded">
+          <div class="collapsible-title">
+            <ion-icon [name]="usersExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+            <h3>Users</h3>
+            <span class="collapsible-count" *ngIf="!isLoading">({{ organizationUsers.length }})</span>
+          </div>
+          <ion-button size="small" (click)="openAddUserModal(); $event.stopPropagation()" class="add-button">
+            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+            Add User
+          </ion-button>
         </div>
-        <ion-button size="small" (click)="openAddUserModal()" class="add-button">
-          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-          Add User
-        </ion-button>
+
+        <div class="collapsible-content" [class.expanded]="usersExpanded">
+          <!-- Loading State - Skeleton loader -->
+          <div *ngIf="isLoading" class="skeleton-users-grid">
+            <div class="skeleton-user-card" *ngFor="let i of [1,2,3,4,5,6]">
+              <div class="skeleton-user-header">
+                <div class="skeleton-user-avatar"></div>
+                <div class="skeleton-user-info">
+                  <div class="skeleton-user-name"></div>
+                  <div class="skeleton-user-role"></div>
+                </div>
+              </div>
+              <div class="skeleton-user-details">
+                <div class="skeleton-user-detail-item">
+                  <div class="skeleton-icon"></div>
+                  <div class="skeleton-detail-text"></div>
+                </div>
+                <div class="skeleton-user-detail-item">
+                  <div class="skeleton-icon"></div>
+                  <div class="skeleton-detail-text"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Users Cards -->
+          <div *ngIf="!isLoading && organizationUsers.length > 0" class="org-users-grid">
+            <div class="org-user-card" *ngFor="let user of organizationUsers">
+              <div class="org-user-avatar">
+                <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name">
+                <div *ngIf="!getUserHeadshot(user)" class="org-user-initials">
+                  {{ user.Name ? user.Name.charAt(0).toUpperCase() : '?' }}
+                </div>
+              </div>
+              <div class="org-user-info">
+                <h4 class="org-user-name">{{ user.Name }}</h4>
+                <p *ngIf="user.Title" class="org-user-title">{{ user.Title }}</p>
+                <div class="org-user-contact">
+                  <a *ngIf="user.Email" [href]="'mailto:' + user.Email" class="org-user-email">
+                    <ion-icon name="mail-outline"></ion-icon>
+                    {{ user.Email }}
+                  </a>
+                  <span *ngIf="user.Phone" class="org-user-phone">
+                    <ion-icon name="call-outline"></ion-icon>
+                    {{ user.Phone }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty State -->
+          <div *ngIf="!isLoading && organizationUsers.length === 0" class="empty-state-modern">
+            <div class="empty-icon-wrapper">
+              <ion-icon name="people"></ion-icon>
+            </div>
+            <h3>No users found</h3>
+            <p>No users found in your organization</p>
+          </div>
+        </div>
       </div>
 
-      <!-- Loading State - Skeleton loader -->
-      <div *ngIf="isLoading" class="skeleton-users-grid">
-        <div class="skeleton-user-card" *ngFor="let i of [1,2,3,4,5,6]">
-          <div class="skeleton-user-header">
-            <div class="skeleton-user-avatar"></div>
-            <div class="skeleton-user-info">
-              <div class="skeleton-user-name"></div>
-              <div class="skeleton-user-role"></div>
-            </div>
-          </div>
-          <div class="skeleton-user-details">
-            <div class="skeleton-user-detail-item">
-              <div class="skeleton-icon"></div>
-              <div class="skeleton-detail-text"></div>
-            </div>
-            <div class="skeleton-user-detail-item">
-              <div class="skeleton-icon"></div>
-              <div class="skeleton-detail-text"></div>
-            </div>
+      <!-- Services Offered Collapsible Section -->
+      <div class="collapsible-section">
+        <div class="collapsible-header" (click)="servicesExpanded = !servicesExpanded">
+          <div class="collapsible-title">
+            <ion-icon [name]="servicesExpanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
+            <h3>Services Offered</h3>
+            <span class="collapsible-count" *ngIf="clientOffers.length > 0">({{ clientOffers.length }})</span>
           </div>
         </div>
-      </div>
 
-      <!-- Users Cards -->
-      <div *ngIf="!isLoading && organizationUsers.length > 0" class="org-users-grid">
-        <div class="org-user-card" *ngFor="let user of organizationUsers">
-          <div class="org-user-avatar">
-            <img *ngIf="getUserHeadshot(user)" [src]="getUserHeadshot(user)" [alt]="user.Name">
-            <div *ngIf="!getUserHeadshot(user)" class="org-user-initials">
-              {{ user.Name ? user.Name.charAt(0).toUpperCase() : '?' }}
-            </div>
+        <div class="collapsible-content" [class.expanded]="servicesExpanded">
+          <!-- Services Table -->
+          <div *ngIf="clientOffers.length > 0" class="responsive-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Fee</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let offer of clientOffers">
+                  <td>{{ offer.typeName }}</td>
+                  <td>{{ offer.ServiceFee ? ('$' + offer.ServiceFee) : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div class="org-user-info">
-            <h4 class="org-user-name">{{ user.Name }}</h4>
-            <p *ngIf="user.Title" class="org-user-title">{{ user.Title }}</p>
-            <div class="org-user-contact">
-              <a *ngIf="user.Email" [href]="'mailto:' + user.Email" class="org-user-email">
-                <ion-icon name="mail-outline"></ion-icon>
-                {{ user.Email }}
-              </a>
-              <span *ngIf="user.Phone" class="org-user-phone">
-                <ion-icon name="call-outline"></ion-icon>
-                {{ user.Phone }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Empty State -->
-      <div *ngIf="!isLoading && organizationUsers.length === 0" class="empty-state-modern">
-        <div class="empty-icon-wrapper">
-          <ion-icon name="people"></ion-icon>
+          <!-- Empty State -->
+          <div *ngIf="clientOffers.length === 0" class="empty-state-modern compact">
+            <div class="empty-icon-wrapper small">
+              <ion-icon name="pricetag-outline"></ion-icon>
+            </div>
+            <h3>No services configured</h3>
+            <p>Contact support to set up your service offerings</p>
+          </div>
         </div>
-        <h3>No users found</h3>
-        <p>No users found in your organization</p>
       </div>
     </div>
 

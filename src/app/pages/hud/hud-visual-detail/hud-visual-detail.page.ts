@@ -322,16 +322,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       console.log('[HudVisualDetail] MOBILE: Field found:', !!field, 'templateName:', field?.templateName);
       console.log('[HudVisualDetail] MOBILE: Template found:', !!template, 'Name:', template?.Name);
 
-      // DEBUG ALERT: Show field data found
-      await this.showDebugAlert('loadVisualData MOBILE', {
-        fieldFound: !!field,
-        templateName: field?.templateName || '(empty)',
-        tempVisualId: field?.tempVisualId || '(none)',
-        visualId: field?.visualId || '(none)',
-        templateFound: !!template,
-        templateNameFromTemplate: template?.Name || '(empty)'
-      });
-
       // CRITICAL: If field exists but templateName is empty (old data), use template.Name as fallback
       if (field && field.templateName) {
         // Field has templateName - use it directly (matches EFE pattern)
@@ -451,17 +441,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
         // Check if hudId changed (indicates sync completed and assigned real ID)
         const hudIdChanged = currentHudId !== this.lastKnownHudId && this.lastKnownHudId !== '';
-
-        // DEBUG ALERT: Show liveQuery update
-        await this.showDebugAlert('liveQuery UPDATE', {
-          templateName: field.templateName || '(empty)',
-          tempVisualId: field.tempVisualId || '(none)',
-          visualId: field.visualId || '(none)',
-          currentHudId: currentHudId,
-          lastKnownHudId: this.lastKnownHudId,
-          hudIdChanged: hudIdChanged,
-          currentItemName: this.item?.name || '(no item)'
-        });
 
         // Update item data from field
         if (field.templateName && this.item) {
@@ -606,7 +585,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         .equals(this.hudId)
         .toArray();
 
-      // FALLBACK: If no photos found and we have both tempVisualId and visualId, try the other ID
+      // FALLBACK 1: If no photos found and we have both tempVisualId and visualId, try the other ID
       // This handles the race condition where updateEntityIdForImages() hasn't completed yet
       // after sync - photos may still have entityId = tempVisualId while field has visualId
       if (localImages.length === 0 && field?.tempVisualId && field?.visualId) {
@@ -623,24 +602,48 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         }
       }
 
+      // FALLBACK 2: If no photos found and we have tempVisualId, check tempIdMappings for mapped realId
+      // This handles the case where photos were captured with REAL server ID (from cache)
+      // but Dexie field has tempVisualId (from createVisual in MOBILE mode)
+      // Pattern from hud-category-detail.populatePhotosFromDexie() lines 1694-1713
+      if (localImages.length === 0 && field?.tempVisualId) {
+        const mappedRealId = await this.indexedDb.getRealId(field.tempVisualId);
+        if (mappedRealId) {
+          console.log('[HudVisualDetail] MOBILE: Trying mapped realId from tempIdMappings:', mappedRealId);
+          localImages = await db.localImages
+            .where('entityId')
+            .equals(mappedRealId)
+            .toArray();
+          if (localImages.length > 0) {
+            console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'photos with mapped realId');
+            // Update VisualField with realId so future lookups work directly
+            this.visualFieldRepo.setField(this.serviceId, this.categoryName, this.templateId, {
+              visualId: mappedRealId
+            }).catch(err => console.error('[HudVisualDetail] Failed to update visualId:', err));
+          }
+        }
+      }
+
+      // FALLBACK 3: If still no photos, do REVERSE lookup - query tempIdMappings by realId to find tempId
+      // This handles the case where:
+      // - Sync completed, VisualField.visualId has real ID but tempVisualId is null
+      // - Photos still have entityId = temp_hud_xxx (updateEntityIdForImages hasn't run)
+      // Pattern from hud-category-detail.populatePhotosFromDexie() lines 1715-1728
+      if (localImages.length === 0 && field?.visualId && !field?.tempVisualId) {
+        const reverseLookupTempId = await this.indexedDb.getTempId(field.visualId);
+        if (reverseLookupTempId) {
+          console.log('[HudVisualDetail] MOBILE: REVERSE LOOKUP - realId:', field.visualId, '-> tempId:', reverseLookupTempId);
+          localImages = await db.localImages
+            .where('entityId')
+            .equals(reverseLookupTempId)
+            .toArray();
+          if (localImages.length > 0) {
+            console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'photos with reverse-lookup tempId');
+          }
+        }
+      }
+
       console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'localImages for hudId:', this.hudId);
-
-      // DEBUG: Query ALL localImages for this service to see what entityIds exist
-      const allImagesForService = await db.localImages
-        .where('serviceId')
-        .equals(this.serviceId)
-        .toArray();
-
-      // DEBUG ALERT: Show photo loading results AND all entityIds in service
-      await this.showDebugAlert('loadPhotos MOBILE', {
-        hudId: this.hudId,
-        tempVisualId: field?.tempVisualId || '(none)',
-        visualId: field?.visualId || '(none)',
-        photosFound: localImages.length,
-        photoEntityIds: localImages.slice(0, 3).map(img => img.entityId).join(', ') || '(none)',
-        '---ALL IMAGES IN SERVICE---': allImagesForService.length,
-        allEntityIds: [...new Set(allImagesForService.map(img => img.entityId))].join(', ') || '(none)'
-      });
 
       // Convert to PhotoItem format
       this.photos = [];
@@ -1005,13 +1008,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // MOBILE MODE: Local-first with background sync
       // ============================================
 
-      // DEBUG ALERT: Show what entityId will be used for this photo
-      await this.showDebugAlert('SAVING PHOTO with entityId', {
-        hudId: this.hudId,
-        serviceId: this.serviceId,
-        entityType: 'hud'
-      });
-
       // DEXIE-FIRST: Use LocalImageService.captureImage() which:
       // 1. Stores blob + metadata atomically
       // 2. Adds to upload outbox for background sync
@@ -1026,13 +1022,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       );
 
       console.log('[HudVisualDetail] ✅ Photo captured via LocalImageService:', localImage.imageId);
-
-      // DEBUG ALERT: Confirm photo was saved
-      await this.showDebugAlert('PHOTO SAVED', {
-        imageId: localImage.imageId,
-        entityId: localImage.entityId,
-        serviceId: localImage.serviceId
-      });
 
       // Get display URL from LocalImageService
       const displayUrl = await this.localImageService.getDisplayUrl(localImage);
@@ -1501,27 +1490,6 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       position: 'bottom'
     });
     await toast.present();
-  }
-
-  /**
-   * DEBUG: Show alert popup with debug information
-   * Only shows in MOBILE mode for debugging sync issues
-   */
-  private async showDebugAlert(title: string, data: Record<string, any>) {
-    // Only show in mobile mode
-    if (environment.isWeb) return;
-
-    const message = Object.entries(data)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join('\n');
-
-    const alert = await this.alertController.create({
-      header: `DEBUG: ${title}`,
-      message: message,
-      buttons: ['OK'],
-      cssClass: 'debug-alert'
-    });
-    await alert.present();
   }
 
   trackByPhotoId(index: number, photo: PhotoItem): string {

@@ -1046,11 +1046,11 @@ URL Attempted: ${imgUrl}`;
   }
 
   /**
-   * WEBAPP: Check if a project is currently being selected/navigated to
+   * Check if a project is currently being selected/navigated to
+   * Disabled on webapp per UX feedback - only show on mobile
    */
   isSelectingProject(project: Project): boolean {
-    if (!environment.isWeb) return false;
-    const projectId = project.PK_ID || project.ProjectID;
-    return this.selectingProjectId === projectId;
+    // Disabled on webapp - no loading indicator needed
+    return false;
   }
 }

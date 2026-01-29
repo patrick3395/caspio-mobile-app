@@ -290,6 +290,106 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
+  /**
+   * Save pending (not yet uploaded) documents to localStorage so they survive page refresh.
+   * Only saves documents that haven't been uploaded yet.
+   */
+  private savePendingDocumentsToStorage(): void {
+    if (!this.projectId) return;
+
+    try {
+      // Extract only pending documents (not uploaded) from each service
+      const pendingDocs: { serviceId: string; documents: any[] }[] = [];
+
+      for (const serviceDoc of this.serviceDocuments) {
+        const pending = serviceDoc.documents.filter(d => !d.uploaded);
+        if (pending.length > 0) {
+          pendingDocs.push({
+            serviceId: serviceDoc.serviceId,
+            documents: pending
+          });
+        }
+      }
+
+      if (pendingDocs.length > 0) {
+        localStorage.setItem(
+          `pendingDocuments_${this.projectId}`,
+          JSON.stringify(pendingDocs)
+        );
+      } else {
+        // No pending docs, clear storage
+        localStorage.removeItem(`pendingDocuments_${this.projectId}`);
+      }
+    } catch (error) {
+      console.warn('Failed to save pending documents to storage:', error);
+    }
+  }
+
+  /**
+   * Load pending documents from localStorage and merge them into serviceDocuments.
+   * Called during page initialization to restore pending documents after refresh.
+   */
+  private loadPendingDocumentsFromStorage(): void {
+    if (!this.projectId) return;
+
+    try {
+      const stored = localStorage.getItem(`pendingDocuments_${this.projectId}`);
+      if (!stored) return;
+
+      const pendingDocs: { serviceId: string; documents: any[] }[] = JSON.parse(stored);
+
+      for (const pending of pendingDocs) {
+        const serviceDoc = this.serviceDocuments.find(sd => sd.serviceId === pending.serviceId);
+        if (serviceDoc) {
+          // Add pending documents that don't already exist
+          for (const doc of pending.documents) {
+            const exists = serviceDoc.documents.some(d => d.title === doc.title);
+            if (!exists) {
+              serviceDoc.documents.push(doc);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load pending documents from storage:', error);
+      // Clear corrupted data
+      localStorage.removeItem(`pendingDocuments_${this.projectId}`);
+    }
+  }
+
+  /**
+   * Clear pending documents from storage for a specific service after upload.
+   */
+  private clearPendingDocumentFromStorage(serviceId: string, docTitle: string): void {
+    if (!this.projectId) return;
+
+    try {
+      const stored = localStorage.getItem(`pendingDocuments_${this.projectId}`);
+      if (!stored) return;
+
+      const pendingDocs: { serviceId: string; documents: any[] }[] = JSON.parse(stored);
+      const serviceEntry = pendingDocs.find(p => p.serviceId === serviceId);
+
+      if (serviceEntry) {
+        serviceEntry.documents = serviceEntry.documents.filter(d => d.title !== docTitle);
+
+        // Remove service entry if no more pending docs
+        const updatedPendingDocs = pendingDocs.filter(p => p.documents.length > 0);
+
+        if (updatedPendingDocs.length > 0) {
+          localStorage.setItem(
+            `pendingDocuments_${this.projectId}`,
+            JSON.stringify(updatedPendingDocs)
+          );
+        } else {
+          localStorage.removeItem(`pendingDocuments_${this.projectId}`);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to clear pending document from storage:', error);
+    }
+  }
+
   private async loadDocumentViewer(): Promise<DocumentViewerCtor> {
     if (!this.documentViewerComponent) {
       const module = await import('../../components/document-viewer/document-viewer.component');
@@ -716,6 +816,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       // Update documents
       this.updateDocumentsList();
 
+      // Restore any pending documents from localStorage (survives page refresh)
+      this.loadPendingDocumentsFromStorage();
+
+      // Update storage to remove any pending docs that are now uploaded
+      this.savePendingDocumentsToStorage();
+
       // Load PrimaryPhoto if needed (async, don't wait)
       if (this.project?.['PrimaryPhoto'] && this.project['PrimaryPhoto'].startsWith('/')) {
         this.loadProjectImageData();
@@ -1023,6 +1129,12 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       });
 
       this.updateDocumentsList();
+
+      // Restore any pending documents from localStorage
+      this.loadPendingDocumentsFromStorage();
+
+      // Update storage to remove any pending docs that are now uploaded
+      this.savePendingDocumentsToStorage();
     } catch (error) {
       console.error('Error loading existing attachments:', error);
     } finally {
@@ -2731,6 +2843,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const index = serviceDoc.documents.indexOf(doc);
       if (index > -1) {
         serviceDoc.documents.splice(index, 1);
+
+        // Update localStorage and cache
+        this.savePendingDocumentsToStorage();
+        this.cacheCurrentState();
+        this.changeDetectorRef.markForCheck();
       }
     }
   }
@@ -3088,6 +3205,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
       await this.optionalDocsModal.dismiss();
       this.selectedServiceDoc = null;
+
+      // Persist and update UI
+      this.savePendingDocumentsToStorage();
+      this.cacheCurrentState();
+      this.changeDetectorRef.markForCheck();
       return;
     }
 
@@ -3101,6 +3223,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
     await this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
+
+    // Persist and update UI
+    this.savePendingDocumentsToStorage();
+    this.cacheCurrentState();
+    this.changeDetectorRef.markForCheck();
   }
 
   async promptForDocumentLink(doc: any) {
@@ -3410,6 +3537,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     await this.optionalDocsModal.dismiss();
     this.selectedServiceDoc = null;
     this.isAddingLink = false; // Reset link mode flag
+
+    // Persist and update UI
+    this.savePendingDocumentsToStorage();
+    this.cacheCurrentState();
+    this.changeDetectorRef.markForCheck();
   }
 
   async removeOptionalDocument(serviceId: string, doc: DocumentItem) {
@@ -3418,6 +3550,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       const index = serviceDoc.documents.indexOf(doc);
       if (index > -1) {
         serviceDoc.documents.splice(index, 1);
+
+        // Update localStorage and cache
+        this.savePendingDocumentsToStorage();
+        this.cacheCurrentState();
+        this.changeDetectorRef.markForCheck();
       }
     }
   }
