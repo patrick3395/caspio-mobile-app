@@ -89,13 +89,13 @@ ion-content {
   }
 
   &.active {
-    background: #f15a27;
-    border-color: #f15a27;
-    color: #ffffff;
-    box-shadow: 0 4px 12px rgba(241, 90, 39, 0.2);
+    background: #f0f0f0;
+    border-color: #dee2e6;
+    color: #212529;
+    box-shadow: none;
 
     ion-icon {
-      color: #ffffff;
+      color: #f15a27;
     }
   }
 }

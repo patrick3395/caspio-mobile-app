@@ -341,6 +341,31 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   /**
+   * Start a cooldown period during which cache invalidation events are ignored.
+   * This prevents UI "flashing" when selecting items or uploading photos.
+   */
+  private startLocalOperationCooldown() {
+    // Clear any existing timers
+    if (this.localOperationCooldownTimer) {
+      clearTimeout(this.localOperationCooldownTimer);
+    }
+
+    // CRITICAL: Also clear any pending debounce timer to prevent delayed reloads
+    if (this.cacheInvalidationDebounceTimer) {
+      clearTimeout(this.cacheInvalidationDebounceTimer);
+      this.cacheInvalidationDebounceTimer = null;
+    }
+
+    this.localOperationCooldown = true;
+
+    // Cooldown lasts 3 seconds - enough time for sync to complete
+    this.localOperationCooldownTimer = setTimeout(() => {
+      this.localOperationCooldown = false;
+      console.log('[LBW COOLDOWN] Local operation cooldown ended');
+    }, 3000);
+  }
+
+  /**
    * Update photo object after successful upload
    */
   private async updatePhotoAfterUpload(key: string, photoIndex: number, result: any, caption: string) {
@@ -2228,11 +2253,35 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async toggleItemSelection(category: string, itemId: string | number) {
-    const key = `${category}_${itemId}`;
+    // CRITICAL FIX: Find item to get actual category (not route param)
+    const templateId = typeof itemId === 'string' ? parseInt(String(itemId), 10) : Number(itemId);
+    const item = this.findItemById(itemId);
+    const actualCategory = item?.category || category;
+
+    // Use actualCategory for key to match how visualRecordIds and Dexie merge work
+    const key = `${actualCategory}_${itemId}`;
     const newState = !this.selectedItems[key];
     this.selectedItems[key] = newState;
 
-    console.log('[TOGGLE] Item:', key, 'Selected:', newState);
+    console.log('[TOGGLE] Item:', key, 'Selected:', newState, 'actualCategory:', actualCategory);
+
+    // Set cooldown to prevent cache invalidation from causing UI flash
+    this.startLocalOperationCooldown();
+
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    // MUST await to prevent race condition where liveQuery fires before write completes
+    try {
+      await this.visualFieldRepo.setField(this.serviceId, actualCategory, templateId, {
+        isSelected: newState,
+        category: actualCategory,  // Store actual category for proper lookup
+        templateName: item?.name || '',
+        templateText: item?.text || item?.originalText || '',
+        kind: (item?.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment'
+      });
+      console.log('[TOGGLE] Persisted isSelected to Dexie:', newState);
+    } catch (err) {
+      console.error('[TOGGLE] Failed to write to Dexie:', err);
+    }
 
     if (newState) {
       // Item was checked - create visual record if it doesn't exist, or unhide if it exists
@@ -2241,36 +2290,58 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Visual exists but was hidden - unhide it
         this.savingItems[key] = true;
         try {
-          await this.hudData.updateVisual(visualId, { Notes: '' });
+          await this.hudData.updateVisual(visualId, { Notes: '' }, this.serviceId);
           console.log('[TOGGLE] Unhid visual:', visualId);
+
+          // CRITICAL: Load photos for this visual since they weren't loaded when hidden
+          if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
+            console.log('[TOGGLE] Loading photos for unhidden visual:', visualId);
+            this.loadingPhotosByKey[key] = true;
+            this.photoCountsByKey[key] = 0;
+            this.changeDetectorRef.detectChanges();
+
+            this.loadPhotosForVisual(visualId, key).then(() => {
+              console.log('[TOGGLE] Photos loaded for unhidden visual:', visualId);
+              this.changeDetectorRef.detectChanges();
+            }).catch(err => {
+              console.error('[TOGGLE] Error loading photos for unhidden visual:', err);
+              this.loadingPhotosByKey[key] = false;
+              this.changeDetectorRef.detectChanges();
+            });
+          }
         } catch (error) {
           console.error('[TOGGLE] Error unhiding visual:', error);
           this.selectedItems[key] = false;
-        } finally {
-          this.savingItems[key] = false;
-          this.changeDetectorRef.detectChanges();
         }
-      } else {
-        // Create new visual record
-        await this.createVisualRecord(category, itemId);
+        this.savingItems[key] = false;
+      } else if (!visualId) {
+        // No visual record exists - create new one
+        this.savingItems[key] = true;
+        await this.createVisualRecord(actualCategory, itemId);
+        this.savingItems[key] = false;
       }
     } else {
-      // Item was unchecked - HIDE it (don't delete, preserves photos)
+      // Item was unchecked - hide visual instead of deleting (keeps photos intact)
       const visualId = this.visualRecordIds[key];
       if (visualId && !String(visualId).startsWith('temp_')) {
         this.savingItems[key] = true;
         try {
-          await this.hudData.updateVisual(visualId, { Notes: 'HIDDEN' });
-          console.log('[TOGGLE] Hid visual (preserving photos):', visualId);
+          // OFFLINE-FIRST: This now queues the update and returns immediately
+          await this.hudData.updateVisual(visualId, { Notes: 'HIDDEN' }, this.serviceId);
+          // Keep visualRecordIds and visualPhotos intact for when user reselects
+          console.log('[TOGGLE] Hid visual (queued for sync):', visualId);
         } catch (error) {
           console.error('[TOGGLE] Error hiding visual:', error);
-          this.selectedItems[key] = true; // Revert on error
-        } finally {
-          this.savingItems[key] = false;
-          this.changeDetectorRef.detectChanges();
+          // Revert selection on error
+          this.selectedItems[key] = true;
         }
+        this.savingItems[key] = false;
+      } else if (visualId && String(visualId).startsWith('temp_')) {
+        // For temp IDs (created offline, not yet synced), just update local state
+        console.log('[TOGGLE] Hidden temp visual (not yet synced):', visualId);
       }
     }
+    this.changeDetectorRef.detectChanges();
   }
 
   isItemSelected(category: string, itemId: string | number): boolean {
@@ -2536,7 +2607,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   private async createVisualRecord(category: string, itemId: string | number) {
     const key = `${category}_${itemId}`;
     const item = this.findItemById(itemId);  // Find by ID, not templateId
-    
+
     if (!item) {
       console.error('[CREATE VISUAL] ❌ Item not found for itemId:', itemId);
       console.error('[CREATE VISUAL] Available items:', [
@@ -2551,65 +2622,85 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
     this.savingItems[key] = true;
 
+    // Set cooldown to prevent cache invalidation from causing UI flash
+    this.startLocalOperationCooldown();
+
     try {
-      const hudData = {
-        ServiceID: parseInt(this.serviceId),
-        Category: category,
+      const serviceIdNum = parseInt(this.serviceId, 10);
+      if (isNaN(serviceIdNum)) {
+        console.error('[CREATE VISUAL] Invalid ServiceID:', this.serviceId);
+        return;
+      }
+
+      const lbwData = {
+        ServiceID: serviceIdNum,
+        Category: item.category || category,  // Use template's actual category
         Kind: item.type,
         Name: item.name,
-        Text: item.text,
+        Text: item.text || item.originalText || '',
         Notes: '',
         Answers: item.answer || ''
       };
 
-      console.log('[CREATE VISUAL] Creating HUD record with data:', hudData);
-      console.log('[CREATE VISUAL] Item details:', { id: item.id, templateId: item.templateId, name: item.name, answer: item.answer });
-      console.log('[CREATE VISUAL] Note: TemplateID is not stored in Services_LBW, only used for dropdown lookup');
+      console.log('[CREATE VISUAL] Creating LBW record with DEXIE-FIRST pattern:', lbwData);
 
-      const result = await firstValueFrom(this.caspioService.createServicesLBW(hudData));
-      
-      console.log('[CREATE VISUAL] API response:', result);
-      console.log('[CREATE VISUAL] Response type:', typeof result);
-      console.log('[CREATE VISUAL] Has Result array?', !!result?.Result);
-      console.log('[CREATE VISUAL] Has LBWID directly?', !!result?.LBWID);
-      
-      // Handle BOTH response formats: direct object OR wrapped in Result array
-      let createdRecord = null;
-      if (result && result.LBWID) {
-        // Direct object format
-        createdRecord = result;
-        console.log('[CREATE VISUAL] Using direct result object');
-      } else if (result && result.Result && result.Result.length > 0) {
-        // Wrapped in Result array
-        createdRecord = result.Result[0];
-        console.log('[CREATE VISUAL] Using Result[0]');
+      // DEXIE-FIRST: Use hudData.createVisual() which handles temp IDs and sync queue
+      const result = await this.hudData.createVisual(lbwData);
+
+      console.log('[CREATE VISUAL] Response from createVisual:', result);
+
+      // Extract LBWID (will be temp_lbw_xxx in mobile mode)
+      const lbwId = String(result.LBWID || result.PK_ID || result.id || '');
+
+      if (!lbwId) {
+        console.error('[CREATE VISUAL] ❌ No LBWID in response:', result);
+        throw new Error('LBWID not found in response');
       }
-      
-      if (createdRecord) {
-        const LBWID = String(createdRecord.LBWID || createdRecord.PK_ID);
-        
-        // CRITICAL: Store the record ID
-        this.visualRecordIds[key] = LBWID;
-        this.selectedItems[key] = true;
-        
-        console.log('[CREATE VISUAL] ✅ Created with LBWID:', LBWID);
-        console.log('[CREATE VISUAL] Stored in visualRecordIds[' + key + '] = ' + LBWID);
-        console.log('[CREATE VISUAL] Created record full data:', createdRecord);
-        console.log('[CREATE VISUAL] All visualRecordIds after creation:', JSON.stringify(this.visualRecordIds));
-        console.log('[CREATE VISUAL] Verification - can retrieve:', this.visualRecordIds[key]);
-        
-        // Initialize photo array
-        this.visualPhotos[key] = [];
-        this.photoCountsByKey[key] = 0;
-        
-        // CRITICAL: Clear cache so fresh reload will include this new record
-        this.hudData.clearServiceCaches(this.serviceId);
-        
-        // Force change detection to ensure UI updates
-        this.changeDetectorRef.detectChanges();
-      } else {
-        console.error('[CREATE VISUAL] ❌ Could not extract HUD record from response:', result);
+
+      // Store the record ID (temp or real)
+      this.visualRecordIds[key] = lbwId;
+      this.selectedItems[key] = true;
+
+      console.log('[CREATE VISUAL] ✅ Created with LBWID:', lbwId);
+      console.log('[CREATE VISUAL] Stored in visualRecordIds[' + key + '] =', lbwId);
+
+      // Initialize photo array
+      this.visualPhotos[key] = [];
+      this.photoCountsByKey[key] = 0;
+
+      // DEXIE-FIRST: Persist tempVisualId AND templateName/Text to VisualField
+      // This enables reactive updates and photo matching
+      const templateId = typeof itemId === 'string' ? parseInt(String(itemId), 10) : Number(itemId);
+      try {
+        await this.visualFieldRepo.setField(this.serviceId, item.category || category, templateId, {
+          tempVisualId: lbwId,  // Will be temp_lbw_xxx in mobile mode
+          templateName: item.name || '',
+          templateText: item.text || item.originalText || '',
+          category: item.category || category,
+          kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
+          isSelected: true
+        });
+        console.log('[CREATE VISUAL] ✅ Persisted tempVisualId to Dexie:', lbwId, item.name);
+
+        // MOBILE FIX: Update lastConvertedFields with the new lbwId
+        const fieldIndex = this.lastConvertedFields.findIndex(f => f.templateId === templateId);
+        if (fieldIndex !== -1) {
+          this.lastConvertedFields[fieldIndex] = {
+            ...this.lastConvertedFields[fieldIndex],
+            tempVisualId: lbwId
+          };
+          console.log('[CREATE VISUAL] Updated lastConvertedFields with tempVisualId:', lbwId);
+        }
+      } catch (err) {
+        console.error('[CREATE VISUAL] Failed to persist tempVisualId to Dexie:', err);
       }
+
+      // Clear cache so fresh reload will include this new record
+      this.hudData.clearServiceCaches(this.serviceId);
+
+      // Force change detection to ensure UI updates
+      this.changeDetectorRef.detectChanges();
+
     } catch (error) {
       console.error('[CREATE VISUAL] ❌ Error creating visual:', error);
       this.selectedItems[key] = false; // Revert selection on error
@@ -2650,8 +2741,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async onAnswerChange(category: string, item: VisualItem) {
-    const key = `${category}_${item.id}`;
-    console.log('[ANSWER] Changed:', item.answer, 'for', key);
+    // CRITICAL FIX: Use item.category (not route param) to match visualRecordIds keys
+    const actualCategory = item.category || category;
+    const key = `${actualCategory}_${item.templateId}`;
+    console.log('[ANSWER] Changed:', item.answer, 'for', key, 'actualCategory:', actualCategory);
+
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
+      answer: item.answer || '',
+      isSelected: !!(item.answer && item.answer !== '')
+    }).catch(err => {
+      console.error('[ANSWER] Failed to write to Dexie:', err);
+    });
 
     this.savingItems[key] = true;
 
@@ -2663,11 +2764,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // If answer is empty/cleared, hide the visual instead of deleting
       if (!item.answer || item.answer === '') {
         if (visualId && !String(visualId).startsWith('temp_')) {
-          await firstValueFrom(this.caspioService.updateServicesLBW(visualId, {
+          // DEXIE-FIRST: Use hudData.updateVisual which handles queue
+          await this.hudData.updateVisual(visualId, {
             Answers: '',
             Notes: 'HIDDEN'
-          }));
-          console.log('[ANSWER] Hid visual (preserved photos):', visualId);
+          }, this.serviceId);
+          console.log('[ANSWER] Hid visual (queued for sync):', visualId);
         }
         this.savingItems[key] = false;
         this.changeDetectorRef.detectChanges();
@@ -2675,12 +2777,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       }
 
       if (!visualId) {
-        // Create new visual
+        // Create new visual using DEXIE-FIRST pattern
         console.log('[ANSWER] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
-          Category: category,
+          Category: item.category || category,  // Use template's actual category
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -2688,42 +2790,53 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           Answers: item.answer || ''
         };
 
-        console.log('[ANSWER] Creating with data:', visualData);
+        console.log('[ANSWER] Creating with DEXIE-FIRST:', visualData);
 
-        const result = await firstValueFrom(this.caspioService.createServicesLBW(visualData));
-        
-        console.log('[ANSWER] 🔍 RAW API RESPONSE:', result);
-        
-        // Try multiple ways to extract the LBWID
-        if (result && result.Result && result.Result.length > 0) {
-          visualId = String(result.Result[0].LBWID || result.Result[0].PK_ID || result.Result[0].id);
-        } else if (result && Array.isArray(result) && result.length > 0) {
-          visualId = String(result[0].LBWID || result[0].PK_ID || result[0].id);
-        } else if (result) {
-          visualId = String(result.LBWID || result.PK_ID || result.id);
-        }
-        
+        // DEXIE-FIRST: Use hudData.createVisual which handles temp IDs and queue
+        const result = await this.hudData.createVisual(visualData);
+
+        visualId = String(result.LBWID || result.PK_ID || result.id || '');
+
         if (visualId) {
           this.visualRecordIds[key] = visualId;
           this.selectedItems[key] = true;
-          
+
           // Initialize photo array
           this.visualPhotos[key] = [];
           this.photoCountsByKey[key] = 0;
-          
+
           console.log('[ANSWER] ✅ Created visual with LBWID:', visualId);
-          console.log('[ANSWER] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
+
+          // DEXIE-FIRST: Persist tempVisualId to VisualField
+          try {
+            await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
+              tempVisualId: visualId,
+              isSelected: true
+            });
+            console.log('[ANSWER] ✅ Persisted tempVisualId to Dexie:', visualId);
+          } catch (err) {
+            console.error('[ANSWER] Failed to persist tempVisualId:', err);
+          }
         } else {
           console.error('[ANSWER] ❌ FAILED to extract LBWID from response!');
         }
       } else if (!String(visualId).startsWith('temp_')) {
         // Update existing visual and unhide if it was hidden
         console.log('[ANSWER] Updating existing visual:', visualId);
-        await firstValueFrom(this.caspioService.updateServicesLBW(visualId, {
+        // DEXIE-FIRST: Use hudData.updateVisual which handles queue
+        await this.hudData.updateVisual(visualId, {
           Answers: item.answer || '',
           Notes: ''
-        }));
-        console.log('[ANSWER] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
+        }, this.serviceId);
+        console.log('[ANSWER] ✅ Updated visual (queued for sync):', visualId);
+
+        // CRITICAL: Load photos if visual was previously hidden
+        if (!this.visualPhotos[key] || this.visualPhotos[key].length === 0) {
+          console.log('[ANSWER] Loading photos for unhidden visual:', visualId);
+          this.loadPhotosForVisual(visualId, key).catch(err => {
+            console.error('[ANSWER] Error loading photos:', err);
+          });
+        }
       }
     } catch (error) {
       console.error('[ANSWER] ❌ Error saving answer:', error);
@@ -2735,10 +2848,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
-    const key = `${category}_${item.id}`;
+    // CRITICAL FIX: Use item.templateId and item.category for proper key matching
+    const actualCategory = item.category || category;
+    const key = `${actualCategory}_${item.templateId}`;
     const isChecked = event.detail.checked;
 
-    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key);
+    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key, 'templateId:', item.templateId);
 
     // Update the answer string
     let selectedOptions: string[] = [];
@@ -2747,8 +2862,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
 
     if (isChecked) {
-      if (!selectedOptions.includes(option)) {
-        selectedOptions.push(option);
+      if (option === 'None') {
+        // "None" is mutually exclusive - clear all other selections
+        selectedOptions = ['None'];
+        item.otherValue = '';
+      } else {
+        // Remove "None" if selecting any other option
+        selectedOptions = selectedOptions.filter(o => o !== 'None');
+        if (!selectedOptions.includes(option)) {
+          selectedOptions.push(option);
+        }
       }
       // Auto-select the item when any option is checked
       this.selectedItems[key] = true;
@@ -2762,6 +2885,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
     item.answer = selectedOptions.join(', ');
 
+    // DEXIE-FIRST: Write-through to visualFields for instant reactive update
+    this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
+      answer: item.answer,
+      isSelected: !!(item.answer && item.answer !== ''),
+      notes: item.otherValue || ''
+    }).catch(err => {
+      console.error('[OPTION] Failed to write to Dexie:', err);
+    });
+
     // Save to database
     this.savingItems[key] = true;
 
@@ -2772,11 +2904,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // If all options are unchecked AND no "Other" value, hide the visual
       if ((!item.answer || item.answer === '') && (!item.otherValue || item.otherValue === '')) {
         if (visualId && !String(visualId).startsWith('temp_')) {
-          await firstValueFrom(this.caspioService.updateServicesLBW(visualId, {
+          // DEXIE-FIRST: Use hudData.updateVisual which handles queue
+          await this.hudData.updateVisual(visualId, {
             Answers: '',
             Notes: 'HIDDEN'
-          }));
-          console.log('[OPTION] Hid visual (preserved photos):', visualId);
+          }, this.serviceId);
+          console.log('[OPTION] Hid visual (queued for sync):', visualId);
         }
         this.savingItems[key] = false;
         this.changeDetectorRef.detectChanges();
@@ -2784,12 +2917,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       }
 
       if (!visualId) {
-        // Create new visual
+        // Create new visual using DEXIE-FIRST pattern
         console.log('[OPTION] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
         const visualData = {
           ServiceID: serviceIdNum,
-          Category: category,
+          Category: item.category || category,  // Use template's actual category
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
@@ -2797,50 +2930,46 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           Answers: item.answer
         };
 
-        console.log('[OPTION] Creating with data:', visualData);
+        console.log('[OPTION] Creating with DEXIE-FIRST:', visualData);
 
-        const result = await firstValueFrom(this.caspioService.createServicesLBW(visualData));
-        
-        console.log('[OPTION] 🔍 RAW API RESPONSE:', result);
-        console.log('[OPTION] 🔍 Response type:', typeof result);
-        console.log('[OPTION] 🔍 Has Result property?', result && 'Result' in result);
-        console.log('[OPTION] 🔍 result.Result:', result?.Result);
-        
-        // Try multiple ways to extract the LBWID
-        if (result && result.Result && result.Result.length > 0) {
-          visualId = String(result.Result[0].LBWID || result.Result[0].PK_ID || result.Result[0].id);
-          console.log('[OPTION] 🔍 Extracted visualId from result.Result[0]:', visualId);
-        } else if (result && Array.isArray(result) && result.length > 0) {
-          visualId = String(result[0].LBWID || result[0].PK_ID || result[0].id);
-          console.log('[OPTION] 🔍 Extracted visualId from result[0]:', visualId);
-        } else if (result) {
-          visualId = String(result.LBWID || result.PK_ID || result.id);
-          console.log('[OPTION] 🔍 Extracted visualId from result:', visualId);
-        }
-        
+        // DEXIE-FIRST: Use hudData.createVisual which handles temp IDs and queue
+        const result = await this.hudData.createVisual(visualData);
+
+        visualId = String(result.LBWID || result.PK_ID || result.id || '');
+
         if (visualId) {
           this.visualRecordIds[key] = visualId;
           this.selectedItems[key] = true;
-          
+
           // Initialize photo array
           this.visualPhotos[key] = [];
           this.photoCountsByKey[key] = 0;
-          
+
           console.log('[OPTION] ✅ Created visual with LBWID:', visualId);
-          console.log('[OPTION] ✅ Stored as visualRecordIds[' + key + '] =', visualId);
-          console.log('[OPTION] ✅ Verification - can retrieve:', this.visualRecordIds[key]);
+
+          // DEXIE-FIRST: Persist tempVisualId to VisualField
+          try {
+            await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
+              tempVisualId: visualId,
+              isSelected: true
+            });
+            console.log('[OPTION] ✅ Persisted tempVisualId to Dexie:', visualId);
+          } catch (err) {
+            console.error('[OPTION] Failed to persist tempVisualId:', err);
+          }
         } else {
           console.error('[OPTION] ❌ FAILED to extract LBWID from response!');
         }
       } else if (!String(visualId).startsWith('temp_')) {
-        // Update existing visual
+        // Update existing visual using DEXIE-FIRST pattern
         console.log('[OPTION] Updating existing visual:', visualId);
         const notesValue = item.otherValue || '';
-        await firstValueFrom(this.caspioService.updateServicesLBW(visualId, {
+        // DEXIE-FIRST: Use hudData.updateVisual which handles queue
+        await this.hudData.updateVisual(visualId, {
           Answers: item.answer,
           Notes: notesValue
-        }));
-        console.log('[OPTION] ✅ Updated visual:', visualId, 'with Answers:', item.answer);
+        }, this.serviceId);
+        console.log('[OPTION] ✅ Updated visual (queued for sync):', visualId);
       }
     } catch (error) {
       console.error('[OPTION] ❌ Error saving option:', error);
