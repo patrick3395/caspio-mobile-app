@@ -180,35 +180,64 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     // Store LBWID from query params (if provided by category detail page)
     const lbwIdFromQueryParams = this.lbwId;
 
+    console.log('[LbwVisualDetail] ========== loadVisualData START ==========');
+    console.log('[LbwVisualDetail] serviceId:', this.serviceId);
+    console.log('[LbwVisualDetail] projectId:', this.projectId);
+    console.log('[LbwVisualDetail] templateId:', this.templateId);
+    console.log('[LbwVisualDetail] categoryName:', this.categoryName);
+    console.log('[LbwVisualDetail] lbwId (from query):', lbwIdFromQueryParams || '(none)');
+
+    // CRITICAL: Check if we have required params
+    if (!this.serviceId) {
+      console.error('[LbwVisualDetail] ❌ Missing serviceId! Cannot load data.');
+      this.loading = false;
+      return;
+    }
+
     try {
       // WEBAPP MODE: Load from server API to see synced data from mobile
       if (environment.isWeb) {
         console.log('[LbwVisualDetail] WEBAPP MODE: Loading LBW data from server');
-        console.log('[LbwVisualDetail] WEBAPP: LBWID from query params:', lbwIdFromQueryParams || '(none)');
-        console.log('[LbwVisualDetail] WEBAPP: serviceId:', this.serviceId);
 
         const lbwRecords = await this.lbwData.getVisualsByService(this.serviceId);
         console.log('[LbwVisualDetail] WEBAPP: Loaded', lbwRecords.length, 'LBW records for ServiceID:', this.serviceId);
 
         // Load templates to get the Name and Category for matching (fallback)
         const templates = (await this.caspioService.getServicesLBWTemplates().toPromise()) || [];
+        console.log('[LbwVisualDetail] WEBAPP: Loaded', templates.length, 'templates');
         const template = templates.find((t: any) =>
           (t.TemplateID || t.PK_ID) == this.templateId
         );
+        console.log('[LbwVisualDetail] WEBAPP: Template found for templateId', this.templateId, ':', template ? template.Name : '(NOT FOUND)');
 
         // PRIORITY 1: Find by LBWID from query params (most reliable - direct record lookup)
         // This ensures we find the record even if Name was edited
         let visual: any = null;
         if (lbwIdFromQueryParams) {
+          console.log('[LbwVisualDetail] WEBAPP: Looking for visual by LBWID:', lbwIdFromQueryParams);
           visual = lbwRecords.find((v: any) =>
             String(v.LBWID || v.PK_ID) === String(lbwIdFromQueryParams)
           );
+          console.log('[LbwVisualDetail] WEBAPP: Visual found by LBWID:', visual ? 'YES' : 'NO');
           if (visual) {
             console.log('[LbwVisualDetail] WEBAPP: Matched LBW record by LBWID:', lbwIdFromQueryParams);
           }
         }
 
-        // PRIORITY 2: Fall back to Name + Category matching
+        // PRIORITY 2: Fall back to TemplateID matching
+        if (!visual && template) {
+          const templateIdToMatch = template.TemplateID || template.PK_ID;
+          visual = lbwRecords.find((v: any) =>
+            v.LBWTemplateID === templateIdToMatch ||
+            v.VisualTemplateID === templateIdToMatch ||
+            v.TemplateID === templateIdToMatch
+          );
+          if (visual) {
+            console.log('[LbwVisualDetail] WEBAPP: Matched LBW record by templateId:', templateIdToMatch);
+          }
+        }
+
+        // PRIORITY 3: Fall back to Name + Category matching
         if (!visual && template && template.Name) {
           visual = lbwRecords.find((v: any) =>
             v.Name === template.Name && v.Category === template.Category
@@ -239,6 +268,20 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
           console.log('[LbwVisualDetail] WEBAPP: Loaded LBW record:', this.item.name, 'LBWID:', this.lbwId, 'Category:', actualCategory);
+
+          // CRITICAL: Save visualId to Dexie so category-detail can restore it
+          // This ensures the lbwId is available when navigating back and forth
+          try {
+            await this.visualFieldRepo.setField(
+              this.serviceId,
+              actualCategory,
+              this.templateId,
+              { visualId: this.lbwId, isSelected: true }
+            );
+            console.log('[LbwVisualDetail] WEBAPP: Saved visualId to Dexie:', this.lbwId);
+          } catch (e) {
+            console.warn('[LbwVisualDetail] WEBAPP: Failed to save visualId to Dexie:', e);
+          }
         } else if (template) {
           // No LBW record found - use template (already loaded above)
           console.log('[LbwVisualDetail] WEBAPP: LBW record not found, using template data');
@@ -266,6 +309,14 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             this.lbwId = lbwIdFromQueryParams;
             console.log('[LbwVisualDetail] WEBAPP: Using LBWID from query params for photos:', this.lbwId);
           }
+        } else {
+          // Neither visual nor template found - this is the error case
+          console.error('[LbwVisualDetail] WEBAPP: ❌ Neither visual nor template found!');
+          console.error('[LbwVisualDetail] WEBAPP: lbwIdFromQueryParams:', lbwIdFromQueryParams);
+          console.error('[LbwVisualDetail] WEBAPP: templateId:', this.templateId);
+          console.error('[LbwVisualDetail] WEBAPP: serviceId:', this.serviceId);
+          this.loading = false;
+          return;
         }
 
         // Load photos from server

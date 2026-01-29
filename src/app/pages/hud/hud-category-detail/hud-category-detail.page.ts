@@ -967,8 +967,30 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const key = item.key || `${item.category || this.categoryName}_${item.templateId}`;
       const visualId = this.visualRecordIds[key];
 
-      // Only include items that have a visual record (selected items)
-      // For photos to be found, we need the visualId to match LocalImage.entityId
+      // Determine visualId and tempVisualId
+      let effectiveVisualId: string | null = null;
+      let effectiveTempVisualId: string | null = null;
+
+      if (visualId) {
+        const visualIdStr = String(visualId);
+        if (visualIdStr.startsWith('temp_')) {
+          // visualId is still a temp ID (before sync)
+          effectiveTempVisualId = visualIdStr;
+        } else {
+          // visualId is a real ID (after sync)
+          effectiveVisualId = visualIdStr;
+          // CRITICAL FIX: Reverse lookup in tempIdToRealIdCache to preserve tempVisualId
+          // This allows populatePhotosFromDexie to use the fallback lookup when
+          // LocalImages.entityId hasn't been updated from temp_ID to real_ID yet
+          for (const [tempId, mappedRealId] of this.tempIdToRealIdCache.entries()) {
+            if (mappedRealId === visualIdStr) {
+              effectiveTempVisualId = tempId;
+              break;
+            }
+          }
+        }
+      }
+
       fields.push({
         key: `${this.serviceId}:${item.category || this.categoryName}:${item.templateId}`,
         serviceId: this.serviceId,
@@ -981,10 +1003,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         isSelected: item.isSelected || false,
         answer: item.answer || '',
         otherValue: item.otherValue || '',
-        // CRITICAL: Set visualId for photo matching
-        // If visualId starts with 'temp_', it goes in tempVisualId; otherwise in visualId
-        visualId: visualId && !String(visualId).startsWith('temp_') ? visualId : null,
-        tempVisualId: visualId && String(visualId).startsWith('temp_') ? visualId : null,
+        // CRITICAL: Set visualId for photo matching, preserve tempVisualId for fallback
+        visualId: effectiveVisualId,
+        tempVisualId: effectiveTempVisualId,
         photoCount: this.visualPhotos[key]?.length || 0,
         rev: 0,
         updatedAt: Date.now(),
