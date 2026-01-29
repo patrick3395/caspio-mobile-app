@@ -463,9 +463,15 @@ export class StructuralSystemsHubPage implements OnInit, OnDestroy, ViewWillEnte
     const updateData = { [fieldName]: value };
 
     try {
-      // OFFLINE-FIRST: Use OfflineTemplateService to save to IndexedDB and queue for sync
-      await this.offlineTemplate.updateService(this.serviceId, updateData);
-      console.log(`[StructuralHub] Successfully saved ${fieldName} to IndexedDB`);
+      if (environment.isWeb) {
+        // WEBAPP: Direct API call
+        await this.caspioService.updateService(this.serviceId, updateData).toPromise();
+        console.log(`[StructuralHub] WEBAPP: Successfully saved ${fieldName} to API`);
+      } else {
+        // MOBILE: Use OfflineTemplateService to save to IndexedDB and queue for sync
+        await this.offlineTemplate.updateService(this.serviceId, updateData);
+        console.log(`[StructuralHub] MOBILE: Successfully saved ${fieldName} to IndexedDB`);
+      }
     } catch (error) {
       console.error(`[StructuralHub] Error saving ${fieldName}:`, error);
     }

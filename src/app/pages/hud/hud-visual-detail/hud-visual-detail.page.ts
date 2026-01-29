@@ -158,12 +158,11 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       }
     }
 
-    // Get HUDID and actualServiceId from query params (passed from category detail page)
+    // Get actualServiceId from query params (passed from category detail page)
+    // NOTE: Do NOT use hudId from query params - it may be the real server ID while photos
+    // still have entityId = tempVisualId. Instead, loadPhotos() determines hudId from Dexie
+    // using tempVisualId || visualId (EFE pattern)
     const queryParams = this.route.snapshot.queryParams;
-    if (queryParams['hudId']) {
-      this.hudId = queryParams['hudId'];
-      console.log('[HudVisualDetail] HUDID from query params:', this.hudId);
-    }
     // CRITICAL: actualServiceId is the real FK for HUD records (route param serviceId is PK_ID)
     if (queryParams['actualServiceId']) {
       this.actualServiceId = queryParams['actualServiceId'];
@@ -183,7 +182,9 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   private async loadVisualData() {
     this.loading = true;
 
-    // Store HUDID from query params (if provided by category detail page)
+    // Store HUDID from query params - ONLY used for WEBAPP mode
+    // MOBILE mode determines hudId from Dexie field lookup (tempVisualId || visualId)
+    // This avoids race conditions where query param has real ID but photos still have temp entityId
     const hudIdFromQueryParams = this.hudId;
 
     try {
@@ -371,11 +372,9 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         // CRITICAL: Update categoryName to actual category (needed for saveTitle to find correct Dexie field)
         this.categoryName = actualCategory;
 
-        // NOTE: hudId is set in loadPhotos() - but for template-only case, use query params
-        // This is needed because no field exists yet to provide visualId/tempVisualId
-        if (!this.hudId && hudIdFromQueryParams) {
-          this.hudId = hudIdFromQueryParams;
-        }
+        // NOTE: For template-only case (no field exists yet), there won't be any photos
+        // since photos are only added after a visual is created (which creates the field)
+        // Do NOT use hudIdFromQueryParams - let loadPhotos() handle it via Dexie lookup
 
         console.log('[HudVisualDetail] MOBILE: Loaded from template:', this.item.name, 'category:', this.categoryName);
       } else {
@@ -490,14 +489,31 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         return;
       }
 
-      console.log('[HudVisualDetail] MOBILE: Loading photos for hudId:', this.hudId);
+      console.log('[HudVisualDetail] MOBILE: Loading photos for hudId:', this.hudId, 'field tempVisualId:', field?.tempVisualId, 'visualId:', field?.visualId);
 
       // DEXIE-FIRST: Load local images from IndexedDB using hudId as entityId
       // DIRECT Dexie query - matching EFE pattern EXACTLY (no service wrapper)
-      const localImages = await db.localImages
+      let localImages = await db.localImages
         .where('entityId')
         .equals(this.hudId)
         .toArray();
+
+      // FALLBACK: If no photos found and we have both tempVisualId and visualId, try the other ID
+      // This handles the race condition where updateEntityIdForImages() hasn't completed yet
+      // after sync - photos may still have entityId = tempVisualId while field has visualId
+      if (localImages.length === 0 && field?.tempVisualId && field?.visualId) {
+        const alternateId = (this.hudId === field.tempVisualId) ? field.visualId : field.tempVisualId;
+        if (alternateId && alternateId !== this.hudId) {
+          console.log('[HudVisualDetail] MOBILE: No photos found, trying alternate ID:', alternateId);
+          localImages = await db.localImages
+            .where('entityId')
+            .equals(alternateId)
+            .toArray();
+          if (localImages.length > 0) {
+            console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'photos with alternate ID');
+          }
+        }
+      }
 
       console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'localImages for hudId:', this.hudId);
 

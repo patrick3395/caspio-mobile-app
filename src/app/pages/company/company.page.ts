@@ -220,6 +220,14 @@ export class CompanyPage implements OnInit, OnDestroy {
 
   selectedTab: 'company' | 'companies' | 'contacts' | 'tasks' | 'meetings' | 'communications' | 'invoices' | 'metrics' | 'users' = 'users';
 
+  // Client-only tabs (for non-CompanyID 1 users)
+  clientTab: 'company' | 'metrics' = 'company';
+  clientMetrics: { totalProjects: number; activeProjects: number; completedProjects: number } | null = null;
+  clientProjectsChart: Chart | null = null;
+  clientServicesChart: Chart | null = null;
+  clientProjectsChartData: { labels: string[]; values: number[] } = { labels: [], values: [] };
+  clientServicesChartData: { labels: string[]; values: number[]; colors: string[] } = { labels: [], values: [], colors: [] };
+
   isLoading = false;
   isInitialLoad = true;
   isProcessingTab = false;
@@ -2770,6 +2778,196 @@ export class CompanyPage implements OnInit, OnDestroy {
       hasNotes: false
     };
     this.applyCompanyFilters();
+  }
+
+  selectClientTab(tab: 'company' | 'metrics') {
+    this.clientTab = tab;
+    if (tab === 'metrics' && !this.clientMetrics) {
+      this.loadClientMetrics();
+    }
+  }
+
+  async loadClientMetrics() {
+    try {
+      const companyId = this.currentUserCompanyId;
+      if (!companyId) return;
+
+      // Load projects and services in parallel
+      const [projectsResponse, servicesResponse] = await Promise.all([
+        this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=CompanyID=${companyId}`).toPromise(),
+        this.caspioService.get<any>(`/tables/LPS_Services/records`).toPromise()
+      ]);
+
+      const projects = projectsResponse?.Result || [];
+      const allServices = servicesResponse?.Result || [];
+
+      // Calculate basic metrics
+      this.clientMetrics = {
+        totalProjects: projects.length,
+        activeProjects: projects.filter((p: any) => p.StatusID === 1 || p.StatusID === '1').length,
+        completedProjects: projects.filter((p: any) => p.StatusID === 2 || p.StatusID === '2').length
+      };
+
+      // Build projects over time data (last 6 months)
+      const monthlyProjects: { [key: string]: number } = {};
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        monthlyProjects[key] = 0;
+      }
+
+      projects.forEach((p: any) => {
+        const date = new Date(p.DateOfRequest || p.DateCreated || p.Date);
+        if (!isNaN(date.getTime())) {
+          const key = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+          if (monthlyProjects.hasOwnProperty(key)) {
+            monthlyProjects[key]++;
+          }
+        }
+      });
+
+      this.clientProjectsChartData = {
+        labels: Object.keys(monthlyProjects),
+        values: Object.values(monthlyProjects)
+      };
+
+      // Build services breakdown data
+      const projectIds = projects.map((p: any) => p.ProjectID).filter((id: any) => id);
+      const companyServices = allServices.filter((s: any) => projectIds.includes(s.ProjectID));
+
+      // Get service types to map TypeID to names
+      const serviceTypesResponse = await this.caspioService.get<any>('/tables/LPS_ServiceTypes/records').toPromise();
+      const serviceTypes = serviceTypesResponse?.Result || [];
+      const typeMap: { [key: string]: string } = {};
+      serviceTypes.forEach((t: any) => {
+        typeMap[t.TypeID] = t.TypeShort || t.TypeName || 'Unknown';
+      });
+
+      // Count services by type
+      const serviceCounts: { [key: string]: number } = {};
+      companyServices.forEach((s: any) => {
+        const typeName = typeMap[s.TypeID] || 'Other';
+        serviceCounts[typeName] = (serviceCounts[typeName] || 0) + 1;
+      });
+
+      // Sort by count and take top 6
+      const sortedServices = Object.entries(serviceCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6);
+
+      const chartColors = ['#f15a27', '#ff7b4d', '#ffa726', '#ffcc80', '#4caf50', '#81c784'];
+
+      this.clientServicesChartData = {
+        labels: sortedServices.map(([name]) => name),
+        values: sortedServices.map(([, count]) => count),
+        colors: chartColors.slice(0, sortedServices.length)
+      };
+
+      // Render charts after data is loaded
+      setTimeout(() => {
+        this.renderClientProjectsChart();
+        this.renderClientServicesChart();
+      }, 100);
+
+    } catch (error) {
+      console.error('Error loading client metrics:', error);
+      this.clientMetrics = { totalProjects: 0, activeProjects: 0, completedProjects: 0 };
+    }
+  }
+
+  renderClientProjectsChart() {
+    const canvas = document.getElementById('clientProjectsChart') as HTMLCanvasElement;
+    if (!canvas) return;
+
+    if (this.clientProjectsChart) {
+      this.clientProjectsChart.destroy();
+      this.clientProjectsChart = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const config: ChartConfiguration = {
+      type: 'bar',
+      data: {
+        labels: this.clientProjectsChartData.labels,
+        datasets: [{
+          label: 'Projects',
+          data: this.clientProjectsChartData.values,
+          backgroundColor: '#f15a27',
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1 },
+            grid: { color: 'rgba(0,0,0,0.05)' }
+          },
+          x: {
+            grid: { display: false }
+          }
+        }
+      }
+    };
+
+    this.clientProjectsChart = new Chart(ctx, config);
+  }
+
+  renderClientServicesChart() {
+    const canvas = document.getElementById('clientServicesChart') as HTMLCanvasElement;
+    if (!canvas) return;
+
+    if (this.clientServicesChart) {
+      this.clientServicesChart.destroy();
+      this.clientServicesChart = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // If no services data, show empty state
+    if (this.clientServicesChartData.values.length === 0) {
+      return;
+    }
+
+    const config: ChartConfiguration = {
+      type: 'doughnut',
+      data: {
+        labels: this.clientServicesChartData.labels,
+        datasets: [{
+          data: this.clientServicesChartData.values,
+          backgroundColor: this.clientServicesChartData.colors,
+          borderWidth: 0,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 16,
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          }
+        },
+        cutout: '60%'
+      }
+    };
+
+    this.clientServicesChart = new Chart(ctx, config);
   }
 
   selectTab(tab: string) {

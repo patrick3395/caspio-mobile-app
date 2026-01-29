@@ -9289,20 +9289,20 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   openVisualDetail(categoryName: string, item: VisualItem) {
-    // Use absolute navigation to ensure correct routing
-    // Route: /hud/:projectId/:serviceId/category/:category/visual/:templateId
-    // Pass HUDID as query parameter so visual detail can load photos
-    // CRITICAL: Use item.category (actual category like "Mobile/Manufactured Homes") for key lookup,
-    // NOT categoryName (route param "hud") - the keys are stored with actual category names
-    const actualCategory = item.category || categoryName;
-    const key = `${actualCategory}_${item.templateId}`;
-    const hudId = this.visualRecordIds[key] || '';
-    console.log('[CategoryDetail] Navigating to visual detail with HUDID:', hudId, 'for key:', key, 'actualCategory:', actualCategory);
-    // CRITICAL: Pass actualServiceId so visual-detail can query HUD records correctly
+    // EFE PATTERN: Use relative navigation without passing hudId
+    // Visual-detail will determine hudId from Dexie field lookup (tempVisualId || visualId)
+    // This avoids race conditions where query param has real ID but photos still have temp ID
+    // Route: visual/:templateId (relative to current category route)
+    console.log('[CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName);
+    // CRITICAL: Pass actualServiceId so WEBAPP mode can query HUD records correctly
     // Route param serviceId is PK_ID, but HUD records use ServiceID field as FK
+    // NOTE: Do NOT pass hudId - visual-detail must look it up from Dexie to get correct entityId for photos
     this.router.navigate(
-      ['/hud', this.projectId, this.serviceId, 'category', categoryName, 'visual', item.templateId],
-      { queryParams: { hudId: hudId, actualServiceId: this.actualServiceId || this.serviceId } }
+      ['visual', item.templateId],
+      {
+        relativeTo: this.route.parent,
+        queryParams: { actualServiceId: this.actualServiceId || this.serviceId }
+      }
     );
   }
 }
