@@ -18,7 +18,10 @@
 
     // Center title on web version
     &.web-centered ion-title {
+      position: static;
+      width: 100%;
       text-align: center;
+      padding: 0;
     }
   }
 }

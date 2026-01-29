@@ -72,7 +72,11 @@
       "Bash(git show:*)",
       "Skill(gsd:audit-milestone)",
       "Bash(Remove-Item -Recurse -Force .gitrebase-merge -ErrorAction SilentlyContinue)",
-      "Bash(Remove-Item -Force nul -ErrorAction SilentlyContinue)"
+      "Bash(Remove-Item -Force nul -ErrorAction SilentlyContinue)",
+      "Bash(if [ -d \"C:\\\\Users\\\\Owner\\\\Caspio\\\\android\" ])",
+      "Bash(then echo \"Android folder exists\")",
+      "Bash(else echo \"Android folder DOES NOT exist\")",
+      "Bash(fi)"
     ],
     "deny": [],
     "ask": []

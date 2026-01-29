@@ -5,6 +5,7 @@ import { IonicModule, ModalController, LoadingController } from '@ionic/angular'
 import { CaspioService } from '../../services/caspio.service';
 import { PlatformDetectionService } from '../../services/platform-detection.service';
 import { environment } from '../../../environments/environment';
+import { ImageViewerComponent } from '../../components/image-viewer/image-viewer.component';
 
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 
@@ -219,19 +220,105 @@ export class HelpGuidePage implements OnInit {
 
   async openFile(file: FileItem) {
     const url = await this.getFileUrl(file.FileFile);
-    if (url) {
+    if (!url) return;
+
+    const filename = file.Description || this.getFileName(file.FileFile);
+    const isPDF = this.isPdfFile(file.FileFile);
+    const isImage = this.isImageFile(file.FileFile);
+
+    if (isPDF) {
+      // Match Support Documents PDF viewing behavior
+      await this.openPdfInBrowser(url, filename);
+    } else if (isImage) {
+      // Match Support Documents image viewing behavior - use ImageViewerComponent
+      const modal = await this.modalController.create({
+        component: ImageViewerComponent,
+        componentProps: {
+          images: [{
+            url: url,
+            title: file.Description,
+            filename: filename
+          }],
+          initialIndex: 0
+        }
+      });
+      await modal.present();
+    } else {
+      // For other file types, use DocumentViewerComponent
       const DocumentViewerComponent = await this.loadDocumentViewer();
       const modal = await this.modalController.create({
         component: DocumentViewerComponent,
         componentProps: {
           fileUrl: url,
-          fileName: file.Description || this.getFileName(file.FileFile),
+          fileName: filename,
           fileType: this.getFileExtension(file.FileFile),
           filePath: file.FileFile
         },
         cssClass: 'fullscreen-modal'
       });
       await modal.present();
+    }
+  }
+
+  /**
+   * Open PDF in browser - matches Support Documents implementation
+   * Web: Opens in new browser tab
+   * Mobile: Uses DocumentViewerComponent modal
+   */
+  private async openPdfInBrowser(fileUrl: string, filename: string): Promise<void> {
+    try {
+      // On mobile, use the DocumentViewerComponent modal for inline PDF viewing
+      if (!environment.isWeb) {
+        const DocumentViewerComponent = await this.loadDocumentViewer();
+        const modal = await this.modalController.create({
+          component: DocumentViewerComponent,
+          componentProps: {
+            fileUrl: fileUrl,
+            fileName: filename,
+            fileType: 'pdf',
+            filePath: filename
+          },
+          cssClass: 'fullscreen-modal'
+        });
+        await modal.present();
+        return;
+      }
+
+      // On web, open in a new browser tab
+      let blobUrl: string;
+
+      if (fileUrl.startsWith('data:')) {
+        // Convert base64 data URL to blob URL
+        const base64Data = fileUrl.split(',')[1];
+        const mimeType = fileUrl.split(':')[1].split(';')[0] || 'application/pdf';
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        blobUrl = URL.createObjectURL(blob);
+      } else if (fileUrl.startsWith('blob:')) {
+        // Already a blob URL, use directly
+        blobUrl = fileUrl;
+      } else {
+        // Regular URL - open directly
+        window.open(fileUrl, '_blank');
+        return;
+      }
+
+      // Open the blob URL in a new tab
+      window.open(blobUrl, '_blank');
+
+      // Clean up the blob URL after a short delay (allows the browser to start loading)
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 1000);
+    } catch (error) {
+      console.error('Error opening PDF:', error);
     }
   }
 
