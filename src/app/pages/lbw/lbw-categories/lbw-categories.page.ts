@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../../services/caspio.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { environment } from '../../../../environments/environment';
 
 interface CategoryCard {
@@ -30,7 +31,8 @@ export class LbwCategoriesPage implements OnInit {
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private caspioService: CaspioService
+    private caspioService: CaspioService,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   async ngOnInit() {
@@ -61,12 +63,12 @@ export class LbwCategoriesPage implements OnInit {
 
   async loadCategories() {
     try {
-      console.log('[LBW Categories] Loading categories from LPS_Services_LBW_Templates...');
+      console.log('[LBW Categories] Loading categories (DEXIE-FIRST pattern)...');
 
-      // Load templates and existing LBW records in parallel
+      // DEXIE-FIRST: Load templates and existing LBW records from cache
       const [templates, existingRecords] = await Promise.all([
-        this.caspioService.getServicesLBWTemplates().toPromise(),
-        this.caspioService.getServicesLBWByServiceId(this.serviceId).toPromise()
+        this.offlineTemplate.getLbwTemplates(),
+        this.offlineTemplate.getLbwByService(this.serviceId)
       ]);
 
       // Extract unique categories in order they appear (preserve database order)

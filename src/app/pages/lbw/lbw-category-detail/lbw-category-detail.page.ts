@@ -6,6 +6,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { CaspioService } from '../../../services/caspio.service';
 import { OfflineService } from '../../../services/offline.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { CameraService } from '../../../services/camera.service';
 import { ImageCompressionService } from '../../../services/image-compression.service';
 import { CacheService } from '../../../services/cache.service';
@@ -125,6 +126,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     private actionSheetController: ActionSheetController,
     private modalController: ModalController,
     private offlineService: OfflineService,
+    private offlineTemplate: OfflineTemplateService,
     private changeDetectorRef: ChangeDetectorRef,
     private cameraService: CameraService,
     private imageCompression: ImageCompressionService,
@@ -577,8 +579,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
   private async loadCategoryTemplates() {
     try {
-      // Get all LBW templates for this category
-      const allTemplates = await this.caspioService.getServicesLBWTemplates().toPromise();
+      // DEXIE-FIRST: Get all LBW templates from cache
+      const allTemplates = await this.offlineTemplate.getLbwTemplates();
       const hudTemplates = (allTemplates || []).filter((template: any) =>
         template.Category === this.categoryName
       );
@@ -653,13 +655,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   /**
    * Load all dropdown options from Services_LBW_Drop table
    * This loads all options upfront and groups them by TemplateID
+   * DEXIE-FIRST: Use cache-first pattern for mobile
    */
   private async loadAllDropdownOptions() {
     try {
-      const dropdownData = await firstValueFrom(
-        this.caspioService.getServicesLBWDrop()
-      );
-      
+      const dropdownData = await this.offlineTemplate.getLbwDropdownOptions();
+
       console.log('[LBW CATEGORY] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
       if (dropdownData && dropdownData.length > 0) {

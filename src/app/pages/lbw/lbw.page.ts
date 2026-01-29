@@ -6,6 +6,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { CaspioService } from '../../services/caspio.service';
 import { OfflineService } from '../../services/offline.service';
+import { OfflineTemplateService } from '../../services/offline-template.service';
 import { OperationsQueueService } from '../../services/operations-queue.service';
 import { ToastController, LoadingController, AlertController, ActionSheetController, ModalController, Platform, NavController } from '@ionic/angular';
 import { CameraService } from '../../services/camera.service';
@@ -413,6 +414,7 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     private fabricService: FabricService,
     private cache: CacheService,
     private offlineService: OfflineService,
+    private offlineTemplate: OfflineTemplateService,
     private hudData: LbwDataService,
     public operationsQueue: OperationsQueueService,
     private ngZone: NgZone
@@ -1422,10 +1424,11 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
   // Load FDF options from Services_EFE_Drop table
     
   // Load dropdown options for visual templates from LPS_Services_LBW_Drop table
+  // DEXIE-FIRST: Use cache-first pattern for mobile
   async loadVisualDropdownOptions() {
     try {
-      const dropdownData = await this.caspioService.getServicesLBWDrop().toPromise();
-      
+      const dropdownData = await this.offlineTemplate.getLbwDropdownOptions();
+
       console.log('[Dropdown Options] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
       
       if (dropdownData && dropdownData.length > 0) {
@@ -1779,10 +1782,10 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
   // v1.4.65 compatibility - addElevationPoint alias
   async loadVisualCategories() {
     try {
-      // Get all HUD templates from LPS_Services_LBW_Templates table
-      const allTemplates = await this.caspioService.getServicesLBWTemplates().toPromise();
+      // DEXIE-FIRST: Get all LBW templates from cache
+      const allTemplates = await this.offlineTemplate.getLbwTemplates();
 
-      // Use all HUD templates (no TypeID filter needed - HUD has its own dedicated table)
+      // Use all LBW templates (no TypeID filter needed - LBW has its own dedicated table)
       this.visualTemplates = allTemplates || [];
 
       // Extract unique categories in order they appear

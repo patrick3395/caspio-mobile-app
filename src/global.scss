@@ -1141,26 +1141,48 @@ textarea.styled-input {
 
       // Cancel button styling
       &[role="cancel"] {
-        color: #333;
-        background: #f5f5f5;
-        border: 2px solid #ddd;
+        color: #333 !important;
+        background: #f5f5f5 !important;
+        border: 2px solid #ddd !important;
+
+        &:hover, &:active, &:focus {
+          color: #333 !important;
+          background: #f5f5f5 !important;
+          border-color: #ddd !important;
+        }
       }
 
       // Action button styling (Replace Document)
       &:not([role="cancel"]) {
-        color: #333;
-        background: #f5f5f5;
-        border: 2px solid var(--noble-orange, #F15A27);
+        color: #333 !important;
+        background: #f5f5f5 !important;
+        border: 2px solid var(--noble-orange, #F15A27) !important;
+
+        &:hover, &:active, &:focus {
+          color: #333 !important;
+          background: #f5f5f5 !important;
+          border-color: var(--noble-orange, #F15A27) !important;
+        }
       }
 
       &.alert-button-cancel {
-        color: #333;
-        background: #e8e8e8;
+        color: #333 !important;
+        background: #e8e8e8 !important;
+
+        &:hover, &:active, &:focus {
+          color: #333 !important;
+          background: #e8e8e8 !important;
+        }
       }
 
       &.alert-button-save {
-        color: #333;
-        background: #e8e8e8;
+        color: #333 !important;
+        background: #e8e8e8 !important;
+
+        &:hover, &:active, &:focus {
+          color: #333 !important;
+          background: #e8e8e8 !important;
+        }
       }
     }
   }
@@ -1240,31 +1262,77 @@ textarea.styled-input {
 
   // G2-UX-004: Confirmation dialog enhancements (web only)
   &.confirmation-dialog {
-    // Web-only: Enhanced focus states
-    @media (hover: hover) and (pointer: fine) {
-      .alert-button {
-        // Enhanced focus state for keyboard navigation
-        &:focus,
-        &:focus-visible {
-          outline: 2px solid var(--noble-orange, #F15A27) !important;
-          outline-offset: 2px !important;
-          box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.2) !important;
-        }
+    .alert-button {
+      // Confirm/Action button - static orange border, no hover change
+      &.alert-button-confirm {
+        color: #333 !important;
+        background: #f5f5f5 !important;
+        border: 2px solid var(--noble-orange, #F15A27) !important;
 
-        // Destructive button styling - match cancel button style exactly
-        &.alert-button-destructive {
+        &:hover, &:active, &:focus, &:focus-visible {
+          color: #333 !important;
+          background: #f5f5f5 !important;
+          border-color: var(--noble-orange, #F15A27) !important;
+          outline: none !important;
+          box-shadow: none !important;
+        }
+      }
+
+      // Destructive button styling - same as confirm button
+      &.alert-button-destructive {
+        color: #333 !important;
+        background: #f5f5f5 !important;
+        border: 2px solid var(--noble-orange, #F15A27) !important;
+
+        &:hover, &:active, &:focus, &:focus-visible {
+          color: #333 !important;
+          background: #f5f5f5 !important;
+          border-color: var(--noble-orange, #F15A27) !important;
+          outline: none !important;
+          box-shadow: none !important;
+        }
+      }
+
+      // Cancel button - static gray styling
+      &.alert-button-cancel {
+        color: #333 !important;
+        background: #f5f5f5 !important;
+        border: 2px solid #ddd !important;
+
+        &:hover, &:active, &:focus, &:focus-visible {
           color: #333 !important;
           background: #f5f5f5 !important;
           border-color: #ddd !important;
-
-          &:focus,
-          &:focus-visible {
-            outline-color: var(--noble-orange, #F15A27) !important;
-            box-shadow: 0 0 0 4px rgba(241, 90, 39, 0.2) !important;
-          }
+          outline: none !important;
+          box-shadow: none !important;
         }
       }
     }
+  }
+}
+
+// Global override - Disable ALL hover effects on alert buttons (webapp only)
+@media (hover: hover) {
+  ion-alert .alert-button:hover {
+    // Force same styling on hover - prevent any background/border changes
+    transform: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+  }
+
+  // Specifically target action buttons to maintain orange border on hover
+  ion-alert .alert-button:not([role="cancel"]):hover {
+    background: #f5f5f5 !important;
+    color: #333 !important;
+    border-color: var(--noble-orange, #F15A27) !important;
+  }
+
+  // Cancel buttons maintain gray styling on hover
+  ion-alert .alert-button[role="cancel"]:hover {
+    background: #f5f5f5 !important;
+    color: #333 !important;
+    border-color: #ddd !important;
   }
 }
 

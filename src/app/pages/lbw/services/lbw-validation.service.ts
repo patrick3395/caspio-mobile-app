@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { CaspioService } from '../../../services/caspio.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { LbwStateService } from './lbw-state.service';
 import { map } from 'rxjs/operators';
 
@@ -21,6 +22,7 @@ export class LbwValidationService {
 
   constructor(
     private caspioService: CaspioService,
+    private offlineTemplate: OfflineTemplateService,
     private stateService: LbwStateService
   ) {}
 
@@ -121,15 +123,14 @@ export class LbwValidationService {
     const incompleteFields: IncompleteField[] = [];
 
     try {
-      // Fetch template items with Required='Yes'
-      const requiredItems = await this.caspioService.getServicesLBWTemplates()
-        .pipe(map((items: any[]) => items.filter((item: any) => item.Required === 'Yes')))
-        .toPromise();
+      // DEXIE-FIRST: Fetch template items with Required='Yes' from cache
+      const allTemplates = await this.offlineTemplate.getLbwTemplates();
+      const requiredItems = (allTemplates || []).filter((item: any) => item.Required === 'Yes');
 
       console.log('[LBW Validation] Found required template items:', requiredItems?.length || 0);
 
-      // Fetch user's answers for this service
-      const userAnswers = await this.caspioService.getServicesLBWByServiceId(serviceId).toPromise();
+      // DEXIE-FIRST: Fetch user's answers for this service from cache
+      const userAnswers = await this.offlineTemplate.getLbwByService(serviceId);
 
       // Check each required item
       for (const templateItem of requiredItems || []) {

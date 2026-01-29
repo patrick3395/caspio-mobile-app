@@ -194,6 +194,10 @@ export class OfflineTemplateService {
   // Increment this when HUD template schema changes
   private static readonly HUD_TEMPLATE_VERSION = 1;
 
+  // LBW-001: Current LBW template version for cache invalidation
+  // Increment this when LBW template schema changes
+  private static readonly LBW_TEMPLATE_VERSION = 1;
+
   /**
    * HUD-012: Ensure HUD templates are ready for use (MOBILE ONLY).
    * - If cached and valid: returns immediately
@@ -702,6 +706,82 @@ export class OfflineTemplateService {
             })
             .catch(err => {
               console.warn('    ⚠️ HUD_Drop cache failed:', err);
+              return [];
+            })
+        );
+      }
+
+      // LBW-001: Download LBW templates and dropdown options when template type is LBW
+      if (templateType === 'LBW') {
+        console.log('[LBW] 🏗️ Downloading LBW TEMPLATES...');
+        downloads.push(
+          firstValueFrom(this.caspioService.getServicesLBWTemplates())
+            .then(async (templates) => {
+              const count = templates?.length || 0;
+              await this.indexedDb.cacheTemplates('lbw', templates || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
+              console.log(`    ✅ LBW Templates: ${count} templates cached`);
+              return templates;
+            })
+            .catch(err => {
+              console.warn('    ⚠️ LBW Templates cache failed:', err);
+              return [];
+            })
+        );
+
+        console.log('[LBW] 📋 Downloading LBW_DROP (dropdown options)...');
+        downloads.push(
+          firstValueFrom(this.caspioService.getServicesLBWDrop())
+            .then(async (data) => {
+              const count = data?.length || 0;
+              await this.indexedDb.cacheTemplates('lbw_dropdown', data || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
+              console.log(`    ✅ LBW_Drop (dropdown options): ${count} options cached`);
+              return data;
+            })
+            .catch(err => {
+              console.warn('    ⚠️ LBW_Drop cache failed:', err);
+              return [];
+            })
+        );
+
+        // Download existing LBW records for this service
+        console.log('[LBW] 📝 Downloading LBW RECORDS for service...');
+        downloads.push(
+          firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId))
+            .then(async (records) => {
+              const count = records?.length || 0;
+              await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', records || []);
+              console.log(`    ✅ LBW Records: ${count} records cached for service ${serviceId}`);
+
+              // Also download attachments for LBW records
+              if (records && records.length > 0) {
+                console.log('[LBW] 📸 Downloading LBW ATTACHMENTS...');
+                const attachmentPromises = records.map(async (record: any) => {
+                  const lbwId = record.LBWID || record.PK_ID;
+                  if (lbwId) {
+                    try {
+                      const attachments = await firstValueFrom(this.caspioService.getServiceLBWAttachByLBWId(String(lbwId)));
+                      if (attachments && attachments.length > 0) {
+                        await this.indexedDb.cacheServiceData(String(lbwId), 'lbw_attachments', attachments);
+                        // Collect for image download
+                        collectedVisualAttachments.push(...attachments);
+                      }
+                      return attachments || [];
+                    } catch (err) {
+                      console.warn(`    ⚠️ Failed to cache attachments for LBWID ${lbwId}:`, err);
+                      return [];
+                    }
+                  }
+                  return [];
+                });
+                const allAttachments = await Promise.all(attachmentPromises);
+                const totalAttachments = allAttachments.flat().length;
+                console.log(`    ✅ LBW Attachments: ${totalAttachments} attachments cached`);
+              }
+
+              return records;
+            })
+            .catch(err => {
+              console.warn('    ⚠️ LBW Records cache failed:', err);
               return [];
             })
         );
@@ -1239,9 +1319,11 @@ export class OfflineTemplateService {
     }
 
     // OPTIMIZATION: Verify all data exists in PARALLEL (faster than sequential)
-    const [visualTemplates, efeTemplates, serviceRecord] = await Promise.all([
+    const [visualTemplates, efeTemplates, hudTemplates, lbwTemplates, serviceRecord] = await Promise.all([
       this.indexedDb.getCachedTemplates('visual'),
       templateType === 'EFE' ? this.indexedDb.getCachedTemplates('efe') : Promise.resolve([1]), // Dummy array for non-EFE
+      templateType === 'HUD' ? this.indexedDb.getCachedTemplates('hud') : Promise.resolve([1]), // Dummy array for non-HUD
+      templateType === 'LBW' ? this.indexedDb.getCachedTemplates('lbw') : Promise.resolve([1]), // Dummy array for non-LBW
       this.indexedDb.getCachedServiceRecord(serviceId)
     ]);
 
@@ -1255,6 +1337,20 @@ export class OfflineTemplateService {
     // Check EFE templates (only for EFE template type)
     if (templateType === 'EFE' && (!efeTemplates || efeTemplates.length === 0)) {
       console.log(`[OfflineTemplate] isTemplateReady: Download flag set but EFE templates missing - forcing re-download`);
+      await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+      return false;
+    }
+
+    // Check HUD templates (only for HUD template type)
+    if (templateType === 'HUD' && (!hudTemplates || hudTemplates.length === 0)) {
+      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but HUD templates missing - forcing re-download`);
+      await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
+      return false;
+    }
+
+    // Check LBW templates (only for LBW template type)
+    if (templateType === 'LBW' && (!lbwTemplates || lbwTemplates.length === 0)) {
+      console.log(`[OfflineTemplate] isTemplateReady: Download flag set but LBW templates missing - forcing re-download`);
       await this.indexedDb.removeTemplateDownloadStatus(serviceId, templateType);
       return false;
     }
@@ -1879,6 +1975,124 @@ export class OfflineTemplateService {
     } catch (error) {
       console.warn(`[OfflineTemplate] Background LBW refresh failed (non-blocking):`, error);
     }
+  }
+
+  /**
+   * Get LBW templates - CACHE-FIRST for instant loading
+   * Returns cached data immediately, refreshes in background when online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API
+   */
+  async getLbwTemplates(): Promise<any[]> {
+    // WEBAPP MODE: Always fetch from API
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching LBW templates directly from API');
+      try {
+        const templates = await firstValueFrom(this.caspioService.getServicesLBWTemplates());
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${templates?.length || 0} LBW templates from server`);
+        return templates || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for LBW templates:', error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
+    // 1. Read from cache IMMEDIATELY
+    const cached = await this.indexedDb.getCachedTemplates('lbw');
+
+    // 2. Return immediately if we have data
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] LBW Templates: ${cached.length} (instant from cache)`);
+
+      // 3. Background refresh when online
+      if (this.offlineService.isOnline()) {
+        this.refreshLbwTemplatesInBackground();
+      }
+      return cached;
+    }
+
+    // 4. Cache empty - fetch from API if online (blocking only when no cache)
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log('[OfflineTemplate] No cached LBW templates, fetching from API...');
+        const templates = await firstValueFrom(this.caspioService.getServicesLBWTemplates());
+        await this.indexedDb.cacheTemplates('lbw', templates || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] LBW Templates cached: ${templates?.length || 0}`);
+        return templates || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] LBW Templates API fetch failed:', error);
+      }
+    }
+
+    // 5. Offline with no cache
+    console.log('[OfflineTemplate] No LBW templates available (offline, no cache)');
+    return [];
+  }
+
+  /**
+   * Background refresh for LBW templates
+   */
+  private refreshLbwTemplatesInBackground(): void {
+    const refreshJob = async () => {
+      try {
+        console.log('[OfflineTemplate] [BG] Starting LBW template background refresh...');
+        const templates = await firstValueFrom(this.caspioService.getServicesLBWTemplates());
+        await this.indexedDb.cacheTemplates('lbw', templates || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] [BG] ✅ LBW templates refreshed: ${templates?.length || 0} templates`);
+
+        // Also refresh dropdown options
+        const dropdown = await firstValueFrom(this.caspioService.getServicesLBWDrop());
+        await this.indexedDb.cacheTemplates('lbw_dropdown', dropdown || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] [BG] ✅ LBW dropdown refreshed: ${dropdown?.length || 0} options`);
+      } catch (error) {
+        console.warn('[OfflineTemplate] [BG] LBW template background refresh failed:', error);
+      }
+    };
+
+    refreshJob();
+  }
+
+  /**
+   * Get LBW dropdown options - CACHE-FIRST for instant loading
+   */
+  async getLbwDropdownOptions(): Promise<any[]> {
+    // WEBAPP MODE: Always fetch from API
+    if (environment.isWeb) {
+      console.log('[OfflineTemplate] WEBAPP MODE: Fetching LBW dropdown directly from API');
+      try {
+        const dropdown = await firstValueFrom(this.caspioService.getServicesLBWDrop());
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${dropdown?.length || 0} LBW dropdown options from server`);
+        return dropdown || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] WEBAPP: API fetch failed for LBW dropdown:', error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
+    const cached = await this.indexedDb.getCachedTemplates('lbw_dropdown');
+
+    if (cached && cached.length > 0) {
+      console.log(`[OfflineTemplate] LBW Dropdown: ${cached.length} (instant from cache)`);
+      return cached;
+    }
+
+    // Cache empty - fetch from API if online
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log('[OfflineTemplate] No cached LBW dropdown, fetching from API...');
+        const dropdown = await firstValueFrom(this.caspioService.getServicesLBWDrop());
+        await this.indexedDb.cacheTemplates('lbw_dropdown', dropdown || [], OfflineTemplateService.LBW_TEMPLATE_VERSION);
+        console.log(`[OfflineTemplate] LBW Dropdown cached: ${dropdown?.length || 0}`);
+        return dropdown || [];
+      } catch (error) {
+        console.error('[OfflineTemplate] LBW Dropdown API fetch failed:', error);
+      }
+    }
+
+    console.log('[OfflineTemplate] No LBW dropdown available (offline, no cache)');
+    return [];
   }
 
   /**

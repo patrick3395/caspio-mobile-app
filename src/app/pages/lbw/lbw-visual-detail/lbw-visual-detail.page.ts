@@ -5,6 +5,7 @@ import { IonicModule, ToastController, AlertController, ModalController, NavCont
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../services/caspio.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { IndexedDbService } from '../../../services/indexed-db.service';
@@ -89,6 +90,7 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     private navController: NavController,
     private location: Location,
     private caspioService: CaspioService,
+    private offlineTemplate: OfflineTemplateService,
     private toastController: ToastController,
     private alertController: AlertController,
     private modalController: ModalController,
@@ -226,8 +228,8 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         const lbwRecords = await this.lbwData.getVisualsByService(this.serviceId);
         console.log('[LbwVisualDetail] WEBAPP: Loaded', lbwRecords.length, 'LBW records for ServiceID:', this.serviceId);
 
-        // Load templates to get the Name and Category for matching (fallback)
-        const templates = (await this.caspioService.getServicesLBWTemplates().toPromise()) || [];
+        // DEXIE-FIRST: Load templates from cache to get the Name and Category for matching (fallback)
+        const templates = await this.offlineTemplate.getLbwTemplates();
         console.log('[LbwVisualDetail] WEBAPP: Loaded', templates.length, 'templates');
         const template = templates.find((t: any) =>
           (t.TemplateID || t.PK_ID) == this.templateId
