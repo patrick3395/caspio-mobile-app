@@ -176,6 +176,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   async ionViewWillEnter() {
     console.log('[LBW] ionViewWillEnter - serviceId:', this.serviceId, 'categoryName:', this.categoryName);
 
+    // Set up deferred subscriptions if not already done (HUD pattern)
+    if (!this.localImagesSubscription && this.serviceId) {
+      this.subscribeToLocalImagesChanges();
+    }
+
     // MOBILE MODE: Reload data from Dexie when returning to page
     // Sync may have completed while user was on visual-detail page
     if (!environment.isWeb && this.serviceId && this.categoryName && this.initialLoadComplete) {
@@ -184,6 +189,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
       // Merge Dexie visual fields to get latest edits
       await this.mergeDexieVisualFields();
+
+      // HUD PATTERN: Refresh lastConvertedFields from Dexie before populating photos
+      // This ensures we have fresh visualId/tempVisualId values after sync
+      await this.refreshLastConvertedFieldsFromDexie();
 
       // Repopulate photos from Dexie (sync may have updated entityIds)
       if (this.lastConvertedFields.length > 0) {
@@ -1629,6 +1638,79 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   /**
+   * HUD PATTERN FIX: Refresh lastConvertedFields with fresh visualId/tempVisualId from Dexie
+   *
+   * This is CRITICAL for the LocalImages liveQuery to work correctly.
+   *
+   * ROOT CAUSE: When sync updates VisualFields with real IDs (via setField()),
+   * the LocalImages liveQuery fires but lastConvertedFields still has stale IDs.
+   * populatePhotosFromDexie() then looks for photos using outdated IDs and fails.
+   *
+   * FIX: Before populating photos, fetch fresh VisualFields from Dexie and update
+   * lastConvertedFields with the current visualId/tempVisualId values.
+   */
+  private async refreshLastConvertedFieldsFromDexie(): Promise<void> {
+    if (!this.serviceId || this.lastConvertedFields.length === 0) {
+      return;
+    }
+
+    try {
+      // Get unique categories from lastConvertedFields
+      const categories = new Set<string>();
+      for (const field of this.lastConvertedFields) {
+        if (field.category) {
+          categories.add(field.category);
+        }
+      }
+
+      // Fetch fresh VisualFields from Dexie for all categories
+      const freshFieldsMap = new Map<string, VisualField>();
+      for (const category of categories) {
+        const fields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, category);
+        for (const field of fields) {
+          // Key by serviceId:category:templateId to match lastConvertedFields
+          const key = `${field.serviceId}:${field.category}:${field.templateId}`;
+          freshFieldsMap.set(key, field);
+        }
+      }
+
+      if (freshFieldsMap.size === 0) {
+        return;
+      }
+
+      // Update lastConvertedFields with fresh visualId/tempVisualId from Dexie
+      let updatedCount = 0;
+      for (const field of this.lastConvertedFields) {
+        const freshField = freshFieldsMap.get(field.key);
+        if (freshField) {
+          // Only update if there's a change
+          const visualIdChanged = field.visualId !== freshField.visualId;
+          const tempVisualIdChanged = field.tempVisualId !== freshField.tempVisualId;
+
+          if (visualIdChanged || tempVisualIdChanged) {
+            field.visualId = freshField.visualId;
+            field.tempVisualId = freshField.tempVisualId;
+            updatedCount++;
+
+            // Also update visualRecordIds for consistency
+            const recordKey = `${field.category}_${field.templateId}`;
+            const newVisualId = freshField.visualId || freshField.tempVisualId;
+            if (newVisualId) {
+              this.visualRecordIds[recordKey] = newVisualId;
+            }
+          }
+        }
+      }
+
+      if (updatedCount > 0) {
+        console.log(`[LBW DEXIE-FIRST] Refreshed ${updatedCount} fields with fresh IDs from Dexie`);
+      }
+    } catch (err) {
+      console.error('[LBW DEXIE-FIRST] Failed to refresh lastConvertedFields:', err);
+    }
+  }
+
+  /**
    * DEXIE-FIRST: Subscribe to LocalImages changes for reactive photo updates
    * When photos are captured or synced, this subscription fires to update the UI
    */
@@ -1668,6 +1750,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           console.log('[LBW LOCALIMAGES] Skipping - no lastConvertedFields');
           return;
         }
+
+        // HUD PATTERN FIX: Refresh lastConvertedFields from Dexie before populating
+        // This ensures we have fresh visualId/tempVisualId values after sync
+        await this.refreshLastConvertedFieldsFromDexie();
 
         // Populate photos from the fresh LocalImages
         await this.populatePhotosFromDexie(this.lastConvertedFields);

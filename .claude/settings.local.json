@@ -76,7 +76,9 @@
       "Bash(if [ -d \"C:\\\\Users\\\\Owner\\\\Caspio\\\\android\" ])",
       "Bash(then echo \"Android folder exists\")",
       "Bash(else echo \"Android folder DOES NOT exist\")",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(java -version:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

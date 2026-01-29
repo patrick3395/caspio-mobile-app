@@ -64,8 +64,8 @@ export class IonicDeployService {
           error?.message?.includes('not available') ||
           error?.message?.includes('not found')) {
         errorMsg += 'The @capacitor/live-updates plugin is not available.\n\n';
-        errorMsg += 'The plugin may not be installed in this iOS build.\n';
-        errorMsg += 'You need to rebuild the iOS app with the plugin.';
+        errorMsg += 'The plugin may not be installed in this native build.\n';
+        errorMsg += 'You need to rebuild the native app with the plugin.';
       } else if (error?.code) {
         errorMsg += `Error Code: ${error.code}\n`;
         errorMsg += `Full Error: ${JSON.stringify(error)}`;

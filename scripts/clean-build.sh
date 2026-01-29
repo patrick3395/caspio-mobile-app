@@ -16,11 +16,13 @@ rm -rf ios/App/App/public/
 rm -rf ios/App/build/
 rm -rf ios/App/DerivedData/
 
-# Clean Android build  
+# Clean Android build (only if android folder exists)
 echo "3. Cleaning Android build..."
-rm -rf android/app/src/main/assets/public/
-rm -rf android/app/build/
-rm -rf android/.gradle/
+if [ -d "android" ]; then
+  rm -rf android/app/src/main/assets/public/
+  rm -rf android/app/build/
+  rm -rf android/.gradle/
+fi
 
 # Rebuild
 echo "4. Running fresh build..."
