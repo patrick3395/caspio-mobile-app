@@ -64,6 +64,13 @@ export interface HudPhotoUploadComplete {
   hudId: string;
 }
 
+export interface LbwPhotoUploadComplete {
+  imageId: string;
+  attachId: string;
+  s3Key: string;
+  lbwId: string;
+}
+
 export interface SyncStatus {
   isSyncing: boolean;
   pendingCount: number;
@@ -127,6 +134,9 @@ export class BackgroundSyncService {
   // HUD sync events - pages can subscribe to update UI when HUD data syncs
   public hudSyncComplete$ = new Subject<HudSyncComplete>();
   public hudPhotoUploadComplete$ = new Subject<HudPhotoUploadComplete>();
+
+  // LBW sync events - pages can subscribe to update UI when LBW data syncs
+  public lbwPhotoUploadComplete$ = new Subject<LbwPhotoUploadComplete>();
 
   // ==========================================================================
   // HUD SERVICES - Lazy loaded to avoid circular dependencies
@@ -3322,6 +3332,20 @@ export class BackgroundSyncService {
           );
           console.log('[BackgroundSync] HUD photo upload completed:', item.imageId, 'result:', result);
           break;
+        case 'lbw':
+          // LBW photos are stored in LPS_Services_LBW_Attach table
+          console.log('[BackgroundSync] LBW photo upload starting:', item.imageId, 'lbwId:', entityId);
+          result = await uploadWithTimeout(
+            this.caspioService.createServicesLBWAttachWithFile(
+              parseInt(entityId),
+              image.caption || '',
+              file,
+              image.drawings || ''
+            ).toPromise(),
+            `lbw upload for ${item.imageId}`
+          );
+          console.log('[BackgroundSync] LBW photo upload completed:', item.imageId, 'result:', result);
+          break;
         default:
           throw new Error(`Unsupported entity type: ${image.entityType}`);
       }
@@ -3391,6 +3415,15 @@ export class BackgroundSyncService {
           attachId: attachId,
           s3Key: s3Key,
           hudId: entityId
+        });
+      });
+    } else if (image.entityType === 'lbw') {
+      this.ngZone.run(() => {
+        this.lbwPhotoUploadComplete$.next({
+          imageId: item.imageId,
+          attachId: attachId,
+          s3Key: s3Key,
+          lbwId: entityId
         });
       });
     }

@@ -2622,7 +2622,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (environment.isWeb) {
           loading = await this.loadingController.create({
             message: `Uploading ${file.name}... (tap outside to cancel)`,
-            backdropDismiss: true
+            backdropDismiss: true,
+            cssClass: 'custom-loading-popup'
           });
           loading.onDidDismiss().then((result: any) => {
             if (result.role === 'backdrop') {
@@ -2632,7 +2633,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           await loading.present();
         } else {
           loading = await this.loadingController.create({
-            message: 'Uploading file...'
+            message: 'Uploading file...',
+            cssClass: 'custom-loading-popup'
           });
           await loading.present();
         }
@@ -2662,9 +2664,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           // WEBAPP: Trigger change detection to update UI with OnPush strategy
           this.changeDetectorRef.markForCheck();
 
-          // Show success toast
-          await this.showToast('Document uploaded successfully', 'success');
-
           // Mark that changes have been made (for Re-Submit button)
           if (serviceId) {
             this.changesAfterSubmission[serviceId] = true;
@@ -2676,7 +2675,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (environment.isWeb) {
           loading = await this.loadingController.create({
             message: `Replacing with ${file.name}... (tap outside to cancel)`,
-            backdropDismiss: true
+            backdropDismiss: true,
+            cssClass: 'custom-loading-popup'
           });
           loading.onDidDismiss().then((result: any) => {
             if (result.role === 'backdrop') {
@@ -2686,7 +2686,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           await loading.present();
         } else {
           loading = await this.loadingController.create({
-            message: 'Replacing file...'
+            message: 'Replacing file...',
+            cssClass: 'custom-loading-popup'
           });
           await loading.present();
         }
@@ -2705,9 +2706,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
 
         // WEBAPP: Trigger change detection to update UI with OnPush strategy
         this.changeDetectorRef.markForCheck();
-
-        // Show success toast
-        await this.showToast('Document replaced successfully', 'success');
 
         // Mark that changes have been made (for Re-Submit button)
         if (serviceId) {
@@ -3035,11 +3033,29 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   /**
-   * Opens a PDF in the browser's native PDF viewer.
-   * Works reliably on both web and mobile platforms.
+   * Opens a PDF in the browser's native PDF viewer (web) or in a modal viewer (mobile).
+   * Uses different strategies for web and mobile platforms.
    */
   private async openPdfInBrowser(fileUrl: string, filename: string): Promise<void> {
     try {
+      // On mobile, use the DocumentViewerComponent modal for inline PDF viewing
+      if (!environment.isWeb) {
+        const { DocumentViewerComponent } = await import('../../components/document-viewer/document-viewer.component');
+        const modal = await this.modalController.create({
+          component: DocumentViewerComponent,
+          componentProps: {
+            fileUrl: fileUrl,
+            fileName: filename,
+            fileType: 'pdf',
+            filePath: filename
+          },
+          cssClass: 'fullscreen-modal'
+        });
+        await modal.present();
+        return;
+      }
+
+      // On web, open in a new browser tab
       let blobUrl: string;
 
       if (fileUrl.startsWith('data:')) {
@@ -4334,13 +4350,6 @@ Troubleshooting:
       this.changeDetectorRef.markForCheck();
 
       await loading.dismiss();
-
-      const toast = await this.toastController.create({
-        message: 'Address updated successfully',
-        duration: 2000,
-        color: 'success'
-      });
-      await toast.present();
     } catch (error) {
       await loading.dismiss();
       console.error('Error saving address:', error);

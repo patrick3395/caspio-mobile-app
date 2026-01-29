@@ -225,6 +225,35 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       this.changeDetectorRef.detectChanges();
     });
 
+    // Subscribe to LBW-specific photo upload completions (DEXIE-FIRST pattern)
+    // This handles the case where LBW photos are uploaded via background sync
+    this.backgroundSync.lbwPhotoUploadComplete$.subscribe(async (event) => {
+      console.log('[LBW PHOTO SYNC] LBW photo upload completed:', event.imageId, 'attachId:', event.attachId);
+
+      // Find the photo in our visualPhotos by imageId
+      for (const key of Object.keys(this.visualPhotos)) {
+        const photoIndex = this.visualPhotos[key].findIndex(p =>
+          p.imageId === event.imageId ||
+          p.AttachID === event.imageId ||
+          p.id === event.imageId
+        );
+
+        if (photoIndex !== -1) {
+          console.log('[LBW PHOTO SYNC] Found photo at key:', key, 'index:', photoIndex);
+
+          // Update the photo with the real attachId
+          this.visualPhotos[key][photoIndex].AttachID = event.attachId;
+          this.visualPhotos[key][photoIndex].attachId = event.attachId;
+          this.visualPhotos[key][photoIndex].uploading = false;
+          this.visualPhotos[key][photoIndex].queued = false;
+          this.visualPhotos[key][photoIndex].isLocal = false;
+
+          this.changeDetectorRef.detectChanges();
+          break;
+        }
+      }
+    });
+
     // Subscribe to background sync photo upload completions
     // This handles the case where photos are uploaded via IndexedDB queue (offline -> online)
     this.photoSyncSubscription = this.backgroundSync.photoUploadComplete$.subscribe(async (event) => {

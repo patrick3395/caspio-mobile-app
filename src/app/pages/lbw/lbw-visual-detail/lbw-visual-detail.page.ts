@@ -78,6 +78,10 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   // Subscriptions
   private routeSubscription?: Subscription;
   private localImagesSubscription?: Subscription;
+  private visualFieldsSubscription?: { unsubscribe: () => void };  // Dexie liveQuery subscription
+
+  // Track the last known lbwId to detect changes after sync
+  private lastKnownLbwId: string = '';
 
   constructor(
     private router: Router,
@@ -106,12 +110,20 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       this.loading = false;
       this.saving = false;
       this.changeDetectorRef.detectChanges();
+    } else {
+      // MOBILE: Reload data when returning to this page (sync may have happened)
+      // This ensures we show fresh data after sync completes
+      if (this.serviceId && this.templateId) {
+        console.log('[LbwVisualDetail] ionViewWillEnter MOBILE: Reloading data');
+        this.loadVisualData();
+      }
     }
   }
 
   ngOnDestroy() {
     this.routeSubscription?.unsubscribe();
     this.localImagesSubscription?.unsubscribe();
+    this.visualFieldsSubscription?.unsubscribe();
   }
 
   /**
@@ -437,6 +449,10 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // Load photos
       await this.loadPhotos();
 
+      // MOBILE: Subscribe to visualField changes to react to sync updates
+      // This ensures the page updates when sync modifies the Dexie field
+      this.subscribeToVisualFieldChanges();
+
     } catch (error) {
       console.error('[LbwVisualDetail] Error loading data:', error);
       await this.showToast('Error loading visual data', 'danger');
@@ -444,6 +460,74 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       this.loading = false;
       this.changeDetectorRef.detectChanges();
     }
+  }
+
+  /**
+   * Subscribe to visualField changes via liveQuery
+   * This allows the page to react when sync updates the Dexie field
+   */
+  private subscribeToVisualFieldChanges() {
+    // Only needed for MOBILE mode - WEBAPP loads from server
+    if (environment.isWeb) return;
+
+    // Unsubscribe from previous subscription if exists
+    this.visualFieldsSubscription?.unsubscribe();
+
+    // Store current lbwId to detect changes
+    this.lastKnownLbwId = this.lbwId;
+
+    // Subscribe to visualFields changes for this service/template
+    const observable = liveQuery(() =>
+      db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray()
+    );
+
+    this.visualFieldsSubscription = observable.subscribe({
+      next: async (fields) => {
+        const field = fields.find(f => f.templateId === this.templateId);
+        if (!field) return;
+
+        // Get the current lbwId from field (tempVisualId first, then visualId)
+        const currentLbwId = field.tempVisualId || field.visualId || '';
+
+        // Check if lbwId changed (indicates sync completed and assigned real ID)
+        const lbwIdChanged = currentLbwId !== this.lastKnownLbwId && this.lastKnownLbwId !== '';
+
+        // Update item data from field
+        if (field.templateName && this.item) {
+          const newName = field.templateName;
+          const newText = field.templateText || '';
+
+          // Only update if different (avoid unnecessary UI updates)
+          if (this.item.name !== newName || this.item.text !== newText) {
+            console.log('[LbwVisualDetail] liveQuery: Field changed, updating item');
+            console.log('[LbwVisualDetail] liveQuery: Name:', this.item.name, '->', newName);
+
+            this.item.name = newName;
+            this.item.text = newText;
+            this.editableTitle = newName;
+            this.editableText = newText;
+            this.changeDetectorRef.detectChanges();
+          }
+        }
+
+        // If lbwId changed (sync completed), reload photos with correct entityId
+        if (lbwIdChanged) {
+          console.log('[LbwVisualDetail] liveQuery: LbwId changed from', this.lastKnownLbwId, 'to', currentLbwId, '- reloading photos');
+          this.lastKnownLbwId = currentLbwId;
+          // Note: Don't set this.lbwId here - let loadPhotos() do it from fresh field data
+          await this.loadPhotos();
+          this.changeDetectorRef.detectChanges();
+        }
+      },
+      error: (err) => {
+        console.error('[LbwVisualDetail] liveQuery error:', err);
+      }
+    });
+
+    console.log('[LbwVisualDetail] Subscribed to visualField changes');
   }
 
   private convertFieldToItem(field: VisualField): VisualItem {
@@ -552,22 +636,24 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       }
 
       // MOBILE MODE: Load from local Dexie
-      // PRIORITY 1: Use lbwId from query params (passed from category-detail)
-      // PRIORITY 2: Fall back to visualFields lookup
+      // EFE PATTERN: ALWAYS re-query visualFields and OVERWRITE lbwId
+      // This ensures we use the correct entityId for photo lookup after sync
 
-      // Only query visualFields if we don't have lbwId from query params
-      if (!this.lbwId) {
-        const allFields = await db.visualFields
-          .where('serviceId')
-          .equals(this.serviceId)
-          .toArray();
+      const allFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray();
 
-        const field = allFields.find(f => f.templateId === this.templateId);
+      const field = allFields.find(f => f.templateId === this.templateId);
 
-        // The entityId for photos is the lbwId (temp_visual_xxx or real LBWID)
-        // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
-        this.lbwId = field?.tempVisualId || field?.visualId || '';
-      }
+      // EFE PATTERN: The entityId for photos is the visualId (temp_lbw_xxx or real LBWID)
+      // CRITICAL: Use tempVisualId FIRST because localImages are stored with the original temp ID
+      // After sync, visualId contains the real ID but photos still have entityId = tempVisualId
+      // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
+      this.lbwId = field?.tempVisualId || field?.visualId || '';
+
+      // Update lastKnownLbwId for liveQuery change detection
+      this.lastKnownLbwId = this.lbwId;
 
       if (!this.lbwId) {
         console.log('[LbwVisualDetail] MOBILE: No lbwId found, cannot load photos');
@@ -575,31 +661,108 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         return;
       }
 
-      console.log('[LbwVisualDetail] MOBILE: Loading photos for lbwId:', this.lbwId);
+      console.log('[LbwVisualDetail] MOBILE: Loading photos for lbwId:', this.lbwId, 'field tempVisualId:', field?.tempVisualId, 'visualId:', field?.visualId);
 
-      // Load local images from IndexedDB using lbwId as entityId
-      // Filter by 'lbw' entity type to match how photos are stored in category-detail
-      const localImages = await this.localImageService.getImagesForEntity('lbw', this.lbwId);
+      // DEXIE-FIRST: Load local images from IndexedDB using lbwId as entityId
+      // DIRECT Dexie query - matching EFE pattern EXACTLY (no service wrapper)
+      let localImages = await db.localImages
+        .where('entityId')
+        .equals(this.lbwId)
+        .toArray();
+
+      // FALLBACK 1: If no photos found and we have both tempVisualId and visualId, try the other ID
+      // This handles the race condition where updateEntityIdForImages() hasn't completed yet
+      // after sync - photos may still have entityId = tempVisualId while field has visualId
+      if (localImages.length === 0 && field?.tempVisualId && field?.visualId) {
+        const alternateId = (this.lbwId === field.tempVisualId) ? field.visualId : field.tempVisualId;
+        if (alternateId && alternateId !== this.lbwId) {
+          console.log('[LbwVisualDetail] MOBILE: No photos found, trying alternate ID:', alternateId);
+          localImages = await db.localImages
+            .where('entityId')
+            .equals(alternateId)
+            .toArray();
+          if (localImages.length > 0) {
+            console.log('[LbwVisualDetail] MOBILE: Found', localImages.length, 'photos with alternate ID');
+          }
+        }
+      }
+
+      // FALLBACK 2: If no photos found and we have tempVisualId, check tempIdMappings for mapped realId
+      // This handles the case where photos were captured with REAL server ID (from cache)
+      // but Dexie field has tempVisualId (from createVisual in MOBILE mode)
+      if (localImages.length === 0 && field?.tempVisualId) {
+        const mappedRealId = await this.indexedDb.getRealId(field.tempVisualId);
+        if (mappedRealId) {
+          console.log('[LbwVisualDetail] MOBILE: Trying mapped realId from tempIdMappings:', mappedRealId);
+          localImages = await db.localImages
+            .where('entityId')
+            .equals(mappedRealId)
+            .toArray();
+          if (localImages.length > 0) {
+            console.log('[LbwVisualDetail] MOBILE: Found', localImages.length, 'photos with mapped realId');
+            // Update VisualField with realId so future lookups work directly
+            this.visualFieldRepo.setField(this.serviceId, this.categoryName, this.templateId, {
+              visualId: mappedRealId
+            }).catch(err => console.error('[LbwVisualDetail] Failed to update visualId:', err));
+          }
+        }
+      }
+
+      // FALLBACK 3: If still no photos, do REVERSE lookup - query tempIdMappings by realId to find tempId
+      // This handles the case where:
+      // - Sync completed, VisualField.visualId has real ID but tempVisualId is null
+      // - Photos still have entityId = temp_lbw_xxx (updateEntityIdForImages hasn't run)
+      if (localImages.length === 0 && field?.visualId && !field?.tempVisualId) {
+        const reverseLookupTempId = await this.indexedDb.getTempId(field.visualId);
+        if (reverseLookupTempId) {
+          console.log('[LbwVisualDetail] MOBILE: REVERSE LOOKUP - realId:', field.visualId, '-> tempId:', reverseLookupTempId);
+          localImages = await db.localImages
+            .where('entityId')
+            .equals(reverseLookupTempId)
+            .toArray();
+          if (localImages.length > 0) {
+            console.log('[LbwVisualDetail] MOBILE: Found', localImages.length, 'photos with reverse-lookup tempId');
+          }
+        }
+      }
 
       console.log('[LbwVisualDetail] MOBILE: Found', localImages.length, 'localImages for lbwId:', this.lbwId);
 
-      // Convert to PhotoItem format using localImageService.getDisplayUrl() for proper blob URLs
+      // Convert to PhotoItem format
       this.photos = [];
 
       for (const img of localImages) {
         // Check if image has annotations
         const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
 
-        // Get display URL using localImageService (handles all fallbacks properly)
-        let displayUrl = await this.localImageService.getDisplayUrl(img);
+        // Get the blob data if available
+        let displayUrl = 'assets/img/photo-placeholder.svg';
         let originalUrl = displayUrl;
 
-        // DEXIE-FIRST: Check for cached annotated image for thumbnail display
+        // DEXIE-FIRST: Check for cached annotated image first (for thumbnails with annotations)
         if (hasAnnotations) {
           const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(img.imageId);
           if (cachedAnnotated) {
             displayUrl = cachedAnnotated;
             console.log('[LbwVisualDetail] MOBILE: Using cached annotated image for:', img.imageId);
+          }
+        }
+
+        // Get original blob URL
+        if (img.localBlobId) {
+          const blob = await db.localBlobs.get(img.localBlobId);
+          if (blob) {
+            const blobObj = new Blob([blob.data], { type: blob.contentType });
+            originalUrl = URL.createObjectURL(blobObj);
+            // If no cached annotated image, use original
+            if (displayUrl === 'assets/img/photo-placeholder.svg') {
+              displayUrl = originalUrl;
+            }
+          }
+        } else if (img.remoteUrl) {
+          originalUrl = img.remoteUrl;
+          if (displayUrl === 'assets/img/photo-placeholder.svg') {
+            displayUrl = img.remoteUrl;
           }
         }
 
