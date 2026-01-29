@@ -3729,9 +3729,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           return;
         }
 
+        // MOBILE FIX: In MOBILE mode, visualId can be a temp ID like 'temp_lbw_xxx'
+        // Only validate that visualId is not empty, not that it's a number
+        // The parseInt check was causing gallery uploads to fail in MOBILE mode
+        const isTempId = String(visualId).startsWith('temp_');
         const visualIdNum = parseInt(visualId, 10);
-        if (isNaN(visualIdNum)) {
-          console.error('[GALLERY UPLOAD] Invalid HUD ID:', visualId);
+
+        // Only validate as number for WEBAPP mode or if it's not a temp ID
+        if (!isTempId && isNaN(visualIdNum) && environment.isWeb) {
+          console.error('[GALLERY UPLOAD] Invalid LBW ID (not a number and not a temp ID):', visualId);
+          alert(`[LBW GALLERY DEBUG ERROR] Invalid LBW ID\n\nvisualId: ${visualId}\nisTempId: ${isTempId}\nisNaN: ${isNaN(visualIdNum)}`);
           // Mark all skeleton photos as failed
           skeletonPhotos.forEach(skeleton => {
             const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
@@ -3745,7 +3752,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           return;
         }
 
-        console.log('[GALLERY UPLOAD] ✅ Valid LBW ID found:', visualIdNum);
+        console.log('[GALLERY UPLOAD] visualId validation passed:', visualId, 'isTempId:', isTempId);
+
+        // DEBUG ALERT: Show visualId and path detection
+        alert(`[LBW GALLERY DEBUG 1] PATH DETECTION\n\nenvironment.isWeb: ${environment.isWeb}\nvisualId: ${visualId}\nkey: ${key}\n\nPath: ${environment.isWeb ? 'WEBAPP' : 'MOBILE'}`);
+
+        console.log('[GALLERY UPLOAD] ✅ Valid LBW ID found:', visualId);
 
         // ============================================
         // WEBAPP MODE: Direct S3 Upload (No Local Storage)
@@ -3851,6 +3863,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Photos sync silently in background via BackgroundSyncService
         // ============================================
 
+        // DEBUG ALERT: Confirm we're in MOBILE path
+        alert(`[LBW GALLERY DEBUG 2] MOBILE PATH\n\nStarting DEXIE-FIRST capture\nvisualId: ${visualId}\nserviceId: ${this.serviceId}\nphotoCount: ${images.photos.length}`);
+
         console.log('[GALLERY UPLOAD] MOBILE MODE: Starting DEXIE-FIRST capture...');
 
         // Expand photos section
@@ -3898,8 +3913,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                   '',  // No caption for gallery photos
                   ''   // No drawings for gallery photos
                 );
+                // DEBUG ALERT: captureImage succeeded for gallery
+                alert(`[LBW GALLERY DEBUG 3] captureImage SUCCESS\n\nPhoto ${i + 1}/${images.photos.length}\nimageId: ${localImage.imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId}\nentityId: ${localImage.entityId}`);
                 console.log(`[GALLERY UPLOAD] Created LocalImage ${i + 1}:`, localImage.imageId);
               } catch (captureError: any) {
+                // DEBUG ALERT: captureImage failed for gallery
+                alert(`[LBW GALLERY DEBUG 3] captureImage FAILED\n\nPhoto ${i + 1}/${images.photos.length}\nError: ${captureError?.message || captureError}`);
                 console.error(`[GALLERY UPLOAD] Failed to create LocalImage ${i + 1}:`, captureError);
                 // Mark skeleton as failed
                 const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);

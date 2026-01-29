@@ -701,6 +701,25 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         item.otherValue = visual.OtherValue || '';
         console.log('[LOAD EXISTING] ✅ item.answer set to:', item.answer);
 
+        // TITLE EDIT FIX: Update item name/text with edited values
+        // Priority: Dexie templateName > visual.Name > template name (already in item.name)
+        const dexieField = dexieFields.find(f => f.templateId === item.templateId);
+        if (dexieField?.templateName) {
+          item.name = dexieField.templateName;
+          console.log('[LOAD EXISTING] ✅ item.name updated from Dexie:', item.name);
+        } else if (visual.Name && visual.Name !== item.name) {
+          item.name = visual.Name;
+          console.log('[LOAD EXISTING] ✅ item.name updated from visual:', item.name);
+        }
+
+        if (dexieField?.templateText) {
+          item.text = dexieField.templateText;
+          console.log('[LOAD EXISTING] ✅ item.text updated from Dexie:', item.text);
+        } else if (visual.Text && visual.Text !== item.text) {
+          item.text = visual.Text;
+          console.log('[LOAD EXISTING] ✅ item.text updated from visual:', item.text);
+        }
+
         // Force change detection to update UI
         this.changeDetectorRef.detectChanges();
 
@@ -900,10 +919,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
 
-          // WEBAPP FIX: ALWAYS check for cached annotated image first
-          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          // WEBAPP FIX: Check for cached annotated image
+          // IMPORTANT: Only use cached image if server confirms photo has annotations
+          // This prevents showing wrong annotated image if cache has stale data from deleted/replaced photos
           const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
-          if (cachedAnnotated) {
+          if (cachedAnnotated && hasServerAnnotations) {
             thumbnailUrl = cachedAnnotated;
             hasAnnotations = true;
             console.log(`[DTE] WEBAPP: Using cached annotated image for ${attachId}`);
