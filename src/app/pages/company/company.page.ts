@@ -2808,24 +2808,38 @@ export class CompanyPage implements OnInit, OnDestroy {
         completedProjects: projects.filter((p: any) => p.StatusID === 2 || p.StatusID === '2').length
       };
 
-      // Build projects over time data (last 6 months)
-      const monthlyProjects: { [key: string]: number } = {};
-      const now = new Date();
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-        monthlyProjects[key] = 0;
-      }
-
+      // Build projects over time data (spanning entire project history)
+      const projectDates: Date[] = [];
       projects.forEach((p: any) => {
         const date = new Date(p.DateOfRequest || p.DateCreated || p.Date);
         if (!isNaN(date.getTime())) {
+          projectDates.push(date);
+        }
+      });
+
+      // Determine date range from earliest to latest project (or current date)
+      const monthlyProjects: { [key: string]: number } = {};
+      if (projectDates.length > 0) {
+        const sortedDates = projectDates.sort((a, b) => a.getTime() - b.getTime());
+        const minDate = new Date(sortedDates[0].getFullYear(), sortedDates[0].getMonth(), 1);
+        const maxDate = new Date();
+
+        // Generate all months between min and max
+        const currentMonth = new Date(minDate);
+        while (currentMonth <= maxDate) {
+          const key = currentMonth.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+          monthlyProjects[key] = 0;
+          currentMonth.setMonth(currentMonth.getMonth() + 1);
+        }
+
+        // Count projects per month
+        projectDates.forEach((date) => {
           const key = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
           if (monthlyProjects.hasOwnProperty(key)) {
             monthlyProjects[key]++;
           }
-        }
-      });
+        });
+      }
 
       this.clientProjectsChartData = {
         labels: Object.keys(monthlyProjects),
@@ -2837,7 +2851,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       const companyServices = allServices.filter((s: any) => projectIds.includes(s.ProjectID));
 
       // Get service types to map TypeID to names
-      const serviceTypesResponse = await this.caspioService.get<any>('/tables/LPS_ServiceTypes/records').toPromise();
+      const serviceTypesResponse = await this.caspioService.get<any>('/tables/LPS_Type/records').toPromise();
       const serviceTypes = serviceTypesResponse?.Result || [];
       const typeMap: { [key: string]: string } = {};
       serviceTypes.forEach((t: any) => {
@@ -2889,15 +2903,22 @@ export class CompanyPage implements OnInit, OnDestroy {
     if (!ctx) return;
 
     const config: ChartConfiguration = {
-      type: 'bar',
+      type: 'line',
       data: {
         labels: this.clientProjectsChartData.labels,
         datasets: [{
           label: 'Projects',
           data: this.clientProjectsChartData.values,
-          backgroundColor: '#f15a27',
-          borderRadius: 6,
-          borderSkipped: false
+          borderColor: '#f15a27',
+          backgroundColor: 'rgba(241, 90, 39, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 4,
+          pointBackgroundColor: '#f15a27',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointHoverRadius: 6
         }]
       },
       options: {
@@ -2913,7 +2934,11 @@ export class CompanyPage implements OnInit, OnDestroy {
             grid: { color: 'rgba(0,0,0,0.05)' }
           },
           x: {
-            grid: { display: false }
+            grid: { display: false },
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45
+            }
           }
         }
       }

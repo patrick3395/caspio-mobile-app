@@ -78,6 +78,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   // Subscriptions
   private routeSubscription?: Subscription;
   private localImagesSubscription?: Subscription;
+  private visualFieldsSubscription?: { unsubscribe: () => void };  // Dexie liveQuery subscription
+
+  // Track the last known hudId to detect changes after sync
+  private lastKnownHudId: string = '';
 
   constructor(
     private router: Router,
@@ -106,12 +110,20 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       this.loading = false;
       this.saving = false;
       this.changeDetectorRef.detectChanges();
+    } else {
+      // MOBILE: Reload data when returning to this page (sync may have happened)
+      // This ensures we show fresh data after sync completes
+      if (this.serviceId && this.templateId) {
+        console.log('[HudVisualDetail] ionViewWillEnter MOBILE: Reloading data');
+        this.loadVisualData();
+      }
     }
   }
 
   ngOnDestroy() {
     this.routeSubscription?.unsubscribe();
     this.localImagesSubscription?.unsubscribe();
+    this.visualFieldsSubscription?.unsubscribe();
   }
 
   /**
@@ -384,6 +396,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // Load photos
       await this.loadPhotos();
 
+      // MOBILE: Subscribe to visualField changes to react to sync updates
+      // This ensures the page updates when sync modifies the Dexie field
+      this.subscribeToVisualFieldChanges();
+
     } catch (error) {
       console.error('[HudVisualDetail] Error loading data:', error);
       await this.showToast('Error loading visual data', 'danger');
@@ -391,6 +407,74 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       this.loading = false;
       this.changeDetectorRef.detectChanges();
     }
+  }
+
+  /**
+   * Subscribe to visualField changes via liveQuery
+   * This allows the page to react when sync updates the Dexie field
+   */
+  private subscribeToVisualFieldChanges() {
+    // Only needed for MOBILE mode - WEBAPP loads from server
+    if (environment.isWeb) return;
+
+    // Unsubscribe from previous subscription if exists
+    this.visualFieldsSubscription?.unsubscribe();
+
+    // Store current hudId to detect changes
+    this.lastKnownHudId = this.hudId;
+
+    // Subscribe to visualFields changes for this service/template
+    const observable = liveQuery(() =>
+      db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray()
+    );
+
+    this.visualFieldsSubscription = observable.subscribe({
+      next: async (fields) => {
+        const field = fields.find(f => f.templateId === this.templateId);
+        if (!field) return;
+
+        // Get the current hudId from field (tempVisualId first, then visualId)
+        const currentHudId = field.tempVisualId || field.visualId || '';
+
+        // Check if hudId changed (indicates sync completed and assigned real ID)
+        const hudIdChanged = currentHudId !== this.lastKnownHudId && this.lastKnownHudId !== '';
+
+        // Update item data from field
+        if (field.templateName && this.item) {
+          const newName = field.templateName;
+          const newText = field.templateText || '';
+
+          // Only update if different (avoid unnecessary UI updates)
+          if (this.item.name !== newName || this.item.text !== newText) {
+            console.log('[HudVisualDetail] liveQuery: Field changed, updating item');
+            console.log('[HudVisualDetail] liveQuery: Name:', this.item.name, '->', newName);
+
+            this.item.name = newName;
+            this.item.text = newText;
+            this.editableTitle = newName;
+            this.editableText = newText;
+            this.changeDetectorRef.detectChanges();
+          }
+        }
+
+        // If hudId changed (sync completed), reload photos with correct entityId
+        if (hudIdChanged) {
+          console.log('[HudVisualDetail] liveQuery: HudId changed from', this.lastKnownHudId, 'to', currentHudId, '- reloading photos');
+          this.lastKnownHudId = currentHudId;
+          // Note: Don't set this.hudId here - let loadPhotos() do it from fresh field data
+          await this.loadPhotos();
+          this.changeDetectorRef.detectChanges();
+        }
+      },
+      error: (err) => {
+        console.error('[HudVisualDetail] liveQuery error:', err);
+      }
+    });
+
+    console.log('[HudVisualDetail] Subscribed to visualField changes');
   }
 
   private convertFieldToItem(field: VisualField): VisualItem {
@@ -482,6 +566,9 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // After sync, visualId contains the real ID but photos still have entityId = tempVisualId
       // NOTE: Don't use field.id (Dexie auto-increment) as it's not a valid visual ID
       this.hudId = field?.tempVisualId || field?.visualId || '';
+
+      // Update lastKnownHudId for liveQuery change detection
+      this.lastKnownHudId = this.hudId;
 
       if (!this.hudId) {
         console.log('[HudVisualDetail] MOBILE: No hudId found, cannot load photos');
