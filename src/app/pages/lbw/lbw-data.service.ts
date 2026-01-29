@@ -92,7 +92,7 @@ export class LbwDataService {
       this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
         console.log('[LBW DataService] Background refresh complete:', event.dataType, 'for', event.serviceId);
 
-        if (event.dataType === 'lbw') {
+        if (event.dataType === 'lbw_records') {
           this.lbwCache.delete(event.serviceId);
           console.log('[LBW DataService] Cleared lbwCache for', event.serviceId);
         }
@@ -107,7 +107,7 @@ export class LbwDataService {
       this.indexedDb.imageChange$.subscribe(event => {
         console.log('[LBW DataService] IndexedDB image change:', event.action, event.key, 'entity:', event.entityType, event.entityId);
 
-        if (event.entityType === 'lbw') {
+        if (event.entityType === 'lbw_records') {
           this.lbwAttachmentsCache.clear();
         }
 
@@ -400,8 +400,8 @@ export class LbwDataService {
     // MOBILE MODE: Offline-first with background sync
     console.log('[LBW Data] Creating new LBW record (OFFLINE-FIRST):', lbwData);
 
-    // Generate temporary ID (using 'lbw' prefix for LBW records)
-    const tempId = this.tempId.generateTempId('lbw');
+    // Generate temporary ID (using 'lbw_records' prefix for LBW records)
+    const tempId = this.tempId.generateTempId('lbw_records');
 
     // Create placeholder for immediate UI
     const placeholder = {
@@ -426,10 +426,10 @@ export class LbwDataService {
       priority: 'high',
     });
 
-    // CRITICAL: Cache placeholder to 'lbw' cache for Dexie-first pattern
+    // CRITICAL: Cache placeholder to 'lbw_records' cache for Dexie-first pattern
     const serviceIdStr = String(lbwData.ServiceID);
-    const existingLbwRecords = await this.indexedDb.getCachedServiceData(serviceIdStr, 'lbw') || [];
-    await this.indexedDb.cacheServiceData(serviceIdStr, 'lbw', [...existingLbwRecords, placeholder]);
+    const existingLbwRecords = await this.indexedDb.getCachedServiceData(serviceIdStr, 'lbw_records') || [];
+    await this.indexedDb.cacheServiceData(serviceIdStr, 'lbw_records', [...existingLbwRecords, placeholder]);
     console.log('[LBW Data] ✅ Cached LBW placeholder to Dexie:', tempId);
 
     // Clear in-memory cache
@@ -460,7 +460,7 @@ export class LbwDataService {
       // Queue update for background sync
       if (serviceId) {
         // Update IndexedDB cache immediately with _localUpdate flag
-        const existingLbwRecords = await this.indexedDb.getCachedServiceData(serviceId, 'lbw') || [];
+        const existingLbwRecords = await this.indexedDb.getCachedServiceData(serviceId, 'lbw_records') || [];
         let matchFound = false;
         const updatedRecords = existingLbwRecords.map((v: any) => {
           const vId = String(v.LBWID || v.PK_ID || v._tempId || '');
@@ -472,7 +472,7 @@ export class LbwDataService {
         });
 
         if (matchFound) {
-          await this.indexedDb.cacheServiceData(serviceId, 'lbw', updatedRecords);
+          await this.indexedDb.cacheServiceData(serviceId, 'lbw_records', updatedRecords);
           console.log('[LBW Data] Updated LBW record in IndexedDB cache:', lbwId);
         }
 
@@ -550,7 +550,7 @@ export class LbwDataService {
       // Entity references
       LBWID: lbwIdStr,
       entityId: lbwIdStr,
-      entityType: 'lbw',
+      entityType: 'lbw_records',
       serviceId: effectiveServiceId,
 
       // Content
@@ -652,6 +652,15 @@ export class LbwDataService {
 
     console.log('[LBW Data] ✅ Queued caption update:', attachId, 'captionId:', captionId);
     return captionId;
+  }
+
+  /**
+   * Update photo caption (direct API call for WEBAPP, queued for MOBILE)
+   * Used by lbw-category-detail for inline caption editing
+   */
+  async updateVisualPhotoCaption(attachId: string, caption: string): Promise<void> {
+    console.log('[LBW Data] updateVisualPhotoCaption:', attachId, 'caption:', caption);
+    await this.queueCaptionUpdate(attachId, caption);
   }
 
   /**

@@ -5109,8 +5109,7 @@ Time: ${debugInfo.timestamp}
             text: 'OK',
             role: 'cancel'
           }
-        ],
-        cssClass: 'custom-document-alert'
+        ]
       });
       await alert.present();
     }

@@ -3896,7 +3896,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                   .then(() => {
                     console.log('[CAPTION] Saved caption for photo:', photo.AttachID);
                   })
-                  .catch((error) => {
+                  .catch((error: unknown) => {
                     console.error('[CAPTION] Error saving caption:', error);
                     this.showToast('Caption saved to device, will sync when online', 'warning');
                   });

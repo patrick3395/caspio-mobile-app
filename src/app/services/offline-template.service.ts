@@ -29,7 +29,7 @@ export class OfflineTemplateService {
   // Event emitted when background refresh completes - pages can subscribe to reload their data
   public backgroundRefreshComplete$ = new Subject<{
     serviceId: string;
-    dataType: 'visuals' | 'hud' | 'lbw' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_records' | 'hud_attachments';
+    dataType: 'visuals' | 'hud' | 'lbw_records' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_records' | 'hud_attachments';
   }>();
 
   constructor(
@@ -1713,7 +1713,7 @@ export class OfflineTemplateService {
 
     // MOBILE MODE: Cache-first pattern
     // 1. Read from cache IMMEDIATELY
-    const cached = await this.indexedDb.getCachedServiceData(serviceId, 'lbw') || [];
+    const cached = await this.indexedDb.getCachedServiceData(serviceId, 'lbw_records') || [];
 
     // 2. Merge with pending offline LBW records (if any in queue)
     const pending = await this.getPendingLbwRecords(serviceId);
@@ -1802,7 +1802,7 @@ export class OfflineTemplateService {
       const freshLbw = await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId));
 
       // Get existing cached LBW records to find local updates that should be preserved
-      const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'lbw') || [];
+      const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'lbw_records') || [];
 
       // Check if cache has any LOCAL changes that need protection
       const hasLocalChanges = existingCache.some((item: any) =>
@@ -1819,7 +1819,7 @@ export class OfflineTemplateService {
         // No local changes - clear cache (data was deleted on server)
         console.log(`[OfflineTemplate] API returned empty, no local changes - clearing LBW cache for ${serviceId}`);
         await this.indexedDb.cacheServiceData(serviceId, 'lbw', []);
-        this.backgroundRefreshComplete$.next({ serviceId, dataType: 'lbw' });
+        this.backgroundRefreshComplete$.next({ serviceId, dataType: 'lbw_records' });
         return;
       }
 
@@ -1875,7 +1875,7 @@ export class OfflineTemplateService {
       console.log(`[OfflineTemplate] Background LBW refresh: ${freshLbw.length} server records, ${localUpdates.size} local updates preserved, ${tempLbw.length} temp records for ${serviceId}`);
 
       // Notify pages that fresh data is available
-      this.backgroundRefreshComplete$.next({ serviceId, dataType: 'lbw' });
+      this.backgroundRefreshComplete$.next({ serviceId, dataType: 'lbw_records' });
     } catch (error) {
       console.warn(`[OfflineTemplate] Background LBW refresh failed (non-blocking):`, error);
     }
