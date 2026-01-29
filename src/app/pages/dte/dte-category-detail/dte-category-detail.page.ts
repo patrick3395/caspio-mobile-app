@@ -53,7 +53,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   loading: boolean = false;  // Start false - show cached data instantly, only show spinner if cache empty
   isRefreshing: boolean = false;  // Track background refresh status
   searchTerm: string = '';
-  expandedAccordions: string[] = []; // Start collapsed
+  expandedAccordions: string[] = ['information', 'limitations', 'deficiencies']; // Start expanded like HUD
   organizedData: {
     comments: VisualItem[];
     limitations: VisualItem[];
@@ -120,27 +120,40 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     // Subscribe to background upload task updates
     this.subscribeToUploadUpdates();
 
-    // Get category name from route
-    this.route.params.subscribe(params => {
-      this.categoryName = params['category'];
+    // Get category name from route params using snapshot (for reliability)
+    this.categoryName = this.route.snapshot.params['category'];
+    console.log('[DTE CategoryDetail] Category from route:', this.categoryName);
 
-      // Get IDs from container route
-      // Route structure: hud/:projectId/:serviceId -> category/:category (we are here)
-      // So we need to go up 2 levels to get to container
-      this.route.parent?.parent?.params.subscribe(parentParams => {
-        this.projectId = parentParams['projectId'];
-        this.serviceId = parentParams['serviceId'];
+    // Get IDs from container route using snapshot
+    // DTE route structure: 'dte/:projectId/:serviceId' (Container) -> 'category/:category' (we are here)
+    // So parent has :projectId/:serviceId directly
+    let containerParams = this.route.parent?.snapshot?.params;
+    console.log('[DTE CategoryDetail] Container params (parent):', containerParams);
 
-        console.log('Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+    if (containerParams) {
+      this.projectId = containerParams['projectId'];
+      this.serviceId = containerParams['serviceId'];
+    }
 
-        if (this.projectId && this.serviceId && this.categoryName) {
-          this.loadData();
-        } else {
-          console.error('Missing required route params');
-          this.loading = false;
-        }
-      });
-    });
+    // Fallback: Try parent?.parent for alternate route structures
+    if (!this.projectId || !this.serviceId) {
+      console.log('[DTE CategoryDetail] Trying alternate route structure (parent.parent)...');
+      containerParams = this.route.parent?.parent?.snapshot?.params;
+      console.log('[DTE CategoryDetail] Container params (parent.parent):', containerParams);
+      if (containerParams) {
+        this.projectId = this.projectId || containerParams['projectId'];
+        this.serviceId = this.serviceId || containerParams['serviceId'];
+      }
+    }
+
+    console.log('[DTE CategoryDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+
+    if (this.projectId && this.serviceId && this.categoryName) {
+      this.loadData();
+    } else {
+      console.error('[DTE CategoryDetail] Missing required route params');
+      this.loading = false;
+    }
   }
 
   ionViewWillEnter() {
@@ -382,8 +395,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
       console.log('[LOAD DATA] Final state - visualRecordIds:', this.visualRecordIds);
       console.log('[LOAD DATA] Final state - selectedItems:', this.selectedItems);
 
+      // Ensure all sections are expanded after loading
+      this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
+
       // Hide loading spinner (if it was shown)
       this.loading = false;
+      this.changeDetectorRef.detectChanges();
 
     } catch (error) {
       console.error('[LOAD DATA] ❌ Error loading category data:', error);

@@ -141,25 +141,33 @@ ion-toolbar {
 
   .short-title {
     display: block;
-    padding-top: 0;
-    padding-bottom: 0;
-    --padding-top: 0;
-    --padding-bottom: 0;
   }
 
+  // Center title both vertically and horizontally (matching HUD approach)
   ion-title {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    padding: 0;
-    margin: 0;
+    position: absolute !important;
+    top: 50% !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: translateY(-50%) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    text-align: center !important;
+    height: auto !important;
+
+    // Ensure inner text wrapper is also centered
+    .toolbar-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 
   ion-buttons {
     display: flex;
     align-items: center;
     height: 100%;
+    z-index: 1;
   }
 
   ion-button {

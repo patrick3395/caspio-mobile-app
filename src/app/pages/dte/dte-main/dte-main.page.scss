@@ -187,7 +187,7 @@
   }
 }
 
-// Keep stacked bar layout on all screen sizes
+// Keep single column stacked layout on all screen sizes
 @media (min-width: 768px) {
   .cards-container {
     gap: 10px;
@@ -200,47 +200,15 @@
   }
 }
 
-// ==============================================
-// G2-RESP-002: Desktop Layout Optimizations (Web Only)
-// ==============================================
-
-// Desktop: Wider container and multi-column layout for navigation cards
+// Desktop: Wider container but keep single column layout
 @media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
   .main-container {
-    max-width: 1200px;
+    max-width: 800px;
     padding: 24px;
   }
 
-  // 2-column navigation cards at 1024px+
   .cards-container {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) and (min-width: 1200px) {
-  .main-container {
-    max-width: 1400px;
-    padding: 28px 32px;
-  }
-
-  // 3-column navigation cards at 1200px+
-  .cards-container {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) and (min-width: 1600px) {
-  .main-container {
-    max-width: 1600px;
-  }
-
-  // 4-column navigation cards for very large screens
-  .cards-container {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
+    gap: 12px;
   }
 }
 

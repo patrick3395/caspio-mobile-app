@@ -612,18 +612,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
    */
   private async mergeDexieVisualFields(): Promise<void> {
     try {
-      // Load all Dexie visualFields for this service
-      const dexieFields = await db.visualFields
-        .where('serviceId')
-        .equals(this.serviceId)
-        .toArray();
+      // Load Dexie visualFields for this category using compound index (like HUD)
+      const dexieFields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName);
 
       if (!dexieFields || dexieFields.length === 0) {
-        console.log('[MERGE DEXIE] No Dexie fields found for service:', this.serviceId);
+        console.log('[MERGE DEXIE] No Dexie fields found for category:', this.categoryName);
         return;
       }
 
-      console.log('[MERGE DEXIE] Found', dexieFields.length, 'Dexie fields for service:', this.serviceId);
+      console.log('[MERGE DEXIE] Found', dexieFields.length, 'Dexie fields for category:', this.categoryName);
 
       // Build a map of templateId -> dexieField for quick lookup
       const fieldMap = new Map<number, any>();
@@ -1139,10 +1136,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       const categoryVisuals = (visuals || []).filter((v: any) => v.Category === this.categoryName);
 
       // TITLE EDIT FIX: Load Dexie visualFields FIRST to get templateId -> visualId mappings
-      const dexieFields = await db.visualFields
-        .where('serviceId')
-        .equals(this.serviceId)
-        .toArray();
+      // Use getFieldsForCategory() like HUD does - uses compound index for reliable lookup
+      const dexieFields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName);
 
       // Build templateId -> visualId map from Dexie
       const templateToVisualMap = new Map<number, string>();
@@ -1152,7 +1147,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           templateToVisualMap.set(field.templateId, visualId);
         }
       }
-      console.log(`[LBW CategoryDetail] MOBILE: Built templateId->visualId map with ${templateToVisualMap.size} entries from Dexie`);
+      console.log(`[LBW CategoryDetail] MOBILE: Built templateId->visualId map with ${templateToVisualMap.size} entries from Dexie (category: ${this.categoryName})`);
 
       // Build organized data from templates and visuals
       const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
@@ -1241,9 +1236,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       console.log(`[LBW CategoryDetail] MOBILE: Organized - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
 
       // DEXIE-FIRST: Load VisualFields from Dexie to restore local changes
+      // dexieFields is already filtered by category from getFieldsForCategory() above
       try {
         const dexieFieldMap = new Map<number, any>();
-        for (const field of dexieFields.filter(f => f.category === this.categoryName)) {
+        for (const field of dexieFields) {
           dexieFieldMap.set(field.templateId, field);
         }
 
@@ -1293,7 +1289,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         console.log(`[LBW CategoryDetail] MOBILE: Merged ${dexieFieldMap.size} VisualFields from Dexie`);
 
         // CUSTOM VISUAL FIX: Add custom visuals from Dexie that aren't in organizedData
-        for (const field of dexieFields.filter(f => f.category === this.categoryName)) {
+        // dexieFields is already filtered by category from getFieldsForCategory()
+        for (const field of dexieFields) {
           if (field.templateId < 0 && field.isSelected) {
             const existingItem = allItems.find(item => item.templateId === field.templateId);
             if (!existingItem) {
