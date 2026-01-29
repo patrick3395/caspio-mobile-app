@@ -3,10 +3,13 @@ import { CommonModule } from '@angular/common';
 import { IonicModule, AlertController, LoadingController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { CaspioService } from '../../../services/caspio.service';
+import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { IndexedDbService } from '../../../services/indexed-db.service';
 import { LbwValidationService, IncompleteField } from '../services/lbw-validation.service';
 import { CacheService } from '../../../services/cache.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { environment } from '../../../../environments/environment';
 
 interface NavigationCard {
   title: string;
@@ -25,20 +28,39 @@ interface NavigationCard {
   imports: [CommonModule, IonicModule]
 })
 export class LbwMainPage implements OnInit {
-  cards: NavigationCard[] = [];
+  // DEXIE-FIRST: Initialize cards immediately for instant display
+  cards: NavigationCard[] = [
+    {
+      title: 'Project Details',
+      icon: 'document-text-outline',
+      route: 'project-details',
+      description: '',
+      completed: false
+    },
+    {
+      title: 'Load Bearing Wall',
+      icon: 'construct-outline',
+      route: 'categories',
+      description: '',
+      completed: false
+    }
+  ];
 
   projectId: string = '';
   serviceId: string = '';
-  loading: boolean = true;
+  loading: boolean = false;  // DEXIE-FIRST: Start false for instant display
   canFinalize: boolean = false;
   statusOptions: any[] = [];
   isReportFinalized: boolean = false;
   hasChangesAfterFinalization: boolean = false;
+  private initialLoadComplete: boolean = false;
 
   constructor(
     private router: Router,
     private route: ActivatedRoute,
     private caspioService: CaspioService,
+    private offlineTemplate: OfflineTemplateService,
+    private indexedDb: IndexedDbService,
     private alertController: AlertController,
     private validationService: LbwValidationService,
     private cache: CacheService,
@@ -49,9 +71,6 @@ export class LbwMainPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    // Load status options from Status table
-    await this.loadStatusOptions();
-    
     // Get IDs from parent route (container level)
     // Route structure: lbw/:projectId/:serviceId -> (main hub is here)
     this.route.parent?.params.subscribe(async params => {
@@ -63,62 +82,60 @@ export class LbwMainPage implements OnInit {
 
       if (!this.projectId || !this.serviceId) {
         console.error('[LBW Main] Missing projectId or serviceId');
-        this.loading = false;
         return;
       }
-      
-      // Create main navigation cards
-      this.cards = [
-        {
-          title: 'Project Details',
-          icon: 'document-text-outline',
-          route: 'project-details',
-          description: '',
-          completed: false
-        },
-        {
-          title: 'Load Bearing Wall',
-          icon: 'construct-outline',
-          route: 'categories',
-          description: '',
-          completed: false
-        }
-      ];
-      
-      // Check if report is already finalized
-      await this.checkIfFinalized();
-      
-      // Check if report can be finalized (for button styling)
-      await this.checkCanFinalize();
-      this.loading = false;
+
+      // DEXIE-FIRST: Cards are already initialized in property definition for instant display
+      // Load status options and check finalization in background (non-blocking)
+      this.loadStatusOptions();
+      this.checkIfFinalized();
+      this.checkCanFinalize();
+
+      this.initialLoadComplete = true;
     });
   }
 
   async ionViewWillEnter() {
-    // Refresh finalization status when returning to this page
+    // DEXIE-FIRST: Non-blocking refresh when returning to this page
     if (this.projectId && this.serviceId) {
       // Mark that changes may have been made
       if (this.isReportFinalized) {
         this.hasChangesAfterFinalization = true;
         console.log('[LBW Main] Marked changes after finalization');
       }
-      await this.checkCanFinalize();
+      // Non-blocking - don't await
+      this.checkCanFinalize();
     }
   }
 
   private async checkIfFinalized() {
     if (!this.serviceId) return;
-    
+
     try {
-      const serviceData = await this.caspioService.getServiceById(this.serviceId).toPromise();
-      const status = serviceData?.Status || '';
-      
-      this.isReportFinalized = status === 'Finalized' || 
-                                status === 'Report Finalized' || 
-                                status === 'Updated' || 
-                                status === 'Under Review';
-      
-      console.log('[LBW Main] Report finalized status:', this.isReportFinalized, 'Status:', status);
+      // DEXIE-FIRST: Try to get service from cache first
+      const cachedService = await this.indexedDb.getCachedServiceRecord(this.serviceId);
+      if (cachedService) {
+        const status = cachedService.Status || '';
+        this.isReportFinalized = status === 'Finalized' ||
+                                  status === 'Report Finalized' ||
+                                  status === 'Updated' ||
+                                  status === 'Under Review';
+        console.log('[LBW Main] Report finalized status (from cache):', this.isReportFinalized, 'Status:', status);
+        return;
+      }
+
+      // Fallback to API if not in cache (WEBAPP mode or cache miss)
+      if (environment.isWeb) {
+        const serviceData = await this.caspioService.getServiceById(this.serviceId).toPromise();
+        const status = serviceData?.Status || '';
+
+        this.isReportFinalized = status === 'Finalized' ||
+                                  status === 'Report Finalized' ||
+                                  status === 'Updated' ||
+                                  status === 'Under Review';
+
+        console.log('[LBW Main] Report finalized status (from API):', this.isReportFinalized, 'Status:', status);
+      }
     } catch (error) {
       console.error('[LBW Main] Error checking finalized status:', error);
     }
@@ -126,9 +143,18 @@ export class LbwMainPage implements OnInit {
 
   async loadStatusOptions() {
     try {
+      // DEXIE-FIRST: Try to get status options from cache first
+      const cachedStatus = await this.indexedDb.getCachedGlobalData('status');
+      if (cachedStatus && cachedStatus.length > 0) {
+        this.statusOptions = cachedStatus;
+        console.log('[LBW Main] Loaded status options (from cache):', this.statusOptions.length);
+        return;
+      }
+
+      // Fallback to API if not in cache
       const statusData: any = await this.caspioService.get('/tables/LPS_Status/records').toPromise();
       this.statusOptions = statusData?.Result || [];
-      console.log('[LBW Main] Loaded status options:', this.statusOptions.length);
+      console.log('[LBW Main] Loaded status options (from API):', this.statusOptions.length);
     } catch (error) {
       console.error('[LBW Main] Error loading status options:', error);
     }

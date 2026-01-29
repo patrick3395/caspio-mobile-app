@@ -895,7 +895,7 @@ body.dark-theme .popover-content ion-label {
       &[role="cancel"] {
         color: #333;
         background: #f5f5f5;
-        border: 2px solid #ddd;
+        border: 2px solid var(--noble-orange, #F15A27);
       }
 
       // Action button styling
@@ -1049,7 +1049,7 @@ textarea.styled-input {
 .template-loading-alert .alert-button[role="cancel"] {
   color: #333;
   background: #f5f5f5;
-  border: 2px solid #ddd;
+  border: 2px solid var(--noble-orange, #F15A27);
 }
 
 .template-loading-alert .alert-button:not([role="cancel"]) {
@@ -1139,16 +1139,16 @@ textarea.styled-input {
         justify-content: center;
       }
 
-      // Cancel button styling
+      // Cancel button styling - same orange border as action buttons
       &[role="cancel"] {
         color: #333 !important;
         background: #f5f5f5 !important;
-        border: 2px solid #ddd !important;
+        border: 2px solid var(--noble-orange, #F15A27) !important;
 
         &:hover, &:active, &:focus {
           color: #333 !important;
           background: #f5f5f5 !important;
-          border-color: #ddd !important;
+          border-color: var(--noble-orange, #F15A27) !important;
         }
       }
 
@@ -1293,16 +1293,16 @@ textarea.styled-input {
         }
       }
 
-      // Cancel button - static gray styling
+      // Cancel button - same orange border as action buttons
       &.alert-button-cancel {
         color: #333 !important;
         background: #f5f5f5 !important;
-        border: 2px solid #ddd !important;
+        border: 2px solid var(--noble-orange, #F15A27) !important;
 
         &:hover, &:active, &:focus, &:focus-visible {
           color: #333 !important;
           background: #f5f5f5 !important;
-          border-color: #ddd !important;
+          border-color: var(--noble-orange, #F15A27) !important;
           outline: none !important;
           box-shadow: none !important;
         }
@@ -1328,11 +1328,11 @@ textarea.styled-input {
     border-color: var(--noble-orange, #F15A27) !important;
   }
 
-  // Cancel buttons maintain gray styling on hover
+  // Cancel buttons maintain same orange border on hover
   ion-alert .alert-button[role="cancel"]:hover {
     background: #f5f5f5 !important;
     color: #333 !important;
-    border-color: #ddd !important;
+    border-color: var(--noble-orange, #F15A27) !important;
   }
 }
 
@@ -1397,11 +1397,11 @@ textarea.styled-input {
       justify-content: center;
       transition: all 0.2s ease;
 
-      // Cancel/Close button
+      // Cancel/Close button - same orange border as action buttons
       &[role="cancel"] {
         color: #333;
         background: #f5f5f5;
-        border: 2px solid #ddd;
+        border: 2px solid var(--noble-orange, #F15A27);
       }
 
       // Action buttons (Copy, Open)
@@ -1578,19 +1578,18 @@ textarea.styled-input {
         justify-content: center;
       }
 
-      // Cancel button styling - subtle gray
+      // Cancel button styling - same orange border as action buttons
       &[role="cancel"] {
-        color: #555 !important;
-        background: #f0f0f0 !important;
-        border: 2px solid #ddd;
+        color: #333 !important;
+        background: #f5f5f5 !important;
+        border: 2px solid var(--noble-orange, #F15A27);
       }
 
-      // Save button styling - prominent orange (matches confirmation dialogs)
+      // Save button styling - same as cancel for consistency
       &:not([role="cancel"]) {
-        color: #ffffff !important;
-        background: var(--noble-orange, #F15A27) !important;
+        color: #333 !important;
+        background: #f5f5f5 !important;
         border: 2px solid var(--noble-orange, #F15A27);
-        box-shadow: 0 2px 8px rgba(241, 90, 39, 0.3);
       }
     }
   }
@@ -1651,7 +1650,7 @@ textarea.styled-input {
         &[role="cancel"] {
           color: #ddd !important;
           background: #444 !important;
-          border-color: #555;
+          border-color: var(--noble-orange, #F15A27);
         }
       }
     }
@@ -1972,7 +1971,7 @@ textarea.styled-input {
       &[role="cancel"] {
         color: #333;
         background: #f5f5f5;
-        border: 2px solid #ddd;
+        border: 2px solid var(--noble-orange, #F15A27);
       }
 
       &:not([role="cancel"]) {
