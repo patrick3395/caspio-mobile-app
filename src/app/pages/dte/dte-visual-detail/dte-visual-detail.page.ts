@@ -187,12 +187,21 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     const dteIdFromQueryParams = this.dteId;
 
     try {
-      // WEBAPP MODE: Load from server API
+      // WEBAPP MODE: Load from server API + Dexie for local edits
       if (environment.isWeb) {
         console.log('[DteVisualDetail] WEBAPP MODE: Loading DTE data from server');
         const queryServiceId = this.actualServiceId || this.serviceId;
         const dteRecords = await this.dteData.getVisualsByService(queryServiceId);
         console.log('[DteVisualDetail] WEBAPP: Loaded', dteRecords.length, 'DTE records for ServiceID:', queryServiceId);
+
+        // TITLE EDIT FIX: Load Dexie field for this template to get local edits and DTEID mapping
+        const dexieFields = await db.visualFields
+          .where('serviceId')
+          .equals(this.serviceId)
+          .toArray();
+        const dexieField = dexieFields.find(f => f.templateId === this.templateId);
+        const dexieDteId = dexieField?.visualId || dexieField?.tempVisualId;
+        console.log('[DteVisualDetail] WEBAPP: Dexie field found:', !!dexieField, 'dexieDteId:', dexieDteId);
 
         // Load templates to get the Name and Category for matching
         const templates = (await this.caspioService.getServicesDTETemplates().toPromise()) || [];
@@ -207,11 +216,21 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             String(v.DTEID || v.PK_ID) === String(dteIdFromQueryParams)
           );
           if (visual) {
-            console.log('[DteVisualDetail] WEBAPP: Matched DTE record by DTEID:', dteIdFromQueryParams);
+            console.log('[DteVisualDetail] WEBAPP: Matched DTE record by DTEID from query:', dteIdFromQueryParams);
           }
         }
 
-        // PRIORITY 2: Fall back to Name + Category matching
+        // PRIORITY 2: Find by DTEID from Dexie mapping
+        if (!visual && dexieDteId) {
+          visual = dteRecords.find((v: any) =>
+            String(v.DTEID || v.PK_ID) === String(dexieDteId)
+          );
+          if (visual) {
+            console.log('[DteVisualDetail] WEBAPP: Matched DTE record by Dexie mapping:', dexieDteId);
+          }
+        }
+
+        // PRIORITY 3: Fall back to Name + Category matching
         if (!visual && template && template.Name) {
           visual = dteRecords.find((v: any) =>
             v.Name === template.Name && v.Category === template.Category
@@ -223,11 +242,14 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
         if (visual) {
           const actualCategory = visual.Category || '';
+          // DEXIE-FIRST: Use Dexie templateName/templateText if available (local edits)
+          const titleValue = dexieField?.templateName || visual.Name || '';
+          const textValue = dexieField?.templateText || visual.Text || '';
           this.item = {
             id: visual.DTEID || visual.PK_ID,
             templateId: this.templateId,
-            name: visual.Name || '',
-            text: visual.Text || '',
+            name: titleValue,
+            text: textValue,
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',
             category: actualCategory,
@@ -241,27 +263,33 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
           console.log('[DteVisualDetail] WEBAPP: Loaded DTE record:', this.item.name, 'DTEID:', this.dteId);
-        } else if (template) {
-          console.log('[DteVisualDetail] WEBAPP: DTE record not found, using template data');
-          const effectiveTemplateId = template.TemplateID || template.PK_ID;
-          const actualCategory = template.Category || '';
+        } else if (dexieField || template) {
+          // No DTE record found - use Dexie field or template data
+          console.log('[DteVisualDetail] WEBAPP: DTE record not found, using Dexie/template data');
+          const effectiveTemplateId = template?.TemplateID || template?.PK_ID || this.templateId;
+          const actualCategory = dexieField?.category || template?.Category || '';
+          const titleValue = dexieField?.templateName || template?.Name || '';
+          const textValue = dexieField?.templateText || template?.Text || '';
           this.item = {
-            id: effectiveTemplateId,
+            id: dexieDteId || effectiveTemplateId,
             templateId: effectiveTemplateId,
-            name: template.Name || '',
-            text: template.Text || '',
-            originalText: template.Text || '',
-            type: template.Kind || 'Comment',
+            name: titleValue,
+            text: textValue,
+            originalText: template?.Text || '',
+            type: dexieField?.kind || template?.Kind || 'Comment',
             category: actualCategory,
-            answerType: template.AnswerType || 0,
+            answerType: template?.AnswerType || 0,
             required: false,
-            isSelected: false
+            isSelected: !!dexieField?.isSelected
           };
           this.categoryName = actualCategory;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
 
-          if (dteIdFromQueryParams) {
+          if (dexieDteId) {
+            this.dteId = dexieDteId;
+            console.log('[DteVisualDetail] WEBAPP: Using DTEID from Dexie for photos:', this.dteId);
+          } else if (dteIdFromQueryParams) {
             this.dteId = dteIdFromQueryParams;
             console.log('[DteVisualDetail] WEBAPP: Using DTEID from query params for photos:', this.dteId);
           }
@@ -431,26 +459,44 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         const attachments = await this.dteData.getVisualAttachments(this.dteId);
         console.log('[DteVisualDetail] WEBAPP: Found', attachments?.length || 0, 'attachments');
 
+        // Load cached annotated images FIRST (annotations may not have synced to server yet)
+        const annotatedImagesMap = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+        console.log('[DteVisualDetail] WEBAPP: Loaded', annotatedImagesMap.size, 'cached annotated images');
+
         this.photos = [];
         for (const att of attachments || []) {
+          const attachId = String(att.AttachID || att.attachId || att.PK_ID);
           let displayUrl = att.Attachment || att.Photo || att.url || 'assets/img/photo-placeholder.svg';
+          let originalUrl = displayUrl;
 
           if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
             try {
               displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
+              originalUrl = displayUrl; // Save the original S3 URL for re-annotation
             } catch (e) {
               console.warn('[DteVisualDetail] WEBAPP: Could not get S3 URL:', e);
             }
           }
 
+          // Check for cached annotated image FIRST (catches local-only annotations)
+          const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+          let hasAnnotations = hasServerAnnotations;
+          const cachedAnnotated = annotatedImagesMap.get(attachId);
+
+          if (cachedAnnotated) {
+            console.log('[DteVisualDetail] WEBAPP: Using cached annotated image for', attachId);
+            displayUrl = cachedAnnotated;
+            hasAnnotations = true;
+          }
+
           this.photos.push({
-            id: att.AttachID || att.attachId || att.PK_ID,
+            id: attachId,
             displayUrl,
-            originalUrl: displayUrl,
+            originalUrl: originalUrl, // Keep original for re-annotation
             caption: att.Annotation || att.caption || '',
             uploading: false,
             isLocal: false,
-            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            hasAnnotations,
             drawings: att.Drawings || ''
           });
         }

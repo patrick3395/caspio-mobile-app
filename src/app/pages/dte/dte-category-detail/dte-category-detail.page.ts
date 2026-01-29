@@ -170,7 +170,50 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         await this.loadPhotosFromAPI();
       }
 
+      // CRITICAL: Refresh annotated image URLs after loading photos
+      // This ensures annotations added in visual-detail show in category-detail thumbnails
+      await this.refreshAnnotatedImageUrls();
+
       this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  /**
+   * Refresh annotated image URLs for photos that have annotations
+   * This ensures thumbnails show the annotated version, not the base image
+   * CRITICAL: Called on ionViewWillEnter to sync annotations from visual-detail page
+   */
+  private async refreshAnnotatedImageUrls(): Promise<void> {
+    // First, refresh the bulkAnnotatedImagesMap from IndexedDB
+    const annotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+    this.bulkAnnotatedImagesMap = annotatedImages;
+
+    console.log(`[DTE CategoryDetail] Loaded ${annotatedImages.size} cached annotated images`);
+
+    // Update in-memory photos with annotated image URLs
+    for (const [key, photos] of Object.entries(this.visualPhotos)) {
+      for (const photo of photos as any[]) {
+        // Check if this photo has annotations (from cache OR from server)
+        const hasAnnotations = photo.hasAnnotations || (photo.Drawings && photo.Drawings.length > 10);
+
+        // Try to find cached annotated image by various IDs
+        const attachId = photo.AttachID || photo.attachId || photo.id || '';
+        const localImageId = photo.localImageId || photo.imageId;
+
+        let annotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
+        if (!annotatedImage && localImageId) {
+          annotatedImage = this.bulkAnnotatedImagesMap.get(localImageId);
+        }
+
+        // If found cached annotated image, use it for display
+        if (annotatedImage) {
+          console.log(`[DTE CategoryDetail] Applying cached annotated image for ${attachId || localImageId}`);
+          photo.displayUrl = annotatedImage;
+          photo.thumbnailUrl = annotatedImage;
+          photo.hasAnnotations = true;
+          // Keep photo.url as original for re-editing
+        }
+      }
     }
   }
 
@@ -919,11 +962,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
 
-          // WEBAPP FIX: Check for cached annotated image
-          // IMPORTANT: Only use cached image if server confirms photo has annotations
-          // This prevents showing wrong annotated image if cache has stale data from deleted/replaced photos
+          // WEBAPP FIX: Always check for cached annotated image
+          // IMPORTANT: Check cache FIRST because local annotations may not have synced to server yet
+          // This catches annotations added in visual-detail that haven't synced to server
           const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
-          if (cachedAnnotated && hasServerAnnotations) {
+          if (cachedAnnotated) {
             thumbnailUrl = cachedAnnotated;
             hasAnnotations = true;
             console.log(`[DTE] WEBAPP: Using cached annotated image for ${attachId}`);
