@@ -358,6 +358,12 @@ export class LbwDataService {
    * Create LBW record - OFFLINE-FIRST with background sync
    */
   async createVisual(lbwData: any): Promise<any> {
+    // DEBUG: Log which mode we're in
+    console.log('[LBW Data] ========== createVisual PATH DETECTION ==========');
+    console.log('[LBW Data] environment.isWeb:', environment.isWeb);
+    console.log('[LBW Data] Path:', environment.isWeb ? 'WEBAPP (API)' : 'MOBILE (OFFLINE-FIRST)');
+    console.log('[LBW Data] ===================================================');
+
     // WEBAPP MODE: Create directly via API (no local storage)
     if (environment.isWeb) {
       console.log('[LBW Data] WEBAPP: Creating LBW record directly via API:', lbwData);
@@ -555,6 +561,12 @@ export class LbwDataService {
    * Uses stable UUIDs that never change, preventing image disappearance during sync.
    */
   async uploadVisualPhoto(lbwId: number | string, file: File, caption: string = '', drawings?: string, originalFile?: File, serviceId?: string): Promise<any> {
+    console.log('[LBW Photo] ========== uploadVisualPhoto START ==========');
+    console.log('[LBW Photo] LBWID:', lbwId);
+    console.log('[LBW Photo] ServiceID:', serviceId);
+    console.log('[LBW Photo] File size:', file?.size, 'bytes');
+    console.log('[LBW Photo] Has drawings:', !!drawings);
+    console.log('[LBW Photo] =============================================');
     console.log('[LBW Photo] LOCAL-FIRST upload via LocalImageService for LBWID:', lbwId, 'ServiceID:', serviceId);
 
     const lbwIdStr = String(lbwId);

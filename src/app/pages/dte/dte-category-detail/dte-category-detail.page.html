@@ -164,7 +164,7 @@
                   <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
                   <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
                 </button>
-                <button class="action-btn" (click)="showFullText(item); $event.stopPropagation()">
+                <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
                   <ion-icon name="arrow-forward"></ion-icon>
                   <span>Details</span>
                 </button>
@@ -264,7 +264,7 @@
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
                 <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
               </button>
-              <button class="action-btn" (click)="showFullText(item); $event.stopPropagation()">
+              <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
                 <ion-icon name="arrow-forward"></ion-icon>
                 <span>Details</span>
               </button>
@@ -437,7 +437,7 @@
                   <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
                   <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
                 </button>
-                <button class="action-btn" (click)="showFullText(item); $event.stopPropagation()">
+                <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
                   <ion-icon name="arrow-forward"></ion-icon>
                   <span>Details</span>
                 </button>
@@ -537,7 +537,7 @@
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
                 <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
               </button>
-              <button class="action-btn" (click)="showFullText(item); $event.stopPropagation()">
+              <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
                 <ion-icon name="arrow-forward"></ion-icon>
                 <span>Details</span>
               </button>
@@ -705,7 +705,7 @@
                   <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
                   <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
                 </button>
-                <button class="action-btn" (click)="showFullText(item); $event.stopPropagation()">
+                <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
                   <ion-icon name="arrow-forward"></ion-icon>
                   <span>Details</span>
                 </button>
@@ -805,7 +805,7 @@
                 <ion-icon [name]="isPhotosExpanded(categoryName, item.id) ? 'chevron-up' : 'eye'"></ion-icon>
                 <span>View ({{ getTotalPhotoCount(categoryName, item.id) }})</span>
               </button>
-              <button class="action-btn" (click)="showFullText(item); $event.stopPropagation()">
+              <button class="action-btn" (click)="openVisualDetail(categoryName, item); $event.stopPropagation()">
                 <ion-icon name="arrow-forward"></ion-icon>
                 <span>Details</span>
               </button>

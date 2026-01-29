@@ -16,6 +16,7 @@ import { BackgroundPhotoUploadService } from '../../../services/background-photo
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { environment } from '../../../../environments/environment';
+import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 
 interface VisualItem {
   id: string | number;
@@ -815,6 +816,16 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   private async loadPhotosFromAPI(): Promise<void> {
     console.log('[DTE] WEBAPP MODE: Loading photos from API...');
 
+    // WEBAPP FIX: Load cached annotated images FIRST for thumbnail display
+    if (this.bulkAnnotatedImagesMap.size === 0) {
+      try {
+        this.bulkAnnotatedImagesMap = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+        console.log(`[DTE] WEBAPP: Loaded ${this.bulkAnnotatedImagesMap.size} cached annotated images`);
+      } catch (e) {
+        console.warn('[DTE] WEBAPP: Failed to load annotated images cache:', e);
+      }
+    }
+
     // Get all visual IDs that have been selected
     for (const [key, dteId] of Object.entries(this.visualRecordIds)) {
       if (!dteId) continue;
@@ -847,16 +858,49 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           }
 
           const attachId = String(att.AttachID || att.attachId || att.PK_ID);
-          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+          const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+          let thumbnailUrl = displayUrl;
+          let hasAnnotations = hasServerAnnotations;
+
+          // WEBAPP FIX: ALWAYS check for cached annotated image first
+          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
+          if (cachedAnnotated) {
+            thumbnailUrl = cachedAnnotated;
+            hasAnnotations = true;
+            console.log(`[DTE] WEBAPP: Using cached annotated image for ${attachId}`);
+          } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+            // No cached image but server has Drawings - render annotations on the fly
+            try {
+              console.log(`[DTE] WEBAPP: Rendering annotations for ${attachId}...`);
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                thumbnailUrl = renderedUrl;
+                // Cache in memory for immediate use
+                this.bulkAnnotatedImagesMap.set(attachId, renderedUrl);
+                // Also persist to IndexedDB (convert data URL to blob first)
+                try {
+                  const response = await fetch(renderedUrl);
+                  const blob = await response.blob();
+                  await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+                } catch (cacheErr) {
+                  console.warn('[DTE] WEBAPP: Failed to cache annotated image:', cacheErr);
+                }
+                console.log(`[DTE] WEBAPP: Rendered and cached annotations for ${attachId}`);
+              }
+            } catch (renderErr) {
+              console.warn(`[DTE] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
+            }
+          }
 
           photos.push({
             id: attachId,
             attachId: attachId,
             AttachID: attachId,
-            displayUrl: displayUrl,
-            url: displayUrl,
-            thumbnailUrl: displayUrl,
-            originalUrl: displayUrl,
+            displayUrl: thumbnailUrl,   // Use annotated if available
+            url: displayUrl,            // Original S3 URL
+            thumbnailUrl: thumbnailUrl, // Use annotated if available
+            originalUrl: displayUrl,    // Original for re-annotation
             caption: att.Annotation || att.caption || '',
             annotation: att.Annotation || '',
             Annotation: att.Annotation || '',
@@ -3629,6 +3673,22 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
       console.error('[CREATE CUSTOM] Error:', error);
       await this.showToast('Failed to create custom item', 'danger');
     }
+  }
+
+  /**
+   * Navigate to visual detail page (same pattern as HUD)
+   * Visual-detail will determine DTEID from Dexie field lookup (tempVisualId || visualId)
+   */
+  openVisualDetail(categoryName: string, item: VisualItem) {
+    console.log('[DTE CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName);
+    // Route: visual/:templateId (relative to current category route)
+    // NOTE: Do NOT pass DTEID - visual-detail must look it up from Dexie to get correct entityId for photos
+    this.router.navigate(
+      ['visual', item.templateId],
+      {
+        relativeTo: this.route.parent
+      }
+    );
   }
 }
 

@@ -1,0 +1,466 @@
+// ===========================================
+// DTE VISUAL DETAIL PAGE - FULL-SCREEN LAYOUT
+// ===========================================
+
+.page-container {
+  padding: 0;
+  margin: 0;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+
+// ===========================================
+// LOADING STATE
+// ===========================================
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: #666;
+  background: white;
+
+  ion-spinner {
+    margin-bottom: 16px;
+    --color: var(--ion-color-primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+// ===========================================
+// CONTENT SECTION
+// ===========================================
+.content-section {
+  padding: 0;
+}
+
+// ===========================================
+// EDIT SECTIONS
+// ===========================================
+.edit-section {
+  background: white;
+  padding: 16px;
+  margin-bottom: 8px;
+  position: relative;
+
+  .section-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .edit-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #333;
+    background: #fafafa;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    font-family: inherit;
+
+    &:focus {
+      outline: none;
+      border-color: var(--ion-color-primary);
+      background: white;
+    }
+
+    &::placeholder {
+      color: #999;
+    }
+
+  }
+
+  .title-input {
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .text-input {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.5;
+  }
+}
+
+// ===========================================
+// PHOTOS SECTION
+// ===========================================
+.photos-section {
+  background: white;
+  padding: 16px;
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+
+    .section-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 0;
+    }
+  }
+}
+
+// ===========================================
+// ACTION BUTTON GRID
+// ===========================================
+.action-button-grid {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  justify-content: center;
+  flex-wrap: wrap;
+
+  .action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+    height: 64px;
+    padding: 12px 20px;
+    background: #bdbdbd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    gap: 6px;
+
+    ion-icon {
+      font-size: 24px;
+    }
+
+    span {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    &:active {
+      transform: scale(0.95);
+      background: #8e8e8e;
+    }
+  }
+}
+
+// ===========================================
+// IMAGE PREVIEW SECTION
+// ===========================================
+.image-preview-section {
+  padding: 16px 0 0 0;
+
+  .image-preview-container {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    align-items: start;
+    width: 100% !important;
+
+    .image-preview.structural-photo-preview {
+      position: relative !important;
+      width: 100% !important;
+      display: block !important;
+      overflow: visible !important;
+      margin: 0 !important;
+      padding-bottom: 32px !important;
+      background: transparent !important;
+      box-sizing: border-box !important;
+
+      &.uploading img {
+        opacity: 0.6;
+      }
+
+      img.loading {
+        opacity: 0.6;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 0.4; }
+      }
+
+      .upload-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+
+        ion-spinner {
+          --color: var(--ion-color-primary);
+        }
+      }
+
+      img {
+        width: 100% !important;
+        aspect-ratio: 1 / 1 !important;
+        height: auto !important;
+        border-radius: 16px !important;
+        object-fit: cover !important;
+        display: block !important;
+        border: 2px solid #ddd !important;
+        cursor: pointer;
+        background: #f5f5f5;
+      }
+
+      .delete-btn {
+        position: absolute !important;
+        top: 4px !important;
+        right: 4px !important;
+        width: 24px !important;
+        height: 24px !important;
+        border-radius: 6px !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 1px solid #ccc !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+        z-index: 1000 !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+        transition: all 0.15s ease !important;
+        padding: 0 !important;
+
+        ion-icon {
+          font-size: 14px !important;
+          color: #666 !important;
+        }
+
+        &:hover {
+          background: #dc3545 !important;
+          border-color: #dc3545 !important;
+
+          ion-icon {
+            color: white !important;
+          }
+        }
+
+        &:active {
+          transform: scale(0.95) !important;
+        }
+      }
+
+      .room-photo-caption {
+        width: 100% !important;
+        padding: 6px 8px !important;
+        font-size: 11px !important;
+        text-align: center !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 6px !important;
+        background: white !important;
+        color: #666 !important;
+        margin-top: 6px !important;
+        display: block !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+        cursor: pointer;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        &:focus {
+          outline: none !important;
+          border-color: var(--ion-color-primary) !important;
+          background: #fffbf8 !important;
+        }
+      }
+    }
+  }
+}
+
+// ===========================================
+// NO PHOTOS MESSAGE
+// ===========================================
+.no-photos-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #999;
+  text-align: center;
+
+  ion-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    color: #ccc;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+// ===========================================
+// LOADING PHOTOS
+// ===========================================
+.loading-photos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: #666;
+  font-size: 14px;
+
+  ion-spinner {
+    --color: var(--ion-color-primary);
+    width: 20px;
+    height: 20px;
+  }
+}
+
+// ===========================================
+// NO ITEM MESSAGE
+// ===========================================
+.no-item-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: #666;
+  text-align: center;
+  background: white;
+
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    color: #ccc;
+  }
+
+  p {
+    margin: 0 0 20px 0;
+    font-size: 16px;
+  }
+
+  .back-link {
+    background: #bdbdbd;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:active {
+      background: #8e8e8e;
+    }
+  }
+}
+
+// ===========================================
+// RESPONSIVE
+// ===========================================
+@media (max-width: 768px) {
+  .edit-section {
+    padding: 14px;
+  }
+
+  .photos-section {
+    padding: 14px;
+  }
+
+  .action-button-grid {
+    gap: 10px;
+
+    .action-btn {
+      min-width: 90px;
+      height: 56px;
+      padding: 10px 16px;
+    }
+  }
+
+  .image-preview-section {
+    .image-preview-container {
+      gap: 6px !important;
+    }
+  }
+}
+
+// ===========================================
+// LAZY IMAGE LOADING STYLES
+// ===========================================
+.lazy-image {
+  transition: opacity 0.3s ease-in-out, filter 0.3s ease-in-out;
+
+  &.lazy-loading {
+    opacity: 0.6;
+    filter: blur(2px);
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: lazy-shimmer 1.5s ease-in-out infinite;
+  }
+
+  &.lazy-loaded {
+    opacity: 1;
+    filter: none;
+  }
+
+  &.lazy-error {
+    opacity: 0.8;
+    filter: grayscale(50%);
+  }
+}
+
+@keyframes lazy-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+// ===========================================
+// WEBAPP: Smaller photo thumbnails (6 columns)
+// ===========================================
+@media (hover: hover) and (pointer: fine) {
+  .image-preview-section {
+    .image-preview-container {
+      grid-template-columns: repeat(6, 1fr) !important;
+      gap: 10px !important;
+
+      .image-preview.structural-photo-preview {
+        padding-bottom: 24px !important;
+
+        .delete-btn {
+          width: 20px !important;
+          height: 20px !important;
+
+          ion-icon {
+            font-size: 12px !important;
+          }
+        }
+
+        .room-photo-caption {
+          font-size: 9px !important;
+          padding: 3px 4px !important;
+        }
+      }
+    }
+  }
+}

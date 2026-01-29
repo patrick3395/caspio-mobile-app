@@ -89,7 +89,7 @@ export class DteContainerPage implements OnInit {
     // URL format: /hud/{projectId}/{serviceId}/...
 
     // Check if we're on a sub-page (not the main DTE hub)
-    this.isSubPage = url.includes('/project-details') || url.includes('/category/');
+    this.isSubPage = url.includes('/project-details') || url.includes('/category/') || url.includes('/visual/');
 
     if (this.isSubPage) {
       // Add DTE main page as first breadcrumb when on sub-pages
@@ -123,6 +123,18 @@ export class DteContainerPage implements OnInit {
       });
       this.currentPageTitle = categoryName;
       this.currentPageShortTitle = categoryName;
+    }
+
+    // Check for visual detail (must be after category check)
+    const visualMatch = url.match(/\/visual\/([^\/]+)/);
+    if (visualMatch && categoryMatch) {
+      this.breadcrumbs.push({
+        label: 'Visual Detail',
+        path: `category/${categoryMatch[1]}/visual/${visualMatch[1]}`,
+        icon: 'image-outline'
+      });
+      this.currentPageTitle = 'Visual Detail';
+      this.currentPageShortTitle = 'Visual';
     }
 
     // G2-SEO-001: Update page title with project address and current section
@@ -168,8 +180,16 @@ export class DteContainerPage implements OnInit {
     // Mobile fallback: Navigate up one level in the folder tree hierarchy
     const url = this.router.url;
 
-    // Check if we're on a category detail page
-    if (url.includes('/category/')) {
+    // IMPORTANT: Check for /visual/ first since it also contains /category/
+    if (url.includes('/category/') && url.includes('/visual/')) {
+      // On visual-detail page - navigate back to category-detail page
+      const categoryMatch = url.match(/\/category\/([^\/]+)/);
+      if (categoryMatch) {
+        this.router.navigate(['/dte', this.projectId, this.serviceId, 'category', categoryMatch[1]]);
+      } else {
+        this.router.navigate(['/dte', this.projectId, this.serviceId]);
+      }
+    } else if (url.includes('/category/')) {
       // Navigate to categories list page
       this.router.navigate(['/dte', this.projectId, this.serviceId, 'categories']);
     } else if (url.includes('/categories')) {

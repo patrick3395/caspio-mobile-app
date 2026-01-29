@@ -3346,6 +3346,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           }
 
           if (!visualId) {
+            // DEBUG ALERT: visualId not obtained
+            alert(`[LBW DEBUG 0] FAILED TO GET visualId\n\nkey: ${key}\nitem found: ${!!item}\nvisualRecordIds[key]: ${this.visualRecordIds[key]}`);
             console.error('[CAMERA UPLOAD] Failed to create visual record');
             return;
           }
@@ -3370,8 +3372,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           // MOBILE MODE: Local-first with background sync
           // ============================================
 
+          // DEBUG ALERT: Show which path we're taking on mobile device
+          alert(`[LBW DEBUG 1] PATH DETECTION\n\nenvironment.isWeb: ${environment.isWeb}\nvisualId: ${visualId}\nkey: ${key}\n\nPath: ${environment.isWeb ? 'WEBAPP' : 'MOBILE'}`);
+
           // WEBAPP MODE: Upload directly to S3
           if (environment.isWeb) {
+            alert('[LBW DEBUG 2] Going to WEBAPP path - Direct S3 upload');
             console.log('[CAMERA UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
 
             // Initialize photo array if it doesn't exist
@@ -3485,6 +3491,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           // Photos sync silently in background via BackgroundSyncService
           // ============================================
 
+          // DEBUG ALERT: Confirm we're in MOBILE path
+          alert(`[LBW DEBUG 3] MOBILE PATH\n\nStarting DEXIE-FIRST capture\nvisualId: ${visualId}\nserviceId: ${this.serviceId}`);
+
           console.log('[CAMERA UPLOAD] MOBILE MODE: Starting DEXIE-FIRST capture for visualId:', visualId);
 
           // RACE CONDITION FIX: Suppress liveQuery during camera capture
@@ -3517,8 +3526,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
               caption,
               compressedDrawings
             );
+            // DEBUG ALERT: captureImage succeeded
+            alert(`[LBW DEBUG 4] captureImage SUCCESS\n\nimageId: ${localImage.imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId}\nentityId: ${localImage.entityId}`);
             console.log('[CAMERA UPLOAD] Created LocalImage with stable ID:', localImage.imageId, 'status:', localImage.status);
           } catch (captureError: any) {
+            // DEBUG ALERT: captureImage failed
+            alert(`[LBW DEBUG 4] captureImage FAILED\n\nError: ${captureError?.message || captureError}`);
             console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
             this.isCameraCaptureInProgress = false;
             throw captureError;
@@ -3621,6 +3634,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
           // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
           this.isCameraCaptureInProgress = false;
+
+          // DEBUG ALERT: Photo added to UI
+          alert(`[LBW DEBUG 5] PHOTO ADDED TO UI\n\nkey: ${key}\nimageId: ${localImage.imageId}\ndisplayUrl type: ${displayUrl?.startsWith('blob:') ? 'BLOB' : displayUrl?.startsWith('data:') ? 'DATA' : 'PLACEHOLDER'}\nTotal photos: ${this.visualPhotos[key]?.length || 0}`);
 
           console.log('[CAMERA UPLOAD] MOBILE: Photo capture complete');
           console.log('  key:', key);
