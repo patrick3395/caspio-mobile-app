@@ -4,6 +4,7 @@
     <ion-title>{{ isCompanyOne ? 'Noble Management' : 'Company' }}</ion-title>
     <ion-buttons slot="end">
       <button
+        *ngIf="!isWeb && isCompanyOne"
         type="button"
         class="toolbar-btn"
         (click)="resetAppMemory()"

@@ -1327,6 +1327,98 @@ textarea.styled-input {
   }
 }
 
+// Link URL Alert - for displaying external links on mobile
+.link-url-alert {
+  --backdrop-opacity: 0.55;
+
+  .alert-wrapper {
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+    padding: 24px 0 12px;
+    min-width: min(380px, 90vw);
+    max-width: 420px;
+  }
+
+  .alert-head {
+    padding: 8px 24px 16px;
+
+    .alert-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #333333;
+      text-align: center;
+      letter-spacing: 0.01em;
+    }
+  }
+
+  .alert-message {
+    padding: 0 24px 20px;
+    color: #666666;
+    font-size: 14px;
+    text-align: center;
+    line-height: 1.5;
+    word-break: break-all;
+
+    strong {
+      display: block;
+      margin-top: 8px;
+      padding: 12px;
+      background: #f5f5f5;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #0066cc;
+      font-weight: 500;
+    }
+  }
+
+  .alert-button-group {
+    padding: 12px 24px 20px;
+    gap: 10px;
+    justify-content: stretch;
+    display: flex;
+    flex-wrap: wrap;
+
+    .alert-button {
+      flex: 1 1 calc(50% - 5px);
+      min-width: 100px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      border-radius: 999px;
+      border: none;
+      padding: 12px 16px;
+      text-transform: uppercase;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+
+      // Cancel/Close button
+      &[role="cancel"] {
+        color: #333;
+        background: #f5f5f5;
+        border: 2px solid #ddd;
+
+        &:hover {
+          background: #e8e8e8;
+        }
+      }
+
+      // Action buttons (Copy, Open)
+      &:not([role="cancel"]) {
+        color: #333;
+        background: #f5f5f5;
+        border: 2px solid var(--noble-orange, #F15A27);
+
+        &:hover {
+          background: #fff5f0;
+        }
+      }
+    }
+  }
+}
+
 // Edit Address Alert - styled to match confirmation dialog theme
 .edit-address-alert {
   --backdrop-opacity: 0.55;

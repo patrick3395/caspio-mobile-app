@@ -53,11 +53,9 @@
           </label>
           <div class="multi-select-container-inline">
             <div class="multi-select-options-inline">
-              <div class="option-item-inline" *ngFor="let option of inAttendanceOptions">
-                <ion-checkbox
-                  [checked]="isInAttendanceSelected(option)"
-                  (ionChange)="onInAttendanceToggle(option, $event)">
-                </ion-checkbox>
+              <div class="option-item-inline" *ngFor="let option of inAttendanceOptions"
+                   (click)="onInAttendanceToggle(option, { detail: { checked: !isInAttendanceSelected(option) } })">
+                <ion-checkbox [checked]="isInAttendanceSelected(option)"></ion-checkbox>
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>
@@ -326,11 +324,9 @@
           </label>
           <div class="multi-select-container-inline">
             <div class="multi-select-options-inline">
-              <div class="option-item-inline" *ngFor="let option of secondFoundationRoomsOptions">
-                <ion-checkbox
-                  [checked]="isSecondFoundationRoomsSelected(option)"
-                  (ionChange)="onSecondFoundationRoomsToggle(option, $event)">
-                </ion-checkbox>
+              <div class="option-item-inline" *ngFor="let option of secondFoundationRoomsOptions"
+                   (click)="onSecondFoundationRoomsToggle(option, { detail: { checked: !isSecondFoundationRoomsSelected(option) } })">
+                <ion-checkbox [checked]="isSecondFoundationRoomsSelected(option)"></ion-checkbox>
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>
@@ -385,11 +381,9 @@
           </label>
           <div class="multi-select-container-inline">
             <div class="multi-select-options-inline">
-              <div class="option-item-inline" *ngFor="let option of thirdFoundationRoomsOptions">
-                <ion-checkbox
-                  [checked]="isThirdFoundationRoomsSelected(option)"
-                  (ionChange)="onThirdFoundationRoomsToggle(option, $event)">
-                </ion-checkbox>
+              <div class="option-item-inline" *ngFor="let option of thirdFoundationRoomsOptions"
+                   (click)="onThirdFoundationRoomsToggle(option, { detail: { checked: !isThirdFoundationRoomsSelected(option) } })">
+                <ion-checkbox [checked]="isThirdFoundationRoomsSelected(option)"></ion-checkbox>
                 <ion-label>{{ option }}</ion-label>
               </div>
             </div>

@@ -5,18 +5,23 @@
 </ion-header>
 
 <ion-content>
-  <!-- Tab Segment -->
-  <ion-segment [(ngModel)]="selectedTab" mode="ios" class="help-tabs">
-    <ion-segment-button value="help">
-      <ion-label>Help</ion-label>
-    </ion-segment-button>
-    <ion-segment-button value="onboarding">
-      <ion-label>Onboarding</ion-label>
-    </ion-segment-button>
-    <ion-segment-button value="reports">
-      <ion-label>Sample Reports</ion-label>
-    </ion-segment-button>
-  </ion-segment>
+  <!-- Tab Buttons (matching Company page style) -->
+  <div class="tab-container">
+    <div class="tab-button-grid">
+      <button class="tab-button" [class.active]="selectedTab === 'help'" (click)="selectedTab = 'help'">
+        <ion-icon name="help-circle-outline"></ion-icon>
+        <span>Help</span>
+      </button>
+      <button class="tab-button" [class.active]="selectedTab === 'onboarding'" (click)="selectedTab = 'onboarding'">
+        <ion-icon name="school-outline"></ion-icon>
+        <span>Onboarding</span>
+      </button>
+      <button class="tab-button" [class.active]="selectedTab === 'reports'" (click)="selectedTab = 'reports'">
+        <ion-icon name="document-text-outline"></ion-icon>
+        <span>Sample Reports</span>
+      </button>
+    </div>
+  </div>
 
   <!-- Help Tab Content -->
   <div *ngIf="selectedTab === 'help'">

@@ -236,18 +236,32 @@
       align-items: center;
       gap: 8px;
       min-width: 120px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background-color: rgba(var(--ion-color-primary-rgb, 66, 140, 255), 0.08);
+      }
+
+      &:active {
+        background-color: rgba(var(--ion-color-primary-rgb, 66, 140, 255), 0.15);
+      }
 
       ion-checkbox {
         --size: 20px;
         --checkbox-background-checked: var(--ion-color-primary);
         --border-color-checked: var(--ion-color-primary);
         margin: 0;
+        pointer-events: none;
       }
 
       ion-label {
         font-size: 14px;
         color: #333;
         margin: 0;
+        user-select: none;
       }
     }
   }

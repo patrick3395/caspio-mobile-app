@@ -2900,10 +2900,43 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   async viewDocument(doc: DocumentItem) {
     // Check if this is a link - either marked as link or linkName/filename contains URL patterns
     const linkToOpen = this.extractLinkUrl(doc);
-    
+
     if (linkToOpen) {
-      // Open the link in a new tab
-      window.open(linkToOpen, '_blank');
+      if (environment.isWeb) {
+        // Web: Open the link in a new tab
+        window.open(linkToOpen, '_blank');
+      } else {
+        // Mobile: Show popup with the URL
+        const alert = await this.alertController.create({
+          header: 'External Link',
+          message: `To view, visit this URL:<br><br><strong>${linkToOpen}</strong>`,
+          buttons: [
+            {
+              text: 'Copy URL',
+              handler: () => {
+                navigator.clipboard.writeText(linkToOpen).then(() => {
+                  this.showToast('URL copied to clipboard', 'success');
+                }).catch(() => {
+                  this.showToast('Failed to copy URL', 'warning');
+                });
+                return false; // Keep alert open
+              }
+            },
+            {
+              text: 'Open',
+              handler: () => {
+                window.open(linkToOpen, '_blank');
+              }
+            },
+            {
+              text: 'Close',
+              role: 'cancel'
+            }
+          ],
+          cssClass: 'link-url-alert'
+        });
+        await alert.present();
+      }
       return;
     }
     
@@ -2966,26 +2999,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (attachment && attachment.Attachment) {
           const filename = doc.linkName || doc.filename || 'document';
           const fileUrl = attachment.Attachment;
-          
+
           // Check if it's a PDF based on filename or data URL
-          const isPDF = filename.toLowerCase().includes('.pdf') || 
+          const isPDF = filename.toLowerCase().includes('.pdf') ||
                        fileUrl.toLowerCase().includes('application/pdf') ||
                        fileUrl.toLowerCase().includes('.pdf');
-          
+
           if (isPDF) {
-            // Use DocumentViewerComponent for PDFs
-            const DocumentViewerComponent = await this.loadDocumentViewer();
-            const modal = await this.modalController.create({
-              component: DocumentViewerComponent,
-              componentProps: {
-                fileUrl: fileUrl,
-                fileName: filename,
-                fileType: 'pdf',
-                filePath: doc.linkName || doc.filename
-              },
-              cssClass: 'fullscreen-modal'
-            });
-            await modal.present();
+            // Simple PDF viewing - open in browser's native PDF viewer
+            // This works reliably on both web and mobile
+            await this.openPdfInBrowser(fileUrl, filename);
           } else {
             // Show ONLY this single document/image
             const modal = await this.modalController.create({
@@ -3015,6 +3038,50 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       }
     } else {
       await this.showToast('Document not available', 'warning');
+    }
+  }
+
+  /**
+   * Opens a PDF in the browser's native PDF viewer.
+   * Works reliably on both web and mobile platforms.
+   */
+  private async openPdfInBrowser(fileUrl: string, filename: string): Promise<void> {
+    try {
+      let blobUrl: string;
+
+      if (fileUrl.startsWith('data:')) {
+        // Convert base64 data URL to blob URL
+        const base64Data = fileUrl.split(',')[1];
+        const mimeType = fileUrl.split(':')[1].split(';')[0] || 'application/pdf';
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        blobUrl = URL.createObjectURL(blob);
+      } else if (fileUrl.startsWith('blob:')) {
+        // Already a blob URL, use directly
+        blobUrl = fileUrl;
+      } else {
+        // Regular URL - open directly
+        window.open(fileUrl, '_blank');
+        return;
+      }
+
+      // Open the blob URL in a new tab
+      window.open(blobUrl, '_blank');
+
+      // Clean up the blob URL after a short delay (allows the browser to start loading)
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 1000);
+    } catch (error) {
+      console.error('Error opening PDF:', error);
+      await this.showToast('Failed to open PDF', 'danger');
     }
   }
 
@@ -3079,26 +3146,16 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         if (attachment && attachment.Attachment) {
           const filename = additionalFile.linkName || 'document';
           const fileUrl = attachment.Attachment;
-          
+
           // Check if it's a PDF based on filename or data URL
-          const isPDF = filename.toLowerCase().includes('.pdf') || 
+          const isPDF = filename.toLowerCase().includes('.pdf') ||
                        fileUrl.toLowerCase().includes('application/pdf') ||
                        fileUrl.toLowerCase().includes('.pdf');
-          
+
           if (isPDF) {
-            // Use DocumentViewerComponent for PDFs
-            const DocumentViewerComponent = await this.loadDocumentViewer();
-            const modal = await this.modalController.create({
-              component: DocumentViewerComponent,
-              componentProps: {
-                fileUrl: fileUrl,
-                fileName: filename,
-                fileType: 'pdf',
-                filePath: additionalFile.linkName
-              },
-              cssClass: 'fullscreen-modal'
-            });
-            await modal.present();
+            // Simple PDF viewing - open in browser's native PDF viewer
+            // This works reliably on both web and mobile
+            await this.openPdfInBrowser(fileUrl, filename);
           } else {
             // For images, show only this single image
             const modal = await this.modalController.create({
