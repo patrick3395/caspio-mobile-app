@@ -2246,6 +2246,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // Update bulkLocalImagesMap reactively (always update data immediately)
         this.updateBulkLocalImagesMap(localImages);
 
+        // ATTEMPT 5 FIX: Refresh lastConvertedFields from Dexie before populating photos
+        // This is the KEY difference from EFE - EFE subscribes to VisualFields directly,
+        // but HUD only subscribes to LocalImages. When sync updates VisualFields with real IDs,
+        // HUD's lastConvertedFields stays stale. This refresh fetches fresh IDs from Dexie.
+        await this.refreshLastConvertedFieldsFromDexie();
+
         // DEXIE-FIRST: Refresh photos from updated Dexie data
         if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
           await this.populatePhotosFromDexie(this.lastConvertedFields);
@@ -2266,6 +2272,83 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         console.error('[LIVEQUERY] Error in LocalImages subscription:', error);
       }
     );
+  }
+
+  /**
+   * ATTEMPT 5 FIX: Refresh lastConvertedFields with fresh visualId/tempVisualId from Dexie
+   *
+   * This is the KEY fix for custom visual photos disappearing after sync.
+   *
+   * ROOT CAUSE:
+   * - EFE subscribes to visualFieldRepo.getFieldsForCategory$() which fires when VisualFields change
+   * - HUD only subscribes to LocalImages changes, NOT VisualFields
+   * - When sync updates VisualField with real ID (via setField()), EFE's subscription fires with fresh data
+   * - HUD's lastConvertedFields stays stale with outdated visualId/tempVisualId
+   *
+   * FIX:
+   * - Before populating photos, fetch fresh VisualFields from Dexie
+   * - Update lastConvertedFields with the fresh visualId/tempVisualId values
+   * - This ensures populatePhotosFromDexie() uses the correct IDs for photo matching
+   */
+  private async refreshLastConvertedFieldsFromDexie(): Promise<void> {
+    if (!this.serviceId || this.lastConvertedFields.length === 0) {
+      return;
+    }
+
+    try {
+      // Get unique categories from lastConvertedFields
+      const categories = new Set<string>();
+      for (const field of this.lastConvertedFields) {
+        if (field.category) {
+          categories.add(field.category);
+        }
+      }
+
+      // Fetch fresh VisualFields from Dexie for all categories
+      const freshFieldsMap = new Map<string, VisualField>();
+      for (const category of categories) {
+        const fields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, category);
+        for (const field of fields) {
+          // Key by serviceId:category:templateId to match lastConvertedFields
+          const key = `${field.serviceId}:${field.category}:${field.templateId}`;
+          freshFieldsMap.set(key, field);
+        }
+      }
+
+      if (freshFieldsMap.size === 0) {
+        return;
+      }
+
+      // Update lastConvertedFields with fresh visualId/tempVisualId from Dexie
+      let updatedCount = 0;
+      for (const field of this.lastConvertedFields) {
+        const freshField = freshFieldsMap.get(field.key);
+        if (freshField) {
+          // Only update if there's a change (avoid unnecessary updates)
+          const visualIdChanged = field.visualId !== freshField.visualId;
+          const tempVisualIdChanged = field.tempVisualId !== freshField.tempVisualId;
+
+          if (visualIdChanged || tempVisualIdChanged) {
+            field.visualId = freshField.visualId;
+            field.tempVisualId = freshField.tempVisualId;
+            updatedCount++;
+
+            // Also update visualRecordIds for consistency
+            const recordKey = `${field.category}_${field.templateId}`;
+            const newVisualId = freshField.visualId || freshField.tempVisualId;
+            if (newVisualId) {
+              this.visualRecordIds[recordKey] = newVisualId;
+            }
+          }
+        }
+      }
+
+      if (updatedCount > 0) {
+        console.log(`[ATTEMPT 5 FIX] Refreshed ${updatedCount} fields with fresh IDs from Dexie`);
+      }
+    } catch (err) {
+      console.error('[ATTEMPT 5 FIX] Failed to refresh lastConvertedFields:', err);
+    }
   }
 
   /**

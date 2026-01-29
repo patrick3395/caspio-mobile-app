@@ -1193,15 +1193,22 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
     const { data } = await modal.onWillDismiss();
 
-    if (data && data.annotatedBlob) {
-      console.log('[HudVisualDetail] Annotation saved, processing...');
+    // Check if we have annotation data to save (with or without blob)
+    // WEBAPP: Canvas may be tainted (cross-origin) so blob could be null but annotation data still present
+    const hasAnnotationData = data && (data.annotatedBlob || data.compressedAnnotationData || data.annotationsData);
+
+    if (hasAnnotationData) {
+      console.log('[HudVisualDetail] Annotation saved, processing...', data.canvasTainted ? '(canvas tainted - no image export)' : '');
 
       const annotatedBlob = data.blob || data.annotatedBlob;
       const annotationsData = data.annotationData || data.annotationsData;
       const newCaption = data.caption !== undefined ? data.caption : photo.caption;
 
-      // Create blob URL for immediate display
-      const newUrl = URL.createObjectURL(annotatedBlob);
+      // Create blob URL for immediate display (only if we have a blob)
+      let newUrl: string | null = null;
+      if (annotatedBlob) {
+        newUrl = URL.createObjectURL(annotatedBlob);
+      }
 
       // Find photo in array (may have moved)
       let photoIndex = this.photos.findIndex(p => p.id === photo.id);
@@ -1211,9 +1218,9 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       if (photoIndex !== -1) {
         try {
-          // Compress annotation data for storage
-          let compressedDrawings = '';
-          if (annotationsData) {
+          // Use pre-compressed data if available, otherwise compress annotation data for storage
+          let compressedDrawings = data.compressedAnnotationData || '';
+          if (!compressedDrawings && annotationsData) {
             if (typeof annotationsData === 'object') {
               compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
             } else if (typeof annotationsData === 'string') {
@@ -1242,6 +1249,11 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
               { serviceId: this.serviceId, visualId: this.hudId }
             );
             console.log('[HudVisualDetail] WEBAPP: ✅ Queued annotation update to Caspio for AttachID:', photo.id);
+
+            // Show appropriate toast based on whether we could export the image
+            if (data.canvasTainted) {
+              await this.showToast('Annotations saved (refresh to see updates)', 'success');
+            }
           } else {
             // MOBILE MODE: Update LocalImages table with new drawings
             await db.localImages.update(photo.id, {
@@ -1281,10 +1293,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           // Update local photo object immediately for UI
           this.photos[photoIndex] = {
             ...this.photos[photoIndex],
-            displayUrl: newUrl,
+            displayUrl: newUrl || this.photos[photoIndex].displayUrl,  // Keep existing URL if no new blob
             originalUrl: this.photos[photoIndex].originalUrl || photo.originalUrl,
             caption: newCaption,
-            hasAnnotations: !!annotationsData,
+            hasAnnotations: !!annotationsData || !!compressedDrawings,
             drawings: compressedDrawings
           };
 

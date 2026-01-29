@@ -1322,8 +1322,9 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
     const canvasObjects = this.canvas.getObjects();
     console.log('[Fabric Save] Canvas objects before toJSON():', canvasObjects.length, canvasObjects);
 
-    let dataUrl: string;
-    let blob: Blob;
+    let dataUrl: string | null = null;
+    let blob: Blob | null = null;
+    let canvasTainted = false;
 
     try {
       dataUrl = this.canvas.toDataURL({
@@ -1331,20 +1332,17 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
         quality: 0.9,
         multiplier: 1
       });
-      blob = await this.dataUrlToBlob(dataUrl);
+      blob = await this.dataUrlToBlob(dataUrl!);
     } catch (e) {
-      // WEBAPP MODE: Canvas is tainted (loaded without crossOrigin), can't export
+      // WEBAPP MODE: Canvas is tainted (loaded without crossOrigin), can't export image
+      // But we can still save the annotation data (Drawings JSON)
       if (environment.isWeb) {
-        console.warn('[Fabric Save] WEBAPP: Cannot export tainted canvas - view only mode');
-        const alert = await this.alertController.create({
-          header: 'View Only Mode',
-          message: 'Photo editing is not available in the web viewer. You can view photos and annotations, but changes cannot be saved.',
-          buttons: ['OK']
-        });
-        await alert.present();
-        return;
+        console.warn('[Fabric Save] WEBAPP: Canvas tainted - saving annotation data only (no image export)');
+        canvasTainted = true;
+        // Continue to save annotation data below
+      } else {
+        throw e;
       }
-      throw e;
     }
 
     const annotationData = this.canvas.toJSON();
@@ -1372,8 +1370,10 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       originalBlob = this.imageFile;
     }
 
+    // WEBAPP: If canvas was tainted, we can't export the image but we CAN save annotation data
+    // The parent page will save the Drawings JSON to the server
     this.modalController.dismiss({
-      annotatedBlob: blob,
+      annotatedBlob: blob,  // Will be null if canvas was tainted
       blob,
       dataUrl,
       annotationData,
@@ -1382,7 +1382,8 @@ export class FabricPhotoAnnotatorComponent implements OnInit, AfterViewInit, OnD
       compressedAnnotationData,
       annotationCount: await this.getAnnotationCount(),
       originalBlob,
-      caption: this.photoCaption
+      caption: this.photoCaption,
+      canvasTainted  // Let parent know if we couldn't export the image
     });
   }
   private async dataUrlToBlob(dataUrl: string): Promise<Blob> {

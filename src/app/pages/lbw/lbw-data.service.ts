@@ -131,6 +131,13 @@ export class LbwDataService {
     this.lbwCache.delete(serviceId);
   }
 
+  // Clear attachment cache for a specific lbwId - use after WEBAPP photo uploads
+  clearAttachmentCache(lbwId: string | number): void {
+    const key = String(lbwId);
+    console.log('[LBW Data Service] Clearing attachment cache for LBWID:', key);
+    this.lbwAttachmentsCache.delete(key);
+  }
+
   // ============================================
   // LBW PHOTO METHODS (matching Visual Photo methods from foundation service)
   // ============================================

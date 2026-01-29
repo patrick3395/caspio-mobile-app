@@ -2236,6 +2236,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
               this.changeDetectorRef.detectChanges();
 
+              // CRITICAL: Clear attachment cache so next page load fetches fresh data from server
+              this.hudData.clearAttachmentCache(String(visualId));
+
               // Clean up blob URL
               URL.revokeObjectURL(imageUrl);
               console.log('[CAMERA UPLOAD] WEBAPP: Photo added successfully');
@@ -2589,6 +2592,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                   };
                 }
                 this.changeDetectorRef.detectChanges();
+
+                // CRITICAL: Clear attachment cache so next page load fetches fresh data from server
+                this.hudData.clearAttachmentCache(String(visualId));
 
               } catch (error) {
                 console.error(`[GALLERY UPLOAD] WEBAPP: Error uploading photo ${i + 1}:`, error);
