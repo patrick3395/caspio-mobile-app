@@ -998,6 +998,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             annotation: att.Annotation || '',
             Annotation: att.Annotation || '',
             uploading: false,
+            loading: true,              // Image is loading until (load) event fires
             isLocal: false,
             isPending: false,
             hasAnnotations,
@@ -3033,6 +3034,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   handleImageError(event: any, photo: any) {
     const target = event.target as HTMLImageElement;
     target.src = 'assets/img/photo-placeholder.svg';
+    // Also mark as not loading when error occurs
+    if (photo) {
+      photo.loading = false;
+    }
+  }
+
+  onImageLoad(photo: any) {
+    // Image finished loading - remove shimmer effect
+    if (photo) {
+      photo.loading = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   saveScrollBeforePhotoClick(event: Event): void {

@@ -3845,27 +3845,6 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     const visuals = this.bulkVisualsCache;
     console.log('[LOAD VISUALS FAST] Using pre-loaded visuals:', visuals.length);
 
-    // CUSTOM ITEM NAME FIX: Build dexieFieldMap to lookup VisualField names from Dexie
-    // This preserves custom visual names when server cache returns empty Name
-    const dexieFieldMap = new Map<string, any>();
-    try {
-      if (this.serviceId) {
-        const dexieFields = await firstValueFrom(this.visualFieldRepo.getAllFieldsForService$(this.serviceId));
-        for (const field of dexieFields) {
-          // Map by visualId or tempVisualId for lookup when creating custom items
-          if (field.visualId) {
-            dexieFieldMap.set(String(field.visualId), field);
-          }
-          if (field.tempVisualId) {
-            dexieFieldMap.set(String(field.tempVisualId), field);
-          }
-        }
-        console.log(`[LOAD VISUALS FAST] Built dexieFieldMap with ${dexieFieldMap.size} entries for name fallback`);
-      }
-    } catch (err) {
-      console.warn('[LOAD VISUALS FAST] Failed to build dexieFieldMap:', err);
-    }
-
     // Track which keys have already been assigned to prevent collisions
     const assignedKeys = new Set<string>();
 
@@ -3880,7 +3859,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       // CRITICAL: Match by HUDTemplateID first (most reliable), then fall back to name
       let item: VisualItem | undefined;
-      
+
       if (templateId) {
         // Try matching by template ID first (most reliable)
         item = this.findItemByTemplateId(Number(templateId));
@@ -3888,7 +3867,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           console.log(`[LOAD VISUALS FAST] Matched visual ${visualId} by TemplateID ${templateId}`);
         }
       }
-      
+
       // Fall back to name matching if template ID didn't match
       if (!item) {
         item = this.findItemByNameAndCategory(name, category, kind);
@@ -3896,20 +3875,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           console.warn(`[LOAD VISUALS FAST] Visual ${visualId} TemplateID ${templateId} didn't match, fell back to name: "${name}"`);
         }
       }
-      
+
       // Skip hidden visuals - but still store the mapping for unhiding later
       if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) {
         if (item) {
-          // Use templateId for regular items (matches template), fall back to id for custom items
-          const hiddenItemKey = item.templateId || item.id;
-          const hiddenKey = `${category}_${hiddenItemKey}`;
+          const hiddenKey = `${category}_${item.id}`;
           // Only assign if not already assigned to prevent collision
           if (!assignedKeys.has(hiddenKey)) {
             this.visualRecordIds[hiddenKey] = visualId;
             assignedKeys.add(hiddenKey);
             console.log(`[LOAD VISUALS FAST] Stored HIDDEN visual ${visualId} at key ${hiddenKey}`);
           } else {
-            console.warn(`[LOAD VISUALS FAST] ?? COLLISION: Key ${hiddenKey} already assigned, visual ${visualId} orphaned`);
+            console.warn(`[LOAD VISUALS FAST] ⚠️ COLLISION: Key ${hiddenKey} already assigned, visual ${visualId} orphaned`);
           }
         }
         continue;
@@ -3917,16 +3894,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       // Find or create item (if not found above)
       if (!item) {
-        // CUSTOM ITEM NAME FIX: Look up name from dexieFieldMap when visual.Name is empty
-        // This preserves custom visual names after background refresh replaces cache with server data
-        const dexieField = dexieFieldMap.get(visualId);
-        const customName = visual.Name || (dexieField?.templateName) || 'Custom Item';
-
         // Custom visual - create dynamic item
         const customItem: VisualItem = {
           id: `custom_${visualId}`,
           templateId: 0,
-          name: customName,
+          name: visual.Name || 'Custom Item',
           text: visual.Text || '',
           originalText: visual.Text || '',
           type: visual.Kind || 'Comment',
@@ -3944,25 +3916,19 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         else this.organizedData.comments.push(customItem);
 
         item = customItem;
-        console.log(`[LOAD VISUALS FAST] Created custom item for visual ${visualId}: "${customName}" (source: ${visual.Name ? 'visual.Name' : dexieField?.templateName ? 'dexieField' : 'default'})`);
+        console.log(`[LOAD VISUALS FAST] Created custom item for visual ${visualId}: "${name}"`);
       }
 
-      // Use templateId for regular items (matches template), fall back to id for custom items
-      const itemKey = item.templateId || item.id;
-      const key = `${category}_${itemKey}`;
+      const key = `${category}_${item.id}`;
 
       // CRITICAL: Check for key collision before assigning
       if (assignedKeys.has(key)) {
-        console.error(`[LOAD VISUALS FAST] ?? KEY COLLISION DETECTED! Key "${key}" already has visual ${this.visualRecordIds[key]}, visual ${visualId} (Name: "${name}") would overwrite it!`);
-        // CUSTOM ITEM NAME FIX: Look up name from dexieFieldMap when visual.Name is empty
-        const orphanDexieField = dexieFieldMap.get(visualId);
-        const orphanName = visual.Name || (orphanDexieField?.templateName) || 'Orphaned Item';
-
+        console.error(`[LOAD VISUALS FAST] ⚠️ KEY COLLISION DETECTED! Key "${key}" already has visual ${this.visualRecordIds[key]}, visual ${visualId} (Name: "${name}") would overwrite it!`);
         // Create a custom item for this orphaned visual instead of overwriting
         const orphanedItem: VisualItem = {
           id: `orphan_${visualId}`,
           templateId: 0,
-          name: orphanName,
+          name: visual.Name || 'Orphaned Item',
           text: visual.Text || '',
           originalText: visual.Text || '',
           type: visual.Kind || 'Comment',
@@ -3973,12 +3939,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           isSelected: true,
           photos: []
         };
-        
+
         if (kind === 'Comment') this.organizedData.comments.push(orphanedItem);
         else if (kind === 'Limitation') this.organizedData.limitations.push(orphanedItem);
         else if (kind === 'Deficiency') this.organizedData.deficiencies.push(orphanedItem);
         else this.organizedData.comments.push(orphanedItem);
-        
+
         const orphanKey = `${category}_orphan_${visualId}`;
         this.visualRecordIds[orphanKey] = visualId;
         assignedKeys.add(orphanKey);
@@ -3988,7 +3954,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         console.log(`[LOAD VISUALS FAST] Created orphan item with key ${orphanKey} for visual ${visualId}`);
         continue;
       }
-      
+
       this.visualRecordIds[key] = visualId;
       assignedKeys.add(key);
       

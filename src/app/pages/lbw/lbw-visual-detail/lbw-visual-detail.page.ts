@@ -541,6 +541,7 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             originalUrl: displayUrl,    // Original for re-annotation
             caption: att.Annotation || att.caption || '',
             uploading: false,
+            loading: true,              // Image is loading until (load) event fires
             isLocal: false,
             hasAnnotations,
             drawings: att.Drawings || ''
@@ -1418,6 +1419,14 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       position: 'bottom'
     });
     await toast.present();
+  }
+
+  onImageLoad(photo: PhotoItem) {
+    // Image finished loading - remove shimmer effect
+    if (photo) {
+      photo.loading = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   trackByPhotoId(index: number, photo: PhotoItem): string {

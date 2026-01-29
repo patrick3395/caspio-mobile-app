@@ -199,6 +199,7 @@
                              [alt]="photo.name"
                              (mousedown)="saveScrollBeforePhotoClick($event)"
                              (click)="viewPhoto(photo, categoryName, item.id, $event)"
+                             (load)="onImageLoad(photo)"
                              (error)="handleImageError($event, photo)"
                              [class.has-annotations]="photo.hasAnnotations"
                              [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
@@ -304,7 +305,8 @@
                            [alt]="photo.name"
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
-                           (error)="handleImageError($event, photo)"
+                           (load)="onImageLoad(photo)"
+                             (error)="handleImageError($event, photo)"
                            [class.has-annotations]="photo.hasAnnotations"
                            [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
                       <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
@@ -474,6 +476,7 @@
                              [alt]="photo.name"
                              (mousedown)="saveScrollBeforePhotoClick($event)"
                              (click)="viewPhoto(photo, categoryName, item.id, $event)"
+                             (load)="onImageLoad(photo)"
                              (error)="handleImageError($event, photo)"
                              [class.has-annotations]="photo.hasAnnotations"
                              [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
@@ -576,7 +579,8 @@
                            [alt]="photo.name"
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
-                           (error)="handleImageError($event, photo)"
+                           (load)="onImageLoad(photo)"
+                             (error)="handleImageError($event, photo)"
                            [class.has-annotations]="photo.hasAnnotations"
                            [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
                       <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">
@@ -746,6 +750,7 @@
                              [alt]="photo.name"
                              (mousedown)="saveScrollBeforePhotoClick($event)"
                              (click)="viewPhoto(photo, categoryName, item.id, $event)"
+                             (load)="onImageLoad(photo)"
                              (error)="handleImageError($event, photo)"
                              [class.has-annotations]="photo.hasAnnotations"
                              [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
@@ -848,7 +853,8 @@
                            [alt]="photo.name"
                            (mousedown)="saveScrollBeforePhotoClick($event)"
                            (click)="viewPhoto(photo, categoryName, item.id, $event)"
-                           (error)="handleImageError($event, photo)"
+                           (load)="onImageLoad(photo)"
+                             (error)="handleImageError($event, photo)"
                            [class.has-annotations]="photo.hasAnnotations"
                            [class.loading]="photo.displayState === 'remote_loading' || photo.loading">
                       <div class="upload-indicator" *ngIf="photo.uploading || photo.displayState === 'remote_loading'">

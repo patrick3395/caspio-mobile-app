@@ -58,6 +58,7 @@
                  [lazyPlaceholder]="'assets/img/photo-placeholder.svg'"
                  alt="Photo"
                  (click)="viewPhoto(photo)"
+                 (load)="onImageLoad(photo)"
                  [class.loading]="photo.uploading || photo.loading">
             <div class="upload-indicator" *ngIf="photo.uploading">
               <ion-spinner name="crescent" color="light"></ion-spinner>
