@@ -47,6 +47,9 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   serviceId: string = '';
   categoryName: string = '';
 
+  // Webapp detection for conditional rendering
+  isWeb: boolean = environment.isWeb;
+
   loading: boolean = false;  // Start false - show cached data instantly, only show spinner if cache empty
   isRefreshing: boolean = false;  // Track background refresh status
   searchTerm: string = '';
@@ -72,6 +75,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   loadingPhotosByKey: { [key: string]: boolean } = {};
   photoCountsByKey: { [key: string]: number } = {};
   pendingPhotoUploads: { [key: string]: any[] } = {};
+  expandedPhotos: { [key: string]: boolean } = {};
   currentUploadContext: { category: string; itemId: string; action: string } | null = null;
   contextClearTimer: any = null;
   lockedScrollY: number = 0;
@@ -1254,6 +1258,27 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     this.expandedAccordions = event.detail.value;
   }
 
+  // Simple accordion helpers (for offline reliability - ion-accordion can fail offline)
+  toggleSection(section: string): void {
+    const index = this.expandedAccordions.indexOf(section);
+    if (index > -1) {
+      this.expandedAccordions = this.expandedAccordions.filter(s => s !== section);
+    } else {
+      this.expandedAccordions = [...this.expandedAccordions, section];
+    }
+    this.changeDetectorRef.detectChanges();
+  }
+
+  isSectionExpanded(section: string): boolean {
+    return this.expandedAccordions.includes(section);
+  }
+
+  // Count how many items are selected/checked in a section
+  getSelectedCount(items: VisualItem[]): number {
+    if (!items) return 0;
+    return items.filter(item => this.isItemSelected(this.categoryName, item.templateId)).length;
+  }
+
   async toggleItemSelection(category: string, itemId: string | number) {
     const key = `${category}_${itemId}`;
     const newState = !this.selectedItems[key];
@@ -2292,6 +2317,60 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         console.error('Error selecting photo from gallery:', error);
       }
     }
+  }
+
+  /**
+   * Handle file input selection (for web file input)
+   */
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const context = this.currentUploadContext;
+    if (!context) {
+      console.error('[FILE SELECT] No upload context set');
+      return;
+    }
+
+    // Process selected files
+    Array.from(input.files).forEach(file => {
+      // Create a blob URL for preview
+      const blobUrl = URL.createObjectURL(file);
+      console.log(`[FILE SELECT] File selected: ${file.name}, size: ${file.size}`);
+    });
+
+    // Clear the input for future selections
+    input.value = '';
+  }
+
+  /**
+   * Check if photos are expanded for a visual
+   */
+  isPhotosExpanded(category: string, itemId: string | number): boolean {
+    const key = `${category}_${itemId}`;
+    return this.expandedPhotos[key] === true;
+  }
+
+  /**
+   * Toggle photos expansion - expands and loads photos on first click
+   */
+  togglePhotoExpansion(category: string, itemId: string | number): void {
+    const key = `${category}_${itemId}`;
+
+    if (this.expandedPhotos[key]) {
+      // Collapse
+      this.expandedPhotos[key] = false;
+    } else {
+      // Expand and load photos if not already loaded
+      this.expandedPhotos[key] = true;
+
+      // Only load photos if we haven't loaded them yet
+      const visualId = this.visualRecordIds[key];
+      if (visualId && !this.visualPhotos[key]?.length && !this.loadingPhotosByKey[key]) {
+        this.loadPhotosForVisual(visualId, key);
+      }
+    }
+    this.changeDetectorRef.detectChanges();
   }
 
   // Perform HUD photo upload (matches performVisualPhotoUpload from structural systems)

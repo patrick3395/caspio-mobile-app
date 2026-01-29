@@ -14,6 +14,9 @@ interface NavigationCard {
   route: string;
   description: string;
   completed: boolean;
+  commentCount?: number;
+  limitationCount?: number;
+  deficiencyCount?: number;
 }
 
 @Component({

@@ -356,6 +356,68 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         }
       }
     });
+
+    // SYNC FIX: Subscribe to LBW visual sync completions
+    // When a visual syncs, update the Dexie VisualField with the real LBWID
+    // This ensures future lookups work directly without temp ID resolution
+    this.backgroundSync.lbwSyncComplete$.subscribe(async (event) => {
+      if (event.operation !== 'create') return;
+      if (!event.serviceId || event.serviceId !== this.serviceId) return;
+
+      console.log('[LBW SYNC] Visual synced:', event.lbwId, 'for service:', event.serviceId);
+
+      // Find which key this visual belongs to by checking visualRecordIds
+      for (const [key, visualId] of Object.entries(this.visualRecordIds)) {
+        // Skip if not a temp ID
+        if (!String(visualId).startsWith('temp_')) continue;
+
+        // Check if this temp ID maps to the synced real ID
+        const mappedRealId = await this.indexedDb.getRealId(String(visualId));
+        if (mappedRealId && mappedRealId === event.lbwId) {
+          console.log('[LBW SYNC] Found matching key:', key, 'temp:', visualId, '-> real:', event.lbwId);
+
+          // Update visualRecordIds with real ID
+          const previousTempId = String(visualId);
+          this.visualRecordIds[key] = event.lbwId;
+
+          // Cache temp->real mapping for synchronous lookup
+          this.tempIdToRealIdCache.set(previousTempId, event.lbwId);
+
+          // Extract templateId from key (format: category_templateId)
+          const keyParts = key.split('_');
+          const templateId = parseInt(keyParts[keyParts.length - 1], 10);
+          const category = keyParts.slice(0, -1).join('_');
+
+          if (!isNaN(templateId)) {
+            // Update Dexie VisualField with real LBWID
+            try {
+              await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+                visualId: event.lbwId,
+                // Keep tempVisualId for fallback lookup until LocalImages.entityId is updated
+              });
+              console.log('[LBW SYNC] Updated Dexie VisualField:', templateId, '-> visualId:', event.lbwId);
+            } catch (err) {
+              console.error('[LBW SYNC] Failed to update Dexie VisualField:', err);
+            }
+
+            // Update lastConvertedFields in-memory
+            const fieldToUpdate = this.lastConvertedFields.find(f => f.templateId === templateId);
+            if (fieldToUpdate) {
+              fieldToUpdate.visualId = event.lbwId;
+              console.log('[LBW SYNC] Updated lastConvertedFields for templateId:', templateId);
+            }
+          }
+
+          // Update LocalImages.entityId from temp to real
+          this.indexedDb.updateEntityIdForImages(previousTempId, event.lbwId).catch(err => {
+            console.error('[LBW SYNC] Failed to update LocalImage entityIds:', err);
+          });
+
+          this.changeDetectorRef.detectChanges();
+          break;
+        }
+      }
+    });
   }
 
   /**
@@ -1108,11 +1170,21 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         let visual: any = null;
         const dexieVisualId = templateToVisualMap.get(templateId);
         if (dexieVisualId) {
+          // SYNC FIX: If dexieVisualId is a temp ID, check if it maps to a real LBWID
+          // After sync, Dexie still has tempVisualId but cache has real LBWID
+          let effectiveVisualId = String(dexieVisualId);
+          if (effectiveVisualId.startsWith('temp_')) {
+            const mappedRealId = await this.indexedDb.getRealId(effectiveVisualId);
+            if (mappedRealId) {
+              console.log(`[LBW CategoryDetail] MOBILE: Resolved temp ID ${effectiveVisualId} -> real ID ${mappedRealId}`);
+              effectiveVisualId = mappedRealId;
+            }
+          }
           visual = (categoryVisuals || []).find((v: any) =>
-            String(v.LBWID || v.PK_ID) === String(dexieVisualId)
+            String(v.LBWID || v.PK_ID) === effectiveVisualId
           );
           if (visual) {
-            console.log(`[LBW CategoryDetail] MOBILE: Matched visual by Dexie LBWID for template ${templateId}:`, dexieVisualId);
+            console.log(`[LBW CategoryDetail] MOBILE: Matched visual by Dexie LBWID for template ${templateId}:`, effectiveVisualId);
           }
         }
 

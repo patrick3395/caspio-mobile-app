@@ -78,7 +78,9 @@
       "Bash(else echo \"Android folder DOES NOT exist\")",
       "Bash(fi)",
       "Bash(java -version:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(npx cap:*)",
+      "Bash(npx capacitor-assets:*)"
     ],
     "deny": [],
     "ask": []

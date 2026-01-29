@@ -8,7 +8,7 @@
     <ion-title class="full-title">{{ currentPageTitle }}</ion-title>
     <ion-title class="short-title">{{ currentPageShortTitle }}</ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="generatePDF()" [disabled]="isGeneratingPDF">
+      <ion-button *ngIf="!isSubPage" (click)="generatePDF()" [disabled]="isGeneratingPDF">
         <ion-icon slot="icon-only" name="document-text"></ion-icon>
       </ion-button>
     </ion-buttons>
@@ -16,7 +16,6 @@
 </ion-header>
 
 <ion-content>
-  <!-- Child pages will be rendered here -->
   <router-outlet></router-outlet>
 </ion-content>
 
@@ -36,4 +35,3 @@
     </div>
   </ion-toolbar>
 </ion-footer>
-

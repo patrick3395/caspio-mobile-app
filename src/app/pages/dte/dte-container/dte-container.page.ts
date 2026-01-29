@@ -32,6 +32,7 @@ export class DteContainerPage implements OnInit {
   currentPageTitle: string = 'Damaged Truss Evaluation';
   currentPageShortTitle: string = 'DTE';
   isGeneratingPDF: boolean = false;
+  isSubPage: boolean = false;
 
   constructor(
     private router: Router,
@@ -87,10 +88,10 @@ export class DteContainerPage implements OnInit {
     // Parse URL to build breadcrumbs and set page title
     // URL format: /hud/{projectId}/{serviceId}/...
 
-    // Check if we're on a sub-page (not the main HUD hub)
-    const isSubPage = url.includes('/project-details') || url.includes('/category/');
+    // Check if we're on a sub-page (not the main DTE hub)
+    this.isSubPage = url.includes('/project-details') || url.includes('/category/');
 
-    if (isSubPage) {
+    if (this.isSubPage) {
       // Add DTE main page as first breadcrumb when on sub-pages
       this.breadcrumbs.push({
         label: 'Damaged Truss Evaluation',
