@@ -2226,6 +2226,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
             console.log('[CAMERA UPLOAD] Photo queued for background sync (offline mode)');
           }
         }
+        }
 
         // Clean up blob URL
         URL.revokeObjectURL(imageUrl);
