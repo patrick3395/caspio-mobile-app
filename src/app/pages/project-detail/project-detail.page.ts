@@ -2052,7 +2052,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           }
         ],
         backdropDismiss: false,
-        cssClass: 'template-loading-alert'
+        cssClass: 'custom-document-alert'
       });
       await loading.present();
 
@@ -2553,15 +2553,15 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         cssClass: 'custom-document-alert',
         buttons: [
           {
-            text: 'Cancel',
-            role: 'cancel'
-          },
-          {
             text: 'Replace',
             handler: () => {
               this.currentUploadContext = { serviceId, typeId, doc, action: 'replace' };
               this.fileInput.nativeElement.click();
             }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel'
           }
         ]
       });
@@ -2924,7 +2924,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               role: 'cancel'
             }
           ],
-          cssClass: 'link-url-alert'
+          cssClass: 'custom-document-alert'
         });
         await alert.present();
       }
@@ -2951,7 +2951,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             }
           ],
           backdropDismiss: false,
-          cssClass: 'template-loading-alert' // THIS IS THE KEY - uses the beautiful Loading Report styling
+          cssClass: 'custom-document-alert'
         });
         await loading.present();
 
@@ -3114,7 +3114,8 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               }
             }
           ],
-          backdropDismiss: false
+          backdropDismiss: false,
+          cssClass: 'custom-document-alert'
         });
         await loading.present();
 
@@ -3309,11 +3310,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       ],
       buttons: [
         {
-          text: 'CANCEL',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
           text: 'SAVE',
           cssClass: 'alert-button-save',
           handler: async (data) => {
@@ -3323,6 +3319,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             }
             return false;
           }
+        },
+        {
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -3392,11 +3393,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         cssClass: 'custom-document-alert',
         buttons: [
           {
-            text: 'CANCEL',
-            role: 'cancel',
-            cssClass: 'alert-button-cancel'
-          },
-          {
             text: 'REPLACE',
             cssClass: 'alert-button-save',
             handler: () => {
@@ -3404,6 +3400,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
               this.showLinkInputPopup(serviceId, doc, true);
               return true;
             }
+          },
+          {
+            text: 'CANCEL',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ]
       });
@@ -3431,11 +3432,6 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       ],
       buttons: [
         {
-          text: 'CANCEL',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        },
-        {
           text: isReplacing ? 'REPLACE' : (doc.attachId ? 'UPDATE LINK' : 'SAVE'),
           cssClass: 'alert-button-save',
           handler: async (data) => {
@@ -3453,6 +3449,11 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
             }
             return false; // Don't dismiss if URL is empty
           }
+        },
+        {
+          text: 'CANCEL',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -4087,7 +4088,8 @@ Troubleshooting:
             text: 'OK',
             role: 'cancel'
           }
-        ]
+        ],
+        cssClass: 'custom-document-alert'
       });
       await alert.present();
     } else {
@@ -4249,7 +4251,7 @@ Troubleshooting:
 
     const alert = await this.alertController.create({
       header: 'Edit Address',
-      cssClass: 'edit-address-alert',
+      cssClass: 'custom-document-alert edit-address-alert',
       message: ' ',
       buttons: [
         {
@@ -4544,7 +4546,8 @@ Troubleshooting:
       const alert = await this.alertController.create({
         header: 'Progress Debug Info',
         message: debugInfo.replace(/\n/g, '<br>'),
-        buttons: ['OK']
+        buttons: ['OK'],
+        cssClass: 'custom-document-alert'
       });
       await alert.present();
 
@@ -4581,7 +4584,8 @@ Troubleshooting:
     const alert = await this.alertController.create({
       header: "Incomplete Template",
       message: "Please complete required fields before generating the report.",
-      buttons: ["OK"]
+      buttons: ["OK"],
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();
@@ -4766,7 +4770,8 @@ Troubleshooting:
           text: 'OK',
           role: 'cancel'
         }
-      ]
+      ],
+      cssClass: 'custom-document-alert'
     });
     await alert.present();
   }
@@ -4811,7 +4816,7 @@ Troubleshooting:
       header: 'Attachment Upload Failed',
       message: errorDetails,
       buttons: ['OK'],
-      cssClass: 'error-alert'
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();
@@ -4840,7 +4845,8 @@ Troubleshooting:
       const alert = await this.alertController.create({
         header: 'Error',
         message: 'No project ID available. Cannot update photo.',
-        buttons: ['OK']
+        buttons: ['OK'],
+        cssClass: 'custom-document-alert'
       });
       await alert.present();
       return;
@@ -5071,7 +5077,7 @@ ${debugInfo.errorResponse || 'No response body'}
             • PrimaryPhoto field type → Must be File type in Caspio
           </div>
         `,
-        cssClass: 'debug-alert',
+        cssClass: 'custom-document-alert',
         buttons: [
           {
             text: 'Copy Debug Info',
@@ -5103,7 +5109,8 @@ Time: ${debugInfo.timestamp}
             text: 'OK',
             role: 'cancel'
           }
-        ]
+        ],
+        cssClass: 'custom-document-alert'
       });
       await alert.present();
     }
@@ -5146,10 +5153,6 @@ Time: ${debugInfo.timestamp}
       })),
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
           text: 'Open PDF',
           handler: async (selectedIndex) => {
             const index = typeof selectedIndex === 'number' ? selectedIndex : parseInt(String(selectedIndex), 10);
@@ -5169,7 +5172,12 @@ Time: ${debugInfo.timestamp}
             return true;
           }
         },
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        }
       ],
+      cssClass: 'custom-document-alert'
     });
 
     await alert.present();
@@ -5821,7 +5829,8 @@ Time: ${debugInfo.timestamp}
       const alert = await this.alertController.create({
         header: 'Payment Successful!',
         message: `Your payment of $${paymentData.amount} has been processed successfully.`,
-        buttons: ['OK']
+        buttons: ['OK'],
+        cssClass: 'custom-document-alert'
       });
       await alert.present();
 
@@ -5835,7 +5844,8 @@ Time: ${debugInfo.timestamp}
       const alert = await this.alertController.create({
         header: 'Payment Error',
         message: 'Failed to process payment. Please contact support.',
-        buttons: ['OK']
+        buttons: ['OK'],
+        cssClass: 'custom-document-alert'
       });
       await alert.present();
     }

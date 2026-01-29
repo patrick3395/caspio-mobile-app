@@ -29,7 +29,7 @@ export class OfflineTemplateService {
   // Event emitted when background refresh completes - pages can subscribe to reload their data
   public backgroundRefreshComplete$ = new Subject<{
     serviceId: string;
-    dataType: 'visuals' | 'hud' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_records' | 'hud_attachments';
+    dataType: 'visuals' | 'hud' | 'lbw' | 'efe_rooms' | 'efe_points' | 'visual_attachments' | 'efe_point_attachments' | 'hud_records' | 'hud_attachments';
   }>();
 
   constructor(
@@ -1676,6 +1676,208 @@ export class OfflineTemplateService {
       this.backgroundRefreshComplete$.next({ serviceId, dataType: 'hud' });
     } catch (error) {
       console.warn(`[OfflineTemplate] Background HUD refresh failed (non-blocking):`, error);
+    }
+  }
+
+  // ============================================
+  // LBW SERVICE METHODS (DEXIE-FIRST PATTERN)
+  // ============================================
+
+  /**
+   * Get LBW records for a service - CACHE-FIRST for instant loading
+   * Returns cached data immediately, refreshes in background when online
+   *
+   * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
+   */
+  async getLbwByService(serviceId: string): Promise<any[]> {
+    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    if (environment.isWeb) {
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching LBW records from LPS_Services_LBW where ServiceID=${serviceId}`);
+      try {
+        const freshLbw = await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId));
+        console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshLbw?.length || 0} LBW records from server`);
+        if (freshLbw && freshLbw.length > 0) {
+          console.log(`[OfflineTemplate] WEBAPP: First LBW record:`, {
+            LBWID: freshLbw[0].LBWID,
+            ServiceID: freshLbw[0].ServiceID,
+            Name: freshLbw[0].Name,
+            Category: freshLbw[0].Category
+          });
+        }
+        return freshLbw || [];
+      } catch (error) {
+        console.error(`[OfflineTemplate] WEBAPP: API fetch failed for LBW records:`, error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: Cache-first pattern
+    // 1. Read from cache IMMEDIATELY
+    const cached = await this.indexedDb.getCachedServiceData(serviceId, 'lbw') || [];
+
+    // 2. Merge with pending offline LBW records (if any in queue)
+    const pending = await this.getPendingLbwRecords(serviceId);
+    const merged = [...cached, ...pending];
+
+    // 3. Return immediately if we have data
+    if (merged.length > 0) {
+      console.log(`[OfflineTemplate] LBW: ${cached.length} cached + ${pending.length} pending (instant)`);
+
+      // 4. Background refresh (non-blocking) when online
+      if (this.offlineService.isOnline()) {
+        this.refreshLbwInBackground(serviceId);
+      }
+      return merged;
+    }
+
+    // 5. Cache empty - fetch from API if online (blocking only when no cache)
+    if (this.offlineService.isOnline()) {
+      try {
+        console.log(`[OfflineTemplate] No cached LBW records, fetching from API...`);
+        const freshLbw = await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId));
+        await this.indexedDb.cacheServiceData(serviceId, 'lbw', freshLbw);
+        return [...freshLbw, ...pending];
+      } catch (error) {
+        console.error(`[OfflineTemplate] LBW API fetch failed:`, error);
+      }
+    }
+
+    // 6. Offline with no cache - return pending only
+    console.log(`[OfflineTemplate] Offline with no LBW cache, returning ${pending.length} pending`);
+    return pending;
+  }
+
+  /**
+   * Get pending LBW records from operations queue for a service
+   * Mirrors getPendingHudRecords() pattern for LPS_Services_LBW table
+   */
+  private async getPendingLbwRecords(serviceId: string): Promise<any[]> {
+    const pendingRequests = await this.indexedDb.getPendingRequests();
+
+    return pendingRequests
+      .filter(r =>
+        r.type === 'CREATE' &&
+        r.endpoint.includes('Services_LBW') &&
+        !r.endpoint.includes('Attach') &&
+        r.data?.ServiceID === parseInt(serviceId) &&
+        r.status !== 'synced'
+      )
+      .map(r => ({
+        ...r.data,
+        PK_ID: r.tempId,
+        LBWID: r.tempId,
+        _tempId: r.tempId,
+        _localOnly: true,
+        _syncing: r.status === 'syncing',
+      }));
+  }
+
+  /**
+   * Background refresh LBW records (non-blocking)
+   * CRITICAL: Preserves local changes (_localUpdate flag and temp IDs) during merge
+   */
+  private async refreshLbwInBackground(serviceId: string): Promise<void> {
+    try {
+      // Check for pending UPDATE requests BEFORE fetching from server
+      let pendingLbwUpdates = new Set<string>();
+      try {
+        const pendingRequests = await this.indexedDb.getPendingRequests();
+        pendingLbwUpdates = new Set<string>(
+          pendingRequests
+            .filter(r => r.type === 'UPDATE' && r.endpoint.includes('LPS_Services_LBW/records') && !r.endpoint.includes('Attach'))
+            .map(r => {
+              const match = r.endpoint.match(/LBWID=(\d+)/);
+              return match ? match[1] : null;
+            })
+            .filter((id): id is string => id !== null)
+        );
+
+        if (pendingLbwUpdates.size > 0) {
+          console.log(`[OfflineTemplate] Found ${pendingLbwUpdates.size} pending UPDATE requests for LBW:`, [...pendingLbwUpdates]);
+        }
+      } catch (pendingErr) {
+        console.warn('[OfflineTemplate] Failed to check pending requests (continuing without):', pendingErr);
+      }
+
+      const freshLbw = await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId));
+
+      // Get existing cached LBW records to find local updates that should be preserved
+      const existingCache = await this.indexedDb.getCachedServiceData(serviceId, 'lbw') || [];
+
+      // Check if cache has any LOCAL changes that need protection
+      const hasLocalChanges = existingCache.some((item: any) =>
+        item._localUpdate ||
+        (item._tempId && String(item._tempId).startsWith('temp_'))
+      ) || pendingLbwUpdates.size > 0;
+
+      // SMART DEFENSIVE GUARD: Only protect if there are actual local changes
+      if ((!freshLbw || freshLbw.length === 0) && existingCache.length > 0) {
+        if (hasLocalChanges) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned empty but LBW cache has ${existingCache.length} items with local changes - protecting cache`);
+          return; // Preserve cache with local changes
+        }
+        // No local changes - clear cache (data was deleted on server)
+        console.log(`[OfflineTemplate] API returned empty, no local changes - clearing LBW cache for ${serviceId}`);
+        await this.indexedDb.cacheServiceData(serviceId, 'lbw', []);
+        this.backgroundRefreshComplete$.next({ serviceId, dataType: 'lbw' });
+        return;
+      }
+
+      // Warn if API returns significantly fewer items but still allow if no local changes
+      if (freshLbw && existingCache.length > 0 && freshLbw.length < existingCache.length * 0.5) {
+        if (hasLocalChanges) {
+          console.warn(`[OfflineTemplate] ⚠️ API returned ${freshLbw.length} LBW records but cache has ${existingCache.length} with local changes - protecting cache`);
+          return; // Preserve cache with local changes
+        }
+        console.log(`[OfflineTemplate] API returned ${freshLbw.length} LBW records (was ${existingCache.length}), no local changes - updating cache`);
+      }
+
+      // Build a map of locally updated LBW records that should NOT be overwritten
+      const localUpdates = new Map<string, any>();
+      for (const lbw of existingCache) {
+        const lbwId = String(lbw.LBWID || '');
+        const pkId = String(lbw.PK_ID || '');
+        const tempId = lbw._tempId || '';
+
+        // Check if has _localUpdate flag OR has pending UPDATE request
+        const hasPendingByLbwId = lbwId && pendingLbwUpdates.has(lbwId);
+        const hasPendingByPkId = pkId && pendingLbwUpdates.has(pkId);
+
+        if (lbw._localUpdate || hasPendingByLbwId || hasPendingByPkId) {
+          // Store by all keys to ensure we find it when merging
+          if (lbwId) localUpdates.set(lbwId, lbw);
+          if (pkId) localUpdates.set(pkId, lbw);
+          if (tempId) localUpdates.set(tempId, lbw);
+          const reason = lbw._localUpdate ? '_localUpdate flag' : 'pending UPDATE request';
+          console.log(`[OfflineTemplate] Preserving local LBW LBWID=${lbwId} PK_ID=${pkId} (${reason}, Notes: ${lbw.Notes})`);
+        }
+      }
+
+      // Merge: use local version for items with pending updates, server version for others
+      const mergedLbw = freshLbw.map((serverLbw: any) => {
+        const lbwId = String(serverLbw.LBWID || '');
+        const pkId = String(serverLbw.PK_ID || '');
+        // Try to find local version by any key
+        const localVersion = localUpdates.get(lbwId) || localUpdates.get(pkId);
+        if (localVersion) {
+          // Keep local version since it has pending changes not yet on server
+          console.log(`[OfflineTemplate] Keeping local version of LBW LBWID=${lbwId} PK_ID=${pkId} with Notes: ${localVersion.Notes}`);
+          return localVersion;
+        }
+        return serverLbw;
+      });
+
+      // Also add any temp LBW records (created offline, not yet synced) from existing cache
+      const tempLbw = existingCache.filter((v: any) => v._tempId && String(v._tempId).startsWith('temp_'));
+      const finalLbw = [...mergedLbw, ...tempLbw];
+
+      await this.indexedDb.cacheServiceData(serviceId, 'lbw', finalLbw);
+      console.log(`[OfflineTemplate] Background LBW refresh: ${freshLbw.length} server records, ${localUpdates.size} local updates preserved, ${tempLbw.length} temp records for ${serviceId}`);
+
+      // Notify pages that fresh data is available
+      this.backgroundRefreshComplete$.next({ serviceId, dataType: 'lbw' });
+    } catch (error) {
+      console.warn(`[OfflineTemplate] Background LBW refresh failed (non-blocking):`, error);
     }
   }
 

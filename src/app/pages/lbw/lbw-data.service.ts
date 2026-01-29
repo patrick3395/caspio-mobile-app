@@ -1,6 +1,15 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { CaspioService } from '../../services/caspio.service';
+import { IndexedDbService, LocalImage } from '../../services/indexed-db.service';
+import { TempIdService } from '../../services/temp-id.service';
+import { BackgroundSyncService } from '../../services/background-sync.service';
+import { OfflineTemplateService } from '../../services/offline-template.service';
+import { OfflineService } from '../../services/offline.service';
+import { LocalImageService } from '../../services/local-image.service';
+import { VisualFieldRepoService } from '../../services/visual-field-repo.service';
+import { db } from '../../services/caspio-db';
+import { environment } from '../../../environments/environment';
 
 interface CacheEntry<T> {
   value: Promise<T>;
@@ -18,7 +27,131 @@ export class LbwDataService {
   private lbwCache = new Map<string, CacheEntry<any[]>>();
   private lbwAttachmentsCache = new Map<string, CacheEntry<any[]>>();
 
-  constructor(private readonly caspioService: CaspioService) {}
+  // Event emitted when caches are invalidated - pages should reload their data
+  public cacheInvalidated$ = new Subject<{ serviceId?: string; reason: string }>();
+
+  private syncSubscriptions: Subscription[] = [];
+
+  // Debounce timer for cache invalidation to batch multiple sync events into one UI refresh
+  private cacheInvalidationTimer: any = null;
+  private pendingInvalidationServiceId: string | undefined = undefined;
+
+  constructor(
+    private readonly caspioService: CaspioService,
+    private readonly indexedDb: IndexedDbService,
+    private readonly tempId: TempIdService,
+    private readonly backgroundSync: BackgroundSyncService,
+    private readonly offlineTemplate: OfflineTemplateService,
+    private readonly offlineService: OfflineService,
+    private readonly localImageService: LocalImageService,
+    private readonly visualFieldRepo: VisualFieldRepoService
+  ) {
+    this.subscribeToSyncEvents();
+  }
+
+  /**
+   * Subscribe to BackgroundSyncService events and auto-invalidate caches
+   * This ensures in-memory caches are cleared when IndexedDB is updated
+   */
+  private subscribeToSyncEvents(): void {
+    // When a visual syncs, clear visual caches
+    this.syncSubscriptions.push(
+      this.backgroundSync.visualSyncComplete$.subscribe(event => {
+        console.log('[LBW DataService] Visual synced, invalidating caches for service:', event.serviceId);
+        this.invalidateCachesForService(event.serviceId, 'visual_sync');
+      })
+    );
+
+    // When a LBW photo syncs, clear attachment caches
+    // CRITICAL FIX: Do NOT emit cacheInvalidated$ here - it causes a race condition
+    this.syncSubscriptions.push(
+      this.backgroundSync.lbwPhotoUploadComplete$.subscribe(event => {
+        console.log('[LBW DataService] LBW Photo synced, clearing in-memory caches only (no reload trigger)');
+        this.lbwAttachmentsCache.clear();
+        this.imageCache.clear();
+        // DO NOT call: this.cacheInvalidated$.next({ reason: 'photo_sync' });
+      })
+    );
+
+    // When service data syncs, clear service/project caches
+    this.syncSubscriptions.push(
+      this.backgroundSync.serviceDataSyncComplete$.subscribe(event => {
+        console.log('[LBW DataService] Service data synced, invalidating caches');
+        if (event.serviceId) {
+          this.serviceCache.delete(event.serviceId);
+        }
+        if (event.projectId) {
+          this.projectCache.delete(event.projectId);
+        }
+        this.debouncedCacheInvalidation(event.serviceId, 'service_data_sync');
+      })
+    );
+
+    // CRITICAL: When background refresh completes, clear in-memory caches and notify pages
+    this.syncSubscriptions.push(
+      this.offlineTemplate.backgroundRefreshComplete$.subscribe(event => {
+        console.log('[LBW DataService] Background refresh complete:', event.dataType, 'for', event.serviceId);
+
+        if (event.dataType === 'lbw') {
+          this.lbwCache.delete(event.serviceId);
+          console.log('[LBW DataService] Cleared lbwCache for', event.serviceId);
+        }
+
+        // Emit cache invalidated event so pages reload with fresh data (debounced)
+        this.debouncedCacheInvalidation(event.serviceId, `background_refresh_${event.dataType}`);
+      })
+    );
+
+    // REACTIVE SUBSCRIPTION: Subscribe to IndexedDB image changes
+    this.syncSubscriptions.push(
+      this.indexedDb.imageChange$.subscribe(event => {
+        console.log('[LBW DataService] IndexedDB image change:', event.action, event.key, 'entity:', event.entityType, event.entityId);
+
+        if (event.entityType === 'lbw') {
+          this.lbwAttachmentsCache.clear();
+        }
+
+        this.debouncedCacheInvalidation(event.serviceId, `indexeddb_${event.action}_${event.entityType}`);
+      })
+    );
+  }
+
+  /**
+   * Debounced cache invalidation to batch multiple sync events into one UI refresh
+   */
+  private debouncedCacheInvalidation(serviceId?: string, reason: string = 'batch_sync'): void {
+    if (serviceId) {
+      this.pendingInvalidationServiceId = serviceId;
+    }
+
+    if (this.cacheInvalidationTimer) {
+      clearTimeout(this.cacheInvalidationTimer);
+    }
+
+    this.cacheInvalidationTimer = setTimeout(() => {
+      console.log(`[LBW DataService] Debounced cache invalidation fired (reason: ${reason})`);
+      this.cacheInvalidated$.next({
+        serviceId: this.pendingInvalidationServiceId,
+        reason: reason
+      });
+      this.cacheInvalidationTimer = null;
+      this.pendingInvalidationServiceId = undefined;
+    }, 1000);
+  }
+
+  /**
+   * Invalidate all caches for a specific service
+   */
+  invalidateCachesForService(serviceId: string, reason: string = 'manual'): void {
+    console.log(`[LBW DataService] Invalidating all caches for service ${serviceId} (reason: ${reason})`);
+
+    this.lbwCache.delete(serviceId);
+    this.serviceCache.delete(serviceId);
+    this.lbwAttachmentsCache.clear();
+    this.imageCache.clear();
+
+    this.debouncedCacheInvalidation(serviceId, reason);
+  }
 
   async getProject(projectId: string | null | undefined): Promise<any> {
     if (!projectId) {
@@ -47,7 +180,6 @@ export class LbwDataService {
     );
   }
 
-
   async getImage(filePath: string): Promise<string> {
     if (!filePath) {
       return '';
@@ -57,37 +189,120 @@ export class LbwDataService {
     );
   }
 
+  /**
+   * Get LBW records for a service - delegates to OfflineTemplateService
+   * Queries LPS_Services_LBW table (DEXIE-FIRST pattern)
+   */
   async getVisualsByService(serviceId: string, bypassCache: boolean = false): Promise<any[]> {
     if (!serviceId) {
       console.warn('[LBW Data] getVisualsByService called with empty serviceId');
       return [];
     }
-    console.log('[LBW Data] Loading existing LBW records for ServiceID:', serviceId, 'BypassCache:', bypassCache);
-    
+    console.log('[LBW Data] Loading LBW records for ServiceID:', serviceId, 'BypassCache:', bypassCache);
+
     // CRITICAL: If bypassCache is true, clear the cache first
     if (bypassCache) {
       console.log('[LBW Data] Bypassing cache - clearing cached data for ServiceID:', serviceId);
       this.lbwCache.delete(serviceId);
     }
-    
-    const lbwRecords = await this.resolveWithCache(this.lbwCache, serviceId, () =>
-      firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId))
-    );
-    console.log('[LBW Data] API returned LBW records:', lbwRecords.length, 'records');
+
+    // OFFLINE-FIRST: Use OfflineTemplateService which reads from IndexedDB
+    const lbwRecords = await this.offlineTemplate.getLbwByService(serviceId);
+    console.log('[LBW Data] Loaded LBW records:', lbwRecords.length, '(from IndexedDB + pending)');
+
     if (lbwRecords.length > 0) {
-      console.log('[LBW Data] Sample LBW record data:', lbwRecords[0]);
+      console.log('[LBW Data] Sample LBW record:', lbwRecords[0]);
     }
     return lbwRecords;
   }
 
+  /**
+   * Get attachments for a LBW record from LPS_Services_LBW_Attach table
+   * Uses LBWID as the foreign key
+   */
   async getVisualAttachments(lbwId: string | number): Promise<any[]> {
     if (!lbwId) {
       return [];
     }
-    const key = String(lbwId);
-    return this.resolveWithCache(this.lbwAttachmentsCache, key, () =>
-      firstValueFrom(this.caspioService.getServiceLBWAttachByLBWId(String(lbwId)))
-    );
+    const lbwIdStr = String(lbwId);
+    console.log('[LBW Data] Loading attachments for LBWID:', lbwIdStr);
+
+    // WEBAPP MODE: Return only server data (no local images)
+    if (environment.isWeb) {
+      console.log('[LBW Data] WEBAPP MODE: Loading LBW attachments from server only');
+      try {
+        const serverAttachments = await firstValueFrom(this.caspioService.getServiceLBWAttachByLBWId(lbwIdStr));
+        console.log(`[LBW Data] WEBAPP: Loaded ${serverAttachments?.length || 0} LBW attachments from server`);
+        return serverAttachments || [];
+      } catch (error) {
+        console.error('[LBW Data] Error loading LBW attachments:', error);
+        return [];
+      }
+    }
+
+    // MOBILE MODE: OFFLINE-FIRST pattern
+    // Get local images for this LBW record from LocalImageService
+    const localImages = await this.localImageService.getImagesForEntity('lbw', lbwIdStr);
+
+    // Convert local images to attachment format for UI compatibility
+    const localAttachments = await Promise.all(localImages.map(async (img) => {
+      const displayUrl = await this.localImageService.getDisplayUrl(img);
+      return {
+        // Stable identifiers
+        imageId: img.imageId,
+        AttachID: img.attachId || img.imageId,
+        attachId: img.attachId || img.imageId,
+        _tempId: img.imageId,
+        _pendingFileId: img.imageId,
+
+        // Entity references
+        LBWID: img.entityId,
+        entityId: img.entityId,
+        entityType: img.entityType,
+        serviceId: img.serviceId,
+
+        // Content
+        Annotation: img.caption,
+        caption: img.caption,
+        drawings: img.drawings,
+        fileName: img.fileName,
+
+        // Display URLs
+        Photo: displayUrl,
+        url: displayUrl,
+        thumbnailUrl: displayUrl,
+        displayUrl: displayUrl,
+        _thumbnailUrl: displayUrl,
+
+        // Status flags
+        status: img.status,
+        isPending: img.status === 'queued' || img.status === 'uploading' || img.status === 'local_only',
+        isLocal: true
+      };
+    }));
+
+    // Get legacy attachments from server (for pre-existing data)
+    let legacyAttachments: any[] = [];
+    if (this.offlineService.isOnline() && !lbwIdStr.startsWith('temp_')) {
+      try {
+        legacyAttachments = await firstValueFrom(this.caspioService.getServiceLBWAttachByLBWId(lbwIdStr));
+      } catch (error) {
+        console.warn('[LBW Data] Failed to load legacy attachments:', error);
+      }
+    }
+
+    // Filter legacy attachments to exclude any that have been migrated to new system
+    const filteredLegacy = legacyAttachments.filter((att: any) => {
+      const attId = String(att.AttachID || att.attachId || '');
+      return !localImages.some(img => img.attachId === attId);
+    });
+
+    // Merge: local-first images first, then legacy
+    const merged = [...localAttachments, ...filteredLegacy];
+
+    console.log('[LBW Data] Loaded attachments for LBWID', lbwIdStr, ':', merged.length,
+      `(${localAttachments.length} local-first + ${filteredLegacy.length} legacy)`);
+    return merged;
   }
 
   private async resolveWithCache<T>(
@@ -112,7 +327,6 @@ export class LbwDataService {
   clearAllCaches(): void {
     console.log('[LBW Data Service] Clearing ALL caches to force fresh data load');
 
-    // Clear in-memory caches in this service
     this.projectCache.clear();
     this.serviceCache.clear();
     this.typeCache.clear();
@@ -120,8 +334,6 @@ export class LbwDataService {
     this.lbwCache.clear();
     this.lbwAttachmentsCache.clear();
 
-    // CRITICAL: Also clear the CaspioService's localStorage cache
-    // This prevents returning stale cached data from previous page visits
     this.caspioService.clearServicesCache();
   }
 
@@ -139,76 +351,331 @@ export class LbwDataService {
   }
 
   // ============================================
-  // LBW PHOTO METHODS (matching Visual Photo methods from foundation service)
+  // LBW VISUAL MANAGEMENT METHODS
   // ============================================
 
-  async uploadVisualPhoto(lbwId: number, file: File, caption: string = '', drawings?: string, originalFile?: File): Promise<any> {
-    console.log('[LBW Photo] ========== Uploading photo for LBWID:', lbwId, '==========');
-    console.log('[LBW Photo] File:', file.name, 'Caption:', caption || '(empty)');
-    
-    const result = await firstValueFrom(
-      this.caspioService.createServicesLBWAttachWithFile(lbwId, caption, file, drawings, originalFile)
-    );
-
-    console.log('[LBW Photo] Upload complete! Raw result:', JSON.stringify(result, null, 2));
-    console.log('[LBW Photo] Result.Result:', result.Result);
-    console.log('[LBW Photo] Result.Result[0]:', result.Result?.[0]);
-
-    // Clear attachment cache for this LBW record
-    const key = String(lbwId);
-    this.lbwAttachmentsCache.delete(key);
-
-    console.log('[LBW Photo] Returning result to caller');
-    return result;
-  }
-
-  async deleteVisualPhoto(attachId: string): Promise<any> {
-    console.log('[LBW Photo] Deleting photo:', attachId);
-    const result = await firstValueFrom(this.caspioService.deleteServicesLBWAttach(attachId));
-
-    // Clear all attachment caches
-    this.lbwAttachmentsCache.clear();
-
-    return result;
-  }
-
-  async updateVisualPhotoCaption(attachId: string, caption: string): Promise<any> {
-    console.log('[LBW Photo] Updating caption for AttachID:', attachId);
-    const result = await firstValueFrom(
-      this.caspioService.updateServicesLBWAttach(attachId, { Annotation: caption })
-    );
-
-    // Clear all attachment caches
-    this.lbwAttachmentsCache.clear();
-
-    return result;
-  }
-
-  // Create LBW record (matching createVisual from foundation service)
+  /**
+   * Create LBW record - OFFLINE-FIRST with background sync
+   */
   async createVisual(lbwData: any): Promise<any> {
-    console.log('[LBW Data] Creating LBW record:', lbwData);
-    const result = await firstValueFrom(
-      this.caspioService.createServicesLBW(lbwData)
-    );
+    // WEBAPP MODE: Create directly via API (no local storage)
+    if (environment.isWeb) {
+      console.log('[LBW Data] WEBAPP: Creating LBW record directly via API:', lbwData);
 
-    // Clear cache for this service
+      try {
+        const response = await fetch(`${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_LBW/records?response=rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(lbwData)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to create LBW record: ${errorText}`);
+        }
+
+        const result = await response.json();
+        const createdRecord = result.Result?.[0] || result;
+
+        const lbwId = createdRecord.LBWID || createdRecord.PK_ID;
+        console.log('[LBW Data] WEBAPP: ✅ LBW record created with LBWID:', lbwId);
+
+        // Clear cache
+        if (lbwData.ServiceID) {
+          this.lbwCache.delete(String(lbwData.ServiceID));
+        }
+
+        return {
+          ...lbwData,
+          LBWID: lbwId,
+          PK_ID: lbwId,
+          ...createdRecord
+        };
+      } catch (error: any) {
+        console.error('[LBW Data] WEBAPP: ❌ Error creating LBW record:', error?.message || error);
+        throw error;
+      }
+    }
+
+    // MOBILE MODE: Offline-first with background sync
+    console.log('[LBW Data] Creating new LBW record (OFFLINE-FIRST):', lbwData);
+
+    // Generate temporary ID (using 'lbw' prefix for LBW records)
+    const tempId = this.tempId.generateTempId('lbw');
+
+    // Create placeholder for immediate UI
+    const placeholder = {
+      ...lbwData,
+      LBWID: tempId,
+      PK_ID: tempId,
+      _tempId: tempId,
+      _localOnly: true,
+      _syncing: true,
+      _createdAt: Date.now(),
+    };
+
+    // Store in IndexedDB for background sync
+    await this.indexedDb.addPendingRequest({
+      type: 'CREATE',
+      tempId: tempId,
+      endpoint: '/api/caspio-proxy/tables/LPS_Services_LBW/records?response=rows',
+      method: 'POST',
+      data: lbwData,
+      dependencies: [],
+      status: 'pending',
+      priority: 'high',
+    });
+
+    // CRITICAL: Cache placeholder to 'lbw' cache for Dexie-first pattern
+    const serviceIdStr = String(lbwData.ServiceID);
+    const existingLbwRecords = await this.indexedDb.getCachedServiceData(serviceIdStr, 'lbw') || [];
+    await this.indexedDb.cacheServiceData(serviceIdStr, 'lbw', [...existingLbwRecords, placeholder]);
+    console.log('[LBW Data] ✅ Cached LBW placeholder to Dexie:', tempId);
+
+    // Clear in-memory cache
     if (lbwData.ServiceID) {
       this.lbwCache.delete(String(lbwData.ServiceID));
     }
 
-    return result;
+    // Trigger sync on 60-second interval (batched sync)
+    console.log('[LBW Data] ✅ LBW record queued for sync with tempId:', tempId);
+
+    return placeholder;
   }
 
-  // Update LBW record (for hiding/unhiding without deleting)
-  async updateVisual(lbwId: string, updateData: any): Promise<any> {
-    console.log('[LBW Data] Updating LBW record:', lbwId, 'Data:', updateData);
-    const result = await firstValueFrom(
-      this.caspioService.updateServicesLBW(lbwId, updateData)
+  /**
+   * Update LBW record - OFFLINE-FIRST with background sync
+   */
+  async updateVisual(lbwId: string, updateData: any, serviceId?: string): Promise<any> {
+    console.log('[LBW Data] Updating LBW record (OFFLINE-FIRST):', lbwId, updateData);
+
+    const isTempId = String(lbwId).startsWith('temp_');
+
+    // OFFLINE-FIRST: Update IndexedDB cache immediately, queue update for sync
+    if (isTempId) {
+      // For temp IDs, update the pending request data
+      await this.indexedDb.updatePendingRequestData(lbwId, updateData);
+      console.log('[LBW Data] Updated pending LBW request:', lbwId);
+    } else {
+      // Queue update for background sync
+      if (serviceId) {
+        // Update IndexedDB cache immediately with _localUpdate flag
+        const existingLbwRecords = await this.indexedDb.getCachedServiceData(serviceId, 'lbw') || [];
+        let matchFound = false;
+        const updatedRecords = existingLbwRecords.map((v: any) => {
+          const vId = String(v.LBWID || v.PK_ID || v._tempId || '');
+          if (vId === lbwId) {
+            matchFound = true;
+            return { ...v, ...updateData, _localUpdate: true };
+          }
+          return v;
+        });
+
+        if (matchFound) {
+          await this.indexedDb.cacheServiceData(serviceId, 'lbw', updatedRecords);
+          console.log('[LBW Data] Updated LBW record in IndexedDB cache:', lbwId);
+        }
+
+        // Queue update for sync
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_LBW/records?q.where=LBWID=${lbwId}`,
+          method: 'PUT',
+          data: updateData,
+          dependencies: [],
+          status: 'pending',
+          priority: 'normal',
+        });
+        console.log('[LBW Data] Queued LBW update for sync:', lbwId);
+      } else {
+        // No serviceId - just queue the update
+        await this.indexedDb.addPendingRequest({
+          type: 'UPDATE',
+          endpoint: `/api/caspio-proxy/tables/LPS_Services_LBW/records?q.where=LBWID=${lbwId}`,
+          method: 'PUT',
+          data: updateData,
+          dependencies: [],
+          status: 'pending',
+          priority: 'normal',
+        });
+        console.log('[LBW Data] Queued update for sync (no serviceId):', lbwId);
+      }
+    }
+
+    // Clear in-memory cache
+    this.lbwCache.clear();
+
+    // Return immediately with the updated data
+    return { success: true, lbwId, ...updateData };
+  }
+
+  // ============================================
+  // LBW PHOTO METHODS - LOCAL-FIRST PATTERN
+  // ============================================
+
+  /**
+   * Upload a photo for a LBW record - LOCAL-FIRST approach using LocalImageService
+   * Uses stable UUIDs that never change, preventing image disappearance during sync.
+   */
+  async uploadVisualPhoto(lbwId: number | string, file: File, caption: string = '', drawings?: string, originalFile?: File, serviceId?: string): Promise<any> {
+    console.log('[LBW Photo] LOCAL-FIRST upload via LocalImageService for LBWID:', lbwId, 'ServiceID:', serviceId);
+
+    const lbwIdStr = String(lbwId);
+    const effectiveServiceId = serviceId || '';
+
+    // Use LocalImageService for proper local-first handling with stable UUIDs
+    const localImage = await this.localImageService.captureImage(
+      file,
+      'lbw',
+      lbwIdStr,
+      effectiveServiceId,
+      caption || '',
+      drawings || ''
     );
 
-    // Clear cache
+    // Get display URL (will be local blob URL)
+    const displayUrl = await this.localImageService.getDisplayUrl(localImage);
+
+    console.log('[LBW Photo] ✅ Image captured with stable ID:', localImage.imageId, 'status:', localImage.status);
+
+    // Return immediately with stable imageId - NEVER WAIT FOR NETWORK
+    return {
+      // Stable identifiers (use imageId for trackBy)
+      imageId: localImage.imageId,
+      AttachID: localImage.imageId,
+      attachId: localImage.imageId,
+      _tempId: localImage.imageId,
+      _pendingFileId: localImage.imageId,
+
+      // Entity references
+      LBWID: lbwIdStr,
+      entityId: lbwIdStr,
+      entityType: 'lbw',
+      serviceId: effectiveServiceId,
+
+      // Content
+      Annotation: caption,
+      caption: caption || '',
+      drawings: drawings || '',
+      fileName: localImage.fileName,
+      fileSize: localImage.fileSize,
+
+      // Display URLs (local blob - stable during sync)
+      Photo: displayUrl,
+      url: displayUrl,
+      thumbnailUrl: displayUrl,
+      displayUrl: displayUrl,
+      _thumbnailUrl: displayUrl,
+
+      // Status flags - SILENT SYNC: Don't show uploading/queued indicators
+      status: localImage.status,
+      _syncing: false,
+      uploading: false,
+      queued: false,
+      isPending: localImage.status !== 'verified',
+      isObjectUrl: true,
+      isLocalFirst: true,
+      localBlobId: localImage.localBlobId,
+    };
+  }
+
+  async deleteVisualPhoto(attachId: string): Promise<any> {
+    console.log('[LBW Photo] Deleting photo:', attachId);
+
+    // Clear all attachment caches first (optimistic update)
     this.lbwAttachmentsCache.clear();
 
-    return result;
+    // QUEUE-FIRST: Always queue delete for background sync
+    console.log('[LBW Photo] Queuing delete for sync:', attachId);
+    await this.indexedDb.addPendingRequest({
+      type: 'DELETE',
+      endpoint: `/api/caspio-proxy/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`,
+      method: 'DELETE',
+      data: { attachId },
+      dependencies: [],
+      status: 'pending',
+      priority: 'normal',
+    });
+
+    return { success: true, attachId };
+  }
+
+  /**
+   * Queue caption update for background sync
+   */
+  async queueCaptionUpdate(
+    attachId: string,
+    caption: string,
+    drawings?: string,
+    metadata: { serviceId?: string; lbwId?: string } = {}
+  ): Promise<string> {
+    const isTempId = String(attachId).startsWith('temp_') || String(attachId).startsWith('img_');
+
+    // Update local cache immediately
+    await this.updateLocalCacheWithCaption(attachId, caption, drawings, metadata);
+
+    // WEBAPP MODE: Call API directly (if not temp ID)
+    if (environment.isWeb && !isTempId) {
+      try {
+        const updateData: any = { Annotation: caption };
+        if (drawings !== undefined) {
+          updateData.Drawings = drawings;
+        }
+
+        const response = await fetch(
+          `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateData)
+          }
+        );
+
+        if (response.ok) {
+          console.log('[LBW Data] WEBAPP: ✅ Caption updated directly via API:', attachId);
+          return `webapp_direct_${Date.now()}`;
+        }
+      } catch (apiError) {
+        console.warn('[LBW Data] WEBAPP: API call failed, falling through to queue:', apiError);
+      }
+    }
+
+    // MOBILE MODE: Queue for background sync
+    const captionId = await this.indexedDb.queueCaptionUpdate({
+      attachId,
+      attachType: 'lbw',
+      caption,
+      drawings,
+      serviceId: metadata.serviceId,
+      visualId: metadata.lbwId
+    });
+
+    console.log('[LBW Data] ✅ Queued caption update:', attachId, 'captionId:', captionId);
+    return captionId;
+  }
+
+  /**
+   * Update local cache with caption/drawings
+   */
+  private async updateLocalCacheWithCaption(
+    attachId: string,
+    caption: string,
+    drawings?: string,
+    metadata: { serviceId?: string; lbwId?: string } = {}
+  ): Promise<void> {
+    // Update LocalImages table
+    try {
+      const localImage = await db.localImages.get(attachId);
+      if (localImage) {
+        const updateData: any = { caption, updatedAt: Date.now() };
+        if (drawings !== undefined) {
+          updateData.drawings = drawings;
+        }
+        await db.localImages.update(attachId, updateData);
+        console.log('[LBW Data] Updated LocalImages with caption:', attachId);
+      }
+    } catch (err) {
+      console.warn('[LBW Data] Failed to update LocalImages:', err);
+    }
   }
 }

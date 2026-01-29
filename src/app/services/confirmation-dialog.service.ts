@@ -74,21 +74,21 @@ export class ConfirmationDialogService {
         backdropDismiss: true,
         buttons: [
           {
-            text: cancelText,
-            role: 'cancel',
-            cssClass: 'alert-button-cancel',
-            handler: () => {
-              this.cleanupKeyboardHandler();
-              resolve({ confirmed: false });
-            }
-          },
-          {
             text: confirmText,
             role: destructive ? 'destructive' : 'confirm',
             cssClass: destructive ? 'alert-button-confirm alert-button-destructive' : 'alert-button-confirm',
             handler: () => {
               this.cleanupKeyboardHandler();
               resolve({ confirmed: true });
+            }
+          },
+          {
+            text: cancelText,
+            role: 'cancel',
+            cssClass: 'alert-button-cancel',
+            handler: () => {
+              this.cleanupKeyboardHandler();
+              resolve({ confirmed: false });
             }
           }
         ],

@@ -13,11 +13,12 @@ import { LbwDataService } from '..\/lbw-data.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
-import { IndexedDbService } from '../../../services/indexed-db.service';
+import { IndexedDbService, LocalImage } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { LocalImageService } from '../../../services/local-image.service';
+import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 import { environment } from '../../../../environments/environment';
-import { db } from '../../../services/caspio-db';
+import { db, VisualField } from '../../../services/caspio-db';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 
 interface VisualItem {
@@ -35,7 +36,7 @@ interface VisualItem {
   isSaving?: boolean;
   photos?: any[];
   otherValue?: string;
-  key?: string;
+  key?: string;  // Computed key: ${category}_${templateId}
 }
 
 @Component({
@@ -95,6 +96,19 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   private taskSubscription?: Subscription;
   private photoSyncSubscription?: Subscription;
 
+  // DEXIE-FIRST: VisualFields subscription for reactive updates
+  private visualFieldsSubscription?: Subscription;
+  private lastConvertedFields: VisualField[] = [];
+  private tempIdToRealIdCache: Map<string, string> = new Map();
+  private isPopulatingPhotos: boolean = false;
+  private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();
+  private localOperationCooldown: boolean = false;
+  private localOperationCooldownTimer: any = null;
+  private cacheInvalidationDebounceTimer: any = null;
+  private initialLoadComplete: boolean = false;
+  private lastLoadedServiceId: string = '';
+  private lastLoadedCategoryName: string = '';
+
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -119,7 +133,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     private cache: CacheService,
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
-    private localImageService: LocalImageService
+    private localImageService: LocalImageService,
+    private visualFieldRepo: VisualFieldRepoService
   ) {}
 
   async ngOnInit() {
@@ -154,6 +169,24 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   async ionViewWillEnter() {
     console.log('[LBW] ionViewWillEnter - serviceId:', this.serviceId, 'categoryName:', this.categoryName);
 
+    // MOBILE MODE: Reload data from Dexie when returning to page
+    // Sync may have completed while user was on visual-detail page
+    if (!environment.isWeb && this.serviceId && this.categoryName && this.initialLoadComplete) {
+      console.log('[LBW] MOBILE: Reloading from Dexie on page return...');
+      this.loading = false;
+
+      // Merge Dexie visual fields to get latest edits
+      await this.mergeDexieVisualFields();
+
+      // Repopulate photos from Dexie (sync may have updated entityIds)
+      if (this.lastConvertedFields.length > 0) {
+        await this.populatePhotosFromDexie(this.lastConvertedFields);
+      }
+
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
+
     // WEBAPP: Reload photos and merge Dexie edits when returning to this page
     // This ensures photos uploaded on this session appear after navigation
     // and title/text edits from visual-detail are displayed
@@ -184,6 +217,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
     if (this.photoSyncSubscription) {
       this.photoSyncSubscription.unsubscribe();
+    }
+    // DEXIE-FIRST: Clean up VisualFields subscription
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
+    }
+    // Clear any pending timers
+    if (this.localOperationCooldownTimer) {
+      clearTimeout(this.localOperationCooldownTimer);
+    }
+    if (this.cacheInvalidationDebounceTimer) {
+      clearTimeout(this.cacheInvalidationDebounceTimer);
     }
     console.log('[LBW CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
@@ -383,8 +427,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   private async loadData() {
     console.log('[LOAD DATA] ========== STARTING CACHE-FIRST DATA LOAD ==========');
 
+    // MOBILE MODE: Use DEXIE-first pattern - load from local storage, no spinners
+    if (!environment.isWeb) {
+      console.log('[LOAD DATA] MOBILE MODE: Using DEXIE-first pattern');
+      await this.loadDataFromCache();
+      return;
+    }
+
     try {
-      // STEP 1: Check if we have cached visuals data - if so, skip loading spinner
+      // WEBAPP MODE: Check if we have cached visuals data - if so, skip loading spinner
       const cachedVisuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'lbw_records');
       const hasCachedData = cachedVisuals && cachedVisuals.length > 0;
 
@@ -875,6 +926,632 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         }
       }
     }
+  }
+
+  // ============================================================================
+  // DEXIE-FIRST METHODS - MOBILE MODE
+  // ============================================================================
+
+  /**
+   * MOBILE MODE: Load data from Dexie cache first for instant page loads
+   * This is the DEXIE-first pattern - no loading spinners, instant UI
+   */
+  private async loadDataFromCache(): Promise<void> {
+    console.log('[LBW CategoryDetail] MOBILE MODE: loadDataFromCache() starting...');
+    this.loading = true;
+    this.changeDetectorRef.detectChanges();
+
+    try {
+      // Load LBW templates and records from cache
+      // CRITICAL: Use hudData.getVisualsByService() to merge cached + pending records (Dexie-first pattern)
+      const [templates, visuals] = await Promise.all([
+        this.indexedDb.getCachedTemplates('lbw'),
+        this.hudData.getVisualsByService(this.serviceId, false) // false = use cache
+      ]);
+
+      console.log(`[LBW CategoryDetail] MOBILE: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} LBW records from cache+pending`);
+
+      // If no templates in cache, fall back to API
+      if (!templates || templates.length === 0) {
+        console.warn('[LBW CategoryDetail] MOBILE: No templates in cache, falling back to API...');
+        // Reset loading state and use original WEBAPP pattern
+        this.loading = true;
+        await this.loadAllDropdownOptions();
+        await this.loadCategoryTemplates();
+        await this.loadExistingVisuals(false);
+        await this.restorePendingPhotosFromIndexedDB();
+        await this.mergeDexieVisualFields();
+        this.loading = false;
+        this.initialLoadComplete = true;
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // Filter templates for this category
+      const categoryTemplates = (templates || []).filter((t: any) => t.Category === this.categoryName);
+      const categoryVisuals = (visuals || []).filter((v: any) => v.Category === this.categoryName);
+
+      // TITLE EDIT FIX: Load Dexie visualFields FIRST to get templateId -> visualId mappings
+      const dexieFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray();
+
+      // Build templateId -> visualId map from Dexie
+      const templateToVisualMap = new Map<number, string>();
+      for (const field of dexieFields) {
+        const visualId = field.visualId || field.tempVisualId;
+        if (visualId && field.templateId) {
+          templateToVisualMap.set(field.templateId, visualId);
+        }
+      }
+      console.log(`[LBW CategoryDetail] MOBILE: Built templateId->visualId map with ${templateToVisualMap.size} entries from Dexie`);
+
+      // Build organized data from templates and visuals
+      const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
+        comments: [],
+        limitations: [],
+        deficiencies: []
+      };
+
+      for (const template of categoryTemplates) {
+        const templateId = template.TemplateID || template.PK_ID;
+        const kind = (template.Kind || 'Comment').toLowerCase();
+        const templateName = template.Name || '';
+
+        // TITLE EDIT FIX: PRIORITY 1 - Find by LBWID from Dexie mapping
+        let visual: any = null;
+        const dexieVisualId = templateToVisualMap.get(templateId);
+        if (dexieVisualId) {
+          visual = (categoryVisuals || []).find((v: any) =>
+            String(v.LBWID || v.PK_ID) === String(dexieVisualId)
+          );
+          if (visual) {
+            console.log(`[LBW CategoryDetail] MOBILE: Matched visual by Dexie LBWID for template ${templateId}:`, dexieVisualId);
+          }
+        }
+
+        // PRIORITY 2: Find by LBWTemplateID/VisualTemplateID/TemplateID
+        if (!visual) {
+          visual = (categoryVisuals || []).find((v: any) => {
+            const vTemplateId = v.LBWTemplateID || v.VisualTemplateID || v.TemplateID;
+            return vTemplateId == templateId;
+          });
+        }
+
+        // PRIORITY 3: Fallback match by name
+        if (!visual && templateName) {
+          visual = (categoryVisuals || []).find((v: any) => v.Name === templateName);
+        }
+
+        const itemKey = `${this.categoryName}_${templateId}`;
+
+        const item: VisualItem = {
+          id: visual ? (visual.LBWID || visual.VisualID || visual.PK_ID) : templateId,
+          templateId: templateId,
+          name: visual?.Name || template.Name || '',
+          text: visual?.VisualText || visual?.Text || template.Text || '',
+          originalText: template.Text || '',
+          type: template.Kind || 'Comment',
+          category: template.Category || this.categoryName,
+          answerType: template.AnswerType || 0,
+          required: false,
+          answer: visual?.Answers || '',
+          otherValue: (template.AnswerType === 2 && visual?.Notes && !String(visual.Notes).startsWith('HIDDEN')) ? visual.Notes : '',
+          isSelected: !!visual,
+          key: itemKey
+        };
+
+        // Add to appropriate section
+        if (kind === 'limitation' || kind === 'limitations') {
+          organizedData.limitations.push(item);
+        } else if (kind === 'deficiency' || kind === 'deficiencies') {
+          organizedData.deficiencies.push(item);
+        } else {
+          organizedData.comments.push(item);
+        }
+
+        // Track visual record IDs and selection state
+        if (visual) {
+          const visualId = visual.LBWID || visual.VisualID || visual.PK_ID;
+          this.visualRecordIds[itemKey] = String(visualId);
+          this.selectedItems[itemKey] = true;
+        }
+      }
+
+      this.organizedData = organizedData;
+
+      console.log(`[LBW CategoryDetail] MOBILE: Organized - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
+
+      // DEXIE-FIRST: Load VisualFields from Dexie to restore local changes
+      try {
+        const dexieFieldMap = new Map<number, any>();
+        for (const field of dexieFields.filter(f => f.category === this.categoryName)) {
+          dexieFieldMap.set(field.templateId, field);
+        }
+
+        // Merge Dexie field data into items
+        const allItems = [...organizedData.comments, ...organizedData.limitations, ...organizedData.deficiencies];
+        for (const item of allItems) {
+          const dexieField = dexieFieldMap.get(item.templateId);
+          if (dexieField) {
+            const key = `${dexieField.category}_${dexieField.templateId}`;
+            const visualId = dexieField.visualId || dexieField.tempVisualId;
+
+            // Restore visualId for photo matching
+            if (visualId && !this.visualRecordIds[key]) {
+              this.visualRecordIds[key] = visualId;
+            }
+
+            // TITLE/TEXT FIX: Restore edited name and text from Dexie
+            if (dexieField.templateName && dexieField.templateName !== item.name) {
+              console.log(`[LBW CategoryDetail] MOBILE: Restored title from Dexie - key: ${key}, old: "${item.name}", new: "${dexieField.templateName}"`);
+              item.name = dexieField.templateName;
+            }
+            if (dexieField.templateText && dexieField.templateText !== item.text) {
+              item.text = dexieField.templateText;
+            }
+
+            // Restore answer from Dexie
+            if (dexieField.answer !== undefined && dexieField.answer !== null && dexieField.answer !== '') {
+              item.answer = dexieField.answer;
+            }
+
+            // Restore otherValue and isSelected
+            if (dexieField.otherValue !== undefined && dexieField.otherValue !== null) {
+              item.otherValue = dexieField.otherValue;
+            }
+            if (dexieField.isSelected) {
+              item.isSelected = true;
+              this.selectedItems[key] = true;
+            }
+
+            // Restore dropdownOptions from Dexie
+            if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
+              this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
+            }
+          }
+        }
+
+        console.log(`[LBW CategoryDetail] MOBILE: Merged ${dexieFieldMap.size} VisualFields from Dexie`);
+
+        // CUSTOM VISUAL FIX: Add custom visuals from Dexie that aren't in organizedData
+        for (const field of dexieFields.filter(f => f.category === this.categoryName)) {
+          if (field.templateId < 0 && field.isSelected) {
+            const existingItem = allItems.find(item => item.templateId === field.templateId);
+            if (!existingItem) {
+              const key = `${field.category}_${field.templateId}`;
+              const visualId = field.tempVisualId || field.visualId;
+
+              const customItem: VisualItem = {
+                id: field.tempVisualId || field.visualId || field.templateId,
+                templateId: field.templateId,
+                name: field.templateName || 'Custom Item',
+                text: field.templateText || '',
+                originalText: field.templateText || '',
+                type: field.kind || 'Comment',
+                category: field.category,
+                answerType: 0,
+                required: false,
+                answer: field.answer || '',
+                isSelected: true,
+                photos: [],
+                key: key
+              };
+
+              // Add to appropriate section
+              if (field.kind === 'Comment') {
+                organizedData.comments.push(customItem);
+              } else if (field.kind === 'Limitation') {
+                organizedData.limitations.push(customItem);
+              } else if (field.kind === 'Deficiency') {
+                organizedData.deficiencies.push(customItem);
+              } else {
+                organizedData.comments.push(customItem);
+              }
+
+              if (visualId) {
+                this.visualRecordIds[key] = visualId;
+              }
+              this.selectedItems[key] = true;
+
+              console.log(`[LBW CategoryDetail] MOBILE: Added custom visual from Dexie: templateId=${field.templateId}, name="${customItem.name}"`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[LBW CategoryDetail] MOBILE: Failed to load VisualFields from Dexie:', err);
+      }
+
+      // MOBILE FIX: Populate lastConvertedFields from organizedData
+      this.lastConvertedFields = this.buildConvertedFieldsFromOrganizedData(organizedData);
+      console.log(`[LBW CategoryDetail] MOBILE: Built ${this.lastConvertedFields.length} converted fields for photo matching`);
+
+      // Load photos from Dexie (LocalImages table)
+      await this.populatePhotosFromDexie(this.lastConvertedFields);
+
+      // Subscribe to VisualFields changes
+      this.subscribeToVisualFieldChanges();
+
+      // Load dropdown options from cache
+      const cachedDropdownData = await this.indexedDb.getCachedTemplates('lbw_dropdown') || [];
+      if (cachedDropdownData.length > 0) {
+        this.populateDropdownOptionsFromCache(cachedDropdownData);
+      }
+
+      // Update tracking variables
+      this.lastLoadedServiceId = this.serviceId;
+      this.lastLoadedCategoryName = this.categoryName;
+      this.initialLoadComplete = true;
+
+    } catch (error) {
+      console.error('[LBW CategoryDetail] MOBILE: Error loading data from cache:', error);
+    } finally {
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  /**
+   * MOBILE FIX: Build VisualField-like objects from organizedData
+   * Required for populatePhotosFromDexie() to work
+   */
+  private buildConvertedFieldsFromOrganizedData(data: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] }): VisualField[] {
+    const fields: VisualField[] = [];
+    const allItems = [...data.comments, ...data.limitations, ...data.deficiencies];
+
+    for (const item of allItems) {
+      const key = (item as any).key || `${item.category || this.categoryName}_${item.templateId}`;
+      const visualId = this.visualRecordIds[key];
+
+      // Determine visualId and tempVisualId
+      let effectiveVisualId: string | null = null;
+      let effectiveTempVisualId: string | null = null;
+
+      if (visualId) {
+        const visualIdStr = String(visualId);
+        if (visualIdStr.startsWith('temp_')) {
+          effectiveTempVisualId = visualIdStr;
+        } else {
+          effectiveVisualId = visualIdStr;
+          // Reverse lookup in tempIdToRealIdCache
+          for (const [tempId, mappedRealId] of this.tempIdToRealIdCache.entries()) {
+            if (mappedRealId === visualIdStr) {
+              effectiveTempVisualId = tempId;
+              break;
+            }
+          }
+        }
+      }
+
+      fields.push({
+        key: `${this.serviceId}:${item.category || this.categoryName}:${item.templateId}`,
+        serviceId: this.serviceId,
+        category: item.category || this.categoryName,
+        templateId: item.templateId,
+        templateName: item.name || '',
+        templateText: item.text || '',
+        kind: (item.type || 'Comment') as 'Comment' | 'Limitation' | 'Deficiency',
+        answerType: item.answerType || 0,
+        isSelected: item.isSelected || false,
+        answer: item.answer || '',
+        otherValue: item.otherValue || '',
+        visualId: effectiveVisualId,
+        tempVisualId: effectiveTempVisualId,
+        photoCount: this.visualPhotos[key]?.length || 0,
+        rev: 0,
+        updatedAt: Date.now(),
+        dirty: false
+      });
+    }
+
+    return fields;
+  }
+
+  /**
+   * DEXIE-FIRST: Populate photos directly from Dexie LocalImages table
+   * Uses 4-tier fallback for robust photo matching
+   */
+  private async populatePhotosFromDexie(fields: VisualField[]): Promise<void> {
+    // MUTEX: Prevent concurrent calls
+    if (this.isPopulatingPhotos) {
+      console.log('[LBW DEXIE-FIRST] Skipping - already populating photos (mutex)');
+      return;
+    }
+    this.isPopulatingPhotos = true;
+
+    try {
+      console.log('[LBW DEXIE-FIRST] Populating photos directly from Dexie...');
+
+      // Load annotated images in background (non-blocking)
+      if (this.bulkAnnotatedImagesMap.size === 0) {
+        this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
+          this.bulkAnnotatedImagesMap = annotatedImages;
+          this.changeDetectorRef.detectChanges();
+        });
+      }
+
+      // DIRECT DEXIE QUERY: Get ALL LocalImages for this service filtered by 'lbw' entity type
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId, 'lbw');
+
+      console.log(`[LBW DEXIE-FIRST] Found ${allLocalImages.length} LocalImages for service`);
+
+      // Group by entityId for efficient lookup
+      const localImagesMap = new Map<string, LocalImage[]>();
+      for (const img of allLocalImages) {
+        if (!img.entityId) continue;
+        const entityId = String(img.entityId);
+        if (!localImagesMap.has(entityId)) {
+          localImagesMap.set(entityId, []);
+        }
+        localImagesMap.get(entityId)!.push(img);
+      }
+
+      let photosAddedCount = 0;
+
+      for (const field of fields) {
+        // 4-TIER FALLBACK for photo lookup
+        const realId = field.visualId;
+        const tempId = field.tempVisualId;
+        const visualId = realId || tempId;
+        if (!visualId) continue;
+
+        const key = `${field.category}_${field.templateId}`;
+
+        // Store visual record ID for photo operations
+        this.visualRecordIds[key] = visualId;
+
+        // TIER 1: Lookup by real ID first
+        let localImages = realId ? (localImagesMap.get(realId) || []) : [];
+
+        // TIER 2: Try tempId lookup
+        if (localImages.length === 0 && tempId && tempId !== realId) {
+          localImages = localImagesMap.get(tempId) || [];
+        }
+
+        // TIER 3: Check IndexedDB for temp-to-real mapping
+        if (localImages.length === 0 && tempId) {
+          const mappedRealId = await this.indexedDb.getRealId(tempId);
+          if (mappedRealId) {
+            localImages = localImagesMap.get(mappedRealId) || [];
+            if (localImages.length > 0) {
+              console.log(`[LBW DEXIE-FIRST] TIER 3: Found ${localImages.length} photos via temp->real mapping for ${tempId}`);
+            }
+          }
+        }
+
+        // TIER 4: Reverse lookup - have realId but no tempId
+        if (localImages.length === 0 && realId && !tempId) {
+          const reverseLookupTempId = await this.indexedDb.getTempId(realId);
+          if (reverseLookupTempId) {
+            localImages = localImagesMap.get(reverseLookupTempId) || [];
+            if (localImages.length > 0) {
+              console.log(`[LBW DEXIE-FIRST] TIER 4: Found ${localImages.length} photos via reverse lookup for ${realId}`);
+            }
+          }
+        }
+
+        if (localImages.length === 0) {
+          continue;
+        }
+
+        // Initialize photos array if not exists
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        // Track already loaded photos to avoid duplicates
+        const loadedPhotoIds = new Set<string>();
+        for (const p of this.visualPhotos[key]) {
+          if (p.imageId) loadedPhotoIds.add(p.imageId);
+          if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
+          if (p.localImageId) loadedPhotoIds.add(p.localImageId);
+        }
+
+        // Add LocalImages to visualPhotos
+        for (const localImage of localImages) {
+          const imageId = localImage.imageId;
+
+          // Check if photo already exists - refresh its displayUrl
+          const existingPhotoIndex = this.visualPhotos[key].findIndex(p =>
+            p.imageId === imageId ||
+            p.localImageId === imageId ||
+            (localImage.attachId && (String(p.AttachID) === localImage.attachId || p.attachId === localImage.attachId))
+          );
+
+          if (existingPhotoIndex !== -1) {
+            // Photo exists - refresh displayUrl from LocalImages
+            try {
+              const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+              if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
+                const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+                let thumbnailUrl = freshDisplayUrl;
+                if (hasAnnotations) {
+                  const cachedAnnotated = this.bulkAnnotatedImagesMap.get(imageId);
+                  if (cachedAnnotated) {
+                    thumbnailUrl = cachedAnnotated;
+                  }
+                }
+                this.visualPhotos[key][existingPhotoIndex] = {
+                  ...this.visualPhotos[key][existingPhotoIndex],
+                  displayUrl: thumbnailUrl,
+                  url: freshDisplayUrl,
+                  thumbnailUrl: thumbnailUrl,
+                  originalUrl: freshDisplayUrl,
+                  localBlobId: localImage.localBlobId,
+                  caption: localImage.caption || this.visualPhotos[key][existingPhotoIndex].caption || '',
+                  Drawings: localImage.drawings || null,
+                  hasAnnotations: hasAnnotations,
+                  isLocalImage: true
+                };
+              }
+            } catch (e) {
+              console.warn('[LBW DEXIE-FIRST] Failed to refresh displayUrl:', e);
+            }
+            loadedPhotoIds.add(imageId);
+            if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+            continue;
+          }
+
+          // Skip if already loaded
+          if (loadedPhotoIds.has(imageId)) continue;
+          if (localImage.attachId && loadedPhotoIds.has(localImage.attachId)) continue;
+
+          // Get display URL from LocalImageService
+          let displayUrl = 'assets/img/photo-placeholder.svg';
+          try {
+            displayUrl = await this.localImageService.getDisplayUrl(localImage);
+          } catch (e) {
+            console.warn('[LBW DEXIE-FIRST] Failed to get displayUrl:', e);
+          }
+
+          // Check for annotated image
+          let thumbnailUrl = displayUrl;
+          const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
+          if (hasAnnotations) {
+            const cachedAnnotated = this.bulkAnnotatedImagesMap.get(imageId);
+            if (cachedAnnotated) {
+              thumbnailUrl = cachedAnnotated;
+            }
+          }
+
+          // Add photo to array
+          this.visualPhotos[key].unshift({
+            AttachID: localImage.attachId || localImage.imageId,
+            attachId: localImage.attachId || localImage.imageId,
+            id: localImage.attachId || localImage.imageId,
+            imageId: localImage.imageId,
+            localImageId: localImage.imageId,
+            localBlobId: localImage.localBlobId,
+            displayUrl: thumbnailUrl,
+            url: displayUrl,
+            thumbnailUrl: thumbnailUrl,
+            originalUrl: displayUrl,
+            name: localImage.fileName,
+            caption: localImage.caption || '',
+            annotation: localImage.caption || '',
+            Annotation: localImage.caption || '',
+            Drawings: localImage.drawings || null,
+            hasAnnotations: hasAnnotations,
+            loading: false,
+            uploading: false,
+            queued: false,
+            isSkeleton: false,
+            isLocalImage: true,
+            isLocalFirst: true
+          });
+
+          loadedPhotoIds.add(imageId);
+          if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+          photosAddedCount++;
+        }
+
+        // Update photo count
+        this.photoCountsByKey[key] = this.visualPhotos[key].length;
+      }
+
+      console.log(`[LBW DEXIE-FIRST] Populated ${photosAddedCount} photos from Dexie`);
+    } finally {
+      this.isPopulatingPhotos = false;
+    }
+  }
+
+  /**
+   * Subscribe to VisualFields changes for reactive updates
+   * When sync updates VisualField with real ID, this subscription fires
+   */
+  private subscribeToVisualFieldChanges(): void {
+    // Unsubscribe from previous subscription
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
+    }
+
+    if (!this.serviceId) {
+      console.log('[LBW VISUALFIELDS] No serviceId, skipping subscription');
+      return;
+    }
+
+    console.log('[LBW VISUALFIELDS] Subscribing to VisualFields changes for service:', this.serviceId);
+
+    // Subscribe to ALL VisualFields for this service
+    this.visualFieldsSubscription = this.visualFieldRepo
+      .getAllFieldsForService$(this.serviceId)
+      .subscribe({
+        next: async (fields) => {
+          console.log(`[LBW VISUALFIELDS] Received ${fields.length} fields from liveQuery`);
+
+          // Store fresh fields as lastConvertedFields
+          this.lastConvertedFields = fields;
+
+          // Build a map of visualId -> Dexie field for updating organizedData
+          const fieldsByVisualId = new Map<string, any>();
+          for (const field of fields) {
+            const visualId = field.visualId || field.tempVisualId;
+            if (visualId) {
+              fieldsByVisualId.set(String(visualId), field);
+            }
+          }
+
+          // Update visualRecordIds and organizedData items
+          for (const field of fields) {
+            const key = `${field.category}_${field.templateId}`;
+            const visualId = field.visualId || field.tempVisualId;
+            if (visualId) {
+              this.visualRecordIds[key] = visualId;
+
+              // Find matching item and update
+              const allItems = [...this.organizedData.comments, ...this.organizedData.limitations, ...this.organizedData.deficiencies];
+              for (const item of allItems) {
+                // Match custom items by their id
+                if ((item as any).id === `custom_${visualId}` && item.templateId !== field.templateId) {
+                  console.log(`[LBW VISUALFIELDS] Updating custom item templateId: ${item.templateId} -> ${field.templateId}`);
+                  item.templateId = field.templateId;
+                }
+
+                // Update item name from Dexie templateName
+                if ((item as any).id === `custom_${visualId}` && field.templateName) {
+                  if (item.name !== field.templateName) {
+                    console.log(`[LBW VISUALFIELDS] Updating item name: "${item.name}" -> "${field.templateName}"`);
+                    item.name = field.templateName;
+                  }
+                }
+              }
+            }
+          }
+
+          // Populate photos with fresh fields
+          await this.populatePhotosFromDexie(fields);
+          this.changeDetectorRef.detectChanges();
+        },
+        error: (err) => {
+          console.error('[LBW VISUALFIELDS] Error in VisualFields subscription:', err);
+        }
+      });
+  }
+
+  /**
+   * Populate dropdown options from cached data
+   */
+  private populateDropdownOptionsFromCache(dropdownData: any[]): void {
+    for (const row of dropdownData) {
+      const templateId = String(row.TemplateID);
+      const dropdownValue = row.Dropdown;
+      if (templateId && dropdownValue) {
+        if (!this.visualDropdownOptions[templateId]) {
+          this.visualDropdownOptions[templateId] = [];
+        }
+        if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
+          this.visualDropdownOptions[templateId].push(dropdownValue);
+        }
+      }
+    }
+    // Add "Other" option
+    Object.keys(this.visualDropdownOptions).forEach(templateId => {
+      if (!this.visualDropdownOptions[templateId].includes('Other')) {
+        this.visualDropdownOptions[templateId].push('Other');
+      }
+    });
+    console.log(`[LBW CategoryDetail] MOBILE: Populated dropdown options for ${Object.keys(this.visualDropdownOptions).length} templates from cache`);
   }
 
   private findItemByName(name: string): VisualItem | undefined {
