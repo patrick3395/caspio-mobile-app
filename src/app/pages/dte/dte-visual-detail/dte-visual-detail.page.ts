@@ -282,7 +282,7 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       const field = allFields.find(f => f.templateId === this.templateId);
 
-      const cachedTemplates = await this.indexedDb.getCachedTemplates('dte') || [];
+      const cachedTemplates = await this.indexedDb.getCachedTemplates('visual') || [];
       const template = cachedTemplates.find((t: any) =>
         Number(t.TemplateID || t.PK_ID) === this.templateId
       );
@@ -571,13 +571,25 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     try {
       const actualCategory = this.item?.category || this.categoryName;
 
+      // TITLE EDIT FIX: Include visualId so Dexie mapping exists for category-detail lookup
+      const fieldData: any = {
+        templateName: this.editableTitle,
+        isSelected: true,  // Visual is selected if user is editing it
+        category: actualCategory
+      };
+
+      // Include visualId if we have a valid DTEID
+      if (this.isValidDteId(this.dteId)) {
+        fieldData.visualId = this.dteId;
+      }
+
       await this.visualFieldRepo.setField(
         this.serviceId,
         actualCategory,
         this.templateId,
-        { templateName: this.editableTitle }
+        fieldData
       );
-      console.log('[DteVisualDetail] Updated title in Dexie');
+      console.log('[DteVisualDetail] Updated title in Dexie with visualId:', this.dteId);
 
       if (this.isValidDteId(this.dteId)) {
         await this.dteData.updateVisual(this.dteId, { Name: this.editableTitle });
@@ -603,13 +615,25 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     try {
       const actualCategory = this.item?.category || this.categoryName;
 
+      // TITLE EDIT FIX: Include visualId so Dexie mapping exists for category-detail lookup
+      const fieldData: any = {
+        templateText: this.editableText,
+        isSelected: true,  // Visual is selected if user is editing it
+        category: actualCategory
+      };
+
+      // Include visualId if we have a valid DTEID
+      if (this.isValidDteId(this.dteId)) {
+        fieldData.visualId = this.dteId;
+      }
+
       await this.visualFieldRepo.setField(
         this.serviceId,
         actualCategory,
         this.templateId,
-        { templateText: this.editableText }
+        fieldData
       );
-      console.log('[DteVisualDetail] Updated text in Dexie');
+      console.log('[DteVisualDetail] Updated text in Dexie with visualId:', this.dteId);
 
       if (this.isValidDteId(this.dteId)) {
         await this.dteData.updateVisual(this.dteId, { Text: this.editableText });

@@ -17,6 +17,7 @@ import { IndexedDbService } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { environment } from '../../../../environments/environment';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
+import { db } from '../../../services/caspio-db';
 
 interface VisualItem {
   id: string | number;
@@ -565,6 +566,23 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         console.log('[LOAD EXISTING] Category visuals full data:', categoryVisuals);
       }
 
+      // TITLE EDIT FIX: Load Dexie visualFields to get templateId -> DTEID mappings
+      // This allows finding visuals even when Name has been edited (Name match would fail)
+      const dexieFields = await db.visualFields
+        .where('serviceId')
+        .equals(this.serviceId)
+        .toArray();
+
+      // Build templateId -> visualId map from Dexie
+      const templateToVisualMap = new Map<number, string>();
+      for (const field of dexieFields) {
+        const visualId = field.visualId || field.tempVisualId;
+        if (visualId && field.templateId) {
+          templateToVisualMap.set(field.templateId, visualId);
+        }
+      }
+      console.log(`[LOAD EXISTING] Built templateId->DTEID map with ${templateToVisualMap.size} entries from Dexie`);
+
       // Get all available template items
       const allItems = [
         ...this.organizedData.comments,
@@ -581,11 +599,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         console.log('[LOAD EXISTING] Visual Notes:', visual.Notes);
         console.log('[LOAD EXISTING] Visual Answers:', visual.Answers);
         console.log('[LOAD EXISTING] Visual Kind:', visual.Kind);
-        
+
         // CRITICAL: Skip hidden visuals (soft delete - keeps photos but doesn't show in UI)
         if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
           console.log('[LOAD EXISTING] ⚠️ Skipping hidden visual:', visual.Name);
-          
+
           // Store visualRecordId so we can unhide it later if user reselects
           const item = allItems.find(i => i.name === visual.Name);
           if (item) {
@@ -596,13 +614,33 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           }
           continue;
         }
-        
+
         const name = visual.Name;
         const kind = visual.Kind;
         const DTEID = String(visual.DTEID || visual.PK_ID || visual.id);
-        
-        // Find the item by Name
-        let item = allItems.find(i => i.name === visual.Name);
+
+        // TITLE EDIT FIX: PRIORITY 1 - Find item by Dexie mapping (templateId -> DTEID)
+        // This ensures visual stays selected even after Name is edited
+        let item: VisualItem | undefined = undefined;
+
+        // First, find which templateId maps to this DTEID
+        for (const [templateId, mappedDteId] of templateToVisualMap.entries()) {
+          if (String(mappedDteId) === DTEID) {
+            item = allItems.find(i => i.templateId === templateId);
+            if (item) {
+              console.log(`[LOAD EXISTING] PRIORITY 1: Matched by Dexie mapping: templateId=${templateId} -> DTEID=${DTEID}`);
+              break;
+            }
+          }
+        }
+
+        // PRIORITY 2: Find the item by Name (fallback)
+        if (!item) {
+          item = allItems.find(i => i.name === visual.Name);
+          if (item) {
+            console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name: "${visual.Name}"`);
+          }
+        }
         
         // If no template match found, this is a CUSTOM visual - create dynamic item
         if (!item) {
@@ -3681,14 +3719,18 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
    */
   openVisualDetail(categoryName: string, item: VisualItem) {
     console.log('[DTE CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName);
-    // Route: visual/:templateId (relative to current category route)
+    // Route: /dte/:projectId/:serviceId/category/:category/visual/:templateId
+    // Use absolute path for reliable navigation
     // NOTE: Do NOT pass DTEID - visual-detail must look it up from Dexie to get correct entityId for photos
-    this.router.navigate(
-      ['visual', item.templateId],
-      {
-        relativeTo: this.route.parent
-      }
-    );
+    this.router.navigate([
+      '/dte',
+      this.projectId,
+      this.serviceId,
+      'category',
+      this.categoryName,
+      'visual',
+      item.templateId
+    ]);
   }
 }
 

@@ -40,6 +40,7 @@ import { DteMainPage } from './pages/dte/dte-main/dte-main.page';
 import { DteProjectDetailsPage } from './pages/dte/dte-project-details/dte-project-details.page';
 import { DteCategoriesPage } from './pages/dte/dte-categories/dte-categories.page';
 import { DteCategoryDetailPage } from './pages/dte/dte-category-detail/dte-category-detail.page';
+import { DteVisualDetailPage } from './pages/dte/dte-visual-detail/dte-visual-detail.page';
 
 const routes: Routes = [
   {
@@ -152,7 +153,13 @@ const routes: Routes = [
       { path: '', component: DteMainPage },
       { path: 'project-details', component: DteProjectDetailsPage, canDeactivate: [UnsavedChangesGuard] },
       { path: 'categories', component: DteCategoriesPage },
-      { path: 'category/:category', component: DteCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] }
+      {
+        path: 'category/:category',
+        children: [
+          { path: '', component: DteCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
+          { path: 'visual/:templateId', component: DteVisualDetailPage }
+        ]
+      }
     ]
   },
   {

@@ -3375,6 +3375,10 @@ export class BackgroundSyncService {
         // Track the dependency wait with error message so it's visible in failed tab
         const dependencyError = `Waiting for parent entity sync (entity: ${entityId})`;
         console.log(`[BackgroundSync] Entity not synced yet, delaying photo: ${item.imageId} (entity: ${entityId})`);
+        // DEBUG ALERT: Show when photo is waiting for parent entity (LBW only)
+        if (image.entityType === 'lbw') {
+          alert(`[LBW SYNC DEBUG] WAITING FOR VISUAL\n\nimageId: ${item.imageId}\ntempId: ${entityId}\n\nThe LBW visual hasn't synced yet.\nPhoto will retry in 30 seconds.`);
+        }
         await this.indexedDb.updateOutboxItem(item.opId, {
           nextRetryAt: Date.now() + 30000,  // Retry in 30 seconds
           lastError: dependencyError
@@ -3388,6 +3392,11 @@ export class BackgroundSyncService {
       entityId = realId;
       // Update image with resolved entityId
       await this.indexedDb.updateLocalImage(item.imageId, { entityId: realId });
+    }
+
+    // DEBUG ALERT: Show resolved entityId and entity type before upload
+    if (image.entityType === 'lbw') {
+      alert(`[LBW SYNC DEBUG 0] PRE-UPLOAD CHECK\n\nimageId: ${item.imageId}\nentityType: ${image.entityType}\noriginalEntityId: ${image.entityId}\nresolvedEntityId: ${entityId}\nwasTempId: ${String(image.entityId).startsWith('temp_')}`);
     }
 
     // Mark as uploading ONLY after we've confirmed we can proceed
@@ -3468,16 +3477,26 @@ export class BackgroundSyncService {
         case 'lbw':
           // LBW photos are stored in LPS_Services_LBW_Attach table
           console.log('[BackgroundSync] LBW photo upload starting:', item.imageId, 'lbwId:', entityId);
-          result = await uploadWithTimeout(
-            this.caspioService.createServicesLBWAttachWithFile(
-              parseInt(entityId),
-              image.caption || '',
-              file,
-              image.drawings || ''
-            ).toPromise(),
-            `lbw upload for ${item.imageId}`
-          );
-          console.log('[BackgroundSync] LBW photo upload completed:', item.imageId, 'result:', result);
+          // DEBUG ALERT: Confirm LBW upload is starting and show entityId
+          alert(`[LBW SYNC DEBUG 1] UPLOAD STARTING\n\nimageId: ${item.imageId}\nentityId: ${entityId}\nparsedId: ${parseInt(entityId)}\nfileSize: ${file?.size || 0}`);
+          try {
+            result = await uploadWithTimeout(
+              this.caspioService.createServicesLBWAttachWithFile(
+                parseInt(entityId),
+                image.caption || '',
+                file,
+                image.drawings || ''
+              ).toPromise(),
+              `lbw upload for ${item.imageId}`
+            );
+            console.log('[BackgroundSync] LBW photo upload completed:', item.imageId, 'result:', result);
+            // DEBUG ALERT: Upload succeeded
+            alert(`[LBW SYNC DEBUG 2] UPLOAD SUCCESS\n\nimageId: ${item.imageId}\nAttachID: ${result?.AttachID || result?.Result?.[0]?.AttachID}\ns3Key: ${(result?.Attachment || result?.Result?.[0]?.Attachment)?.substring(0, 40)}`);
+          } catch (lbwUploadErr: any) {
+            // DEBUG ALERT: Upload failed with specific error
+            alert(`[LBW SYNC DEBUG 2] UPLOAD FAILED\n\nimageId: ${item.imageId}\nerror: ${lbwUploadErr?.message || lbwUploadErr}`);
+            throw lbwUploadErr;
+          }
           break;
         default:
           throw new Error(`Unsupported entity type: ${image.entityType}`);

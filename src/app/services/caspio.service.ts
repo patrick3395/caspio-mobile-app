@@ -2560,6 +2560,38 @@ export class CaspioService {
 
   private async uploadLBWAttachWithS3(lbwId: number, annotation: string, file: File, drawings?: string): Promise<any> {
     console.log('[LBW ATTACH S3] ========== Starting S3 Upload (Atomic) ==========');
+    console.log('[LBW ATTACH S3] LBWID:', lbwId);
+    console.log('[LBW ATTACH S3] File:', file?.name, 'Size:', file?.size, 'bytes');
+    console.log('[LBW ATTACH S3] Drawings length:', drawings?.length || 0);
+    console.log('[LBW ATTACH S3] Caption:', annotation || '(none)');
+
+    // VALIDATION: Reject empty or invalid files
+    if (!file || file.size === 0) {
+      console.error('[LBW ATTACH S3] ❌ REJECTING: Empty or missing file!');
+      throw new Error('Cannot upload empty or missing file');
+    }
+
+    // US-001 FIX: Compress image before upload to avoid 413 Request Entity Too Large
+    // API Gateway has size limits - compress to max 1MB to ensure uploads succeed
+    let fileToUpload: File = file;
+    const MAX_SIZE_MB = 1; // 1MB max to stay under API Gateway limits
+
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      console.log(`[LBW ATTACH S3] File too large (${(file.size / 1024 / 1024).toFixed(2)}MB), compressing...`);
+      try {
+        const compressedBlob = await this.imageCompression.compressImage(file, {
+          maxSizeMB: MAX_SIZE_MB,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true
+        });
+        fileToUpload = new File([compressedBlob], file.name, { type: compressedBlob.type || 'image/jpeg' });
+        console.log(`[LBW ATTACH S3] Compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
+      } catch (compressErr) {
+        console.warn('[LBW ATTACH S3] Compression failed, using original:', compressErr);
+        // Continue with original file - may fail with 413 but worth trying
+      }
+    }
+
     const accessToken = this.tokenSubject.value;
     const API_BASE_URL = environment.caspio.apiBaseUrl;
 
@@ -2575,25 +2607,63 @@ export class CaspioService {
       // US-002 FIX: ATOMIC UPLOAD - Upload to S3 FIRST, then create record with Attachment
       // This prevents orphaned records without Attachment field
 
-      // Step 1: Generate unique filename and upload to S3 FIRST
+      // Step 1: Generate unique filename and upload to S3 FIRST (with retry logic)
       const timestamp = Date.now();
       const uniqueFilename = `lbw_${lbwId}_${timestamp}_${Math.random().toString(36).substring(2, 8)}.${file.name.split('.').pop() || 'jpg'}`;
       const tempAttachId = `pending_${timestamp}`;
 
-      const formData = new FormData();
-      formData.append('file', file, uniqueFilename);
-      formData.append('tableName', 'LPS_Services_LBW_Attach');
-      formData.append('attachId', tempAttachId);
+      // US-001 FIX: S3 upload with retry for mobile failures
+      const MAX_S3_RETRIES = 3;
+      const INITIAL_RETRY_DELAY_MS = 500;
 
-      console.log('[LBW ATTACH S3] Step 1: Uploading to S3 FIRST...');
-      const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('[LBW ATTACH S3] ❌ S3 upload failed:', errorText);
-        throw new Error('S3 upload failed');
+      let s3Key: string | null = null;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= MAX_S3_RETRIES; attempt++) {
+        try {
+          // Create fresh FormData for each attempt (FormData can only be consumed once)
+          const formData = new FormData();
+          formData.append('file', fileToUpload, uniqueFilename);
+          formData.append('tableName', 'LPS_Services_LBW_Attach');
+          formData.append('attachId', tempAttachId);
+
+          console.log(`[LBW ATTACH S3] Uploading (attempt ${attempt}/${MAX_S3_RETRIES}), size: ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`);
+
+          const uploadResponse = await fetch(`${environment.apiGatewayUrl}/api/s3/upload`, { method: 'POST', body: formData });
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            console.error(`[LBW ATTACH S3] S3 upload failed (attempt ${attempt}):`, uploadResponse.status, errorText);
+            throw new Error(`S3 upload failed: ${uploadResponse.status} - ${errorText?.substring(0, 100)}`);
+          }
+
+          const result = await uploadResponse.json();
+          s3Key = result.s3Key;
+
+          if (!s3Key) {
+            throw new Error('S3 upload succeeded but no s3Key returned');
+          }
+
+          console.log(`[LBW ATTACH S3] ✅ S3 upload complete (attempt ${attempt}), key:`, s3Key);
+          break; // Success - exit retry loop
+
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[LBW ATTACH S3] S3 upload attempt ${attempt} failed:`, err?.message || err);
+
+          if (attempt < MAX_S3_RETRIES) {
+            const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+            console.log(`[LBW ATTACH S3] Retrying in ${delayMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+        }
       }
-      const { s3Key } = await uploadResponse.json();
-      console.log('[LBW ATTACH S3] ✅ S3 upload complete, key:', s3Key);
+
+      // If all retries failed, throw the last error
+      if (!s3Key) {
+        console.error('[LBW ATTACH S3] ❌ All S3 upload attempts failed');
+        throw lastError || new Error('S3 upload failed after all retries');
+      }
 
       // Step 2: Create the Caspio record WITH the Attachment field populated
       recordData.Attachment = s3Key;  // CRITICAL: Include Attachment in initial creation
@@ -2608,19 +2678,21 @@ export class CaspioService {
       if (!recordResponse.ok) {
         const errorText = await recordResponse.text();
         console.error('[LBW ATTACH S3] ❌ Record creation failed:', errorText);
-        throw new Error('LBW record creation failed');
+        throw new Error(`LBW record creation failed: ${errorText?.substring(0, 100)}`);
       }
 
-      const attachId = (await recordResponse.json()).Result?.[0]?.AttachID;
+      const recordResult = await recordResponse.json();
+      const attachId = recordResult.Result?.[0]?.AttachID;
       if (!attachId) {
+        console.error('[LBW ATTACH S3] ❌ No AttachID in response:', JSON.stringify(recordResult).substring(0, 200));
         throw new Error('Failed to get AttachID from record creation response');
       }
 
       console.log('[LBW ATTACH S3] ✅ Created record AttachID:', attachId, 'with Attachment:', s3Key);
       console.log('[LBW ATTACH S3] ✅ Complete! (Atomic - no orphaned records)');
       return { Result: [{ AttachID: attachId, LBWID: lbwId, Annotation: annotation, Attachment: s3Key, Drawings: recordData.Drawings || '' }], AttachID: attachId, Attachment: s3Key };
-    } catch (error) {
-      console.error('[LBW ATTACH S3] ❌ Failed:', error);
+    } catch (error: any) {
+      console.error('[LBW ATTACH S3] ❌ Failed:', error?.message || error);
       throw error;
     }
   }
