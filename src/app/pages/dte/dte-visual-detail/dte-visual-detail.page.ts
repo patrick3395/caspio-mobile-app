@@ -105,17 +105,16 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   }
 
   ionViewWillEnter() {
-    // WEBAPP: Clear loading state when returning to this page
-    if (environment.isWeb) {
+    // WEBAPP & MOBILE: Reload data when returning to this page
+    // This ensures we show fresh data after edits or navigation
+    if (this.serviceId && this.templateId) {
+      console.log('[DteVisualDetail] ionViewWillEnter: Reloading data, isWeb:', environment.isWeb);
+      this.loadVisualData();
+    } else {
+      // Clear loading state if we can't reload
       this.loading = false;
       this.saving = false;
       this.changeDetectorRef.detectChanges();
-    } else {
-      // MOBILE: Reload data when returning to this page (sync may have happened)
-      if (this.serviceId && this.templateId) {
-        console.log('[DteVisualDetail] ionViewWillEnter MOBILE: Reloading data');
-        this.loadVisualData();
-      }
     }
   }
 

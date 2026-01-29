@@ -3347,7 +3347,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
           if (!visualId) {
             // DEBUG ALERT: visualId not obtained
-            alert(`[LBW DEBUG 0] FAILED TO GET visualId\n\nkey: ${key}\nitem found: ${!!item}\nvisualRecordIds[key]: ${this.visualRecordIds[key]}`);
             console.error('[CAMERA UPLOAD] Failed to create visual record');
             return;
           }
@@ -3373,8 +3372,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           // ============================================
 
           // DEBUG ALERT: Show which path we're taking on mobile device
-          alert(`[LBW DEBUG 1] PATH DETECTION\n\nenvironment.isWeb: ${environment.isWeb}\nvisualId: ${visualId}\nkey: ${key}\n\nPath: ${environment.isWeb ? 'WEBAPP' : 'MOBILE'}`);
-
           // WEBAPP MODE: Upload directly to S3
           if (environment.isWeb) {
             alert('[LBW DEBUG 2] Going to WEBAPP path - Direct S3 upload');
@@ -3491,9 +3488,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           // Photos sync silently in background via BackgroundSyncService
           // ============================================
 
-          // DEBUG ALERT: Confirm we're in MOBILE path
-          alert(`[LBW DEBUG 3] MOBILE PATH\n\nStarting DEXIE-FIRST capture\nvisualId: ${visualId}\nserviceId: ${this.serviceId}`);
-
           console.log('[CAMERA UPLOAD] MOBILE MODE: Starting DEXIE-FIRST capture for visualId:', visualId);
 
           // RACE CONDITION FIX: Suppress liveQuery during camera capture
@@ -3526,12 +3520,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
               caption,
               compressedDrawings
             );
-            // DEBUG ALERT: captureImage succeeded
-            alert(`[LBW DEBUG 4] captureImage SUCCESS\n\nimageId: ${localImage.imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId}\nentityId: ${localImage.entityId}`);
             console.log('[CAMERA UPLOAD] Created LocalImage with stable ID:', localImage.imageId, 'status:', localImage.status);
           } catch (captureError: any) {
-            // DEBUG ALERT: captureImage failed
-            alert(`[LBW DEBUG 4] captureImage FAILED\n\nError: ${captureError?.message || captureError}`);
             console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
             this.isCameraCaptureInProgress = false;
             throw captureError;
@@ -3635,9 +3625,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
           this.isCameraCaptureInProgress = false;
 
-          // DEBUG ALERT: Photo added to UI
-          alert(`[LBW DEBUG 5] PHOTO ADDED TO UI\n\nkey: ${key}\nimageId: ${localImage.imageId}\ndisplayUrl type: ${displayUrl?.startsWith('blob:') ? 'BLOB' : displayUrl?.startsWith('data:') ? 'DATA' : 'PLACEHOLDER'}\nTotal photos: ${this.visualPhotos[key]?.length || 0}`);
-
           console.log('[CAMERA UPLOAD] MOBILE: Photo capture complete');
           console.log('  key:', key);
           console.log('  imageId:', localImage.imageId);
@@ -3738,7 +3725,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Only validate as number for WEBAPP mode or if it's not a temp ID
         if (!isTempId && isNaN(visualIdNum) && environment.isWeb) {
           console.error('[GALLERY UPLOAD] Invalid LBW ID (not a number and not a temp ID):', visualId);
-          alert(`[LBW GALLERY DEBUG ERROR] Invalid LBW ID\n\nvisualId: ${visualId}\nisTempId: ${isTempId}\nisNaN: ${isNaN(visualIdNum)}`);
           // Mark all skeleton photos as failed
           skeletonPhotos.forEach(skeleton => {
             const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
@@ -3753,9 +3739,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         }
 
         console.log('[GALLERY UPLOAD] visualId validation passed:', visualId, 'isTempId:', isTempId);
-
-        // DEBUG ALERT: Show visualId and path detection
-        alert(`[LBW GALLERY DEBUG 1] PATH DETECTION\n\nenvironment.isWeb: ${environment.isWeb}\nvisualId: ${visualId}\nkey: ${key}\n\nPath: ${environment.isWeb ? 'WEBAPP' : 'MOBILE'}`);
 
         console.log('[GALLERY UPLOAD] ✅ Valid LBW ID found:', visualId);
 
@@ -3863,9 +3846,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Photos sync silently in background via BackgroundSyncService
         // ============================================
 
-        // DEBUG ALERT: Confirm we're in MOBILE path
-        alert(`[LBW GALLERY DEBUG 2] MOBILE PATH\n\nStarting DEXIE-FIRST capture\nvisualId: ${visualId}\nserviceId: ${this.serviceId}\nphotoCount: ${images.photos.length}`);
-
         console.log('[GALLERY UPLOAD] MOBILE MODE: Starting DEXIE-FIRST capture...');
 
         // Expand photos section
@@ -3913,12 +3893,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                   '',  // No caption for gallery photos
                   ''   // No drawings for gallery photos
                 );
-                // DEBUG ALERT: captureImage succeeded for gallery
-                alert(`[LBW GALLERY DEBUG 3] captureImage SUCCESS\n\nPhoto ${i + 1}/${images.photos.length}\nimageId: ${localImage.imageId}\nstatus: ${localImage.status}\nlocalBlobId: ${localImage.localBlobId}\nentityId: ${localImage.entityId}`);
                 console.log(`[GALLERY UPLOAD] Created LocalImage ${i + 1}:`, localImage.imageId);
               } catch (captureError: any) {
-                // DEBUG ALERT: captureImage failed for gallery
-                alert(`[LBW GALLERY DEBUG 3] captureImage FAILED\n\nPhoto ${i + 1}/${images.photos.length}\nError: ${captureError?.message || captureError}`);
                 console.error(`[GALLERY UPLOAD] Failed to create LocalImage ${i + 1}:`, captureError);
                 // Mark skeleton as failed
                 const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
@@ -4201,8 +4177,21 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
 
     // Update the LBW attach record
-    await firstValueFrom(this.caspioService.updateServicesLBWAttach(attachId, updateData));
-    console.log('[SAVE ANNOTATION] ✅ Annotations saved successfully');
+    // MOBILE MODE: Queue for background sync instead of direct API call
+    if (!environment.isWeb) {
+      // Queue annotation update for background sync
+      await this.hudData.queueCaptionUpdate(
+        attachId,
+        updateData.Annotation || '',
+        updateData.Drawings || '',
+        { serviceId: this.serviceId }
+      );
+      console.log('[SAVE ANNOTATION] ✅ Annotations queued for background sync');
+    } else {
+      // WEBAPP MODE: Direct API call
+      await firstValueFrom(this.caspioService.updateServicesLBWAttach(attachId, updateData));
+      console.log('[SAVE ANNOTATION] ✅ Annotations saved directly to API');
+    }
 
     // TASK 4 FIX: Cache the annotated blob for thumbnail display on reload
     // This ensures annotations are visible in thumbnails after page reload

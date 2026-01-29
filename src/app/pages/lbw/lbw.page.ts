@@ -7490,11 +7490,22 @@ Stack: ${error?.stack}`;
       }
 
       // Update the Services_LBW_Attach record with the new caption
-      const updateData = {
-        Annotation: photo.caption || ''  // Save caption or empty string
-      };
+      const caption = photo.caption || '';
 
-      await this.caspioService.updateServicesLBWAttach(photo.AttachID, updateData).toPromise();
+      // MOBILE MODE: Queue for background sync instead of direct API call
+      if (!environment.isWeb) {
+        await this.hudData.queueCaptionUpdate(
+          photo.AttachID,
+          caption,
+          undefined,  // No drawings change
+          { serviceId: this.serviceId }
+        );
+        console.log('[LBW] Caption queued for background sync:', photo.AttachID);
+      } else {
+        // WEBAPP MODE: Direct API call
+        const updateData = { Annotation: caption };
+        await this.caspioService.updateServicesLBWAttach(photo.AttachID, updateData).toPromise();
+      }
 
       // CRITICAL: Update Annotation field locally to match what was saved
       photo.Annotation = photo.caption || '';

@@ -1564,12 +1564,14 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             // Get the localImage to check if it has an attachId (synced to Caspio)
             const localImage = await db.localImages.get(photo.id);
             if (localImage?.attachId) {
-              // Update annotation via Caspio API
-              await firstValueFrom(this.caspioService.updateServicesLBWAttach(String(localImage.attachId), {
-                Annotation: newCaption,
-                Drawings: compressedDrawings
-              }));
-              console.log('[LbwVisualDetail] ✅ Updated annotation via API:', localImage.attachId);
+              // MOBILE MODE: Queue annotation update for background sync (not direct API call)
+              await this.lbwData.queueCaptionUpdate(
+                localImage.attachId,
+                newCaption,
+                compressedDrawings,
+                { serviceId: this.serviceId, lbwId: this.lbwId }
+              );
+              console.log('[LbwVisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
             } else {
               console.log('[LbwVisualDetail] Photo not yet synced, annotations stored locally for upload');
             }
