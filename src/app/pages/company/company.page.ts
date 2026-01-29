@@ -2939,7 +2939,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       return;
     }
 
-    const config: ChartConfiguration = {
+    this.clientServicesChart = new Chart(ctx, {
       type: 'doughnut',
       data: {
         labels: this.clientServicesChartData.labels,
@@ -2953,6 +2953,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: '60%',
         plugins: {
           legend: {
             position: 'bottom',
@@ -2962,12 +2963,9 @@ export class CompanyPage implements OnInit, OnDestroy {
               pointStyle: 'circle'
             }
           }
-        },
-        cutout: '60%'
+        }
       }
-    };
-
-    this.clientServicesChart = new Chart(ctx, config);
+    } as any);
   }
 
   selectTab(tab: string) {
