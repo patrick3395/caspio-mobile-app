@@ -13,7 +13,7 @@ import { db, VisualField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { LbwDataService } from '../lbw-data.service';
-import { compressAnnotationData } from '../../../utils/annotation-utils';
+import { compressAnnotationData, renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { liveQuery } from 'dexie';
 import { environment } from '../../../../environments/environment';
 import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
@@ -500,14 +500,40 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             }
           }
 
+          const attachId = String(att.AttachID || att.attachId || att.PK_ID);
+          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+
+          // WEBAPP FIX: Render annotations on photo if they exist
+          let thumbnailUrl = displayUrl;
+          if (hasAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+            try {
+              console.log(`[LbwVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                thumbnailUrl = renderedUrl;
+                // Cache for future use (convert data URL to blob first)
+                try {
+                  const response = await fetch(renderedUrl);
+                  const blob = await response.blob();
+                  await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+                } catch (cacheErr) {
+                  console.warn('[LbwVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
+                }
+                console.log(`[LbwVisualDetail] WEBAPP: Rendered annotations for ${attachId}`);
+              }
+            } catch (renderErr) {
+              console.warn(`[LbwVisualDetail] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
+            }
+          }
+
           this.photos.push({
-            id: att.AttachID || att.attachId || att.PK_ID,
-            displayUrl,
-            originalUrl: displayUrl,
+            id: attachId,
+            displayUrl: thumbnailUrl,   // Use annotated if available
+            originalUrl: displayUrl,    // Original for re-annotation
             caption: att.Annotation || att.caption || '',
             uploading: false,
             isLocal: false,
-            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            hasAnnotations,
             drawings: att.Drawings || ''
           });
         }

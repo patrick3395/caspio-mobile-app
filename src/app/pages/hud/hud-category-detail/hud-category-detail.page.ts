@@ -936,6 +936,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // Load photos from local storage
       await this.loadPhotosFromDexie();
 
+      // ATTEMPT 6 FIX: Subscribe to VisualFields changes like EFE does
+      // This ensures lastConvertedFields gets updated when setField() completes after sync
+      this.subscribeToVisualFieldChanges();
+
       // Load dropdown options from cache
       const cachedDropdownData = await this.indexedDb.getCachedTemplates('hud_dropdown') || [];
       if (cachedDropdownData.length > 0) {
@@ -2272,6 +2276,89 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         console.error('[LIVEQUERY] Error in LocalImages subscription:', error);
       }
     );
+  }
+
+  /**
+   * ATTEMPT 6 FIX: Subscribe to VisualFields changes like EFE does
+   *
+   * This is the PROPER fix - matches EFE's pattern exactly.
+   *
+   * ROOT CAUSE OF PHOTO DISAPPEARING:
+   * - reloadVisualsAfterSync() calls setField() (async, NOT awaited)
+   * - updateEntityIdForImages() triggers LocalImages liveQuery
+   * - LocalImages liveQuery calls populatePhotosFromDexie() with stale lastConvertedFields
+   * - setField() hasn't completed yet, so VisualField still has old IDs!
+   *
+   * FIX:
+   * - Subscribe to VisualFields changes via getAllFieldsForService$()
+   * - When setField() completes, this subscription fires with fresh data
+   * - Update lastConvertedFields with fresh visualId/tempVisualId
+   * - Call populatePhotosFromDexie() with correct IDs
+   *
+   * This is exactly what EFE does with its visualFieldsSubscription.
+   */
+  private subscribeToVisualFieldChanges(): void {
+    // Unsubscribe from previous subscription if exists
+    if (this.visualFieldsSubscription) {
+      this.visualFieldsSubscription.unsubscribe();
+    }
+
+    if (!this.serviceId) {
+      console.log('[VISUALFIELDS LIVEQUERY] No serviceId, skipping subscription');
+      return;
+    }
+
+    console.log('[VISUALFIELDS LIVEQUERY] Subscribing to VisualFields changes for service:', this.serviceId);
+
+    // Subscribe to ALL VisualFields for this service (HUD shows multiple categories)
+    this.visualFieldsSubscription = this.visualFieldRepo
+      .getAllFieldsForService$(this.serviceId)
+      .subscribe({
+        next: async (fields) => {
+          console.log(`[VISUALFIELDS LIVEQUERY] Received ${fields.length} fields from liveQuery`);
+
+          // Update lastConvertedFields with fresh IDs from the liveQuery
+          let updatedCount = 0;
+          for (const freshField of fields) {
+            // Find corresponding field in lastConvertedFields by templateId
+            const existingField = this.lastConvertedFields.find(
+              f => f.templateId === freshField.templateId && f.category === freshField.category
+            );
+
+            if (existingField) {
+              // Update with fresh visualId/tempVisualId from Dexie
+              const visualIdChanged = existingField.visualId !== freshField.visualId;
+              const tempVisualIdChanged = existingField.tempVisualId !== freshField.tempVisualId;
+
+              if (visualIdChanged || tempVisualIdChanged) {
+                existingField.visualId = freshField.visualId;
+                existingField.tempVisualId = freshField.tempVisualId;
+                updatedCount++;
+
+                // Also update visualRecordIds for consistency
+                const recordKey = `${existingField.category}_${existingField.templateId}`;
+                const newVisualId = freshField.visualId || freshField.tempVisualId;
+                if (newVisualId) {
+                  this.visualRecordIds[recordKey] = newVisualId;
+                }
+              }
+            }
+          }
+
+          if (updatedCount > 0) {
+            console.log(`[VISUALFIELDS LIVEQUERY] Updated ${updatedCount} fields with fresh IDs`);
+
+            // CRITICAL: Re-populate photos with the updated IDs
+            if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+              await this.populatePhotosFromDexie(this.lastConvertedFields);
+              this.changeDetectorRef.detectChanges();
+            }
+          }
+        },
+        error: (err) => {
+          console.error('[VISUALFIELDS LIVEQUERY] Error in VisualFields subscription:', err);
+        }
+      });
   }
 
   /**

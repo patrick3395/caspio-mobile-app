@@ -18,6 +18,7 @@ import { BackgroundSyncService } from '../../../services/background-sync.service
 import { LocalImageService } from '../../../services/local-image.service';
 import { environment } from '../../../../environments/environment';
 import { db } from '../../../services/caspio-db';
+import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 
 interface VisualItem {
   id: string | number;
@@ -898,6 +899,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   private async loadPhotosFromAPI(): Promise<void> {
     console.log('[LBW] WEBAPP MODE: Loading photos from API...');
 
+    // WEBAPP FIX: Load cached annotated images FIRST for thumbnail display
+    if (this.bulkAnnotatedImagesMap.size === 0) {
+      try {
+        this.bulkAnnotatedImagesMap = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+        console.log(`[LBW] WEBAPP: Loaded ${this.bulkAnnotatedImagesMap.size} cached annotated images`);
+      } catch (e) {
+        console.warn('[LBW] WEBAPP: Failed to load annotated images cache:', e);
+      }
+    }
+
     // Get all visual IDs that have been selected
     for (const [key, lbwId] of Object.entries(this.visualRecordIds)) {
       if (!lbwId) continue;
@@ -939,22 +950,57 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             }
           }
 
-          const attachId = att.AttachID || att.attachId || att.PK_ID;
+          const attachId = String(att.AttachID || att.attachId || att.PK_ID);
+          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+
+          // WEBAPP FIX: Check for cached annotated image, or render if annotations exist
+          let thumbnailUrl = displayUrl;
+          if (hasAnnotations) {
+            // First check cache
+            const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
+            if (cachedAnnotated) {
+              thumbnailUrl = cachedAnnotated;
+              console.log(`[LBW] WEBAPP: Using cached annotated image for ${attachId}`);
+            } else if (displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+              // No cached image - render annotations on the fly
+              try {
+                console.log(`[LBW] WEBAPP: Rendering annotations for ${attachId}...`);
+                const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
+                if (renderedUrl && renderedUrl !== displayUrl) {
+                  thumbnailUrl = renderedUrl;
+                  // Cache in memory for immediate use
+                  this.bulkAnnotatedImagesMap.set(attachId, renderedUrl);
+                  // Also persist to IndexedDB (convert data URL to blob first)
+                  try {
+                    const response = await fetch(renderedUrl);
+                    const blob = await response.blob();
+                    await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+                  } catch (cacheErr) {
+                    console.warn('[LBW] WEBAPP: Failed to cache annotated image:', cacheErr);
+                  }
+                  console.log(`[LBW] WEBAPP: Rendered and cached annotations for ${attachId}`);
+                }
+              } catch (renderErr) {
+                console.warn(`[LBW] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
+              }
+            }
+          }
+
           photos.push({
             id: attachId,
             attachId: attachId,
             AttachID: attachId,
-            displayUrl,
-            url: displayUrl,
-            thumbnailUrl: displayUrl,
-            originalUrl: displayUrl,
+            displayUrl: thumbnailUrl,   // Use annotated if available
+            url: displayUrl,            // Original S3 URL
+            thumbnailUrl: thumbnailUrl, // Use annotated if available
+            originalUrl: displayUrl,    // Original for re-annotation
             caption: att.Annotation || att.caption || '',
             annotation: att.Annotation || '',
             Annotation: att.Annotation || '',
             uploading: false,
             isLocal: false,
             isPending: false,
-            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            hasAnnotations,
             Drawings: att.Drawings || ''
           });
         }
@@ -1110,8 +1156,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         displayState = 'remote_loading';
       }
     }
-    
+
     const hasDrawings = !!(attach.Drawings && attach.Drawings.length > 0 && attach.Drawings !== '{}');
+
+    // WEBAPP FIX: Check for cached annotated image for thumbnail display
+    let thumbnailUrl = imageUrl || displayUrl;
+    if (hasDrawings && environment.isWeb) {
+      const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
+      if (cachedAnnotated) {
+        thumbnailUrl = cachedAnnotated;
+        console.log(`[LOAD PHOTO] Using cached annotated image for ${attachId}`);
+      }
+    }
 
     const photoData: any = {
       AttachID: attachId,
@@ -1127,8 +1183,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // Display URLs
       url: imageUrl || displayUrl,
       originalUrl: imageUrl || displayUrl,
-      thumbnailUrl: imageUrl || displayUrl,
-      displayUrl: displayUrl,
+      thumbnailUrl: thumbnailUrl,       // Use annotated if available
+      displayUrl: thumbnailUrl,         // Use annotated for display
       // Metadata
       caption: attach.Annotation || '',
       annotation: attach.Annotation || '',
