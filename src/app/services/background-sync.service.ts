@@ -3452,6 +3452,15 @@ export class BackgroundSyncService {
       return;
     }
 
+    // ANNOTATION FLATTENING FIX: Lock image to prevent annotation caching during upload
+    // This prevents race conditions where annotated blob could interfere with original blob upload
+    this.indexedDb.lockImageForUpload(item.imageId);
+    // Also lock by localBlobId to catch any lookups by blob ID
+    if (image.localBlobId) {
+      this.indexedDb.lockImageForUpload(image.localBlobId);
+    }
+
+    try {
     // Get the blob data
     if (!image.localBlobId) {
       console.warn('[BackgroundSync] No local blob for image:', item.imageId);
@@ -3684,6 +3693,13 @@ export class BackgroundSyncService {
     // Mark sections dirty
     if (image.serviceId) {
       this.markAllSectionsDirty(image.serviceId);
+    }
+    } finally {
+      // ANNOTATION FLATTENING FIX: Always unlock after upload completes or fails
+      this.indexedDb.unlockImageAfterUpload(item.imageId);
+      if (image.localBlobId) {
+        this.indexedDb.unlockImageAfterUpload(image.localBlobId);
+      }
     }
   }
 

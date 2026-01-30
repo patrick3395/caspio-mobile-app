@@ -39,6 +39,7 @@ interface PhotoItem {
   displayUrl: string;
   caption: string;
   uploading: boolean;
+  loading?: boolean;
   isLocal: boolean;
   hasAnnotations?: boolean;
   drawings?: string;
@@ -192,7 +193,24 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   private async loadVisualData() {
     this.loading = true;
 
-    const dteIdFromQueryParams = this.dteId;
+    let dteIdFromQueryParams = this.dteId;
+
+    // WEBAPP FIX: If query params don't have dteId, try to read from Dexie
+    // This ensures photos are found after page reload even if query params were lost
+    if (environment.isWeb && !dteIdFromQueryParams && this.serviceId && this.templateId) {
+      try {
+        // Key format: ${serviceId}_${category}_${templateId}
+        const fieldKey = `${this.serviceId}_${this.categoryName}_${this.templateId}`;
+        const dexieField = await this.visualFieldRepo.getField(fieldKey);
+        if (dexieField?.visualId) {
+          dteIdFromQueryParams = dexieField.visualId;
+          this.dteId = dexieField.visualId;
+          console.log('[DteVisualDetail] WEBAPP: Restored dteId from Dexie:', dteIdFromQueryParams);
+        }
+      } catch (e) {
+        console.warn('[DteVisualDetail] WEBAPP: Could not restore dteId from Dexie:', e);
+      }
+    }
 
     try {
       // WEBAPP MODE: Load directly from server API (no Dexie)

@@ -1959,7 +1959,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       if (!lbwId) continue;
 
       try {
-        const attachments = await this.hudData.getVisualAttachments(lbwId);
+        const attachments = await this.lbwData.getVisualAttachments(lbwId);
         console.log(`[LBW] WEBAPP: Loaded ${attachments?.length || 0} photos for LBW ${lbwId}`);
 
         // Convert attachments to photo format
@@ -2072,7 +2072,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       const syncInProgress = syncStatus.isSyncing;
 
       // Get attachments from database
-      const attachments = await this.hudData.getVisualAttachments(LBWID);
+      const attachments = await this.lbwData.getVisualAttachments(LBWID);
 
       console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for LBW', LBWID, 'key:', key, 'sync:', syncInProgress);
 
@@ -3590,16 +3590,20 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
             // Create temp photo entry with loading state (show roller)
             const tempId = `uploading_${Date.now()}`;
-            const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : URL.createObjectURL(blob);
+            // ANNOTATION FLATTENING FIX: Create SEPARATE URLs for original and annotated
+            // originalBlobUrl points to the original camera image (for re-editing)
+            // annotatedDisplayUrl points to the rendered annotations (for thumbnails)
+            const originalBlobUrl = URL.createObjectURL(blob);
+            const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : originalBlobUrl;
             const tempPhotoEntry = {
               imageId: tempId,
               AttachID: tempId,
               attachId: tempId,
               id: tempId,
-              url: annotatedDisplayUrl,
-              displayUrl: annotatedDisplayUrl,
-              originalUrl: annotatedDisplayUrl,
-              thumbnailUrl: annotatedDisplayUrl,
+              url: originalBlobUrl,              // Base image reference
+              displayUrl: annotatedDisplayUrl,   // Annotated version for thumbnails
+              originalUrl: originalBlobUrl,      // CRITICAL: Keep original for re-editing
+              thumbnailUrl: annotatedDisplayUrl, // Show annotations in thumbnails
               name: 'camera-photo.jpg',
               caption: caption || '',
               annotation: caption || '',
@@ -4798,7 +4802,27 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       }
 
       // Always use the original URL for editing
-      const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+      let originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+
+      // ANNOTATION FLATTENING FIX #6: Validate original URL on re-edit
+      // If originalUrl equals displayUrl AND photo has annotations, the original may have been overwritten
+      if (originalImageUrl === photo.displayUrl && photo.hasAnnotations && photo.Attachment) {
+        console.warn('[VIEW PHOTO] ⚠️ originalUrl same as displayUrl - may be flattened');
+        console.warn('[VIEW PHOTO] Attempting to fetch original from S3:', photo.Attachment);
+
+        // Try to get base image from S3 (the authoritative source)
+        if (this.caspioService.isS3Key(photo.Attachment)) {
+          try {
+            const s3OriginalUrl = await this.caspioService.getS3FileUrl(photo.Attachment);
+            if (s3OriginalUrl && s3OriginalUrl !== originalImageUrl) {
+              console.log('[VIEW PHOTO] ✅ Fetched original from S3, using instead of potentially flattened URL');
+              originalImageUrl = s3OriginalUrl;
+            }
+          } catch (e) {
+            console.error('[VIEW PHOTO] Failed to fetch from S3, using potentially flattened URL:', e);
+          }
+        }
+      }
 
       // Try to load existing annotations
       let existingAnnotations: any = null;

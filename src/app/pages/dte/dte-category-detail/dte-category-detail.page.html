@@ -186,6 +186,7 @@
                   <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                     <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
                          [class.uploading]="photo.uploading"
+                         [class.loading-image]="photo.loading"
                          [class.annotated]="photo.hasAnnotations"
                          [class.skeleton-loader]="photo.isSkeleton">
                       <ng-container *ngIf="photo.isSkeleton">
@@ -289,6 +290,7 @@
                 <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
                        [class.uploading]="photo.uploading"
+                       [class.loading-image]="photo.loading"
                        [class.annotated]="photo.hasAnnotations"
                        [class.skeleton-loader]="photo.isSkeleton">
                     <!-- Skeleton state - show animated placeholder -->
@@ -459,6 +461,7 @@
                   <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                     <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
                          [class.uploading]="photo.uploading"
+                         [class.loading-image]="photo.loading"
                          [class.annotated]="photo.hasAnnotations"
                          [class.skeleton-loader]="photo.isSkeleton">
                       <ng-container *ngIf="photo.isSkeleton">
@@ -559,6 +562,7 @@
                 <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
                        [class.uploading]="photo.uploading"
+                       [class.loading-image]="photo.loading"
                        [class.annotated]="photo.hasAnnotations"
                        [class.skeleton-loader]="photo.isSkeleton">
                     <ng-container *ngIf="photo.isSkeleton">
@@ -727,6 +731,7 @@
                   <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                     <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
                          [class.uploading]="photo.uploading"
+                         [class.loading-image]="photo.loading"
                          [class.annotated]="photo.hasAnnotations"
                          [class.skeleton-loader]="photo.isSkeleton">
                       <ng-container *ngIf="photo.isSkeleton">
@@ -827,6 +832,7 @@
                 <ng-container *ngIf="!isLoadingPhotosForVisual(categoryName, item.id)">
                   <div class="image-preview structural-photo-preview" *ngFor="let photo of getPhotosForVisual(categoryName, item.id); trackBy: trackByPhotoId"
                        [class.uploading]="photo.uploading"
+                       [class.loading-image]="photo.loading"
                        [class.annotated]="photo.hasAnnotations"
                        [class.skeleton-loader]="photo.isSkeleton">
                     <ng-container *ngIf="photo.isSkeleton">

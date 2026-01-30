@@ -477,7 +477,7 @@ export class OfflineTemplateService {
   private async performDownload(serviceId: string, templateType: 'EFE' | 'HUD' | 'LBW' | 'DTE', cacheKey: string, projectId?: string): Promise<void> {
     console.log('╔════════════════════════════════════════════════════════════════╗');
     console.log('║         OFFLINE TEMPLATE DOWNLOAD STARTING                      ║');
-    console.log(`║  Service: ${serviceId.padEnd(10)} | Type: ${templateType.padEnd(5)} | Key: ${cacheKey.padEnd(15)}  ║`);
+    console.log(`║  Service: ${String(serviceId).padEnd(10)} | Type: ${templateType.padEnd(5)} | Key: ${cacheKey.padEnd(15)}  ║`);
     console.log('╚════════════════════════════════════════════════════════════════╝');
 
     // Track what we download for final summary

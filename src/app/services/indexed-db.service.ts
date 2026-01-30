@@ -187,6 +187,39 @@ export class IndexedDbService {
   // ==========================================================================
   public syncQueueChange$ = new Subject<{ reason: string; count?: number }>();
 
+  // ==========================================================================
+  // UPLOAD LOCK MECHANISM (ANNOTATION FLATTENING FIX)
+  // Prevents annotation caching during upload to avoid race conditions
+  // where annotated blob could be uploaded instead of original
+  // ==========================================================================
+  private uploadingImageIds: Set<string> = new Set();
+
+  /**
+   * Lock an image ID to prevent annotation caching during upload
+   * Call this before starting the upload process
+   */
+  lockImageForUpload(imageId: string): void {
+    this.uploadingImageIds.add(imageId);
+    console.log('[IndexedDB] 🔒 Image locked for upload:', imageId);
+  }
+
+  /**
+   * Unlock an image ID after upload completes
+   * Call this in a finally block to ensure cleanup
+   */
+  unlockImageAfterUpload(imageId: string): void {
+    this.uploadingImageIds.delete(imageId);
+    console.log('[IndexedDB] 🔓 Image unlocked after upload:', imageId);
+  }
+
+  /**
+   * Check if an image is currently being uploaded
+   * Used by cacheAnnotatedImage to skip caching during upload
+   */
+  isImageLockedForUpload(imageId: string): boolean {
+    return this.uploadingImageIds.has(imageId);
+  }
+
   constructor(private thumbnailService: ThumbnailService) {
     // Database is initialized automatically by Dexie when first accessed
     console.log('[IndexedDB] Service initialized with Dexie wrapper');
@@ -1043,6 +1076,13 @@ export class IndexedDbService {
    * Cache an annotated image
    */
   async cacheAnnotatedImage(attachId: string, blob: Blob): Promise<string | null> {
+    // ANNOTATION FLATTENING FIX: Don't cache if image is being uploaded
+    // This prevents race conditions where annotated blob could interfere with upload
+    if (this.isImageLockedForUpload(attachId)) {
+      console.warn('[IndexedDB] ⚠️ Skipping annotated cache - image is being uploaded:', attachId);
+      return null;
+    }
+
     const imageDataUrl = await this.blobToBase64(blob);
     const photoKey = `annotated_${attachId}`;
 

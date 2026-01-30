@@ -39,6 +39,7 @@ interface PhotoItem {
   displayUrl: string;
   caption: string;
   uploading: boolean;
+  loading?: boolean;
   isLocal: boolean;
   hasAnnotations?: boolean;
   drawings?: string;

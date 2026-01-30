@@ -204,7 +204,24 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     }
 
     // Store LBWID from query params (if provided by category detail page)
-    const lbwIdFromQueryParams = this.lbwId;
+    let lbwIdFromQueryParams = this.lbwId;
+
+    // WEBAPP FIX: If query params don't have lbwId, try to read from Dexie
+    // This ensures photos are found after page reload even if query params were lost
+    if (environment.isWeb && !lbwIdFromQueryParams && this.serviceId && this.templateId) {
+      try {
+        // Key format: ${serviceId}_${category}_${templateId}
+        const fieldKey = `${this.serviceId}_${this.categoryName}_${this.templateId}`;
+        const dexieField = await this.visualFieldRepo.getField(fieldKey);
+        if (dexieField?.visualId) {
+          lbwIdFromQueryParams = dexieField.visualId;
+          this.lbwId = dexieField.visualId;
+          console.log('[LbwVisualDetail] WEBAPP: Restored lbwId from Dexie:', lbwIdFromQueryParams);
+        }
+      } catch (e) {
+        console.warn('[LbwVisualDetail] WEBAPP: Could not restore lbwId from Dexie:', e);
+      }
+    }
 
     console.log('[LbwVisualDetail] ========== loadVisualData START ==========');
     console.log('[LbwVisualDetail] serviceId:', this.serviceId);
@@ -285,6 +302,8 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         if (visual) {
           // Store the actual category from the data (not from route)
           const actualCategory = visual.Category || '';
+          const visualLbwId = String(visual.LBWID || visual.PK_ID);
+
           this.item = {
             id: visual.LBWID || visual.PK_ID,
             templateId: this.templateId,
@@ -298,11 +317,21 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             answer: visual.Answers || '',
             isSelected: true
           };
-          this.lbwId = String(visual.LBWID || visual.PK_ID);
+
+          // WEBAPP FIX: If we had lbwId from query params, ALWAYS use that for photo queries
+          // This prevents photos from disappearing when visual lookup finds a different record
+          if (lbwIdFromQueryParams && lbwIdFromQueryParams !== visualLbwId) {
+            console.log('[LbwVisualDetail] WEBAPP: ⚠️ MISMATCH DETECTED - Query param lbwId:', lbwIdFromQueryParams, '!= Visual LBWID:', visualLbwId);
+            console.log('[LbwVisualDetail] WEBAPP: Using query param lbwId for photo queries to preserve photos');
+            this.lbwId = lbwIdFromQueryParams;
+          } else {
+            this.lbwId = visualLbwId;
+          }
+
           this.categoryName = actualCategory; // Update to actual category for photo queries
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[LbwVisualDetail] WEBAPP: Loaded LBW record:', this.item.name, 'LBWID:', this.lbwId, 'Category:', actualCategory);
+          console.log('[LbwVisualDetail] WEBAPP: Loaded LBW record:', this.item.name, 'LBWID:', this.lbwId, '(visual LBWID:', visualLbwId, ') Category:', actualCategory);
 
           // CRITICAL: Save visualId to Dexie so category-detail can restore it
           // This ensures the lbwId is available when navigating back and forth
@@ -574,7 +603,10 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     try {
       // WEBAPP MODE: Load photos from server API
       if (environment.isWeb) {
+        console.log('[LbwVisualDetail] WEBAPP: ⚠️ RETRIEVAL DEBUG - About to load photos with lbwId:', this.lbwId);
+
         if (!this.lbwId) {
+          console.error('[LbwVisualDetail] WEBAPP: ❌ lbwId is EMPTY - cannot load photos!');
           this.photos = [];
           return;
         }
@@ -1110,6 +1142,9 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         this.changeDetectorRef.detectChanges();
 
         try {
+          // DEBUG: Log the exact lbwId being used for upload
+          console.log('[LbwVisualDetail] WEBAPP: ⚠️ UPLOAD DEBUG - Using lbwId:', this.lbwId, 'for photo upload');
+
           // Upload directly to S3
           const uploadResult = await this.localImageService.uploadImageDirectToS3(
             file,
@@ -1120,7 +1155,7 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             ''  // drawings
           );
 
-          console.log('[LbwVisualDetail] WEBAPP: ✅ Upload complete, AttachID:', uploadResult.attachId);
+          console.log('[LbwVisualDetail] WEBAPP: ✅ Upload complete, AttachID:', uploadResult.attachId, 'stored with LBWID:', this.lbwId);
 
           // Replace temp photo with real photo
           const tempIndex = this.photos.findIndex(p => p.id === tempId);

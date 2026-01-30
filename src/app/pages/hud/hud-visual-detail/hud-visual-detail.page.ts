@@ -39,6 +39,7 @@ interface PhotoItem {
   displayUrl: string;
   caption: string;
   uploading: boolean;
+  loading?: boolean;
   isLocal: boolean;
   hasAnnotations?: boolean;
   drawings?: string;
@@ -196,7 +197,24 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     // Store HUDID from query params - ONLY used for WEBAPP mode
     // MOBILE mode determines hudId from Dexie field lookup (tempVisualId || visualId)
     // This avoids race conditions where query param has real ID but photos still have temp entityId
-    const hudIdFromQueryParams = this.hudId;
+    let hudIdFromQueryParams = this.hudId;
+
+    // WEBAPP FIX: If query params don't have hudId, try to read from Dexie
+    // This ensures photos are found after page reload even if query params were lost
+    if (environment.isWeb && !hudIdFromQueryParams && this.serviceId && this.templateId) {
+      try {
+        // Key format: ${serviceId}_${category}_${templateId}
+        const fieldKey = `${this.serviceId}_${this.categoryName}_${this.templateId}`;
+        const dexieField = await this.visualFieldRepo.getField(fieldKey);
+        if (dexieField?.visualId) {
+          hudIdFromQueryParams = dexieField.visualId;
+          this.hudId = dexieField.visualId;
+          console.log('[HudVisualDetail] WEBAPP: Restored hudId from Dexie:', hudIdFromQueryParams);
+        }
+      } catch (e) {
+        console.warn('[HudVisualDetail] WEBAPP: Could not restore hudId from Dexie:', e);
+      }
+    }
 
     try {
       // WEBAPP MODE: Load directly from server API

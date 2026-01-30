@@ -741,19 +741,43 @@ ion-content {
       background: transparent !important;
       box-sizing: border-box !important;
 
-      &.uploading img {
-        opacity: 0.6;
+      // Shimmer animation for loading states
+      @keyframes image-shimmer {
+        0% {
+          background-position: -200% 0;
+        }
+        100% {
+          background-position: 200% 0;
+        }
       }
 
-      // Loading state for remote image fetch
-      img.loading {
-        opacity: 0.6;
-        animation: pulse 1.5s ease-in-out infinite;
-      }
+      &.uploading,
+      &.loading-image {
+        position: relative;
 
-      @keyframes pulse {
-        0%, 100% { opacity: 0.6; }
-        50% { opacity: 0.4; }
+        // Shimmer overlay
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border-radius: 16px;
+          background: linear-gradient(90deg,
+            rgba(240, 240, 240, 0.1) 25%,
+            rgba(255, 255, 255, 0.4) 50%,
+            rgba(240, 240, 240, 0.1) 75%
+          );
+          background-size: 200% 100%;
+          animation: image-shimmer 1.5s ease-in-out infinite;
+          z-index: 5;
+          pointer-events: none;
+        }
+
+        img {
+          opacity: 0.7;
+        }
       }
 
       .upload-indicator {

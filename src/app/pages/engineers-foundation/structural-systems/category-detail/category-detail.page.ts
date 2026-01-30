@@ -5481,16 +5481,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
             // Create temp photo entry with loading state (show roller)
             const tempId = `uploading_${Date.now()}`;
-            const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : URL.createObjectURL(blob);
+            // ANNOTATION FLATTENING FIX: Create SEPARATE URLs for original and annotated
+            // originalBlobUrl points to the original camera image (for re-editing)
+            // annotatedDisplayUrl points to the rendered annotations (for thumbnails)
+            const originalBlobUrl = URL.createObjectURL(blob);
+            const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : originalBlobUrl;
             const tempPhotoEntry = {
               imageId: tempId,
               AttachID: tempId,
               attachId: tempId,
               id: tempId,
-              url: annotatedDisplayUrl,
-              displayUrl: annotatedDisplayUrl,
-              originalUrl: annotatedDisplayUrl,
-              thumbnailUrl: annotatedDisplayUrl,
+              url: originalBlobUrl,              // Base image reference
+              displayUrl: annotatedDisplayUrl,   // Annotated version for thumbnails
+              originalUrl: originalBlobUrl,      // CRITICAL: Keep original for re-editing
+              thumbnailUrl: annotatedDisplayUrl, // Show annotations in thumbnails
               name: 'camera-photo.jpg',
               caption: caption || '',
               annotation: caption || '',
@@ -6668,7 +6672,27 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
       // CRITICAL: Always use the original URL (base image without annotations) for editing
       // This ensures annotations are applied to the original image, not a previously annotated version
-      const originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+      let originalImageUrl = photo.originalUrl || photo.url || imageUrl;
+
+      // ANNOTATION FLATTENING FIX #6: Validate original URL on re-edit
+      // If originalUrl equals displayUrl AND photo has annotations, the original may have been overwritten
+      if (originalImageUrl === photo.displayUrl && photo.hasAnnotations && photo.Attachment) {
+        console.warn('[VIEW PHOTO] ⚠️ originalUrl same as displayUrl - may be flattened');
+        console.warn('[VIEW PHOTO] Attempting to fetch original from S3:', photo.Attachment);
+
+        // Try to get base image from S3 (the authoritative source)
+        if (this.caspioService.isS3Key(photo.Attachment)) {
+          try {
+            const s3OriginalUrl = await this.caspioService.getS3FileUrl(photo.Attachment);
+            if (s3OriginalUrl && s3OriginalUrl !== originalImageUrl) {
+              console.log('[VIEW PHOTO] ✅ Fetched original from S3, using instead of potentially flattened URL');
+              originalImageUrl = s3OriginalUrl;
+            }
+          } catch (e) {
+            console.error('[VIEW PHOTO] Failed to fetch from S3, using potentially flattened URL:', e);
+          }
+        }
+      }
 
       // CRITICAL: Don't open annotator if we only have placeholder URL
       // This prevents the FabricAnnotator from failing to load the placeholder and going black
