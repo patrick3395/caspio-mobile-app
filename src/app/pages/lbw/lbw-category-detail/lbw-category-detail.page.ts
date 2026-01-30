@@ -733,18 +733,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // No need to load them individually here
       });
 
-      // Sort each section: multi-select (answerType 2) first, then yes/no (answerType 1), then text (answerType 0)
-      // This ensures "External or Internal wall" appears before "Sketch of area to be removed"
-      const sortByAnswerType = (a: VisualItem, b: VisualItem) => {
-        // Multi-select (2) comes first, then yes/no (1), then text (0)
-        const orderA = a.answerType === 2 ? 0 : (a.answerType === 1 ? 1 : 2);
-        const orderB = b.answerType === 2 ? 0 : (b.answerType === 1 ? 1 : 2);
-        return orderA - orderB;
-      };
-
-      this.organizedData.comments.sort(sortByAnswerType);
-      this.organizedData.limitations.sort(sortByAnswerType);
-      this.organizedData.deficiencies.sort(sortByAnswerType);
+      // Sort each section: multi-select first, then yes/no, then text (for uniform display)
+      this.sortOrganizedDataByAnswerType();
 
       console.log('[LBW CATEGORY] Organized data:', {
         comments: this.organizedData.comments.length,
@@ -1052,6 +1042,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         console.log('[LOAD EXISTING] WEBAPP: Loading all photos from API...');
         await this.loadPhotosFromAPI();
       }
+
+      // Sort each section: multi-select first, then yes/no, then text (for uniform display)
+      this.sortOrganizedDataByAnswerType();
 
       console.log('[LOAD EXISTING] ========== FINAL STATE ==========');
       console.log('[LOAD EXISTING] visualRecordIds:', JSON.stringify(this.visualRecordIds));
@@ -1399,6 +1392,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       } catch (err) {
         console.error('[LBW CategoryDetail] MOBILE: Failed to load VisualFields from Dexie:', err);
       }
+
+      // Sort each section: multi-select first, then yes/no, then text (for uniform display)
+      this.sortOrganizedDataByAnswerType();
 
       // MOBILE FIX: Populate lastConvertedFields from organizedData
       this.lastConvertedFields = this.buildConvertedFieldsFromOrganizedData(organizedData);
@@ -2490,14 +2486,31 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
 
     const term = this.searchTerm.toLowerCase().trim();
-    
+
     return items.filter(item => {
       const nameMatch = item.name?.toLowerCase().includes(term);
       const textMatch = item.text?.toLowerCase().includes(term);
       const originalTextMatch = item.originalText?.toLowerCase().includes(term);
-      
+
       return nameMatch || textMatch || originalTextMatch;
     });
+  }
+
+  /**
+   * Sort organizedData sections by answerType for uniform display
+   * Multi-select (answerType 2) first, then yes/no (answerType 1), then text (answerType 0)
+   */
+  private sortOrganizedDataByAnswerType(): void {
+    const sortByAnswerType = (a: VisualItem, b: VisualItem) => {
+      // Multi-select (2) comes first, then yes/no (1), then text (0)
+      const orderA = a.answerType === 2 ? 0 : (a.answerType === 1 ? 1 : 2);
+      const orderB = b.answerType === 2 ? 0 : (b.answerType === 1 ? 1 : 2);
+      return orderA - orderB;
+    };
+
+    this.organizedData.comments.sort(sortByAnswerType);
+    this.organizedData.limitations.sort(sortByAnswerType);
+    this.organizedData.deficiencies.sort(sortByAnswerType);
   }
 
   /**
@@ -5149,6 +5162,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       } else {
         this.organizedData.comments.push(customItem);
       }
+
+      // Re-sort to maintain uniform display (multi-select first, then yes/no, then text)
+      this.sortOrganizedDataByAnswerType();
       this.changeDetectorRef.detectChanges();
 
       // Clear PDF cache so new PDFs show updated data

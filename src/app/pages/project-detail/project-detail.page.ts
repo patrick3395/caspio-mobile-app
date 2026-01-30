@@ -4834,12 +4834,43 @@ Troubleshooting:
   async syncFromCloud(): Promise<void> {
     if (this.isSyncing) return;
 
-    const servicesWithTemplates = this.selectedServices.filter(s =>
-      s.serviceId && this.getTemplateType(s.typeShort || '')
-    );
+    // Check if online first
+    if (!navigator.onLine) {
+      await this.showToast('Cannot sync while offline. Please connect to the internet.', 'warning');
+      return;
+    }
+
+    // Debug: Log all selected services to see what we have
+    console.log('[ProjectDetail] Selected services for sync:', this.selectedServices.map(s => ({
+      serviceId: s.serviceId,
+      typeShort: s.typeShort,
+      typeName: s.typeName,
+      templateType: this.getTemplateType(s.typeShort || '')
+    })));
+
+    const servicesWithTemplates = this.selectedServices.filter(s => {
+      const hasServiceId = !!s.serviceId;
+      const templateType = this.getTemplateType(s.typeShort || '');
+      console.log(`[ProjectDetail] Service ${s.typeName}: serviceId=${s.serviceId}, typeShort=${s.typeShort}, templateType=${templateType}`);
+      return hasServiceId && templateType;
+    });
 
     if (servicesWithTemplates.length === 0) {
-      await this.showToast('No services with templates to sync', 'warning');
+      // Provide more specific feedback about why there's nothing to sync
+      const hasServices = this.selectedServices.length > 0;
+      if (!hasServices) {
+        await this.showToast('No services selected', 'warning');
+      } else {
+        const missingServiceIds = this.selectedServices.filter(s => !s.serviceId).length;
+        const unsupportedTypes = this.selectedServices.filter(s => s.serviceId && !this.getTemplateType(s.typeShort || '')).length;
+        if (missingServiceIds > 0) {
+          await this.showToast(`${missingServiceIds} service(s) not yet saved to cloud`, 'warning');
+        } else if (unsupportedTypes > 0) {
+          await this.showToast('Selected services do not support offline sync', 'warning');
+        } else {
+          await this.showToast('No services with templates to sync', 'warning');
+        }
+      }
       return;
     }
 
@@ -4854,6 +4885,7 @@ Troubleshooting:
 
     let successCount = 0;
     let errorCount = 0;
+    let lastError: any = null;
 
     try {
       for (const service of servicesWithTemplates) {
@@ -4862,14 +4894,17 @@ Troubleshooting:
 
         try {
           loading.message = `Syncing ${service.typeShort || service.typeName}...`;
+          console.log(`[ProjectDetail] Starting sync for ${service.typeName} (${service.serviceId}, ${templateType})`);
           await this.offlineTemplate.forceRefreshTemplateData(
             service.serviceId,
             templateType,
             this.projectId
           );
+          console.log(`[ProjectDetail] Sync complete for ${service.typeName}`);
           successCount++;
         } catch (error) {
           console.error(`[ProjectDetail] Failed to sync ${service.typeName}:`, error);
+          lastError = error;
           errorCount++;
         }
       }
@@ -4881,7 +4916,9 @@ Troubleshooting:
       } else if (successCount > 0) {
         await this.showToast(`Synced ${successCount} service(s), ${errorCount} failed`, 'warning');
       } else {
-        await this.showToast('Sync failed. Please check your connection.', 'danger');
+        const errorMsg = lastError?.message || 'Unknown error';
+        console.error('[ProjectDetail] All syncs failed. Last error:', lastError);
+        await this.showToast(`Sync failed: ${errorMsg.substring(0, 50)}`, 'danger');
       }
     } catch (error) {
       console.error('[ProjectDetail] Sync from cloud failed:', error);

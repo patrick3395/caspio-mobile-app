@@ -824,6 +824,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
         // itemKey already defined above for in-memory mapping lookup
 
+        const itemAnswerType = template.AnswerType || 0;
+        const itemAnswer = visual?.Answers || visual?.Answer || '';
+
+        // Debug logging for answerType 1 items (Yes/No questions like Habitability)
+        if (itemAnswerType === 1) {
+          console.log(`[CategoryDetail] ANSWERTYPE 1 ITEM: "${template.Name}"`);
+          console.log(`  - templateId: ${templateId}, visual found: ${!!visual}`);
+          console.log(`  - visual.Answers: "${visual?.Answers}", visual.Answer: "${visual?.Answer}"`);
+          console.log(`  - Final answer value: "${itemAnswer}"`);
+        }
+
         const item: VisualItem = {
           id: templateId,  // ALWAYS use templateId for item.id (visualId stored separately in visualRecordIds)
           templateId: templateId,
@@ -832,9 +843,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           originalText: template.Text || '',
           type: template.Kind || 'Comment',
           category: template.Category || this.categoryName,
-          answerType: template.AnswerType || 0,
+          answerType: itemAnswerType,
           required: false,
-          answer: visual?.Answer || '',
+          answer: itemAnswer,  // Field is 'Answers' (plural) in database
           isSelected: !!visual,
           key: itemKey
         };
@@ -888,7 +899,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             category: visual.Category || this.categoryName,
             answerType: 0,
             required: false,
-            answer: visual.Answer || '',
+            answer: visual.Answers || visual.Answer || '',  // Field is 'Answers' (plural) in database
             isSelected: true,  // It exists, so it's selected
             key: dynamicKey
           };
@@ -1026,14 +1037,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
           const attachId = att.AttachID || att.attachId || att.PK_ID;
           const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+          const attachIdStr = String(attachId);
+
+          console.log(`[CategoryDetail] WEBAPP: Photo ${attachIdStr} - hasAnnotations: ${hasAnnotations}, Drawings length: ${att.Drawings?.length || 0}`);
 
           // WEBAPP: Check for cached annotated image to display annotations on thumbnail
           let thumbnailUrl = displayUrl;
           if (hasAnnotations) {
-            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(String(attachId));
+            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachIdStr);
+            console.log(`[CategoryDetail] WEBAPP: Looking for cached image with key "${attachIdStr}", found: ${!!cachedAnnotatedImage}`);
             if (cachedAnnotatedImage) {
               thumbnailUrl = cachedAnnotatedImage;
-              console.log(`[CategoryDetail] WEBAPP: Using cached annotated image for photo ${attachId}`);
+              console.log(`[CategoryDetail] WEBAPP: Using cached annotated image for photo ${attachIdStr}`);
+            } else {
+              console.log(`[CategoryDetail] WEBAPP: No cached image found. Cache has ${this.bulkAnnotatedImagesMap.size} entries:`, Array.from(this.bulkAnnotatedImagesMap.keys()));
             }
           }
 
@@ -4576,12 +4593,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     // For answerType 1 (Yes/No) and answerType 2 (multi-select), check if item has an answer
     const item = this.findItemById(itemId);
     if (!item) {
+      // Debug: Item not found
+      // console.log(`[isItemSelected] Item NOT FOUND for itemId: ${itemId} (type: ${typeof itemId})`);
       return false;
     }
 
     // For answerType 1: Check if answer is selected (Yes or No)
-    if (item.answerType === 1 && item.answer && item.answer !== '') {
-      return true;
+    if (item.answerType === 1) {
+      const hasAnswer = item.answer && item.answer !== '';
+      console.log(`[isItemSelected] ANSWERTYPE 1: "${item.name}" - answer: "${item.answer}", hasAnswer: ${hasAnswer}`);
+      if (hasAnswer) {
+        return true;
+      }
     }
 
     // For answerType 2: Check if any options are selected
@@ -4600,7 +4623,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       ...this.organizedData.deficiencies
     ];
 
-    return allItems.find(item => item.id === itemId);
+    // Use String comparison to handle type coercion (id may be number or string)
+    return allItems.find(item => String(item.id) === String(itemId));
   }
 
   async toggleItemSelection(category: string, itemId: string | number) {
@@ -7707,9 +7731,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
                 console.log(`[CREATE CUSTOM] WEBAPP: Using annotated preview for display`);
 
                 // Cache the annotated image for persistence across page refreshes
+                // Convert data URL to Blob for caching
                 try {
-                  await this.indexedDb.cacheAnnotatedImage(uploadResult.attachId, photoData.previewUrl);
-                  console.log(`[CREATE CUSTOM] WEBAPP: Cached annotated image for AttachID:`, uploadResult.attachId);
+                  const response = await fetch(photoData.previewUrl);
+                  const annotatedBlob = await response.blob();
+                  const attachIdStr = String(uploadResult.attachId);
+                  await this.indexedDb.cacheAnnotatedImage(attachIdStr, annotatedBlob);
+                  console.log(`[CREATE CUSTOM] WEBAPP: Cached annotated image for AttachID:`, attachIdStr, 'blob size:', annotatedBlob.size);
                 } catch (cacheError) {
                   console.warn(`[CREATE CUSTOM] WEBAPP: Failed to cache annotated image:`, cacheError);
                 }
