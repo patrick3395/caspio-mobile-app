@@ -1065,7 +1065,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             uploading: false,
             isLocal: false,
             hasAnnotations: hasAnnotations,
-            drawings: att.Drawings || ''
+            drawings: att.Drawings || '',
+            Drawings: att.Drawings || '',  // ANNOTATION FIX: Also set uppercase for viewPhoto compatibility
+            rawDrawingsString: att.Drawings || ''  // ANNOTATION FIX: Store raw string for re-editing
           });
         }
 
@@ -4112,33 +4114,48 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     }
       }
       
-      // Determine display URL
+      // Determine display URL and ORIGINAL URL separately
+      // ANNOTATION FLATTENING FIX: originalUrl must ALWAYS point to the base image,
+      // while displayUrl can show annotated cached image for thumbnails
       let displayUrl = 'assets/img/photo-placeholder.svg';
+      let originalUrl = 'assets/img/photo-placeholder.svg';  // Track original separately!
       let isLoading = false;
-      
+
       // Step 1: Try LocalImage blob (local first)
       if (localImage && localImage.localBlobId) {
         try {
+          // ANNOTATION FLATTENING FIX: Get ORIGINAL blob URL first (base image without annotations)
+          const originalBlobUrl = await this.localImageService.getOriginalBlobUrl(localImage.localBlobId);
+          if (originalBlobUrl) {
+            originalUrl = originalBlobUrl;  // This is the BASE image for re-editing
+            this.logDebug('LOCAL', `Photo ${attachId} ORIGINAL from LocalImage blob`);
+          }
+
+          // Now get display URL (may return annotated cached image for thumbnails)
           displayUrl = await this.localImageService.getDisplayUrl(localImage);
-          this.logDebug('LOCAL', `Photo ${attachId} from LocalImage blob`);
+          this.logDebug('LOCAL', `Photo ${attachId} DISPLAY from LocalImage`);
         } catch (e) {
           this.logDebug('WARN', `LocalImage getDisplayUrl failed: ${e}`);
         }
       }
-      
-      // Step 2: Try cached photo
+
+      // Step 2: Try cached photo (for display)
       if (displayUrl === 'assets/img/photo-placeholder.svg') {
         try {
           const cached = await this.indexedDb.getCachedPhoto(attachId);
           if (cached) {
             displayUrl = cached;
+            // If we don't have originalUrl yet, use cached as fallback
+            if (originalUrl === 'assets/img/photo-placeholder.svg') {
+              originalUrl = cached;
+            }
             this.logDebug('CACHE', `Photo ${attachId} from cache`);
           }
         } catch (e) {
           this.logDebug('WARN', `Cache check failed: ${e}`);
         }
       }
-      
+
       // Step 3: Load from remote (non-blocking)
       const s3Key = attach.Attachment;
       const hasImageSource = attach.Attachment || attach.Photo;
@@ -4146,7 +4163,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         isLoading = true;
         this.loadPhotoFromRemote(attachId, s3Key || attach.Photo, key, !!s3Key);
       }
-      
+
+      // ANNOTATION FLATTENING FIX: If originalUrl is still placeholder but displayUrl is valid,
+      // and the photo has annotations, we need to fetch the original from S3 eventually
+      // For now, if no separate original available, use displayUrl as fallback
+      if (originalUrl === 'assets/img/photo-placeholder.svg' && displayUrl !== 'assets/img/photo-placeholder.svg') {
+        originalUrl = displayUrl;
+      }
+
       // Create photo data
       const photoData: any = {
         AttachID: attach.AttachID || attachId,
@@ -4154,9 +4178,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         id: attach.AttachID || attachId,
         imageId: localImage?.imageId || attachId,
         displayUrl: displayUrl,
-        url: displayUrl,
-        thumbnailUrl: displayUrl,
-        originalUrl: displayUrl,
+        url: originalUrl,           // ANNOTATION FIX: url points to original for API compatibility
+        thumbnailUrl: displayUrl,   // thumbnailUrl shows annotated for display
+        originalUrl: originalUrl,   // CRITICAL: Always point to base image for re-editing
         name: attach.Photo || 'photo.jpg',
         caption: attach.Annotation || '',
         annotation: attach.Annotation || '',
@@ -4191,16 +4215,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         if (existingHasValidUrl || (isLocalFirst && isLocalBlobUrl)) {
           // Keep the existing valid URL (especially local blob URLs)
           photoData.displayUrl = existing.displayUrl;
-          photoData.url = existing.displayUrl;
           photoData.thumbnailUrl = existing.displayUrl;
-          photoData.originalUrl = existing.originalUrl || existing.displayUrl;
+          // ANNOTATION FLATTENING FIX: Preserve original URL separately from display URL
+          // url and originalUrl should point to base image for re-editing
+          photoData.url = existing.originalUrl || existing.url || existing.displayUrl;
+          photoData.originalUrl = existing.originalUrl || existing.url || existing.displayUrl;
           photoData.loading = false;
           // Preserve local-first flags
           photoData.isLocalFirst = existing.isLocalFirst;
           photoData.isLocalImage = existing.isLocalImage;
           photoData.localImageId = existing.localImageId;
           photoData.localBlobId = existing.localBlobId;
-
+          // ANNOTATION FIX: Preserve annotation data
+          photoData.Drawings = existing.Drawings || photoData.Drawings;
+          photoData.rawDrawingsString = existing.rawDrawingsString || photoData.rawDrawingsString;
+          photoData.hasAnnotations = existing.hasAnnotations || photoData.hasAnnotations;
         }
         // ===== END US-002 FIX =====
 
@@ -4285,9 +4314,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               return;
             }
 
+            // ANNOTATION FLATTENING FIX: When loading from S3, all URLs should point to the original
+            // The S3 URL is always the base image (annotations are stored separately in Drawings field)
             this.visualPhotos[key][photoIndex].displayUrl = imageUrl;
             this.visualPhotos[key][photoIndex].url = imageUrl;
             this.visualPhotos[key][photoIndex].thumbnailUrl = imageUrl;
+            this.visualPhotos[key][photoIndex].originalUrl = imageUrl;  // CRITICAL: Set originalUrl for re-editing
             this.visualPhotos[key][photoIndex].loading = false;
             
             try {

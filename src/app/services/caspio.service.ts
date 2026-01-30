@@ -376,13 +376,16 @@ export class CaspioService {
   }
 
   get<T>(endpoint: string, useCache: boolean = true): Observable<T> {
+    // WEBAPP FIX: Never use cache in WEBAPP mode - always fetch fresh data
+    const effectiveUseCache = environment.isWeb ? false : useCache;
+
     // Route through API Gateway if enabled
     if (this.useApiGateway()) {
       console.log(`[CaspioService] ✅ Using AWS API Gateway for GET ${endpoint}`);
       return this.apiGateway.get<T>(`/api/caspio-proxy${endpoint}`).pipe(
         tap(data => {
-          // Cache the response
-          if (useCache) {
+          // Cache the response (only for mobile)
+          if (effectiveUseCache) {
             this.cache.setApiResponse(endpoint, {}, data);
           }
         }),
@@ -406,8 +409,8 @@ export class CaspioService {
       return this.pendingRequests.get(requestKey)!;
     }
 
-    // Check cache first if enabled
-    if (useCache) {
+    // Check cache first if enabled (WEBAPP mode always bypasses)
+    if (effectiveUseCache) {
       const cachedData = this.cache.getApiResponse(endpoint);
       if (cachedData !== null) {
         if (this.debugMode) {
@@ -2967,8 +2970,8 @@ export class CaspioService {
     );
   }
 
-  getServicesLBWByServiceId(serviceId: string): Observable<any[]> {
-    return this.get<any>(`/tables/LPS_Services_LBW/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
+  getServicesLBWByServiceId(serviceId: string, bypassCache: boolean = false): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_LBW/records?q.where=ServiceID=${serviceId}&q.limit=1000`, !bypassCache).pipe(
       map(response => response.Result || [])
     );
   }
@@ -2978,8 +2981,8 @@ export class CaspioService {
   }
 
   // Services_LPS_Attach methods (for LBW photos)
-  getServiceLBWAttachByLBWId(lbwId: string): Observable<any[]> {
-    return this.get<any>(`/tables/LPS_Services_LBW_Attach/records?q.where=LBWID=${lbwId}&q.limit=1000`).pipe(
+  getServiceLBWAttachByLBWId(lbwId: string, bypassCache: boolean = false): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_LBW_Attach/records?q.where=LBWID=${lbwId}&q.limit=1000`, !bypassCache).pipe(
       map(response => response.Result || [])
     );
   }

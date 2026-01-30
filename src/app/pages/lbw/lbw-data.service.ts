@@ -231,7 +231,8 @@ export class LbwDataService {
     if (environment.isWeb) {
       console.log('[LBW Data] WEBAPP MODE: Loading LBW attachments from server only');
       try {
-        const serverAttachments = await firstValueFrom(this.caspioService.getServiceLBWAttachByLBWId(lbwIdStr));
+        // WEBAPP FIX: Bypass cache to ensure we get fresh attachment data from server
+        const serverAttachments = await firstValueFrom(this.caspioService.getServiceLBWAttachByLBWId(lbwIdStr, true));
         console.log(`[LBW Data] WEBAPP: Loaded ${serverAttachments?.length || 0} LBW attachments from server`);
         return serverAttachments || [];
       } catch (error) {

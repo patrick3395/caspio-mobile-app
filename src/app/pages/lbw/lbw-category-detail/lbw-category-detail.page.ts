@@ -646,10 +646,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         const key = `${item.category || this.categoryName}_${item.templateId}`;
 
         // Store visualId from Dexie if we don't already have it
+        // WEBAPP FIX: Skip for WEBAPP mode - server data is source of truth for visualIds
+        // This prevents stale/deleted visualIds from being used
         const visualId = dexieField.visualId || dexieField.tempVisualId;
-        if (visualId && !this.visualRecordIds[key]) {
+        if (visualId && !this.visualRecordIds[key] && !environment.isWeb) {
           this.visualRecordIds[key] = visualId;
           console.log(`[MERGE DEXIE] Stored visualId from Dexie: ${key} = ${visualId}`);
+        } else if (visualId && !this.visualRecordIds[key] && environment.isWeb) {
+          console.log(`[MERGE DEXIE] WEBAPP: Skipping stale visualId from Dexie: ${key} = ${visualId} (not in server data)`);
         }
 
         // TITLE/TEXT FIX: Restore edited name and text from Dexie
@@ -1036,11 +1040,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         }
       }
 
-      // WEBAPP MODE: Load all photos from API in one batch with signed URLs
-      // This ensures photos are loaded synchronously before the page renders
-      if (environment.isWeb) {
-        console.log('[LOAD EXISTING] WEBAPP: Loading all photos from API...');
+      // Load photos for all visuals
+      console.log('[LOAD EXISTING] environment.isWeb =', environment.isWeb);
+      console.log('[LOAD EXISTING] visualRecordIds count:', Object.keys(this.visualRecordIds).length);
+
+      // ALWAYS load photos from API (was previously WEBAPP only, now unconditional for debugging)
+      if (Object.keys(this.visualRecordIds).length > 0) {
+        console.log('[LOAD EXISTING] ✅ Loading photos from API for', Object.keys(this.visualRecordIds).length, 'visuals...');
         await this.loadPhotosFromAPI();
+        console.log('[LOAD EXISTING] ✅ Photo loading complete');
+      } else {
+        console.log('[LOAD EXISTING] ⚠️ No visualRecordIds - skipping photo load');
       }
 
       // Sort each section: multi-select first, then yes/no, then text (for uniform display)
@@ -1939,28 +1949,35 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   /**
    * WEBAPP MODE: Load photos from API for all selected visuals
    * This method loads photos synchronously with signed S3 URLs
-   * Mirrors EFE's loadPhotosFromAPI approach for WEBAPP mode
+   * WEBAPP: Direct API call to load photos - no caching, no Dexie
    */
   private async loadPhotosFromAPI(): Promise<void> {
-    console.log('[LBW] WEBAPP MODE: Loading photos from API...');
-
-    // WEBAPP FIX: Load cached annotated images FIRST for thumbnail display
-    if (this.bulkAnnotatedImagesMap.size === 0) {
-      try {
-        this.bulkAnnotatedImagesMap = await this.indexedDb.getAllCachedAnnotatedImagesForService();
-        console.log(`[LBW] WEBAPP: Loaded ${this.bulkAnnotatedImagesMap.size} cached annotated images`);
-      } catch (e) {
-        console.warn('[LBW] WEBAPP: Failed to load annotated images cache:', e);
-      }
-    }
+    console.log('[LBW PHOTOS] ========== DIRECT API PHOTO LOAD ==========');
+    console.log('[LBW PHOTOS] visualRecordIds:', JSON.stringify(this.visualRecordIds));
 
     // Get all visual IDs that have been selected
     for (const [key, lbwId] of Object.entries(this.visualRecordIds)) {
       if (!lbwId) continue;
 
+      console.log(`[LBW PHOTOS] Loading photos for key="${key}" lbwId="${lbwId}"`);
+
       try {
-        const attachments = await this.hudData.getVisualAttachments(lbwId);
-        console.log(`[LBW] WEBAPP: Loaded ${attachments?.length || 0} photos for LBW ${lbwId}`);
+        // WEBAPP: DIRECT API CALL - no caching, no Dexie
+        const apiUrl = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_LBW_Attach/records?q.where=LBWID=${lbwId}&q.limit=100`;
+        console.log('[LBW PHOTOS] API URL:', apiUrl);
+
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+          console.error('[LBW PHOTOS] API error:', response.status, response.statusText);
+          continue;
+        }
+
+        const data = await response.json();
+        const attachments = data.Result || [];
+        console.log(`[LBW PHOTOS] ✅ API returned ${attachments.length} attachments for LBWID ${lbwId}`);
+        if (attachments.length > 0) {
+          console.log('[LBW PHOTOS] First attachment:', JSON.stringify(attachments[0]));
+        }
 
         // Convert attachments to photo format
         const photos: any[] = [];

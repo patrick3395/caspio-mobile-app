@@ -296,13 +296,26 @@ export class LocalImageService {
     if (this.blobUrlCache.has(blobId)) {
       return this.blobUrlCache.get(blobId)!;
     }
-    
+
     // Get from IndexedDB
     const url = await this.indexedDb.getLocalBlobUrl(blobId);
     if (url) {
       this.blobUrlCache.set(blobId, url);
     }
     return url;
+  }
+
+  /**
+   * ANNOTATION FLATTENING FIX: Get the ORIGINAL blob URL (without annotations)
+   * This is critical for re-editing - we need the base image, not the annotated cached image.
+   * Unlike getDisplayUrl() which may return annotated cached image for thumbnails,
+   * this method ALWAYS returns the original base image.
+   *
+   * @param blobId The local blob ID
+   * @returns The original blob URL or null if not found
+   */
+  async getOriginalBlobUrl(blobId: string): Promise<string | null> {
+    return this.getBlobUrl(blobId);
   }
 
   /**

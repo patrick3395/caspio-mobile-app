@@ -206,29 +206,51 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     // Store LBWID from query params (if provided by category detail page)
     let lbwIdFromQueryParams = this.lbwId;
 
-    // WEBAPP FIX: If query params don't have lbwId, try to read from Dexie
-    // This ensures photos are found after page reload even if query params were lost
-    if (environment.isWeb && !lbwIdFromQueryParams && this.serviceId && this.templateId) {
-      try {
-        // Key format: ${serviceId}_${category}_${templateId}
-        const fieldKey = `${this.serviceId}_${this.categoryName}_${this.templateId}`;
-        const dexieField = await this.visualFieldRepo.getField(fieldKey);
-        if (dexieField?.visualId) {
-          lbwIdFromQueryParams = dexieField.visualId;
-          this.lbwId = dexieField.visualId;
-          console.log('[LbwVisualDetail] WEBAPP: Restored lbwId from Dexie:', lbwIdFromQueryParams);
-        }
-      } catch (e) {
-        console.warn('[LbwVisualDetail] WEBAPP: Could not restore lbwId from Dexie:', e);
-      }
-    }
-
     console.log('[LbwVisualDetail] ========== loadVisualData START ==========');
     console.log('[LbwVisualDetail] serviceId:', this.serviceId);
     console.log('[LbwVisualDetail] projectId:', this.projectId);
     console.log('[LbwVisualDetail] templateId:', this.templateId);
     console.log('[LbwVisualDetail] categoryName:', this.categoryName);
     console.log('[LbwVisualDetail] lbwId (from query):', lbwIdFromQueryParams || '(none)');
+
+    // WEBAPP SIMPLE FIX: If we have lbwId from query params, just use it directly
+    // Don't bother with complex matching - load photos for this LBWID
+    if (environment.isWeb && lbwIdFromQueryParams) {
+      console.log('[LbwVisualDetail] WEBAPP DIRECT: Using lbwId from query params:', lbwIdFromQueryParams);
+      this.lbwId = lbwIdFromQueryParams;
+
+      // Load visual data for display (optional - photos are the main thing)
+      try {
+        const lbwRecords = await this.lbwData.getVisualsByService(this.serviceId);
+        const visual = lbwRecords.find((v: any) => String(v.LBWID || v.PK_ID) === String(lbwIdFromQueryParams));
+        if (visual) {
+          this.item = {
+            id: visual.LBWID || visual.PK_ID,
+            templateId: this.templateId,
+            name: visual.Name || '',
+            text: visual.Text || '',
+            originalText: visual.Text || '',
+            type: visual.Kind || 'Comment',
+            category: visual.Category || '',
+            answerType: visual.AnswerType || 0,
+            required: false,
+            answer: visual.Answers || '',
+            isSelected: true
+          };
+          this.categoryName = visual.Category || this.categoryName;
+          this.editableTitle = this.item.name;
+          this.editableText = this.item.text;
+          console.log('[LbwVisualDetail] WEBAPP DIRECT: Loaded visual:', this.item.name);
+        }
+      } catch (e) {
+        console.warn('[LbwVisualDetail] WEBAPP DIRECT: Could not load visual data:', e);
+      }
+
+      // Load photos directly - this is the key part
+      await this.loadPhotos();
+      this.loading = false;
+      return;
+    }
 
     // CRITICAL: Check if we have required params
     if (!this.serviceId) {
@@ -277,12 +299,13 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         }
 
         // PRIORITY 2: Fall back to TemplateID matching
+        // Convert to string for comparison to avoid number/string type mismatch
         if (!visual && template) {
-          const templateIdToMatch = template.TemplateID || template.PK_ID;
+          const templateIdToMatch = String(template.TemplateID || template.PK_ID);
           visual = lbwRecords.find((v: any) =>
-            v.LBWTemplateID === templateIdToMatch ||
-            v.VisualTemplateID === templateIdToMatch ||
-            v.TemplateID === templateIdToMatch
+            String(v.LBWTemplateID) === templateIdToMatch ||
+            String(v.VisualTemplateID) === templateIdToMatch ||
+            String(v.TemplateID) === templateIdToMatch
           );
           if (visual) {
             console.log('[LbwVisualDetail] WEBAPP: Matched LBW record by templateId:', templateIdToMatch);
@@ -296,6 +319,23 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           );
           if (visual) {
             console.log('[LbwVisualDetail] WEBAPP: Matched LBW record by name+category:', template.Name, template.Category);
+          }
+        }
+
+        // PRIORITY 4: WEBAPP FALLBACK - If we have visuals in this category but no match,
+        // use the most recent one (highest LBWID). This handles cases where TemplateID
+        // or Name matching fails but photos were uploaded to a valid visual.
+        if (!visual && template) {
+          const categoryVisuals = lbwRecords.filter((v: any) => v.Category === (template.Category || this.categoryName));
+          if (categoryVisuals.length > 0) {
+            // Sort by LBWID descending and pick the most recent
+            categoryVisuals.sort((a: any, b: any) => {
+              const aId = parseInt(a.LBWID || a.PK_ID || '0', 10);
+              const bId = parseInt(b.LBWID || b.PK_ID || '0', 10);
+              return bId - aId;
+            });
+            visual = categoryVisuals[0];
+            console.log('[LbwVisualDetail] WEBAPP: PRIORITY 4 FALLBACK - Using most recent visual in category:', visual.LBWID, 'Name:', visual.Name);
           }
         }
 
@@ -318,15 +358,9 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             isSelected: true
           };
 
-          // WEBAPP FIX: If we had lbwId from query params, ALWAYS use that for photo queries
-          // This prevents photos from disappearing when visual lookup finds a different record
-          if (lbwIdFromQueryParams && lbwIdFromQueryParams !== visualLbwId) {
-            console.log('[LbwVisualDetail] WEBAPP: ⚠️ MISMATCH DETECTED - Query param lbwId:', lbwIdFromQueryParams, '!= Visual LBWID:', visualLbwId);
-            console.log('[LbwVisualDetail] WEBAPP: Using query param lbwId for photo queries to preserve photos');
-            this.lbwId = lbwIdFromQueryParams;
-          } else {
-            this.lbwId = visualLbwId;
-          }
+          // WEBAPP FIX: Always use the visual's actual LBWID from server data
+          // Server data is the source of truth - this ensures we use the correct ID
+          this.lbwId = visualLbwId;
 
           this.categoryName = actualCategory; // Update to actual category for photo queries
           this.editableTitle = this.item.name;
@@ -601,19 +635,36 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     this.loadingPhotos = true;
 
     try {
-      // WEBAPP MODE: Load photos from server API
+      // WEBAPP MODE: DIRECT API CALL - no caching, no Dexie
       if (environment.isWeb) {
-        console.log('[LbwVisualDetail] WEBAPP: ⚠️ RETRIEVAL DEBUG - About to load photos with lbwId:', this.lbwId);
+        console.log('[LbwVisualDetail] ========== DIRECT API PHOTO LOAD ==========');
+        console.log('[LbwVisualDetail] lbwId:', this.lbwId);
 
         if (!this.lbwId) {
-          console.error('[LbwVisualDetail] WEBAPP: ❌ lbwId is EMPTY - cannot load photos!');
+          console.error('[LbwVisualDetail] ❌ lbwId is EMPTY - cannot load photos!');
           this.photos = [];
+          this.loadingPhotos = false;
           return;
         }
 
-        console.log('[LbwVisualDetail] WEBAPP MODE: Loading photos for lbwId:', this.lbwId);
-        const attachments = await this.lbwData.getVisualAttachments(this.lbwId);
-        console.log('[LbwVisualDetail] WEBAPP: Found', attachments?.length || 0, 'attachments from server');
+        // DIRECT API CALL - bypass all caching layers
+        const apiUrl = `${environment.apiGatewayUrl}/api/caspio-proxy/tables/LPS_Services_LBW_Attach/records?q.where=LBWID=${this.lbwId}&q.limit=100`;
+        console.log('[LbwVisualDetail] API URL:', apiUrl);
+
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+          console.error('[LbwVisualDetail] API error:', response.status, response.statusText);
+          this.photos = [];
+          this.loadingPhotos = false;
+          return;
+        }
+
+        const data = await response.json();
+        const attachments = data.Result || [];
+        console.log(`[LbwVisualDetail] ✅ API returned ${attachments.length} attachments`);
+        if (attachments.length > 0) {
+          console.log('[LbwVisualDetail] First attachment:', JSON.stringify(attachments[0]));
+        }
 
         this.photos = [];
         for (const att of attachments || []) {

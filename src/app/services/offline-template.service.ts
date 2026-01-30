@@ -1791,7 +1791,9 @@ export class OfflineTemplateService {
     if (environment.isWeb) {
       console.log(`[OfflineTemplate] WEBAPP MODE: Fetching LBW records from LPS_Services_LBW where ServiceID=${serviceId}`);
       try {
-        const freshLbw = await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId));
+        // WEBAPP FIX: Bypass cache to ensure we get fresh data from server
+        // This fixes the issue where deleted records still appear due to stale cache
+        const freshLbw = await firstValueFrom(this.caspioService.getServicesLBWByServiceId(serviceId, true));
         console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshLbw?.length || 0} LBW records from server`);
         if (freshLbw && freshLbw.length > 0) {
           console.log(`[OfflineTemplate] WEBAPP: First LBW record:`, {
