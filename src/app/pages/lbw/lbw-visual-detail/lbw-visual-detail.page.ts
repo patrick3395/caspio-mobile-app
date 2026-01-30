@@ -55,6 +55,9 @@ interface PhotoItem {
   imports: [CommonModule, IonicModule, FormsModule, LazyImageDirective]
 })
 export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
+  // WEBAPP: Expose isWeb for template to hide camera button
+  isWeb = environment.isWeb;
+
   categoryName: string = '';
   routeCategory: string = '';  // Original category from route - used for navigation
   templateId: number = 0;
@@ -1548,7 +1551,24 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     try {
       photo.caption = caption;
 
-      // Update in localImages (Dexie)
+      // WEBAPP MODE: Update directly via Caspio API
+      // Photos come from server, not localImages - use photo.drawings directly
+      if (environment.isWeb && !photo.isLocal) {
+        const attachId = photo.id;
+        if (attachId && !String(attachId).startsWith('temp_') && !String(attachId).startsWith('img_')) {
+          // CRITICAL: Use photo.drawings to preserve existing annotations
+          // Do NOT use localImage?.drawings as localImages is empty in WEBAPP mode
+          await firstValueFrom(this.caspioService.updateServicesLBWAttach(String(attachId), {
+            Annotation: caption,
+            Drawings: photo.drawings || ''
+          }));
+          console.log('[LbwVisualDetail] WEBAPP: ✅ Updated caption via API (preserved drawings):', attachId);
+        }
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // MOBILE MODE: Update in localImages (Dexie)
       const updateCount = await db.localImages.update(photo.id, { caption, updatedAt: Date.now() });
 
       if (updateCount === 0) {
@@ -1564,23 +1584,14 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // Use attachId if synced, otherwise use imageId (sync worker will resolve it)
       const attachId = localImage?.attachId || photo.id;
 
-      // WEBAPP MODE: Update directly via Caspio API
-      if (environment.isWeb && attachId && !String(attachId).startsWith('temp_') && !String(attachId).startsWith('img_')) {
-        await firstValueFrom(this.caspioService.updateServicesLBWAttach(String(attachId), {
-          Annotation: caption,
-          Drawings: localImage?.drawings || ''
-        }));
-        console.log('[LbwVisualDetail] WEBAPP: ✅ Updated caption via API:', attachId);
-      } else {
-        // MOBILE MODE: Queue caption update for background sync
-        await this.lbwData.queueCaptionUpdate(
-          attachId,
-          caption,
-          localImage?.drawings || '',
-          { serviceId: this.serviceId, lbwId: this.lbwId }
-        );
-        console.log('[LbwVisualDetail] ✅ Queued caption update:', attachId, localImage?.attachId ? '(synced)' : '(pending photo sync)');
-      }
+      // MOBILE MODE: Queue caption update for background sync
+      await this.lbwData.queueCaptionUpdate(
+        attachId,
+        caption,
+        localImage?.drawings || '',
+        { serviceId: this.serviceId, lbwId: this.lbwId }
+      );
+      console.log('[LbwVisualDetail] ✅ Queued caption update:', attachId, localImage?.attachId ? '(synced)' : '(pending photo sync)');
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {

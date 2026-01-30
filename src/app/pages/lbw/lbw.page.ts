@@ -91,6 +91,9 @@ interface PendingHudCreate {
   changeDetection: ChangeDetectionStrategy.OnPush  // PERFORMANCE: OnPush for optimized change detection
 })
 export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
+  // WEBAPP: Expose isWeb for template to hide camera button
+  isWeb = environment.isWeb;
+
   // Build cache fix: v1.4.247 - Fixed class structure, removed orphaned code
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 

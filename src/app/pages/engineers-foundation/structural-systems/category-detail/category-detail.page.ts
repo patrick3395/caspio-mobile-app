@@ -1688,15 +1688,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           // (server caption should match if upload worked correctly)
           const finalCaption = localCaption || serverCaption;
 
-          this.visualPhotos[key][photoIndex] = {
+          // CRITICAL: Preserve annotation data during sync
+          // displayUrl/thumbnailUrl may be annotated blob URLs - preserve them
+          const updatedPhoto = {
             ...existingPhoto,
             AttachID: realAttachId,
             attachId: String(realAttachId),  // CRITICAL: Update lowercase for caption lookups
             id: realAttachId,                 // CRITICAL: Update id for consistency
             url: cachedUrl,  // Store cached URL for reference, but displayUrl unchanged
-            // displayUrl: unchanged - stays as local blob from LocalImages table
-            // thumbnailUrl: unchanged - stays as local blob from LocalImages table
-            // originalUrl: unchanged - stays as local blob from LocalImages table
+            // displayUrl: preserved from existingPhoto (may be annotated blob URL)
+            // thumbnailUrl: preserved from existingPhoto (may be annotated blob URL)
+            // originalUrl: preserved from existingPhoto
+            // Drawings: preserved from existingPhoto
+            // annotations: preserved from existingPhoto
+            // rawDrawingsString: preserved from existingPhoto
+            // hasAnnotations: preserved from existingPhoto
             caption: finalCaption,  // CRITICAL: Preserve caption
             Annotation: finalCaption,  // Also set Caspio field
             queued: false,
@@ -1707,15 +1713,46 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             isSkeleton: false
           };
 
+          // CRITICAL: Update bulkAnnotatedImagesMap with new AttachID
+          // The old temp ID is no longer valid, so map the new real ID to the annotated URL
+          if (existingPhoto.displayUrl && existingPhoto.hasAnnotations) {
+            this.bulkAnnotatedImagesMap.set(String(realAttachId), existingPhoto.displayUrl);
+            console.log('[PHOTO SYNC] Updated bulkAnnotatedImagesMap with new AttachID:', realAttachId);
+
+            // ALSO update IndexedDB cache with new AttachID (for page refresh persistence)
+            // The old temp ID cache entry will become orphaned but won't cause issues
+            const oldCacheId = existingPhoto.imageId || existingPhoto._pendingFileId || event.tempFileId;
+            if (oldCacheId && oldCacheId !== String(realAttachId)) {
+              this.indexedDb.getCachedAnnotatedImage(oldCacheId).then(async (cachedImage) => {
+                if (cachedImage) {
+                  // Re-cache with new real ID
+                  try {
+                    const response = await fetch(cachedImage);
+                    const blob = await response.blob();
+                    await this.indexedDb.cacheAnnotatedImage(String(realAttachId), blob);
+                    console.log('[PHOTO SYNC] ✅ Migrated IndexedDB annotated cache from', oldCacheId, 'to', realAttachId);
+                  } catch (e) {
+                    console.warn('[PHOTO SYNC] Failed to migrate annotated cache:', e);
+                  }
+                }
+              }).catch(e => console.warn('[PHOTO SYNC] Failed to check old cache:', e));
+            }
+          }
+
+          // CRITICAL: Create NEW array reference for Angular change detection
+          const newPhotosArray = [...this.visualPhotos[key]];
+          newPhotosArray[photoIndex] = updatedPhoto;
+          this.visualPhotos[key] = newPhotosArray;
+
           // ===== US-001 DEBUG: After sync update - trace final displayUrl =====
-          const updatedPhoto = this.visualPhotos[key][photoIndex];
           const syncUpdateDebugMsg = `SYNC UPDATE APPLIED\n` +
             `key: ${key}\n` +
             `old imageId: ${event.tempFileId}\n` +
             `new AttachID: ${realAttachId}\n` +
             `displayUrl: ${updatedPhoto.displayUrl?.substring(0, 80)}...\n` +
             `displayUrl type: ${updatedPhoto.displayUrl?.startsWith('blob:') ? 'BLOB (local)' : updatedPhoto.displayUrl?.startsWith('data:') ? 'DATA (cached)' : 'OTHER'}\n` +
-            `url: ${updatedPhoto.url?.substring(0, 80)}...`;
+            `hasAnnotations: ${updatedPhoto.hasAnnotations}\n` +
+            `Drawings length: ${updatedPhoto.Drawings?.length || 0}`;
           this.logDebug('SYNC', syncUpdateDebugMsg);
           // ===== END US-001 DEBUG =====
 
@@ -6999,6 +7036,24 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         const annotatedBlob = data.blob || data.annotatedBlob;
         const annotationsData = data.annotationData || data.annotationsData;
 
+        // DEBUG: Log annotation data to understand what's being saved
+        console.log('[SAVE] Annotation data received from modal:', {
+          hasAnnotationData: !!data.annotationData,
+          hasAnnotationsData: !!data.annotationsData,
+          annotationsDataType: typeof annotationsData,
+          isObject: annotationsData && typeof annotationsData === 'object',
+          hasObjects: annotationsData?.objects?.length > 0,
+          objectCount: annotationsData?.objects?.length || 0
+        });
+
+        // Determine if we actually have annotations to save
+        const hasActualAnnotations = annotationsData &&
+          typeof annotationsData === 'object' &&
+          Array.isArray(annotationsData.objects) &&
+          annotationsData.objects.length > 0;
+
+        console.log('[SAVE] Has actual annotations:', hasActualAnnotations);
+
         // CRITICAL: Create blob URL for the annotated image (for display only)
         const newUrl = URL.createObjectURL(annotatedBlob);
 
@@ -7047,27 +7102,43 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             }
 
             // STEP 1: Update UI IMMEDIATELY (before database save)
-            this.visualPhotos[key][photoIndex] = {
+            // CRITICAL: Create NEW array reference to force Angular change detection
+            const updatedPhoto = {
               ...currentPhoto,
               originalUrl: currentPhoto.originalUrl || currentPhoto.url,
               displayUrl: newUrl,           // Annotated thumbnail - IMMEDIATE
               url: currentPhoto.url,
               thumbnailUrl: newUrl,         // Annotated thumbnail - IMMEDIATE
-              hasAnnotations: !!annotationsData,
+              hasAnnotations: hasActualAnnotations || !!compressedDrawings,  // Check for actual annotations
               caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
               annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
               Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
               annotations: annotationsData,
               Drawings: compressedDrawings,
-              rawDrawingsString: compressedDrawings
+              rawDrawingsString: compressedDrawings,
+              _annotationVersion: Date.now() // Force trackBy to see change
             };
+
+            console.log('[SAVE] Updated photo with:', {
+              displayUrl: newUrl?.substring(0, 50),
+              hasAnnotations: updatedPhoto.hasAnnotations,
+              drawingsLength: compressedDrawings?.length || 0,
+              annotationObjectCount: annotationsData?.objects?.length || 0
+            });
+
+            // Create NEW array reference - this is CRITICAL for Angular change detection
+            const newPhotosArray = [...this.visualPhotos[key]];
+            newPhotosArray[photoIndex] = updatedPhoto;
+            this.visualPhotos[key] = newPhotosArray;
+
+            console.log('[SAVE] Updated photo displayUrl to:', newUrl?.substring(0, 50));
 
             // Cache in memory for instant lookup
             this.bulkAnnotatedImagesMap.set(String(currentAttachId), newUrl);
 
             // STEP 2: Trigger change detection IMMEDIATELY so thumbnail updates
             this.changeDetectorRef.detectChanges();
-            console.log('[SAVE] ✅ UI updated IMMEDIATELY with annotated thumbnail');
+            console.log('[SAVE] ✅ UI updated IMMEDIATELY with annotated thumbnail - array reference replaced');
 
             // STEP 3: Save to database and IndexedDB in BACKGROUND (non-blocking)
             // Use .then() instead of await so it doesn't block the UI
@@ -7111,20 +7182,36 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             }
 
             // STEP 1: Update UI IMMEDIATELY (before any database operations)
-            this.visualPhotos[key][photoIndex] = {
+            // CRITICAL: Create NEW array reference to force Angular change detection
+            const updatedPhoto = {
               ...currentPhoto,
               originalUrl: currentPhoto.originalUrl || currentPhoto.url,
               displayUrl: newUrl,           // Annotated thumbnail - IMMEDIATE
               thumbnailUrl: newUrl,         // Annotated thumbnail - IMMEDIATE
-              hasAnnotations: !!annotationsData,
+              hasAnnotations: hasActualAnnotations || !!compressedDrawings,  // Check for actual annotations
               caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
               annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
               Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
               annotations: annotationsData,
               Drawings: compressedDrawings,
               rawDrawingsString: compressedDrawings,
-              _localUpdate: true
+              _localUpdate: true,
+              _annotationVersion: Date.now() // Force trackBy to see change
             };
+
+            console.log('[SAVE OFFLINE] Updated photo with:', {
+              displayUrl: newUrl?.substring(0, 50),
+              hasAnnotations: updatedPhoto.hasAnnotations,
+              drawingsLength: compressedDrawings?.length || 0,
+              annotationObjectCount: annotationsData?.objects?.length || 0
+            });
+
+            // Create NEW array reference - this is CRITICAL for Angular change detection
+            const newPhotosArray = [...this.visualPhotos[key]];
+            newPhotosArray[photoIndex] = updatedPhoto;
+            this.visualPhotos[key] = newPhotosArray;
+
+            console.log('[SAVE OFFLINE] Updated photo displayUrl to:', newUrl?.substring(0, 50));
 
             // Cache in memory for instant lookup
             const photoIdForCache = String(pendingFileId);
@@ -7132,7 +7219,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
             // STEP 2: Trigger change detection IMMEDIATELY so thumbnail updates
             this.changeDetectorRef.detectChanges();
-            console.log('[SAVE OFFLINE] ✅ UI updated IMMEDIATELY with annotated thumbnail');
+            console.log('[SAVE OFFLINE] ✅ UI updated IMMEDIATELY with annotated thumbnail - array reference replaced');
 
             // STEP 3: Save to IndexedDB in BACKGROUND (non-blocking)
             // Use .then() instead of await so it doesn't block the UI

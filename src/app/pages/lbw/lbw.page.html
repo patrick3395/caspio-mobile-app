@@ -547,7 +547,7 @@
 
                         <!-- Camera and Gallery buttons for multi-select items -->
                         <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 16px; margin: 12px 12px 8px 12px; align-items: center; justify-content: flex-end;">
-                          <button class="camera-button-structural"
+                          <button *ngIf="!isWeb" class="camera-button-structural"
                                   (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                   title="Take photo from camera"
                                   style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
@@ -628,7 +628,7 @@
                           </ion-label>
                           <!-- Camera and Gallery buttons below text -->
                           <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
-                            <button class="camera-button-structural"
+                            <button *ngIf="!isWeb" class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                     title="Take photo from camera"
                                     style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
@@ -776,7 +776,7 @@
 
                         <!-- Camera and Gallery buttons for multi-select items -->
                         <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 16px; margin: 12px 12px 8px 12px; align-items: center; justify-content: flex-end;">
-                          <button class="camera-button-structural"
+                          <button *ngIf="!isWeb" class="camera-button-structural"
                                   (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                   title="Take photo from camera"
                                   style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
@@ -857,7 +857,7 @@
                           </ion-label>
                           <!-- Camera and Gallery buttons below text -->
                           <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
-                            <button class="camera-button-structural"
+                            <button *ngIf="!isWeb" class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                     title="Take photo from camera"
                                     style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
@@ -1005,7 +1005,7 @@
 
                         <!-- Camera and Gallery buttons for multi-select items -->
                         <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 16px; margin: 12px 12px 8px 12px; align-items: center; justify-content: flex-end;">
-                          <button class="camera-button-structural"
+                          <button *ngIf="!isWeb" class="camera-button-structural"
                                   (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                   title="Take photo from camera"
                                   style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">
@@ -1086,7 +1086,7 @@
                           </ion-label>
                           <!-- Camera and Gallery buttons below text -->
                           <div *ngIf="isItemSelected(category, item.id)" style="display: flex; gap: 16px; margin-top: 6px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; padding-right: 8px;">
-                            <button class="camera-button-structural"
+                            <button *ngIf="!isWeb" class="camera-button-structural"
                                     (click)="addPhotoFromCamera(category, item.id); $event.stopPropagation()"
                                     title="Take photo from camera"
                                     style="position: static !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; flex-shrink: 0 !important; background: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; outline: none !important;">

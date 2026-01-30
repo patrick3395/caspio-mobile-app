@@ -37,7 +37,7 @@
 
       <!-- Action Buttons -->
       <div class="action-button-grid">
-        <button class="action-btn" (click)="addPhotoFromCamera()">
+        <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera()">
           <ion-icon name="camera"></ion-icon>
           <span>Camera</span>
         </button>
@@ -78,7 +78,8 @@
       <!-- No Photos -->
       <div class="no-photos-message" *ngIf="!loadingPhotos && photos.length === 0">
         <ion-icon name="images-outline"></ion-icon>
-        <p>No photos yet. Tap Camera or Gallery to add photos.</p>
+        <p *ngIf="!isWeb">No photos yet. Tap Camera or Gallery to add photos.</p>
+        <p *ngIf="isWeb">No photos yet. Click Gallery to add photos.</p>
       </div>
 
       <!-- Loading Photos -->

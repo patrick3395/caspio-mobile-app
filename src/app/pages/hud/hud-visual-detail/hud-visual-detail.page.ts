@@ -1311,7 +1311,27 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     try {
       photo.caption = caption;
 
-      // Update in localImages (Dexie)
+      // WEBAPP MODE: Update directly via Caspio API
+      // Photos come from server, not localImages - use photo.drawings directly
+      if (environment.isWeb && !photo.isLocal) {
+        const attachId = photo.id;
+        if (attachId && !String(attachId).startsWith('temp_') && !String(attachId).startsWith('img_')) {
+          // CRITICAL: Use photo.drawings to preserve existing annotations
+          // Do NOT use localImage?.drawings as localImages is empty in WEBAPP mode
+          await this.hudData.queueCaptionAndAnnotationUpdate(
+            attachId,
+            caption,
+            photo.drawings || '',
+            'hud',
+            { serviceId: this.serviceId, visualId: this.hudId }
+          );
+          console.log('[HudVisualDetail] WEBAPP: ✅ Updated caption via API (preserved drawings):', attachId);
+        }
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // MOBILE MODE: Update in localImages (Dexie)
       await db.localImages.update(photo.id, { caption, updatedAt: Date.now() });
 
       // Get the localImage to check status

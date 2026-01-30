@@ -1083,13 +1083,35 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     try {
       photo.caption = caption;
 
+      // WEBAPP MODE: Update directly via Caspio API
+      // Photos come from server, not localImages - use photo.drawings directly
+      if (environment.isWeb && !photo.isLocal) {
+        const attachId = photo.id;
+        if (attachId && !String(attachId).startsWith('temp_') && !String(attachId).startsWith('img_')) {
+          // CRITICAL: Use photo.drawings to preserve existing annotations
+          // Do NOT use localImage?.drawings as localImages is empty in WEBAPP mode
+          await firstValueFrom(this.caspioService.updateServicesDTEAttach(String(attachId), {
+            Annotation: caption,
+            Drawings: photo.drawings || ''
+          }));
+          console.log('[DteVisualDetail] WEBAPP: ✅ Updated caption via API (preserved drawings):', attachId);
+        }
+        this.changeDetectorRef.detectChanges();
+        return;
+      }
+
+      // MOBILE MODE: Update in localImages (Dexie)
       await db.localImages.update(photo.id, { caption, updatedAt: Date.now() });
 
       const localImage = await db.localImages.get(photo.id);
       const attachId = localImage?.attachId || photo.id;
 
-      await this.dteData.updateVisualPhotoCaption(attachId, caption);
-      console.log('[DteVisualDetail] Queued caption update:', attachId);
+      // Queue caption update with drawings preserved
+      await firstValueFrom(this.caspioService.updateServicesDTEAttach(String(attachId), {
+        Annotation: caption,
+        Drawings: localImage?.drawings || ''
+      }));
+      console.log('[DteVisualDetail] ✅ Queued caption update:', attachId);
 
       this.changeDetectorRef.detectChanges();
     } catch (error) {
@@ -1167,19 +1189,29 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             }
           }
 
-          // WEBAPP MODE
+          // WEBAPP MODE: Photos come from server, not localImages
           if (environment.isWeb && !photo.isLocal) {
+            // Cache annotated image for thumbnail display (use photo.id which is AttachID)
             if (annotatedBlob && annotatedBlob.size > 0) {
               try {
                 await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
-                console.log('[DteVisualDetail] WEBAPP: Cached annotated image for AttachID:', photo.id);
+                console.log('[DteVisualDetail] WEBAPP: ✅ Cached annotated image for AttachID:', photo.id);
               } catch (cacheErr) {
                 console.warn('[DteVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
               }
             }
 
-            await this.dteData.updateVisualPhotoCaption(photo.id, newCaption);
-            console.log('[DteVisualDetail] WEBAPP: Queued annotation update to Caspio');
+            // Update annotation directly via Caspio API (photo.id IS the AttachID in webapp mode)
+            await firstValueFrom(this.caspioService.updateServicesDTEAttach(String(photo.id), {
+              Annotation: newCaption,
+              Drawings: compressedDrawings
+            }));
+            console.log('[DteVisualDetail] WEBAPP: ✅ Updated annotation via API for AttachID:', photo.id);
+
+            // Show appropriate toast based on whether we could export the image
+            if (data.canvasTainted) {
+              await this.showToast('Annotations saved (refresh to see updates)', 'success');
+            }
           } else {
             // MOBILE MODE
             await db.localImages.update(photo.id, {
