@@ -3659,7 +3659,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         Kind: kind,
         Name: name,
         Text: text,
-        Notes: ''
+        Notes: '',
+        TemplateID: 0  // Custom visual - no template
       };
 
       console.log('[CREATE CUSTOM] Creating HUD visual:', hudData);

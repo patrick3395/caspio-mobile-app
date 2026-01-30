@@ -8533,7 +8533,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         Kind: kind,
         Name: name,
         Text: text,
-        Notes: ''
+        Notes: '',
+        TemplateID: 0  // Custom visual - no template
       };
 
       console.log('[CREATE CUSTOM] Creating visual:', visualData);

@@ -37,6 +37,7 @@ interface ServicesLbwRecord {
   Text: string;  // The full text content
   Notes: string;  // Made required, will send empty string if not provided
   Answers?: string;  // Optional field for storing Yes/No or comma-delimited multi-select answers
+  TemplateID?: number;  // Links visual to template (0 for custom visuals)
 }
 
 interface PendingPhotoUpload {
@@ -5939,7 +5940,8 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
         Kind: kind,
         Name: name,
         Text: text,
-        Notes: ''
+        Notes: '',
+        TemplateID: 0  // Custom visual - no template
       };
 
       // Check offline mode BEFORE making API calls
@@ -6211,9 +6213,10 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
         Kind: kind,
         Name: name,
         Text: text,
-        Notes: ''
+        Notes: '',
+        TemplateID: 0  // Custom visual - no template
       };
-      
+
       const loading = await this.loadingController.create({
         message: 'Adding visual...'
       });

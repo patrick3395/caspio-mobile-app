@@ -56,8 +56,14 @@ export class LazyImageDirective implements OnInit, OnDestroy, OnChanges {
     // Handle URL changes after initial load
     if (changes['lazySrc'] && !changes['lazySrc'].firstChange) {
       const newSrc = changes['lazySrc'].currentValue;
+      const oldSrc = changes['lazySrc'].previousValue;
       // Only reload if URL actually changed
       if (newSrc && newSrc !== this.currentSrc) {
+        console.log('[LazyImage] URL changed, reloading image:', {
+          old: oldSrc?.substring(0, 40),
+          new: newSrc?.substring(0, 40),
+          currentSrc: this.currentSrc?.substring(0, 40)
+        });
         this.reloadImage(newSrc);
       }
     }
@@ -184,6 +190,7 @@ export class LazyImageDirective implements OnInit, OnDestroy, OnChanges {
     const srcToLoad = this.lazySrc || img.getAttribute('data-src') || '';
 
     if (srcToLoad) {
+      this.currentSrc = srcToLoad;  // Track current src for change detection
       this.renderer.setAttribute(img, 'src', srcToLoad);
     }
   }

@@ -768,6 +768,21 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // Convert to PhotoItem format
       this.photos = [];
 
+      // DEXIE-FIRST: Get pending captions to merge with localImages
+      // This ensures captions show even if db.localImages update failed
+      const imageIds = localImages.map(img => img.imageId);
+      const attachIds = localImages.map(img => img.attachId).filter(Boolean) as string[];
+      const allIds = [...imageIds, ...attachIds];
+      const pendingCaptions = await this.indexedDb.getPendingCaptionsForAttachments(allIds);
+
+      // Build a map of imageId/attachId -> caption for quick lookup
+      const captionMap = new Map<string, string>();
+      for (const pc of pendingCaptions) {
+        if (pc.caption !== undefined) {
+          captionMap.set(pc.attachId, pc.caption);
+        }
+      }
+
       for (const img of localImages) {
         // Check if image has annotations
         const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
@@ -803,11 +818,20 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           }
         }
 
+        // DEXIE-FIRST: Merge caption from pendingCaptions if available
+        // Priority: pendingCaptions (most recent) > localImages.caption
+        let caption = img.caption || '';
+        const pendingCaption = captionMap.get(img.imageId) || captionMap.get(img.attachId || '');
+        if (pendingCaption !== undefined) {
+          caption = pendingCaption;
+          console.log('[LbwVisualDetail] MOBILE: Using pending caption for:', img.imageId, ':', pendingCaption.substring(0, 30));
+        }
+
         this.photos.push({
           id: img.imageId,
           displayUrl,
           originalUrl,
-          caption: img.caption || '',
+          caption,
           uploading: img.status === 'queued' || img.status === 'uploading',
           isLocal: !img.isSynced,
           hasAnnotations,
@@ -1162,12 +1186,16 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       const displayUrl = await this.localImageService.getDisplayUrl(localImage);
 
       // Add to photos array immediately for UI display
+      // CRITICAL: Set originalUrl for annotation re-editing (so we can annotate from the original image)
       this.photos.unshift({
         id: localImage.imageId,
         displayUrl,
+        originalUrl: displayUrl,  // Store original for re-annotation
         caption: '',
         uploading: false,
-        isLocal: true
+        isLocal: true,
+        hasAnnotations: false,
+        drawings: ''
       });
 
       this.changeDetectorRef.detectChanges();
@@ -1512,10 +1540,22 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       const annotationsData = data.annotationData || data.annotationsData;
       const newCaption = data.caption !== undefined ? data.caption : photo.caption;
 
+      // Debug logging for annotation blob
+      console.log('[LbwVisualDetail] Annotation data received:', {
+        hasBlob: !!annotatedBlob,
+        blobSize: annotatedBlob?.size || 0,
+        hasAnnotationsData: !!annotationsData,
+        hasCompressedData: !!data.compressedAnnotationData,
+        photoId: photo.id
+      });
+
       // Create blob URL for immediate display (only if we have a blob)
       let newUrl: string | null = null;
       if (annotatedBlob) {
         newUrl = URL.createObjectURL(annotatedBlob);
+        console.log('[LbwVisualDetail] ✅ Created blob URL for annotated thumbnail:', newUrl.substring(0, 50) + '...');
+      } else {
+        console.warn('[LbwVisualDetail] ⚠️ No annotated blob returned - thumbnail will not update immediately');
       }
 
       // Find photo in array (may have moved)
@@ -1595,17 +1635,27 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           }
 
           // Update local photo object immediately for UI
+          const updatedDisplayUrl = newUrl || this.photos[photoIndex].displayUrl;
+          const updatedOriginalUrl = this.photos[photoIndex].originalUrl || photo.originalUrl || this.photos[photoIndex].displayUrl;
+
+          console.log('[LbwVisualDetail] Updating photo at index', photoIndex, ':', {
+            oldDisplayUrl: this.photos[photoIndex].displayUrl?.substring(0, 50),
+            newDisplayUrl: updatedDisplayUrl?.substring(0, 50),
+            hasNewUrl: !!newUrl,
+            originalUrl: updatedOriginalUrl?.substring(0, 50)
+          });
+
           this.photos[photoIndex] = {
             ...this.photos[photoIndex],
-            displayUrl: newUrl || this.photos[photoIndex].displayUrl,  // Keep existing URL if no new blob
-            originalUrl: this.photos[photoIndex].originalUrl || photo.originalUrl,
+            displayUrl: updatedDisplayUrl,  // Keep existing URL if no new blob
+            originalUrl: updatedOriginalUrl,  // Preserve original for re-annotation
             caption: newCaption,
             hasAnnotations: !!annotationsData || !!compressedDrawings,
             drawings: compressedDrawings
           };
 
           this.changeDetectorRef.detectChanges();
-          console.log('[LbwVisualDetail] ✅ UI updated with annotated image');
+          console.log('[LbwVisualDetail] ✅ UI updated with annotated image, displayUrl changed:', !!newUrl);
 
         } catch (error) {
           console.error('[LbwVisualDetail] Error saving annotations:', error);

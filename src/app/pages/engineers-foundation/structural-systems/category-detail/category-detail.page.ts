@@ -27,7 +27,7 @@ import { LazyImageDirective } from '../../../../directives/lazy-image.directive'
 
 interface VisualItem {
   id: string | number;
-  templateId: number;
+  templateId: number;  // Negative numbers for dynamic/custom items (e.g., -123456)
   name: string;
   text: string;
   originalText: string;
@@ -871,13 +871,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         if (!matchedVisualIds.has(visualId)) {
           // This visual wasn't matched to any template - add as dynamic item
           const kind = (visual.Kind || 'Comment').toLowerCase();
-          const dynamicKey = `${this.categoryName}_dynamic_${visualId}`;
+          // Use negative visualId as templateId so isItemSelected(category, item.templateId) works correctly
+          // Negative numbers indicate dynamic/custom items (no template)
+          const dynamicTemplateId = -Math.abs(parseInt(visualId, 10) || Date.now());
+          const dynamicKey = `${this.categoryName}_${dynamicTemplateId}`;
 
-          console.log(`[CategoryDetail] WEBAPP: Adding unmatched visual as dynamic item: ${visual.Name} (ID: ${visualId})`);
+          console.log(`[CategoryDetail] WEBAPP: Adding unmatched visual as dynamic item: ${visual.Name} (ID: ${visualId}, templateId: ${dynamicTemplateId})`);
 
           const dynamicItem: VisualItem = {
-            id: `dynamic_${visualId}`,
-            templateId: 0,  // No template
+            id: dynamicTemplateId,  // Use consistent ID for selection tracking
+            templateId: dynamicTemplateId,  // Must match key pattern for isItemSelected()
             name: visual.Name || 'Custom Item',
             text: visual.VisualText || visual.Text || '',
             originalText: '',
@@ -899,9 +902,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             organizedData.comments.push(dynamicItem);
           }
 
-          // Track visual record ID
+          // Track visual record ID using consistent key pattern
           this.visualRecordIds[dynamicKey] = visualId;
-          this.foundationData.setWebappVisualRecordId(this.serviceId, this.categoryName, `dynamic_${visualId}`, visualId);
+          this.foundationData.setWebappVisualRecordId(this.serviceId, this.categoryName, String(dynamicTemplateId), visualId);
           this.selectedItems[dynamicKey] = true;
         }
       }
@@ -5397,7 +5400,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
         if (data && data.annotatedBlob) {
           // User saved the annotated photo - upload ORIGINAL (not annotated) and save annotations separately
-          const annotatedBlob = data.blob || data.annotatedBlob;
+          // WEBAPP FIX: Use annotatedBlob for display (has annotations rendered), not data.blob (original)
+          const annotatedBlob = data.annotatedBlob;
           const annotationsData = data.annotationData || data.annotationsData;
           const caption = data.caption || '';
 
@@ -7590,7 +7594,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         Kind: kind,
         Name: name,
         Text: text,
-        Notes: ''
+        Notes: '',
+        TemplateID: 0  // Custom visual - no template
       };
 
       console.log('[CREATE CUSTOM] Creating visual:', visualData);
@@ -7650,87 +7655,152 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
       console.log('[CREATE CUSTOM] Stored visualId in visualRecordIds:', key, '=', visualId);
 
-      // DEXIE-FIRST: Upload photos FIRST before calling setField
-      // This ensures photos exist in LocalImages when the liveQuery triggers populatePhotosFromDexie
+      // Upload photos - different handling for WEBAPP vs MOBILE
       let photoCount = 0;
       if (files && files.length > 0) {
-        console.log('[CREATE CUSTOM] DEXIE-FIRST: Uploading', files.length, 'photos BEFORE setField');
-
         // Initialize photos array
         if (!this.visualPhotos[key]) {
           this.visualPhotos[key] = [];
         }
 
-        // Upload ALL photos to LocalImages first (persists to Dexie)
-        const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
-          const photoData = processedPhotos[index] || {};
-          const annotationData = photoData.annotationData || null;
-          const originalFile = photoData.originalFile || null;
-          const caption = photoData.caption || '';
-          const fileToUpload = originalFile || file;
+        if (environment.isWeb) {
+          // WEBAPP MODE: Direct S3 upload
+          console.log('[CREATE CUSTOM] WEBAPP: Direct S3 upload for', files.length, 'photos');
 
-          // Compress the photo
-          const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
-            maxSizeMB: 0.8,
-            maxWidthOrHeight: 1280,
-            useWebWorker: true
-          }) as File;
+          for (let index = 0; index < files.length; index++) {
+            const file = files[index];
+            const photoData = processedPhotos[index] || {};
+            const annotationData = photoData.annotationData || null;
+            const originalFile = photoData.originalFile || null;
+            const caption = photoData.caption || '';
+            const hasAnnotations = photoData.hasAnnotations || !!(annotationData);
+            // Use original file for upload (preserves original for re-editing)
+            const fileToUpload = originalFile || file;
 
-          // Upload to LocalImages via foundationData (persists to Dexie)
-          const drawings = annotationData ? JSON.stringify(annotationData) : '';
-          const result = await this.foundationData.uploadVisualPhoto(visualId, compressedPhoto, caption, drawings, originalFile || undefined, this.serviceId);
+            // Compress the photo
+            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+              maxSizeMB: 0.8,
+              maxWidthOrHeight: 1280,
+              useWebWorker: true
+            }) as File;
 
-          console.log(`[CREATE CUSTOM] Photo ${index + 1} persisted to LocalImages:`, result.imageId);
-          return result;
-        }));
+            const drawings = annotationData ? JSON.stringify(annotationData) : '';
 
-        photoCount = uploadResults.length;
+            try {
+              // Direct S3 upload for WEBAPP
+              const uploadResult = await this.localImageService.uploadImageDirectToS3(
+                compressedPhoto,
+                'visual',
+                String(visualId),
+                this.serviceId,
+                caption,
+                drawings
+              );
 
-        // Add photos to in-memory array for immediate display
-        for (const result of uploadResults) {
-          this.visualPhotos[key].push({
-            AttachID: result.imageId,
-            id: result.imageId,
-            imageId: result.imageId,
-            name: result.fileName,
-            url: result.displayUrl,
-            thumbnailUrl: result.displayUrl,
-            displayUrl: result.displayUrl,
-            isObjectUrl: true,
-            uploading: false,
-            queued: false,
-            hasAnnotations: !!(result.drawings && result.drawings.length > 10),
-            caption: result.caption || '',
-            annotation: result.caption || '',
-            isLocalFirst: true
-          });
+              console.log(`[CREATE CUSTOM] WEBAPP: Photo ${index + 1} uploaded, AttachID:`, uploadResult.attachId);
+
+              // For display: use annotated preview URL if available, otherwise S3 URL
+              // The previewUrl from modal contains the rendered annotations
+              let displayUrl = uploadResult.s3Url;
+              if (hasAnnotations && photoData.previewUrl) {
+                displayUrl = photoData.previewUrl;
+                console.log(`[CREATE CUSTOM] WEBAPP: Using annotated preview for display`);
+
+                // Cache the annotated image for persistence across page refreshes
+                try {
+                  await this.indexedDb.cacheAnnotatedImage(uploadResult.attachId, photoData.previewUrl);
+                  console.log(`[CREATE CUSTOM] WEBAPP: Cached annotated image for AttachID:`, uploadResult.attachId);
+                } catch (cacheError) {
+                  console.warn(`[CREATE CUSTOM] WEBAPP: Failed to cache annotated image:`, cacheError);
+                }
+              }
+
+              // Add to in-memory array
+              this.visualPhotos[key].push({
+                AttachID: uploadResult.attachId,
+                id: uploadResult.attachId,
+                imageId: uploadResult.attachId,
+                name: `photo_${index}.jpg`,
+                url: uploadResult.s3Url,  // Original S3 URL for re-editing
+                thumbnailUrl: displayUrl,  // Annotated version for thumbnail
+                displayUrl: displayUrl,    // Annotated version for display
+                isObjectUrl: false,
+                uploading: false,
+                queued: false,
+                hasAnnotations: hasAnnotations,
+                caption: caption,
+                annotation: caption,
+                Drawings: drawings,
+                isLocalFirst: false
+              });
+
+              photoCount++;
+            } catch (uploadError) {
+              console.error(`[CREATE CUSTOM] WEBAPP: Photo ${index + 1} upload failed:`, uploadError);
+            }
+          }
+        } else {
+          // MOBILE MODE: Upload to LocalImages (Dexie-first pattern)
+          console.log('[CREATE CUSTOM] MOBILE: Uploading', files.length, 'photos to LocalImages');
+
+          const uploadResults = await Promise.all(Array.from(files).map(async (file, index) => {
+            const photoData = processedPhotos[index] || {};
+            const annotationData = photoData.annotationData || null;
+            const originalFile = photoData.originalFile || null;
+            const caption = photoData.caption || '';
+            const fileToUpload = originalFile || file;
+
+            // Compress the photo
+            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+              maxSizeMB: 0.8,
+              maxWidthOrHeight: 1280,
+              useWebWorker: true
+            }) as File;
+
+            // Upload to LocalImages via foundationData (persists to Dexie)
+            const drawings = annotationData ? JSON.stringify(annotationData) : '';
+            const result = await this.foundationData.uploadVisualPhoto(visualId, compressedPhoto, caption, drawings, originalFile || undefined, this.serviceId);
+
+            console.log(`[CREATE CUSTOM] MOBILE: Photo ${index + 1} persisted to LocalImages:`, result.imageId);
+            return result;
+          }));
+
+          photoCount = uploadResults.length;
+
+          // Add photos to in-memory array for immediate display
+          for (const result of uploadResults) {
+            this.visualPhotos[key].push({
+              AttachID: result.imageId,
+              id: result.imageId,
+              imageId: result.imageId,
+              name: result.fileName,
+              url: result.displayUrl,
+              thumbnailUrl: result.displayUrl,
+              displayUrl: result.displayUrl,
+              isObjectUrl: true,
+              uploading: false,
+              queued: false,
+              hasAnnotations: !!(result.drawings && result.drawings.length > 10),
+              caption: result.caption || '',
+              annotation: result.caption || '',
+              isLocalFirst: true
+            });
+          }
         }
 
         // Update photo count
         this.photoCountsByKey[key] = photoCount;
 
-        // DEXIE-FIRST: Set expansion state BEFORE setField so photos are visible when liveQuery fires
+        // Set expansion state so photos are visible
         this.expandedPhotos[key] = true;
 
-        console.log('[CREATE CUSTOM] ✅ All', photoCount, 'photos uploaded to LocalImages BEFORE setField');
+        console.log('[CREATE CUSTOM] ✅ All', photoCount, 'photos uploaded');
       }
 
-      // NOW persist to VisualField - this triggers liveQuery which will find the photos in LocalImages
-      try {
-        await this.visualFieldRepo.setField(this.serviceId, category, customTemplateId, {
-          isSelected: true,
-          tempVisualId: visualId,
-          visualId: null, // Will be set when synced
-          templateName: name,
-          templateText: text,
-          kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
-          photoCount: photoCount
-        });
-        console.log('[CREATE CUSTOM] ✅ Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
-      } catch (err) {
-        console.error('[CREATE CUSTOM] Failed to persist to Dexie:', err);
-
-        // Even if Dexie persist fails, add to organizedData for immediate display
+      // WEBAPP MODE: Add to organizedData immediately for instant UI display
+      // In WEBAPP mode, there's no Dexie liveQuery, so we must manually update the UI
+      if (environment.isWeb) {
+        console.log('[CREATE CUSTOM] WEBAPP: Adding custom visual to organizedData immediately');
         if (kind === 'Comment') {
           this.organizedData.comments.push(customItem);
         } else if (kind === 'Limitation') {
@@ -7741,6 +7811,35 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           this.organizedData.comments.push(customItem);
         }
         this.changeDetectorRef.detectChanges();
+        console.log('[CREATE CUSTOM] WEBAPP: ✅ Custom visual added to UI, key:', key, 'selected:', this.selectedItems[key]);
+      } else {
+        // MOBILE MODE: Persist to VisualField - this triggers liveQuery which will find the photos in LocalImages
+        try {
+          await this.visualFieldRepo.setField(this.serviceId, category, customTemplateId, {
+            isSelected: true,
+            tempVisualId: visualId,
+            visualId: null, // Will be set when synced
+            templateName: name,
+            templateText: text,
+            kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
+            photoCount: photoCount
+          });
+          console.log('[CREATE CUSTOM] ✅ Persisted custom visual to Dexie (after photos):', customTemplateId, visualId);
+        } catch (err) {
+          console.error('[CREATE CUSTOM] Failed to persist to Dexie:', err);
+
+          // Even if Dexie persist fails, add to organizedData for immediate display
+          if (kind === 'Comment') {
+            this.organizedData.comments.push(customItem);
+          } else if (kind === 'Limitation') {
+            this.organizedData.limitations.push(customItem);
+          } else if (kind === 'Deficiency') {
+            this.organizedData.deficiencies.push(customItem);
+          } else {
+            this.organizedData.comments.push(customItem);
+          }
+          this.changeDetectorRef.detectChanges();
+        }
       }
 
       // Clear PDF cache so new PDFs show updated data

@@ -32,6 +32,7 @@ interface ServicesVisualRecord {
   Text: string;  // The full text content
   Notes: string;  // Made required, will send empty string if not provided
   Answers?: string;  // Optional field for storing Yes/No or comma-delimited multi-select answers
+  TemplateID?: number;  // Links visual to template (0 for custom visuals)
 }
 
 @Component({
@@ -4432,15 +4433,17 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     // ONLY include the columns that exist in Services_HUD table
+    const templateIdInt = typeof templateId === 'string' ? parseInt(templateId, 10) : Number(templateId);
     const visualData: ServicesVisualRecord = {
       ServiceID: serviceIdNum,
       Category: category || '',
       Kind: template.Kind || '',
       Name: template.Name || '',
       Text: textValue,
-      Notes: ''
+      Notes: '',
+      TemplateID: templateIdInt
     };
-    
+
     // Add Answers field if there are answers to store
     if (answers) {
       visualData.Answers = answers;
@@ -5611,14 +5614,15 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         Kind: kind,
         Name: name,
         Text: text,
-        Notes: ''
+        Notes: '',
+        TemplateID: 0  // Custom visual - no template
       };
-      
+
       const loading = await this.loadingController.create({
         message: 'Creating visual...'
       });
       await loading.present();
-      
+
       try {
         // Create the HUD record
         const response = await this.caspioService.createServicesHUD(visualData).toPromise();
@@ -5736,14 +5740,15 @@ export class HudTemplatePage implements OnInit, AfterViewInit, OnDestroy {
         Kind: kind,
         Name: name,
         Text: text,
-        Notes: ''
+        Notes: '',
+        TemplateID: 0  // Custom visual - no template
       };
-      
+
       const loading = await this.loadingController.create({
         message: 'Adding visual...'
       });
       await loading.present();
-      
+
       try {
         const response = await this.caspioService.createServicesHUD(visualData).toPromise();
         
