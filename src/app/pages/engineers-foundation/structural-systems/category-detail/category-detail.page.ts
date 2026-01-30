@@ -377,6 +377,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       return;
     }
 
+    // WEBAPP MODE: Always reload fresh data from API when returning to this page
+    // This ensures title/text edits made in visual-detail are reflected immediately
+    if (environment.isWeb) {
+      console.log('[CategoryDetail] WEBAPP: Reloading fresh data from API on navigation');
+
+      // Clear caches to force fresh data load
+      this.foundationData.clearServiceCaches(this.serviceId);
+
+      // Reload data from API
+      await this.loadDataFromAPI();
+
+      console.timeEnd('[CategoryDetail] ionViewWillEnter');
+      return;
+    }
+
     const sectionKey = `${this.serviceId}_${this.categoryName}`;
 
     // Check if we have data in memory and if section is dirty
@@ -739,10 +754,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       const categoryTemplates = (templates || []).filter((t: any) => t.Category === this.categoryName);
       console.log(`[CategoryDetail] WEBAPP: ${categoryTemplates.length} templates for category "${this.categoryName}"`);
 
-      // WEBAPP API-FIRST: Save existing in-memory mappings before reload
+      // WEBAPP API-FIRST: Get existing mappings from SERVICE (persists across component destruction)
       // This allows matching visuals even when Name has been edited (the mapping persists in memory)
-      const existingMappings = new Map(Object.entries(this.visualRecordIds));
-      console.log(`[CategoryDetail] WEBAPP: Saved ${existingMappings.size} existing in-memory mappings`);
+      // The service stores mappings that survive navigation to visual-detail and back
+      const serviceMappings = this.foundationData.getWebappVisualRecordIdsForCategory(this.serviceId, this.categoryName);
+      // Also include any component-local mappings (for same-session operations before component destruction)
+      const existingMappings = new Map<string, string>();
+      for (const [templateId, visualId] of serviceMappings.entries()) {
+        existingMappings.set(`${this.categoryName}_${templateId}`, visualId);
+      }
+      // Merge component-local mappings (these take priority as they're more recent)
+      for (const [key, visualId] of Object.entries(this.visualRecordIds)) {
+        existingMappings.set(key, visualId);
+      }
+      console.log(`[CategoryDetail] WEBAPP: Retrieved ${existingMappings.size} existing in-memory mappings (service: ${serviceMappings.size}, local: ${Object.keys(this.visualRecordIds).length})`);
 
       // Build organized data from templates and visuals
       const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
@@ -800,9 +825,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         // itemKey already defined above for in-memory mapping lookup
 
         const item: VisualItem = {
-          id: visual ? (visual.VisualID || visual.PK_ID) : templateId,
+          id: templateId,  // ALWAYS use templateId for item.id (visualId stored separately in visualRecordIds)
           templateId: templateId,
-          name: template.Name || '',
+          name: visual?.Name || template.Name || '',
           text: visual?.VisualText || visual?.Text || template.Text || '',
           originalText: template.Text || '',
           type: template.Kind || 'Comment',
@@ -827,6 +852,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         if (visual) {
           const visualId = visual.VisualID || visual.PK_ID;
           this.visualRecordIds[itemKey] = String(visualId);
+          // WEBAPP: Also store in service to persist across component destruction
+          this.foundationData.setWebappVisualRecordId(this.serviceId, this.categoryName, templateId, String(visualId));
           // WEBAPP: Populate selectedItems so isItemSelected() returns true
           this.selectedItems[itemKey] = true;
         }
@@ -6289,11 +6316,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         throw new Error('VisualID not found in response');
       }
 
-      console.log('[SAVE VISUAL] âœ“ Created visual with ID:', visualId);
-      console.log('[SAVE VISUAL] âœ“ Storing ID in visualRecordIds[' + key + ']');
+      console.log('[SAVE VISUAL] âœ" Created visual with ID:', visualId);
+      console.log('[SAVE VISUAL] âœ" Storing ID in visualRecordIds[' + key + ']');
 
       // Store the visual ID for photo uploads
       this.visualRecordIds[key] = visualId;
+
+      // WEBAPP: Also store in service to persist across component destruction
+      this.foundationData.setWebappVisualRecordId(this.serviceId, category, itemId, visualId);
 
       // DEXIE-FIRST: Persist tempVisualId to VisualField for photo matching after reload
       // This MUST happen before any photo upload so populatePhotosFromDexie can match photos to fields

@@ -173,13 +173,32 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         console.log('[VisualDetail] WEBAPP MODE: Loading visual data from server');
         const visuals = await this.foundationData.getVisualsByService(this.serviceId);
 
-        // Match by TemplateID first with type coercion (number/string mismatch)
-        let visual = visuals.find((v: any) => {
-          const vTemplateId = v.VisualTemplateID || v.TemplateID;
-          return vTemplateId == this.templateId && v.Category === this.categoryName;
-        });
+        let visual: any = null;
 
-        // Fallback: load template name and match by name+category if templateId didn't match
+        // PRIORITY 1: Check service mapping (persists across component destruction)
+        // This ensures we find the visual even after name has been edited
+        const mappedVisualId = this.foundationData.getWebappVisualRecordId(this.serviceId, this.categoryName, this.templateId);
+        if (mappedVisualId) {
+          visual = visuals.find((v: any) =>
+            String(v.VisualID || v.PK_ID) === String(mappedVisualId)
+          );
+          if (visual) {
+            console.log('[VisualDetail] WEBAPP PRIORITY 1: Matched by service mapping: templateId=' + this.templateId + ' -> VisualID=' + mappedVisualId);
+          }
+        }
+
+        // PRIORITY 2: Match by TemplateID with type coercion (number/string mismatch)
+        if (!visual) {
+          visual = visuals.find((v: any) => {
+            const vTemplateId = v.VisualTemplateID || v.TemplateID;
+            return vTemplateId == this.templateId && v.Category === this.categoryName;
+          });
+          if (visual) {
+            console.log('[VisualDetail] WEBAPP PRIORITY 2: Matched by TemplateID:', this.templateId);
+          }
+        }
+
+        // PRIORITY 3: Fallback - load template name and match by name+category
         if (!visual) {
           const templates = await this.foundationData.getVisualsTemplates();
           const template = templates.find((t: any) =>
@@ -190,7 +209,7 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
               v.Name === template.Name && v.Category === this.categoryName
             );
             if (visual) {
-              console.log('[VisualDetail] WEBAPP: Matched visual by name fallback:', template.Name);
+              console.log('[VisualDetail] WEBAPP PRIORITY 3: Matched visual by name fallback:', template.Name);
             }
           }
         }

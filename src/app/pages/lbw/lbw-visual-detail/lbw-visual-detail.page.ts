@@ -877,8 +877,9 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       console.log('[LbwVisualDetail] ✅ Updated Dexie field:', dexieUpdate);
 
       // Queue update to Caspio for background sync (only if valid lbwId)
+      // CRITICAL: Pass serviceId so temp IDs get queued via updatePendingRequestData()
       if (this.isValidLbwId(this.lbwId)) {
-        await this.lbwData.updateVisual(this.lbwId, caspioUpdate);
+        await this.lbwData.updateVisual(this.lbwId, caspioUpdate, this.serviceId);
         console.log('[LbwVisualDetail] ✅ Updated Caspio LBW record:', this.lbwId, caspioUpdate);
       } else {
         console.log('[LbwVisualDetail] No valid lbwId (' + this.lbwId + ') - saved to Dexie only');
@@ -927,8 +928,9 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       console.log('[LbwVisualDetail] ✅ Updated title in Dexie with visualId:', this.lbwId);
 
       // Queue update to Caspio for background sync (only if valid lbwId)
+      // CRITICAL: Pass serviceId so temp IDs get queued via updatePendingRequestData()
       if (this.isValidLbwId(this.lbwId)) {
-        await this.lbwData.updateVisual(this.lbwId, { Name: this.editableTitle });
+        await this.lbwData.updateVisual(this.lbwId, { Name: this.editableTitle }, this.serviceId);
         console.log('[LbwVisualDetail] ✅ Updated title in Caspio LBW record:', this.lbwId);
       } else {
         console.log('[LbwVisualDetail] No valid lbwId (' + this.lbwId + ') - title saved to Dexie only');
@@ -971,8 +973,9 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       console.log('[LbwVisualDetail] ✅ Updated text in Dexie with visualId:', this.lbwId);
 
       // Queue update to Caspio for background sync (only if valid lbwId)
+      // CRITICAL: Pass serviceId so temp IDs get queued via updatePendingRequestData()
       if (this.isValidLbwId(this.lbwId)) {
-        await this.lbwData.updateVisual(this.lbwId, { Text: this.editableText });
+        await this.lbwData.updateVisual(this.lbwId, { Text: this.editableText }, this.serviceId);
         console.log('[LbwVisualDetail] ✅ Updated text in Caspio LBW record:', this.lbwId);
       } else {
         console.log('[LbwVisualDetail] No valid lbwId (' + this.lbwId + ') - text saved to Dexie only');

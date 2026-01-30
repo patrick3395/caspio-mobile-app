@@ -42,6 +42,11 @@ export class EngineersFoundationDataService {
   private cacheInvalidationTimer: any = null;
   private pendingInvalidationServiceId: string | undefined = undefined;
 
+  // WEBAPP: In-memory visual record ID mappings that persist across component lifecycle
+  // Key: `${serviceId}_${category}_${templateId}`, Value: visualId
+  // This survives component destruction when navigating to visual-detail and back
+  private webappVisualRecordIds = new Map<string, string>();
+
   constructor(
     private readonly caspioService: CaspioService,
     private readonly indexedDb: IndexedDbService,
@@ -652,6 +657,66 @@ export class EngineersFoundationDataService {
     this.visualsCache.delete(serviceId);
     // Note: Can't easily clear EFE points/attachments without knowing all room IDs
     // Better to use clearAllCaches() when returning to page
+  }
+
+  // ============================================
+  // WEBAPP: VISUAL RECORD ID PERSISTENCE
+  // These methods store visual record IDs in service memory to survive component destruction
+  // ============================================
+
+  /**
+   * WEBAPP: Save a visual record ID mapping
+   * Persists across component lifecycle (survives navigation to visual-detail and back)
+   */
+  setWebappVisualRecordId(serviceId: string, category: string, templateId: string | number, visualId: string): void {
+    const key = `${serviceId}_${category}_${templateId}`;
+    this.webappVisualRecordIds.set(key, visualId);
+    console.log(`[Data Service] WEBAPP: Saved visual mapping: ${key} -> ${visualId}`);
+  }
+
+  /**
+   * WEBAPP: Get a visual record ID mapping
+   */
+  getWebappVisualRecordId(serviceId: string, category: string, templateId: string | number): string | undefined {
+    const key = `${serviceId}_${category}_${templateId}`;
+    return this.webappVisualRecordIds.get(key);
+  }
+
+  /**
+   * WEBAPP: Get all visual record IDs for a service/category as a Map
+   * Returns Map<templateId, visualId>
+   */
+  getWebappVisualRecordIdsForCategory(serviceId: string, category: string): Map<string, string> {
+    const result = new Map<string, string>();
+    const prefix = `${serviceId}_${category}_`;
+
+    for (const [key, visualId] of this.webappVisualRecordIds.entries()) {
+      if (key.startsWith(prefix)) {
+        const templateId = key.substring(prefix.length);
+        result.set(templateId, visualId);
+      }
+    }
+
+    console.log(`[Data Service] WEBAPP: Retrieved ${result.size} visual mappings for ${serviceId}/${category}`);
+    return result;
+  }
+
+  /**
+   * WEBAPP: Clear visual record IDs for a service (optional)
+   */
+  clearWebappVisualRecordIds(serviceId?: string): void {
+    if (serviceId) {
+      const prefix = `${serviceId}_`;
+      for (const key of this.webappVisualRecordIds.keys()) {
+        if (key.startsWith(prefix)) {
+          this.webappVisualRecordIds.delete(key);
+        }
+      }
+      console.log(`[Data Service] WEBAPP: Cleared visual mappings for service ${serviceId}`);
+    } else {
+      this.webappVisualRecordIds.clear();
+      console.log('[Data Service] WEBAPP: Cleared all visual mappings');
+    }
   }
 
   // ============================================
