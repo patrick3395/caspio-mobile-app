@@ -397,6 +397,21 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       return;
     }
 
+    // WEBAPP MODE: Always reload fresh data from API when returning to this page
+    // This ensures title/text edits made in visual-detail are reflected immediately
+    if (environment.isWeb) {
+      console.log('[CategoryDetail] WEBAPP: Reloading fresh data from API on navigation');
+
+      // Clear caches to force fresh data load
+      this.hudData.clearServiceCaches(this.actualServiceId || this.serviceId);
+
+      // Reload data from API
+      await this.loadDataFromAPI();
+
+      console.timeEnd('[CategoryDetail] ionViewWillEnter');
+      return;
+    }
+
     const sectionKey = `${this.serviceId}_${this.categoryName}`;
 
     // Check if we have data in memory and if section is dirty
@@ -743,9 +758,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           });
         }
 
-        // PRIORITY 3: Fallback match by name
-        if (!visual && templateName) {
-          visual = (categoryVisuals || []).find((v: any) => v.Name === templateName);
+        // PRIORITY 3: Fallback match by name + category
+        // CRITICAL: Must check category to avoid matching visuals from other categories with same name
+        if (!visual && templateName && templateCategory) {
+          visual = (categoryVisuals || []).find((v: any) =>
+            v.Name === templateName && v.Category === templateCategory
+          );
         }
 
         const itemKey = `${templateCategory || this.categoryName}_${templateId}`;
@@ -1140,22 +1158,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       const categoryVisuals = visuals || [];
       console.log(`[CategoryDetail] WEBAPP: ${categoryVisuals.length} HUD records, ${categoryTemplates.length} templates`);
 
-      // WEBAPP FIX: Load Dexie fields to get templateId -> visualId mappings
-      // This allows matching even when Name has been edited (the mapping persists in Dexie)
-      const dexieFields = await db.visualFields
-        .where('serviceId')
-        .equals(this.serviceId)
-        .toArray();
-
-      // Build templateId -> visualId map from Dexie
-      const templateToVisualMap = new Map<number, string>();
-      for (const field of dexieFields) {
-        const visualId = field.visualId || field.tempVisualId;
-        if (visualId && field.templateId) {
-          templateToVisualMap.set(field.templateId, visualId);
-        }
-      }
-      console.log(`[CategoryDetail] WEBAPP: Loaded ${templateToVisualMap.size} template->visual mappings from Dexie`);
+      // WEBAPP API-FIRST: Save existing in-memory mappings before reload
+      // This allows matching visuals even when Name has been edited (the mapping persists in memory)
+      const existingMappings = new Map(Object.entries(this.visualRecordIds));
+      console.log(`[CategoryDetail] WEBAPP: Saved ${existingMappings.size} existing in-memory mappings`);
 
       // Build organized data from templates and visuals
       const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
@@ -1171,35 +1177,34 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const templateCategory = template.Category || '';
 
         // Find matching visual (user selection) from server
-        // PRIORITY 1: Use Dexie mapping (persists even when Name is edited)
+        // WEBAPP API-FIRST PRIORITY 1: Use in-memory mapping (persists during session)
         // PRIORITY 2: Fall back to Name + Category matching
         let visual: any = null;
 
-        // First try Dexie mapping
-        const dexieVisualId = templateToVisualMap.get(templateId);
-        if (dexieVisualId) {
+        // WEBAPP API-FIRST PRIORITY 1: Check existing in-memory mapping
+        // This ensures visual stays matched even after Name is edited
+        const itemKey = `${templateCategory || this.categoryName}_${templateId}`;
+        const existingHudId = existingMappings.get(itemKey);
+        if (existingHudId) {
           visual = (visuals || []).find((v: any) =>
-            String(v.HUDID || v.PK_ID) === String(dexieVisualId)
+            String(v.HUDID || v.PK_ID) === String(existingHudId)
           );
           if (visual) {
-            console.log(`[CategoryDetail] WEBAPP: Matched visual by Dexie mapping: templateId=${templateId} -> HUDID=${dexieVisualId}`);
+            console.log(`[CategoryDetail] WEBAPP PRIORITY 1: Matched by in-memory mapping: key=${itemKey} -> HUDID=${existingHudId}`);
           }
         }
 
-        // Fall back to Name + Category matching
+        // PRIORITY 2: Fall back to Name + Category matching
         if (!visual && templateName && templateCategory) {
           visual = (visuals || []).find((v: any) =>
             v.Name === templateName && v.Category === templateCategory
           );
           if (visual) {
-            console.log(`[CategoryDetail] WEBAPP: Matched visual by name+category: "${templateName}" / "${templateCategory}"`);
+            console.log(`[CategoryDetail] WEBAPP PRIORITY 2: Matched by name+category: "${templateName}" / "${templateCategory}"`);
           }
         }
 
-        // WEBAPP: Use key format that matches isItemSelected() and getPhotosForVisual()
-        // These methods use `${category}_${itemId}` format (no serviceId)
-        // HUD: Use template's actual category, not the route param 'hud'
-        const itemKey = `${templateCategory || this.categoryName}_${templateId}`;
+        // itemKey already defined above for in-memory mapping lookup
 
         const item: VisualItem = {
           id: visual ? (visual.HUDID || visual.VisualID || visual.PK_ID) : templateId,
@@ -9289,15 +9294,19 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   openVisualDetail(categoryName: string, item: VisualItem) {
-    console.log('[CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName, 'itemId:', item.id);
+    // Get the actual HUDID from visualRecordIds (item.id is templateId, not HUDID)
+    const key = item.key || `${item.category || this.categoryName}_${item.templateId}`;
+    const hudId = this.visualRecordIds[key];
+
+    console.log('[CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName, 'key:', key, 'hudId:', hudId);
 
     // WEBAPP MODE: Pass hudId directly so visual-detail can fetch fresh data from API
     // MOBILE MODE: Don't pass hudId - visual-detail looks it up from Dexie
     const queryParams: any = { actualServiceId: this.actualServiceId || this.serviceId };
 
-    if (environment.isWeb && item.id) {
+    if (environment.isWeb && hudId) {
       // Pass HUDID for direct API lookup in WEBAPP mode
-      queryParams.hudId = String(item.id);
+      queryParams.hudId = String(hudId);
       console.log('[CategoryDetail] WEBAPP: Passing hudId:', queryParams.hudId);
     }
 

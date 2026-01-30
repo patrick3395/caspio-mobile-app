@@ -1433,6 +1433,12 @@ export class BackgroundSyncService {
           case 'efe_point':
             endpoint = `/api/caspio-proxy/tables/LPS_Services_EFE_Points_Attach/records?q.where=AttachID=${resolvedAttachId}`;
             break;
+          case 'hud':
+            endpoint = `/api/caspio-proxy/tables/LPS_Services_HUD_Attach/records?q.where=AttachID=${resolvedAttachId}`;
+            break;
+          case 'lbw':
+            endpoint = `/api/caspio-proxy/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${resolvedAttachId}`;
+            break;
           case 'fdf':
             // FDF updates go to the EFE room record, not attachments
             // The attachId is the EFEID (room ID), and pointId stores the photo type (Top/Bottom/Threshold)
@@ -2415,10 +2421,10 @@ export class BackgroundSyncService {
    * Called after caption sync succeeds to persist the synced data in IndexedDB cache
    */
   private async updateSyncedCacheWithCaption(
-    caption: { 
-      attachId: string; 
-      attachType: 'visual' | 'efe_point' | 'fdf';
-      caption?: string; 
+    caption: {
+      attachId: string;
+      attachType: 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw';
+      caption?: string;
       drawings?: string;
       visualId?: string;
       pointId?: string;
@@ -2570,6 +2576,120 @@ export class BackgroundSyncService {
         
         if (!foundInCache) {
           console.log(`[BackgroundSync] ⚠️ EFE Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
+        }
+      } else if (caption.attachType === 'hud') {
+        // HUD: Update hud_attachments cache and localImages
+        let foundInCache = false;
+
+        // Update localImages table (MOBILE mode source of truth)
+        try {
+          // First try to find by imageId matching attachId
+          const localImage = await db.localImages.get(caption.attachId);
+          if (localImage) {
+            const updateData: any = { updatedAt: Date.now() };
+            if (caption.caption !== undefined) updateData.caption = caption.caption;
+            if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
+            await db.localImages.update(caption.attachId, updateData);
+            foundInCache = true;
+            console.log(`[BackgroundSync] ✅ Updated localImages with synced caption for HUD: ${caption.attachId}`);
+          } else {
+            // Try to find by attachId field
+            const imagesWithAttachId = await db.localImages.where('attachId').equals(caption.attachId).toArray();
+            if (imagesWithAttachId.length > 0) {
+              for (const img of imagesWithAttachId) {
+                const updateData: any = { updatedAt: Date.now() };
+                if (caption.caption !== undefined) updateData.caption = caption.caption;
+                if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
+                await db.localImages.update(img.imageId, updateData);
+                foundInCache = true;
+                console.log(`[BackgroundSync] ✅ Updated localImages (by attachId) with synced caption for HUD: ${img.imageId}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`[BackgroundSync] Failed to update localImages for HUD caption:`, err);
+        }
+
+        // Update hud_attachments cache
+        if (caption.visualId) {
+          const cached = await this.indexedDb.getCachedServiceData(caption.visualId, 'hud_attachments') || [];
+          const updated = cached.map((att: any) => {
+            if (String(att.AttachID) === String(caption.attachId)) {
+              foundInCache = true;
+              const updatedAtt = { ...att, _syncedAt: Date.now() };
+              delete updatedAtt._localUpdate;
+              delete updatedAtt._updatedAt;
+              if (caption.caption !== undefined) updatedAtt.Annotation = caption.caption;
+              if (caption.drawings !== undefined) updatedAtt.Drawings = caption.drawings;
+              return updatedAtt;
+            }
+            return att;
+          });
+          if (foundInCache) {
+            await this.indexedDb.cacheServiceData(caption.visualId, 'hud_attachments', updated);
+            console.log(`[BackgroundSync] ✅ Updated hud_attachments cache for ${caption.attachId}`);
+          }
+        }
+
+        if (!foundInCache) {
+          console.log(`[BackgroundSync] ⚠️ HUD Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
+        }
+      } else if (caption.attachType === 'lbw') {
+        // LBW: Update lbw_attachments cache and localImages
+        let foundInCache = false;
+
+        // Update localImages table (MOBILE mode source of truth)
+        try {
+          // First try to find by imageId matching attachId
+          const localImage = await db.localImages.get(caption.attachId);
+          if (localImage) {
+            const updateData: any = { updatedAt: Date.now() };
+            if (caption.caption !== undefined) updateData.caption = caption.caption;
+            if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
+            await db.localImages.update(caption.attachId, updateData);
+            foundInCache = true;
+            console.log(`[BackgroundSync] ✅ Updated localImages with synced caption for LBW: ${caption.attachId}`);
+          } else {
+            // Try to find by attachId field
+            const imagesWithAttachId = await db.localImages.where('attachId').equals(caption.attachId).toArray();
+            if (imagesWithAttachId.length > 0) {
+              for (const img of imagesWithAttachId) {
+                const updateData: any = { updatedAt: Date.now() };
+                if (caption.caption !== undefined) updateData.caption = caption.caption;
+                if (caption.drawings !== undefined) updateData.drawings = caption.drawings;
+                await db.localImages.update(img.imageId, updateData);
+                foundInCache = true;
+                console.log(`[BackgroundSync] ✅ Updated localImages (by attachId) with synced caption for LBW: ${img.imageId}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`[BackgroundSync] Failed to update localImages for LBW caption:`, err);
+        }
+
+        // Update lbw_attachments cache
+        if (caption.visualId) {
+          const cached = await this.indexedDb.getCachedServiceData(caption.visualId, 'lbw_attachments') || [];
+          const updated = cached.map((att: any) => {
+            if (String(att.AttachID) === String(caption.attachId)) {
+              foundInCache = true;
+              const updatedAtt = { ...att, _syncedAt: Date.now() };
+              delete updatedAtt._localUpdate;
+              delete updatedAtt._updatedAt;
+              if (caption.caption !== undefined) updatedAtt.Annotation = caption.caption;
+              if (caption.drawings !== undefined) updatedAtt.Drawings = caption.drawings;
+              return updatedAtt;
+            }
+            return att;
+          });
+          if (foundInCache) {
+            await this.indexedDb.cacheServiceData(caption.visualId, 'lbw_attachments', updated);
+            console.log(`[BackgroundSync] ✅ Updated lbw_attachments cache for ${caption.attachId}`);
+          }
+        }
+
+        if (!foundInCache) {
+          console.log(`[BackgroundSync] ⚠️ LBW Attachment ${caption.attachId} not in any cache - will be loaded on next page visit`);
         }
       }
       // FDF type is handled differently (stored in room record, not attachments)

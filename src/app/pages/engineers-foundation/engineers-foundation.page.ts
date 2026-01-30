@@ -6482,16 +6482,55 @@ export class EngineersFoundationPage implements OnInit, AfterViewInit, OnDestroy
       console.log('[Visual Load] Found existing visuals:', existingVisuals.length, existingVisuals);
 
       if (existingVisuals && Array.isArray(existingVisuals)) {
+        // TITLE EDIT FIX (WEBAPP): Build reverse lookup map from localStorage
+        // This allows matching visuals even when Name has been edited
+        // localStorage stores: visual_${category}_${templateId} -> visualId
+        // We need: visualId -> templateId (for each category)
+        const visualIdToTemplateMap = new Map<string, { category: string; templateId: string }>();
+        if (environment.isWeb) {
+          for (const template of this.visualTemplates) {
+            const category = template.Category;
+            const templateId = template.TemplateID || template.PK_ID;
+            const recordKey = `visual_${category}_${templateId}`;
+            const storedVisualId = localStorage.getItem(recordKey);
+            if (storedVisualId) {
+              visualIdToTemplateMap.set(storedVisualId, { category, templateId: String(templateId) });
+            }
+          }
+          console.log(`[Visual Load] WEBAPP: Built visualId->template map with ${visualIdToTemplateMap.size} entries from localStorage`);
+        }
+
         existingVisuals.forEach(visual => {
           if (visual.Category && visual.Name) {
-            const matchingTemplate = this.visualTemplates.find(t =>
-              t.Category === visual.Category &&
-              t.Name === visual.Name
-            );
+            const visualId = visual.VisualID || visual.PK_ID || visual.id;
+
+            // TITLE EDIT FIX (WEBAPP): PRIORITY 1 - Find by localStorage mapping
+            // This ensures visual stays selected even after Name is edited
+            let matchingTemplate: any = null;
+            if (environment.isWeb) {
+              const mapping = visualIdToTemplateMap.get(String(visualId));
+              if (mapping && mapping.category === visual.Category) {
+                matchingTemplate = this.visualTemplates.find(t =>
+                  t.Category === mapping.category &&
+                  String(t.TemplateID || t.PK_ID) === mapping.templateId
+                );
+                if (matchingTemplate) {
+                  console.log(`[Visual Load] WEBAPP PRIORITY 1: Matched by localStorage mapping: visualId=${visualId} -> templateId=${mapping.templateId}`);
+                }
+              }
+            }
+
+            // PRIORITY 2: Fall back to Name + Category matching
+            if (!matchingTemplate) {
+              matchingTemplate = this.visualTemplates.find(t =>
+                t.Category === visual.Category &&
+                t.Name === visual.Name
+              );
+            }
 
             if (matchingTemplate) {
               // CRITICAL FIX: Use VisualID (unique record ID) for key to ensure each visual gets unique photos
-              const visualId = visual.VisualID || visual.PK_ID || visual.id;
+              // Note: visualId is declared above for PRIORITY 1 matching
               const key = visual.Category + "_" + visualId;
               console.log('[Visual Load] Marking visual as selected:', key, 'VisualID:', visualId);
               this.selectedItems[key] = true;

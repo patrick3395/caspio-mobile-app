@@ -159,11 +159,18 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async ionViewWillEnter() {
-    // WEBAPP: Reload photos when returning to this page
-    // This ensures photos persist after page navigation and reload
+    // WEBAPP: Reload data when returning to this page
+    // This ensures photos and title/text edits made in visual-detail show here
     if (environment.isWeb && this.serviceId && this.categoryName) {
-      console.log('[DTE] WEBAPP: ionViewWillEnter - reloading photos...');
+      console.log('[DTE] WEBAPP: ionViewWillEnter - reloading data...');
       this.loading = false;
+
+      // CRITICAL: Clear caches to force fresh data load
+      // This ensures title/text edits made in visual-detail are reflected here
+      this.hudData.clearServiceCaches(this.serviceId);
+
+      // Reload existing visuals with fresh data (bypass cache)
+      await this.loadExistingVisuals(false);
 
       // If we have visual record IDs, reload photos from API
       if (Object.keys(this.visualRecordIds).length > 0) {
@@ -612,22 +619,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         console.log('[LOAD EXISTING] Category visuals full data:', categoryVisuals);
       }
 
-      // TITLE EDIT FIX: Load Dexie visualFields to get templateId -> DTEID mappings
-      // This allows finding visuals even when Name has been edited (Name match would fail)
-      const dexieFields = await db.visualFields
-        .where('serviceId')
-        .equals(this.serviceId)
-        .toArray();
-
-      // Build templateId -> visualId map from Dexie
-      const templateToVisualMap = new Map<number, string>();
-      for (const field of dexieFields) {
-        const visualId = field.visualId || field.tempVisualId;
-        if (visualId && field.templateId) {
-          templateToVisualMap.set(field.templateId, visualId);
-        }
+      // WEBAPP API-FIRST: Save existing in-memory mappings before reload
+      // This allows matching visuals even when Name has been edited (the mapping persists in memory)
+      const existingMappings = environment.isWeb ? new Map(Object.entries(this.visualRecordIds)) : null;
+      if (environment.isWeb) {
+        console.log(`[LOAD EXISTING] WEBAPP: Saved ${existingMappings?.size || 0} existing in-memory mappings`);
       }
-      console.log(`[LOAD EXISTING] Built templateId->DTEID map with ${templateToVisualMap.size} entries from Dexie`);
 
       // Get all available template items
       const allItems = [
@@ -651,12 +648,30 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           console.log('[LOAD EXISTING] ⚠️ Skipping hidden visual:', visual.Name);
 
           // Store visualRecordId so we can unhide it later if user reselects
-          const item = allItems.find(i => i.name === visual.Name);
-          if (item) {
-            const key = `${this.categoryName}_${item.id}`;
+          // CRITICAL: Only store if visual's category matches current category
+          if (visual.Category === this.categoryName) {
             const DTEID = String(visual.DTEID || visual.PK_ID);
-            this.visualRecordIds[key] = DTEID;
-            console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', DTEID);
+            let item: VisualItem | undefined = undefined;
+
+            // WEBAPP API-FIRST: Check existing in-memory mapping first
+            if (environment.isWeb && existingMappings && existingMappings.size > 0) {
+              for (const [key, storedDteId] of existingMappings.entries()) {
+                if (storedDteId === DTEID) {
+                  item = allItems.find(i => `${this.categoryName}_${i.id}` === key);
+                  break;
+                }
+              }
+            }
+            // Fall back to Name matching
+            if (!item) {
+              item = allItems.find(i => i.name === visual.Name);
+            }
+
+            if (item) {
+              const key = `${this.categoryName}_${item.id}`;
+              this.visualRecordIds[key] = DTEID;
+              console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', DTEID);
+            }
           }
           continue;
         }
@@ -665,27 +680,36 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         const kind = visual.Kind;
         const DTEID = String(visual.DTEID || visual.PK_ID || visual.id);
 
-        // TITLE EDIT FIX: PRIORITY 1 - Find item by Dexie mapping (templateId -> DTEID)
-        // This ensures visual stays selected even after Name is edited
+        // Find the item - WEBAPP uses in-memory mappings, then falls back to Name
         let item: VisualItem | undefined = undefined;
 
-        // First, find which templateId maps to this DTEID
-        for (const [templateId, mappedDteId] of templateToVisualMap.entries()) {
-          if (String(mappedDteId) === DTEID) {
-            item = allItems.find(i => i.templateId === templateId);
-            if (item) {
-              console.log(`[LOAD EXISTING] PRIORITY 1: Matched by Dexie mapping: templateId=${templateId} -> DTEID=${DTEID}`);
+        // WEBAPP API-FIRST PRIORITY 1: Check existing in-memory mapping
+        // This ensures visual stays matched even after Name is edited
+        if (environment.isWeb && existingMappings && existingMappings.size > 0) {
+          for (const [key, storedDteId] of existingMappings.entries()) {
+            if (storedDteId === DTEID) {
+              // Find the template item that matches this key
+              item = allItems.find(i => {
+                const itemKey = `${this.categoryName}_${i.id}`;
+                return itemKey === key;
+              });
+              if (item) {
+                console.log(`[LOAD EXISTING] WEBAPP PRIORITY 1: Matched by in-memory mapping: DTEID=${DTEID} -> key=${key}`);
+              }
               break;
             }
           }
         }
 
-        // PRIORITY 2: Find the item by Name (fallback)
-        if (!item) {
+        // PRIORITY 2: Fall back to Name + Category matching
+        // CRITICAL: Must check category to avoid matching visuals from other categories with same name
+        if (!item && visual.Category === this.categoryName) {
           item = allItems.find(i => i.name === visual.Name);
           if (item) {
-            console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name: "${visual.Name}"`);
+            console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name+Category: "${visual.Name}" in "${visual.Category}"`);
           }
+        } else if (!item && visual.Category !== this.categoryName) {
+          console.log(`[LOAD EXISTING] Skipping visual from different category: "${visual.Name}" in "${visual.Category}" (current: "${this.categoryName}")`);
         }
         
         // If no template match found, this is a CUSTOM visual - create dynamic item
@@ -747,23 +771,16 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         item.otherValue = visual.OtherValue || '';
         console.log('[LOAD EXISTING] ✅ item.answer set to:', item.answer);
 
-        // TITLE EDIT FIX: Update item name/text with edited values
-        // Priority: Dexie templateName > visual.Name > template name (already in item.name)
-        const dexieField = dexieFields.find(f => f.templateId === item.templateId);
-        if (dexieField?.templateName) {
-          item.name = dexieField.templateName;
-          console.log('[LOAD EXISTING] ✅ item.name updated from Dexie:', item.name);
-        } else if (visual.Name && visual.Name !== item.name) {
+        // TITLE EDIT FIX: Update item name/text with edited values from API
+        // WEBAPP API-FIRST: Use visual.Name and visual.Text directly from API response
+        if (visual.Name && visual.Name !== item.name) {
           item.name = visual.Name;
-          console.log('[LOAD EXISTING] ✅ item.name updated from visual:', item.name);
+          console.log('[LOAD EXISTING] ✅ item.name updated from API:', item.name);
         }
 
-        if (dexieField?.templateText) {
-          item.text = dexieField.templateText;
-          console.log('[LOAD EXISTING] ✅ item.text updated from Dexie:', item.text);
-        } else if (visual.Text && visual.Text !== item.text) {
+        if (visual.Text && visual.Text !== item.text) {
           item.text = visual.Text;
-          console.log('[LOAD EXISTING] ✅ item.text updated from visual:', item.text);
+          console.log('[LOAD EXISTING] ✅ item.text updated from API:', item.text);
         }
 
         // Force change detection to update UI
@@ -842,6 +859,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     for (const visual of categoryVisuals) {
       // Skip hidden visuals
       if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
+        continue;
+      }
+
+      // CRITICAL: Only process visuals that match the current category
+      // This prevents visuals from other categories with same name from overwriting
+      if (visual.Category !== this.categoryName) {
         continue;
       }
 
@@ -3786,15 +3809,19 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
    * Visual-detail will determine DTEID from Dexie field lookup (tempVisualId || visualId)
    */
   openVisualDetail(categoryName: string, item: VisualItem) {
-    console.log('[DTE CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName, 'itemId:', item.id);
+    // Get the actual DTEID from visualRecordIds (item.id is templateId, not DTEID)
+    const key = `${this.categoryName}_${item.id}`;
+    const dteId = this.visualRecordIds[key];
+
+    console.log('[DTE CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName, 'key:', key, 'dteId:', dteId);
 
     // WEBAPP MODE: Pass dteId directly so visual-detail can fetch fresh data from API
     // MOBILE MODE: Don't pass dteId - visual-detail looks it up from Dexie
     const queryParams: any = {};
 
-    if (environment.isWeb && item.id) {
+    if (environment.isWeb && dteId) {
       // Pass DTEID for direct API lookup in WEBAPP mode
-      queryParams.dteId = String(item.id);
+      queryParams.dteId = String(dteId);
       console.log('[DTE CategoryDetail] WEBAPP: Passing dteId:', queryParams.dteId);
     }
 

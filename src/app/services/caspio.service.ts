@@ -1783,12 +1783,21 @@ export class CaspioService {
   }
 
   /**
-   * Get a single HUD record by its HUDID (PK_ID)
+   * Get a single HUD record by its HUDID
    * Always bypasses cache to get fresh data
    */
   getServicesHUDById(hudId: string): Observable<any> {
-    console.log(`[CaspioService] getServicesHUDById called with HUDID=${hudId}`);
-    return this.get<any>(`/tables/LPS_Services_HUD/records?q.where=PK_ID=${hudId}`, false).pipe(
+    // Add timestamp to bust any HTTP/CDN caching
+    const cacheBuster = Date.now();
+    console.log(`[CaspioService] getServicesHUDById called with HUDID=${hudId}, cacheBuster=${cacheBuster}`);
+    return this.get<any>(`/tables/LPS_Services_HUD/records?q.where=HUDID=${hudId}&_cb=${cacheBuster}`, false).pipe(
+      tap(response => {
+        console.log(`[CaspioService] getServicesHUDById RAW response:`, JSON.stringify(response));
+        console.log(`[CaspioService] getServicesHUDById Result array length:`, response?.Result?.length || 0);
+        if (response?.Result?.[0]) {
+          console.log(`[CaspioService] getServicesHUDById record - HUDID:${response.Result[0].HUDID}, Name:${response.Result[0].Name}, Text:${response.Result[0].Text?.substring(0, 50)}`);
+        }
+      }),
       map(response => response.Result?.[0] || null)
     );
   }
@@ -3324,12 +3333,21 @@ export class CaspioService {
   }
 
   /**
-   * Get a single DTE record by its DTEID (PK_ID)
+   * Get a single DTE record by its DTEID
    * Always bypasses cache to get fresh data
    */
   getServicesDTEById(dteId: string): Observable<any> {
-    console.log(`[CaspioService] getServicesDTEById called with DTEID=${dteId}`);
-    return this.get<any>(`/tables/LPS_Services_DTE/records?q.where=PK_ID=${dteId}`, false).pipe(
+    // Add timestamp to bust any HTTP/CDN caching
+    const cacheBuster = Date.now();
+    console.log(`[CaspioService] getServicesDTEById called with DTEID=${dteId}, cacheBuster=${cacheBuster}`);
+    return this.get<any>(`/tables/LPS_Services_DTE/records?q.where=DTEID=${dteId}&_cb=${cacheBuster}`, false).pipe(
+      tap(response => {
+        console.log(`[CaspioService] getServicesDTEById RAW response:`, JSON.stringify(response));
+        console.log(`[CaspioService] getServicesDTEById Result array length:`, response?.Result?.length || 0);
+        if (response?.Result?.[0]) {
+          console.log(`[CaspioService] getServicesDTEById record - DTEID:${response.Result[0].DTEID}, Name:${response.Result[0].Name}, Text:${response.Result[0].Text?.substring(0, 50)}`);
+        }
+      }),
       map(response => response.Result?.[0] || null)
     );
   }

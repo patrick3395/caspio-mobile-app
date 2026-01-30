@@ -739,6 +739,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       const categoryTemplates = (templates || []).filter((t: any) => t.Category === this.categoryName);
       console.log(`[CategoryDetail] WEBAPP: ${categoryTemplates.length} templates for category "${this.categoryName}"`);
 
+      // WEBAPP API-FIRST: Save existing in-memory mappings before reload
+      // This allows matching visuals even when Name has been edited (the mapping persists in memory)
+      const existingMappings = new Map(Object.entries(this.visualRecordIds));
+      console.log(`[CategoryDetail] WEBAPP: Saved ${existingMappings.size} existing in-memory mappings`);
+
       // Build organized data from templates and visuals
       const organizedData: { comments: VisualItem[]; limitations: VisualItem[]; deficiencies: VisualItem[] } = {
         comments: [],
@@ -752,27 +757,47 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         const templateName = template.Name || '';
 
         // Find matching visual (user selection) from server
-        // CRITICAL: Match by TemplateID first (most reliable), with type coercion for number/string mismatches
-        // Then fall back to name+category matching
-        let visual = (visuals || []).find((v: any) => {
-          const vTemplateId = v.VisualTemplateID || v.TemplateID;
-          // Use == for type coercion (templateId may be number or string)
-          return vTemplateId == templateId && v.Category === this.categoryName;
-        });
+        // WEBAPP API-FIRST PRIORITY 1: Use in-memory mapping (persists during session)
+        // PRIORITY 2: Match by TemplateID from server
+        // PRIORITY 3: Fall back to name+category matching
+        let visual: any = null;
 
-        // Fallback: match by name + category if templateId didn't match
+        // WEBAPP API-FIRST PRIORITY 1: Check existing in-memory mapping
+        // This ensures visual stays matched even after Name is edited
+        const itemKey = `${this.categoryName}_${templateId}`;
+        const existingVisualId = existingMappings.get(itemKey);
+        if (existingVisualId) {
+          visual = (visuals || []).find((v: any) =>
+            String(v.VisualID || v.PK_ID) === String(existingVisualId)
+          );
+          if (visual) {
+            console.log(`[CategoryDetail] WEBAPP PRIORITY 1: Matched by in-memory mapping: key=${itemKey} -> VisualID=${existingVisualId}`);
+          }
+        }
+
+        // PRIORITY 2: Match by TemplateID from server (most reliable when available)
+        if (!visual) {
+          visual = (visuals || []).find((v: any) => {
+            const vTemplateId = v.VisualTemplateID || v.TemplateID;
+            // Use == for type coercion (templateId may be number or string)
+            return vTemplateId == templateId && v.Category === this.categoryName;
+          });
+          if (visual) {
+            console.log(`[CategoryDetail] WEBAPP PRIORITY 2: Matched by TemplateID: ${templateId}`);
+          }
+        }
+
+        // PRIORITY 3: Fallback to name + category matching
         if (!visual && templateName) {
           visual = (visuals || []).find((v: any) =>
             v.Name === templateName && v.Category === this.categoryName
           );
           if (visual) {
-            console.log(`[CategoryDetail] WEBAPP: Matched visual by name fallback: "${templateName}"`);
+            console.log(`[CategoryDetail] WEBAPP PRIORITY 3: Matched by name+category: "${templateName}"`);
           }
         }
 
-        // WEBAPP: Use key format that matches isItemSelected() and getPhotosForVisual()
-        // These methods use `${category}_${itemId}` format (no serviceId)
-        const itemKey = `${this.categoryName}_${templateId}`;
+        // itemKey already defined above for in-memory mapping lookup
 
         const item: VisualItem = {
           id: visual ? (visual.VisualID || visual.PK_ID) : templateId,

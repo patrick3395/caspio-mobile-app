@@ -986,6 +986,19 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     // This allows re-editing annotations on the base image
     const editUrl = photo.originalUrl || photo.displayUrl;
 
+    // Decompress existing drawings for the annotator component
+    // The component expects decompressed annotation data
+    let existingAnnotations: any = null;
+    if (photo.drawings && photo.drawings.length > 10) {
+      try {
+        const { decompressAnnotationData } = await import('../../../../utils/annotation-utils');
+        existingAnnotations = decompressAnnotationData(photo.drawings);
+        console.log('[VisualDetail] Decompressed existing annotations for re-edit');
+      } catch (e) {
+        console.warn('[VisualDetail] Failed to decompress annotations:', e);
+      }
+    }
+
     const modal = await this.modalController.create({
       component: FabricPhotoAnnotatorComponent,
       componentProps: {
@@ -994,8 +1007,10 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         caption: photo.caption,
         entityId: this.visualId,
         entityType: 'visual',
-        // Pass existing drawings for re-editing
-        existingDrawings: photo.drawings || ''
+        // Pass existing annotations for re-editing (correct prop name)
+        existingAnnotations: existingAnnotations,
+        existingCaption: photo.caption || '',
+        isReEdit: !!existingAnnotations
       },
       cssClass: 'fullscreen-modal'
     });
@@ -1039,38 +1054,61 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
             }
           }
 
-          // DEXIE-FIRST: Update LocalImages table with new drawings
-          await db.localImages.update(photo.id, {
-            drawings: compressedDrawings,
-            caption: newCaption,
-            updatedAt: Date.now()
-          });
-          console.log('[VisualDetail] ✅ Updated LocalImages with drawings:', compressedDrawings.length, 'chars');
-
-          // DEXIE-FIRST: Cache annotated image for thumbnail display
-          if (annotatedBlob && annotatedBlob.size > 0) {
-            try {
-              await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
-              console.log('[VisualDetail] ✅ Cached annotated image for:', photo.id);
-            } catch (cacheErr) {
-              console.warn('[VisualDetail] Failed to cache annotated image:', cacheErr);
-            }
-          }
-
-          // Get the localImage to check if it has an attachId (synced to Caspio)
-          const localImage = await db.localImages.get(photo.id);
-          if (localImage?.attachId) {
-            // Queue annotation update to Caspio for background sync
+          // WEBAPP MODE: Save directly to Caspio API (photos are server-side, not in local DB)
+          if (environment.isWeb) {
+            console.log('[VisualDetail] WEBAPP: Saving annotations directly to Caspio for AttachID:', photo.id);
             await this.foundationData.queueCaptionAndAnnotationUpdate(
-              localImage.attachId,
+              photo.id,
               newCaption,
               compressedDrawings,
               'visual',
               { serviceId: this.serviceId, visualId: this.visualId }
             );
-            console.log('[VisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
+            console.log('[VisualDetail] WEBAPP: ✅ Annotation update sent to Caspio');
+
+            // Cache annotated image for thumbnail display
+            if (annotatedBlob && annotatedBlob.size > 0) {
+              try {
+                await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
+                console.log('[VisualDetail] WEBAPP: ✅ Cached annotated image for:', photo.id);
+              } catch (cacheErr) {
+                console.warn('[VisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
+              }
+            }
           } else {
-            console.log('[VisualDetail] Photo not yet synced, annotations stored locally for upload');
+            // MOBILE MODE: DEXIE-FIRST - Update LocalImages table with new drawings
+            await db.localImages.update(photo.id, {
+              drawings: compressedDrawings,
+              caption: newCaption,
+              updatedAt: Date.now()
+            });
+            console.log('[VisualDetail] ✅ Updated LocalImages with drawings:', compressedDrawings.length, 'chars');
+
+            // DEXIE-FIRST: Cache annotated image for thumbnail display
+            if (annotatedBlob && annotatedBlob.size > 0) {
+              try {
+                await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
+                console.log('[VisualDetail] ✅ Cached annotated image for:', photo.id);
+              } catch (cacheErr) {
+                console.warn('[VisualDetail] Failed to cache annotated image:', cacheErr);
+              }
+            }
+
+            // Get the localImage to check if it has an attachId (synced to Caspio)
+            const localImage = await db.localImages.get(photo.id);
+            if (localImage?.attachId) {
+              // Queue annotation update to Caspio for background sync
+              await this.foundationData.queueCaptionAndAnnotationUpdate(
+                localImage.attachId,
+                newCaption,
+                compressedDrawings,
+                'visual',
+                { serviceId: this.serviceId, visualId: this.visualId }
+              );
+              console.log('[VisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
+            } else {
+              console.log('[VisualDetail] Photo not yet synced, annotations stored locally for upload');
+            }
           }
 
           // Show appropriate toast based on whether we could export the image

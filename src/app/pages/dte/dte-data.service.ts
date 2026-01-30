@@ -199,8 +199,11 @@ export class DteDataService {
       this.caspioService.updateServicesDTE(DTEID, updateData)
     );
 
-    // Clear cache
+    // CRITICAL: Clear BOTH caches to ensure fresh data on next load
+    // The hudCache stores DTE records by ServiceID - must be cleared when any record is updated
+    this.hudCache.clear();
     this.hudAttachmentsCache.clear();
+    console.log('[DTE Data] Cleared hudCache and hudAttachmentsCache after update');
 
     return result;
   }

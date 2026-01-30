@@ -203,16 +203,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       return;
     }
 
-    // WEBAPP: Reload photos and merge Dexie edits when returning to this page
-    // This ensures photos uploaded on this session appear after navigation
-    // and title/text edits from visual-detail are displayed
+    // WEBAPP: Reload data when returning to this page
+    // This ensures photos and title/text edits made in visual-detail show here
     if (environment.isWeb && this.serviceId && this.categoryName) {
-      console.log('[LBW] WEBAPP: Reloading data on page return...');
+      console.log('[LBW] WEBAPP: ionViewWillEnter - reloading data...');
       this.loading = false;
 
-      // TITLE/TEXT FIX: Merge edited names and text from Dexie visualFields
-      // This ensures title edits from visual-detail are displayed
-      await this.mergeDexieVisualFields();
+      // CRITICAL: Clear caches to force fresh data load
+      // This ensures title/text edits made in visual-detail are reflected here
+      this.hudData.clearServiceCaches(this.serviceId);
+
+      // Reload existing visuals with fresh data (bypass cache)
+      await this.loadExistingVisuals(false);
 
       // If we have visual record IDs, reload photos from API
       if (Object.keys(this.visualRecordIds).length > 0) {
@@ -861,6 +863,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       console.log('[LOAD EXISTING] Category to match:', this.categoryName);
       console.log('[LOAD EXISTING] UseCacheFirst:', useCacheFirst);
 
+      // WEBAPP API-FIRST: Save existing in-memory mappings before reload
+      // This allows matching visuals even when Name has been edited (the mapping persists in memory)
+      const existingMappings = environment.isWeb ? new Map(Object.entries(this.visualRecordIds)) : null;
+      if (environment.isWeb) {
+        console.log(`[LOAD EXISTING] WEBAPP: Saved ${existingMappings?.size || 0} existing in-memory mappings`);
+      }
+
       // CACHE-FIRST PATTERN: Use cached data for instant display, then refresh in background
       // If useCacheFirst is true, we use cache (bypassCache=false) and trigger background refresh
       // If useCacheFirst is false (cache was empty), we do a blocking API call
@@ -901,24 +910,72 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // CRITICAL: Skip hidden visuals (soft delete - keeps photos but doesn't show in UI)
         if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
           console.log('[LOAD EXISTING] ⚠️ Skipping hidden visual:', visual.Name);
-          
+
           // Store visualRecordId so we can unhide it later if user reselects
-          const item = allItems.find(i => i.name === visual.Name);
-          if (item) {
-            const key = `${this.categoryName}_${item.id}`;
+          // CRITICAL: Only store if visual's category matches current category
+          if (visual.Category === this.categoryName) {
             const LBWID = String(visual.LBWID || visual.PK_ID);
-            this.visualRecordIds[key] = LBWID;
-            console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', LBWID);
+            let item: VisualItem | undefined = undefined;
+
+            // WEBAPP API-FIRST: Check existing in-memory mapping first
+            if (environment.isWeb && existingMappings && existingMappings.size > 0) {
+              for (const [key, storedLbwId] of existingMappings.entries()) {
+                if (storedLbwId === LBWID) {
+                  item = allItems.find(i => `${this.categoryName}_${i.id}` === key);
+                  break;
+                }
+              }
+            }
+            // Fall back to Name matching
+            if (!item) {
+              item = allItems.find(i => i.name === visual.Name);
+            }
+
+            if (item) {
+              const key = `${this.categoryName}_${item.id}`;
+              this.visualRecordIds[key] = LBWID;
+              console.log('[LOAD EXISTING] Stored hidden visual ID for potential unhide:', key, '=', LBWID);
+            }
           }
           continue;
         }
-        
+
         const name = visual.Name;
         const kind = visual.Kind;
         const LBWID = String(visual.LBWID || visual.PK_ID || visual.id);
-        
-        // Find the item by Name
-        let item = allItems.find(i => i.name === visual.Name);
+
+        // Find the item - WEBAPP uses in-memory mappings, then falls back to Name
+        let item: VisualItem | undefined = undefined;
+
+        // WEBAPP API-FIRST PRIORITY 1: Check existing in-memory mapping
+        // This ensures visual stays matched even after Name is edited
+        if (environment.isWeb && existingMappings && existingMappings.size > 0) {
+          for (const [key, storedLbwId] of existingMappings.entries()) {
+            if (storedLbwId === LBWID) {
+              // Find the template item that matches this key
+              item = allItems.find(i => {
+                const itemKey = `${this.categoryName}_${i.id}`;
+                return itemKey === key;
+              });
+              if (item) {
+                console.log(`[LOAD EXISTING] WEBAPP PRIORITY 1: Matched by in-memory mapping: LBWID=${LBWID} -> key=${key}`);
+              }
+              break;
+            }
+          }
+        }
+
+        // PRIORITY 2: Fall back to Name + Category matching
+        // CRITICAL: Must check category to avoid matching visuals from other categories with same name
+        if (!item && visual.Category === this.categoryName) {
+          item = allItems.find(i => i.name === visual.Name);
+          if (item) {
+            console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name+Category: "${visual.Name}" in "${visual.Category}"`);
+          }
+        } else if (!item && visual.Category !== this.categoryName) {
+          console.log(`[LOAD EXISTING] Skipping visual from different category: "${visual.Name}" in "${visual.Category}" (current: "${this.categoryName}")`);
+          continue;
+        }
         
         // If no template match found, this is a CUSTOM visual - create dynamic item
         if (!item) {
@@ -1056,6 +1113,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     for (const visual of categoryVisuals) {
       // Skip hidden visuals
       if (visual.Notes && visual.Notes.startsWith('HIDDEN')) {
+        continue;
+      }
+
+      // CRITICAL: Only process visuals that match the current category
+      // This prevents visuals from other categories with same name from overwriting
+      if (visual.Category !== this.categoryName) {
         continue;
       }
 
