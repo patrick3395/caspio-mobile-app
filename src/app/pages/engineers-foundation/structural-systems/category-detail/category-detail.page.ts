@@ -7321,6 +7321,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           }
           // Legacy photo deletion
           else if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+            console.log('[Delete Photo] Photo object:', JSON.stringify(photo, null, 2));
+            console.log('[Delete Photo] Using AttachID:', photo.AttachID, 'Type:', typeof photo.AttachID);
             await this.foundationData.deleteVisualPhoto(photo.AttachID);
             console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
           }

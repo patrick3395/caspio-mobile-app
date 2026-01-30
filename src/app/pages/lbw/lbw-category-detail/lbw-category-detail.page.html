@@ -140,13 +140,18 @@
                   <ion-label>{{ option }}</ion-label>
                 </ion-item>
               </div>
+              <!-- Custom input for "Other" option - allows adding multiple custom values -->
               <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
                 <input type="text"
                        [(ngModel)]="item.otherValue"
-                       (blur)="onMultiSelectOtherChange(categoryName, item)"
+                       (keyup.enter)="addMultiSelectOther(categoryName, item)"
                        (click)="$event.stopPropagation()"
-                       placeholder="Please specify..."
+                       placeholder="Type option and press Enter or Add..."
                        class="styled-input other-input">
+                <ion-button size="small" fill="solid" color="primary" (click)="addMultiSelectOther(categoryName, item)">
+                  <ion-icon name="add-outline" slot="start"></ion-icon>
+                  Add
+                </ion-button>
               </div>
 
               <!-- Action button grid for multi-select -->
@@ -417,13 +422,18 @@
                   <ion-label>{{ option }}</ion-label>
                 </ion-item>
               </div>
+              <!-- Custom input for "Other" option - allows adding multiple custom values -->
               <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
                 <input type="text"
                        [(ngModel)]="item.otherValue"
-                       (blur)="onMultiSelectOtherChange(categoryName, item)"
+                       (keyup.enter)="addMultiSelectOther(categoryName, item)"
                        (click)="$event.stopPropagation()"
-                       placeholder="Please specify..."
+                       placeholder="Type option and press Enter or Add..."
                        class="styled-input other-input">
+                <ion-button size="small" fill="solid" color="primary" (click)="addMultiSelectOther(categoryName, item)">
+                  <ion-icon name="add-outline" slot="start"></ion-icon>
+                  Add
+                </ion-button>
               </div>
 
               <!-- Action button grid for multi-select - shows when any option is selected -->
@@ -691,13 +701,18 @@
                   <ion-label>{{ option }}</ion-label>
                 </ion-item>
               </div>
+              <!-- Custom input for "Other" option - allows adding multiple custom values -->
               <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
                 <input type="text"
                        [(ngModel)]="item.otherValue"
-                       (blur)="onMultiSelectOtherChange(categoryName, item)"
+                       (keyup.enter)="addMultiSelectOther(categoryName, item)"
                        (click)="$event.stopPropagation()"
-                       placeholder="Please specify..."
+                       placeholder="Type option and press Enter or Add..."
                        class="styled-input other-input">
+                <ion-button size="small" fill="solid" color="primary" (click)="addMultiSelectOther(categoryName, item)">
+                  <ion-icon name="add-outline" slot="start"></ion-icon>
+                  Add
+                </ion-button>
               </div>
 
               <!-- Action button grid for multi-select - shows when any option is selected -->

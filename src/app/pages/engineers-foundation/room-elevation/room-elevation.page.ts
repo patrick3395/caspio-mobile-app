@@ -2079,7 +2079,10 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
           }
         };
 
-        // 6. Resolve S3 URLs for photos
+        // 6. Load FDF photos from room data
+        await this.loadFDFPhotos(room);
+
+        // 7. Resolve S3 URLs for elevation point photos
         await this.resolveS3UrlsForWebapp();
 
         this.isLoadingPoints = false;
@@ -2644,6 +2647,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     const fdfPhotos = this.roomData.fdfPhotos;
     // EMPTY_COMPRESSED_ANNOTATIONS is imported from annotation-utils
 
+    // WEBAPP DEBUG: Log FDF columns from room object
+    if (environment.isWeb) {
+      console.log('[FDF Load] WEBAPP: Room FDF columns:', {
+        FDFPhotoTop: room.FDFPhotoTop,
+        FDFPhotoTopAttachment: room.FDFPhotoTopAttachment,
+        FDFPhotoBottom: room.FDFPhotoBottom,
+        FDFPhotoBottomAttachment: room.FDFPhotoBottomAttachment,
+        FDFPhotoThreshold: room.FDFPhotoThreshold,
+        FDFPhotoThresholdAttachment: room.FDFPhotoThresholdAttachment,
+        EFEID: room.EFEID
+      });
+    }
+
     // CRITICAL FIX: Check if we have preserved FDF photos with local blob/data URLs
     // During sync, we should preserve these URLs instead of resetting to placeholders
     const preserved = this.preservedFdfPhotos;
@@ -2683,7 +2699,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos.topDisplayUrl = 'assets/img/photo-placeholder.svg';
 
         // Load actual image in background - PREFER S3 key
-        this.loadFDFPhotoImage(topS3Key || topLegacyPath, 'top').catch(err => {
+        const topPhotoSource = topS3Key || topLegacyPath;
+        console.log('[FDF Load] WEBAPP: Loading top photo from:', topPhotoSource);
+        this.loadFDFPhotoImage(topPhotoSource, 'top').catch(err => {
           console.error('Error loading top photo:', err);
         });
       }
@@ -2728,7 +2746,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos.bottomDisplayUrl = 'assets/img/photo-placeholder.svg';
 
         // Load actual image in background - PREFER S3 key
-        this.loadFDFPhotoImage(bottomS3Key || bottomLegacyPath, 'bottom').catch(err => {
+        const bottomPhotoSource = bottomS3Key || bottomLegacyPath;
+        console.log('[FDF Load] WEBAPP: Loading bottom photo from:', bottomPhotoSource);
+        this.loadFDFPhotoImage(bottomPhotoSource, 'bottom').catch(err => {
           console.error('Error loading bottom photo:', err);
         });
       }
@@ -2773,7 +2793,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
         fdfPhotos.thresholdDisplayUrl = 'assets/img/photo-placeholder.svg';
 
         // Load actual image in background - PREFER S3 key
-        this.loadFDFPhotoImage(thresholdS3Key || thresholdLegacyPath, 'threshold').catch(err => {
+        const thresholdPhotoSource = thresholdS3Key || thresholdLegacyPath;
+        console.log('[FDF Load] WEBAPP: Loading threshold photo from:', thresholdPhotoSource);
+        this.loadFDFPhotoImage(thresholdPhotoSource, 'threshold').catch(err => {
           console.error('Error loading threshold photo:', err);
         });
       }
@@ -4647,29 +4669,101 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
     }
   }
 
-  // Process FDF photo - OFFLINE-FIRST: Uses LocalImageService for local-first handling
+  // Process FDF photo - WEBAPP uses direct API, MOBILE uses LocalImageService
   private async processFDFPhoto(file: File, photoType: 'Top' | 'Bottom' | 'Threshold') {
     const photoKey = photoType.toLowerCase();
+
+    // Initialize fdfPhotos structure if needed
+    if (!this.roomData.fdfPhotos) {
+      this.roomData.fdfPhotos = {};
+    }
     const fdfPhotos = this.roomData.fdfPhotos;
 
-    console.log(`[FDF Upload] Processing photo: ${photoType} (LOCAL-FIRST via LocalImageService)`);
+    console.log(`[FDF Upload] Processing photo: ${photoType} (${environment.isWeb ? 'WEBAPP - Direct API' : 'MOBILE - LocalImageService'})`);
 
     try {
-      // Initialize fdfPhotos structure if needed
-      if (!fdfPhotos) {
-        this.roomData.fdfPhotos = {};
-      }
-
       // Compress the image
-      const originalSize = file.size;
       const compressedFile = await this.imageCompression.compressImage(file, {
         maxSizeMB: 0.8,
         maxWidthOrHeight: 1280,
         useWebWorker: true
       }) as File;
-      const compressedSize = compressedFile.size;
 
-      // OFFLINE-FIRST: Use LocalImageService for local-first handling
+      // WEBAPP MODE: Direct API upload to S3 and update EFE room record
+      if (environment.isWeb) {
+        console.log(`[FDF Upload] WEBAPP: Uploading directly to S3 and updating EFE record`);
+
+        // Show immediate preview using local blob URL
+        const previewUrl = URL.createObjectURL(compressedFile);
+        fdfPhotos[photoKey] = true;
+        fdfPhotos[`${photoKey}Url`] = previewUrl;
+        fdfPhotos[`${photoKey}DisplayUrl`] = previewUrl;
+        fdfPhotos[`${photoKey}Caption`] = fdfPhotos[`${photoKey}Caption`] || '';
+        fdfPhotos[`${photoKey}Loading`] = false;
+        fdfPhotos[`${photoKey}Uploading`] = true;  // Show uploading state
+        this.changeDetectorRef.detectChanges();
+
+        // Generate unique filename for S3
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileExt = compressedFile.name.split('.').pop() || 'jpg';
+        const uniqueFilename = `fdf_${photoType.toLowerCase()}_${this.roomId}_${timestamp}_${randomId}.${fileExt}`;
+
+        // Upload to S3 via API Gateway
+        const formData = new FormData();
+        formData.append('file', compressedFile, uniqueFilename);
+        formData.append('tableName', 'LPS_Services_EFE');
+        formData.append('attachId', this.roomId);
+
+        const uploadUrl = `${environment.apiGatewayUrl}/api/s3/upload`;
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          throw new Error('Failed to upload FDF file to S3: ' + errorText);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        const s3Key = uploadResult.s3Key;
+        console.log(`[FDF Upload] WEBAPP: ✅ Photo uploaded to S3:`, s3Key);
+
+        // Update the EFE room record with S3 key
+        const attachmentColumnName = `FDFPhoto${photoType}Attachment`;
+        const updateData: any = {};
+        updateData[attachmentColumnName] = s3Key;
+
+        console.log(`[FDF Upload] WEBAPP: Updating EFE record:`, {
+          roomId: this.roomId,
+          column: attachmentColumnName,
+          value: s3Key,
+          updateData: updateData
+        });
+
+        await firstValueFrom(this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData));
+        console.log(`[FDF Upload] WEBAPP: ✅ Updated EFE record with ${attachmentColumnName} = ${s3Key}`);
+
+        // Get signed URL for display
+        const s3Url = await this.caspioService.getS3FileUrl(s3Key);
+
+        // Update with server data
+        fdfPhotos[`${photoKey}Url`] = s3Url;
+        fdfPhotos[`${photoKey}DisplayUrl`] = s3Url;
+        fdfPhotos[`${photoKey}Attachment`] = s3Key;
+        fdfPhotos[`${photoKey}Uploading`] = false;
+        fdfPhotos[`${photoKey}IsLocalFirst`] = false;
+
+        // Revoke the temporary blob URL
+        URL.revokeObjectURL(previewUrl);
+
+        this.changeDetectorRef.detectChanges();
+        console.log(`[FDF Upload] WEBAPP: ✅ Photo synced successfully`);
+        return;
+      }
+
+      // MOBILE MODE: Use LocalImageService for offline-first handling
       // CRITICAL: Pass photoType as the last parameter, NOT in caption
       const localImage = await this.localImageService.captureImage(
         compressedFile,
@@ -4699,7 +4793,7 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
 
       // Trigger change detection to show preview IMMEDIATELY
       this.changeDetectorRef.detectChanges();
-      console.log(`[FDF Upload] ✅ Photo captured with LocalImageService:`, localImage.imageId);
+      console.log(`[FDF Upload] MOBILE: ✅ Photo captured with LocalImageService:`, localImage.imageId);
 
     } catch (error: any) {
       console.error(`[FDF Upload] Error processing FDF ${photoType} photo:`, error);
@@ -4998,7 +5092,9 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             const imageId = fdfPhotos[`${photoKey}ImageId`];
             console.log('[FDF Delete] Starting Dexie-first deletion for:', photoKey, 'imageId:', imageId);
 
-            // 2. DEXIE-FIRST: Delete from LocalImages table (source of truth)
+            // 2. MOBILE: Delete from LocalImages table (source of truth)
+            // Note: WEBAPP FDF photos are stored on the EFE record (not in a separate attach table)
+            // so deletion is handled by clearing the FDF columns on the EFE record below
             if (imageId) {
               try {
                 await this.localImageService.deleteLocalImage(imageId);
@@ -5029,6 +5125,8 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             fdfPhotos[`${photoKey}Uploading`] = false;
             fdfPhotos[`${photoKey}ImageId`] = null;
             fdfPhotos[`${photoKey}LocalBlobId`] = null;
+            fdfPhotos[`${photoKey}AttachId`] = null;  // WEBAPP: Clear attachment ID
+            fdfPhotos[`${photoKey}IsLocalFirst`] = false;
 
             // Force UI update
             this.changeDetectorRef.detectChanges();
@@ -5038,16 +5136,13 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
             await this.indexedDb.deleteCachedPhoto(cacheId);
             console.log('[FDF Delete] Cleared cached photo from IndexedDB:', cacheId);
 
-            // 6. Queue backend update (clear FDF columns on server)
-            const updateData: any = {};
-            updateData[`FDFPhoto${photoType}`] = null;
-            updateData[`FDFPhoto${photoType}Attachment`] = null;
-            updateData[`FDF${photoType}Annotation`] = null;
-            updateData[`FDF${photoType}Drawings`] = null;
-            // Metadata for sync modal display - identifies this as FDF photo delete
-            updateData._displayType = 'FDF_PHOTO_DELETE';
-            updateData._photoType = photoType;
-            updateData._roomName = this.roomName;
+            // 6. Update backend (clear FDF columns on server)
+            // API data - only valid database columns
+            const apiData: any = {};
+            apiData[`FDFPhoto${photoType}`] = null;
+            apiData[`FDFPhoto${photoType}Attachment`] = null;
+            apiData[`FDF${photoType}Annotation`] = null;
+            apiData[`FDF${photoType}Drawings`] = null;
 
             try {
               // DEXIE-FIRST FIX: Handle temp room IDs properly
@@ -5058,24 +5153,33 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               if (isTempRoomId) {
                 // Use DEFERRED pattern - background sync will resolve temp ID to real ID
                 apiEndpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID=DEFERRED`;
-                updateData._tempEfeId = this.roomId;
                 console.log('[FDF Delete] Room has temp ID, using DEFERRED pattern:', this.roomId);
               } else {
                 apiEndpoint = `/api/caspio-proxy/tables/LPS_Services_EFE/records?q.where=EFEID='${this.roomId}'`;
               }
 
-              if (this.offlineService.isOnline() && !isTempRoomId) {
-                // Only try direct API call if we have a real room ID
+              // WEBAPP MODE: Always use direct API (WEBAPP is always online)
+              // MOBILE MODE: Use direct API if online with real room ID, else queue for sync
+              if ((environment.isWeb || this.offlineService.isOnline()) && !isTempRoomId) {
                 try {
-                  await this.caspioService.updateServicesEFEByEFEID(this.roomId, updateData).toPromise();
-                  console.log('[FDF Delete] ✅ Deleted from backend database');
+                  console.log('[FDF Delete] WEBAPP: Clearing FDF columns via direct API for EFEID:', this.roomId);
+                  await this.caspioService.updateServicesEFEByEFEID(this.roomId, apiData).toPromise();
+                  console.log('[FDF Delete] ✅ Cleared FDF columns from EFE record');
                 } catch (apiError) {
-                  console.warn('[FDF Delete] API delete failed, queuing for sync:', apiError);
+                  console.warn('[FDF Delete] API update failed, queuing for sync:', apiError);
+                  // Queue data includes metadata for sync modal display
+                  const queueData = {
+                    ...apiData,
+                    _displayType: 'FDF_PHOTO_DELETE',
+                    _photoType: photoType,
+                    _roomName: this.roomName,
+                    _tempEfeId: isTempRoomId ? this.roomId : undefined
+                  };
                   await this.indexedDb.addPendingRequest({
                     type: 'UPDATE',
                     endpoint: apiEndpoint,
                     method: 'PUT',
-                    data: updateData,
+                    data: queueData,
                     dependencies: [],
                     status: 'pending',
                     priority: 'high',
@@ -5084,11 +5188,19 @@ export class RoomElevationPage implements OnInit, OnDestroy, ViewWillEnter, HasU
               } else {
                 // Offline or temp room ID - queue for background sync
                 console.log('[FDF Delete] Queuing delete for sync (offline or temp roomId)');
+                // Queue data includes metadata for sync modal display
+                const queueData = {
+                  ...apiData,
+                  _displayType: 'FDF_PHOTO_DELETE',
+                  _photoType: photoType,
+                  _roomName: this.roomName,
+                  _tempEfeId: isTempRoomId ? this.roomId : undefined
+                };
                 await this.indexedDb.addPendingRequest({
                   type: 'UPDATE',
                   endpoint: apiEndpoint,
                   method: 'PUT',
-                  data: updateData,
+                  data: queueData,
                   dependencies: [],
                   status: 'pending',
                   priority: 'high',

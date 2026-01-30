@@ -999,9 +999,23 @@ export class EngineersFoundationDataService {
     // Clear all attachment caches first (optimistic update)
     this.visualAttachmentsCache.clear();
 
-    // QUEUE-FIRST: Always queue delete for background sync (matches room-elevation pattern)
+    // WEBAPP MODE: Delete immediately via direct API call
+    if (environment.isWeb) {
+      console.log('[Visual Photo] WEBAPP: Deleting photo directly via API:', attachId);
+      try {
+        // Use the existing CaspioService method for deleting visual attachments
+        await firstValueFrom(this.caspioService.deleteServiceVisualsAttach(String(attachId)));
+        console.log('[Visual Photo] WEBAPP: Photo deleted successfully:', attachId);
+        return { success: true, deleted: true };
+      } catch (error) {
+        console.error('[Visual Photo] WEBAPP: Failed to delete photo:', error);
+        throw error;
+      }
+    }
+
+    // MOBILE MODE: Queue delete for background sync (matches room-elevation pattern)
     // This ensures consistent behavior online/offline and batches deletes with other sync operations
-    console.log('[Visual Photo] Queuing delete for sync:', attachId);
+    console.log('[Visual Photo] MOBILE: Queuing delete for sync:', attachId);
     await this.indexedDb.addPendingRequest({
       type: 'DELETE',
       endpoint: `/api/caspio-proxy/tables/LPS_Services_Visuals_Attach/records?q.where=AttachID=${attachId}`,

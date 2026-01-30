@@ -330,9 +330,20 @@ export class LbwContainerPage implements OnInit, OnDestroy {
     // Mobile fallback: Navigate up one level in the folder tree hierarchy
     const url = this.router.url;
 
-    // Check if we're on a category detail page
-    if (url.includes('/category/')) {
-      // Navigate to categories list page
+    // Check if we're on a visual detail page (must check BEFORE /category/ since URL contains both)
+    if (url.includes('/visual/')) {
+      // Extract category from URL and navigate to category detail page
+      // URL format: /lbw/projectId/serviceId/category/categoryName/visual/templateId
+      const categoryMatch = url.match(/\/category\/([^\/]+)/);
+      if (categoryMatch) {
+        const categoryName = categoryMatch[1];
+        this.router.navigate(['/lbw', this.projectId, this.serviceId, 'category', categoryName]);
+      } else {
+        // Fallback to categories list if category can't be extracted
+        this.router.navigate(['/lbw', this.projectId, this.serviceId, 'categories']);
+      }
+    } else if (url.includes('/category/')) {
+      // We're on a category detail page - navigate to categories list page
       this.router.navigate(['/lbw', this.projectId, this.serviceId, 'categories']);
     } else if (url.includes('/categories')) {
       // Navigate to LBW main page

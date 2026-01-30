@@ -3348,7 +3348,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
     // Update the answer to include the "Other" custom value
     let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
-    
+
     // Replace "Other" with the custom value
     const otherIndex = selectedOptions.indexOf('Other');
     if (otherIndex > -1) {
@@ -3357,12 +3357,136 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // Add custom value if "Other" wasn't in the list
       selectedOptions.push(item.otherValue.trim());
     }
-    
+
     item.answer = selectedOptions.join(', ');
-    
+
     console.log('[OTHER CHANGE] Custom value:', item.otherValue, 'New answer:', item.answer);
-    
+
     await this.onAnswerChange(category, item);
+  }
+
+  /**
+   * Add a custom value from "Other" input to the options list
+   * This allows users to add multiple custom options that persist
+   */
+  async addMultiSelectOther(category: string, item: VisualItem) {
+    const customValue = item.otherValue?.trim();
+    if (!customValue) {
+      return;
+    }
+
+    // CRITICAL FIX: Use item.templateId (not item.id) and item.category to match visualRecordIds keys
+    const actualCategory = item.category || category;
+    const key = `${actualCategory}_${item.templateId}`;
+    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'templateId:', item.templateId);
+
+    // Get current options for this template
+    let options = this.visualDropdownOptions[item.templateId];
+    if (!options) {
+      options = [];
+      this.visualDropdownOptions[item.templateId] = options;
+    }
+
+    // Parse current selections
+    let selectedOptions: string[] = [];
+    if (item.answer) {
+      selectedOptions = item.answer.split(',').map(o => o.trim()).filter(o => o);
+    }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    selectedOptions = selectedOptions.filter(o => o !== 'None');
+
+    // Check if this value already exists in options
+    if (options.includes(customValue)) {
+      console.log(`[OTHER] Option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!selectedOptions.includes(customValue)) {
+        selectedOptions.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneIndex = options.indexOf('None');
+      if (noneIndex > -1) {
+        options.splice(noneIndex, 0, customValue);
+      } else {
+        const otherIndex = options.indexOf('Other');
+        if (otherIndex > -1) {
+          options.splice(otherIndex, 0, customValue);
+        } else {
+          options.push(customValue);
+        }
+      }
+      console.log(`[OTHER] Added custom option: "${customValue}"`);
+
+      // Select the new custom value
+      selectedOptions.push(customValue);
+    }
+
+    // Update item answer
+    item.answer = selectedOptions.join(', ');
+
+    // Clear the input field for the next entry
+    item.otherValue = '';
+
+    // DEXIE-FIRST: Write-through to visualFields including updated dropdownOptions
+    // This ensures custom options persist across page loads and liveQuery updates
+    await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
+      answer: item.answer,
+      otherValue: '',
+      isSelected: true,
+      dropdownOptions: [...options]  // Save the updated options array to Dexie
+    });
+
+    console.log('[OTHER] Saved dropdownOptions to Dexie:', options);
+
+    // Save to database
+    this.savingItems[key] = true;
+    try {
+      let visualId = this.visualRecordIds[key];
+
+      if (!visualId) {
+        // Create new visual
+        const serviceIdNum = parseInt(this.serviceId, 10);
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
+        const visualData = {
+          ServiceID: serviceIdNum,
+          Category: item.category,  // FIX: Use template's actual category, not route param
+          Kind: item.type,
+          Name: item.name,
+          Text: item.text || item.originalText || '',
+          Notes: '',
+          Answers: item.answer,
+          TemplateID: templateIdInt
+        };
+
+        const result = await this.hudData.createVisual(visualData);
+        const newVisualId = String(result.LBWID || result.VisualID || result.PK_ID || result.id);
+        this.visualRecordIds[key] = newVisualId;
+
+        await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
+          tempVisualId: newVisualId,
+          templateName: item.name || '',
+          templateText: item.text || item.originalText || '',
+          category: actualCategory,
+          kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
+          isSelected: true
+        });
+
+        console.log('[OTHER] Created visual:', newVisualId);
+      } else {
+        // Update existing visual
+        await this.hudData.updateVisual(visualId, {
+          Answers: item.answer,
+          Notes: ''
+        }, this.serviceId);
+        console.log('[OTHER] Updated visual:', visualId);
+      }
+    } catch (error) {
+      console.error('[OTHER] Error saving custom option:', error);
+    }
+
+    this.savingItems[key] = false;
+    this.changeDetectorRef.detectChanges();
   }
 
   // ============================================
@@ -4776,19 +4900,43 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                   // Remove from UI immediately using filter
                   if (this.visualPhotos[key]) {
                     this.visualPhotos[key] = this.visualPhotos[key].filter(
-                      (p: any) => p.AttachID !== photo.AttachID
+                      (p: any) => p.AttachID !== photo.AttachID && p.imageId !== photo.imageId
                     );
                   }
 
-                  // Delete from database
-                  if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
-                    await this.hudData.deleteVisualPhoto(photo.AttachID);
+                  // DEXIE-FIRST: Delete from local IndexedDB (localImages and localBlobs)
+                  const imageIdToDelete = photo.imageId || photo.localImageId;
+                  if (imageIdToDelete) {
+                    try {
+                      // Get the localImage to find the blobId
+                      const localImage = await db.localImages.get(imageIdToDelete);
+                      if (localImage) {
+                        // Delete the blob if exists
+                        if (localImage.localBlobId) {
+                          await db.localBlobs.delete(localImage.localBlobId);
+                          console.log('[DELETE PHOTO] Deleted blob:', localImage.localBlobId);
+                        }
+                        // Delete the localImage record
+                        await db.localImages.delete(imageIdToDelete);
+                        console.log('[DELETE PHOTO] Deleted localImage:', imageIdToDelete);
+                      }
+                    } catch (dexieError) {
+                      console.warn('[DELETE PHOTO] Error deleting from Dexie:', dexieError);
+                    }
+                  }
+
+                  // Delete from backend database (for synced photos)
+                  const attachIdToDelete = photo.AttachID || photo.attachId;
+                  if (attachIdToDelete && !String(attachIdToDelete).startsWith('temp_') && !String(attachIdToDelete).startsWith('img_')) {
+                    await this.hudData.deleteVisualPhoto(attachIdToDelete);
+                    console.log('[DELETE PHOTO] Queued backend deletion:', attachIdToDelete);
                   }
 
                   // Force UI update
                   this.changeDetectorRef.detectChanges();
 
                   await loading.dismiss();
+                  await this.showToast('Photo deleted', 'success');
                 } catch (error) {
                   await loading.dismiss();
                   console.error('Error deleting photo:', error);
