@@ -298,34 +298,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           console.log('[LbwVisualDetail] WEBAPP: Visual found by LBWID:', visual ? 'YES' : 'NO');
         }
 
-        // PRIORITY 1.25: WEBAPP FIX - Check Dexie for the visualId if query params empty
-        // When a visual is created, the LBWID is saved to Dexie. This is more reliable than
-        // PRIORITY 2's TemplateID matching which can pick the wrong visual if multiple exist.
-        if (!visual && !lbwIdFromQueryParams) {
-          try {
-            const dexieFields = await db.visualFields
-              .where('serviceId')
-              .equals(this.serviceId)
-              .toArray();
-            const dexieField = dexieFields.find(f =>
-              f.templateId === this.templateId && f.category === this.categoryName
-            );
-            const dexieVisualId = dexieField?.visualId || dexieField?.tempVisualId;
-            if (dexieVisualId) {
-              console.log('[LbwVisualDetail] WEBAPP PRIORITY 1.25: Found visualId in Dexie:', dexieVisualId);
-              visual = lbwRecords.find((v: any) =>
-                String(v.LBWID || v.PK_ID) === String(dexieVisualId)
-              );
-              if (visual) {
-                console.log('[LbwVisualDetail] WEBAPP PRIORITY 1.25: ✅ Matched visual from Dexie lookup');
-                this.lbwId = String(visual.LBWID || visual.PK_ID);
-              }
-            }
-          } catch (dexieErr) {
-            console.warn('[LbwVisualDetail] WEBAPP PRIORITY 1.25: Dexie lookup failed:', dexieErr);
-          }
-        }
-
         // PRIORITY 1.5: For custom visuals, templateId might BE the LBWID - try matching directly
         if (!visual && this.templateId > 0) {
           console.log('[LbwVisualDetail] WEBAPP: Looking for visual by templateId as LBWID:', this.templateId);
@@ -405,20 +377,6 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
           console.log('[LbwVisualDetail] WEBAPP: Loaded LBW record:', this.item.name, 'LBWID:', this.lbwId, '(visual LBWID:', visualLbwId, ') Category:', actualCategory);
-
-          // CRITICAL: Save visualId to Dexie so category-detail can restore it
-          // This ensures the lbwId is available when navigating back and forth
-          try {
-            await this.visualFieldRepo.setField(
-              this.serviceId,
-              actualCategory,
-              this.templateId,
-              { visualId: this.lbwId, isSelected: true }
-            );
-            console.log('[LbwVisualDetail] WEBAPP: Saved visualId to Dexie:', this.lbwId);
-          } catch (e) {
-            console.warn('[LbwVisualDetail] WEBAPP: Failed to save visualId to Dexie:', e);
-          }
         } else if (template) {
           // No LBW record found - use template (already loaded above)
           console.log('[LbwVisualDetail] WEBAPP: LBW record not found, using template data');
@@ -996,39 +954,49 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
     this.saving = true;
     try {
-      // Build update data for both Dexie and Caspio sync
-      const dexieUpdate: any = {};
+      // Build update data
       const caspioUpdate: any = {};
 
       if (titleChanged) {
-        dexieUpdate.templateName = this.editableTitle;
         caspioUpdate.Name = this.editableTitle;
       }
 
       if (textChanged) {
-        dexieUpdate.templateText = this.editableText;
         caspioUpdate.Text = this.editableText;
       }
 
       // Use actual category from item (not route param)
       const actualCategory = this.item?.category || this.categoryName;
 
-      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        actualCategory,
-        this.templateId,
-        dexieUpdate
-      );
-      console.log('[LbwVisualDetail] ✅ Updated Dexie field:', dexieUpdate);
-
-      // Queue update to Caspio for background sync (only if valid lbwId)
-      // CRITICAL: Pass serviceId so temp IDs get queued via updatePendingRequestData()
-      if (this.isValidLbwId(this.lbwId)) {
-        await this.lbwData.updateVisual(this.lbwId, caspioUpdate, this.serviceId);
-        console.log('[LbwVisualDetail] ✅ Updated Caspio LBW record:', this.lbwId, caspioUpdate);
+      // WEBAPP: Direct API update only (no Dexie)
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        // WEBAPP: Direct API update
+        if (this.isValidLbwId(this.lbwId)) {
+          await this.lbwData.updateVisual(this.lbwId, caspioUpdate, this.serviceId);
+          console.log('[LbwVisualDetail] WEBAPP: ✅ Updated via API:', this.lbwId, caspioUpdate);
+        } else {
+          console.warn('[LbwVisualDetail] WEBAPP: No valid lbwId, cannot save');
+        }
       } else {
-        console.log('[LbwVisualDetail] No valid lbwId (' + this.lbwId + ') - saved to Dexie only');
+        // MOBILE: DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
+        const dexieUpdate: any = {};
+        if (titleChanged) dexieUpdate.templateName = this.editableTitle;
+        if (textChanged) dexieUpdate.templateText = this.editableText;
+
+        await this.visualFieldRepo.setField(
+          this.serviceId,
+          actualCategory,
+          this.templateId,
+          dexieUpdate
+        );
+        console.log('[LbwVisualDetail] MOBILE: ✅ Updated Dexie field:', dexieUpdate);
+
+        // Queue update to Caspio for background sync (only if valid lbwId)
+        if (this.isValidLbwId(this.lbwId)) {
+          await this.lbwData.updateVisual(this.lbwId, caspioUpdate, this.serviceId);
+          console.log('[LbwVisualDetail] MOBILE: ✅ Queued update for sync:', this.lbwId, caspioUpdate);
+        }
       }
 
       // Update local item state for immediate UI feedback
@@ -1059,27 +1027,35 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // Use actual category from item (not route param)
       const actualCategory = this.item?.category || this.categoryName;
 
-      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
-      // CRITICAL: Also save visualId so category-detail can restore it
-      const dexieUpdate: any = { templateName: this.editableTitle };
-      if (this.lbwId) {
-        dexieUpdate.visualId = this.lbwId;
-      }
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        actualCategory,
-        this.templateId,
-        dexieUpdate
-      );
-      console.log('[LbwVisualDetail] ✅ Updated title in Dexie with visualId:', this.lbwId);
-
-      // Queue update to Caspio for background sync (only if valid lbwId)
-      // CRITICAL: Pass serviceId so temp IDs get queued via updatePendingRequestData()
-      if (this.isValidLbwId(this.lbwId)) {
-        await this.lbwData.updateVisual(this.lbwId, { Name: this.editableTitle }, this.serviceId);
-        console.log('[LbwVisualDetail] ✅ Updated title in Caspio LBW record:', this.lbwId);
+      // WEBAPP: Direct API update only (no Dexie)
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        // WEBAPP: Direct API update
+        if (this.isValidLbwId(this.lbwId)) {
+          await this.lbwData.updateVisual(this.lbwId, { Name: this.editableTitle }, this.serviceId);
+          console.log('[LbwVisualDetail] WEBAPP: ✅ Updated title via API:', this.lbwId);
+        } else {
+          console.warn('[LbwVisualDetail] WEBAPP: No valid lbwId, cannot save title');
+        }
       } else {
-        console.log('[LbwVisualDetail] No valid lbwId (' + this.lbwId + ') - title saved to Dexie only');
+        // MOBILE: DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
+        const dexieUpdate: any = { templateName: this.editableTitle };
+        if (this.lbwId) {
+          dexieUpdate.visualId = this.lbwId;
+        }
+        await this.visualFieldRepo.setField(
+          this.serviceId,
+          actualCategory,
+          this.templateId,
+          dexieUpdate
+        );
+        console.log('[LbwVisualDetail] MOBILE: ✅ Updated title in Dexie with visualId:', this.lbwId);
+
+        // Queue update to Caspio for background sync (only if valid lbwId)
+        if (this.isValidLbwId(this.lbwId)) {
+          await this.lbwData.updateVisual(this.lbwId, { Name: this.editableTitle }, this.serviceId);
+          console.log('[LbwVisualDetail] MOBILE: ✅ Queued title update for sync:', this.lbwId);
+        }
       }
 
       // Update local item state for immediate UI feedback
@@ -1104,27 +1080,35 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // Use actual category from item (not route param)
       const actualCategory = this.item?.category || this.categoryName;
 
-      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
-      // CRITICAL: Also save visualId so category-detail can restore it
-      const dexieUpdate: any = { templateText: this.editableText };
-      if (this.lbwId) {
-        dexieUpdate.visualId = this.lbwId;
-      }
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        actualCategory,
-        this.templateId,
-        dexieUpdate
-      );
-      console.log('[LbwVisualDetail] ✅ Updated text in Dexie with visualId:', this.lbwId);
-
-      // Queue update to Caspio for background sync (only if valid lbwId)
-      // CRITICAL: Pass serviceId so temp IDs get queued via updatePendingRequestData()
-      if (this.isValidLbwId(this.lbwId)) {
-        await this.lbwData.updateVisual(this.lbwId, { Text: this.editableText }, this.serviceId);
-        console.log('[LbwVisualDetail] ✅ Updated text in Caspio LBW record:', this.lbwId);
+      // WEBAPP: Direct API update only (no Dexie)
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        // WEBAPP: Direct API update
+        if (this.isValidLbwId(this.lbwId)) {
+          await this.lbwData.updateVisual(this.lbwId, { Text: this.editableText }, this.serviceId);
+          console.log('[LbwVisualDetail] WEBAPP: ✅ Updated text via API:', this.lbwId);
+        } else {
+          console.warn('[LbwVisualDetail] WEBAPP: No valid lbwId, cannot save text');
+        }
       } else {
-        console.log('[LbwVisualDetail] No valid lbwId (' + this.lbwId + ') - text saved to Dexie only');
+        // MOBILE: DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
+        const dexieUpdate: any = { templateText: this.editableText };
+        if (this.lbwId) {
+          dexieUpdate.visualId = this.lbwId;
+        }
+        await this.visualFieldRepo.setField(
+          this.serviceId,
+          actualCategory,
+          this.templateId,
+          dexieUpdate
+        );
+        console.log('[LbwVisualDetail] MOBILE: ✅ Updated text in Dexie with visualId:', this.lbwId);
+
+        // Queue update to Caspio for background sync (only if valid lbwId)
+        if (this.isValidLbwId(this.lbwId)) {
+          await this.lbwData.updateVisual(this.lbwId, { Text: this.editableText }, this.serviceId);
+          console.log('[LbwVisualDetail] MOBILE: ✅ Queued text update for sync:', this.lbwId);
+        }
       }
 
       // Update local item state for immediate UI feedback

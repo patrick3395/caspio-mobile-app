@@ -1411,10 +1411,61 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     // This allows re-editing annotations on the base image
     const editUrl = photo.originalUrl || photo.displayUrl;
 
-    // ANNOTATION FIX: Check MULTIPLE sources for existing annotations (matches category-detail pattern)
-    // The annotator expects existingAnnotations object
+    // CRITICAL FIX: For MOBILE, ALWAYS fetch FRESH drawings from Dexie
+    // After sync, the in-memory photo.drawings may be stale
+    let freshDrawings = '';
+    if (!environment.isWeb) {
+      console.log('[VisualDetail] Fetching FRESH drawings from Dexie for photo:', {
+        id: photo.id,
+        imageId: photo.imageId,
+        attachId: photo.attachId
+      });
+
+      let localImage: any = null;
+
+      // Strategy 1: Try photo.id (usually the imageId)
+      localImage = await db.localImages.get(photo.id);
+      if (localImage) {
+        console.log('[VisualDetail] Found localImage by photo.id:', photo.id);
+      }
+
+      // Strategy 2: Try photo.imageId if different
+      if (!localImage && photo.imageId && photo.imageId !== photo.id) {
+        localImage = await db.localImages.get(photo.imageId);
+        if (localImage) {
+          console.log('[VisualDetail] Found localImage by imageId:', photo.imageId);
+        }
+      }
+
+      // Strategy 3: Query by attachId
+      if (!localImage && photo.attachId) {
+        localImage = await db.localImages.where('attachId').equals(photo.attachId).first();
+        if (localImage) {
+          console.log('[VisualDetail] Found localImage by attachId:', photo.attachId);
+        }
+      }
+
+      // Strategy 4: If photo.id looks like an attachId (numeric), query by attachId
+      if (!localImage && photo.id && !String(photo.id).startsWith('img_') && !String(photo.id).startsWith('temp_')) {
+        localImage = await db.localImages.where('attachId').equals(photo.id).first();
+        if (localImage) {
+          console.log('[VisualDetail] Found localImage by photo.id as attachId:', photo.id);
+        }
+      }
+
+      if (localImage?.drawings && localImage.drawings.length > 10) {
+        freshDrawings = localImage.drawings;
+        console.log('[VisualDetail] Got FRESH drawings from Dexie:', freshDrawings.length, 'chars');
+      } else {
+        console.log('[VisualDetail] No fresh drawings found in Dexie, will use in-memory data');
+      }
+    }
+
+    // ANNOTATION FIX: Check MULTIPLE sources for existing annotations
+    // PRIORITY: Fresh Dexie data FIRST, then in-memory data
     let existingAnnotations: any = null;
     const annotationSources = [
+      freshDrawings,            // FRESH from Dexie (highest priority)
       photo.annotations,        // Decompressed object (if previously saved)
       photo.rawDrawingsString,  // Compressed string
       photo.Drawings,           // Compressed string (capital D)
@@ -1422,6 +1473,7 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     ];
 
     console.log('[VisualDetail] Checking annotation sources:', {
+      freshDrawingsLength: freshDrawings?.length || 0,
       hasAnnotations: !!photo.annotations,
       rawDrawingsStringLength: photo.rawDrawingsString?.length || 0,
       DrawingsLength: photo.Drawings?.length || 0,

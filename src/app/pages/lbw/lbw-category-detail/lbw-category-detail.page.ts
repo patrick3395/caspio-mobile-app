@@ -5322,9 +5322,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       const customTemplateId = -Date.now();
 
       // Add to local data structure (must match loadExistingVisuals structure)
-      // DEXIE-FIRST: Use templateId as the item ID for consistency with convertFieldsToOrganizedData
+      // CRITICAL: Use "custom_${visualId}" format to match what loadExistingVisuals creates
+      // when it reloads custom visuals from the server. This ensures consistent item.id.
+      const customItemId = environment.isWeb ? `custom_${visualId}` : visualId;
       const customItem: VisualItem = {
-        id: visualId, // Use visualId for consistency with convertFieldsToOrganizedData
+        id: customItemId,
         templateId: customTemplateId, // Use unique negative ID for custom visuals
         name: name,
         text: text,
@@ -5337,9 +5339,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         photos: []
       };
 
-      // DEXIE-FIRST: Use consistent key format matching convertFieldsToOrganizedData
-      // Key format: ${category}_${templateId} for selection tracking
-      const key = `${category}_${customTemplateId}`;
+      // WEBAPP: Use customItemId for key to match what loadExistingVisuals uses
+      // MOBILE: Use customTemplateId for consistency with Dexie patterns
+      const key = environment.isWeb
+        ? `${category}_${customItemId}`
+        : `${category}_${customTemplateId}`;
       this.visualRecordIds[key] = String(visualId);
 
       // Mark as selected with the correct key
@@ -5634,21 +5638,52 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
    * LBW now uses a dedicated visual detail page (like HUD/EFE)
    */
   openVisualDetail(category: string, item: any): void {
-    console.log('[LBW] openVisualDetail - navigating to visual detail page for:', item?.name, 'category:', category);
+    console.log('[LBW] openVisualDetail - item:', item?.name, 'item.id:', item?.id, 'templateId:', item?.templateId);
 
-    // WEBAPP FIX: Use item.id for key (matches photo functions and storage)
-    // MOBILE: For custom visuals (templateId = 0), use item.id; for template visuals, use templateId
-    const isCustomVisual = !item.templateId || item.templateId === 0;
-    const keyId = environment.isWeb
-      ? item.id
-      : (isCustomVisual ? item.id : item.templateId);
-    const key = `${category}_${keyId}`;
-    const lbwId = this.visualRecordIds[key] || '';
+    // WEBAPP SIMPLIFIED: Get the LBWID directly
+    // 1. For custom visuals from server: item.id = "custom_LBWID" -> extract LBWID
+    // 2. For newly created custom visuals: item.id = the LBWID itself (a number string)
+    // 3. For template visuals: look up in visualRecordIds
+    let lbwId = '';
 
-    // For navigation, use the templateId (or item.id for custom visuals)
-    const routeId = isCustomVisual ? item.id : item.templateId;
+    if (environment.isWeb) {
+      const itemIdStr = String(item.id || '');
 
-    console.log('[LBW] openVisualDetail - projectId:', this.projectId, 'serviceId:', this.serviceId, 'category:', category, 'routeId:', routeId, 'lbwId:', lbwId, 'isCustomVisual:', isCustomVisual);
+      // Custom visual from server: id = "custom_12345"
+      if (itemIdStr.startsWith('custom_')) {
+        lbwId = itemIdStr.replace('custom_', '');
+        console.log('[LBW] openVisualDetail WEBAPP: Custom visual from server, LBWID:', lbwId);
+      }
+      // Newly created custom visual or server visual: id is the LBWID itself
+      else if (/^\d+$/.test(itemIdStr)) {
+        lbwId = itemIdStr;
+        console.log('[LBW] openVisualDetail WEBAPP: Item ID is LBWID:', lbwId);
+      }
+      // Template visual: look up in visualRecordIds
+      else {
+        const key = `${category}_${item.id}`;
+        lbwId = this.visualRecordIds[key] || '';
+        console.log('[LBW] openVisualDetail WEBAPP: Template visual, key:', key, 'LBWID:', lbwId);
+      }
+
+      // Fallback: also check visualRecordIds with the item.id key
+      if (!lbwId) {
+        const key = `${category}_${item.id}`;
+        lbwId = this.visualRecordIds[key] || '';
+        console.log('[LBW] openVisualDetail WEBAPP: Fallback lookup, key:', key, 'LBWID:', lbwId);
+      }
+    } else {
+      // MOBILE: Use existing logic
+      const isCustomVisual = !item.templateId || item.templateId === 0;
+      const keyId = isCustomVisual ? item.id : item.templateId;
+      const key = `${category}_${keyId}`;
+      lbwId = this.visualRecordIds[key] || '';
+    }
+
+    // For navigation route, use item.id (works for both custom and template)
+    const routeId = item.id;
+
+    console.log('[LBW] openVisualDetail - FINAL: routeId:', routeId, 'lbwId:', lbwId);
 
     // Use absolute navigation to ensure correct path
     this.router.navigate(['/lbw', this.projectId, this.serviceId, 'category', category, 'visual', routeId], {
