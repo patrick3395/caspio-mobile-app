@@ -48,7 +48,7 @@ export class LbwMainPage implements OnInit {
 
   projectId: string = '';
   serviceId: string = '';
-  loading: boolean = false;  // DEXIE-FIRST: Start false for instant display
+  loading: boolean = false;
   canFinalize: boolean = false;
   statusOptions: any[] = [];
   isReportFinalized: boolean = false;
@@ -85,7 +85,6 @@ export class LbwMainPage implements OnInit {
         return;
       }
 
-      // DEXIE-FIRST: Cards are already initialized in property definition for instant display
       // Load status options and check finalization in background (non-blocking)
       this.loadStatusOptions();
       this.checkIfFinalized();

@@ -1,12 +1,5 @@
 <div class="main-container">
-  <!-- Loading State -->
-  <div *ngIf="loading" class="loading-container">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading...</p>
-  </div>
-
-  <!-- Navigation Cards (Main View) -->
-  <div *ngIf="!loading" class="white-container">
+  <div class="white-container">
     <div class="cards-container">
       <ion-card
         *ngFor="let card of cards"
@@ -40,8 +33,7 @@
     </div>
   </div>
 
-  <!-- Footer with Finalize Button -->
-  <div *ngIf="!loading" class="footer-section">
+  <div class="footer-section">
     <ion-button
       expand="block"
       size="large"

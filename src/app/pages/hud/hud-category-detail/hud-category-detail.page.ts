@@ -804,6 +804,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       this.organizedData = organizedData;
 
+      // Sort each section by answerType (multiselect first for uniform display)
+      this.sortOrganizedDataByAnswerType();
+
       console.log(`[CategoryDetail] MOBILE: Organized - ${organizedData.comments.length} comments, ${organizedData.limitations.length} limitations, ${organizedData.deficiencies.length} deficiencies`);
 
       // DEXIE-FIRST: Load VisualFields from Dexie to restore local changes (visualId, answer, otherValue)
@@ -1243,6 +1246,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       this.organizedData = organizedData;
 
+      // Sort each section by answerType (multiselect first for uniform display)
+      this.sortOrganizedDataByAnswerType();
+
       // Count how many items are selected (matched to visuals)
       const selectedCount = [...organizedData.comments, ...organizedData.limitations, ...organizedData.deficiencies]
         .filter(item => item.isSelected).length;
@@ -1611,6 +1617,30 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     }
 
     console.log(`[CategoryDetail] Organized: ${this.organizedData.comments.length} comments, ${this.organizedData.limitations.length} limitations, ${this.organizedData.deficiencies.length} deficiencies`);
+
+    // Sort each section by answerType (multiselect first for uniform display)
+    this.sortOrganizedDataByAnswerType();
+  }
+
+  /**
+   * Sort organized data sections by answerType to show multiselect (answerType=2) items first.
+   * This creates a more uniform display where all multiselect questions appear at the top of each section.
+   */
+  private sortOrganizedDataByAnswerType(): void {
+    const sortByAnswerType = (a: VisualItem, b: VisualItem) => {
+      // answerType 2 = multiselect (show first)
+      // answerType 1 = single select (show second)
+      // answerType 0 or other = default (show last)
+      const orderA = a.answerType === 2 ? 0 : (a.answerType === 1 ? 1 : 2);
+      const orderB = b.answerType === 2 ? 0 : (b.answerType === 1 ? 1 : 2);
+      return orderA - orderB;
+    };
+
+    this.organizedData.comments.sort(sortByAnswerType);
+    this.organizedData.limitations.sort(sortByAnswerType);
+    this.organizedData.deficiencies.sort(sortByAnswerType);
+
+    console.log('[CategoryDetail] Sorted organizedData by answerType (multiselect first)');
   }
 
   /**
@@ -7648,6 +7678,22 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       console.log('[VIEW PHOTO] Final existingAnnotations:', existingAnnotations ? 'LOADED' : 'NULL');
 
+      // ANNOTATION FLATTENING DETECTION (Attempt #1 - Issue #1 in Mobile_Issues.md)
+      // If photo has hasAnnotations flag but no annotation data was found, the image may be flattened
+      // This means annotations were baked into the image and are no longer editable
+      if (photo.hasAnnotations && !existingAnnotations) {
+        console.warn('[VIEW PHOTO] ⚠️ POTENTIAL ANNOTATION FLATTENING DETECTED');
+        console.warn('[VIEW PHOTO] Photo marked as having annotations (hasAnnotations=true) but no annotation data found');
+        console.warn('[VIEW PHOTO] AttachID:', attachId, 'Annotation sources checked:', {
+          'photo.annotations': !!photo.annotations,
+          'photo.annotationsData': !!photo.annotationsData,
+          'photo.rawDrawingsString': !!photo.rawDrawingsString,
+          'photo.Drawings': !!photo.Drawings
+        });
+        console.warn('[VIEW PHOTO] Any new annotations will be added on top of existing flattened annotations');
+        // Note: We continue anyway - user can still add new annotations, they just won't be able to edit the old ones
+      }
+
       // Get existing caption
       const existingCaption = photo.caption || photo.annotation || photo.Annotation || '';
 
@@ -8161,6 +8207,31 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
     );
     console.log('[SAVE] ? Annotation queued for sync:', isLocalFirstPhoto ? `local-first ${localImageId}` : attachId);
+
+    // ANNOTATION FLATTENING PREVENTION (Attempt #1 - Issue #1 in Mobile_Issues.md)
+    // Verify that we actually have valid annotation data being saved
+    // If Drawings is empty or invalid, future reloads will have no annotation data to edit
+    if (!updateData.Drawings || updateData.Drawings === EMPTY_COMPRESSED_ANNOTATIONS) {
+      if (annotationsData && typeof annotationsData === 'object' && annotationsData.objects?.length > 0) {
+        console.error('[SAVE] ⚠️ ANNOTATION FLATTENING RISK: annotationsData has', annotationsData.objects.length,
+          'objects but Drawings field is empty/default. Annotations may not be editable on reload!');
+        console.error('[SAVE] ⚠️ annotationsData:', JSON.stringify(annotationsData).substring(0, 500));
+        console.error('[SAVE] ⚠️ updateData.Drawings:', updateData.Drawings?.substring(0, 100));
+      }
+    } else {
+      // Verify the saved data can be decompressed back to valid annotations
+      try {
+        const verifyDecompressed = decompressAnnotationData(updateData.Drawings);
+        if (!verifyDecompressed || !verifyDecompressed.objects || verifyDecompressed.objects.length === 0) {
+          console.warn('[SAVE] ⚠️ ANNOTATION VERIFICATION WARNING: Saved Drawings decompresses to empty annotations');
+          console.warn('[SAVE] ⚠️ Original annotationsData had', annotationsData?.objects?.length || 0, 'objects');
+        } else {
+          console.log('[SAVE] ✅ ANNOTATION VERIFICATION PASSED:', verifyDecompressed.objects.length, 'objects will be editable on reload');
+        }
+      } catch (verifyError) {
+        console.error('[SAVE] ⚠️ ANNOTATION VERIFICATION FAILED: Cannot decompress saved Drawings:', verifyError);
+      }
+    }
 
     // Return the compressed drawings string so caller can update local photo object
     return updateData.Drawings;

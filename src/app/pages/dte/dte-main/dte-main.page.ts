@@ -46,7 +46,6 @@ export class DteMainPage implements OnInit {
 
   projectId: string = '';
   serviceId: string = '';
-  loading: boolean = true;
   canFinalize: boolean = false;
   statusOptions: any[] = [];
   isReportFinalized: boolean = false;
@@ -84,8 +83,6 @@ export class DteMainPage implements OnInit {
         await this.checkIfFinalized();
         await this.checkCanFinalize();
       }
-      
-      this.loading = false;
     });
   }
 

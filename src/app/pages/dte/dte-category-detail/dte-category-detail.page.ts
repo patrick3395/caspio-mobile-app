@@ -3107,6 +3107,28 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
       }
     }
 
+    // ANNOTATION FLATTENING PREVENTION (Attempt #1 - Issue #1 in Mobile_Issues.md)
+    // Verify that we actually have valid annotation data being saved
+    if (!updateData.Drawings || updateData.Drawings === '{}') {
+      if (annotationsData && typeof annotationsData === 'object' && annotationsData.objects?.length > 0) {
+        console.error('[SAVE] ⚠️ ANNOTATION FLATTENING RISK: annotationsData has', annotationsData.objects.length,
+          'objects but Drawings field is empty/default. Annotations may not be editable on reload!');
+      }
+    } else {
+      // Verify the saved data can be decompressed back to valid annotations
+      try {
+        const { decompressAnnotationData } = await import('../../../utils/annotation-utils');
+        const verifyDecompressed = decompressAnnotationData(updateData.Drawings);
+        if (!verifyDecompressed || !verifyDecompressed.objects || verifyDecompressed.objects.length === 0) {
+          console.warn('[SAVE] ⚠️ ANNOTATION VERIFICATION WARNING: Saved Drawings decompresses to empty annotations');
+        } else {
+          console.log('[SAVE] ✅ ANNOTATION VERIFICATION PASSED:', verifyDecompressed.objects.length, 'objects will be editable on reload');
+        }
+      } catch (verifyError) {
+        console.error('[SAVE] ⚠️ ANNOTATION VERIFICATION FAILED: Cannot decompress saved Drawings:', verifyError);
+      }
+    }
+
     return attachId;
   }
 
@@ -3463,6 +3485,20 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         } catch (e) {
           console.error('[VIEW PHOTO] Error loading annotations:', e);
         }
+      }
+
+      // ANNOTATION FLATTENING DETECTION (Attempt #1 - Issue #1 in Mobile_Issues.md)
+      // If photo has hasAnnotations flag but no annotation data was found, the image may be flattened
+      if (photo.hasAnnotations && !existingAnnotations) {
+        console.warn('[VIEW PHOTO] ⚠️ POTENTIAL ANNOTATION FLATTENING DETECTED');
+        console.warn('[VIEW PHOTO] Photo marked as having annotations (hasAnnotations=true) but no annotation data found');
+        console.warn('[VIEW PHOTO] AttachID:', attachId, 'Annotation sources checked:', {
+          'photo.annotations': !!photo.annotations,
+          'photo.annotationsData': !!photo.annotationsData,
+          'photo.rawDrawingsString': !!photo.rawDrawingsString,
+          'photo.Drawings': !!photo.Drawings
+        });
+        console.warn('[VIEW PHOTO] Any new annotations will be added on top of existing flattened annotations');
       }
 
       const existingCaption = photo.caption || photo.annotation || photo.Annotation || '';

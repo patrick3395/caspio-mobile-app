@@ -1469,9 +1469,13 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   // ===== NAVIGATION =====
 
   goBack() {
-    // Use Angular's Location service which uses browser history
-    // This is the most reliable way to go back in webapp mode
-    this.location.back();
+    // MOBILE: Use NavController for proper Ionic navigation stack
+    // WEBAPP: Use Location service for browser history
+    if (environment.isWeb) {
+      this.location.back();
+    } else {
+      this.navController.back();
+    }
   }
 
   // ===== UTILITIES =====

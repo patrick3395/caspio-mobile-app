@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Router, ActivatedRoute, NavigationEnd } from '@angular/router';
@@ -6,6 +6,7 @@ import { DteStateService } from '../services/dte-state.service';
 import { DtePdfService } from '../services/dte-pdf.service';
 import { OfflineDataCacheService } from '../../../services/offline-data-cache.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
+import { OfflineService } from '../../../services/offline.service';
 import { NavigationHistoryService } from '../../../services/navigation-history.service';
 import { PageTitleService } from '../../../services/page-title.service';
 import { filter } from 'rxjs/operators';
@@ -34,6 +35,16 @@ export class DteContainerPage implements OnInit {
   isGeneratingPDF: boolean = false;
   isSubPage: boolean = false;
 
+  // Offline-first: template loading state
+  templateReady: boolean = false;
+  downloadProgress: string = 'Preparing template...';
+
+  // WEBAPP MODE: Flag for template to hide sync-related UI
+  isWeb: boolean = environment.isWeb;
+
+  // Track last loaded service to prevent unnecessary re-downloads
+  private static lastLoadedServiceId: string = '';
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -42,28 +53,69 @@ export class DteContainerPage implements OnInit {
     private location: Location,
     private offlineCache: OfflineDataCacheService,
     private offlineTemplate: OfflineTemplateService,
+    private offlineService: OfflineService,
     private navigationHistory: NavigationHistoryService,
-    private pageTitleService: PageTitleService
-  ) {}
+    private pageTitleService: PageTitleService,
+    private changeDetectorRef: ChangeDetectorRef
+  ) {
+    // CRITICAL: Ensure loading screen shows immediately
+    this.templateReady = false;
+    this.downloadProgress = 'Loading template...';
+  }
 
   ngOnInit() {
+    // CRITICAL: Ensure loading screen is visible immediately
+    this.templateReady = false;
+    this.downloadProgress = 'Initializing template...';
+    this.changeDetectorRef.detectChanges();
+
     // Get project and service IDs from route params
-    this.route.params.subscribe(params => {
-      this.projectId = params['projectId'];
-      this.serviceId = params['serviceId'];
+    this.route.params.subscribe(async params => {
+      const newProjectId = params['projectId'];
+      const newServiceId = params['serviceId'];
+
+      // Skip re-download if navigating within the same service
+      const isNewService = DteContainerPage.lastLoadedServiceId !== newServiceId;
+      const isFirstLoad = !DteContainerPage.lastLoadedServiceId;
+
+      this.projectId = newProjectId;
+      this.serviceId = newServiceId;
 
       // Initialize state service with IDs
       this.stateService.initialize(this.projectId, this.serviceId);
 
-      // Subscribe to project name updates
-      this.stateService.projectData$.subscribe(data => {
-        if (data?.projectName) {
-          this.projectName = data.projectName;
-        }
-      });
+      // Subscribe to project name updates (only once per service)
+      if (isNewService || isFirstLoad) {
+        this.stateService.projectData$.subscribe(data => {
+          if (data?.projectName) {
+            this.projectName = data.projectName;
+          }
+        });
+      }
 
-      // Pre-cache templates and service data for offline use (non-blocking)
-      this.preCacheForOffline();
+      // Only show loading and re-download if this is a NEW service
+      if (isNewService || isFirstLoad) {
+        console.log('[DTE Container] New service detected, downloading template data...');
+
+        // CRITICAL: Force loading screen to render before starting download
+        this.templateReady = false;
+        this.downloadProgress = 'Loading template data...';
+        this.changeDetectorRef.detectChanges();
+
+        // Small delay to ensure UI renders loading state
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // CRITICAL: Download ALL template data for offline use
+        await this.downloadTemplateData();
+
+        // Track that we've loaded this service
+        DteContainerPage.lastLoadedServiceId = newServiceId;
+      } else {
+        console.log('[DTE Container] Same service (' + newServiceId + '), skipping re-download');
+        // CRITICAL: Must set templateReady=true when skipping download
+        this.templateReady = true;
+        this.changeDetectorRef.detectChanges();
+      }
     });
 
     // Subscribe to router events to update breadcrumbs
@@ -240,28 +292,85 @@ export class DteContainerPage implements OnInit {
   }
 
   /**
-   * Download complete template for offline use.
-   * Runs in background, doesn't block UI.
+   * Template Loading - ALWAYS shows loading screen and syncs fresh data when online
    */
-  private async preCacheForOffline(): Promise<void> {
-    if (!this.serviceId) return;
-
-    console.log('[DTE Container] Downloading template for offline use...');
-
-    try {
-      await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'DTE');
-      console.log('[DTE Container] Template downloaded - ready for offline use');
-    } catch (error) {
-      console.warn('[DTE Container] Template download skipped:', error);
-      try {
-        await Promise.all([
-          this.offlineCache.refreshAllTemplates(),
-          this.offlineCache.preCacheServiceData(this.serviceId)
-        ]);
-      } catch (fallbackError) {
-        console.warn('[DTE Container] Fallback pre-cache also failed:', fallbackError);
-      }
+  private async downloadTemplateData(): Promise<void> {
+    if (!this.serviceId) {
+      console.log('[DTE Container] downloadTemplateData: no serviceId, skipping');
+      this.templateReady = true;
+      this.changeDetectorRef.detectChanges();
+      return;
     }
+
+    console.log(`[DTE Container] ========== TEMPLATE LOAD ==========`);
+    console.log(`[DTE Container] ServiceID: ${this.serviceId}, ProjectID: ${this.projectId}`);
+    console.log(`[DTE Container] Online: ${this.offlineService.isOnline()}`);
+
+    // WEBAPP MODE: Skip template download - pages will fetch directly from API
+    if (environment.isWeb) {
+      console.log('[DTE Container] WEBAPP MODE: Skipping template download - pages fetch from API directly');
+      this.templateReady = true;
+      this.downloadProgress = 'Ready';
+      this.changeDetectorRef.detectChanges();
+      return;
+    }
+
+    // MOBILE MODE: Download template for offline use
+    this.templateReady = false;
+    this.downloadProgress = 'Loading template data...';
+    this.changeDetectorRef.detectChanges();
+    console.log('[DTE Container] Loading screen should now be visible');
+
+    const isOnline = this.offlineService.isOnline();
+
+    if (isOnline) {
+      // ONLINE: Always download fresh data
+      try {
+        this.downloadProgress = 'Syncing template data...';
+        this.changeDetectorRef.detectChanges();
+        console.log('[DTE Container] Online - downloading fresh template data...');
+
+        await this.offlineTemplate.downloadTemplateForOffline(this.serviceId, 'DTE', this.projectId);
+        console.log('[DTE Container] Template downloaded - ready for offline use');
+
+        this.downloadProgress = 'Template ready!';
+        this.changeDetectorRef.detectChanges();
+      } catch (error: any) {
+        console.warn('[DTE Container] Template download failed:', error);
+        this.downloadProgress = 'Sync failed - checking cached data...';
+        this.changeDetectorRef.detectChanges();
+
+        // Try fallback download
+        try {
+          console.log('[DTE Container] Trying fallback pre-cache...');
+          this.downloadProgress = 'Attempting fallback sync...';
+          this.changeDetectorRef.detectChanges();
+          await Promise.all([
+            this.offlineCache.refreshAllTemplates(),
+            this.offlineCache.preCacheServiceData(this.serviceId)
+          ]);
+          console.log('[DTE Container] Fallback completed');
+          this.downloadProgress = 'Template ready (partial sync)';
+          this.changeDetectorRef.detectChanges();
+        } catch (fallbackError) {
+          console.warn('[DTE Container] Fallback also failed:', fallbackError);
+          this.downloadProgress = 'Limited functionality - some data unavailable';
+          this.changeDetectorRef.detectChanges();
+        }
+      }
+    } else {
+      // OFFLINE: Check for cached data
+      this.downloadProgress = 'Offline - loading cached data...';
+      this.changeDetectorRef.detectChanges();
+      console.log('[DTE Container] Offline - checking for cached data...');
+      this.downloadProgress = 'Working offline with cached data';
+      this.changeDetectorRef.detectChanges();
+    }
+
+    // Always mark as ready - let user proceed
+    this.templateReady = true;
+    this.changeDetectorRef.detectChanges();
+    console.log('[DTE Container] Template ready, loading screen hidden');
   }
 }
 
