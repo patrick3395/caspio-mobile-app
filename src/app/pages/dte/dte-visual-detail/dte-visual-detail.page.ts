@@ -13,7 +13,7 @@ import { db, VisualField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { DteDataService } from '../dte-data.service';
-import { compressAnnotationData } from '../../../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData } from '../../../utils/annotation-utils';
 import { liveQuery } from 'dexie';
 import { environment } from '../../../../environments/environment';
 import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
@@ -1102,15 +1102,33 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     const originalPhotoIndex = this.photos.findIndex(p => p.id === photo.id);
     const editUrl = photo.originalUrl || photo.displayUrl;
 
+    // WEBAPP FIX: Load existing annotations properly (matching category-detail pattern)
+    // The annotator expects existingAnnotations, not existingDrawings
+    let existingAnnotations: any = null;
+    if (photo.drawings && photo.drawings.length > 10) {
+      try {
+        existingAnnotations = decompressAnnotationData(photo.drawings);
+        console.log('[DteVisualDetail] Found existing annotations from drawings');
+      } catch (e) {
+        console.warn('[DteVisualDetail] Error loading annotations:', e);
+      }
+    }
+
+    const existingCaption = photo.caption || '';
+
     const modal = await this.modalController.create({
       component: FabricPhotoAnnotatorComponent,
       componentProps: {
         imageUrl: editUrl,
-        photoId: photo.id,
-        caption: photo.caption,
-        entityId: this.dteId,
-        entityType: 'dte',
-        existingDrawings: photo.drawings || ''
+        existingAnnotations: existingAnnotations,
+        existingCaption: existingCaption,
+        photoData: {
+          ...photo,
+          AttachID: photo.id,
+          id: photo.id,
+          caption: existingCaption
+        },
+        isReEdit: !!existingAnnotations
       },
       cssClass: 'fullscreen-modal'
     });

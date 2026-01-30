@@ -5603,18 +5603,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
             // Create temp photo entry with loading state (show roller)
             const tempId = `uploading_${Date.now()}`;
-            // THUMBNAIL DISPLAY: Use annotated blob for display, original for editing
+            // ANNOTATION FLATTENING FIX: Always use original blob URL for ALL URLs
+            // Annotations stored in Drawings field (JSON) - no annotated blob URLs
             const originalBlobUrl = URL.createObjectURL(blob);
-            const annotatedBlobUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : originalBlobUrl;
             const tempPhotoEntry = {
               imageId: tempId,
               AttachID: tempId,
               attachId: tempId,
               id: tempId,
-              url: originalBlobUrl,              // Base image for API
-              displayUrl: annotatedBlobUrl,      // Annotated for thumbnail display
-              originalUrl: originalBlobUrl,      // CRITICAL: For re-editing (base image)
-              thumbnailUrl: annotatedBlobUrl,    // Annotated for thumbnail display
+              url: originalBlobUrl,              // Always original
+              displayUrl: originalBlobUrl,       // Always original - no annotated cache
+              originalUrl: originalBlobUrl,      // For re-editing
+              thumbnailUrl: originalBlobUrl,     // Always original - no annotated cache
               name: 'camera-photo.jpg',
               caption: caption || '',
               annotation: caption || '',
@@ -5649,7 +5649,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               console.log('[CAMERA UPLOAD] WEBAPP: ✅ Upload complete, AttachID:', uploadResult.attachId);
 
               // Replace temp photo with real photo (remove loading roller)
-              // THUMBNAIL DISPLAY: Keep annotated blob URL for display, use S3 for original
+              // ANNOTATION FLATTENING FIX: Always use original S3 URL for ALL URLs
               const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
               if (tempIndex >= 0) {
                 this.visualPhotos[key][tempIndex] = {
@@ -5658,31 +5658,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
                   AttachID: uploadResult.attachId,
                   attachId: uploadResult.attachId,
                   id: uploadResult.attachId,
-                  url: uploadResult.s3Url,           // S3 URL for API
-                  displayUrl: annotatedBlobUrl,      // Keep annotated for display
-                  originalUrl: uploadResult.s3Url,   // S3 URL for re-editing
-                  thumbnailUrl: annotatedBlobUrl,    // Keep annotated for display
+                  url: uploadResult.s3Url,
+                  displayUrl: uploadResult.s3Url,    // Always original - no annotated cache
+                  originalUrl: uploadResult.s3Url,   // For re-editing
+                  thumbnailUrl: uploadResult.s3Url,  // Always original - no annotated cache
                   status: 'uploaded',
                   isLocal: false,
                   uploading: false,  // Remove loading roller
                   isPending: false
                 };
-
-                // Cache annotated image for persistent thumbnail display
-                if (annotatedBlob && annotatedBlob.size > 0) {
-                  try {
-                    await this.indexedDb.cacheAnnotatedImage(uploadResult.attachId, annotatedBlob);
-                    this.bulkAnnotatedImagesMap.set(uploadResult.attachId, annotatedBlobUrl);
-                    console.log('[CAMERA UPLOAD] WEBAPP: ✅ Cached annotated thumbnail:', uploadResult.attachId);
-                  } catch (cacheErr) {
-                    console.warn('[CAMERA UPLOAD] WEBAPP: Failed to cache annotated thumbnail:', cacheErr);
-                  }
-                }
               }
 
               this.changeDetectorRef.detectChanges();
 
-              // Clean up original blob URL (but keep annotated URL for display)
+              // Clean up blob URL
               URL.revokeObjectURL(imageUrl);
               console.log('[CAMERA UPLOAD] WEBAPP: Photo added successfully');
               return;
@@ -7044,188 +7033,143 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           
           console.log('[VIEW PHOTO] Saving annotations - Original AttachID:', attachId, 'Current AttachID:', currentAttachId, 'Is temp:', isCurrentlyTemp);
 
-          // Save annotations to database FIRST
+          // IMMEDIATE UI UPDATE: Update thumbnail FIRST, then save to database in background
+          // This ensures the user sees the annotated thumbnail immediately without waiting for database
           if (currentAttachId && !isCurrentlyTemp) {
-            try {
-              // CRITICAL: Save and get back the compressed drawings that were saved
-              const compressedDrawings = await this.saveAnnotationToDatabase(currentAttachId, annotatedBlob, annotationsData, data.caption);
-
-              // CRITICAL: Create NEW photo object (immutable update pattern from original line 12518-12542)
-              // This ensures proper change detection and maintains separation between original and annotated
-              this.visualPhotos[key][photoIndex] = {
-                ...currentPhoto,
-                // PRESERVE originalUrl - this is the base image without annotations
-                originalUrl: currentPhoto.originalUrl || currentPhoto.url,
-                // UPDATE displayUrl - this is the annotated version for display
-                displayUrl: newUrl,
-                // Keep url pointing to base image (not the annotated version)
-                url: currentPhoto.url,
-                // ANNOTATION FIX: thumbnailUrl should show annotated image, not original
-                thumbnailUrl: newUrl,
-                // Mark as having annotations
-                hasAnnotations: !!annotationsData,
-                // Store caption
-                caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
-                annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
-                Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
-                // Store annotation data (uncompressed for immediate re-use)
-                annotations: annotationsData,
-                // CRITICAL: Store the COMPRESSED data that matches what's in the database
-                // This is used when reloading or re-editing
-                Drawings: compressedDrawings,
-                rawDrawingsString: compressedDrawings
-              };
-
-              console.log('[SAVE] Updated photo object in visualPhotos[' + key + '][' + photoIndex + ']');
-              console.log('[SAVE] Photo now has Drawings:', !!this.visualPhotos[key][photoIndex].Drawings, 'length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
-              console.log('[SAVE] Photo now has rawDrawingsString:', !!this.visualPhotos[key][photoIndex].rawDrawingsString, 'length:', this.visualPhotos[key][photoIndex].rawDrawingsString?.length || 0);
-              console.log('[SAVE] Photo hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
-
-              // THUMBNAIL DISPLAY: Cache annotated image for thumbnail display
-              // This is safe because the annotator ALWAYS uses originalUrl (base image), never displayUrl
-              // The cached annotated image is ONLY used for thumbnail display
-              this.bulkAnnotatedImagesMap.set(String(currentAttachId), newUrl);
-
-              // Also persist to IndexedDB so thumbnails show annotations after page reload
-              if (annotatedBlob && annotatedBlob.size > 0) {
-                try {
-                  await this.indexedDb.cacheAnnotatedImage(String(currentAttachId), annotatedBlob);
-                  console.log('[SAVE] ✅ Cached annotated thumbnail to IndexedDB for display:', currentAttachId);
-                } catch (cacheErr) {
-                  console.warn('[SAVE] Failed to cache annotated thumbnail:', cacheErr);
-                }
+            // Compress annotations for storage
+            let compressedDrawings = '';
+            if (annotationsData) {
+              if (typeof annotationsData === 'object') {
+                compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+              } else if (typeof annotationsData === 'string') {
+                compressedDrawings = compressAnnotationData(annotationsData);
               }
-
-              // CRITICAL: Clear ALL visual attachment caches (not just this one)
-              // This ensures when the user navigates away and back, ALL fresh data is loaded from database
-              // Clearing only the specific visualId wasn't working reliably on navigation
-              this.foundationData.clearVisualAttachmentsCache(); // Clear all caches
-              console.log('[SAVE] Cleared ALL attachment caches to ensure fresh data on navigation');
-
-              // Force change detection to ensure Angular picks up the updated photo object
-              this.changeDetectorRef.detectChanges();
-              console.log('[SAVE] ✅ Change detection triggered');
-
-              // Success toast removed per user request
-            } catch (error) {
-              console.error('[VIEW PHOTO] Error saving annotations:', error);
-              // Toast removed per user request
-              // await this.showToast('Failed to save annotations', 'danger');
             }
-          } else if (isCurrentlyTemp) {
-            // OFFLINE PHOTO: Update IndexedDB with the new annotations
-            // This ensures background sync will upload the photo WITH annotations
-            try {
-              console.log('[SAVE OFFLINE] ========== SAVING ANNOTATIONS FOR TEMP PHOTO ==========');
-              console.log('[SAVE OFFLINE] attachId:', attachId);
-              console.log('[SAVE OFFLINE] currentPhoto._pendingFileId:', currentPhoto._pendingFileId);
-              console.log('[SAVE OFFLINE] currentPhoto.attachId:', currentPhoto.attachId);
-              console.log('[SAVE OFFLINE] currentPhoto.AttachID:', currentPhoto.AttachID);
-              console.log('[SAVE OFFLINE] currentPhoto._tempId:', currentPhoto._tempId);
-              console.log('[SAVE OFFLINE] currentPhoto.isPending:', currentPhoto.isPending);
 
-              // Get the pending file ID - use multiple fallbacks
-              const pendingFileId = currentPhoto._pendingFileId || currentPhoto.attachId || currentPhoto._tempId || attachId;
-              console.log('[SAVE OFFLINE] Using pendingFileId:', pendingFileId);
+            // STEP 1: Update UI IMMEDIATELY (before database save)
+            this.visualPhotos[key][photoIndex] = {
+              ...currentPhoto,
+              originalUrl: currentPhoto.originalUrl || currentPhoto.url,
+              displayUrl: newUrl,           // Annotated thumbnail - IMMEDIATE
+              url: currentPhoto.url,
+              thumbnailUrl: newUrl,         // Annotated thumbnail - IMMEDIATE
+              hasAnnotations: !!annotationsData,
+              caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
+              annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
+              Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
+              annotations: annotationsData,
+              Drawings: compressedDrawings,
+              rawDrawingsString: compressedDrawings
+            };
 
-              // Compress the annotation data for storage (using static import for offline)
-              let compressedDrawings = '';
-              if (annotationsData) {
-                if (typeof annotationsData === 'object') {
-                  compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
-                } else if (typeof annotationsData === 'string') {
-                  compressedDrawings = compressAnnotationData(annotationsData);
-                }
-              }
+            // Cache in memory for instant lookup
+            this.bulkAnnotatedImagesMap.set(String(currentAttachId), newUrl);
 
-              // CRITICAL: Use updatePendingPhotoData for reliable caption/drawings update
-              // This is simpler and more reliable than re-reading and re-storing the entire file
-              const updated = await this.indexedDb.updatePendingPhotoData(pendingFileId, {
-                caption: data.caption || '',
-                drawings: compressedDrawings
+            // STEP 2: Trigger change detection IMMEDIATELY so thumbnail updates
+            this.changeDetectorRef.detectChanges();
+            console.log('[SAVE] ✅ UI updated IMMEDIATELY with annotated thumbnail');
+
+            // STEP 3: Save to database and IndexedDB in BACKGROUND (non-blocking)
+            // Use .then() instead of await so it doesn't block the UI
+            this.saveAnnotationToDatabase(currentAttachId, annotatedBlob, annotationsData, data.caption)
+              .then(() => {
+                console.log('[SAVE] ✅ Database save completed in background');
+              })
+              .catch((error) => {
+                console.error('[SAVE] Database save failed:', error);
               });
-              
-              if (updated) {
-                console.log('[SAVE OFFLINE] ✅ Updated IndexedDB with drawings:', compressedDrawings.length, 'chars');
-              } else {
-                console.warn('[SAVE OFFLINE] Could not find pending photo in IndexedDB for:', pendingFileId);
-                
-                // CRITICAL FIX: If file is not found, the photo may have been synced while user was annotating
-                // Try to save to the database using the _originalTempId or look for a real AttachID
-                const realAttachId = currentPhoto._originalTempId ? 
-                  await this.indexedDb.getRealId(String(currentPhoto._originalTempId)) : null;
-                  
-                if (realAttachId) {
-                  console.log('[SAVE OFFLINE] Photo was synced! Saving annotations to database with real ID:', realAttachId);
-                  try {
-                    await this.saveAnnotationToDatabase(realAttachId, annotatedBlob, annotationsData, data.caption || '');
-                    console.log('[SAVE OFFLINE] ✅ Annotations saved to database with real ID');
-                  } catch (dbError) {
-                    console.error('[SAVE OFFLINE] Failed to save annotations to database:', dbError);
-                  }
-                } else {
-                  console.warn('[SAVE OFFLINE] No real ID found, annotations will only be saved locally');
-                }
-              }
 
-              // Update local photo object with annotated image
-              console.log('[SAVE OFFLINE] Updating local photo object, newUrl:', newUrl ? 'created' : 'missing');
-
-              this.visualPhotos[key][photoIndex] = {
-                ...currentPhoto,
-                originalUrl: currentPhoto.originalUrl || currentPhoto.url,
-                displayUrl: newUrl,  // CRITICAL: Show annotated image immediately
-                thumbnailUrl: newUrl,  // ANNOTATION FIX: thumbnailUrl should show annotated image
-                hasAnnotations: !!annotationsData,
-                caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
-                annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
-                Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
-                annotations: annotationsData,
-                Drawings: compressedDrawings,
-                rawDrawingsString: compressedDrawings,
-                _localUpdate: true  // CRITICAL: Prevent reload from overwriting local annotations
-              };
-
-              console.log('[SAVE OFFLINE] Updated local photo object:');
-              console.log('[SAVE OFFLINE]   - displayUrl:', this.visualPhotos[key][photoIndex].displayUrl ? 'set' : 'missing');
-              console.log('[SAVE OFFLINE]   - hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
-              console.log('[SAVE OFFLINE]   - Drawings length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
-              
-              // THUMBNAIL DISPLAY: Cache annotated image for thumbnail display
-              // This is safe because the annotator ALWAYS uses originalUrl (base image), never displayUrl
-              const photoIdForCache = String(pendingFileId);
-              this.bulkAnnotatedImagesMap.set(photoIdForCache, newUrl);
-
-              // Also persist to IndexedDB so thumbnails show annotations after page reload
-              if (annotatedBlob && annotatedBlob.size > 0) {
-                try {
-                  await this.indexedDb.cacheAnnotatedImage(photoIdForCache, annotatedBlob);
-                  console.log('[SAVE OFFLINE] ✅ Cached annotated thumbnail to IndexedDB:', photoIdForCache);
-                } catch (cacheErr) {
-                  console.warn('[SAVE OFFLINE] Failed to cache annotated thumbnail:', cacheErr);
-                }
-              }
-
-              // Queue caption/annotation update for sync - background sync will resolve temp ID when photo syncs
-              try {
-                await this.foundationData.queueCaptionAndAnnotationUpdate(
-                  pendingFileId,
-                  data.caption || '',
-                  compressedDrawings,
-                  'visual',
-                  { serviceId: this.serviceId }
-                );
-                console.log('[SAVE OFFLINE] ✅ Caption/annotation queued for sync:', pendingFileId);
-              } catch (queueErr) {
-                console.warn('[SAVE OFFLINE] Failed to queue caption update:', queueErr);
-              }
-
-              // CRITICAL: Force change detection to update UI immediately
-              this.changeDetectorRef.detectChanges();
-              console.log('[SAVE OFFLINE] ✅ Change detection triggered');
-            } catch (error) {
-              console.error('[SAVE OFFLINE] Error saving annotations to IndexedDB:', error);
+            // Cache to IndexedDB in background (non-blocking)
+            if (annotatedBlob && annotatedBlob.size > 0) {
+              this.indexedDb.cacheAnnotatedImage(String(currentAttachId), annotatedBlob)
+                .then(() => {
+                  console.log('[SAVE] ✅ Cached annotated thumbnail to IndexedDB');
+                })
+                .catch((cacheErr) => {
+                  console.warn('[SAVE] Failed to cache annotated thumbnail:', cacheErr);
+                });
             }
+
+            // Clear caches in background
+            this.foundationData.clearVisualAttachmentsCache();
+
+          } else if (isCurrentlyTemp) {
+            // OFFLINE PHOTO: IMMEDIATE UI update, then save to IndexedDB in background
+            console.log('[SAVE OFFLINE] ========== SAVING ANNOTATIONS FOR TEMP PHOTO ==========');
+
+            // Get the pending file ID - use multiple fallbacks
+            const pendingFileId = currentPhoto._pendingFileId || currentPhoto.attachId || currentPhoto._tempId || attachId;
+
+            // Compress the annotation data for storage
+            let compressedDrawings = '';
+            if (annotationsData) {
+              if (typeof annotationsData === 'object') {
+                compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+              } else if (typeof annotationsData === 'string') {
+                compressedDrawings = compressAnnotationData(annotationsData);
+              }
+            }
+
+            // STEP 1: Update UI IMMEDIATELY (before any database operations)
+            this.visualPhotos[key][photoIndex] = {
+              ...currentPhoto,
+              originalUrl: currentPhoto.originalUrl || currentPhoto.url,
+              displayUrl: newUrl,           // Annotated thumbnail - IMMEDIATE
+              thumbnailUrl: newUrl,         // Annotated thumbnail - IMMEDIATE
+              hasAnnotations: !!annotationsData,
+              caption: data.caption !== undefined ? data.caption : currentPhoto.caption,
+              annotation: data.caption !== undefined ? data.caption : currentPhoto.annotation,
+              Annotation: data.caption !== undefined ? data.caption : currentPhoto.Annotation,
+              annotations: annotationsData,
+              Drawings: compressedDrawings,
+              rawDrawingsString: compressedDrawings,
+              _localUpdate: true
+            };
+
+            // Cache in memory for instant lookup
+            const photoIdForCache = String(pendingFileId);
+            this.bulkAnnotatedImagesMap.set(photoIdForCache, newUrl);
+
+            // STEP 2: Trigger change detection IMMEDIATELY so thumbnail updates
+            this.changeDetectorRef.detectChanges();
+            console.log('[SAVE OFFLINE] ✅ UI updated IMMEDIATELY with annotated thumbnail');
+
+            // STEP 3: Save to IndexedDB in BACKGROUND (non-blocking)
+            // Use .then() instead of await so it doesn't block the UI
+            this.indexedDb.updatePendingPhotoData(pendingFileId, {
+              caption: data.caption || '',
+              drawings: compressedDrawings
+            }).then(async (updated) => {
+              if (updated) {
+                console.log('[SAVE OFFLINE] ✅ Updated IndexedDB with drawings');
+              } else {
+                console.warn('[SAVE OFFLINE] Could not find pending photo, checking if synced...');
+                // Photo may have been synced while user was annotating
+                const realAttachId = currentPhoto._originalTempId ?
+                  await this.indexedDb.getRealId(String(currentPhoto._originalTempId)) : null;
+                if (realAttachId) {
+                  this.saveAnnotationToDatabase(realAttachId, annotatedBlob, annotationsData, data.caption || '')
+                    .catch(err => console.error('[SAVE OFFLINE] Failed to save to database:', err));
+                }
+              }
+            }).catch(err => console.error('[SAVE OFFLINE] IndexedDB update failed:', err));
+
+            // Cache annotated thumbnail to IndexedDB in background
+            if (annotatedBlob && annotatedBlob.size > 0) {
+              this.indexedDb.cacheAnnotatedImage(photoIdForCache, annotatedBlob)
+                .then(() => console.log('[SAVE OFFLINE] ✅ Cached annotated thumbnail to IndexedDB'))
+                .catch(err => console.warn('[SAVE OFFLINE] Failed to cache thumbnail:', err));
+            }
+
+            // Queue caption/annotation update for sync in background
+            this.foundationData.queueCaptionAndAnnotationUpdate(
+              pendingFileId,
+              data.caption || '',
+              compressedDrawings,
+              'visual',
+              { serviceId: this.serviceId }
+            );
+            console.log('[SAVE OFFLINE] ✅ Caption/annotation queued for sync:', pendingFileId);
           }
         }
       }
