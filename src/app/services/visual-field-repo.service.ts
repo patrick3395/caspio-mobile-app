@@ -396,7 +396,7 @@ export class VisualFieldRepoService {
           serviceId,
           category,
           templateId,
-          templateName: patch.templateName || 'Custom Item',
+          templateName: patch.templateName || '',
           templateText: patch.templateText || '',
           kind: patch.kind || 'Comment',
           answerType: patch.answerType ?? 0,

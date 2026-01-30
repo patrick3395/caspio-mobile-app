@@ -665,13 +665,19 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         }
 
         // TITLE/TEXT FIX: Restore edited name and text from Dexie
-        if (dexieField.templateName && dexieField.templateName !== item.name) {
-          console.log(`[MERGE DEXIE] Restored title from Dexie - key: ${key}, old: "${item.name}", new: "${dexieField.templateName}"`);
-          item.name = dexieField.templateName;
-        }
-        if (dexieField.templateText && dexieField.templateText !== item.text) {
-          console.log(`[MERGE DEXIE] Restored text from Dexie - key: ${key}`);
-          item.text = dexieField.templateText;
+        // WEBAPP FIX: Skip for WEBAPP mode - server data is source of truth for names
+        // This prevents stale Dexie data from overwriting correct server data
+        if (!environment.isWeb) {
+          if (dexieField.templateName && dexieField.templateName !== item.name) {
+            console.log(`[MERGE DEXIE] Restored title from Dexie - key: ${key}, old: "${item.name}", new: "${dexieField.templateName}"`);
+            item.name = dexieField.templateName;
+          }
+          if (dexieField.templateText && dexieField.templateText !== item.text) {
+            console.log(`[MERGE DEXIE] Restored text from Dexie - key: ${key}`);
+            item.text = dexieField.templateText;
+          }
+        } else {
+          console.log(`[MERGE DEXIE] WEBAPP: Skipping Dexie title/text merge - server is source of truth`);
         }
 
         // Restore selection state - CRITICAL: Update BOTH item.isSelected AND selectedItems map
@@ -1028,10 +1034,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           })));
 
           // Create a dynamic VisualItem for custom visuals
+          // Use the Name directly from the visual record - no fallback
           const customItem: VisualItem = {
             id: `custom_${LBWID}`,
-            templateId: 0,
-            name: visual.Name || 'Custom Item',
+            templateId: visual.TemplateID || 0,
+            name: visual.Name,
             text: visual.Text || '',
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',
@@ -1418,7 +1425,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
               const customItem: VisualItem = {
                 id: field.tempVisualId || field.visualId || field.templateId,
                 templateId: field.templateId,
-                name: field.templateName || 'Custom Item',
+                name: field.templateName,
                 text: field.templateText || '',
                 originalText: field.templateText || '',
                 type: field.kind || 'Comment',
@@ -3246,13 +3253,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
           console.log('[ANSWER] ✅ Created visual with LBWID:', visualId);
 
-          // DEXIE-FIRST: Persist tempVisualId to VisualField
+          // DEXIE-FIRST: Persist tempVisualId AND templateName to VisualField
           try {
             await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
               tempVisualId: visualId,
-              isSelected: true
+              isSelected: true,
+              templateName: item.name,
+              templateText: item.text || item.originalText || '',
+              kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
+              category: actualCategory
             });
-            console.log('[ANSWER] ✅ Persisted tempVisualId to Dexie:', visualId);
+            console.log('[ANSWER] ✅ Persisted tempVisualId to Dexie:', visualId, 'name:', item.name);
           } catch (err) {
             console.error('[ANSWER] Failed to persist tempVisualId:', err);
           }
@@ -3391,13 +3402,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
           console.log('[OPTION] ✅ Created visual with LBWID:', visualId);
 
-          // DEXIE-FIRST: Persist tempVisualId to VisualField
+          // DEXIE-FIRST: Persist tempVisualId AND templateName to VisualField
           try {
             await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
               tempVisualId: visualId,
-              isSelected: true
+              isSelected: true,
+              templateName: item.name,
+              templateText: item.text || item.originalText || '',
+              kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
+              category: actualCategory
             });
-            console.log('[OPTION] ✅ Persisted tempVisualId to Dexie:', visualId);
+            console.log('[OPTION] ✅ Persisted tempVisualId to Dexie:', visualId, 'name:', item.name);
           } catch (err) {
             console.error('[OPTION] Failed to persist tempVisualId:', err);
           }
