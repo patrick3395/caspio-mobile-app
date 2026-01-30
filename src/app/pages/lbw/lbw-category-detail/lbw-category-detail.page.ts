@@ -1959,7 +1959,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       if (!lbwId) continue;
 
       try {
-        const attachments = await this.lbwData.getVisualAttachments(lbwId);
+        const attachments = await this.hudData.getVisualAttachments(lbwId);
         console.log(`[LBW] WEBAPP: Loaded ${attachments?.length || 0} photos for LBW ${lbwId}`);
 
         // Convert attachments to photo format
@@ -2072,7 +2072,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       const syncInProgress = syncStatus.isSyncing;
 
       // Get attachments from database
-      const attachments = await this.lbwData.getVisualAttachments(LBWID);
+      const attachments = await this.hudData.getVisualAttachments(LBWID);
 
       console.log('[LOAD PHOTOS] Found', attachments.length, 'photos for LBW', LBWID, 'key:', key, 'sync:', syncInProgress);
 
@@ -2097,7 +2097,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
           // Check if we already have all the photos loaded
           const loadedPhotoIds = new Set(this.visualPhotos[key].map(p => p.AttachID));
-          const allPhotosLoaded = attachments.every(a => loadedPhotoIds.has(a.AttachID));
+          const allPhotosLoaded = attachments.every((a: any) => loadedPhotoIds.has(a.AttachID));
           if (allPhotosLoaded) {
             console.log('[LOAD PHOTOS] All photos already loaded - skipping reload');
             this.loadingPhotosByKey[key] = false;
