@@ -6450,20 +6450,52 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       if (isLocalFirstPhoto) {
         const localImageId = photo.localImageId || photo.imageId;
         console.log('[VIEW PHOTO] LocalImage detected, refreshing URL from Dexie:', localImageId);
-        
+
         // Get fresh URL from LocalImageService (uses Dexie under the hood)
         const localImage = await this.indexedDb.getLocalImage(localImageId);
-        
+
         if (localImage) {
           try {
-            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
-            console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));
-            
-            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
-              photo.url = freshUrl;
-              photo.thumbnailUrl = freshUrl;
-              photo.originalUrl = freshUrl;
-              photo.displayUrl = freshUrl;
+            // ANNOTATION FIX: For the annotator, we MUST get the FULL RESOLUTION image
+            // Do NOT use getDisplayUrl() as it may return a thumbnail when full-res is purged
+            // First try: Get full-resolution blob directly
+            let fullResUrl: string | null = null;
+
+            if (localImage.localBlobId) {
+              fullResUrl = await this.localImageService.getOriginalBlobUrl(localImage.localBlobId);
+              if (fullResUrl) {
+                console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION blob URL:', fullResUrl.substring(0, 50));
+                photo._hasFullResBlob = true;  // Flag to skip S3 fetch later
+              }
+            }
+
+            // Second try: If no full-res blob (purged), fetch from S3
+            if (!fullResUrl && localImage.remoteS3Key) {
+              console.log('[VIEW PHOTO] Full-res blob purged, fetching from S3:', localImage.remoteS3Key);
+              try {
+                fullResUrl = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
+                if (fullResUrl) {
+                  console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION from S3:', fullResUrl.substring(0, 50));
+                  photo._hasFullResBlob = true;  // S3 provides full resolution
+                }
+              } catch (s3Err) {
+                console.warn('[VIEW PHOTO] S3 fetch failed:', s3Err);
+              }
+            }
+
+            // Third try: Fall back to getDisplayUrl (may be thumbnail - last resort)
+            if (!fullResUrl) {
+              console.warn('[VIEW PHOTO] ⚠️ No full-res available, falling back to getDisplayUrl (may be thumbnail)');
+              fullResUrl = await this.localImageService.getDisplayUrl(localImage);
+            }
+
+            console.log('[VIEW PHOTO] Final LocalImage URL for annotator:', fullResUrl?.substring(0, 50));
+
+            if (fullResUrl && fullResUrl !== 'assets/img/photo-placeholder.svg') {
+              photo.url = fullResUrl;
+              photo.thumbnailUrl = fullResUrl;
+              photo.originalUrl = fullResUrl;
+              photo.displayUrl = fullResUrl;
             } else {
               // Fallback 1: Try cached photo by attachId (uses Dexie cachedPhotos table)
               let foundUrl = false;
@@ -6620,6 +6652,38 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           } catch (e) {
             console.error('[VIEW PHOTO] Failed to fetch from S3, using potentially flattened URL:', e);
           }
+        }
+      }
+
+      // THUMBNAIL FIX: Ensure we always have full-resolution image for the annotator
+      // If this is a LocalImage and full-res blob was purged, the URL might be a thumbnail
+      // For synced photos, prefer S3 to guarantee full resolution
+      const s3Key = photo.Attachment || photo.S3Key || photo.remoteS3Key;
+
+      // Check if current URL might be a thumbnail:
+      // - If LocalImage AND doesn't have a confirmed full-res blob
+      // - OR if URL is suspiciously short (data URL thumbnails are smaller)
+      const mightBeThumbnail = isLocalFirstPhoto || (
+        originalImageUrl &&
+        originalImageUrl.startsWith('blob:') &&
+        !photo._hasFullResBlob  // Flag set when we confirmed full-res availability
+      );
+
+      // Only fetch from S3 if:
+      // 1. We have an S3 key
+      // 2. AND we might have a thumbnail (or want to ensure full-res)
+      // 3. AND we're online
+      if (s3Key && this.caspioService.isS3Key(s3Key) && mightBeThumbnail) {
+        try {
+          console.log('[VIEW PHOTO] 📷 Fetching FULL RESOLUTION from S3 for annotator:', s3Key);
+          const s3FullResUrl = await this.caspioService.getS3FileUrl(s3Key);
+          if (s3FullResUrl) {
+            console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION S3 URL for annotator');
+            originalImageUrl = s3FullResUrl;
+          }
+        } catch (s3Err) {
+          // S3 fetch failed - likely offline. Use existing URL (may be thumbnail but better than nothing)
+          console.warn('[VIEW PHOTO] S3 fetch failed (may be offline), using existing URL:', s3Err);
         }
       }
 

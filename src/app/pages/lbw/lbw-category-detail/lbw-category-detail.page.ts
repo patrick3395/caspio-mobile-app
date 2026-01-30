@@ -203,10 +203,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       return;
     }
 
-    // WEBAPP: Reload data when returning to this page
+    // WEBAPP: Reload data when returning to this page (not on initial load)
     // This ensures photos and title/text edits made in visual-detail show here
-    if (environment.isWeb && this.serviceId && this.categoryName) {
-      console.log('[LBW] WEBAPP: ionViewWillEnter - reloading data...');
+    // CRITICAL: Only run after initial load is complete to avoid race condition
+    if (environment.isWeb && this.serviceId && this.categoryName && this.initialLoadComplete) {
+      console.log('[LBW] WEBAPP: ionViewWillEnter - reloading data (after initial load)...');
       this.loading = false;
 
       // CRITICAL: Clear caches to force fresh data load
@@ -222,6 +223,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       }
 
       this.changeDetectorRef.detectChanges();
+    } else if (environment.isWeb && this.serviceId && this.categoryName && !this.initialLoadComplete) {
+      console.log('[LBW] WEBAPP: ionViewWillEnter - skipping (initial load not complete yet)');
     }
   }
 
@@ -601,9 +604,14 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // Hide loading spinner (if it was shown)
       this.loading = false;
 
+      // WEBAPP FIX: Mark initial load as complete to allow ionViewWillEnter to reload data
+      this.initialLoadComplete = true;
+
     } catch (error) {
       console.error('[LOAD DATA] ❌ Error loading category data:', error);
       this.loading = false;
+      // Even on error, mark as complete so subsequent ionViewWillEnter can try again
+      this.initialLoadComplete = true;
     }
   }
 
@@ -962,9 +970,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // PRIORITY 2: Fall back to Name + Category matching
         // CRITICAL: Must check category to avoid matching visuals from other categories with same name
         if (!item && visual.Category === this.categoryName) {
+          const visualName = (visual.Name || '').trim().toLowerCase();
+          // First try exact match
           item = allItems.find(i => i.name === visual.Name);
           if (item) {
-            console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name+Category: "${visual.Name}" in "${visual.Category}"`);
+            console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name+Category (exact): "${visual.Name}" in "${visual.Category}"`);
+          }
+          // If no exact match, try case-insensitive match
+          if (!item && visualName) {
+            item = allItems.find(i => (i.name || '').trim().toLowerCase() === visualName);
+            if (item) {
+              console.log(`[LOAD EXISTING] PRIORITY 2: Matched by Name+Category (case-insensitive): "${visual.Name}" -> "${item.name}"`);
+            }
           }
         } else if (!item && visual.Category !== this.categoryName) {
           console.log(`[LOAD EXISTING] Skipping visual from different category: "${visual.Name}" in "${visual.Category}" (current: "${this.categoryName}")`);
@@ -974,17 +991,41 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // WEBAPP FIX - PRIORITY 3: Match by TemplateID
         // When a multi-select is saved, TemplateID is stored. Use it to find the matching template.
         // This handles cases where Name doesn't match (e.g., multi-select items with options as the "answer")
-        if (!item && environment.isWeb && visual.TemplateID) {
-          const templateIdToMatch = String(visual.TemplateID);
+        // Check all possible field names: LBWTemplateID, VisualTemplateID, TemplateID, FK_Template
+        const visualTemplateId = visual.LBWTemplateID || visual.VisualTemplateID || visual.TemplateID || visual.FK_Template;
+        if (!item && environment.isWeb && visualTemplateId) {
+          const templateIdToMatch = String(visualTemplateId);
+          console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: Trying to match by TemplateID: ${templateIdToMatch}`);
+          console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: Visual fields - LBWTemplateID: ${visual.LBWTemplateID}, VisualTemplateID: ${visual.VisualTemplateID}, TemplateID: ${visual.TemplateID}, FK_Template: ${visual.FK_Template}`);
           item = allItems.find(i => String(i.templateId) === templateIdToMatch);
           if (item) {
-            console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: Matched by TemplateID: ${templateIdToMatch} -> "${item.name}"`);
+            console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: ✅ Matched by TemplateID: ${templateIdToMatch} -> "${item.name}"`);
+          } else {
+            console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: ❌ No match found for TemplateID: ${templateIdToMatch}`);
+            console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: Available templateIds:`, allItems.map(i => ({ name: i.name, templateId: i.templateId })));
           }
         }
 
         // If no template match found, this is a CUSTOM visual - create dynamic item
         if (!item) {
-          console.log('[LOAD EXISTING] Creating dynamic item for custom visual:', name, kind);
+          console.log('[LOAD EXISTING] ⚠️ NO MATCH FOUND - Creating dynamic item for custom visual');
+          console.log('[LOAD EXISTING] ⚠️ VISUAL ALL FIELDS:', JSON.stringify(visual, null, 2));
+          console.log('[LOAD EXISTING] ⚠️ VISUAL KEY FIELDS:', {
+            LBWID: visual.LBWID,
+            Name: visual.Name,
+            Category: visual.Category,
+            Kind: visual.Kind,
+            Answers: visual.Answers,
+            TemplateID: visual.TemplateID,
+            LBWTemplateID: visual.LBWTemplateID,
+            VisualTemplateID: visual.VisualTemplateID
+          });
+          console.log('[LOAD EXISTING] ⚠️ AVAILABLE TEMPLATES:', allItems.map(i => ({
+            name: i.name,
+            id: i.id,
+            templateId: i.templateId,
+            answerType: i.answerType
+          })));
 
           // Create a dynamic VisualItem for custom visuals
           const customItem: VisualItem = {
