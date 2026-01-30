@@ -1084,10 +1084,23 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         this.visualRecordIds[key] = LBWID;
         console.log('[LOAD EXISTING] ✅ visualRecordIds[' + key + '] = ' + LBWID);
 
-        // Update item with saved answer
+        // Update item with saved data from server
         item.answer = visual.Answers || '';
         item.otherValue = visual.OtherValue || '';
         console.log('[LOAD EXISTING] ✅ item.answer set to:', item.answer);
+
+        // WEBAPP FIX: Update name and text from server if edited in visual-detail
+        // Server is source of truth for WEBAPP mode
+        if (environment.isWeb) {
+          if (visual.Name && visual.Name !== item.name) {
+            console.log('[LOAD EXISTING] WEBAPP: Updated name from server:', item.name, '->', visual.Name);
+            item.name = visual.Name;
+          }
+          if (visual.Text && visual.Text !== item.text) {
+            console.log('[LOAD EXISTING] WEBAPP: Updated text from server');
+            item.text = visual.Text;
+          }
+        }
 
         // Force change detection to update UI
         this.changeDetectorRef.detectChanges();

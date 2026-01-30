@@ -856,13 +856,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
             // TITLE/TEXT FIX: Restore edited name and text from Dexie
             // When user edits title in visual-detail, it's saved to Dexie but not cached HUD records
-            if (dexieField.templateName && dexieField.templateName !== item.name) {
-              console.log(`[CategoryDetail] MOBILE: Restored title from Dexie - key: ${key}, old: "${item.name}", new: "${dexieField.templateName}"`);
-              item.name = dexieField.templateName;
-            }
-            if (dexieField.templateText && dexieField.templateText !== item.text) {
-              console.log(`[CategoryDetail] MOBILE: Restored text from Dexie - key: ${key}`);
-              item.text = dexieField.templateText;
+            // WEBAPP FIX: Skip for WEBAPP mode - server data is source of truth for names
+            if (!environment.isWeb) {
+              if (dexieField.templateName && dexieField.templateName !== item.name) {
+                console.log(`[CategoryDetail] MOBILE: Restored title from Dexie - key: ${key}, old: "${item.name}", new: "${dexieField.templateName}"`);
+                item.name = dexieField.templateName;
+              }
+              if (dexieField.templateText && dexieField.templateText !== item.text) {
+                console.log(`[CategoryDetail] MOBILE: Restored text from Dexie - key: ${key}`);
+                item.text = dexieField.templateText;
+              }
             }
 
             // MULTI-SELECT FIX: Restore answer from Dexie if it has local changes
@@ -908,7 +911,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               const customItem: VisualItem = {
                 id: dexieField.tempVisualId || dexieField.visualId || templateId,
                 templateId: templateId,
-                name: dexieField.templateName || 'Custom Item',
+                name: dexieField.templateName,
                 text: dexieField.templateText || '',
                 originalText: dexieField.templateText || '',
                 type: dexieField.kind || 'Comment',
@@ -3396,13 +3399,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
               // TITLE/TEXT FIX: Restore edited name and text from Dexie
               // When user edits title in visual-detail, it's saved to Dexie but not cached HUD records
-              if (dexieField.templateName && dexieField.templateName !== item.name) {
-                console.log(`[LOAD DATA] Merged title from Dexie - templateId: ${item.templateId}, old: "${item.name}", new: "${dexieField.templateName}"`);
-                item.name = dexieField.templateName;
-              }
-              if (dexieField.templateText && dexieField.templateText !== item.text) {
-                console.log(`[LOAD DATA] Merged text from Dexie - templateId: ${item.templateId}`);
-                item.text = dexieField.templateText;
+              // WEBAPP FIX: Skip for WEBAPP mode - server data is source of truth for names
+              if (!environment.isWeb) {
+                if (dexieField.templateName && dexieField.templateName !== item.name) {
+                  console.log(`[LOAD DATA] Merged title from Dexie - templateId: ${item.templateId}, old: "${item.name}", new: "${dexieField.templateName}"`);
+                  item.name = dexieField.templateName;
+                }
+                if (dexieField.templateText && dexieField.templateText !== item.text) {
+                  console.log(`[LOAD DATA] Merged text from Dexie - templateId: ${item.templateId}`);
+                  item.text = dexieField.templateText;
+                }
               }
 
               // MULTI-SELECT FIX: Restore answer from Dexie (local changes)
@@ -3447,7 +3453,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 const customItem: VisualItem = {
                   id: dexieField.tempVisualId || dexieField.visualId || templateId,
                   templateId: templateId,
-                  name: dexieField.templateName || 'Custom Item',
+                  name: dexieField.templateName,
                   text: dexieField.templateText || '',
                   originalText: dexieField.templateText || '',
                   type: dexieField.kind || 'Comment',
@@ -3942,7 +3948,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         const customItem: VisualItem = {
           id: `custom_${visualId}`,
           templateId: 0,
-          name: visual.Name || 'Custom Item',
+          name: visual.Name,
           text: visual.Text || '',
           originalText: visual.Text || '',
           type: visual.Kind || 'Comment',
@@ -4186,7 +4192,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           const customItem: VisualItem = {
             id: `custom_${visualId}`, // Use visual ID as item ID
             templateId: 0, // No template
-            name: visual.Name || 'Custom Item',
+            name: visual.Name,
             text: visual.Text || '',
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',

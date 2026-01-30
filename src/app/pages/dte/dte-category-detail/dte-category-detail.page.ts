@@ -720,7 +720,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           const customItem: VisualItem = {
             id: `custom_${DTEID}`,
             templateId: 0,
-            name: visual.Name || 'Custom Item',
+            name: visual.Name,
             text: visual.Text || '',
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',

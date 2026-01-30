@@ -17,7 +17,7 @@ import { IndexedDbService, LocalImage } from '../../../../services/indexed-db.se
 import { BackgroundSyncService } from '../../../../services/background-sync.service';
 import { OfflineTemplateService } from '../../../../services/offline-template.service';
 import { LocalImageService } from '../../../../services/local-image.service';
-import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS, renderAnnotationsOnPhoto } from '../../../../utils/annotation-utils';
 import { AddCustomVisualModalComponent } from '../../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 import { db, VisualField } from '../../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../../services/visual-field-repo.service';
@@ -892,7 +892,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           const dynamicItem: VisualItem = {
             id: dynamicTemplateId,  // Use consistent ID for selection tracking
             templateId: dynamicTemplateId,  // Must match key pattern for isItemSelected()
-            name: visual.Name || 'Custom Item',
+            name: visual.Name,
             text: visual.VisualText || visual.Text || '',
             originalText: '',
             type: visual.Kind || 'Comment',
@@ -3148,7 +3148,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         const customItem: VisualItem = {
           id: `custom_${visualId}`,
           templateId: 0,
-          name: visual.Name || 'Custom Item',
+          name: visual.Name,
           text: visual.Text || '',
           originalText: visual.Text || '',
           type: visual.Kind || 'Comment',
@@ -3394,7 +3394,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           const customItem: VisualItem = {
             id: `custom_${visualId}`, // Use visual ID as item ID
             templateId: 0, // No template
-            name: visual.Name || 'Custom Item',
+            name: visual.Name,
             text: visual.Text || '',
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',
@@ -3831,6 +3831,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       // This ensures captions added after photo creation are visible on page reload
       await this.mergePendingCaptionsIntoPhotos(key);
 
+      // STEP 7: Render annotations on thumbnails (background, non-blocking)
+      // This shows annotations on photo thumbnails without caching annotated blobs
+      // CRITICAL: Runs in background so photos appear immediately with original images
+      this.renderAnnotatedThumbnails(key);
+
       this.loadingPhotosByKey[key] = false;
       this.changeDetectorRef.detectChanges();
 
@@ -3979,6 +3984,100 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       console.error('[MERGE CAPTIONS] Error merging pending captions:', error);
       // Don't fail the load - captions will sync later
     }
+  }
+
+  /**
+   * Render annotations on thumbnails for display purposes
+   * ANNOTATION SEPARATION: This renders annotations IN-MEMORY only for display
+   * - Does NOT persist to IndexedDB (prevents flattening)
+   * - Updates displayUrl for photos that have Drawings data
+   * - Runs in background (non-blocking) so photos appear immediately
+   * - originalUrl remains untouched (always points to base image)
+   */
+  private renderAnnotatedThumbnails(key: string): void {
+    const photos = this.visualPhotos[key];
+    if (!photos || photos.length === 0) {
+      return;
+    }
+
+    // Find photos that have annotations (Drawings data) but no rendered thumbnail yet
+    const photosWithAnnotations = photos.filter(p =>
+      p.hasAnnotations &&
+      p.Drawings &&
+      p.Drawings.length > 10 &&
+      !this.bulkAnnotatedImagesMap.has(String(p.AttachID || p.id))
+    );
+
+    if (photosWithAnnotations.length === 0) {
+      console.log('[THUMBNAIL RENDER] No photos need annotation rendering for key:', key);
+      return;
+    }
+
+    console.log(`[THUMBNAIL RENDER] Rendering annotations for ${photosWithAnnotations.length} photos in background`);
+
+    // Render in background - don't await
+    // Process photos one at a time to avoid overwhelming the browser
+    this.renderThumbnailsSequentially(photosWithAnnotations, key);
+  }
+
+  /**
+   * Render annotated thumbnails sequentially to avoid memory issues
+   * Updates UI after each successful render
+   */
+  private async renderThumbnailsSequentially(photos: any[], key: string): Promise<void> {
+    for (const photo of photos) {
+      try {
+        const photoId = String(photo.AttachID || photo.id);
+        const imageUrl = photo.originalUrl || photo.url || photo.displayUrl;
+
+        // Skip if no valid image URL
+        if (!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') {
+          continue;
+        }
+
+        // Skip if already rendered (double-check)
+        if (this.bulkAnnotatedImagesMap.has(photoId)) {
+          continue;
+        }
+
+        console.log('[THUMBNAIL RENDER] Rendering annotations for photo:', photoId);
+
+        // Render annotations onto the image
+        const annotatedUrl = await renderAnnotationsOnPhoto(
+          imageUrl,
+          photo.Drawings,
+          { quality: 0.8, format: 'jpeg' }
+        );
+
+        if (annotatedUrl && annotatedUrl !== imageUrl) {
+          // Store in in-memory map (NOT IndexedDB - prevents flattening)
+          this.bulkAnnotatedImagesMap.set(photoId, annotatedUrl);
+
+          // Update the photo's displayUrl for thumbnail display
+          // CRITICAL: Do NOT update originalUrl - it must remain the base image
+          const currentPhotos = this.visualPhotos[key];
+          if (currentPhotos) {
+            const photoIndex = currentPhotos.findIndex(p =>
+              String(p.AttachID || p.id) === photoId
+            );
+            if (photoIndex !== -1) {
+              currentPhotos[photoIndex].displayUrl = annotatedUrl;
+              currentPhotos[photoIndex].thumbnailUrl = annotatedUrl;
+              // DO NOT update originalUrl - it stays as base image for re-editing
+              console.log('[THUMBNAIL RENDER] ✅ Updated displayUrl for photo:', photoId);
+            }
+          }
+
+          // Trigger UI update
+          this.changeDetectorRef.detectChanges();
+        }
+      } catch (err) {
+        console.warn('[THUMBNAIL RENDER] Failed to render annotations for photo:', photo.AttachID, err);
+        // Continue with next photo - don't fail entire batch
+      }
+    }
+
+    console.log('[THUMBNAIL RENDER] ✅ Completed rendering for key:', key);
   }
 
   /**
@@ -6895,6 +6994,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               console.log('[SAVE] Photo now has rawDrawingsString:', !!this.visualPhotos[key][photoIndex].rawDrawingsString, 'length:', this.visualPhotos[key][photoIndex].rawDrawingsString?.length || 0);
               console.log('[SAVE] Photo hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
 
+              // THUMBNAIL DISPLAY: Store annotated URL in session cache for thumbnail display
+              // This is IN-MEMORY only (not IndexedDB) - safe for display, won't cause flattening
+              this.bulkAnnotatedImagesMap.set(String(currentAttachId), newUrl);
+              console.log('[SAVE] ✅ Cached annotated thumbnail in session (in-memory only):', currentAttachId);
+
               // CRITICAL: Clear ALL visual attachment caches (not just this one)
               // This ensures when the user navigates away and back, ALL fresh data is loaded from database
               // Clearing only the specific visualId wasn't working reliably on navigation
@@ -6990,9 +7094,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               console.log('[SAVE OFFLINE]   - hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
               console.log('[SAVE OFFLINE]   - Drawings length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
               
-              // ANNOTATION FLATTENING FIX: Do NOT cache annotated blob
+              // ANNOTATION FLATTENING FIX: Do NOT cache annotated blob to IndexedDB
               // Annotations stored in Drawings field (JSON) only - prevents flattening
-              console.log('[SAVE OFFLINE] ✅ Annotation saved to Drawings field (JSON only, no blob cache)');
+              // BUT: Store in session cache for thumbnail display (in-memory only, safe)
+              const photoIdForCache = String(pendingFileId);
+              this.bulkAnnotatedImagesMap.set(photoIdForCache, newUrl);
+              console.log('[SAVE OFFLINE] ✅ Annotation saved to Drawings field + session cache:', photoIdForCache);
 
               // Queue caption/annotation update for sync - background sync will resolve temp ID when photo syncs
               try {
