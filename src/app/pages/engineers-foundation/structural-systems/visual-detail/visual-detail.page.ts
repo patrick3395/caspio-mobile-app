@@ -48,6 +48,10 @@ interface PhotoItem {
   // Additional ID fields for annotation cache lookup (matches category-detail pattern)
   imageId?: string;
   attachId?: string;
+  // Additional annotation fields (matches category-detail pattern)
+  annotations?: any;
+  rawDrawingsString?: string;
+  Drawings?: string;
 }
 
 @Component({
@@ -539,7 +543,10 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
             loading: true,              // Image is loading until (load) event fires
             isLocal: false,
             hasAnnotations,
+            // Store drawings in MULTIPLE fields (matches category-detail pattern)
             drawings: att.Drawings || '',
+            rawDrawingsString: att.Drawings || '',
+            Drawings: att.Drawings || '',
             // Include all ID fields for cache lookup (matches category-detail pattern)
             imageId: attachId,
             attachId: attachId
@@ -724,7 +731,10 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
           uploading: img.status === 'queued' || img.status === 'uploading',
           isLocal: !img.isSynced,
           hasAnnotations,
+          // Store drawings in MULTIPLE fields (matches category-detail pattern)
           drawings: img.drawings || '',
+          rawDrawingsString: img.drawings || '',
+          Drawings: img.drawings || '',
           // Store all IDs for cache lookup in getPhotos()
           imageId: img.imageId,
           attachId: img.attachId || undefined
@@ -1401,17 +1411,46 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     // This allows re-editing annotations on the base image
     const editUrl = photo.originalUrl || photo.displayUrl;
 
-    // WEBAPP FIX: Load existing annotations properly (matching LBW pattern)
-    // The annotator expects existingAnnotations, not existingDrawings
+    // ANNOTATION FIX: Check MULTIPLE sources for existing annotations (matches category-detail pattern)
+    // The annotator expects existingAnnotations object
     let existingAnnotations: any = null;
-    if (photo.drawings && photo.drawings.length > 10) {
+    const annotationSources = [
+      photo.annotations,        // Decompressed object (if previously saved)
+      photo.rawDrawingsString,  // Compressed string
+      photo.Drawings,           // Compressed string (capital D)
+      photo.drawings            // Compressed string (lowercase)
+    ];
+
+    console.log('[VisualDetail] Checking annotation sources:', {
+      hasAnnotations: !!photo.annotations,
+      rawDrawingsStringLength: photo.rawDrawingsString?.length || 0,
+      DrawingsLength: photo.Drawings?.length || 0,
+      drawingsLength: photo.drawings?.length || 0
+    });
+
+    for (const source of annotationSources) {
+      if (!source) continue;
+
       try {
-        existingAnnotations = decompressAnnotationData(photo.drawings);
-        console.log('[VisualDetail] Found existing annotations from drawings');
+        if (typeof source === 'object' && source.objects) {
+          // Already a decompressed object
+          existingAnnotations = source;
+          console.log('[VisualDetail] Using existing annotations object with', source.objects.length, 'objects');
+          break;
+        } else if (typeof source === 'string' && source.length > 10) {
+          // Compressed string - decompress it
+          existingAnnotations = decompressAnnotationData(source);
+          if (existingAnnotations && existingAnnotations.objects) {
+            console.log('[VisualDetail] Decompressed annotations with', existingAnnotations.objects.length, 'objects');
+            break;
+          }
+        }
       } catch (e) {
-        console.warn('[VisualDetail] Error loading annotations:', e);
+        console.warn('[VisualDetail] Error loading annotations from source:', e);
       }
     }
+
+    console.log('[VisualDetail] Final existingAnnotations:', existingAnnotations ? 'LOADED' : 'NULL');
 
     const modal = await this.modalController.create({
       component: FabricPhotoAnnotatorComponent,
@@ -1531,6 +1570,7 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
           }
 
           // ANNOTATION THUMBNAIL FIX: Update UI immediately with new array reference
+          // Store annotations in MULTIPLE fields like category-detail for consistent lookup
           const newDisplayUrl = newUrl || this.photos[photoIndex].displayUrl;
           const updatedPhoto: PhotoItem = {
             ...this.photos[photoIndex],
@@ -1539,8 +1579,18 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
             originalUrl: this.photos[photoIndex].originalUrl || photo.originalUrl,
             caption: newCaption,
             hasAnnotations: !!annotationsData || !!compressedDrawings,
-            drawings: compressedDrawings
+            // Store drawings in MULTIPLE fields (matches category-detail pattern)
+            drawings: compressedDrawings,
+            rawDrawingsString: compressedDrawings,
+            Drawings: compressedDrawings,
+            annotations: annotationsData  // Also store the decompressed object
           };
+
+          console.log('[VisualDetail] Updated photo with drawings:', {
+            drawingsLength: compressedDrawings?.length || 0,
+            hasAnnotationsData: !!annotationsData,
+            annotationObjectCount: annotationsData?.objects?.length || 0
+          });
 
           // ANNOTATION THUMBNAIL FIX: Cache annotated URL under ALL possible IDs
           // This ensures lookup works whether using imageId, attachId, or id

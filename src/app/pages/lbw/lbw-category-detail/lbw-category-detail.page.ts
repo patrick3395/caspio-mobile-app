@@ -1071,6 +1071,48 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           console.log('[LOAD EXISTING]   - ID:', item.id);
           console.log('[LOAD EXISTING]   - TemplateID:', item.templateId);
           console.log('[LOAD EXISTING]   - AnswerType:', item.answerType);
+
+          // WEBAPP FIX: If this key already has a visual associated (different LBWID),
+          // create a custom item to avoid overwriting. This handles multiple visuals
+          // created from the same template (e.g., one with original name, one with edited name).
+          if (environment.isWeb) {
+            const existingKey = `${this.categoryName}_${item.id}`;
+            const existingLbwId = this.visualRecordIds[existingKey];
+            if (existingLbwId && String(existingLbwId) !== String(LBWID)) {
+              console.log('[LOAD EXISTING] WEBAPP: Key collision detected - creating unique item');
+              console.log('[LOAD EXISTING] WEBAPP: Existing LBWID:', existingLbwId, 'New LBWID:', LBWID);
+
+              // Create a custom item for this visual with a unique ID based on LBWID
+              const customItem: VisualItem = {
+                id: `custom_${LBWID}`,
+                templateId: item.templateId,
+                name: visual.Name || item.name,
+                text: visual.Text || item.text || '',
+                originalText: item.originalText || '',
+                type: item.type,
+                category: visual.Category || item.category,
+                answerType: item.answerType || 0,
+                required: item.required || false,
+                answer: visual.Answers || '',
+                photos: []
+              };
+
+              // Add to appropriate section
+              const customKind = visual.Kind || item.type || 'Comment';
+              if (customKind === 'Comment') {
+                this.organizedData.comments.push(customItem);
+              } else if (customKind === 'Limitation') {
+                this.organizedData.limitations.push(customItem);
+              } else if (customKind === 'Deficiency') {
+                this.organizedData.deficiencies.push(customItem);
+              } else {
+                this.organizedData.comments.push(customItem);
+              }
+
+              item = customItem;
+              console.log('[LOAD EXISTING] WEBAPP: ✅ Created unique item for visual:', item.name, 'with id:', item.id);
+            }
+          }
         }
 
         const key = `${this.categoryName}_${item.id}`;

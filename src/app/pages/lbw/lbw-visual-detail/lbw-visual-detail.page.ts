@@ -229,6 +229,13 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         const lbwRecords = await this.lbwData.getVisualsByService(this.serviceId);
         const visual = lbwRecords.find((v: any) => String(v.LBWID || v.PK_ID) === String(lbwIdFromQueryParams));
         if (visual) {
+          // WEBAPP FIX: Use the visual's original TemplateID for Dexie operations
+          // This ensures title/text saves work even for custom visuals (where route param might be custom_1234)
+          const originalTemplateId = visual.TemplateID || visual.LBWTemplateID || visual.VisualTemplateID || this.templateId;
+          if (!isNaN(originalTemplateId) && originalTemplateId > 0) {
+            this.templateId = originalTemplateId;
+          }
+
           this.item = {
             id: visual.LBWID || visual.PK_ID,
             templateId: this.templateId,
@@ -245,7 +252,7 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           this.categoryName = visual.Category || this.categoryName;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[LbwVisualDetail] WEBAPP DIRECT: Loaded visual:', this.item.name);
+          console.log('[LbwVisualDetail] WEBAPP DIRECT: Loaded visual:', this.item.name, 'templateId:', this.templateId);
         }
       } catch (e) {
         console.warn('[LbwVisualDetail] WEBAPP DIRECT: Could not load visual data:', e);
@@ -291,6 +298,34 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           console.log('[LbwVisualDetail] WEBAPP: Visual found by LBWID:', visual ? 'YES' : 'NO');
         }
 
+        // PRIORITY 1.25: WEBAPP FIX - Check Dexie for the visualId if query params empty
+        // When a visual is created, the LBWID is saved to Dexie. This is more reliable than
+        // PRIORITY 2's TemplateID matching which can pick the wrong visual if multiple exist.
+        if (!visual && !lbwIdFromQueryParams) {
+          try {
+            const dexieFields = await db.visualFields
+              .where('serviceId')
+              .equals(this.serviceId)
+              .toArray();
+            const dexieField = dexieFields.find(f =>
+              f.templateId === this.templateId && f.category === this.categoryName
+            );
+            const dexieVisualId = dexieField?.visualId || dexieField?.tempVisualId;
+            if (dexieVisualId) {
+              console.log('[LbwVisualDetail] WEBAPP PRIORITY 1.25: Found visualId in Dexie:', dexieVisualId);
+              visual = lbwRecords.find((v: any) =>
+                String(v.LBWID || v.PK_ID) === String(dexieVisualId)
+              );
+              if (visual) {
+                console.log('[LbwVisualDetail] WEBAPP PRIORITY 1.25: ✅ Matched visual from Dexie lookup');
+                this.lbwId = String(visual.LBWID || visual.PK_ID);
+              }
+            }
+          } catch (dexieErr) {
+            console.warn('[LbwVisualDetail] WEBAPP PRIORITY 1.25: Dexie lookup failed:', dexieErr);
+          }
+        }
+
         // PRIORITY 1.5: For custom visuals, templateId might BE the LBWID - try matching directly
         if (!visual && this.templateId > 0) {
           console.log('[LbwVisualDetail] WEBAPP: Looking for visual by templateId as LBWID:', this.templateId);
@@ -327,20 +362,19 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           }
         }
 
-        // PRIORITY 4: WEBAPP FALLBACK - If we have visuals in this category but no match,
-        // use the most recent one (highest LBWID). This handles cases where TemplateID
-        // or Name matching fails but photos were uploaded to a valid visual.
+        // PRIORITY 4: WEBAPP FALLBACK - Only use if there's exactly ONE visual in the category
+        // This prevents picking the wrong visual when multiple visuals exist.
+        // If multiple visuals exist, the lbwId query param should have been passed from category-detail.
         if (!visual && template) {
           const categoryVisuals = lbwRecords.filter((v: any) => v.Category === (template.Category || this.categoryName));
-          if (categoryVisuals.length > 0) {
-            // Sort by LBWID descending and pick the most recent
-            categoryVisuals.sort((a: any, b: any) => {
-              const aId = parseInt(a.LBWID || a.PK_ID || '0', 10);
-              const bId = parseInt(b.LBWID || b.PK_ID || '0', 10);
-              return bId - aId;
-            });
+          if (categoryVisuals.length === 1) {
+            // Only ONE visual in category - safe to use it
             visual = categoryVisuals[0];
-            console.log('[LbwVisualDetail] WEBAPP: PRIORITY 4 FALLBACK - Using most recent visual in category:', visual.LBWID, 'Name:', visual.Name);
+            console.log('[LbwVisualDetail] WEBAPP: PRIORITY 4 FALLBACK - Using only visual in category:', visual.LBWID, 'Name:', visual.Name);
+          } else if (categoryVisuals.length > 1) {
+            // Multiple visuals - don't guess, log warning
+            console.warn('[LbwVisualDetail] WEBAPP: PRIORITY 4 SKIPPED - Multiple visuals in category (' + categoryVisuals.length + '). No lbwId provided, cannot determine correct visual.');
+            console.warn('[LbwVisualDetail] WEBAPP: Available visuals:', categoryVisuals.map((v: any) => ({ LBWID: v.LBWID, Name: v.Name })));
           }
         }
 
