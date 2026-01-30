@@ -155,9 +155,11 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     // From visual-detail, we need to go up multiple levels
 
     // Get category from parent route params (category/:category level)
+    // CRITICAL: Decode URL-encoded category names for proper matching
     const categoryParams = this.route.parent?.snapshot.params;
-    this.categoryName = categoryParams?.['category'] || '';
-    console.log('[VisualDetail] Category from route:', this.categoryName);
+    const rawCategory = categoryParams?.['category'] || '';
+    this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
+    console.log('[VisualDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get project/service IDs from container (go up through structural to container)
     // Try parent?.parent?.parent first (category -> structural -> container)
@@ -1397,15 +1399,79 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
 
     // CRITICAL: Use ORIGINAL URL for editing (without annotations)
     // This allows re-editing annotations on the base image
-    const editUrl = photo.originalUrl || photo.displayUrl;
+    let editUrl = photo.originalUrl || photo.displayUrl;
+
+    // ANNOTATION FIX: Always fetch LATEST drawings from Dexie before opening editor
+    // The photo.drawings in memory may be stale after sync or multiple edits
+    let latestDrawings = photo.drawings || '';
+    let latestCaption = photo.caption || '';
+
+    if (!environment.isWeb) {
+      // MOBILE: Get fresh data from Dexie localImages
+      // Try multiple lookup strategies (imageId is primary key, attachId is after sync)
+      let localImage: any = null;
+
+      // Strategy 1: Direct lookup by photo.id (which is usually imageId)
+      localImage = await db.localImages.get(photo.id);
+      if (localImage) {
+        console.log('[VisualDetail] Found localImage by photo.id:', photo.id);
+      }
+
+      // Strategy 2: If photo.imageId is different, try that
+      if (!localImage && photo.imageId && photo.imageId !== photo.id) {
+        localImage = await db.localImages.get(photo.imageId);
+        if (localImage) {
+          console.log('[VisualDetail] Found localImage by imageId:', photo.imageId);
+        }
+      }
+
+      // Strategy 3: Query by attachId field (for synced photos)
+      if (!localImage && photo.attachId) {
+        localImage = await db.localImages.where('attachId').equals(photo.attachId).first();
+        if (localImage) {
+          console.log('[VisualDetail] Found localImage by attachId query:', photo.attachId);
+        }
+      }
+
+      // Strategy 4: If photo.id looks like an attachId (numeric), query by attachId
+      if (!localImage && photo.id && !photo.id.startsWith('img_') && !photo.id.startsWith('temp_')) {
+        localImage = await db.localImages.where('attachId').equals(photo.id).first();
+        if (localImage) {
+          console.log('[VisualDetail] Found localImage by photo.id as attachId:', photo.id);
+        }
+      }
+
+      if (localImage) {
+        console.log('[VisualDetail] LocalImage found - drawings length:', localImage.drawings?.length || 0);
+        if (localImage.drawings && localImage.drawings.length > 10) {
+          latestDrawings = localImage.drawings;
+        }
+        if (localImage.caption) {
+          latestCaption = localImage.caption;
+        }
+        // Get original blob URL for editing (not the annotated displayUrl)
+        if (localImage.localBlobId) {
+          const blob = await db.localBlobs.get(localImage.localBlobId);
+          if (blob) {
+            editUrl = URL.createObjectURL(new Blob([blob.data], { type: blob.contentType }));
+            console.log('[VisualDetail] Using original blob URL for editing');
+          }
+        } else if (localImage.remoteUrl) {
+          editUrl = localImage.remoteUrl;
+          console.log('[VisualDetail] Using remoteUrl for editing:', editUrl);
+        }
+      } else {
+        console.log('[VisualDetail] No localImage found for photo:', photo.id, '- using photo.drawings');
+      }
+    }
 
     // WEBAPP FIX: Load existing annotations properly (matching LBW pattern)
     // The annotator expects existingAnnotations, not existingDrawings
     let existingAnnotations: any = null;
-    if (photo.drawings && photo.drawings.length > 10) {
+    if (latestDrawings && latestDrawings.length > 10) {
       try {
-        existingAnnotations = decompressAnnotationData(photo.drawings);
-        console.log('[VisualDetail] Found existing annotations from drawings');
+        existingAnnotations = decompressAnnotationData(latestDrawings);
+        console.log('[VisualDetail] Found existing annotations from drawings, objects:', existingAnnotations?.objects?.length || 0);
       } catch (e) {
         console.warn('[VisualDetail] Error loading annotations:', e);
       }
@@ -1416,12 +1482,12 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
       componentProps: {
         imageUrl: editUrl,
         photoId: photo.id,
-        caption: photo.caption,
+        caption: latestCaption,
         entityId: this.visualId,
         entityType: 'visual',
         // Pass existing annotations for re-editing (correct prop name)
         existingAnnotations: existingAnnotations,
-        existingCaption: photo.caption || '',
+        existingCaption: latestCaption,
         isReEdit: !!existingAnnotations
       },
       cssClass: 'fullscreen-modal'

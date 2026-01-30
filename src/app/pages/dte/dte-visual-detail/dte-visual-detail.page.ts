@@ -144,10 +144,12 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   private loadRouteParams() {
     // DTE Route structure: Container (projectId/serviceId) -> category/:category -> visual/:templateId
     // Get category from parent route params (category/:category level)
+    // CRITICAL: Decode URL-encoded category names for proper matching
     const categoryParams = this.route.parent?.snapshot.params;
-    this.categoryName = categoryParams?.['category'] || '';
+    const rawCategory = categoryParams?.['category'] || '';
+    this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
     this.routeCategory = this.categoryName;
-    console.log('[DteVisualDetail] Category from route:', this.categoryName);
+    console.log('[DteVisualDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get project/service IDs from container (go up through to container)
     let containerParams = this.route.parent?.parent?.snapshot?.params;

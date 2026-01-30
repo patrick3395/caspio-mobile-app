@@ -278,8 +278,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     // this.subscribeToUploadUpdates(); -- DEFERRED
 
     // Get category name from route params
-    this.categoryName = this.route.snapshot.params['category'];
-    console.log('[CategoryDetail] Category from route:', this.categoryName);
+    // CRITICAL: Decode URL-encoded category names for proper matching
+    const rawCategory = this.route.snapshot.params['category'];
+    this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
+    console.log('[CategoryDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get IDs from container route using snapshot (for offline reliability)
     // HUD route structure: 'hud/:projectId/:serviceId' (Container) -> 'category/:category' (we are here)
@@ -1207,6 +1209,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           );
           if (visual) {
             console.log(`[CategoryDetail] WEBAPP PRIORITY 2: Matched by name+category: "${templateName}" / "${templateCategory}"`);
+          }
+        }
+
+        // PRIORITY 3: Match by TemplateID (handles case where Name was edited in visual-detail)
+        // This is critical when component is recreated (in-memory mappings lost) and Name changed
+        if (!visual && environment.isWeb) {
+          visual = (visuals || []).find((v: any) => {
+            const visualTemplateId = v.HUDTemplateID || v.VisualTemplateID || v.TemplateID || v.FK_Template;
+            return visualTemplateId && String(visualTemplateId) === String(templateId) && v.Category === templateCategory;
+          });
+          if (visual) {
+            console.log(`[CategoryDetail] WEBAPP PRIORITY 3: Matched by TemplateID: ${templateId} -> HUDID=${visual.HUDID}`);
           }
         }
 

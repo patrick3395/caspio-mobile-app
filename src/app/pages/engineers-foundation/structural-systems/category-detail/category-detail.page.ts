@@ -277,8 +277,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     // this.subscribeToUploadUpdates(); -- DEFERRED
 
     // Get category name from route params
-    this.categoryName = this.route.snapshot.params['category'];
-    console.log('[CategoryDetail] Category from route:', this.categoryName);
+    // CRITICAL: Decode URL-encoded category names (e.g., "Doors%20%28Interior%20and%20Exterior%29" -> "Doors (Interior and Exterior)")
+    const rawCategory = this.route.snapshot.params['category'];
+    this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
+    console.log('[CategoryDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get IDs from container route using snapshot (for offline reliability)
     // Route structure: '' (Container) -> 'structural' (anonymous) -> 'category/:category' (we are here)
@@ -324,7 +326,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
     // Also subscribe to param changes for dynamic updates
     this.route.params.subscribe(params => {
-      const newCategory = params['category'];
+      const rawCategory = params['category'];
+      const newCategory = rawCategory ? decodeURIComponent(rawCategory) : '';
       if (newCategory && newCategory !== this.categoryName) {
         this.categoryName = newCategory;
         console.log('[CategoryDetail] Category changed to:', this.categoryName);

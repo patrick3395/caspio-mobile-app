@@ -154,7 +154,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     // - this.route.parent = category/:category (has category param)
     // - this.route.parent.parent = container (has projectId, serviceId)
     this.route.parent?.params.subscribe(params => {
-      this.categoryName = params['category'];
+      // CRITICAL: Decode URL-encoded category names for proper matching
+      const rawCategory = params['category'];
+      this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
 
       // Get IDs from container route (go up 2 levels)
       this.route.parent?.parent?.params.subscribe(parentParams => {

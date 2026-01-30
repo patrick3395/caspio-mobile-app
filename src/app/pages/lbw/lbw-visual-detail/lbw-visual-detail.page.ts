@@ -154,10 +154,12 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     // From visual-detail, we need to go up multiple levels
 
     // Get category from parent route params (category/:category level)
+    // CRITICAL: Decode URL-encoded category names for proper matching
     const categoryParams = this.route.parent?.snapshot.params;
-    this.categoryName = categoryParams?.['category'] || '';
+    const rawCategory = categoryParams?.['category'] || '';
+    this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
     this.routeCategory = this.categoryName;  // Store original route category for back navigation
-    console.log('[LbwVisualDetail] Category from route:', this.categoryName);
+    console.log('[LbwVisualDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get project/service IDs from container (go up through to container)
     // Try parent?.parent first (category -> container)

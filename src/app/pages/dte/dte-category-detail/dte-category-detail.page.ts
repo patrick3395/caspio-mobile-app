@@ -123,8 +123,10 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     this.subscribeToUploadUpdates();
 
     // Get category name from route params using snapshot (for reliability)
-    this.categoryName = this.route.snapshot.params['category'];
-    console.log('[DTE CategoryDetail] Category from route:', this.categoryName);
+    // CRITICAL: Decode URL-encoded category names for proper matching
+    const rawCategory = this.route.snapshot.params['category'];
+    this.categoryName = rawCategory ? decodeURIComponent(rawCategory) : '';
+    console.log('[DTE CategoryDetail] Category from route:', rawCategory, '-> decoded:', this.categoryName);
 
     // Get IDs from container route using snapshot
     // DTE route structure: 'dte/:projectId/:serviceId' (Container) -> 'category/:category' (we are here)
@@ -711,7 +713,19 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         } else if (!item && visual.Category !== this.categoryName) {
           console.log(`[LOAD EXISTING] Skipping visual from different category: "${visual.Name}" in "${visual.Category}" (current: "${this.categoryName}")`);
         }
-        
+
+        // PRIORITY 3: Match by TemplateID (handles case where Name was edited in visual-detail)
+        // This is critical when component is recreated (in-memory mappings lost) and Name changed
+        if (!item && environment.isWeb && visual.Category === this.categoryName) {
+          const visualTemplateId = visual.DTETemplateID || visual.VisualTemplateID || visual.TemplateID || visual.FK_Template;
+          if (visualTemplateId) {
+            item = allItems.find(i => String(i.templateId) === String(visualTemplateId));
+            if (item) {
+              console.log(`[LOAD EXISTING] PRIORITY 3: Matched by TemplateID: ${visualTemplateId} -> item "${item.name}"`);
+            }
+          }
+        }
+
         // If no template match found, this is a CUSTOM visual - create dynamic item
         if (!item) {
           console.log('[LOAD EXISTING] Creating dynamic item for custom visual:', name, kind);
