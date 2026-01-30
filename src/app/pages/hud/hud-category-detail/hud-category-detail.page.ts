@@ -5587,10 +5587,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   // Answer change for Yes/No dropdowns (answerType 1)
   async onAnswerChange(category: string, item: VisualItem) {
-    // CRITICAL FIX: Use item.category (not route param) to match visualRecordIds keys
+    // WEBAPP FIX: Use item.id for key (matches photo functions) - template passes item.id to photo functions
+    // MOBILE: Use item.templateId to match Dexie lookup pattern
     const actualCategory = item.category || category;
-    const key = `${actualCategory}_${item.templateId}`;
-    console.log('[ANSWER] Changed:', item.answer, 'for', key, 'actualCategory:', actualCategory);
+    const key = environment.isWeb
+      ? `${actualCategory}_${item.id}`
+      : `${actualCategory}_${item.templateId}`;
+    console.log('[ANSWER] Changed:', item.answer, 'for', key, 'item.id:', item.id);
 
     // DEXIE-FIRST: Write-through to visualFields for instant reactive update
     this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
@@ -5666,13 +5669,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   // Multi-select option toggle (answerType 2)
   // Non-blocking: Updates UI immediately, saves in background for responsive rapid selection
   onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
-    // CRITICAL FIX: Use item.templateId (not item.id) to match how visualRecordIds is keyed
-    // Also use item.category (actual category like "Mobile/Manufactured Homes") not route param
+    // WEBAPP FIX: Use item.id for key (matches photo functions) - template passes item.id to photo functions
+    // MOBILE: Use item.templateId to match Dexie lookup pattern
     const actualCategory = item.category || category;
-    const key = `${actualCategory}_${item.templateId}`;
+    const key = environment.isWeb
+      ? `${actualCategory}_${item.id}`
+      : `${actualCategory}_${item.templateId}`;
     const isChecked = event.detail.checked;
 
-    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key, 'templateId:', item.templateId);
+    console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key, 'item.id:', item.id);
 
     // Update the answer string immediately for responsive UI
     let selectedOptions: string[] = [];
@@ -5897,10 +5902,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       return;
     }
 
-    // CRITICAL FIX: Use item.templateId (not item.id) and item.category to match visualRecordIds keys
+    // WEBAPP FIX: Use item.id for key (matches photo functions) - template passes item.id to photo functions
+    // MOBILE: Use item.templateId to match Dexie lookup pattern
     const actualCategory = item.category || category;
-    const key = `${actualCategory}_${item.templateId}`;
-    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'templateId:', item.templateId);
+    const key = environment.isWeb
+      ? `${actualCategory}_${item.id}`
+      : `${actualCategory}_${item.templateId}`;
+    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'item.id:', item.id);
 
     // Get current options for this template
     let options = this.visualDropdownOptions[item.templateId];
@@ -9400,11 +9408,14 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   openVisualDetail(categoryName: string, item: VisualItem) {
-    // Get the actual HUDID from visualRecordIds (item.id is templateId, not HUDID)
-    const key = item.key || `${item.category || this.categoryName}_${item.templateId}`;
+    // WEBAPP FIX: Use item.id for key (matches photo functions) - template passes item.id to photo functions
+    // MOBILE: Use item.templateId to match Dexie lookup pattern
+    const key = environment.isWeb
+      ? `${item.category || this.categoryName}_${item.id}`
+      : (item.key || `${item.category || this.categoryName}_${item.templateId}`);
     const hudId = this.visualRecordIds[key];
 
-    console.log('[CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName, 'key:', key, 'hudId:', hudId);
+    console.log('[CategoryDetail] Navigating to visual detail for item.id:', item.id, 'category:', categoryName, 'key:', key, 'hudId:', hudId);
 
     // WEBAPP MODE: Pass hudId directly so visual-detail can fetch fresh data from API
     // MOBILE MODE: Don't pass hudId - visual-detail looks it up from Dexie

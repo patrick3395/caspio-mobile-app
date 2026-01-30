@@ -970,7 +970,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           console.log(`[LOAD EXISTING] Skipping visual from different category: "${visual.Name}" in "${visual.Category}" (current: "${this.categoryName}")`);
           continue;
         }
-        
+
+        // WEBAPP FIX - PRIORITY 3: Match by TemplateID
+        // When a multi-select is saved, TemplateID is stored. Use it to find the matching template.
+        // This handles cases where Name doesn't match (e.g., multi-select items with options as the "answer")
+        if (!item && environment.isWeb && visual.TemplateID) {
+          const templateIdToMatch = String(visual.TemplateID);
+          item = allItems.find(i => String(i.templateId) === templateIdToMatch);
+          if (item) {
+            console.log(`[LOAD EXISTING] WEBAPP PRIORITY 3: Matched by TemplateID: ${templateIdToMatch} -> "${item.name}"`);
+          }
+        }
+
         // If no template match found, this is a CUSTOM visual - create dynamic item
         if (!item) {
           console.log('[LOAD EXISTING] Creating dynamic item for custom visual:', name, kind);
@@ -2599,15 +2610,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   async toggleItemSelection(category: string, itemId: string | number) {
     // CRITICAL FIX: Find item to get actual category (not route param)
     const item = this.findItemById(itemId);
-    // CRITICAL FIX: Use item.templateId for Dexie (not item.id which is PK_ID)
-    // item.templateId = template.TemplateID || template.PK_ID
-    // The Dexie lookup in loadDataFromCache uses item.templateId, so save must match
+    // WEBAPP FIX: Use itemId directly (which is item.id) - matches photo functions
+    // MOBILE: Use item.templateId to match Dexie lookup pattern
     const templateId = item?.templateId ?? (typeof itemId === 'string' ? parseInt(String(itemId), 10) : Number(itemId));
     const actualCategory = item?.category || category;
 
-    // Use actualCategory for key to match how visualRecordIds and Dexie merge work
-    // Use templateId (not itemId) to match Dexie lookup pattern
-    const key = `${actualCategory}_${templateId}`;
+    // WEBAPP: Use itemId (item.id) for key to match photo functions
+    // MOBILE: Use templateId for Dexie lookup pattern
+    const key = environment.isWeb
+      ? `${actualCategory}_${itemId}`
+      : `${actualCategory}_${templateId}`;
     const newState = !this.selectedItems[key];
     this.selectedItems[key] = newState;
 
@@ -3122,10 +3134,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async onAnswerChange(category: string, item: VisualItem) {
-    // CRITICAL FIX: Use item.category (not route param) to match visualRecordIds keys
+    // WEBAPP FIX: Use item.id for key (matches photo functions) - template passes item.id to photo functions
+    // MOBILE: Use item.templateId to match Dexie lookup pattern
     const actualCategory = item.category || category;
-    const key = `${actualCategory}_${item.templateId}`;
-    console.log('[ANSWER] Changed:', item.answer, 'for', key, 'actualCategory:', actualCategory);
+    const key = environment.isWeb
+      ? `${actualCategory}_${item.id}`
+      : `${actualCategory}_${item.templateId}`;
+    console.log('[ANSWER] Changed:', item.answer, 'for', key, 'item.id:', item.id);
 
     // DEXIE-FIRST: Write-through to visualFields for instant reactive update
     this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
@@ -3231,9 +3246,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async onOptionToggle(category: string, item: VisualItem, option: string, event: any) {
-    // CRITICAL FIX: Use item.templateId and item.category for proper key matching
+    // WEBAPP FIX: Use item.id for key (matches photo functions) - template passes item.id to photo functions
+    // MOBILE: Use item.templateId to match Dexie lookup pattern
     const actualCategory = item.category || category;
-    const key = `${actualCategory}_${item.templateId}`;
+    const key = environment.isWeb
+      ? `${actualCategory}_${item.id}`
+      : `${actualCategory}_${item.templateId}`;
     const isChecked = event.detail.checked;
 
     console.log('[OPTION] Toggled:', option, 'Checked:', isChecked, 'for', key, 'templateId:', item.templateId);
@@ -3405,10 +3423,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       return;
     }
 
-    // CRITICAL FIX: Use item.templateId (not item.id) and item.category to match visualRecordIds keys
+    // WEBAPP FIX: Use item.id for key (matches photo functions) - template passes item.id to photo functions
+    // MOBILE: Use item.templateId to match Dexie lookup pattern
     const actualCategory = item.category || category;
-    const key = `${actualCategory}_${item.templateId}`;
-    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'templateId:', item.templateId);
+    const key = environment.isWeb
+      ? `${actualCategory}_${item.id}`
+      : `${actualCategory}_${item.templateId}`;
+    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'item.id:', item.id);
 
     // Get current options for this template
     let options = this.visualDropdownOptions[item.templateId];
@@ -5502,10 +5523,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   openVisualDetail(category: string, item: any): void {
     console.log('[LBW] openVisualDetail - navigating to visual detail page for:', item?.name, 'category:', category);
 
-    // For custom visuals (templateId = 0), use item.id as the key
-    // For template visuals, use templateId
+    // WEBAPP FIX: Use item.id for key (matches photo functions and storage)
+    // MOBILE: For custom visuals (templateId = 0), use item.id; for template visuals, use templateId
     const isCustomVisual = !item.templateId || item.templateId === 0;
-    const keyId = isCustomVisual ? item.id : item.templateId;
+    const keyId = environment.isWeb
+      ? item.id
+      : (isCustomVisual ? item.id : item.templateId);
     const key = `${category}_${keyId}`;
     const lbwId = this.visualRecordIds[key] || '';
 

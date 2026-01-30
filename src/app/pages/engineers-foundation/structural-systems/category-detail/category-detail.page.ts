@@ -1041,26 +1041,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
           console.log(`[CategoryDetail] WEBAPP: Photo ${attachIdStr} - hasAnnotations: ${hasAnnotations}, Drawings length: ${att.Drawings?.length || 0}`);
 
-          // WEBAPP: Check for cached annotated image to display annotations on thumbnail
-          let thumbnailUrl = displayUrl;
-          if (hasAnnotations) {
-            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachIdStr);
-            console.log(`[CategoryDetail] WEBAPP: Looking for cached image with key "${attachIdStr}", found: ${!!cachedAnnotatedImage}`);
-            if (cachedAnnotatedImage) {
-              thumbnailUrl = cachedAnnotatedImage;
-              console.log(`[CategoryDetail] WEBAPP: Using cached annotated image for photo ${attachIdStr}`);
-            } else {
-              console.log(`[CategoryDetail] WEBAPP: No cached image found. Cache has ${this.bulkAnnotatedImagesMap.size} entries:`, Array.from(this.bulkAnnotatedImagesMap.keys()));
-            }
-          }
-
+          // ANNOTATION FLATTENING FIX: Always use original image for all URLs
+          // Annotations are stored in Drawings field (JSON) and rendered when editing
+          // This prevents any risk of flattening from cached annotated blobs
           photos.push({
             id: attachId,
             attachId: attachId,
             AttachID: attachId, // Also set capital version for error handler
-            displayUrl: thumbnailUrl,  // Use annotated image if available
-            url: displayUrl,           // Keep original URL for reference
-            originalUrl: displayUrl,   // Keep original for re-editing annotations
+            displayUrl: displayUrl,    // Always use original - no annotated cache
+            url: displayUrl,           // Original URL
+            originalUrl: displayUrl,   // Original for re-editing annotations
             caption: att.Annotation || att.caption || '',
             uploading: false,
             isLocal: false,
@@ -1422,23 +1412,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           try {
             const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
             if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
-              // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+              // ANNOTATION FLATTENING FIX: Always use original image
+              // Annotations stored in Drawings field (JSON) - no blob caching
               const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10) || existingPhoto.hasAnnotations;
-              let thumbnailUrl = freshDisplayUrl;
-              if (hasAnnotations) {
-                const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
-                if (cachedAnnotatedImage) {
-                  thumbnailUrl = cachedAnnotatedImage;
-                }
-              }
 
-              // Update displayUrl to fresh local blob (or annotated for thumbnail)
+              // Update displayUrl - always use original
               this.visualPhotos[key][existingPhotoIndex] = {
                 ...existingPhoto,
-                displayUrl: thumbnailUrl,  // Use annotated if available
-                url: freshDisplayUrl,      // Keep original for re-editing
-                thumbnailUrl: thumbnailUrl,
-                originalUrl: freshDisplayUrl,
+                displayUrl: freshDisplayUrl,   // Always original - no annotated cache
+                url: freshDisplayUrl,          // Original for re-editing
+                thumbnailUrl: freshDisplayUrl, // Original - no annotated cache
+                originalUrl: freshDisplayUrl,  // Original for re-editing
                 // Update metadata that may have changed
                 localBlobId: localImage.localBlobId,
                 caption: localImage.caption || existingPhoto.caption || '',
@@ -1472,20 +1456,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           console.warn('[DEXIE-FIRST] Failed to get displayUrl:', e);
         }
 
-        // ANNOTATION FIX: Check for cached annotated image for thumbnail display
-        // The annotated image is cached separately when user adds annotations
-        // We use it for displayUrl/thumbnailUrl while keeping originalUrl as the base image
-        let thumbnailUrl = displayUrl;
+        // ANNOTATION FLATTENING FIX: Always use original image
+        // Annotations stored in Drawings field (JSON) - no blob caching
         const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
-        if (hasAnnotations) {
-          const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
-          if (cachedAnnotatedImage) {
-            thumbnailUrl = cachedAnnotatedImage;
-            console.log(`[DEXIE-FIRST] Using cached annotated image for thumbnail: ${imageId}`);
-          }
-        }
 
-        // Add photo to array
+        // Add photo to array - always use original URLs
         this.visualPhotos[key].unshift({
           AttachID: localImage.attachId || localImage.imageId,
           attachId: localImage.attachId || localImage.imageId,
@@ -1493,10 +1468,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           imageId: localImage.imageId,
           localImageId: localImage.imageId,
           localBlobId: localImage.localBlobId,
-          displayUrl: thumbnailUrl,  // Use annotated thumbnail if available
+          displayUrl: displayUrl,    // Always original - no annotated cache
           url: displayUrl,           // Original photo URL
-          thumbnailUrl: thumbnailUrl,
-          originalUrl: displayUrl,   // Always keep original for re-editing
+          thumbnailUrl: displayUrl,  // Always original - no annotated cache
+          originalUrl: displayUrl,   // Original for re-editing
           name: localImage.fileName,
           caption: localImage.caption || '',
           annotation: localImage.caption || '',
@@ -2483,48 +2458,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       queued: false       // Clear queued state after successful upload
     };
 
-    // If user added annotations while uploading, transfer cached annotated image to real ID
-    if (hasExistingAnnotations && originalTempId) {
-      console.log('[UPLOAD UPDATE] Transferring cached annotated image from temp ID to real ID:', originalTempId, '->', result.AttachID);
-
-      try {
-        // DEXIE-FIRST: Try to use pointer storage instead of copying base64
-        const localImage = await this.localImageService.getImage(originalTempId);
-        if (localImage?.localBlobId) {
-          // Use pointer storage (saves ~930KB)
-          await this.indexedDb.cacheAnnotatedPointer(String(result.AttachID), localImage.localBlobId);
-          console.log('[UPLOAD UPDATE] ✅ Annotated POINTER transferred to real AttachID:', result.AttachID);
-
-          // Update in-memory map - get displayable URL
-          const displayUrl = await this.indexedDb.getCachedAnnotatedImage(String(result.AttachID));
-          if (displayUrl) {
-            this.bulkAnnotatedImagesMap.set(String(result.AttachID), displayUrl);
-            this.bulkAnnotatedImagesMap.delete(originalTempId);
-          }
-        } else {
-          // FALLBACK: Legacy path - no local blob, use full base64 copy
-          const cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(originalTempId);
-          if (cachedAnnotatedImage) {
-            const response = await fetch(cachedAnnotatedImage);
-            const blob = await response.blob();
-            const base64 = await this.indexedDb.cacheAnnotatedImage(String(result.AttachID), blob);
-            console.log('[UPLOAD UPDATE] ✅ Annotated image transferred (legacy) to real AttachID:', result.AttachID);
-
-            if (base64) {
-              this.bulkAnnotatedImagesMap.set(String(result.AttachID), base64);
-              this.bulkAnnotatedImagesMap.delete(originalTempId);
-            }
-          }
-        }
-      } catch (transferErr) {
-        console.warn('[UPLOAD UPDATE] Failed to transfer annotated image cache:', transferErr);
-      }
-      
-      // Also queue the annotation update to sync with the real AttachID
-      if (oldPhoto?.Drawings) {
-        console.log('[UPLOAD UPDATE] Queueing annotation sync with real AttachID:', result.AttachID);
-        // The annotations are already stored in the photo object and will be synced
-      }
+    // ANNOTATION FLATTENING FIX: Do NOT cache/transfer annotated blobs
+    // Annotations are stored in Drawings field (JSON) only - no blob caching
+    // This prevents any risk of flattening when images and annotations are kept separate
+    if (hasExistingAnnotations && oldPhoto?.Drawings) {
+      console.log('[UPLOAD UPDATE] Photo has annotations in Drawings field (JSON only, no blob cache)');
     }
 
     console.log('[UPLOAD UPDATE] Photo updated successfully, annotations preserved:', hasExistingAnnotations);
@@ -3761,23 +3699,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
       // STEP 4: Add pending photos with regenerated blob URLs (they appear first)
       // SILENT SYNC: Don't show uploading/queued indicators for legacy pending photos
+      // ANNOTATION FLATTENING FIX: Always use original URLs - no annotated cache
       for (const pendingPhoto of pendingPhotos) {
         const pendingId = String(pendingPhoto.AttachID);
         if (!loadedPhotoIds.has(pendingId)) {
-          // Use bulk annotated image cache (O(1) lookup)
-          let displayUrl = pendingPhoto.displayUrl;
-          if (pendingPhoto.hasAnnotations) {
-            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(pendingId);
-            if (cachedAnnotatedImage) {
-              displayUrl = cachedAnnotatedImage;
-            }
-          }
-          
           // Add to the BEGINNING of the array so pending photos show first
+          // Always use original displayUrl - no cached annotated images
           this.visualPhotos[key].unshift({
             ...pendingPhoto,
-            displayUrl: displayUrl,
-            thumbnailUrl: displayUrl,
+            displayUrl: pendingPhoto.displayUrl,
+            thumbnailUrl: pendingPhoto.displayUrl,
+            originalUrl: pendingPhoto.originalUrl || pendingPhoto.displayUrl,
             isSkeleton: false,
             uploading: false,         // SILENT SYNC: No spinner
             queued: false,            // SILENT SYNC: No indicator
@@ -3917,20 +3849,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
   private addCachedPhotoToArray(attach: any, cachedImage: string, key: string): void {
     const attachId = String(attach.AttachID);
     const hasDrawings = !!attach.Drawings && attach.Drawings.length > 10;
-    
-    // OPTIMIZED: Use bulk cache map (O(1)) instead of IndexedDB read
-    let displayUrl = cachedImage;
-    if (hasDrawings) {
-      const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
-      if (cachedAnnotatedImage) {
-        displayUrl = cachedAnnotatedImage;
-      }
-    }
-    
+
+    // ANNOTATION FLATTENING FIX: Always use original image - no annotated cache
+    // Annotations stored in Drawings field (JSON) and rendered when editing
     const keyParts = key.split('_');
     const itemId = keyParts.length > 1 ? keyParts.slice(1).join('_') : key;
     const visualIdFromRecord = this.visualRecordIds[key];
-    
+
     const photoData = {
       AttachID: attach.AttachID,
       id: attach.AttachID,
@@ -3941,7 +3866,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       url: cachedImage,
       originalUrl: cachedImage,
       thumbnailUrl: cachedImage,
-      displayUrl: displayUrl,
+      displayUrl: cachedImage,  // Always use original - no annotated cache
       caption: attach.Annotation || '',
       annotation: attach.Annotation || '',
       Annotation: attach.Annotation || '',
@@ -5513,20 +5438,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
             // Create temp photo entry with loading state (show roller)
             const tempId = `uploading_${Date.now()}`;
-            // ANNOTATION FLATTENING FIX: Create SEPARATE URLs for original and annotated
-            // originalBlobUrl points to the original camera image (for re-editing)
-            // annotatedDisplayUrl points to the rendered annotations (for thumbnails)
+            // ANNOTATION FLATTENING FIX: Always use original blob URL for ALL URLs
+            // Annotations stored in Drawings field (JSON) - no annotated blob URLs
             const originalBlobUrl = URL.createObjectURL(blob);
-            const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : originalBlobUrl;
             const tempPhotoEntry = {
               imageId: tempId,
               AttachID: tempId,
               attachId: tempId,
               id: tempId,
-              url: originalBlobUrl,              // Base image reference
-              displayUrl: annotatedDisplayUrl,   // Annotated version for thumbnails
-              originalUrl: originalBlobUrl,      // CRITICAL: Keep original for re-editing
-              thumbnailUrl: annotatedDisplayUrl, // Show annotations in thumbnails
+              url: originalBlobUrl,              // Always original
+              displayUrl: originalBlobUrl,       // Always original - no annotated cache
+              originalUrl: originalBlobUrl,      // For re-editing
+              thumbnailUrl: originalBlobUrl,     // Always original - no annotated cache
               name: 'camera-photo.jpg',
               caption: caption || '',
               annotation: caption || '',
@@ -5561,6 +5484,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               console.log('[CAMERA UPLOAD] WEBAPP: ✅ Upload complete, AttachID:', uploadResult.attachId);
 
               // Replace temp photo with real photo (remove loading roller)
+              // ANNOTATION FLATTENING FIX: Always use original S3 URL for ALL URLs
               const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
               if (tempIndex >= 0) {
                 this.visualPhotos[key][tempIndex] = {
@@ -5570,9 +5494,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
                   attachId: uploadResult.attachId,
                   id: uploadResult.attachId,
                   url: uploadResult.s3Url,
-                  displayUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
-                  originalUrl: uploadResult.s3Url,
-                  thumbnailUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
+                  displayUrl: uploadResult.s3Url,    // Always original - no annotated cache
+                  originalUrl: uploadResult.s3Url,   // For re-editing
+                  thumbnailUrl: uploadResult.s3Url,  // Always original - no annotated cache
                   status: 'uploaded',
                   isLocal: false,
                   uploading: false,  // Remove loading roller
@@ -5606,7 +5530,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               await toast.present();
 
               URL.revokeObjectURL(imageUrl);
-              if (annotatedBlob) URL.revokeObjectURL(annotatedDisplayUrl);
+              URL.revokeObjectURL(originalBlobUrl);
               return;
             }
           }
@@ -5659,11 +5583,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           this.logDebug('UPLOAD', uploadDebugMsg);
           // ===== END US-001 DEBUG =====
 
-          // For annotated images, create a separate display URL showing annotations
-          let annotatedDisplayUrl = displayUrl;
-          if (annotatedBlob) {
-            annotatedDisplayUrl = URL.createObjectURL(annotatedBlob);
-          }
+          // ANNOTATION FLATTENING FIX: Always use original image for ALL URLs
+          // Annotations are stored in Drawings field (JSON) - no annotated blob URLs
+          // This prevents any risk of flattening
 
           // Initialize photo array if it doesn't exist
           if (!this.visualPhotos[key]) {
@@ -5677,17 +5599,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           const photoEntry = {
             // STABLE ID - never changes, safe for UI key
             imageId: localImage.imageId,
-            
+
             // For compatibility with existing code
             AttachID: localImage.imageId,
             attachId: localImage.imageId,
             id: localImage.imageId,
-            
-            // Display URLs
+
+            // Display URLs - ALL point to original image (no annotated blob)
             url: displayUrl,
-            displayUrl: annotatedDisplayUrl,
-            originalUrl: displayUrl,
-            thumbnailUrl: annotatedDisplayUrl,
+            displayUrl: displayUrl,       // Always original - no annotated cache
+            originalUrl: displayUrl,      // For re-editing
+            thumbnailUrl: displayUrl,     // Always original - no annotated cache
             
             // Metadata
             name: 'camera-photo.jpg',
@@ -5741,36 +5663,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           console.log(`  id: ${photoEntry.id}`);
           console.log(`  Total photos in key: ${this.visualPhotos[key].length}`);
 
-          // Cache annotated image for thumbnail persistence across navigation
-          // STORAGE FIX: Only cache if REAL annotations exist (not just empty canvas data)
-          // Fabric.js serializes to {"version":"x","objects":[...]} - check if objects array has items
-          let hasRealAnnotations = false;
-          if (annotationsData) {
-            try {
-              const parsed = typeof annotationsData === 'string' ? JSON.parse(annotationsData) : annotationsData;
-              hasRealAnnotations = parsed?.objects && Array.isArray(parsed.objects) && parsed.objects.length > 0;
-              console.log(`[CAMERA UPLOAD] Annotation check: objects=${parsed?.objects?.length || 0}, hasReal=${hasRealAnnotations}`);
-            } catch (e) {
-              // If can't parse, check string length as fallback
-              const annotationStr = typeof annotationsData === 'string' ? annotationsData : JSON.stringify(annotationsData);
-              hasRealAnnotations = annotationStr.length > 500; // Much higher threshold for unparseable data
-              console.log(`[CAMERA UPLOAD] Annotation check (fallback): length=${annotationStr.length}, hasReal=${hasRealAnnotations}`);
-            }
-          }
-
-          if (annotatedBlob && hasRealAnnotations) {
-            try {
-              const base64 = await this.indexedDb.cacheAnnotatedImage(localImage.imageId, annotatedBlob);
-              console.log('[CAMERA UPLOAD] ✅ Annotated image cached for thumbnail persistence');
-              if (base64) {
-                this.bulkAnnotatedImagesMap.set(localImage.imageId, base64);
-              }
-            } catch (cacheErr) {
-              console.warn('[CAMERA UPLOAD] Failed to cache annotated image:', cacheErr);
-            }
-          } else if (annotatedBlob) {
-            console.log('[CAMERA UPLOAD] Skipping annotation cache - no real drawings detected');
-          }
+          // ANNOTATION FLATTENING FIX: Do NOT cache annotated blob
+          // Images and annotations must remain separate to prevent flattening
+          // Annotations are stored in Drawings field (JSON) and rendered on-the-fly when editing
+          // Thumbnails will show original image - this is the tradeoff for consistency
+          console.log('[CAMERA UPLOAD] ✅ Photo saved with annotations in Drawings field (JSON only, no blob cache)');
 
           // Sync will happen on next 60-second interval via upload outbox
         }
@@ -7029,20 +6926,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               console.log('[SAVE OFFLINE]   - hasAnnotations:', this.visualPhotos[key][photoIndex].hasAnnotations);
               console.log('[SAVE OFFLINE]   - Drawings length:', this.visualPhotos[key][photoIndex].Drawings?.length || 0);
               
-              // CRITICAL FIX: Cache annotated image for temp photos too
-              // This ensures annotations show in thumbnails even for offline photos
-              if (annotatedBlob && annotatedBlob.size > 0) {
-                try {
-                  const base64 = await this.indexedDb.cacheAnnotatedImage(pendingFileId, annotatedBlob);
-                  console.log('[SAVE OFFLINE] ✅ Annotated image cached for temp photo:', pendingFileId);
-                  // Update in-memory map so same-session navigation shows the annotation
-                  if (base64) {
-                    this.bulkAnnotatedImagesMap.set(pendingFileId, base64);
-                  }
-                } catch (cacheErr) {
-                  console.warn('[SAVE OFFLINE] Failed to cache annotated image:', cacheErr);
-                }
-              }
+              // ANNOTATION FLATTENING FIX: Do NOT cache annotated blob
+              // Annotations stored in Drawings field (JSON) only - prevents flattening
+              console.log('[SAVE OFFLINE] ✅ Annotation saved to Drawings field (JSON only, no blob cache)');
 
               // Queue caption/annotation update for sync - background sync will resolve temp ID when photo syncs
               try {
@@ -7286,20 +7172,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         console.log('[SAVE] ✅ Annotation saved to IndexedDB cache for visual', visualIdForCache, 'with _localUpdate flag');
       }
       
-      // CRITICAL FIX: Also cache the annotated blob for thumbnail display on reload
-      // This ensures annotations are visible in thumbnails after page reload
-      if (annotatedBlob && annotatedBlob.size > 0) {
-        try {
-          const base64 = await this.indexedDb.cacheAnnotatedImage(String(attachId), annotatedBlob);
-          console.log('[SAVE] ✅ Annotated image blob cached for thumbnail display');
-          // Update in-memory map so same-session navigation shows the annotation
-          if (base64) {
-            this.bulkAnnotatedImagesMap.set(String(attachId), base64);
-          }
-        } catch (annotCacheErr) {
-          console.warn('[SAVE] Failed to cache annotated image blob:', annotCacheErr);
-        }
-      }
+      // ANNOTATION FLATTENING FIX: Do NOT cache annotated blob
+      // Images and annotations must remain separate - annotations stored in Drawings JSON only
+      // Thumbnails show original image to prevent any flattening risk
+      console.log('[SAVE] ✅ Annotation saved to Drawings field (JSON only, no blob cache)');
     } catch (cacheError) {
       console.warn('[SAVE] Failed to update IndexedDB cache:', cacheError);
       // Continue anyway - still try API
@@ -7825,32 +7701,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               // For display: use annotated preview URL if available, otherwise S3 URL
               // The previewUrl from modal contains the rendered annotations
               let displayUrl = uploadResult.s3Url;
-              if (hasAnnotations && photoData.previewUrl) {
-                displayUrl = photoData.previewUrl;
-                console.log(`[CREATE CUSTOM] WEBAPP: Using annotated preview for display`);
-
-                // Cache the annotated image for persistence across page refreshes
-                // Convert data URL to Blob for caching
-                try {
-                  const response = await fetch(photoData.previewUrl);
-                  const annotatedBlob = await response.blob();
-                  const attachIdStr = String(uploadResult.attachId);
-                  await this.indexedDb.cacheAnnotatedImage(attachIdStr, annotatedBlob);
-                  console.log(`[CREATE CUSTOM] WEBAPP: Cached annotated image for AttachID:`, attachIdStr, 'blob size:', annotatedBlob.size);
-                } catch (cacheError) {
-                  console.warn(`[CREATE CUSTOM] WEBAPP: Failed to cache annotated image:`, cacheError);
-                }
+              // ANNOTATION FLATTENING FIX: Do NOT cache annotated blob
+              // Always use original S3 URL for display - annotations stored in Drawings JSON only
+              if (hasAnnotations) {
+                console.log(`[CREATE CUSTOM] WEBAPP: Annotations stored in Drawings field (JSON only, no blob cache)`);
               }
 
-              // Add to in-memory array
+              // Add to in-memory array - ALWAYS use original S3 URL for all URLs
               this.visualPhotos[key].push({
                 AttachID: uploadResult.attachId,
                 id: uploadResult.attachId,
                 imageId: uploadResult.attachId,
                 name: `photo_${index}.jpg`,
-                url: uploadResult.s3Url,  // Original S3 URL for re-editing
-                thumbnailUrl: displayUrl,  // Annotated version for thumbnail
-                displayUrl: displayUrl,    // Annotated version for display
+                url: uploadResult.s3Url,         // Original S3 URL
+                originalUrl: uploadResult.s3Url, // CRITICAL: For re-editing annotations
+                thumbnailUrl: uploadResult.s3Url, // Original - no annotated blob
+                displayUrl: uploadResult.s3Url,   // Original - no annotated blob
                 isObjectUrl: false,
                 uploading: false,
                 queued: false,
@@ -7858,6 +7724,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
                 caption: caption,
                 annotation: caption,
                 Drawings: drawings,
+                rawDrawingsString: drawings,     // Store for re-editing
                 isLocalFirst: false
               });
 
@@ -8375,43 +8242,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
     // Try fallback chain
     try {
-      // CRITICAL: Check for cached annotated image FIRST to preserve annotations in thumbnails
-      // This prevents annotations from disappearing when blob URLs become invalid
+      // ANNOTATION FLATTENING FIX: Do NOT try to use cached annotated images
+      // Always use original images - annotations stored in Drawings JSON only
       const attachId = String(photo.AttachID || photo.attachId || photo.id || '');
       const localImageId = photo.localImageId || photo.imageId;
 
-      // Try annotated image from in-memory map first (fastest)
-      let annotatedImage = this.bulkAnnotatedImagesMap.get(attachId);
-      if (!annotatedImage && localImageId) {
-        annotatedImage = this.bulkAnnotatedImagesMap.get(localImageId);
-      }
-
-      // If not in memory, try to get from IndexedDB cache
-      if (!annotatedImage && (photo.hasAnnotations || photo.Drawings)) {
-        try {
-          annotatedImage = await this.indexedDb.getCachedAnnotatedImage(attachId) || undefined;
-          if (!annotatedImage && localImageId) {
-            annotatedImage = await this.indexedDb.getCachedAnnotatedImage(localImageId) || undefined;
-          }
-          // Store in memory map for future use
-          if (annotatedImage) {
-            this.bulkAnnotatedImagesMap.set(attachId || localImageId, annotatedImage);
-          }
-        } catch (e) {
-          console.warn('[IMAGE ERROR] Failed to get cached annotated image:', e);
-        }
-      }
-
-      if (annotatedImage) {
-        console.log('[IMAGE ERROR] Using cached ANNOTATED image:', attachId || localImageId);
-        img.src = annotatedImage;
-        photo.displayUrl = annotatedImage;
-        photo.thumbnailUrl = annotatedImage;
-        // Don't update photo.url - keep original for re-editing
-        return;
-      }
-
-      // Fallback 1: Try LocalImage system
+      // Fallback 1: Try LocalImage system (original image)
       if (photo.isLocalImage || photo.localImageId || photo.imageId) {
         const localImage = await this.indexedDb.getLocalImage(localImageId);
 
