@@ -354,6 +354,15 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         const attachments = await this.foundationData.getVisualAttachments(this.visualId);
         console.log('[VisualDetail] WEBAPP: Found', attachments?.length || 0, 'attachments from server');
 
+        // WEBAPP: Load cached annotated images (persists annotations across page refresh)
+        let cachedAnnotatedImages: Map<string, string> = new Map();
+        try {
+          cachedAnnotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+          console.log(`[VisualDetail] WEBAPP: Loaded ${cachedAnnotatedImages.size} cached annotated images`);
+        } catch (e) {
+          console.warn('[VisualDetail] WEBAPP: Could not load cached annotated images:', e);
+        }
+
         this.photos = [];
         for (const att of attachments || []) {
           // S3 uploads store the key in 'Attachment' field, not 'Photo'
@@ -369,14 +378,27 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
             }
           }
 
+          const attachId = att.AttachID || att.attachId || att.PK_ID;
+          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+
+          // WEBAPP: Check for cached annotated image to display annotations
+          let thumbnailUrl = displayUrl;
+          if (hasAnnotations) {
+            const cachedAnnotatedImage = cachedAnnotatedImages.get(String(attachId));
+            if (cachedAnnotatedImage) {
+              thumbnailUrl = cachedAnnotatedImage;
+              console.log(`[VisualDetail] WEBAPP: Using cached annotated image for photo ${attachId}`);
+            }
+          }
+
           this.photos.push({
-            id: att.AttachID || att.attachId || att.PK_ID,
-            displayUrl,
-            originalUrl: displayUrl,
+            id: attachId,
+            displayUrl: thumbnailUrl,  // Use annotated image if available
+            originalUrl: displayUrl,   // Keep original for re-editing annotations
             caption: att.Annotation || att.caption || '',
             uploading: false,
             isLocal: false,
-            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            hasAnnotations: hasAnnotations,
             drawings: att.Drawings || ''
           });
         }

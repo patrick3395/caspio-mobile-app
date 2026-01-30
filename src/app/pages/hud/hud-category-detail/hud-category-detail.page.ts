@@ -5592,6 +5592,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
@@ -5599,7 +5600,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
-          Answers: item.answer || ''
+          Answers: item.answer || '',
+          TemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -5708,6 +5710,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
@@ -5715,7 +5718,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Answers: item.answer
+          Answers: item.answer,
+          TemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -5801,6 +5805,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
@@ -5808,7 +5813,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Answers: item.answer || ''
+          Answers: item.answer || '',
+          TemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -5933,6 +5939,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category,  // FIX: Use template's actual category, not route param
@@ -5940,7 +5947,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
-          Answers: item.answer
+          Answers: item.answer,
+          TemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -7251,13 +7259,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       }
 
       // Create the Services_Visuals record using EXACT same structure as original
+      const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
       const visualData: any = {
         ServiceID: serviceIdNum,
         Category: item.category,  // FIX: Use template's actual category, not route param
         Kind: item.type,      // CRITICAL: Use item.type which is now set from template.Kind
         Name: item.name,
         Text: item.text || item.originalText || '',
-        Notes: ''
+        Notes: '',
+        TemplateID: templateIdInt
       };
 
       console.log('[SAVE VISUAL] Visual data being saved:', visualData);

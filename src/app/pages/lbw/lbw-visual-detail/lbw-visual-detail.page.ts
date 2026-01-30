@@ -1435,12 +1435,19 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       photo.caption = caption;
 
       // Update in localImages (Dexie)
-      await db.localImages.update(photo.id, { caption, updatedAt: Date.now() });
+      const updateCount = await db.localImages.update(photo.id, { caption, updatedAt: Date.now() });
+
+      if (updateCount === 0) {
+        console.warn('[LbwVisualDetail] Caption update found no matching record for photo.id:', photo.id);
+      } else {
+        console.log('[LbwVisualDetail] ✅ Caption saved to localImages:', photo.id);
+      }
 
       // Get the localImage to check status
       const localImage = await db.localImages.get(photo.id);
 
-      // Use attachId if synced, otherwise use imageId
+      // DEXIE-FIRST: Always queue caption update for persistence
+      // Use attachId if synced, otherwise use imageId (sync worker will resolve it)
       const attachId = localImage?.attachId || photo.id;
 
       // WEBAPP MODE: Update directly via Caspio API
@@ -1451,7 +1458,14 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         }));
         console.log('[LbwVisualDetail] WEBAPP: ✅ Updated caption via API:', attachId);
       } else {
-        console.log('[LbwVisualDetail] Caption stored locally, will sync later:', attachId);
+        // MOBILE MODE: Queue caption update for background sync
+        await this.lbwData.queueCaptionUpdate(
+          attachId,
+          caption,
+          localImage?.drawings || '',
+          { serviceId: this.serviceId, lbwId: this.lbwId }
+        );
+        console.log('[LbwVisualDetail] ✅ Queued caption update:', attachId, localImage?.attachId ? '(synced)' : '(pending photo sync)');
       }
 
       this.changeDetectorRef.detectChanges();

@@ -1837,6 +1837,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     this.savingItems[key] = true;
 
     try {
+      const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
       const hudData = {
         ServiceID: parseInt(this.serviceId),
         Category: category,
@@ -1844,12 +1845,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         Name: item.name,
         Text: item.text,
         Notes: '',
-        Answers: item.answer || ''
+        Answers: item.answer || '',
+        TemplateID: templateIdInt
       };
 
       console.log('[CREATE VISUAL] Creating HUD record with data:', hudData);
       console.log('[CREATE VISUAL] Item details:', { id: item.id, templateId: item.templateId, name: item.name, answer: item.answer });
-      console.log('[CREATE VISUAL] Note: TemplateID is not stored in Services_DTE, only used for dropdown lookup');
 
       const result = await firstValueFrom(this.caspioService.createServicesDTE(hudData));
       
@@ -1963,6 +1964,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         // Create new visual
         console.log('[ANSWER] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: category,
@@ -1970,7 +1972,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
-          Answers: item.answer || ''
+          Answers: item.answer || '',
+          TemplateID: templateIdInt
         };
 
         console.log('[ANSWER] Creating with data:', visualData);
@@ -2066,6 +2069,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         // Create new visual
         console.log('[OPTION] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: category,
@@ -2073,7 +2077,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',
-          Answers: item.answer
+          Answers: item.answer,
+          TemplateID: templateIdInt
         };
 
         console.log('[OPTION] Creating with data:', visualData);

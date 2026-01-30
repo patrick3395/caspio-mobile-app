@@ -2965,6 +2965,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         return;
       }
 
+      const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
       const lbwData = {
         ServiceID: serviceIdNum,
         Category: item.category || category,  // Use template's actual category
@@ -2972,7 +2973,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         Name: item.name,
         Text: item.text || item.originalText || '',
         Notes: '',
-        Answers: item.answer || ''
+        Answers: item.answer || '',
+        TemplateID: templateIdInt
       };
 
       console.log('[CREATE VISUAL] Creating LBW record with DEXIE-FIRST pattern:', lbwData);
@@ -3116,6 +3118,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Create new visual using DEXIE-FIRST pattern
         console.log('[ANSWER] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category || category,  // Use template's actual category
@@ -3123,7 +3126,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
-          Answers: item.answer || ''
+          Answers: item.answer || '',
+          TemplateID: templateIdInt
         };
 
         console.log('[ANSWER] Creating with DEXIE-FIRST:', visualData);
@@ -3256,6 +3260,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Create new visual using DEXIE-FIRST pattern
         console.log('[OPTION] Creating new visual for key:', key);
         const serviceIdNum = parseInt(this.serviceId, 10);
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
         const visualData = {
           ServiceID: serviceIdNum,
           Category: item.category || category,  // Use template's actual category
@@ -3263,7 +3268,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',
-          Answers: item.answer
+          Answers: item.answer,
+          TemplateID: templateIdInt
         };
 
         console.log('[OPTION] Creating with DEXIE-FIRST:', visualData);

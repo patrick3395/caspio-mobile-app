@@ -859,6 +859,53 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         }
       }
 
+      // WEBAPP: Track which visuals were matched to templates
+      const matchedVisualIds = new Set<string>();
+      for (const key of Object.keys(this.visualRecordIds)) {
+        matchedVisualIds.add(this.visualRecordIds[key]);
+      }
+
+      // WEBAPP: Add unmatched visuals as dynamic items (handles edited names that no longer match templates)
+      for (const visual of categoryVisuals) {
+        const visualId = String(visual.VisualID || visual.PK_ID);
+        if (!matchedVisualIds.has(visualId)) {
+          // This visual wasn't matched to any template - add as dynamic item
+          const kind = (visual.Kind || 'Comment').toLowerCase();
+          const dynamicKey = `${this.categoryName}_dynamic_${visualId}`;
+
+          console.log(`[CategoryDetail] WEBAPP: Adding unmatched visual as dynamic item: ${visual.Name} (ID: ${visualId})`);
+
+          const dynamicItem: VisualItem = {
+            id: `dynamic_${visualId}`,
+            templateId: 0,  // No template
+            name: visual.Name || 'Custom Item',
+            text: visual.VisualText || visual.Text || '',
+            originalText: '',
+            type: visual.Kind || 'Comment',
+            category: visual.Category || this.categoryName,
+            answerType: 0,
+            required: false,
+            answer: visual.Answer || '',
+            isSelected: true,  // It exists, so it's selected
+            key: dynamicKey
+          };
+
+          // Add to appropriate section
+          if (kind === 'limitation') {
+            organizedData.limitations.push(dynamicItem);
+          } else if (kind === 'deficiency') {
+            organizedData.deficiencies.push(dynamicItem);
+          } else {
+            organizedData.comments.push(dynamicItem);
+          }
+
+          // Track visual record ID
+          this.visualRecordIds[dynamicKey] = visualId;
+          this.foundationData.setWebappVisualRecordId(this.serviceId, this.categoryName, `dynamic_${visualId}`, visualId);
+          this.selectedItems[dynamicKey] = true;
+        }
+      }
+
       this.organizedData = organizedData;
 
       // Count how many items are selected (matched to visuals)
@@ -891,6 +938,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
    */
   private async loadPhotosFromAPI(): Promise<void> {
     console.log('[CategoryDetail] WEBAPP MODE: Loading photos from API...');
+
+    // WEBAPP: Load cached annotated images first (these persist annotations across page refresh)
+    try {
+      const cachedAnnotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+      this.bulkAnnotatedImagesMap = cachedAnnotatedImages;
+      console.log(`[CategoryDetail] WEBAPP: Loaded ${cachedAnnotatedImages.size} cached annotated images`);
+    } catch (e) {
+      console.warn('[CategoryDetail] WEBAPP: Could not load cached annotated images:', e);
+    }
 
     // Get all visual IDs that have been selected
     const allItems = [
@@ -966,16 +1022,29 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           }
 
           const attachId = att.AttachID || att.attachId || att.PK_ID;
+          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+
+          // WEBAPP: Check for cached annotated image to display annotations on thumbnail
+          let thumbnailUrl = displayUrl;
+          if (hasAnnotations) {
+            const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(String(attachId));
+            if (cachedAnnotatedImage) {
+              thumbnailUrl = cachedAnnotatedImage;
+              console.log(`[CategoryDetail] WEBAPP: Using cached annotated image for photo ${attachId}`);
+            }
+          }
+
           photos.push({
             id: attachId,
             attachId: attachId,
             AttachID: attachId, // Also set capital version for error handler
-            displayUrl,
-            url: displayUrl,
+            displayUrl: thumbnailUrl,  // Use annotated image if available
+            url: displayUrl,           // Keep original URL for reference
+            originalUrl: displayUrl,   // Keep original for re-editing annotations
             caption: att.Annotation || att.caption || '',
             uploading: false,
             isLocal: false,
-            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            hasAnnotations: hasAnnotations,
             drawings: att.Drawings || ''
           });
         }
@@ -4656,14 +4725,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.serviceId, 10);
-        const visualData = {
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
+        const visualData: any = {
           ServiceID: serviceIdNum,
           Category: category,
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
-          Answers: item.answer || ''
+          Answers: item.answer || '',
+          TemplateID: templateIdInt  // Links visual to template (integer)
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -4766,14 +4837,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.serviceId, 10);
-        const visualData = {
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
+        const visualData: any = {
           ServiceID: serviceIdNum,
           Category: category,
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Answers: item.answer
+          Answers: item.answer,
+          TemplateID: templateIdInt  // Links visual to template (integer)
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -4856,14 +4929,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.serviceId, 10);
-        const visualData = {
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
+        const visualData: any = {
           ServiceID: serviceIdNum,
           Category: category,
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
-          Answers: item.answer || ''
+          Answers: item.answer || '',
+          TemplateID: templateIdInt  // Links visual to template (integer)
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -4981,14 +5056,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       if (!visualId) {
         // Create new visual
         const serviceIdNum = parseInt(this.serviceId, 10);
-        const visualData = {
+        const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
+        const visualData: any = {
           ServiceID: serviceIdNum,
           Category: category,
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
-          Answers: item.answer
+          Answers: item.answer,
+          TemplateID: templateIdInt  // Links visual to template (integer)
         };
 
         const result = await this.foundationData.createVisual(visualData);
@@ -6274,16 +6351,22 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       }
 
       // Create the Services_Visuals record using EXACT same structure as original
+      // Ensure TemplateID is an integer for database
+      const templateIdValue = item.templateId || itemId;
+      const templateIdInt = typeof templateIdValue === 'string' ? parseInt(templateIdValue, 10) : Number(templateIdValue);
+
       const visualData: any = {
         ServiceID: serviceIdNum,
         Category: category,
         Kind: item.type,      // CRITICAL: Use item.type which is now set from template.Kind
         Name: item.name,
         Text: item.text || item.originalText || '',
-        Notes: ''
+        Notes: '',
+        TemplateID: templateIdInt  // Links visual to template for matching after name edits (integer)
       };
 
       console.log('[SAVE VISUAL] Visual data being saved:', visualData);
+      console.log('[SAVE VISUAL] TemplateID value:', templateIdInt, 'type:', typeof templateIdInt);
 
       // Add Answers field if there are answers to store
       if (item.answer) {
@@ -6323,13 +6406,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       this.visualRecordIds[key] = visualId;
 
       // WEBAPP: Also store in service to persist across component destruction
-      this.foundationData.setWebappVisualRecordId(this.serviceId, category, itemId, visualId);
+      const templateIdNum = typeof itemId === 'string' ? parseInt(itemId, 10) : Number(itemId);
+      this.foundationData.setWebappVisualRecordId(this.serviceId, category, templateIdNum, visualId);
 
       // DEXIE-FIRST: Persist tempVisualId to VisualField for photo matching after reload
       // This MUST happen before any photo upload so populatePhotosFromDexie can match photos to fields
-      const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
       try {
-        await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+        await this.visualFieldRepo.setField(this.serviceId, category, templateIdNum, {
           tempVisualId: visualId  // Always a temp ID at this point (temp_visual_xxx)
         });
         console.log('[SAVE VISUAL] Persisted tempVisualId to Dexie:', visualId);

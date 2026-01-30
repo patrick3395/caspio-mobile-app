@@ -316,6 +316,27 @@
           <div class="header-total">
             ${{ calculateServicesTotal() | number:'1.2-2' }}
           </div>
+
+          <!-- Sync/Save Buttons -->
+          <div class="sync-save-buttons">
+            <button class="sync-btn"
+                    (click)="syncFromCloud()"
+                    [disabled]="isSyncing"
+                    title="Pull fresh data from cloud">
+              <ion-icon [name]="isSyncing ? 'sync' : 'cloud-download-outline'"
+                        [class.spinning]="isSyncing"></ion-icon>
+              <span class="btn-text">Sync</span>
+            </button>
+            <button class="save-btn"
+                    (click)="saveToCloud()"
+                    [disabled]="isSaving"
+                    title="Push pending changes to cloud">
+              <ion-icon [name]="isSaving ? 'sync' : 'cloud-upload-outline'"
+                        [class.spinning]="isSaving"></ion-icon>
+              <span class="btn-text">Save</span>
+            </button>
+          </div>
+
           <button class="pay-now-btn" (click)="openPaymentModal()" *ngIf="calculateServicesTotal() > 0 && !isReadOnly">
             <ion-icon name="card-outline"></ion-icon>
             Pay Now

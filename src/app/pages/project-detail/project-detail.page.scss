@@ -316,6 +316,77 @@ ion-button{--padding-start:12px;--padding-end:12px;font-size:14px}}
     }
   }
 }
+
+// Sync/Save buttons
+.sync-save-buttons {
+  display: flex;
+  gap: 8px;
+  margin-right: 12px;
+}
+
+.sync-btn,
+.save-btn {
+  background: $white;
+  color: $orange;
+  border: 1px solid $orange;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  ion-icon {
+    font-size: 16px;
+
+    &.spinning {
+      animation: spin 1s linear infinite;
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover:not(:disabled) {
+      background: $orange;
+      color: $white;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+// Mobile responsive for sync/save buttons
+@media (max-width: 480px) {
+  .sync-save-buttons {
+    gap: 4px;
+    margin-right: 6px;
+  }
+
+  .sync-btn,
+  .save-btn {
+    padding: 4px 8px;
+
+    .btn-text {
+      display: none;
+    }
+
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+}
+
 h3{font-size:16px;font-weight:600;margin:16px 0 12px 0}
 .info-row{display:flex;padding:8px 0;
 .info-label{font-weight:500;color:$gray;width:140px}

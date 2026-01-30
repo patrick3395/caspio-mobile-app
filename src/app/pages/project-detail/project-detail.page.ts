@@ -18,6 +18,8 @@ import { OptimisticUpdateService } from '../../services/optimistic-update.servic
 import { NavigationHistoryService } from '../../services/navigation-history.service';
 import { ConfirmationDialogService } from '../../services/confirmation-dialog.service';
 import { PageTitleService } from '../../services/page-title.service';
+import { BackgroundSyncService } from '../../services/background-sync.service';
+import { OfflineTemplateService } from '../../services/offline-template.service';
 
 type DocumentViewerCtor = typeof import('../../components/document-viewer/document-viewer.component')['DocumentViewerComponent'];
 type PdfPreviewCtor = typeof import('../../components/pdf-preview/pdf-preview.component')['PdfPreviewComponent'];
@@ -166,6 +168,10 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
   // Breadcrumbs (web only)
   breadcrumbs: Breadcrumb[] = [];
   isWeb = environment.isWeb;
+
+  // Sync/Save button states
+  isSaving = false;
+  isSyncing = false;
 
   private documentViewerComponent?: DocumentViewerCtor;
   private pdfPreviewComponent?: PdfPreviewCtor;
@@ -425,7 +431,9 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
     private optimisticUpdate: OptimisticUpdateService,
     private navigationHistory: NavigationHistoryService,
     private confirmationDialog: ConfirmationDialogService,
-    private pageTitleService: PageTitleService
+    private pageTitleService: PageTitleService,
+    private backgroundSync: BackgroundSyncService,
+    private offlineTemplate: OfflineTemplateService
   ) {}
 
   /**
@@ -4774,6 +4782,115 @@ Troubleshooting:
       cssClass: 'custom-document-alert'
     });
     await alert.present();
+  }
+
+  /**
+   * Maps service typeShort to OfflineTemplateService template types.
+   * Returns null for services without offline template support.
+   */
+  private getTemplateType(typeShort: string): 'EFE' | 'HUD' | 'LBW' | 'DTE' | null {
+    const normalized = typeShort?.toUpperCase() || '';
+    if (normalized === 'EFE') return 'EFE';
+    if (normalized === 'HUD') return 'HUD';
+    if (normalized === 'LBW') return 'LBW';
+    if (normalized === 'DTE') return 'DTE';
+    if (normalized === 'ELBW') return 'LBW';
+    if (normalized === 'EDTE') return 'DTE';
+    return null;
+  }
+
+  /**
+   * Save: Push all pending local changes to the cloud.
+   */
+  async saveToCloud(): Promise<void> {
+    if (this.isSaving) return;
+
+    this.isSaving = true;
+    this.changeDetectorRef.markForCheck();
+
+    const loading = await this.loadingController.create({
+      message: 'Saving changes to cloud...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await this.backgroundSync.forceSyncNow();
+      await loading.dismiss();
+      await this.showToast('Changes saved to cloud', 'success');
+    } catch (error) {
+      console.error('[ProjectDetail] Save to cloud failed:', error);
+      await loading.dismiss();
+      await this.showToast('Failed to save changes. Please try again.', 'danger');
+    } finally {
+      this.isSaving = false;
+      this.changeDetectorRef.markForCheck();
+    }
+  }
+
+  /**
+   * Sync: Pull fresh data from cloud to IndexedDB for selected services.
+   */
+  async syncFromCloud(): Promise<void> {
+    if (this.isSyncing) return;
+
+    const servicesWithTemplates = this.selectedServices.filter(s =>
+      s.serviceId && this.getTemplateType(s.typeShort || '')
+    );
+
+    if (servicesWithTemplates.length === 0) {
+      await this.showToast('No services with templates to sync', 'warning');
+      return;
+    }
+
+    this.isSyncing = true;
+    this.changeDetectorRef.markForCheck();
+
+    const loading = await this.loadingController.create({
+      message: `Syncing ${servicesWithTemplates.length} service(s)...`,
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const service of servicesWithTemplates) {
+        const templateType = this.getTemplateType(service.typeShort || '');
+        if (!templateType || !service.serviceId) continue;
+
+        try {
+          loading.message = `Syncing ${service.typeShort || service.typeName}...`;
+          await this.offlineTemplate.forceRefreshTemplateData(
+            service.serviceId,
+            templateType,
+            this.projectId
+          );
+          successCount++;
+        } catch (error) {
+          console.error(`[ProjectDetail] Failed to sync ${service.typeName}:`, error);
+          errorCount++;
+        }
+      }
+
+      await loading.dismiss();
+
+      if (errorCount === 0) {
+        await this.showToast(`Synced ${successCount} service(s) successfully`, 'success');
+      } else if (successCount > 0) {
+        await this.showToast(`Synced ${successCount} service(s), ${errorCount} failed`, 'warning');
+      } else {
+        await this.showToast('Sync failed. Please check your connection.', 'danger');
+      }
+    } catch (error) {
+      console.error('[ProjectDetail] Sync from cloud failed:', error);
+      await loading.dismiss();
+      await this.showToast('Sync failed. Please try again.', 'danger');
+    } finally {
+      this.isSyncing = false;
+      this.changeDetectorRef.markForCheck();
+    }
   }
 
   onIconError(event: any, service: any) {
