@@ -5292,6 +5292,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     const key = `${category}_${itemId}`;
     const photos = this.visualPhotos[key] || [];
 
+    // ANNOTATION THUMBNAIL FIX: Apply cached annotated URLs from bulkAnnotatedImagesMap
+    // This ensures thumbnails show annotations even if Angular's change detection missed the update
+    if (photos.length > 0 && this.bulkAnnotatedImagesMap.size > 0) {
+      for (const photo of photos) {
+        // Check multiple ID keys for cached annotated image
+        const photoIds = [
+          photo.imageId,
+          photo.localImageId,
+          photo.AttachID,
+          photo.attachId,
+          photo.id
+        ].filter(id => id);
+
+        for (const id of photoIds) {
+          const cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(String(id));
+          if (cachedAnnotatedUrl && cachedAnnotatedUrl !== photo.displayUrl) {
+            // Apply cached annotated URL to photo for display
+            photo.displayUrl = cachedAnnotatedUrl;
+            photo.thumbnailUrl = cachedAnnotatedUrl;
+            photo.hasAnnotations = true;
+            break; // Found a match, no need to check other IDs
+          }
+        }
+      }
+    }
+
     if (photos.length > 0) {
       if (!this._loggedPhotoKeys) this._loggedPhotoKeys = new Set();
       if (!this._loggedPhotoKeys.has(key)) {
@@ -7080,17 +7106,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
         if (photoIndex !== -1) {
           const currentPhoto = photos[photoIndex];
-          
+
           // CRITICAL: Use the CURRENT photo's AttachID, not the original one
           // The AttachID may have changed from temp to real while the modal was open
           const currentAttachId = currentPhoto.AttachID || currentPhoto.id || attachId;
-          const isCurrentlyTemp = String(currentAttachId).startsWith('temp_');
-          
-          console.log('[VIEW PHOTO] Saving annotations - Original AttachID:', attachId, 'Current AttachID:', currentAttachId, 'Is temp:', isCurrentlyTemp);
+
+          // Detect if this is an unsynced photo (temp_ prefix OR img_ prefix OR LocalImage flags)
+          // LocalImage photos use img_ prefix, legacy offline photos use temp_ prefix
+          const isLocalImagePhoto = currentPhoto.isLocalFirst || currentPhoto.isLocalImage ||
+            String(currentAttachId).startsWith('img_');
+          const isLegacyTempPhoto = String(currentAttachId).startsWith('temp_');
+          const isUnsyncedPhoto = isLocalImagePhoto || isLegacyTempPhoto;
+
+          // Check if photo has a real server ID (numeric or not starting with temp_/img_)
+          const hasRealServerId = currentPhoto.attachId &&
+            !String(currentPhoto.attachId).startsWith('temp_') &&
+            !String(currentPhoto.attachId).startsWith('img_') &&
+            /^\d+$/.test(String(currentPhoto.attachId));
+
+          console.log('[VIEW PHOTO] Saving annotations - AttachID:', currentAttachId,
+            'isLocalImage:', isLocalImagePhoto, 'isLegacyTemp:', isLegacyTempPhoto,
+            'isUnsynced:', isUnsyncedPhoto, 'hasRealServerId:', hasRealServerId);
 
           // IMMEDIATE UI UPDATE: Update thumbnail FIRST, then save to database in background
           // This ensures the user sees the annotated thumbnail immediately without waiting for database
-          if (currentAttachId && !isCurrentlyTemp) {
+          // Use synced photo flow only if photo has a real server ID (not temp_ or img_ prefix)
+          if (currentAttachId && !isUnsyncedPhoto) {
             // Compress annotations for storage
             let compressedDrawings = '';
             if (annotationsData) {
@@ -7164,9 +7205,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             // Clear caches in background
             this.foundationData.clearVisualAttachmentsCache();
 
-          } else if (isCurrentlyTemp) {
-            // OFFLINE PHOTO: IMMEDIATE UI update, then save to IndexedDB in background
-            console.log('[SAVE OFFLINE] ========== SAVING ANNOTATIONS FOR TEMP PHOTO ==========');
+          } else if (isUnsyncedPhoto) {
+            // OFFLINE/LOCAL PHOTO: IMMEDIATE UI update, then save to IndexedDB in background
+            // This handles both legacy temp_ photos AND new LocalImage img_ photos
+            console.log('[SAVE OFFLINE] ========== SAVING ANNOTATIONS FOR UNSYNCED PHOTO ==========');
+            console.log('[SAVE OFFLINE] isLocalImage:', isLocalImagePhoto, 'isLegacyTemp:', isLegacyTempPhoto);
 
             // Get the pending file ID - use multiple fallbacks
             const pendingFileId = currentPhoto._pendingFileId || currentPhoto.attachId || currentPhoto._tempId || attachId;
@@ -7211,11 +7254,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             newPhotosArray[photoIndex] = updatedPhoto;
             this.visualPhotos[key] = newPhotosArray;
 
-            console.log('[SAVE OFFLINE] Updated photo displayUrl to:', newUrl?.substring(0, 50));
+            // Determine the correct ID for caching - use imageId for LocalImage, pendingFileId for legacy
+            const photoIdForCache = isLocalImagePhoto
+              ? String(currentPhoto.imageId || currentPhoto.localImageId || pendingFileId)
+              : String(pendingFileId);
 
-            // Cache in memory for instant lookup
-            const photoIdForCache = String(pendingFileId);
+            console.log('[SAVE OFFLINE] Updated photo displayUrl to:', newUrl?.substring(0, 50), 'cacheId:', photoIdForCache);
+
+            // Cache in memory for instant lookup - use BOTH IDs if they differ
             this.bulkAnnotatedImagesMap.set(photoIdForCache, newUrl);
+            // Also cache with AttachID/attachId if different (for lookup during page reload)
+            if (currentPhoto.AttachID && String(currentPhoto.AttachID) !== photoIdForCache) {
+              this.bulkAnnotatedImagesMap.set(String(currentPhoto.AttachID), newUrl);
+            }
 
             // STEP 2: Trigger change detection IMMEDIATELY so thumbnail updates
             this.changeDetectorRef.detectChanges();
@@ -7223,23 +7274,37 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
             // STEP 3: Save to IndexedDB in BACKGROUND (non-blocking)
             // Use .then() instead of await so it doesn't block the UI
-            this.indexedDb.updatePendingPhotoData(pendingFileId, {
-              caption: data.caption || '',
-              drawings: compressedDrawings
-            }).then(async (updated) => {
-              if (updated) {
-                console.log('[SAVE OFFLINE] ✅ Updated IndexedDB with drawings');
-              } else {
-                console.warn('[SAVE OFFLINE] Could not find pending photo, checking if synced...');
-                // Photo may have been synced while user was annotating
-                const realAttachId = currentPhoto._originalTempId ?
-                  await this.indexedDb.getRealId(String(currentPhoto._originalTempId)) : null;
-                if (realAttachId) {
-                  this.saveAnnotationToDatabase(realAttachId, annotatedBlob, annotationsData, data.caption || '')
-                    .catch(err => console.error('[SAVE OFFLINE] Failed to save to database:', err));
+            // Handle LocalImage photos (img_ prefix) differently from legacy temp photos (temp_ prefix)
+            if (isLocalImagePhoto) {
+              // LocalImage: Use updateLocalImage to save drawings
+              const localImageId = currentPhoto.imageId || currentPhoto.localImageId || pendingFileId;
+              console.log('[SAVE OFFLINE] Saving to LocalImage:', localImageId);
+              this.indexedDb.updateLocalImage(localImageId, {
+                caption: data.caption || '',
+                drawings: compressedDrawings
+              }).then(() => {
+                console.log('[SAVE OFFLINE] ✅ Updated LocalImage with drawings');
+              }).catch(err => console.error('[SAVE OFFLINE] LocalImage update failed:', err));
+            } else {
+              // Legacy temp photo: Use updatePendingPhotoData
+              this.indexedDb.updatePendingPhotoData(pendingFileId, {
+                caption: data.caption || '',
+                drawings: compressedDrawings
+              }).then(async (updated) => {
+                if (updated) {
+                  console.log('[SAVE OFFLINE] ✅ Updated pending photo with drawings');
+                } else {
+                  console.warn('[SAVE OFFLINE] Could not find pending photo, checking if synced...');
+                  // Photo may have been synced while user was annotating
+                  const realAttachId = currentPhoto._originalTempId ?
+                    await this.indexedDb.getRealId(String(currentPhoto._originalTempId)) : null;
+                  if (realAttachId) {
+                    this.saveAnnotationToDatabase(realAttachId, annotatedBlob, annotationsData, data.caption || '')
+                      .catch(err => console.error('[SAVE OFFLINE] Failed to save to database:', err));
+                  }
                 }
-              }
-            }).catch(err => console.error('[SAVE OFFLINE] IndexedDB update failed:', err));
+              }).catch(err => console.error('[SAVE OFFLINE] Pending photo update failed:', err));
+            }
 
             // Cache annotated thumbnail to IndexedDB in background
             if (annotatedBlob && annotatedBlob.size > 0) {

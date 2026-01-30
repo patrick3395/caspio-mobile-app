@@ -32,8 +32,9 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
   description: string = '';
   processedPhotos: ProcessedPhoto[] = [];
 
+  // WEBAPP: Expose isWeb for template to hide camera button
+  isWeb = environment.isWeb;
   // Keyboard navigation support (web only) - G2-FORMS-003
-  private isWeb = environment.isWeb;
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(

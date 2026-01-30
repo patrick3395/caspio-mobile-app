@@ -51,7 +51,7 @@
 
       <!-- Camera and Gallery Buttons -->
       <div style="display: flex; gap: 16px; margin-bottom: 16px; justify-content: center;" role="group" aria-label="Add photos">
-        <button class="camera-button-structural" (click)="addPhotoFromCamera()" aria-label="Take photo from camera">
+        <button class="camera-button-structural" *ngIf="!isWeb" (click)="addPhotoFromCamera()" aria-label="Take photo from camera">
           <ion-icon name="camera" style="font-size: 32px; color: var(--noble-orange, #F15A27);" aria-hidden="true"></ion-icon>
         </button>
         <button class="camera-button-structural" (click)="addPhotosFromGallery()" aria-label="Select photos from gallery">

@@ -151,7 +151,7 @@
 
               <!-- Action button grid for multi-select - shows when item has answer -->
               <div class="action-button-grid" *ngIf="item.answer && item.answer.trim()">
-                <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
+                <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
                   <ion-icon name="camera"></ion-icon>
                   <span>Camera</span>
                 </button>
@@ -426,7 +426,7 @@
 
               <!-- Action button grid for multi-select -->
               <div class="action-button-grid" *ngIf="item.answer && item.answer.trim()">
-                <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
+                <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
                   <ion-icon name="camera"></ion-icon>
                   <span>Camera</span>
                 </button>
@@ -696,7 +696,7 @@
 
               <!-- Action button grid for multi-select -->
               <div class="action-button-grid" *ngIf="item.answer && item.answer.trim()">
-                <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
+                <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.id); $event.stopPropagation()">
                   <ion-icon name="camera"></ion-icon>
                   <span>Camera</span>
                 </button>

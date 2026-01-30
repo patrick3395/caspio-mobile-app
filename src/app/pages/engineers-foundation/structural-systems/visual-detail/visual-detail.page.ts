@@ -54,6 +54,9 @@ interface PhotoItem {
   imports: [CommonModule, IonicModule, FormsModule, LazyImageDirective]
 })
 export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
+  // WEBAPP: Expose isWeb for template to hide camera button
+  isWeb = environment.isWeb;
+
   categoryName: string = '';
   templateId: number = 0;
   projectId: string = '';
