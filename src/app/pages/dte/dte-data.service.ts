@@ -71,7 +71,7 @@ export class DteDataService {
     }
     
     const hudRecords = await this.resolveWithCache(this.hudCache, serviceId, () =>
-      firstValueFrom(this.caspioService.getServicesDTEByServiceId(serviceId))
+      firstValueFrom(this.caspioService.getServicesDTEByServiceId(serviceId, bypassCache))
     );
     console.log('[DTE Data] API returned HUD records:', hudRecords.length, 'records');
     if (hudRecords.length > 0) {

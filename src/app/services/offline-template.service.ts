@@ -1578,11 +1578,12 @@ export class OfflineTemplateService {
    * WEBAPP MODE (isWeb=true): Always fetches from API to show synced data from mobile
    */
   async getHudByService(serviceId: string): Promise<any[]> {
-    // WEBAPP MODE: Always fetch from API to see synced data from mobile
+    // WEBAPP MODE: Always fetch fresh from API (bypass cache) to see latest edits
     if (environment.isWeb) {
-      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching HUD records from LPS_Services_HUD where ServiceID=${serviceId}`);
+      console.log(`[OfflineTemplate] WEBAPP MODE: Fetching HUD records from LPS_Services_HUD where ServiceID=${serviceId} (bypassing cache)`);
       try {
-        const freshHud = await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId));
+        // Pass bypassCache=true to get fresh data after title/description edits
+        const freshHud = await firstValueFrom(this.caspioService.getServicesHUDByServiceId(serviceId, true));
         console.log(`[OfflineTemplate] WEBAPP: Loaded ${freshHud?.length || 0} HUD records from server`);
         if (freshHud && freshHud.length > 0) {
           console.log(`[OfflineTemplate] WEBAPP: First HUD record:`, {

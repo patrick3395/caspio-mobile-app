@@ -1772,13 +1772,24 @@ export class CaspioService {
     );
   }
 
-  getServicesHUDByServiceId(serviceId: string): Observable<any[]> {
-    console.log(`[CaspioService] getServicesHUDByServiceId called with ServiceID=${serviceId}`);
-    return this.get<any>(`/tables/LPS_Services_HUD/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
+  getServicesHUDByServiceId(serviceId: string, bypassCache: boolean = false): Observable<any[]> {
+    console.log(`[CaspioService] getServicesHUDByServiceId called with ServiceID=${serviceId}, bypassCache=${bypassCache}`);
+    return this.get<any>(`/tables/LPS_Services_HUD/records?q.where=ServiceID=${serviceId}&q.limit=1000`, !bypassCache).pipe(
       tap(response => {
         console.log(`[CaspioService] LPS_Services_HUD query returned ${response?.Result?.length || 0} records`);
       }),
       map(response => response.Result || [])
+    );
+  }
+
+  /**
+   * Get a single HUD record by its HUDID (PK_ID)
+   * Always bypasses cache to get fresh data
+   */
+  getServicesHUDById(hudId: string): Observable<any> {
+    console.log(`[CaspioService] getServicesHUDById called with HUDID=${hudId}`);
+    return this.get<any>(`/tables/LPS_Services_HUD/records?q.where=PK_ID=${hudId}`, false).pipe(
+      map(response => response.Result?.[0] || null)
     );
   }
 
@@ -3306,9 +3317,20 @@ export class CaspioService {
     );
   }
 
-  getServicesDTEByServiceId(serviceId: string): Observable<any[]> {
-    return this.get<any>(`/tables/LPS_Services_DTE/records?q.where=ServiceID=${serviceId}&q.limit=1000`).pipe(
+  getServicesDTEByServiceId(serviceId: string, bypassCache: boolean = false): Observable<any[]> {
+    return this.get<any>(`/tables/LPS_Services_DTE/records?q.where=ServiceID=${serviceId}&q.limit=1000`, !bypassCache).pipe(
       map(response => response.Result || [])
+    );
+  }
+
+  /**
+   * Get a single DTE record by its DTEID (PK_ID)
+   * Always bypasses cache to get fresh data
+   */
+  getServicesDTEById(dteId: string): Observable<any> {
+    console.log(`[CaspioService] getServicesDTEById called with DTEID=${dteId}`);
+    return this.get<any>(`/tables/LPS_Services_DTE/records?q.where=PK_ID=${dteId}`, false).pipe(
+      map(response => response.Result?.[0] || null)
     );
   }
 

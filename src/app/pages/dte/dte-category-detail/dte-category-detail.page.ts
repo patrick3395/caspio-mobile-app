@@ -193,8 +193,12 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     // Update in-memory photos with annotated image URLs
     for (const [key, photos] of Object.entries(this.visualPhotos)) {
       for (const photo of photos as any[]) {
-        // Check if this photo has annotations (from cache OR from server)
-        const hasAnnotations = photo.hasAnnotations || (photo.Drawings && photo.Drawings.length > 10);
+        // Check if this photo has annotations confirmed (from server or prior marking)
+        // IMPORTANT: Only apply cached annotations if photo is already marked as having annotations
+        // This prevents stale cache (from old deleted photos) from being applied to new photos
+        const hasConfirmedAnnotations = photo.hasAnnotations || (photo.Drawings && photo.Drawings.length > 10);
+
+        if (!hasConfirmedAnnotations) continue; // Skip photos without confirmed annotations
 
         // Try to find cached annotated image by various IDs
         const attachId = photo.AttachID || photo.attachId || photo.id || '';
@@ -205,12 +209,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           annotatedImage = this.bulkAnnotatedImagesMap.get(localImageId);
         }
 
-        // If found cached annotated image, use it for display
+        // If found cached annotated image for a photo with confirmed annotations, use it
         if (annotatedImage) {
           console.log(`[DTE CategoryDetail] Applying cached annotated image for ${attachId || localImageId}`);
           photo.displayUrl = annotatedImage;
           photo.thumbnailUrl = annotatedImage;
-          photo.hasAnnotations = true;
           // Keep photo.url as original for re-editing
         }
       }
@@ -962,11 +965,13 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
 
-          // WEBAPP FIX: Always check for cached annotated image
-          // IMPORTANT: Check cache FIRST because local annotations may not have synced to server yet
-          // This catches annotations added in visual-detail that haven't synced to server
+          // WEBAPP FIX: Check for cached annotated image
+          // IMPORTANT: Only use cached annotations if server confirms photo HAS annotations
+          // This prevents stale cache (from old deleted photos) from being applied to new uploads
+          // Local annotations sync to server immediately in WEBAPP mode, so server should have the data
           const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
-          if (cachedAnnotated) {
+          if (cachedAnnotated && hasServerAnnotations) {
+            // Server confirms annotations exist - use cached version (may be more up-to-date than server render)
             thumbnailUrl = cachedAnnotated;
             hasAnnotations = true;
             console.log(`[DTE] WEBAPP: Using cached annotated image for ${attachId}`);
@@ -3781,19 +3786,22 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
    * Visual-detail will determine DTEID from Dexie field lookup (tempVisualId || visualId)
    */
   openVisualDetail(categoryName: string, item: VisualItem) {
-    console.log('[DTE CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName);
-    // Route: /dte/:projectId/:serviceId/category/:category/visual/:templateId
-    // Use absolute path for reliable navigation
-    // NOTE: Do NOT pass DTEID - visual-detail must look it up from Dexie to get correct entityId for photos
-    this.router.navigate([
-      '/dte',
-      this.projectId,
-      this.serviceId,
-      'category',
-      this.categoryName,
-      'visual',
-      item.templateId
-    ]);
+    console.log('[DTE CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName, 'itemId:', item.id);
+
+    // WEBAPP MODE: Pass dteId directly so visual-detail can fetch fresh data from API
+    // MOBILE MODE: Don't pass dteId - visual-detail looks it up from Dexie
+    const queryParams: any = {};
+
+    if (environment.isWeb && item.id) {
+      // Pass DTEID for direct API lookup in WEBAPP mode
+      queryParams.dteId = String(item.id);
+      console.log('[DTE CategoryDetail] WEBAPP: Passing dteId:', queryParams.dteId);
+    }
+
+    this.router.navigate(
+      ['/dte', this.projectId, this.serviceId, 'category', this.categoryName, 'visual', item.templateId],
+      { queryParams }
+    );
   }
 }
 

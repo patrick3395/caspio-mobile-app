@@ -3,7 +3,7 @@ import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, AlertController, ModalController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../services/caspio.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -105,18 +105,12 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   }
 
   ionViewWillEnter() {
-    // WEBAPP: Clear loading state when returning to this page
-    if (environment.isWeb) {
-      this.loading = false;
-      this.saving = false;
-      this.changeDetectorRef.detectChanges();
-    } else {
-      // MOBILE: Reload data when returning to this page (sync may have happened)
-      // This ensures we show fresh data after sync completes
-      if (this.serviceId && this.templateId) {
-        console.log('[HudVisualDetail] ionViewWillEnter MOBILE: Reloading data');
-        this.loadVisualData();
-      }
+    // Reload data when returning to this page for BOTH modes
+    // WEBAPP: Reloads from server API to get latest title/description edits
+    // MOBILE: Reloads from Dexie to get synced data
+    if (this.serviceId && this.templateId) {
+      console.log('[HudVisualDetail] ionViewWillEnter: Reloading data, isWeb:', environment.isWeb);
+      this.loadVisualData();
     }
   }
 
@@ -171,10 +165,15 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     }
 
     // Get actualServiceId from query params (passed from category detail page)
-    // NOTE: Do NOT use hudId from query params - it may be the real server ID while photos
-    // still have entityId = tempVisualId. Instead, loadPhotos() determines hudId from Dexie
-    // using tempVisualId || visualId (EFE pattern)
     const queryParams = this.route.snapshot.queryParams;
+
+    // WEBAPP MODE: Use hudId from query params for direct API lookup
+    // MOBILE MODE: Don't use hudId from query params - loadPhotos() determines it from Dexie
+    if (environment.isWeb && queryParams['hudId']) {
+      this.hudId = queryParams['hudId'];
+      console.log('[HudVisualDetail] WEBAPP: hudId from query params:', this.hudId);
+    }
+
     // CRITICAL: actualServiceId is the real FK for HUD records (route param serviceId is PK_ID)
     if (queryParams['actualServiceId']) {
       this.actualServiceId = queryParams['actualServiceId'];
@@ -200,51 +199,75 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     const hudIdFromQueryParams = this.hudId;
 
     try {
-      // WEBAPP MODE: Load from server API to see synced data from mobile
+      // WEBAPP MODE: Load directly from server API
       if (environment.isWeb) {
         console.log('[HudVisualDetail] WEBAPP MODE: Loading HUD data from server');
         console.log('[HudVisualDetail] WEBAPP: HUDID from query params:', hudIdFromQueryParams || '(none)');
-        console.log('[HudVisualDetail] WEBAPP: actualServiceId:', this.actualServiceId, 'serviceId:', this.serviceId);
 
-        // CRITICAL: Use actualServiceId (real FK for HUD records) instead of serviceId (PK_ID from route)
-        const queryServiceId = this.actualServiceId || this.serviceId;
-        const hudRecords = await this.hudData.getHudByService(queryServiceId);
-        console.log('[HudVisualDetail] WEBAPP: Loaded', hudRecords.length, 'HUD records for ServiceID:', queryServiceId);
-
-        // HUD NOTE: The route uses 'category/hud' but actual HUD records have real categories
-        // like "Foundation", "Roof", etc.
-        // NOTE: LPS_Services_HUD does NOT have HUDTemplateID field
-
-        // Load templates to get the Name and Category for matching (fallback)
-        const templates = (await this.caspioService.getServicesHUDTemplates().toPromise()) || [];
-        const template = templates.find((t: any) =>
-          (t.TemplateID || t.PK_ID) == this.templateId
-        );
-
-        // PRIORITY 1: Find by HUDID from query params (most reliable - direct record lookup)
-        // This ensures we find the record even if Name was edited
         let visual: any = null;
+
+        // PRIORITY 1: If we have HUDID, fetch directly from table (most reliable, always fresh)
         if (hudIdFromQueryParams) {
-          visual = hudRecords.find((v: any) =>
-            String(v.HUDID || v.PK_ID) === String(hudIdFromQueryParams)
-          );
+          console.log('[HudVisualDetail] WEBAPP: Fetching HUD record directly by HUDID:', hudIdFromQueryParams);
+          visual = await firstValueFrom(this.caspioService.getServicesHUDById(hudIdFromQueryParams));
           if (visual) {
-            console.log('[HudVisualDetail] WEBAPP: Matched HUD record by HUDID:', hudIdFromQueryParams);
+            console.log('[HudVisualDetail] WEBAPP: Got fresh HUD record - Name:', visual.Name, 'Text:', visual.Text?.substring(0, 50));
           }
         }
 
-        // PRIORITY 2: Fall back to Name + Category matching (same pattern as EFE)
-        if (!visual && template && template.Name) {
-          visual = hudRecords.find((v: any) =>
-            v.Name === template.Name && v.Category === template.Category
+        // PRIORITY 2: Fall back to service-level query + name matching
+        if (!visual) {
+          const queryServiceId = this.actualServiceId || this.serviceId;
+          const hudRecords = await this.hudData.getHudByService(queryServiceId);
+          console.log('[HudVisualDetail] WEBAPP: Loaded', hudRecords.length, 'HUD records for ServiceID:', queryServiceId);
+
+          // Load templates to get the Name and Category for matching
+          const templates = (await this.caspioService.getServicesHUDTemplates().toPromise()) || [];
+          const template = templates.find((t: any) =>
+            (t.TemplateID || t.PK_ID) == this.templateId
           );
-          if (visual) {
-            console.log('[HudVisualDetail] WEBAPP: Matched HUD record by name+category:', template.Name, template.Category);
+
+          if (template && template.Name) {
+            visual = hudRecords.find((v: any) =>
+              v.Name === template.Name && v.Category === template.Category
+            );
+            if (visual) {
+              console.log('[HudVisualDetail] WEBAPP: Matched HUD record by name+category:', template.Name, template.Category);
+            }
+          }
+
+          // If still no visual, use template as fallback
+          if (!visual && template) {
+            console.log('[HudVisualDetail] WEBAPP: HUD record not found, using template data');
+            const effectiveTemplateId = template.TemplateID || template.PK_ID;
+            const actualCategory = template.Category || '';
+            this.item = {
+              id: effectiveTemplateId,
+              templateId: effectiveTemplateId,
+              name: template.Name || '',
+              text: template.Text || '',
+              originalText: template.Text || '',
+              type: template.Kind || 'Comment',
+              category: actualCategory,
+              answerType: template.AnswerType || 0,
+              required: false,
+              isSelected: false
+            };
+            this.categoryName = actualCategory;
+            this.editableTitle = this.item.name;
+            this.editableText = this.item.text;
+
+            if (hudIdFromQueryParams) {
+              this.hudId = hudIdFromQueryParams;
+              console.log('[HudVisualDetail] WEBAPP: Using HUDID from query params for photos:', this.hudId);
+            }
+
+            await this.loadPhotos();
+            return;
           }
         }
 
         if (visual) {
-          // Store the actual category from the data (not from route)
           const actualCategory = visual.Category || '';
           this.item = {
             id: visual.HUDID || visual.PK_ID,
@@ -260,39 +283,10 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             isSelected: true
           };
           this.hudId = String(visual.HUDID || visual.PK_ID);
-          this.categoryName = actualCategory; // Update to actual category for photo queries
+          this.categoryName = actualCategory;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
           console.log('[HudVisualDetail] WEBAPP: Loaded HUD record:', this.item.name, 'HUDID:', this.hudId, 'Category:', actualCategory);
-        } else if (template) {
-          // No HUD record found - use template (already loaded above)
-          console.log('[HudVisualDetail] WEBAPP: HUD record not found, using template data');
-          const effectiveTemplateId = template.TemplateID || template.PK_ID;
-          const actualCategory = template.Category || '';
-          this.item = {
-            id: effectiveTemplateId,
-            templateId: effectiveTemplateId,
-            name: template.Name || '',
-            text: template.Text || '',
-            originalText: template.Text || '',
-            type: template.Kind || 'Comment',
-            category: actualCategory,
-            answerType: template.AnswerType || 0,
-            required: false,
-            isSelected: false
-          };
-          this.categoryName = actualCategory; // Update to actual category
-          this.editableTitle = this.item.name;
-          this.editableText = this.item.text;
-          console.log('[HudVisualDetail] WEBAPP: Loaded from template:', this.item.name, 'Category:', actualCategory);
-
-          // CRITICAL: Ensure we have the HUDID from query params for loading photos
-          // The category detail page passes the HUDID so we can load photos even when
-          // no HUD record is found in LPS_Services_HUD (data may only exist in HUD_Attach)
-          if (hudIdFromQueryParams) {
-            this.hudId = hudIdFromQueryParams;
-            console.log('[HudVisualDetail] WEBAPP: Using HUDID from query params for photos:', this.hudId);
-          }
         }
 
         // Load photos from server

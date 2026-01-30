@@ -9289,19 +9289,23 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   openVisualDetail(categoryName: string, item: VisualItem) {
-    // EFE PATTERN: Use relative navigation without passing hudId
-    // Visual-detail will determine hudId from Dexie field lookup (tempVisualId || visualId)
-    // This avoids race conditions where query param has real ID but photos still have temp ID
-    // Route: visual/:templateId (relative to current category route)
-    console.log('[CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName);
-    // CRITICAL: Pass actualServiceId so WEBAPP mode can query HUD records correctly
-    // Route param serviceId is PK_ID, but HUD records use ServiceID field as FK
-    // NOTE: Do NOT pass hudId - visual-detail must look it up from Dexie to get correct entityId for photos
+    console.log('[CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName, 'itemId:', item.id);
+
+    // WEBAPP MODE: Pass hudId directly so visual-detail can fetch fresh data from API
+    // MOBILE MODE: Don't pass hudId - visual-detail looks it up from Dexie
+    const queryParams: any = { actualServiceId: this.actualServiceId || this.serviceId };
+
+    if (environment.isWeb && item.id) {
+      // Pass HUDID for direct API lookup in WEBAPP mode
+      queryParams.hudId = String(item.id);
+      console.log('[CategoryDetail] WEBAPP: Passing hudId:', queryParams.hudId);
+    }
+
     this.router.navigate(
       ['visual', item.templateId],
       {
         relativeTo: this.route.parent,
-        queryParams: { actualServiceId: this.actualServiceId || this.serviceId }
+        queryParams
       }
     );
   }

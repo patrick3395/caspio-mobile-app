@@ -3,7 +3,7 @@ import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, AlertController, ModalController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../services/caspio.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -164,8 +164,16 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       }
     }
 
-    // Get actualServiceId from query params (passed from category detail page)
+    // Get query params (passed from category detail page)
     const queryParams = this.route.snapshot.queryParams;
+
+    // WEBAPP MODE: Use dteId from query params for direct API lookup
+    // MOBILE MODE: Don't use dteId from query params - loadVisualData() determines it from Dexie
+    if (environment.isWeb && queryParams['dteId']) {
+      this.dteId = queryParams['dteId'];
+      console.log('[DteVisualDetail] WEBAPP: dteId from query params:', this.dteId);
+    }
+
     if (queryParams['actualServiceId']) {
       this.actualServiceId = queryParams['actualServiceId'];
       console.log('[DteVisualDetail] actualServiceId from query params:', this.actualServiceId);
@@ -187,69 +195,80 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     const dteIdFromQueryParams = this.dteId;
 
     try {
-      // WEBAPP MODE: Load from server API + Dexie for local edits
+      // WEBAPP MODE: Load directly from server API (no Dexie)
       if (environment.isWeb) {
         console.log('[DteVisualDetail] WEBAPP MODE: Loading DTE data from server');
-        const queryServiceId = this.actualServiceId || this.serviceId;
-        const dteRecords = await this.dteData.getVisualsByService(queryServiceId);
-        console.log('[DteVisualDetail] WEBAPP: Loaded', dteRecords.length, 'DTE records for ServiceID:', queryServiceId);
 
-        // TITLE EDIT FIX: Load Dexie field for this template to get local edits and DTEID mapping
-        const dexieFields = await db.visualFields
-          .where('serviceId')
-          .equals(this.serviceId)
-          .toArray();
-        const dexieField = dexieFields.find(f => f.templateId === this.templateId);
-        const dexieDteId = dexieField?.visualId || dexieField?.tempVisualId;
-        console.log('[DteVisualDetail] WEBAPP: Dexie field found:', !!dexieField, 'dexieDteId:', dexieDteId);
-
-        // Load templates to get the Name and Category for matching
-        const templates = (await this.caspioService.getServicesDTETemplates().toPromise()) || [];
-        const template = templates.find((t: any) =>
-          (t.TemplateID || t.PK_ID) == this.templateId
-        );
-
-        // PRIORITY 1: Find by DTEID from query params
         let visual: any = null;
+
+        // PRIORITY 1: If we have DTEID, fetch directly from table (most reliable, always fresh)
         if (dteIdFromQueryParams) {
-          visual = dteRecords.find((v: any) =>
-            String(v.DTEID || v.PK_ID) === String(dteIdFromQueryParams)
-          );
+          console.log('[DteVisualDetail] WEBAPP: Fetching DTE record directly by DTEID:', dteIdFromQueryParams);
+          visual = await firstValueFrom(this.caspioService.getServicesDTEById(dteIdFromQueryParams));
           if (visual) {
-            console.log('[DteVisualDetail] WEBAPP: Matched DTE record by DTEID from query:', dteIdFromQueryParams);
+            console.log('[DteVisualDetail] WEBAPP: Got fresh DTE record - Name:', visual.Name, 'Text:', visual.Text?.substring(0, 50));
           }
         }
 
-        // PRIORITY 2: Find by DTEID from Dexie mapping
-        if (!visual && dexieDteId) {
-          visual = dteRecords.find((v: any) =>
-            String(v.DTEID || v.PK_ID) === String(dexieDteId)
-          );
-          if (visual) {
-            console.log('[DteVisualDetail] WEBAPP: Matched DTE record by Dexie mapping:', dexieDteId);
-          }
-        }
+        // PRIORITY 2: Fall back to service-level query + name matching
+        if (!visual) {
+          const queryServiceId = this.actualServiceId || this.serviceId;
+          const dteRecords = await this.dteData.getVisualsByService(queryServiceId, true);
+          console.log('[DteVisualDetail] WEBAPP: Loaded', dteRecords.length, 'DTE records for ServiceID:', queryServiceId);
 
-        // PRIORITY 3: Fall back to Name + Category matching
-        if (!visual && template && template.Name) {
-          visual = dteRecords.find((v: any) =>
-            v.Name === template.Name && v.Category === template.Category
+          // Load templates to get the Name and Category for matching
+          const templates = (await this.caspioService.getServicesDTETemplates().toPromise()) || [];
+          const template = templates.find((t: any) =>
+            (t.TemplateID || t.PK_ID) == this.templateId
           );
-          if (visual) {
-            console.log('[DteVisualDetail] WEBAPP: Matched DTE record by name+category:', template.Name, template.Category);
+
+          if (template && template.Name) {
+            visual = dteRecords.find((v: any) =>
+              v.Name === template.Name && v.Category === template.Category
+            );
+            if (visual) {
+              console.log('[DteVisualDetail] WEBAPP: Matched DTE record by name+category:', template.Name, template.Category);
+            }
+          }
+
+          // If still no visual, use template as fallback
+          if (!visual && template) {
+            console.log('[DteVisualDetail] WEBAPP: DTE record not found, using template data');
+            const effectiveTemplateId = template.TemplateID || template.PK_ID || this.templateId;
+            const actualCategory = template.Category || '';
+            this.item = {
+              id: effectiveTemplateId,
+              templateId: effectiveTemplateId,
+              name: template.Name || '',
+              text: template.Text || '',
+              originalText: template.Text || '',
+              type: template.Kind || 'Comment',
+              category: actualCategory,
+              answerType: template.AnswerType || 0,
+              required: false,
+              isSelected: false
+            };
+            this.categoryName = actualCategory;
+            this.editableTitle = this.item.name;
+            this.editableText = this.item.text;
+
+            if (dteIdFromQueryParams) {
+              this.dteId = dteIdFromQueryParams;
+              console.log('[DteVisualDetail] WEBAPP: Using DTEID from query params for photos:', this.dteId);
+            }
+
+            await this.loadPhotos();
+            return;
           }
         }
 
         if (visual) {
           const actualCategory = visual.Category || '';
-          // DEXIE-FIRST: Use Dexie templateName/templateText if available (local edits)
-          const titleValue = dexieField?.templateName || visual.Name || '';
-          const textValue = dexieField?.templateText || visual.Text || '';
           this.item = {
             id: visual.DTEID || visual.PK_ID,
             templateId: this.templateId,
-            name: titleValue,
-            text: textValue,
+            name: visual.Name || '',
+            text: visual.Text || '',
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',
             category: actualCategory,
@@ -263,36 +282,6 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
           console.log('[DteVisualDetail] WEBAPP: Loaded DTE record:', this.item.name, 'DTEID:', this.dteId);
-        } else if (dexieField || template) {
-          // No DTE record found - use Dexie field or template data
-          console.log('[DteVisualDetail] WEBAPP: DTE record not found, using Dexie/template data');
-          const effectiveTemplateId = template?.TemplateID || template?.PK_ID || this.templateId;
-          const actualCategory = dexieField?.category || template?.Category || '';
-          const titleValue = dexieField?.templateName || template?.Name || '';
-          const textValue = dexieField?.templateText || template?.Text || '';
-          this.item = {
-            id: dexieDteId || effectiveTemplateId,
-            templateId: effectiveTemplateId,
-            name: titleValue,
-            text: textValue,
-            originalText: template?.Text || '',
-            type: dexieField?.kind || template?.Kind || 'Comment',
-            category: actualCategory,
-            answerType: template?.AnswerType || 0,
-            required: false,
-            isSelected: !!dexieField?.isSelected
-          };
-          this.categoryName = actualCategory;
-          this.editableTitle = this.item.name;
-          this.editableText = this.item.text;
-
-          if (dexieDteId) {
-            this.dteId = dexieDteId;
-            console.log('[DteVisualDetail] WEBAPP: Using DTEID from Dexie for photos:', this.dteId);
-          } else if (dteIdFromQueryParams) {
-            this.dteId = dteIdFromQueryParams;
-            console.log('[DteVisualDetail] WEBAPP: Using DTEID from query params for photos:', this.dteId);
-          }
         }
 
         await this.loadPhotos();
@@ -478,12 +467,15 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             }
           }
 
-          // Check for cached annotated image FIRST (catches local-only annotations)
+          // Check for cached annotated image only if server confirms annotations exist
+          // IMPORTANT: Only use cached annotations if hasServerAnnotations is true
+          // This prevents stale cache (from old deleted photos) from being applied to new uploads
           const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
           let hasAnnotations = hasServerAnnotations;
           const cachedAnnotated = annotatedImagesMap.get(attachId);
 
-          if (cachedAnnotated) {
+          if (cachedAnnotated && hasServerAnnotations) {
+            // Server confirms annotations exist - use cached version (may be more up-to-date)
             console.log('[DteVisualDetail] WEBAPP: Using cached annotated image for', attachId);
             displayUrl = cachedAnnotated;
             hasAnnotations = true;
@@ -874,11 +866,24 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
   private async confirmDeletePhoto(photo: PhotoItem) {
     try {
+      // Remove from UI immediately
       const index = this.photos.findIndex(p => p.id === photo.id);
       if (index >= 0) {
         this.photos.splice(index, 1);
       }
+      this.changeDetectorRef.detectChanges();
 
+      // WEBAPP MODE: Direct API delete
+      if (environment.isWeb) {
+        if (photo.id) {
+          await this.dteData.deleteVisualPhoto(photo.id);
+          console.log('[DteVisualDetail] WEBAPP: Deleted photo from server:', photo.id);
+        }
+        await this.showToast('Photo deleted', 'success');
+        return;
+      }
+
+      // MOBILE MODE: Delete from Dexie and queue server deletion
       const localImage = await db.localImages.get(photo.id);
 
       if (localImage) {
@@ -890,11 +895,10 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       if (localImage?.attachId) {
         await this.dteData.deleteVisualPhoto(localImage.attachId);
-        console.log('[DteVisualDetail] Queued photo deletion to Caspio:', localImage.attachId);
+        console.log('[DteVisualDetail] MOBILE: Queued photo deletion to Caspio:', localImage.attachId);
       }
 
       await this.showToast('Photo deleted', 'success');
-      this.changeDetectorRef.detectChanges();
     } catch (error) {
       console.error('[DteVisualDetail] Error deleting photo:', error);
       await this.showToast('Error deleting photo', 'danger');
