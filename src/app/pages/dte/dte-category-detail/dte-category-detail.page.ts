@@ -771,16 +771,17 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         item.otherValue = visual.OtherValue || '';
         console.log('[LOAD EXISTING] ✅ item.answer set to:', item.answer);
 
-        // TITLE EDIT FIX: Update item name/text with edited values from API
-        // WEBAPP API-FIRST: Use visual.Name and visual.Text directly from API response
-        if (visual.Name && visual.Name !== item.name) {
-          item.name = visual.Name;
-          console.log('[LOAD EXISTING] ✅ item.name updated from API:', item.name);
-        }
-
-        if (visual.Text && visual.Text !== item.text) {
-          item.text = visual.Text;
-          console.log('[LOAD EXISTING] ✅ item.text updated from API:', item.text);
+        // WEBAPP FIX: Update name and text from server if edited in visual-detail
+        // Server is source of truth for WEBAPP mode
+        if (environment.isWeb) {
+          if (visual.Name && visual.Name !== item.name) {
+            console.log('[LOAD EXISTING] WEBAPP: Updated name from server:', item.name, '->', visual.Name);
+            item.name = visual.Name;
+          }
+          if (visual.Text && visual.Text !== item.text) {
+            console.log('[LOAD EXISTING] WEBAPP: Updated text from server');
+            item.text = visual.Text;
+          }
         }
 
         // Force change detection to update UI

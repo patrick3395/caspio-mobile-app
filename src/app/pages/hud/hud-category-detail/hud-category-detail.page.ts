@@ -17,7 +17,7 @@ import { IndexedDbService, LocalImage } from '../../../services/indexed-db.servi
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { LocalImageService } from '../../../services/local-image.service';
-import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS } from '../../../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData, EMPTY_COMPRESSED_ANNOTATIONS, renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { AddCustomVisualModalComponent } from '../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 import { db, VisualField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
@@ -4226,12 +4226,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // Store the visual record ID (extract from response)
         this.visualRecordIds[key] = visualId;
 
-        // CRITICAL: Restore edited Name and Text from saved visual
-        if (visual.Name) {
-          item.name = visual.Name;
-        }
-        if (visual.Text) {
-          item.text = visual.Text;
+        // WEBAPP FIX: Update name and text from server if edited in visual-detail
+        // Server is source of truth for WEBAPP mode
+        if (environment.isWeb) {
+          if (visual.Name && visual.Name !== item.name) {
+            console.log('[LOAD EXISTING] WEBAPP: Updated name from server:', item.name, '->', visual.Name);
+            item.name = visual.Name;
+          }
+          if (visual.Text && visual.Text !== item.text) {
+            console.log('[LOAD EXISTING] WEBAPP: Updated text from server');
+            item.text = visual.Text;
+          }
         }
 
         // Set selected state for checkbox items
@@ -4468,7 +4473,29 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           if (cachedAnnotated) {
             thumbnailUrl = cachedAnnotated;
             hasAnnotations = true;
-            console.log(`[LOAD PHOTOS] WEBAPP: Using cached annotated image for ${attachId}`);
+            console.log(`[HUD] WEBAPP: Using cached annotated image for ${attachId}`);
+          } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+            // No cached image but server has Drawings - render annotations on the fly
+            try {
+              console.log(`[HUD] WEBAPP: Rendering annotations for ${attachId}...`);
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, attach.Drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                thumbnailUrl = renderedUrl;
+                // Cache in memory for immediate use
+                this.bulkAnnotatedImagesMap.set(attachId, renderedUrl);
+                // Also persist to IndexedDB (convert data URL to blob first)
+                try {
+                  const response = await fetch(renderedUrl);
+                  const blob = await response.blob();
+                  await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+                } catch (cacheErr) {
+                  console.warn('[HUD] WEBAPP: Failed to cache annotated image:', cacheErr);
+                }
+                console.log(`[HUD] WEBAPP: Rendered and cached annotations for ${attachId}`);
+              }
+            } catch (renderErr) {
+              console.warn(`[HUD] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
+            }
           }
 
           this.visualPhotos[key].push({
