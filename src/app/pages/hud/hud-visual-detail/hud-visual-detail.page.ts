@@ -13,7 +13,7 @@ import { db, VisualField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { HudDataService } from '../hud-data.service';
-import { compressAnnotationData, decompressAnnotationData } from '../../../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData, renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { liveQuery } from 'dexie';
 import { environment } from '../../../../environments/environment';
 import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
@@ -548,14 +548,49 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             }
           }
 
+          const attachId = String(att.AttachID || att.attachId || att.PK_ID);
+          const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+          let thumbnailUrl = displayUrl;
+          let hasAnnotations = hasServerAnnotations;
+
+          // WEBAPP FIX: ALWAYS check for cached annotated image first
+          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          try {
+            const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
+            if (cachedAnnotated) {
+              thumbnailUrl = cachedAnnotated;
+              hasAnnotations = true;
+              console.log(`[HudVisualDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+            } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+              // No cached image but server has Drawings - render annotations on the fly
+              console.log(`[HudVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                thumbnailUrl = renderedUrl;
+                // Cache for future use (convert data URL to blob first)
+                try {
+                  const response = await fetch(renderedUrl);
+                  const blob = await response.blob();
+                  await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+                } catch (cacheErr) {
+                  console.warn('[HudVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
+                }
+                console.log(`[HudVisualDetail] WEBAPP: Rendered and cached annotations for ${attachId}`);
+              }
+            }
+          } catch (annotErr) {
+            console.warn(`[HudVisualDetail] WEBAPP: Failed to process annotations for ${attachId}:`, annotErr);
+          }
+
           this.photos.push({
-            id: att.AttachID || att.attachId || att.PK_ID,
-            displayUrl,
-            originalUrl: displayUrl,
+            id: attachId,
+            displayUrl: thumbnailUrl,   // Use annotated if available
+            originalUrl: displayUrl,    // Original for re-annotation
             caption: att.Annotation || att.caption || '',
             uploading: false,
+            loading: true,              // Image is loading until (load) event fires
             isLocal: false,
-            hasAnnotations: !!(att.Drawings && att.Drawings.length > 10),
+            hasAnnotations,
             drawings: att.Drawings || ''
           });
         }
@@ -595,42 +630,41 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
       // DEXIE-FIRST: Load local images from IndexedDB using hudId as entityId
       // DIRECT Dexie query - matching EFE pattern EXACTLY (no service wrapper)
+      // 4-TIER FALLBACK: Track which tier found photos for debugging
+      let foundAtTier = 0;
+
       let localImages = await db.localImages
         .where('entityId')
         .equals(this.hudId)
         .toArray();
 
+      if (localImages.length > 0) {
+        foundAtTier = 1;
+        console.log('[HudVisualDetail] MOBILE: TIER 1 (primary) - Found', localImages.length, 'photos with hudId:', this.hudId);
+      }
+
       // FALLBACK 1: If no photos found and we have both tempVisualId and visualId, try the other ID
-      // This handles the race condition where updateEntityIdForImages() hasn't completed yet
-      // after sync - photos may still have entityId = tempVisualId while field has visualId
       if (localImages.length === 0 && field?.tempVisualId && field?.visualId) {
         const alternateId = (this.hudId === field.tempVisualId) ? field.visualId : field.tempVisualId;
         if (alternateId && alternateId !== this.hudId) {
           console.log('[HudVisualDetail] MOBILE: No photos found, trying alternate ID:', alternateId);
-          localImages = await db.localImages
-            .where('entityId')
-            .equals(alternateId)
-            .toArray();
+          localImages = await db.localImages.where('entityId').equals(alternateId).toArray();
           if (localImages.length > 0) {
-            console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'photos with alternate ID');
+            foundAtTier = 2;
+            console.log('[HudVisualDetail] MOBILE: TIER 2 (alternate ID) - Found', localImages.length, 'photos');
           }
         }
       }
 
       // FALLBACK 2: If no photos found and we have tempVisualId, check tempIdMappings for mapped realId
-      // This handles the case where photos were captured with REAL server ID (from cache)
-      // but Dexie field has tempVisualId (from createVisual in MOBILE mode)
-      // Pattern from hud-category-detail.populatePhotosFromDexie() lines 1694-1713
       if (localImages.length === 0 && field?.tempVisualId) {
         const mappedRealId = await this.indexedDb.getRealId(field.tempVisualId);
         if (mappedRealId) {
           console.log('[HudVisualDetail] MOBILE: Trying mapped realId from tempIdMappings:', mappedRealId);
-          localImages = await db.localImages
-            .where('entityId')
-            .equals(mappedRealId)
-            .toArray();
+          localImages = await db.localImages.where('entityId').equals(mappedRealId).toArray();
           if (localImages.length > 0) {
-            console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'photos with mapped realId');
+            foundAtTier = 3;
+            console.log('[HudVisualDetail] MOBILE: TIER 3 (tempIdMappings) - Found', localImages.length, 'photos');
             // Update VisualField with realId so future lookups work directly
             this.visualFieldRepo.setField(this.serviceId, this.categoryName, this.templateId, {
               visualId: mappedRealId
@@ -640,25 +674,24 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       }
 
       // FALLBACK 3: If still no photos, do REVERSE lookup - query tempIdMappings by realId to find tempId
-      // This handles the case where:
-      // - Sync completed, VisualField.visualId has real ID but tempVisualId is null
-      // - Photos still have entityId = temp_hud_xxx (updateEntityIdForImages hasn't run)
-      // Pattern from hud-category-detail.populatePhotosFromDexie() lines 1715-1728
       if (localImages.length === 0 && field?.visualId && !field?.tempVisualId) {
         const reverseLookupTempId = await this.indexedDb.getTempId(field.visualId);
         if (reverseLookupTempId) {
-          console.log('[HudVisualDetail] MOBILE: REVERSE LOOKUP - realId:', field.visualId, '-> tempId:', reverseLookupTempId);
-          localImages = await db.localImages
-            .where('entityId')
-            .equals(reverseLookupTempId)
-            .toArray();
+          console.log('[HudVisualDetail] MOBILE: TIER 4 REVERSE LOOKUP - realId:', field.visualId, '-> tempId:', reverseLookupTempId);
+          localImages = await db.localImages.where('entityId').equals(reverseLookupTempId).toArray();
           if (localImages.length > 0) {
-            console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'photos with reverse-lookup tempId');
+            foundAtTier = 4;
+            console.log('[HudVisualDetail] MOBILE: TIER 4 (reverse lookup) - Found', localImages.length, 'photos');
           }
         }
       }
 
-      console.log('[HudVisualDetail] MOBILE: Found', localImages.length, 'localImages for hudId:', this.hudId);
+      // Log final result with tier information
+      if (foundAtTier > 0) {
+        console.log('[HudVisualDetail] MOBILE: Photos found at TIER', foundAtTier, '- Total:', localImages.length, 'photos');
+      } else {
+        console.log('[HudVisualDetail] MOBILE: No photos found after all 4 tiers for hudId:', this.hudId);
+      }
 
       // Convert to PhotoItem format
       this.photos = [];
@@ -809,13 +842,22 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       const actualCategory = this.item?.category || this.categoryName;
 
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
+      // CRITICAL: Also save visualId and isSelected so category-detail can restore it
+      const dexieUpdate: any = {
+        templateName: this.editableTitle,
+        isSelected: true,  // Visual is selected if user is editing it
+        category: actualCategory
+      };
+      if (this.hudId) {
+        dexieUpdate.visualId = this.hudId;
+      }
       await this.visualFieldRepo.setField(
         this.serviceId,
         actualCategory,
         this.templateId,
-        { templateName: this.editableTitle }
+        dexieUpdate
       );
-      console.log('[HudVisualDetail] ✅ Updated title in Dexie');
+      console.log('[HudVisualDetail] ✅ Updated title in Dexie with visualId:', this.hudId);
 
       // Queue update to Caspio for background sync (only if valid hudId)
       if (this.isValidHudId(this.hudId)) {
@@ -848,13 +890,22 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       const actualCategory = this.item?.category || this.categoryName;
 
       // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
+      // CRITICAL: Also save visualId, isSelected, and category so category-detail can restore it
+      const dexieUpdate: any = {
+        templateText: this.editableText,
+        isSelected: true,  // Visual is selected if user is editing it
+        category: actualCategory
+      };
+      if (this.hudId) {
+        dexieUpdate.visualId = this.hudId;
+      }
       await this.visualFieldRepo.setField(
         this.serviceId,
         actualCategory,
         this.templateId,
-        { templateText: this.editableText }
+        dexieUpdate
       );
-      console.log('[HudVisualDetail] ✅ Updated text in Dexie');
+      console.log('[HudVisualDetail] ✅ Updated text in Dexie with visualId:', this.hudId);
 
       // Queue update to Caspio for background sync (only if valid hudId)
       if (this.isValidHudId(this.hudId)) {
@@ -1546,6 +1597,14 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       position: 'bottom'
     });
     await toast.present();
+  }
+
+  onImageLoad(photo: PhotoItem) {
+    // Image finished loading - remove shimmer effect
+    if (photo) {
+      photo.loading = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   trackByPhotoId(index: number, photo: PhotoItem): string {

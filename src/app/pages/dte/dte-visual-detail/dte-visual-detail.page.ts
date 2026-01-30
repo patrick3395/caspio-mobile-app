@@ -13,7 +13,7 @@ import { db, VisualField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { DteDataService } from '../dte-data.service';
-import { compressAnnotationData, decompressAnnotationData } from '../../../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData, renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { liveQuery } from 'dexie';
 import { environment } from '../../../../environments/environment';
 import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
@@ -488,26 +488,46 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             }
           }
 
-          // Check for cached annotated image only if server confirms annotations exist
-          // IMPORTANT: Only use cached annotations if hasServerAnnotations is true
-          // This prevents stale cache (from old deleted photos) from being applied to new uploads
           const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
+          let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
-          const cachedAnnotated = annotatedImagesMap.get(attachId);
 
-          if (cachedAnnotated && hasServerAnnotations) {
-            // Server confirms annotations exist - use cached version (may be more up-to-date)
-            console.log('[DteVisualDetail] WEBAPP: Using cached annotated image for', attachId);
-            displayUrl = cachedAnnotated;
-            hasAnnotations = true;
+          // WEBAPP FIX: ALWAYS check for cached annotated image first
+          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          try {
+            const cachedAnnotated = annotatedImagesMap.get(attachId);
+            if (cachedAnnotated) {
+              thumbnailUrl = cachedAnnotated;
+              hasAnnotations = true;
+              console.log(`[DteVisualDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+            } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+              // No cached image but server has Drawings - render annotations on the fly
+              console.log(`[DteVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                thumbnailUrl = renderedUrl;
+                // Cache for future use (convert data URL to blob first)
+                try {
+                  const response = await fetch(renderedUrl);
+                  const blob = await response.blob();
+                  await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+                } catch (cacheErr) {
+                  console.warn('[DteVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
+                }
+                console.log(`[DteVisualDetail] WEBAPP: Rendered and cached annotations for ${attachId}`);
+              }
+            }
+          } catch (annotErr) {
+            console.warn(`[DteVisualDetail] WEBAPP: Failed to process annotations for ${attachId}:`, annotErr);
           }
 
           this.photos.push({
             id: attachId,
-            displayUrl,
-            originalUrl: originalUrl, // Keep original for re-annotation
+            displayUrl: thumbnailUrl,   // Use annotated if available
+            originalUrl: originalUrl,   // Original for re-annotation
             caption: att.Annotation || att.caption || '',
             uploading: false,
+            loading: true,              // Image is loading until (load) event fires
             isLocal: false,
             hasAnnotations,
             drawings: att.Drawings || ''
@@ -1262,7 +1282,13 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   // ===== NAVIGATION =====
 
   goBack() {
-    this.location.back();
+    // MOBILE: Use NavController for proper Ionic navigation stack handling
+    // WEBAPP: Use Location service for browser history
+    if (environment.isWeb) {
+      this.location.back();
+    } else {
+      this.navController.back();
+    }
   }
 
   // ===== UTILITIES =====
@@ -1275,6 +1301,14 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       position: 'bottom'
     });
     await toast.present();
+  }
+
+  onImageLoad(photo: PhotoItem) {
+    // Image finished loading - remove shimmer effect
+    if (photo) {
+      photo.loading = false;
+      this.changeDetectorRef.detectChanges();
+    }
   }
 
   trackByPhotoId(index: number, photo: PhotoItem): string {
