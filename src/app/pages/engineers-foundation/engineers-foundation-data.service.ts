@@ -449,7 +449,25 @@ export class EngineersFoundationDataService {
 
     // Convert local images to attachment format for UI compatibility
     const localAttachments = await Promise.all(localImages.map(async (img) => {
+      // ANNOTATION FLATTENING FIX: Get ORIGINAL blob URL separately from display URL
+      // displayUrl may return annotated cached image (for thumbnails)
+      // originalUrl must always be the base image (for re-editing annotations)
+      let originalUrl = 'assets/img/photo-placeholder.svg';
+      if (img.localBlobId) {
+        const origBlobUrl = await this.localImageService.getOriginalBlobUrl(img.localBlobId);
+        if (origBlobUrl) {
+          originalUrl = origBlobUrl;
+        }
+      }
+
+      // Get display URL (may return annotated cached image for thumbnails)
       const displayUrl = await this.localImageService.getDisplayUrl(img);
+
+      // If we couldn't get original, fall back to display
+      if (originalUrl === 'assets/img/photo-placeholder.svg' && displayUrl !== 'assets/img/photo-placeholder.svg') {
+        originalUrl = displayUrl;
+      }
+
       return {
         // Stable identifiers
         imageId: img.imageId,              // STABLE UUID for trackBy
@@ -468,13 +486,17 @@ export class EngineersFoundationDataService {
         Annotation: img.caption,
         caption: img.caption,
         drawings: img.drawings,
+        Drawings: img.drawings,           // ANNOTATION FIX: Also set uppercase for viewPhoto
+        rawDrawingsString: img.drawings,  // ANNOTATION FIX: Store raw string for re-editing
+        hasAnnotations: !!(img.drawings && img.drawings.length > 10),
         fileName: img.fileName,
 
-        // Display URLs
+        // Display URLs - ANNOTATION FLATTENING FIX: Separate original from display
         Photo: displayUrl,
-        url: displayUrl,
-        thumbnailUrl: displayUrl,
-        displayUrl: displayUrl,
+        url: originalUrl,                 // CRITICAL: Base image for API compatibility
+        thumbnailUrl: displayUrl,         // Annotated for thumbnails
+        displayUrl: displayUrl,           // Annotated for display
+        originalUrl: originalUrl,         // CRITICAL: Base image for re-editing
         _thumbnailUrl: displayUrl,
 
         // Status flags - SILENT SYNC: No uploading/queued indicators
