@@ -224,13 +224,16 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       console.log('[LbwVisualDetail] WEBAPP DIRECT: Using lbwId from query params:', lbwIdFromQueryParams);
       this.lbwId = lbwIdFromQueryParams;
 
-      // Load visual data for display (optional - photos are the main thing)
+      // Load visual data for display
       try {
         const lbwRecords = await this.lbwData.getVisualsByService(this.serviceId);
+        console.log('[LbwVisualDetail] WEBAPP DIRECT: Loaded', lbwRecords.length, 'LBW records');
+        console.log('[LbwVisualDetail] WEBAPP DIRECT: Looking for LBWID:', lbwIdFromQueryParams);
+
         const visual = lbwRecords.find((v: any) => String(v.LBWID || v.PK_ID) === String(lbwIdFromQueryParams));
+
         if (visual) {
-          // WEBAPP FIX: Use the visual's original TemplateID for Dexie operations
-          // This ensures title/text saves work even for custom visuals (where route param might be custom_1234)
+          console.log('[LbwVisualDetail] WEBAPP DIRECT: Found visual:', visual.Name, 'LBWID:', visual.LBWID);
           const originalTemplateId = visual.TemplateID || visual.LBWTemplateID || visual.VisualTemplateID || this.templateId;
           if (!isNaN(originalTemplateId) && originalTemplateId > 0) {
             this.templateId = originalTemplateId;
@@ -252,10 +255,46 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           this.categoryName = visual.Category || this.categoryName;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[LbwVisualDetail] WEBAPP DIRECT: Loaded visual:', this.item.name, 'templateId:', this.templateId);
+          console.log('[LbwVisualDetail] WEBAPP DIRECT: Loaded visual:', this.item.name);
+        } else {
+          // Visual not found in LBW records - create minimal item so photos can still display
+          console.warn('[LbwVisualDetail] WEBAPP DIRECT: Visual not found in LBW records, creating minimal item');
+          console.log('[LbwVisualDetail] WEBAPP DIRECT: Available LBWIDs:', lbwRecords.map((v: any) => v.LBWID || v.PK_ID));
+
+          this.item = {
+            id: lbwIdFromQueryParams,
+            templateId: this.templateId || 0,
+            name: 'Visual ' + lbwIdFromQueryParams,
+            text: '',
+            originalText: '',
+            type: 'Comment',
+            category: this.categoryName,
+            answerType: 0,
+            required: false,
+            answer: '',
+            isSelected: true
+          };
+          this.editableTitle = this.item.name;
+          this.editableText = '';
         }
       } catch (e) {
-        console.warn('[LbwVisualDetail] WEBAPP DIRECT: Could not load visual data:', e);
+        console.error('[LbwVisualDetail] WEBAPP DIRECT: Error loading visual data:', e);
+        // Still create minimal item so photos can display
+        this.item = {
+          id: lbwIdFromQueryParams,
+          templateId: this.templateId || 0,
+          name: 'Visual ' + lbwIdFromQueryParams,
+          text: '',
+          originalText: '',
+          type: 'Comment',
+          category: this.categoryName,
+          answerType: 0,
+          required: false,
+          answer: '',
+          isSelected: true
+        };
+        this.editableTitle = this.item.name;
+        this.editableText = '';
       }
 
       // Load photos directly - this is the key part
