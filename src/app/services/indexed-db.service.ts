@@ -2996,6 +2996,9 @@ export class IndexedDbService {
       return;
     }
 
+    // DEBUG: Show what we're merging
+    alert(`DEBUG BEFORE PUT\n\nexisting.drawings: ${existing.drawings?.length || 'NULL'}\nupdates.drawings: ${updates.drawings?.length || 'NULL'}`);
+
     const updated: LocalImage = {
       ...existing,
       ...updates,
@@ -3003,13 +3006,16 @@ export class IndexedDbService {
       localVersion: (existing.localVersion || 0) + 1
     };
 
+    // DEBUG: Show what updated object contains
+    alert(`DEBUG MERGED OBJECT\n\nupdated.drawings: ${updated.drawings?.length || 'NULL'}\nupdated.imageId: ${updated.imageId}`);
+
     await db.localImages.put(updated);
     console.log('[IndexedDB] Local image updated:', imageId, 'status:', updated.status, 'version:', updated.localVersion);
 
     // DEBUG: Verify the write persisted by reading it back
     if (updates.drawings !== undefined) {
       const verify = await db.localImages.get(imageId);
-      alert(`DEBUG updateLocalImage VERIFY\n\nimageId: ${imageId}\nSaved drawings: ${updates.drawings?.length || 0} chars\nRead back drawings: ${verify?.drawings?.length || 'NULL'} chars\nMatch: ${verify?.drawings === updates.drawings}`);
+      alert(`DEBUG AFTER PUT\n\nimageId: ${imageId}\nupdates.drawings: ${updates.drawings?.length || 0} chars\nRead back drawings: ${verify?.drawings?.length || 'NULL'} chars\nMatch: ${verify?.drawings === updates.drawings}`);
     }
 
     this.emitChange({
