@@ -1261,6 +1261,56 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         }
       }
 
+      // WEBAPP FIX: Add unmatched visuals as custom items (matching LBW pattern)
+      // These are visuals that were created but don't match any template
+      const matchedHudIds = new Set(Object.values(this.visualRecordIds));
+      for (const visual of categoryVisuals) {
+        const hudId = String(visual.HUDID || visual.PK_ID);
+
+        // Skip if already matched to a template
+        if (matchedHudIds.has(hudId)) continue;
+
+        // Skip hidden visuals
+        if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
+
+        console.log(`[CategoryDetail] WEBAPP: Found unmatched visual (custom): ${visual.Name} (HUDID: ${hudId})`);
+
+        // Create custom item for this unmatched visual
+        const customItemId = `custom_${hudId}`;
+        const customKey = `${visual.Category || this.categoryName}_${customItemId}`;
+        const kind = (visual.Kind || 'Comment').toLowerCase();
+
+        const customItem: VisualItem = {
+          id: customItemId,
+          templateId: 0,
+          name: visual.Name || 'Custom Item',
+          text: visual.VisualText || visual.Text || '',
+          originalText: '',
+          type: visual.Kind || 'Comment',
+          category: visual.Category || this.categoryName,
+          answerType: 0,
+          required: false,
+          answer: visual.Answers || '',
+          isSelected: true,
+          key: customKey
+        };
+
+        // Add to appropriate section
+        if (kind === 'limitation') {
+          organizedData.limitations.push(customItem);
+        } else if (kind === 'deficiency') {
+          organizedData.deficiencies.push(customItem);
+        } else {
+          organizedData.comments.push(customItem);
+        }
+
+        // Track visual record ID
+        this.visualRecordIds[customKey] = hudId;
+        this.selectedItems[customKey] = true;
+
+        console.log(`[CategoryDetail] WEBAPP: Added custom visual: key=${customKey}, HUDID=${hudId}`);
+      }
+
       this.organizedData = organizedData;
 
       // Sort each section by answerType (multiselect first for uniform display)

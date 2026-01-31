@@ -879,47 +879,52 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         matchedVisualIds.add(this.visualRecordIds[key]);
       }
 
-      // WEBAPP: Add unmatched visuals as dynamic items (handles edited names that no longer match templates)
+      // WEBAPP FIX: Add unmatched visuals as custom items (matching LBW pattern)
+      // These are visuals that were created but don't match any template (or name was edited)
       for (const visual of categoryVisuals) {
         const visualId = String(visual.VisualID || visual.PK_ID);
         if (!matchedVisualIds.has(visualId)) {
-          // This visual wasn't matched to any template - add as dynamic item
+          // Skip hidden visuals
+          if (visual.Notes && String(visual.Notes).startsWith('HIDDEN')) continue;
+
+          // This visual wasn't matched to any template - add as custom item
           const kind = (visual.Kind || 'Comment').toLowerCase();
-          // Use negative visualId as templateId so isItemSelected(category, item.templateId) works correctly
-          // Negative numbers indicate dynamic/custom items (no template)
-          const dynamicTemplateId = -Math.abs(parseInt(visualId, 10) || Date.now());
-          const dynamicKey = `${this.categoryName}_${dynamicTemplateId}`;
+          // LBW PATTERN: Use custom_${visualId} format for consistent ID handling
+          const customItemId = `custom_${visualId}`;
+          const customKey = `${this.categoryName}_${customItemId}`;
 
-          console.log(`[CategoryDetail] WEBAPP: Adding unmatched visual as dynamic item: ${visual.Name} (ID: ${visualId}, templateId: ${dynamicTemplateId})`);
+          console.log(`[CategoryDetail] WEBAPP: Adding unmatched visual as custom item: ${visual.Name} (VisualID: ${visualId})`);
 
-          const dynamicItem: VisualItem = {
-            id: dynamicTemplateId,  // Use consistent ID for selection tracking
-            templateId: dynamicTemplateId,  // Must match key pattern for isItemSelected()
-            name: visual.Name,
+          const customItem: VisualItem = {
+            id: customItemId,  // LBW pattern: custom_${visualId}
+            templateId: 0,     // No template for custom items
+            name: visual.Name || 'Custom Item',
             text: visual.VisualText || visual.Text || '',
             originalText: '',
             type: visual.Kind || 'Comment',
             category: visual.Category || this.categoryName,
             answerType: 0,
             required: false,
-            answer: visual.Answers || visual.Answer || '',  // Field is 'Answers' (plural) in database
-            isSelected: true,  // It exists, so it's selected
-            key: dynamicKey
+            answer: visual.Answers || visual.Answer || '',
+            isSelected: true,
+            key: customKey
           };
 
           // Add to appropriate section
           if (kind === 'limitation') {
-            organizedData.limitations.push(dynamicItem);
+            organizedData.limitations.push(customItem);
           } else if (kind === 'deficiency') {
-            organizedData.deficiencies.push(dynamicItem);
+            organizedData.deficiencies.push(customItem);
           } else {
-            organizedData.comments.push(dynamicItem);
+            organizedData.comments.push(customItem);
           }
 
           // Track visual record ID using consistent key pattern
-          this.visualRecordIds[dynamicKey] = visualId;
-          this.foundationData.setWebappVisualRecordId(this.serviceId, this.categoryName, String(dynamicTemplateId), visualId);
-          this.selectedItems[dynamicKey] = true;
+          this.visualRecordIds[customKey] = visualId;
+          this.foundationData.setWebappVisualRecordId(this.serviceId, this.categoryName, customItemId, visualId);
+          this.selectedItems[customKey] = true;
+
+          console.log(`[CategoryDetail] WEBAPP: Added custom visual: key=${customKey}, VisualID=${visualId}`);
         }
       }
 
