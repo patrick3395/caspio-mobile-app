@@ -1117,15 +1117,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
           for (const photo of photos) {
             const cachedAtt = cachedAttachments.find((c: any) => String(c.AttachID) === String(photo.AttachID));
-            if (cachedAtt && cachedAtt._localUpdate && cachedAtt.Drawings) {
-              console.log(`[WEBAPP FIX] Merging cached Drawings for photo ${photo.AttachID}, length: ${cachedAtt.Drawings.length}`);
-              alert(`DEBUG: Merging cached Drawings\nAttachID: ${photo.AttachID}\nDrawings length: ${cachedAtt.Drawings.length}`);
-              photo.Drawings = cachedAtt.Drawings;
-              photo.rawDrawingsString = cachedAtt.Drawings;
-              photo.hasAnnotations = !!(cachedAtt.Drawings && cachedAtt.Drawings.length > 10);
-              if (cachedAtt.Annotation !== undefined) {
-                photo.caption = cachedAtt.Annotation;
-                photo.Annotation = cachedAtt.Annotation;
+            // WEBAPP FIX: Check for cached Drawings - merge if cache has data that API doesn't
+            if (cachedAtt && cachedAtt.Drawings && cachedAtt.Drawings.length > 10) {
+              // Only merge if API didn't have Drawings or cache has newer data
+              if (!photo.Drawings || photo.Drawings.length < 10 || cachedAtt._localUpdate) {
+                console.log(`[WEBAPP FIX] Merging cached Drawings for photo ${photo.AttachID}, length: ${cachedAtt.Drawings.length}`);
+                alert(`DEBUG: Merging cached Drawings\nAttachID: ${photo.AttachID}\nDrawings length: ${cachedAtt.Drawings.length}\n_localUpdate: ${cachedAtt._localUpdate}`);
+                photo.Drawings = cachedAtt.Drawings;
+                photo.rawDrawingsString = cachedAtt.Drawings;
+                photo.hasAnnotations = true;
+                if (cachedAtt.Annotation !== undefined) {
+                  photo.caption = cachedAtt.Annotation;
+                  photo.Annotation = cachedAtt.Annotation;
+                }
               }
             }
           }
@@ -7584,10 +7588,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         // Get existing cached attachments and update
         const cachedAttachments = await this.indexedDb.getCachedServiceData(visualIdForCache, 'visual_attachments') || [];
         console.log('[SAVE CACHE] Found', cachedAttachments.length, 'cached attachments for visual', visualIdForCache);
-        
+
+        // Check if attachment exists in cache
+        let foundInCache = false;
         const updatedAttachments = cachedAttachments.map((att: any) => {
           if (String(att.AttachID) === String(attachId)) {
-            console.log('[SAVE CACHE] Updating attachment', attachId, 'with Drawings length:', updateData.Drawings?.length || 0);
+            foundInCache = true;
+            console.log('[SAVE CACHE] Updating existing attachment', attachId, 'with Drawings length:', updateData.Drawings?.length || 0);
             return {
               ...att,
               Annotation: updateData.Annotation,
@@ -7598,11 +7605,25 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           }
           return att;
         });
+
+        // WEBAPP FIX: If attachment not in cache, ADD it (cache might be empty in webapp mode)
+        if (!foundInCache) {
+          console.log('[SAVE CACHE] Attachment not in cache, ADDING new entry for', attachId);
+          updatedAttachments.push({
+            AttachID: attachId,
+            VisualID: visualIdForCache,
+            Annotation: updateData.Annotation,
+            Drawings: updateData.Drawings,
+            _localUpdate: true,
+            _updatedAt: Date.now()
+          });
+        }
+
         await this.indexedDb.cacheServiceData(visualIdForCache, 'visual_attachments', updatedAttachments);
         console.log('[SAVE] ✅ Annotation saved to IndexedDB cache for visual', visualIdForCache, 'with _localUpdate flag');
 
         // DEBUG: Confirm cache was updated
-        alert(`DEBUG Annotation SAVED to cache\n\nvisualIdForCache: ${visualIdForCache}\nattachId: ${attachId}\nDrawings length: ${updateData.Drawings?.length || 0}\nUpdated attachments: ${updatedAttachments.length}`);
+        alert(`DEBUG Annotation SAVED to cache\n\nvisualIdForCache: ${visualIdForCache}\nattachId: ${attachId}\nDrawings length: ${updateData.Drawings?.length || 0}\nCached attachments: ${updatedAttachments.length}\nFound in cache: ${foundInCache}`);
       }
       
       // ANNOTATION FLATTENING FIX: Do NOT cache annotated blob
