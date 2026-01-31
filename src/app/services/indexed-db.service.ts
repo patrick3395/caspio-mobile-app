@@ -3006,6 +3006,12 @@ export class IndexedDbService {
     await db.localImages.put(updated);
     console.log('[IndexedDB] Local image updated:', imageId, 'status:', updated.status, 'version:', updated.localVersion);
 
+    // DEBUG: Verify the write persisted by reading it back
+    if (updates.drawings !== undefined) {
+      const verify = await db.localImages.get(imageId);
+      alert(`DEBUG updateLocalImage VERIFY\n\nimageId: ${imageId}\nSaved drawings: ${updates.drawings?.length || 0} chars\nRead back drawings: ${verify?.drawings?.length || 'NULL'} chars\nMatch: ${verify?.drawings === updates.drawings}`);
+    }
+
     this.emitChange({
       store: 'localImages',
       action: 'update',
