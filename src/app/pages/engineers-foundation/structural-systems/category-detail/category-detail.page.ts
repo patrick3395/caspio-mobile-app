@@ -1089,6 +1089,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             id: attachId,
             attachId: attachId,
             AttachID: attachId, // Also set capital version for error handler
+            VisualID: visualId, // WEBAPP FIX: Set VisualID for cache key lookup in saveAnnotationToDatabase
             displayUrl: thumbnailUrl,   // Use annotated if available
             url: displayUrl,            // Original S3 URL
             thumbnailUrl: thumbnailUrl, // Use annotated if available
@@ -1112,7 +1113,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           // DEBUG: ALWAYS show cache check (even if empty)
           const cachedWithDrawings = cachedAttachments.filter((c: any) => c.Drawings && c.Drawings.length > 10);
           const cachedWithLocalUpdate = cachedAttachments.filter((c: any) => c._localUpdate);
-          alert(`DEBUG Cache Check\n\nVisualID: ${visualId}\nCached attachments: ${cachedAttachments.length}\nWith Drawings: ${cachedWithDrawings.length}\nWith _localUpdate: ${cachedWithLocalUpdate.length}\n\nPhotos from API: ${photos.length}`);
+          alert(`DEBUG Cache Check\n\nCache key (visualId): ${visualId}\nCached attachments: ${cachedAttachments.length}\nWith Drawings: ${cachedWithDrawings.length}\nWith _localUpdate: ${cachedWithLocalUpdate.length}\n\nPhotos from API: ${photos.length}\nFirst photo AttachID: ${photos[0]?.AttachID || 'none'}`);
 
           for (const photo of photos) {
             const cachedAtt = cachedAttachments.find((c: any) => String(c.AttachID) === String(photo.AttachID));
@@ -8728,7 +8729,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
   openVisualDetail(categoryName: string, item: VisualItem) {
     console.log('[CategoryDetail] openVisualDetail - item:', item?.name, 'item.id:', item?.id, 'templateId:', item?.templateId);
 
-    // WEBAPP SIMPLIFIED: The VisualID is stored in visualRecordIds
+    // WEBAPP SIMPLIFIED: The VisualID is stored in visualRecordIds (LBW pattern)
     let visualId = '';
     let routeId: string | number = item.templateId || item.id;
 
@@ -8741,29 +8742,28 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         routeId = visualId; // Use the numeric VisualID for the route
         console.log('[CategoryDetail] WEBAPP: Custom visual, VisualID:', visualId);
       } else {
-        // Template visual: look up in visualRecordIds
+        // Template visual: look up in visualRecordIds, fallback to item.visualId (LBW pattern)
         const key = item.key || `${categoryName}_${item.id}`;
-        visualId = this.visualRecordIds[key] || '';
+        visualId = this.visualRecordIds[key] || (item as any).visualId || '';
         routeId = item.templateId || item.id;
-        console.log('[CategoryDetail] WEBAPP: Template visual, key:', key, 'VisualID:', visualId);
+        console.log('[CategoryDetail] WEBAPP: Template visual, key:', key, 'VisualID:', visualId, 'item.visualId:', (item as any).visualId);
       }
     } else {
-      // MOBILE: Use existing logic
-      const key = item.key || `${categoryName}_${item.templateId}`;
-      visualId = this.visualRecordIds[key] || '';
-      routeId = item.templateId;
+      // MOBILE: Use LBW pattern with isCustomVisual and item.visualId fallback
+      const isCustomVisual = !item.templateId || item.templateId === 0;
+      const keyId = isCustomVisual ? item.id : item.templateId;
+      const key = item.key || `${categoryName}_${keyId}`;
+      visualId = this.visualRecordIds[key] || (item as any).visualId || '';
+      routeId = isCustomVisual ? item.id : item.templateId;
     }
 
     console.log('[CategoryDetail] FINAL: routeId:', routeId, 'visualId:', visualId);
 
-    const queryParams: any = {};
-    if (environment.isWeb && visualId) {
-      queryParams.visualId = String(visualId);
-    }
-
+    // LBW pattern: Always pass visualId in queryParams (even if empty)
+    // The visual-detail page uses priority-based matching when visualId is empty
     this.router.navigate(['visual', routeId], {
       relativeTo: this.route.parent,
-      queryParams
+      queryParams: { visualId }
     });
   }
 }
