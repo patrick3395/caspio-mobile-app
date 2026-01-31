@@ -1049,6 +1049,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
 
+          // DEBUG: Show what API returned for this attachment
+          alert(`DEBUG API Response\nAttachID: ${attachIdStr}\nAPI att.Drawings: ${att.Drawings ? att.Drawings.length + ' chars' : 'NULL/EMPTY'}\nhasServerAnnotations: ${hasServerAnnotations}`);
+
           console.log(`[EFE] WEBAPP: Photo ${attachIdStr} - hasAnnotations: ${hasAnnotations}, Drawings length: ${att.Drawings?.length || 0}`);
 
           // WEBAPP FIX: Check for cached annotated image first
@@ -1106,12 +1109,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         try {
           const cachedAttachments = await this.indexedDb.getCachedServiceData(String(visualId), 'visual_attachments') || [];
 
-          // DEBUG: Show what's in cache
+          // DEBUG: ALWAYS show cache check (even if empty)
           const cachedWithDrawings = cachedAttachments.filter((c: any) => c.Drawings && c.Drawings.length > 10);
           const cachedWithLocalUpdate = cachedAttachments.filter((c: any) => c._localUpdate);
-          if (cachedAttachments.length > 0) {
-            alert(`DEBUG loadPhotosFromAPI Cache Check\n\nVisualID: ${visualId}\nCached attachments: ${cachedAttachments.length}\nWith Drawings: ${cachedWithDrawings.length}\nWith _localUpdate: ${cachedWithLocalUpdate.length}`);
-          }
+          alert(`DEBUG Cache Check\n\nVisualID: ${visualId}\nCached attachments: ${cachedAttachments.length}\nWith Drawings: ${cachedWithDrawings.length}\nWith _localUpdate: ${cachedWithLocalUpdate.length}\n\nPhotos from API: ${photos.length}`);
 
           for (const photo of photos) {
             const cachedAtt = cachedAttachments.find((c: any) => String(c.AttachID) === String(photo.AttachID));
@@ -7598,6 +7599,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         });
         await this.indexedDb.cacheServiceData(visualIdForCache, 'visual_attachments', updatedAttachments);
         console.log('[SAVE] ✅ Annotation saved to IndexedDB cache for visual', visualIdForCache, 'with _localUpdate flag');
+
+        // DEBUG: Confirm cache was updated
+        alert(`DEBUG Annotation SAVED to cache\n\nvisualIdForCache: ${visualIdForCache}\nattachId: ${attachId}\nDrawings length: ${updateData.Drawings?.length || 0}\nUpdated attachments: ${updatedAttachments.length}`);
       }
       
       // ANNOTATION FLATTENING FIX: Do NOT cache annotated blob
