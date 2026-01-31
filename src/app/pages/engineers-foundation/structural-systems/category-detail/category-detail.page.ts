@@ -1100,11 +1100,32 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           });
         }
 
+        // WEBAPP FIX: Check IndexedDB cache for local annotation updates
+        // When annotations are saved in webapp mode, they're stored in the cache with _localUpdate flag
+        // The API might not have them yet, so we need to merge from cache
+        try {
+          const cachedAttachments = await this.indexedDb.getCachedServiceData(String(visualId), 'visual_attachments') || [];
+          for (const photo of photos) {
+            const cachedAtt = cachedAttachments.find((c: any) => String(c.AttachID) === String(photo.AttachID));
+            if (cachedAtt && cachedAtt._localUpdate && cachedAtt.Drawings) {
+              console.log(`[WEBAPP FIX] Merging cached Drawings for photo ${photo.AttachID}, length: ${cachedAtt.Drawings.length}`);
+              photo.Drawings = cachedAtt.Drawings;
+              photo.rawDrawingsString = cachedAtt.Drawings;
+              photo.hasAnnotations = !!(cachedAtt.Drawings && cachedAtt.Drawings.length > 10);
+              if (cachedAtt.Annotation !== undefined) {
+                photo.caption = cachedAtt.Annotation;
+                photo.Annotation = cachedAtt.Annotation;
+              }
+            }
+          }
+        } catch (cacheErr) {
+          console.warn('[WEBAPP FIX] Could not check cached attachments:', cacheErr);
+        }
+
         this.visualPhotos[item.key] = photos;
         this.photoCountsByKey[item.key] = photos.length;
 
-        // WEBAPP FIX: Merge pending captions/drawings into loaded photos
-        // This ensures annotations added locally but not yet synced are visible
+        // WEBAPP FIX: Also merge pending captions/drawings (fallback for failed API calls)
         await this.mergePendingCaptionsIntoPhotos(item.key);
       } catch (error) {
         console.error(`[CategoryDetail] WEBAPP: Error loading photos for visual ${visualId}:`, error);
