@@ -197,101 +197,38 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   }
 
   private async loadVisualData() {
-    this.loading = true;
-
-    // Store HUDID from query params - ONLY used for WEBAPP mode
-    // MOBILE mode determines hudId from Dexie field lookup (tempVisualId || visualId)
-    // This avoids race conditions where query param has real ID but photos still have temp entityId
-    let hudIdFromQueryParams = this.hudId;
-
-    // WEBAPP FIX: If query params don't have hudId, try to read from Dexie
-    // This ensures photos are found after page reload even if query params were lost
-    if (environment.isWeb && !hudIdFromQueryParams && this.serviceId && this.templateId) {
-      try {
-        // Key format: ${serviceId}_${category}_${templateId}
-        const fieldKey = `${this.serviceId}_${this.categoryName}_${this.templateId}`;
-        const dexieField = await this.visualFieldRepo.getField(fieldKey);
-        if (dexieField?.visualId) {
-          hudIdFromQueryParams = dexieField.visualId;
-          this.hudId = dexieField.visualId;
-          console.log('[HudVisualDetail] WEBAPP: Restored hudId from Dexie:', hudIdFromQueryParams);
-        }
-      } catch (e) {
-        console.warn('[HudVisualDetail] WEBAPP: Could not restore hudId from Dexie:', e);
-      }
+    // WEBAPP: Show loading spinner
+    // MOBILE: Cache-first - no loading spinner
+    if (environment.isWeb) {
+      this.loading = true;
+    } else {
+      this.loading = false;
     }
 
-    try {
-      // WEBAPP MODE: Load directly from server API
-      if (environment.isWeb) {
-        console.log('[HudVisualDetail] WEBAPP MODE: Loading HUD data from server');
-        console.log('[HudVisualDetail] WEBAPP: HUDID from query params:', hudIdFromQueryParams || '(none)');
+    // Store HUDID from query params
+    let hudIdFromQueryParams = this.hudId;
 
-        let visual: any = null;
+    console.log('[HudVisualDetail] ========== loadVisualData START ==========');
+    console.log('[HudVisualDetail] serviceId:', this.serviceId);
+    console.log('[HudVisualDetail] templateId:', this.templateId);
+    console.log('[HudVisualDetail] categoryName:', this.categoryName);
+    console.log('[HudVisualDetail] hudId (from query):', hudIdFromQueryParams || '(none)');
 
-        // PRIORITY 1: If we have HUDID, fetch directly from table (most reliable, always fresh)
-        if (hudIdFromQueryParams) {
-          console.log('[HudVisualDetail] WEBAPP: Fetching HUD record directly by HUDID:', hudIdFromQueryParams);
-          visual = await firstValueFrom(this.caspioService.getServicesHUDById(hudIdFromQueryParams));
-          if (visual) {
-            console.log('[HudVisualDetail] WEBAPP: Got fresh HUD record - Name:', visual.Name, 'Text:', visual.Text?.substring(0, 50));
-          }
-        }
+    // WEBAPP SIMPLE: If we have hudId from query params, just use it directly
+    if (environment.isWeb && hudIdFromQueryParams) {
+      console.log('[HudVisualDetail] WEBAPP DIRECT: Using hudId from query params:', hudIdFromQueryParams);
+      this.hudId = hudIdFromQueryParams;
 
-        // PRIORITY 2: Fall back to service-level query + name matching
-        if (!visual) {
-          const queryServiceId = this.actualServiceId || this.serviceId;
-          const hudRecords = await this.hudData.getHudByService(queryServiceId);
-          console.log('[HudVisualDetail] WEBAPP: Loaded', hudRecords.length, 'HUD records for ServiceID:', queryServiceId);
+      // Load visual data for display
+      try {
+        const queryServiceId = this.actualServiceId || this.serviceId;
+        const hudRecords = await this.hudData.getHudByService(queryServiceId);
+        console.log('[HudVisualDetail] WEBAPP DIRECT: Loaded', hudRecords.length, 'HUD records');
 
-          // Load templates to get the Name and Category for matching
-          const templates = (await this.caspioService.getServicesHUDTemplates().toPromise()) || [];
-          const template = templates.find((t: any) =>
-            (t.TemplateID || t.PK_ID) == this.templateId
-          );
-
-          if (template && template.Name) {
-            visual = hudRecords.find((v: any) =>
-              v.Name === template.Name && v.Category === template.Category
-            );
-            if (visual) {
-              console.log('[HudVisualDetail] WEBAPP: Matched HUD record by name+category:', template.Name, template.Category);
-            }
-          }
-
-          // If still no visual, use template as fallback
-          if (!visual && template) {
-            console.log('[HudVisualDetail] WEBAPP: HUD record not found, using template data');
-            const effectiveTemplateId = template.TemplateID || template.PK_ID;
-            const actualCategory = template.Category || '';
-            this.item = {
-              id: effectiveTemplateId,
-              templateId: effectiveTemplateId,
-              name: template.Name || '',
-              text: template.Text || '',
-              originalText: template.Text || '',
-              type: template.Kind || 'Comment',
-              category: actualCategory,
-              answerType: template.AnswerType || 0,
-              required: false,
-              isSelected: false
-            };
-            this.categoryName = actualCategory;
-            this.editableTitle = this.item.name;
-            this.editableText = this.item.text;
-
-            if (hudIdFromQueryParams) {
-              this.hudId = hudIdFromQueryParams;
-              console.log('[HudVisualDetail] WEBAPP: Using HUDID from query params for photos:', this.hudId);
-            }
-
-            await this.loadPhotos();
-            return;
-          }
-        }
+        const visual = hudRecords.find((v: any) => String(v.HUDID || v.PK_ID) === String(hudIdFromQueryParams));
 
         if (visual) {
-          const actualCategory = visual.Category || '';
+          console.log('[HudVisualDetail] WEBAPP DIRECT: Found visual:', visual.Name, 'HUDID:', visual.HUDID);
           this.item = {
             id: visual.HUDID || visual.PK_ID,
             templateId: this.templateId,
@@ -299,23 +236,126 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             text: visual.Text || '',
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',
-            category: actualCategory,
+            category: visual.Category || '',
+            answerType: visual.AnswerType || 0,
+            required: false,
+            answer: visual.Answers || '',
+            isSelected: true
+          };
+          this.categoryName = visual.Category || this.categoryName;
+          this.editableTitle = this.item.name;
+          this.editableText = this.item.text;
+        } else {
+          // Visual not found - create minimal item so photos can still display
+          console.warn('[HudVisualDetail] WEBAPP DIRECT: Visual not found, creating minimal item');
+          console.log('[HudVisualDetail] WEBAPP DIRECT: Available HUDIDs:', hudRecords.map((v: any) => v.HUDID || v.PK_ID));
+
+          this.item = {
+            id: hudIdFromQueryParams,
+            templateId: this.templateId || 0,
+            name: 'Visual ' + hudIdFromQueryParams,
+            text: '',
+            originalText: '',
+            type: 'Comment',
+            category: this.categoryName,
+            answerType: 0,
+            required: false,
+            answer: '',
+            isSelected: true
+          };
+          this.editableTitle = this.item.name;
+          this.editableText = '';
+        }
+      } catch (e) {
+        console.error('[HudVisualDetail] WEBAPP DIRECT: Error loading visual:', e);
+        // Still create minimal item so photos can display
+        this.item = {
+          id: hudIdFromQueryParams,
+          templateId: this.templateId || 0,
+          name: 'Visual ' + hudIdFromQueryParams,
+          text: '',
+          originalText: '',
+          type: 'Comment',
+          category: this.categoryName,
+          answerType: 0,
+          required: false,
+          answer: '',
+          isSelected: true
+        };
+        this.editableTitle = this.item.name;
+        this.editableText = '';
+      }
+
+      // Load photos directly
+      await this.loadPhotos();
+      this.loading = false;
+      return;
+    }
+
+    // WEBAPP without hudId: Fall back to template matching
+    if (environment.isWeb) {
+      console.log('[HudVisualDetail] WEBAPP: No hudId, falling back to template matching');
+
+      try {
+        const queryServiceId = this.actualServiceId || this.serviceId;
+        const hudRecords = await this.hudData.getHudByService(queryServiceId);
+        const templates = (await this.caspioService.getServicesHUDTemplates().toPromise()) || [];
+        const template = templates.find((t: any) => (t.TemplateID || t.PK_ID) == this.templateId);
+
+        let visual: any = null;
+        if (template && template.Name) {
+          visual = hudRecords.find((v: any) =>
+            v.Name === template.Name && v.Category === template.Category
+          );
+        }
+
+        if (visual) {
+          this.item = {
+            id: visual.HUDID || visual.PK_ID,
+            templateId: this.templateId,
+            name: visual.Name || '',
+            text: visual.Text || '',
+            originalText: visual.Text || '',
+            type: visual.Kind || 'Comment',
+            category: visual.Category || '',
             answerType: visual.AnswerType || 0,
             required: false,
             answer: visual.Answers || '',
             isSelected: true
           };
           this.hudId = String(visual.HUDID || visual.PK_ID);
-          this.categoryName = actualCategory;
+          this.categoryName = visual.Category || this.categoryName;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[HudVisualDetail] WEBAPP: Loaded HUD record:', this.item.name, 'HUDID:', this.hudId, 'Category:', actualCategory);
+        } else if (template) {
+          this.item = {
+            id: template.TemplateID || template.PK_ID,
+            templateId: template.TemplateID || template.PK_ID,
+            name: template.Name || '',
+            text: template.Text || '',
+            originalText: template.Text || '',
+            type: template.Kind || 'Comment',
+            category: template.Category || '',
+            answerType: template.AnswerType || 0,
+            required: false,
+            isSelected: false
+          };
+          this.categoryName = template.Category || this.categoryName;
+          this.editableTitle = this.item.name;
+          this.editableText = this.item.text;
         }
 
-        // Load photos from server
         await this.loadPhotos();
+        this.loading = false;
+        return;
+      } catch (e) {
+        console.error('[HudVisualDetail] WEBAPP: Error in fallback loading:', e);
+        this.loading = false;
         return;
       }
+    }
+
+    try {
 
       // MOBILE MODE: Match EFE pattern exactly
       // 1. Try to load from Dexie visualFields first
@@ -781,46 +821,39 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
 
     this.saving = true;
     try {
-      // Build update data for both Dexie and Caspio sync
-      const dexieUpdate: any = {};
       const caspioUpdate: any = {};
+      if (titleChanged) caspioUpdate.Name = this.editableTitle;
+      if (textChanged) caspioUpdate.Text = this.editableText;
 
-      if (titleChanged) {
-        dexieUpdate.templateName = this.editableTitle;
-        caspioUpdate.Name = this.editableTitle;
-      }
-
-      if (textChanged) {
-        dexieUpdate.templateText = this.editableText;
-        caspioUpdate.Text = this.editableText;
-      }
-
-      // Use actual category from item (not route param "hud")
       const actualCategory = this.item?.category || this.categoryName;
 
-      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        actualCategory,
-        this.templateId,
-        dexieUpdate
-      );
-      console.log('[HudVisualDetail] ✅ Updated Dexie field:', dexieUpdate);
-
-      // Queue update to Caspio for background sync (only if valid hudId)
-      if (this.isValidHudId(this.hudId)) {
-        await this.hudData.updateVisual(this.hudId, caspioUpdate, this.actualServiceId || this.serviceId);
-        console.log('[HudVisualDetail] ✅ Updated Caspio HUD record:', this.hudId, caspioUpdate);
+      // WEBAPP: Direct API update only (no Dexie)
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        if (this.isValidHudId(this.hudId)) {
+          await this.hudData.updateVisual(this.hudId, caspioUpdate, this.actualServiceId || this.serviceId);
+          console.log('[HudVisualDetail] WEBAPP: ✅ Updated via API:', this.hudId, caspioUpdate);
+        } else {
+          console.warn('[HudVisualDetail] WEBAPP: No valid hudId, cannot save');
+        }
       } else {
-        console.log('[HudVisualDetail] No valid hudId (' + this.hudId + ') - saved to Dexie only');
+        // MOBILE: DEXIE-FIRST
+        const dexieUpdate: any = {};
+        if (titleChanged) dexieUpdate.templateName = this.editableTitle;
+        if (textChanged) dexieUpdate.templateText = this.editableText;
+
+        await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
+        console.log('[HudVisualDetail] MOBILE: ✅ Updated Dexie:', dexieUpdate);
+
+        if (this.isValidHudId(this.hudId)) {
+          await this.hudData.updateVisual(this.hudId, caspioUpdate, this.actualServiceId || this.serviceId);
+        }
       }
 
-      // Update local item state for immediate UI feedback
       if (this.item) {
         if (titleChanged) this.item.name = this.editableTitle;
         if (textChanged) this.item.text = this.editableText;
       }
-
       this.changeDetectorRef.detectChanges();
 
     } catch (error) {
@@ -830,49 +863,43 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       this.saving = false;
     }
 
-    // Navigate back
     this.goBack();
   }
 
   async saveTitle() {
-    // Allow save even if item doesn't exist yet
     if (this.editableTitle === (this.item?.name || '')) return;
 
     this.saving = true;
     try {
-      // Use actual category from item (not route param "hud")
       const actualCategory = this.item?.category || this.categoryName;
 
-      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
-      // CRITICAL: Also save visualId and isSelected so category-detail can restore it
-      const dexieUpdate: any = {
-        templateName: this.editableTitle,
-        isSelected: true,  // Visual is selected if user is editing it
-        category: actualCategory
-      };
-      if (this.hudId) {
-        dexieUpdate.visualId = this.hudId;
-      }
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        actualCategory,
-        this.templateId,
-        dexieUpdate
-      );
-      console.log('[HudVisualDetail] ✅ Updated title in Dexie with visualId:', this.hudId);
-
-      // Queue update to Caspio for background sync (only if valid hudId)
-      if (this.isValidHudId(this.hudId)) {
-        await this.hudData.updateVisual(this.hudId, { Name: this.editableTitle }, this.actualServiceId || this.serviceId);
-        console.log('[HudVisualDetail] ✅ Updated title in Caspio HUD record:', this.hudId);
+      // WEBAPP: Direct API update only (no Dexie)
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        if (this.isValidHudId(this.hudId)) {
+          await this.hudData.updateVisual(this.hudId, { Name: this.editableTitle }, this.actualServiceId || this.serviceId);
+          console.log('[HudVisualDetail] WEBAPP: ✅ Updated title via API:', this.hudId);
+        } else {
+          console.warn('[HudVisualDetail] WEBAPP: No valid hudId, cannot save title');
+        }
       } else {
-        console.log('[HudVisualDetail] No valid hudId (' + this.hudId + ') - title saved to Dexie only');
+        // MOBILE: DEXIE-FIRST
+        const dexieUpdate: any = {
+          templateName: this.editableTitle,
+          isSelected: true,
+          category: actualCategory
+        };
+        if (this.hudId) dexieUpdate.visualId = this.hudId;
+
+        await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
+        console.log('[HudVisualDetail] MOBILE: ✅ Updated title in Dexie:', this.hudId);
+
+        if (this.isValidHudId(this.hudId)) {
+          await this.hudData.updateVisual(this.hudId, { Name: this.editableTitle }, this.actualServiceId || this.serviceId);
+        }
       }
 
-      // Update local item state for immediate UI feedback
-      if (this.item) {
-        this.item.name = this.editableTitle;
-      }
+      if (this.item) this.item.name = this.editableTitle;
     } catch (error) {
       console.error('[HudVisualDetail] Error saving title:', error);
       await this.showToast('Error saving title', 'danger');
@@ -883,44 +910,39 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   }
 
   async saveText() {
-    // Allow save even if item doesn't exist yet
     if (this.editableText === (this.item?.text || '')) return;
 
     this.saving = true;
     try {
-      // Use actual category from item (not route param "hud")
       const actualCategory = this.item?.category || this.categoryName;
 
-      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
-      // CRITICAL: Also save visualId, isSelected, and category so category-detail can restore it
-      const dexieUpdate: any = {
-        templateText: this.editableText,
-        isSelected: true,  // Visual is selected if user is editing it
-        category: actualCategory
-      };
-      if (this.hudId) {
-        dexieUpdate.visualId = this.hudId;
-      }
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        actualCategory,
-        this.templateId,
-        dexieUpdate
-      );
-      console.log('[HudVisualDetail] ✅ Updated text in Dexie with visualId:', this.hudId);
-
-      // Queue update to Caspio for background sync (only if valid hudId)
-      if (this.isValidHudId(this.hudId)) {
-        await this.hudData.updateVisual(this.hudId, { Text: this.editableText }, this.actualServiceId || this.serviceId);
-        console.log('[HudVisualDetail] ✅ Updated text in Caspio HUD record:', this.hudId);
+      // WEBAPP: Direct API update only (no Dexie)
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        if (this.isValidHudId(this.hudId)) {
+          await this.hudData.updateVisual(this.hudId, { Text: this.editableText }, this.actualServiceId || this.serviceId);
+          console.log('[HudVisualDetail] WEBAPP: ✅ Updated text via API:', this.hudId);
+        } else {
+          console.warn('[HudVisualDetail] WEBAPP: No valid hudId, cannot save text');
+        }
       } else {
-        console.log('[HudVisualDetail] No valid hudId (' + this.hudId + ') - text saved to Dexie only');
+        // MOBILE: DEXIE-FIRST
+        const dexieUpdate: any = {
+          templateText: this.editableText,
+          isSelected: true,
+          category: actualCategory
+        };
+        if (this.hudId) dexieUpdate.visualId = this.hudId;
+
+        await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
+        console.log('[HudVisualDetail] MOBILE: ✅ Updated text in Dexie:', this.hudId);
+
+        if (this.isValidHudId(this.hudId)) {
+          await this.hudData.updateVisual(this.hudId, { Text: this.editableText }, this.actualServiceId || this.serviceId);
+        }
       }
 
-      // Update local item state for immediate UI feedback
-      if (this.item) {
-        this.item.text = this.editableText;
-      }
+      if (this.item) this.item.text = this.editableText;
     } catch (error) {
       console.error('[HudVisualDetail] Error saving text:', error);
       await this.showToast('Error saving description', 'danger');
@@ -1367,20 +1389,17 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     try {
       photo.caption = caption;
 
-      // WEBAPP MODE: Update directly via Caspio API
+      // WEBAPP MODE: Update directly via Caspio API (matching LBW pattern)
       // Photos come from server, not localImages - use photo.drawings directly
       if (environment.isWeb && !photo.isLocal) {
         const attachId = photo.id;
         if (attachId && !String(attachId).startsWith('temp_') && !String(attachId).startsWith('img_')) {
           // CRITICAL: Use photo.drawings to preserve existing annotations
           // Do NOT use localImage?.drawings as localImages is empty in WEBAPP mode
-          await this.hudData.queueCaptionAndAnnotationUpdate(
-            attachId,
-            caption,
-            photo.drawings || '',
-            'hud',
-            { serviceId: this.serviceId, visualId: this.hudId }
-          );
+          await firstValueFrom(this.caspioService.updateServicesHUDAttach(String(attachId), {
+            Annotation: caption,
+            Drawings: photo.drawings || ''
+          }));
           console.log('[HudVisualDetail] WEBAPP: ✅ Updated caption via API (preserved drawings):', attachId);
         }
         this.changeDetectorRef.detectChanges();
@@ -1491,7 +1510,7 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             }
           }
 
-          // WEBAPP MODE: Photos come from server, not localImages
+          // WEBAPP MODE: Photos come from server, not localImages (matching LBW pattern)
           if (environment.isWeb && !photo.isLocal) {
             // Cache annotated image for thumbnail display (use photo.id which is AttachID)
             if (annotatedBlob && annotatedBlob.size > 0) {
@@ -1503,15 +1522,12 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
               }
             }
 
-            // Queue annotation update directly to Caspio (photo.id IS the AttachID in webapp mode)
-            await this.hudData.queueCaptionAndAnnotationUpdate(
-              photo.id,
-              newCaption,
-              compressedDrawings,
-              'hud',
-              { serviceId: this.serviceId, visualId: this.hudId }
-            );
-            console.log('[HudVisualDetail] WEBAPP: ✅ Queued annotation update to Caspio for AttachID:', photo.id);
+            // Update annotation directly via Caspio API (photo.id IS the AttachID in webapp mode)
+            await firstValueFrom(this.caspioService.updateServicesHUDAttach(String(photo.id), {
+              Annotation: newCaption,
+              Drawings: compressedDrawings
+            }));
+            console.log('[HudVisualDetail] WEBAPP: ✅ Updated annotation via API for AttachID:', photo.id);
 
             // Show appropriate toast based on whether we could export the image
             if (data.canvasTainted) {

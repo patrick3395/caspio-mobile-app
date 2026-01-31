@@ -3,7 +3,7 @@ import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, AlertController, ModalController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -85,6 +85,11 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
   loadingPhotos: boolean = false;
   uploadingPhotos: boolean = false;
 
+  // GALLERY FIX: Flag to prevent ionViewWillEnter from reloading photos while capture is in progress
+  // When selecting from gallery, the app briefly goes to background and ionViewWillEnter fires
+  // This could cause a race condition where the photos array is reset before the new photo is added
+  private isPhotoCaptureInProgress: boolean = false;
+
   // ANNOTATION THUMBNAIL FIX: In-memory cache for annotated image URLs
   // This ensures thumbnails show annotations immediately after save
   bulkAnnotatedImagesMap: Map<string, string> = new Map();
@@ -125,6 +130,14 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
       this.saving = false;
       this.changeDetectorRef.detectChanges();
     } else {
+      // GALLERY FIX: Don't reload if photo capture is in progress
+      // When selecting from gallery, the app goes to background and ionViewWillEnter fires
+      // Reloading would cause a race condition where photos array is reset before new photo is added
+      if (this.isPhotoCaptureInProgress) {
+        console.log('[VisualDetail] ionViewWillEnter MOBILE: Skipping reload - photo capture in progress');
+        return;
+      }
+
       // MOBILE: Reload data when returning to this page (sync may have happened)
       // This ensures we show fresh data after sync completes
       if (this.serviceId && this.templateId) {
@@ -185,7 +198,14 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
       }
     }
 
-    console.log('[VisualDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId);
+    // Get visualId from query params (passed from category detail page)
+    const queryParams = this.route.snapshot.queryParams;
+    if (queryParams['visualId']) {
+      this.visualId = queryParams['visualId'];
+      console.log('[VisualDetail] VisualID from query params:', this.visualId);
+    }
+
+    console.log('[VisualDetail] Final values - Category:', this.categoryName, 'ProjectId:', this.projectId, 'ServiceId:', this.serviceId, 'VisualId:', this.visualId);
 
     // Get templateId from current route
     this.routeSubscription = this.route.params.subscribe(params => {
@@ -196,12 +216,84 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
   }
 
   private async loadVisualData() {
-    this.loading = true;
+    // WEBAPP: Show loading spinner
+    // MOBILE: Cache-first - no loading spinner
+    if (environment.isWeb) {
+      this.loading = true;
+    } else {
+      this.loading = false;
+    }
+
+    // Store visualId from query params
+    let visualIdFromQueryParams = this.visualId;
+
+    console.log('[VisualDetail] ========== loadVisualData START ==========');
+    console.log('[VisualDetail] serviceId:', this.serviceId);
+    console.log('[VisualDetail] templateId:', this.templateId);
+    console.log('[VisualDetail] categoryName:', this.categoryName);
+    console.log('[VisualDetail] visualId (from query):', visualIdFromQueryParams || '(none)');
 
     try {
-      // WEBAPP MODE: Load from server API to see synced data from mobile
+      // WEBAPP SIMPLE: If we have visualId from query params, just use it directly
+      if (environment.isWeb && visualIdFromQueryParams) {
+        console.log('[VisualDetail] WEBAPP DIRECT: Using visualId from query params:', visualIdFromQueryParams);
+        this.visualId = visualIdFromQueryParams;
+
+        // Load visual data for display
+        const visuals = await this.foundationData.getVisualsByService(this.serviceId);
+        console.log('[VisualDetail] WEBAPP DIRECT: Loaded', visuals.length, 'visuals');
+
+        const visual = visuals.find((v: any) => String(v.VisualID || v.PK_ID) === String(visualIdFromQueryParams));
+
+        if (visual) {
+          console.log('[VisualDetail] WEBAPP DIRECT: Found visual:', visual.Name, 'VisualID:', visual.VisualID);
+          this.item = {
+            id: visual.VisualID || visual.PK_ID,
+            templateId: this.templateId,
+            name: visual.Name || '',
+            text: visual.Text || '',
+            originalText: visual.Text || '',
+            type: visual.Kind || 'Comment',
+            category: visual.Category || '',
+            answerType: visual.AnswerType || 0,
+            required: false,
+            answer: visual.Answers || '',
+            isSelected: true
+          };
+          this.categoryName = visual.Category || this.categoryName;
+          this.editableTitle = this.item.name;
+          this.editableText = this.item.text;
+        } else {
+          // Visual not found - create minimal item so photos can still display
+          console.warn('[VisualDetail] WEBAPP DIRECT: Visual not found, creating minimal item');
+          console.log('[VisualDetail] WEBAPP DIRECT: Available VisualIDs:', visuals.map((v: any) => v.VisualID || v.PK_ID));
+
+          this.item = {
+            id: visualIdFromQueryParams,
+            templateId: this.templateId || 0,
+            name: 'Visual ' + visualIdFromQueryParams,
+            text: '',
+            originalText: '',
+            type: 'Comment',
+            category: this.categoryName,
+            answerType: 0,
+            required: false,
+            answer: '',
+            isSelected: true
+          };
+          this.editableTitle = this.item.name;
+          this.editableText = '';
+        }
+
+        // Load photos directly
+        await this.loadPhotos();
+        this.loading = false;
+        return;
+      }
+
+      // WEBAPP MODE: Fallback to template matching when no visualId in query params
       if (environment.isWeb) {
-        console.log('[VisualDetail] WEBAPP MODE: Loading visual data from server');
+        console.log('[VisualDetail] WEBAPP: No visualId, falling back to template matching');
         const visuals = await this.foundationData.getVisualsByService(this.serviceId);
 
         let visual: any = null;
@@ -762,7 +854,6 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
   }
 
   async saveAll() {
-    // Check for changes - allow save even if item doesn't exist yet
     const titleChanged = this.editableTitle !== (this.item?.name || '');
     const textChanged = this.editableText !== (this.item?.text || '');
 
@@ -773,40 +864,37 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
 
     this.saving = true;
     try {
-      // Build update data for both Dexie and Caspio sync
-      const dexieUpdate: any = {};
       const caspioUpdate: any = {};
+      if (titleChanged) caspioUpdate.Name = this.editableTitle;
+      if (textChanged) caspioUpdate.Text = this.editableText;
 
-      if (titleChanged) {
-        dexieUpdate.templateName = this.editableTitle;
-        caspioUpdate.Name = this.editableTitle;
+      // WEBAPP: Direct API update only (no Dexie)
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        if (this.isValidVisualId(this.visualId)) {
+          await this.foundationData.updateVisual(this.visualId, caspioUpdate, this.serviceId);
+          console.log('[VisualDetail] WEBAPP: ✅ Updated via API:', this.visualId, caspioUpdate);
+        } else {
+          console.warn('[VisualDetail] WEBAPP: No valid visualId, cannot save');
+        }
+      } else {
+        // MOBILE: DEXIE-FIRST
+        const dexieUpdate: any = {};
+        if (titleChanged) dexieUpdate.templateName = this.editableTitle;
+        if (textChanged) dexieUpdate.templateText = this.editableText;
+
+        await this.visualFieldRepo.setField(this.serviceId, this.categoryName, this.templateId, dexieUpdate);
+        console.log('[VisualDetail] MOBILE: ✅ Updated Dexie:', dexieUpdate);
+
+        if (this.isValidVisualId(this.visualId)) {
+          await this.foundationData.updateVisual(this.visualId, caspioUpdate, this.serviceId);
+        }
       }
 
-      if (textChanged) {
-        dexieUpdate.templateText = this.editableText;
-        caspioUpdate.Text = this.editableText;
-      }
-
-      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        this.categoryName,
-        this.templateId,
-        dexieUpdate
-      );
-      console.log('[VisualDetail] ✅ Updated Dexie field:', dexieUpdate);
-
-      // Queue update to Caspio for background sync (only if valid visualId)
-      if (this.isValidVisualId(this.visualId)) {
-        await this.foundationData.updateVisual(this.visualId, caspioUpdate, this.serviceId);
-      }
-
-      // Update local item state for immediate UI feedback
       if (this.item) {
         if (titleChanged) this.item.name = this.editableTitle;
         if (textChanged) this.item.text = this.editableText;
       }
-
       this.changeDetectorRef.detectChanges();
 
     } catch (error) {
@@ -816,46 +904,41 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
       this.saving = false;
     }
 
-    // Navigate back
     this.goBack();
   }
 
   async saveTitle() {
-    // Allow save even if item doesn't exist yet
     if (this.editableTitle === (this.item?.name || '')) return;
 
     this.saving = true;
     try {
-      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
-      // CRITICAL: Also save visualId, isSelected, and category so category-detail can restore it
-      const dexieUpdate: any = {
-        templateName: this.editableTitle,
-        isSelected: true,  // Visual is selected if user is editing it
-        category: this.categoryName
-      };
-      if (this.visualId) {
-        dexieUpdate.visualId = this.visualId;
-      }
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        this.categoryName,
-        this.templateId,
-        dexieUpdate
-      );
-      console.log('[VisualDetail] ✅ Updated title in Dexie with visualId:', this.visualId);
-
-      // Queue update to Caspio for background sync (only if valid visualId)
-      if (this.isValidVisualId(this.visualId)) {
-        await this.foundationData.updateVisual(this.visualId, { Name: this.editableTitle }, this.serviceId);
-        console.log('[VisualDetail] ✅ Queued title update to Caspio');
+      // WEBAPP: Direct API update only (no Dexie)
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        if (this.isValidVisualId(this.visualId)) {
+          await this.foundationData.updateVisual(this.visualId, { Name: this.editableTitle }, this.serviceId);
+          console.log('[VisualDetail] WEBAPP: ✅ Updated title via API:', this.visualId);
+        } else {
+          console.warn('[VisualDetail] WEBAPP: No valid visualId, cannot save title');
+        }
       } else {
-        console.log('[VisualDetail] No valid visualId - title saved to Dexie only');
+        // MOBILE: DEXIE-FIRST
+        const dexieUpdate: any = {
+          templateName: this.editableTitle,
+          isSelected: true,
+          category: this.categoryName
+        };
+        if (this.visualId) dexieUpdate.visualId = this.visualId;
+
+        await this.visualFieldRepo.setField(this.serviceId, this.categoryName, this.templateId, dexieUpdate);
+        console.log('[VisualDetail] MOBILE: ✅ Updated title in Dexie:', this.visualId);
+
+        if (this.isValidVisualId(this.visualId)) {
+          await this.foundationData.updateVisual(this.visualId, { Name: this.editableTitle }, this.serviceId);
+        }
       }
 
-      // Update local item state for immediate UI feedback
-      if (this.item) {
-        this.item.name = this.editableTitle;
-      }
+      if (this.item) this.item.name = this.editableTitle;
     } catch (error) {
       console.error('[VisualDetail] Error saving title:', error);
       await this.showToast('Error saving title', 'danger');
@@ -866,41 +949,37 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
   }
 
   async saveText() {
-    // Allow save even if item doesn't exist yet
     if (this.editableText === (this.item?.text || '')) return;
 
     this.saving = true;
     try {
-      // DEXIE-FIRST: Update local Dexie field (creates if doesn't exist)
-      // CRITICAL: Also save visualId, isSelected, and category so category-detail can restore it
-      const dexieUpdate: any = {
-        templateText: this.editableText,
-        isSelected: true,  // Visual is selected if user is editing it
-        category: this.categoryName
-      };
-      if (this.visualId) {
-        dexieUpdate.visualId = this.visualId;
-      }
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        this.categoryName,
-        this.templateId,
-        dexieUpdate
-      );
-      console.log('[VisualDetail] ✅ Updated text in Dexie with visualId:', this.visualId);
-
-      // Queue update to Caspio for background sync (only if valid visualId)
-      if (this.isValidVisualId(this.visualId)) {
-        await this.foundationData.updateVisual(this.visualId, { Text: this.editableText }, this.serviceId);
-        console.log('[VisualDetail] ✅ Queued text update to Caspio');
+      // WEBAPP: Direct API update only (no Dexie)
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        if (this.isValidVisualId(this.visualId)) {
+          await this.foundationData.updateVisual(this.visualId, { Text: this.editableText }, this.serviceId);
+          console.log('[VisualDetail] WEBAPP: ✅ Updated text via API:', this.visualId);
+        } else {
+          console.warn('[VisualDetail] WEBAPP: No valid visualId, cannot save text');
+        }
       } else {
-        console.log('[VisualDetail] No valid visualId - text saved to Dexie only');
+        // MOBILE: DEXIE-FIRST
+        const dexieUpdate: any = {
+          templateText: this.editableText,
+          isSelected: true,
+          category: this.categoryName
+        };
+        if (this.visualId) dexieUpdate.visualId = this.visualId;
+
+        await this.visualFieldRepo.setField(this.serviceId, this.categoryName, this.templateId, dexieUpdate);
+        console.log('[VisualDetail] MOBILE: ✅ Updated text in Dexie:', this.visualId);
+
+        if (this.isValidVisualId(this.visualId)) {
+          await this.foundationData.updateVisual(this.visualId, { Text: this.editableText }, this.serviceId);
+        }
       }
 
-      // Update local item state for immediate UI feedback
-      if (this.item) {
-        this.item.text = this.editableText;
-      }
+      if (this.item) this.item.text = this.editableText;
     } catch (error) {
       console.error('[VisualDetail] Error saving text:', error);
       await this.showToast('Error saving description', 'danger');
@@ -913,6 +992,11 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
   // ===== PHOTO METHODS =====
 
   async addPhotoFromCamera() {
+    // GALLERY FIX: Set flag to prevent ionViewWillEnter from reloading photos
+    // This prevents race condition when app returns from native camera
+    this.isPhotoCaptureInProgress = true;
+    console.log('[VisualDetail] Camera capture starting - setting isPhotoCaptureInProgress=true');
+
     try {
       const photo = await Camera.getPhoto({
         quality: 70,
@@ -930,10 +1014,19 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         console.error('[VisualDetail] Camera error:', error);
         await this.showToast('Error taking photo', 'danger');
       }
+    } finally {
+      // GALLERY FIX: Clear flag after capture completes (success or cancel)
+      this.isPhotoCaptureInProgress = false;
+      console.log('[VisualDetail] Camera capture complete - setting isPhotoCaptureInProgress=false');
     }
   }
 
   async addPhotoFromGallery() {
+    // GALLERY FIX: Set flag to prevent ionViewWillEnter from reloading photos
+    // This prevents race condition when app returns from native gallery picker
+    this.isPhotoCaptureInProgress = true;
+    console.log('[VisualDetail] Gallery capture starting - setting isPhotoCaptureInProgress=true');
+
     try {
       const photo = await Camera.getPhoto({
         quality: 70,
@@ -951,6 +1044,10 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         console.error('[VisualDetail] Gallery error:', error);
         await this.showToast('Error selecting photo', 'danger');
       }
+    } finally {
+      // GALLERY FIX: Clear flag after capture completes (success or cancel)
+      this.isPhotoCaptureInProgress = false;
+      console.log('[VisualDetail] Gallery capture complete - setting isPhotoCaptureInProgress=false');
     }
   }
 
@@ -1082,6 +1179,7 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
 
       // Add to photos array immediately for UI display
       // CRITICAL: Set originalUrl for annotation re-editing (so we can annotate from the original image)
+      // CRITICAL FIX: Also set imageId and attachId for consistent lookup in viewPhoto()
       this.photos.unshift({
         id: localImage.imageId,
         displayUrl,
@@ -1090,7 +1188,10 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         uploading: false,
         isLocal: true,
         hasAnnotations: false,
-        drawings: ''
+        drawings: '',
+        // CRITICAL: These fields ensure viewPhoto() can find the localImage consistently
+        imageId: localImage.imageId,
+        attachId: localImage.attachId || undefined
       });
 
       this.changeDetectorRef.detectChanges();
@@ -1357,20 +1458,17 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     try {
       photo.caption = caption;
 
-      // WEBAPP MODE: Update directly via Caspio API
+      // WEBAPP MODE: Update directly via Caspio API (matching LBW pattern)
       // Photos come from server, not localImages - use photo.drawings directly
       if (environment.isWeb && !photo.isLocal) {
         const attachId = photo.id;
         if (attachId && !String(attachId).startsWith('temp_') && !String(attachId).startsWith('img_')) {
           // CRITICAL: Use photo.drawings to preserve existing annotations
           // Do NOT use localImage?.drawings as localImages is empty in WEBAPP mode
-          await this.foundationData.queueCaptionAndAnnotationUpdate(
-            attachId,
-            caption,
-            photo.drawings || '',
-            'visual',
-            { serviceId: this.serviceId, visualId: this.visualId }
-          );
+          await firstValueFrom(this.caspioService.updateServicesVisualsAttach(String(attachId), {
+            Annotation: caption,
+            Drawings: photo.drawings || ''
+          }));
           console.log('[VisualDetail] WEBAPP: ✅ Updated caption via API (preserved drawings):', attachId);
         }
         this.changeDetectorRef.detectChanges();
@@ -1450,6 +1548,37 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         localImage = await db.localImages.where('attachId').equals(photo.id).first();
         if (localImage) {
           console.log('[VisualDetail] Found localImage by photo.id as attachId:', photo.id);
+        }
+      }
+
+      // Strategy 5: GALLERY FIX - Query by entityId (visualId) and find matching image
+      // This handles cases where the photo was just added and IDs might not match exactly
+      if (!localImage && this.visualId) {
+        console.log('[VisualDetail] Trying entityId fallback with visualId:', this.visualId);
+        const recentImages = await db.localImages
+          .where('entityId')
+          .equals(this.visualId)
+          .toArray();
+
+        if (recentImages.length > 0) {
+          // Sort by createdAt descending
+          recentImages.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+          // Try to find one with drawings first
+          for (const img of recentImages) {
+            if (img.drawings && img.drawings.length > 10) {
+              localImage = img;
+              console.log('[VisualDetail] Found localImage with drawings by entityId:', img.imageId);
+              break;
+            }
+          }
+
+          // If no image with drawings found, log all available images for debugging
+          if (!localImage) {
+            console.log('[VisualDetail] No localImage with drawings found. Available images:',
+              recentImages.map(img => ({ imageId: img.imageId, hasDrawings: !!(img.drawings && img.drawings.length > 10) }))
+            );
+          }
         }
       }
 
@@ -1559,17 +1688,14 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
             }
           }
 
-          // WEBAPP MODE: Save directly to Caspio API (photos are server-side, not in local DB)
+          // WEBAPP MODE: Save directly to Caspio API (matching LBW pattern)
           if (environment.isWeb) {
             console.log('[VisualDetail] WEBAPP: Saving annotations directly to Caspio for AttachID:', photo.id);
-            await this.foundationData.queueCaptionAndAnnotationUpdate(
-              photo.id,
-              newCaption,
-              compressedDrawings,
-              'visual',
-              { serviceId: this.serviceId, visualId: this.visualId }
-            );
-            console.log('[VisualDetail] WEBAPP: ✅ Annotation update sent to Caspio');
+            await firstValueFrom(this.caspioService.updateServicesVisualsAttach(String(photo.id), {
+              Annotation: newCaption,
+              Drawings: compressedDrawings
+            }));
+            console.log('[VisualDetail] WEBAPP: ✅ Updated annotation via API for AttachID:', photo.id);
 
             // Cache annotated image for thumbnail display
             if (annotatedBlob && annotatedBlob.size > 0) {
@@ -1587,6 +1713,7 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
               photoId: photo.id,
               imageId: photo.imageId,
               attachId: photo.attachId,
+              visualId: this.visualId,
               compressedDrawingsLength: compressedDrawings?.length || 0
             });
 
@@ -1622,6 +1749,38 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
               }
             }
 
+            // Strategy 5: GALLERY FIX - Query by entityId (visualId) and find most recent image
+            // This handles cases where the photo was just added and IDs might not match exactly
+            if (!localImageToUpdate && this.visualId) {
+              console.log('[VisualDetail] SAVE: Trying entityId fallback with visualId:', this.visualId);
+              const recentImages = await db.localImages
+                .where('entityId')
+                .equals(this.visualId)
+                .toArray();
+
+              if (recentImages.length > 0) {
+                // Sort by createdAt descending and find one that matches our photo
+                recentImages.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+                // Try to match by checking if the displayUrl blob matches
+                for (const img of recentImages) {
+                  // If this image was created recently (within last 5 minutes) and doesn't have drawings yet
+                  const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+                  if (img.createdAt && img.createdAt > fiveMinutesAgo && (!img.drawings || img.drawings.length < 10)) {
+                    localImageToUpdate = img;
+                    console.log('[VisualDetail] SAVE: Found localImage by entityId (recent, no drawings):', img.imageId);
+                    break;
+                  }
+                }
+
+                // If still not found, use the most recent one
+                if (!localImageToUpdate && recentImages.length > 0) {
+                  localImageToUpdate = recentImages[0];
+                  console.log('[VisualDetail] SAVE: Found localImage by entityId (most recent):', localImageToUpdate.imageId);
+                }
+              }
+            }
+
             if (localImageToUpdate) {
               // Update using the correct imageId (primary key)
               const updateKey = localImageToUpdate.imageId;
@@ -1636,6 +1795,19 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
               const verifyImage = await db.localImages.get(updateKey);
               if (verifyImage?.drawings && verifyImage.drawings.length > 10) {
                 console.log('[VisualDetail] SAVE: ✅ VERIFIED - Drawings saved to Dexie:', verifyImage.drawings.length, 'chars');
+
+                // GALLERY FIX: Update photo object with correct IDs if they were mismatched
+                // This ensures future lookups work without needing Strategy 5
+                if (photo.id !== localImageToUpdate.imageId) {
+                  console.log('[VisualDetail] SAVE: Fixing photo ID mismatch:', photo.id, '->', localImageToUpdate.imageId);
+                  // Update in photos array
+                  if (photoIndex !== -1 && this.photos[photoIndex]) {
+                    this.photos[photoIndex].imageId = localImageToUpdate.imageId;
+                    if (localImageToUpdate.attachId) {
+                      this.photos[photoIndex].attachId = localImageToUpdate.attachId;
+                    }
+                  }
+                }
               } else {
                 console.error('[VisualDetail] SAVE: ❌ VERIFICATION FAILED - Drawings NOT saved!');
               }

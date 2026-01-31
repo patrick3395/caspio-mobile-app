@@ -651,29 +651,39 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     try {
       const actualCategory = this.item?.category || this.categoryName;
 
-      // TITLE EDIT FIX: Include visualId so Dexie mapping exists for category-detail lookup
-      const fieldData: any = {
-        templateName: this.editableTitle,
-        isSelected: true,  // Visual is selected if user is editing it
-        category: actualCategory
-      };
+      // WEBAPP: Direct API update only (no Dexie) - matching LBW pattern
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        if (this.isValidDteId(this.dteId)) {
+          await this.dteData.updateVisual(this.dteId, { Name: this.editableTitle });
+          console.log('[DteVisualDetail] WEBAPP: ✅ Updated title via API:', this.dteId);
+        } else {
+          console.warn('[DteVisualDetail] WEBAPP: No valid dteId, cannot save title');
+        }
+      } else {
+        // MOBILE: DEXIE-FIRST - Include visualId so Dexie mapping exists for category-detail lookup
+        const fieldData: any = {
+          templateName: this.editableTitle,
+          isSelected: true,
+          category: actualCategory
+        };
 
-      // Include visualId if we have a valid DTEID
-      if (this.isValidDteId(this.dteId)) {
-        fieldData.visualId = this.dteId;
-      }
+        if (this.isValidDteId(this.dteId)) {
+          fieldData.visualId = this.dteId;
+        }
 
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        actualCategory,
-        this.templateId,
-        fieldData
-      );
-      console.log('[DteVisualDetail] Updated title in Dexie with visualId:', this.dteId);
+        await this.visualFieldRepo.setField(
+          this.serviceId,
+          actualCategory,
+          this.templateId,
+          fieldData
+        );
+        console.log('[DteVisualDetail] MOBILE: ✅ Updated title in Dexie with visualId:', this.dteId);
 
-      if (this.isValidDteId(this.dteId)) {
-        await this.dteData.updateVisual(this.dteId, { Name: this.editableTitle });
-        console.log('[DteVisualDetail] Updated title in Caspio DTE record:', this.dteId);
+        if (this.isValidDteId(this.dteId)) {
+          await this.dteData.updateVisual(this.dteId, { Name: this.editableTitle });
+          console.log('[DteVisualDetail] MOBILE: ✅ Queued title update for sync:', this.dteId);
+        }
       }
 
       if (this.item) {
@@ -695,29 +705,39 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     try {
       const actualCategory = this.item?.category || this.categoryName;
 
-      // TITLE EDIT FIX: Include visualId so Dexie mapping exists for category-detail lookup
-      const fieldData: any = {
-        templateText: this.editableText,
-        isSelected: true,  // Visual is selected if user is editing it
-        category: actualCategory
-      };
+      // WEBAPP: Direct API update only (no Dexie) - matching LBW pattern
+      // MOBILE: Dexie-first with background sync
+      if (environment.isWeb) {
+        if (this.isValidDteId(this.dteId)) {
+          await this.dteData.updateVisual(this.dteId, { Text: this.editableText });
+          console.log('[DteVisualDetail] WEBAPP: ✅ Updated text via API:', this.dteId);
+        } else {
+          console.warn('[DteVisualDetail] WEBAPP: No valid dteId, cannot save text');
+        }
+      } else {
+        // MOBILE: DEXIE-FIRST - Include visualId so Dexie mapping exists for category-detail lookup
+        const fieldData: any = {
+          templateText: this.editableText,
+          isSelected: true,
+          category: actualCategory
+        };
 
-      // Include visualId if we have a valid DTEID
-      if (this.isValidDteId(this.dteId)) {
-        fieldData.visualId = this.dteId;
-      }
+        if (this.isValidDteId(this.dteId)) {
+          fieldData.visualId = this.dteId;
+        }
 
-      await this.visualFieldRepo.setField(
-        this.serviceId,
-        actualCategory,
-        this.templateId,
-        fieldData
-      );
-      console.log('[DteVisualDetail] Updated text in Dexie with visualId:', this.dteId);
+        await this.visualFieldRepo.setField(
+          this.serviceId,
+          actualCategory,
+          this.templateId,
+          fieldData
+        );
+        console.log('[DteVisualDetail] MOBILE: ✅ Updated text in Dexie with visualId:', this.dteId);
 
-      if (this.isValidDteId(this.dteId)) {
-        await this.dteData.updateVisual(this.dteId, { Text: this.editableText });
-        console.log('[DteVisualDetail] Updated text in Caspio DTE record:', this.dteId);
+        if (this.isValidDteId(this.dteId)) {
+          await this.dteData.updateVisual(this.dteId, { Text: this.editableText });
+          console.log('[DteVisualDetail] MOBILE: ✅ Queued text update for sync:', this.dteId);
+        }
       }
 
       if (this.item) {

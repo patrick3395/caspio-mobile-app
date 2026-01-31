@@ -8002,11 +8002,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       const customTemplateId = -Date.now();
 
       // Add to local data structure (must match loadExistingVisuals structure)
-      // DEXIE-FIRST: Use templateId as the item ID for consistency with convertFieldsToOrganizedData
-      // The liveQuery converts fields using field.visualId || field.tempVisualId || field.templateId
-      // So we use tempVisualId as the id, which will be returned by convertFieldsToOrganizedData
+      // CRITICAL: Use "custom_${visualId}" format to match what loadExistingVisuals creates
+      // when it reloads custom visuals from the server. This ensures consistent item.id.
+      const customItemId = environment.isWeb ? `custom_${visualId}` : visualId;
       const customItem: VisualItem = {
-        id: visualId, // Use tempVisualId for consistency with convertFieldsToOrganizedData
+        id: customItemId,
         templateId: customTemplateId, // Use unique negative ID for custom visuals
         name: name,
         text: text,
@@ -8019,9 +8019,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         photos: []
       };
 
-      // DEXIE-FIRST: Use consistent key format matching convertFieldsToOrganizedData
-      // Key format: ${category}_${templateId} for selection tracking
-      const key = `${category}_${customTemplateId}`;
+      // WEBAPP: Use customItemId for key to match what loadExistingVisuals uses
+      // MOBILE: Use customTemplateId for consistency with Dexie patterns
+      const key = environment.isWeb
+        ? `${category}_${customItemId}`
+        : `${category}_${customTemplateId}`;
       this.visualRecordIds[key] = String(visualId);
 
       // Mark as selected with the correct key
@@ -8667,7 +8669,44 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
   }
 
   openVisualDetail(categoryName: string, item: VisualItem) {
-    // Navigate relative to parent route since CategoryDetailPage is at the '' child path
-    this.router.navigate(['visual', item.templateId], { relativeTo: this.route.parent });
+    console.log('[CategoryDetail] openVisualDetail - item:', item?.name, 'item.id:', item?.id, 'templateId:', item?.templateId);
+
+    // WEBAPP SIMPLIFIED: The VisualID is stored in visualRecordIds
+    let visualId = '';
+    let routeId: string | number = item.templateId || item.id;
+
+    if (environment.isWeb) {
+      const itemIdStr = String(item.id || '');
+
+      // Custom visual: id = "custom_12345" -> extract VisualID directly
+      if (itemIdStr.startsWith('custom_')) {
+        visualId = itemIdStr.replace('custom_', '');
+        routeId = visualId; // Use the numeric VisualID for the route
+        console.log('[CategoryDetail] WEBAPP: Custom visual, VisualID:', visualId);
+      } else {
+        // Template visual: look up in visualRecordIds
+        const key = item.key || `${categoryName}_${item.id}`;
+        visualId = this.visualRecordIds[key] || '';
+        routeId = item.templateId || item.id;
+        console.log('[CategoryDetail] WEBAPP: Template visual, key:', key, 'VisualID:', visualId);
+      }
+    } else {
+      // MOBILE: Use existing logic
+      const key = item.key || `${categoryName}_${item.templateId}`;
+      visualId = this.visualRecordIds[key] || '';
+      routeId = item.templateId;
+    }
+
+    console.log('[CategoryDetail] FINAL: routeId:', routeId, 'visualId:', visualId);
+
+    const queryParams: any = {};
+    if (environment.isWeb && visualId) {
+      queryParams.visualId = String(visualId);
+    }
+
+    this.router.navigate(['visual', routeId], {
+      relativeTo: this.route.parent,
+      queryParams
+    });
   }
 }

@@ -1220,6 +1220,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
   /**
    * Process visual updates from background refresh without losing upload state
+   * WEBAPP FIX: Use LBWID-first matching to prevent mismatch when titles are edited
    */
   private async processVisualsUpdate(categoryVisuals: any[]): Promise<void> {
     // Get all available template items
@@ -1242,7 +1243,29 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       }
 
       const LBWID = String(visual.LBWID || visual.PK_ID || visual.id);
-      const item = allItems.find(i => i.name === visual.Name);
+      let item: VisualItem | undefined = undefined;
+
+      // WEBAPP FIX: PRIORITY 1 - Find item by LBWID using existing visualRecordIds mapping
+      // This ensures we match the CORRECT item even after title/name edits
+      // (Previous code used name matching which broke when titles were changed to match template names)
+      for (const [key, storedLbwId] of Object.entries(this.visualRecordIds)) {
+        if (String(storedLbwId) === LBWID) {
+          // Found existing mapping - find the item that matches this key
+          item = allItems.find(i => `${this.categoryName}_${i.id}` === key);
+          if (item) {
+            console.log(`[PROCESS UPDATE] PRIORITY 1: Matched by LBWID mapping: ${LBWID} -> key=${key}`);
+          }
+          break;
+        }
+      }
+
+      // PRIORITY 2: Fall back to name matching if no existing LBWID mapping
+      if (!item) {
+        item = allItems.find(i => i.name === visual.Name);
+        if (item) {
+          console.log(`[PROCESS UPDATE] PRIORITY 2: Matched by name: "${visual.Name}"`);
+        }
+      }
 
       if (item) {
         const key = `${this.categoryName}_${item.id}`;
@@ -1250,6 +1273,12 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Update selection state and record ID
         this.selectedItems[key] = true;
         this.visualRecordIds[key] = LBWID;
+
+        // Update name from server if changed (server is source of truth)
+        if (visual.Name && visual.Name !== item.name) {
+          console.log(`[PROCESS UPDATE] Updated name from server: "${item.name}" -> "${visual.Name}"`);
+          item.name = visual.Name;
+        }
 
         // Update answer but preserve any local edits
         if (!item.answer && visual.Answers) {
