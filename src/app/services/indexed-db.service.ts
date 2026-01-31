@@ -2996,8 +2996,9 @@ export class IndexedDbService {
       return;
     }
 
-    // DEBUG: Show what we're merging
-    alert(`DEBUG BEFORE PUT\n\nexisting.drawings: ${existing.drawings?.length || 'NULL'}\nupdates.drawings: ${updates.drawings?.length || 'NULL'}`);
+    // DEBUG: Show what we're merging and WHERE this call came from
+    const stack = new Error().stack?.split('\n').slice(1, 6).join('\n') || 'no stack';
+    alert(`DEBUG BEFORE PUT\n\nexisting.drawings: ${existing.drawings?.length || 'NULL'}\nupdates.drawings: ${updates.drawings?.length || 'NULL'}\n\nCALL STACK:\n${stack}`);
 
     const updated: LocalImage = {
       ...existing,
