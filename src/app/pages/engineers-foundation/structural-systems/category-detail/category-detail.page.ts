@@ -1102,6 +1102,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
         this.visualPhotos[item.key] = photos;
         this.photoCountsByKey[item.key] = photos.length;
+
+        // WEBAPP FIX: Merge pending captions/drawings into loaded photos
+        // This ensures annotations added locally but not yet synced are visible
+        await this.mergePendingCaptionsIntoPhotos(item.key);
       } catch (error) {
         console.error(`[CategoryDetail] WEBAPP: Error loading photos for visual ${visualId}:`, error);
       }
@@ -4074,7 +4078,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           if (pendingCaption.drawings !== undefined) {
             console.log(`[MERGE CAPTIONS] Applying drawings to photo ${photoId}`);
             photo.Drawings = pendingCaption.drawings;
-            photo.hasAnnotations = !!pendingCaption.drawings;
+            photo.rawDrawingsString = pendingCaption.drawings;  // WEBAPP FIX: Also set rawDrawingsString for viewPhoto compatibility
+            photo.hasAnnotations = !!(pendingCaption.drawings && pendingCaption.drawings.length > 10);
           }
         }
       }
