@@ -1539,6 +1539,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         // Annotations stored in Drawings field (JSON) - no blob caching
         const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
 
+        // DEBUG: Show what's being loaded from LocalImage
+        if (hasAnnotations || localImage.drawings) {
+          alert(`DEBUG MOBILE: Loading from Dexie\n\nimageId: ${localImage.imageId}\ndrawings: ${localImage.drawings ? localImage.drawings.length + ' chars' : 'NULL'}\nhasAnnotations: ${hasAnnotations}`);
+        }
+
         // Add photo to array - always use original URLs
         this.visualPhotos[key].unshift({
           AttachID: localImage.attachId || localImage.imageId,
@@ -7341,12 +7346,20 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               // LocalImage: Use updateLocalImage to save drawings
               const localImageId = currentPhoto.imageId || currentPhoto.localImageId || pendingFileId;
               console.log('[SAVE OFFLINE] Saving to LocalImage:', localImageId);
+
+              // DEBUG: Show what we're saving
+              alert(`DEBUG MOBILE: Saving annotation to LocalImage\n\nlocalImageId: ${localImageId}\ndrawings length: ${compressedDrawings?.length || 0}`);
+
               this.indexedDb.updateLocalImage(localImageId, {
                 caption: data.caption || '',
                 drawings: compressedDrawings
               }).then(() => {
                 console.log('[SAVE OFFLINE] ✅ Updated LocalImage with drawings');
-              }).catch(err => console.error('[SAVE OFFLINE] LocalImage update failed:', err));
+                alert(`DEBUG MOBILE: LocalImage updated successfully!`);
+              }).catch(err => {
+                console.error('[SAVE OFFLINE] LocalImage update failed:', err);
+                alert(`DEBUG MOBILE: LocalImage update FAILED: ${err}`);
+              });
             } else {
               // Legacy temp photo: Use updatePendingPhotoData
               this.indexedDb.updatePendingPhotoData(pendingFileId, {
