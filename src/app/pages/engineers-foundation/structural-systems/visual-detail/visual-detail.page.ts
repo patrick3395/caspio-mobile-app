@@ -1582,35 +1582,96 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
             }
           } else {
             // MOBILE MODE: DEXIE-FIRST - Update LocalImages table with new drawings
-            await db.localImages.update(photo.id, {
-              drawings: compressedDrawings,
-              caption: newCaption,
-              updatedAt: Date.now()
+            // CRITICAL: Find the correct localImage first using multiple strategies
+            console.log('[VisualDetail] SAVE: Looking for localImage to update:', {
+              photoId: photo.id,
+              imageId: photo.imageId,
+              attachId: photo.attachId,
+              compressedDrawingsLength: compressedDrawings?.length || 0
             });
-            console.log('[VisualDetail] ✅ Updated LocalImages with drawings:', compressedDrawings.length, 'chars');
+
+            let localImageToUpdate: any = null;
+
+            // Strategy 1: Try photo.id (usually the imageId)
+            localImageToUpdate = await db.localImages.get(photo.id);
+            if (localImageToUpdate) {
+              console.log('[VisualDetail] SAVE: Found localImage by photo.id:', photo.id);
+            }
+
+            // Strategy 2: Try photo.imageId if different
+            if (!localImageToUpdate && photo.imageId && photo.imageId !== photo.id) {
+              localImageToUpdate = await db.localImages.get(photo.imageId);
+              if (localImageToUpdate) {
+                console.log('[VisualDetail] SAVE: Found localImage by imageId:', photo.imageId);
+              }
+            }
+
+            // Strategy 3: Query by attachId
+            if (!localImageToUpdate && photo.attachId) {
+              localImageToUpdate = await db.localImages.where('attachId').equals(photo.attachId).first();
+              if (localImageToUpdate) {
+                console.log('[VisualDetail] SAVE: Found localImage by attachId:', photo.attachId);
+              }
+            }
+
+            // Strategy 4: If photo.id looks like an attachId (numeric), query by attachId
+            if (!localImageToUpdate && photo.id && !String(photo.id).startsWith('img_') && !String(photo.id).startsWith('temp_')) {
+              localImageToUpdate = await db.localImages.where('attachId').equals(photo.id).first();
+              if (localImageToUpdate) {
+                console.log('[VisualDetail] SAVE: Found localImage by photo.id as attachId:', photo.id);
+              }
+            }
+
+            if (localImageToUpdate) {
+              // Update using the correct imageId (primary key)
+              const updateKey = localImageToUpdate.imageId;
+              const updateResult = await db.localImages.update(updateKey, {
+                drawings: compressedDrawings,
+                caption: newCaption,
+                updatedAt: Date.now()
+              });
+              console.log('[VisualDetail] SAVE: Update result:', updateResult, 'for key:', updateKey);
+
+              // VERIFY the update worked
+              const verifyImage = await db.localImages.get(updateKey);
+              if (verifyImage?.drawings && verifyImage.drawings.length > 10) {
+                console.log('[VisualDetail] SAVE: ✅ VERIFIED - Drawings saved to Dexie:', verifyImage.drawings.length, 'chars');
+              } else {
+                console.error('[VisualDetail] SAVE: ❌ VERIFICATION FAILED - Drawings NOT saved!');
+              }
+            } else {
+              console.error('[VisualDetail] SAVE: ❌ Could not find localImage to update for photo:', photo.id);
+            }
 
             // DEXIE-FIRST: Cache annotated image for thumbnail display
+            // Cache under MULTIPLE IDs for reliable lookup
             if (annotatedBlob && annotatedBlob.size > 0) {
               try {
                 await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
-                console.log('[VisualDetail] ✅ Cached annotated image for:', photo.id);
+                // Also cache under imageId if we found the localImage
+                if (localImageToUpdate?.imageId && localImageToUpdate.imageId !== photo.id) {
+                  await this.indexedDb.cacheAnnotatedImage(localImageToUpdate.imageId, annotatedBlob);
+                }
+                // Also cache under attachId if available
+                if (localImageToUpdate?.attachId) {
+                  await this.indexedDb.cacheAnnotatedImage(localImageToUpdate.attachId, annotatedBlob);
+                }
+                console.log('[VisualDetail] ✅ Cached annotated image for:', photo.id, localImageToUpdate?.imageId, localImageToUpdate?.attachId);
               } catch (cacheErr) {
                 console.warn('[VisualDetail] Failed to cache annotated image:', cacheErr);
               }
             }
 
-            // Get the localImage to check if it has an attachId (synced to Caspio)
-            const localImage = await db.localImages.get(photo.id);
-            if (localImage?.attachId) {
-              // Queue annotation update to Caspio for background sync
+            // Queue annotation update to Caspio if photo has been synced (has attachId)
+            if (localImageToUpdate?.attachId) {
               await this.foundationData.queueCaptionAndAnnotationUpdate(
-                localImage.attachId,
+                localImageToUpdate.attachId,
                 newCaption,
                 compressedDrawings,
                 'visual',
                 { serviceId: this.serviceId, visualId: this.visualId }
               );
-              console.log('[VisualDetail] ✅ Queued annotation update to Caspio:', localImage.attachId);
+              console.log('[VisualDetail] ✅ Queued annotation update to Caspio:', localImageToUpdate.attachId);
             } else {
               console.log('[VisualDetail] Photo not yet synced, annotations stored locally for upload');
             }
