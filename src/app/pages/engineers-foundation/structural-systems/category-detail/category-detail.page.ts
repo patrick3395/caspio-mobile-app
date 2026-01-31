@@ -1048,10 +1048,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
           let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
-
-          // DEBUG: Show what API returned for this attachment
-          alert(`DEBUG API Response\nAttachID: ${attachIdStr}\nAPI att.Drawings: ${att.Drawings ? att.Drawings.length + ' chars' : 'NULL/EMPTY'}\nhasServerAnnotations: ${hasServerAnnotations}`);
-
           console.log(`[EFE] WEBAPP: Photo ${attachIdStr} - hasAnnotations: ${hasAnnotations}, Drawings length: ${att.Drawings?.length || 0}`);
 
           // WEBAPP FIX: Check for cached annotated image first
@@ -1110,11 +1106,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         try {
           const cachedAttachments = await this.indexedDb.getCachedServiceData(String(visualId), 'visual_attachments') || [];
 
-          // DEBUG: ALWAYS show cache check (even if empty)
-          const cachedWithDrawings = cachedAttachments.filter((c: any) => c.Drawings && c.Drawings.length > 10);
-          const cachedWithLocalUpdate = cachedAttachments.filter((c: any) => c._localUpdate);
-          alert(`DEBUG Cache Check\n\nCache key (visualId): ${visualId}\nCached attachments: ${cachedAttachments.length}\nWith Drawings: ${cachedWithDrawings.length}\nWith _localUpdate: ${cachedWithLocalUpdate.length}\n\nPhotos from API: ${photos.length}\nFirst photo AttachID: ${photos[0]?.AttachID || 'none'}`);
-
           for (const photo of photos) {
             const cachedAtt = cachedAttachments.find((c: any) => String(c.AttachID) === String(photo.AttachID));
             // WEBAPP FIX: Check for cached Drawings - merge if cache has data that API doesn't
@@ -1122,7 +1113,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
               // Only merge if API didn't have Drawings or cache has newer data
               if (!photo.Drawings || photo.Drawings.length < 10 || cachedAtt._localUpdate) {
                 console.log(`[WEBAPP FIX] Merging cached Drawings for photo ${photo.AttachID}, length: ${cachedAtt.Drawings.length}`);
-                alert(`DEBUG: Merging cached Drawings\nAttachID: ${photo.AttachID}\nDrawings length: ${cachedAtt.Drawings.length}\n_localUpdate: ${cachedAtt._localUpdate}`);
                 photo.Drawings = cachedAtt.Drawings;
                 photo.rawDrawingsString = cachedAtt.Drawings;
                 photo.hasAnnotations = true;
@@ -1538,11 +1528,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         // ANNOTATION FLATTENING FIX: Always use original image
         // Annotations stored in Drawings field (JSON) - no blob caching
         const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
-
-        // DEBUG: Show what's being loaded from LocalImage
-        if (hasAnnotations || localImage.drawings) {
-          alert(`DEBUG MOBILE: Loading from Dexie\n\nimageId: ${localImage.imageId}\ndrawings: ${localImage.drawings ? localImage.drawings.length + ' chars' : 'NULL'}\nhasAnnotations: ${hasAnnotations}`);
-        }
+        console.log(`[MOBILE] Loading LocalImage: ${localImage.imageId}, drawings: ${localImage.drawings?.length || 0} chars`);
 
         // Add photo to array - always use original URLs
         this.visualPhotos[key].unshift({
@@ -7015,13 +7001,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         caption: photo.caption || photo.Annotation
       });
 
-      // DEBUG ALERT 1: Show annotation sources
-      alert(`DEBUG viewPhoto - AttachID: ${attachId}\n\n` +
-        `photo.annotations: ${photo.annotations ? 'EXISTS (' + (typeof photo.annotations === 'string' ? photo.annotations.length + ' chars' : 'object') + ')' : 'NULL'}\n` +
-        `photo.annotationsData: ${photo.annotationsData ? 'EXISTS' : 'NULL'}\n` +
-        `photo.rawDrawingsString: ${photo.rawDrawingsString ? photo.rawDrawingsString.length + ' chars' : 'NULL'}\n` +
-        `photo.Drawings: ${photo.Drawings ? photo.Drawings.length + ' chars' : 'NULL'}\n` +
-        `photo.hasAnnotations: ${photo.hasAnnotations}`);
+      console.log(`[VIEW PHOTO] Annotation sources - Drawings: ${photo.Drawings?.length || 0} chars, hasAnnotations: ${photo.hasAnnotations}`);
 
       for (const source of annotationSources) {
         if (!source) {
@@ -7049,12 +7029,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         }
       }
 
-      console.log('[VIEW PHOTO] Final existingAnnotations:', existingAnnotations ? 'LOADED' : 'NULL');
-
-      // DEBUG ALERT 2: Show final result
-      alert(`DEBUG viewPhoto RESULT\n\n` +
-        `existingAnnotations: ${existingAnnotations ? 'LOADED' : 'NULL'}\n` +
-        `Objects count: ${existingAnnotations?.objects?.length || 0}`);
+      console.log('[VIEW PHOTO] Final existingAnnotations:', existingAnnotations ? 'LOADED' : 'NULL',
+        'Objects:', existingAnnotations?.objects?.length || 0);
 
       // ANNOTATION FLATTENING DETECTION (Attempt #1 - Issue #1 in Mobile_Issues.md)
       // If photo has hasAnnotations flag but no annotation data was found, the image may be flattened
@@ -7345,20 +7321,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             if (isLocalImagePhoto) {
               // LocalImage: Use updateLocalImage to save drawings
               const localImageId = currentPhoto.imageId || currentPhoto.localImageId || pendingFileId;
-              console.log('[SAVE OFFLINE] Saving to LocalImage:', localImageId);
-
-              // DEBUG: Show what we're saving
-              alert(`DEBUG MOBILE: Saving annotation to LocalImage\n\nlocalImageId: ${localImageId}\ndrawings length: ${compressedDrawings?.length || 0}`);
+              console.log('[SAVE OFFLINE] Saving to LocalImage:', localImageId, 'drawings:', compressedDrawings?.length || 0, 'chars');
 
               this.indexedDb.updateLocalImage(localImageId, {
                 caption: data.caption || '',
                 drawings: compressedDrawings
               }).then(() => {
                 console.log('[SAVE OFFLINE] ✅ Updated LocalImage with drawings');
-                alert(`DEBUG MOBILE: LocalImage updated successfully!`);
               }).catch(err => {
                 console.error('[SAVE OFFLINE] LocalImage update failed:', err);
-                alert(`DEBUG MOBILE: LocalImage update FAILED: ${err}`);
               });
             } else {
               // Legacy temp photo: Use updatePendingPhotoData
@@ -7633,10 +7604,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         }
 
         await this.indexedDb.cacheServiceData(visualIdForCache, 'visual_attachments', updatedAttachments);
-        console.log('[SAVE] ✅ Annotation saved to IndexedDB cache for visual', visualIdForCache, 'with _localUpdate flag');
-
-        // DEBUG: Confirm cache was updated
-        alert(`DEBUG Annotation SAVED to cache\n\nvisualIdForCache: ${visualIdForCache}\nattachId: ${attachId}\nDrawings length: ${updateData.Drawings?.length || 0}\nCached attachments: ${updatedAttachments.length}\nFound in cache: ${foundInCache}`);
+        console.log('[SAVE] ✅ Annotation saved to IndexedDB cache for visual', visualIdForCache,
+          'Drawings:', updateData.Drawings?.length || 0, 'chars, attachments:', updatedAttachments.length);
       }
       
       // ANNOTATION FLATTENING FIX: Do NOT cache annotated blob

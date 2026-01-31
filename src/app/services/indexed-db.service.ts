@@ -2996,28 +2996,30 @@ export class IndexedDbService {
       return;
     }
 
-    // DEBUG: Show what we're merging and WHERE this call came from
-    const stack = new Error().stack?.split('\n').slice(1, 6).join('\n') || 'no stack';
-    alert(`DEBUG BEFORE PUT\n\nexisting.drawings: ${existing.drawings?.length || 'NULL'}\nupdates.drawings: ${updates.drawings?.length || 'NULL'}\n\nCALL STACK:\n${stack}`);
+    // CRITICAL FIX: Preserve existing drawings/caption if update would clear them
+    // This prevents race conditions where a second update without drawings overwrites the first
+    // Only overwrite drawings/caption if the update explicitly provides a non-null/non-undefined value
+    const preservedFields: Partial<LocalImage> = {};
+    if (existing.drawings && (updates.drawings === undefined || updates.drawings === null)) {
+      preservedFields.drawings = existing.drawings;
+      console.log('[IndexedDB] Preserving existing drawings:', existing.drawings.length, 'chars (update had', updates.drawings, ')');
+    }
+    if (existing.caption && (updates.caption === undefined || updates.caption === null)) {
+      preservedFields.caption = existing.caption;
+      console.log('[IndexedDB] Preserving existing caption:', existing.caption.substring(0, 30));
+    }
 
     const updated: LocalImage = {
       ...existing,
       ...updates,
+      ...preservedFields, // Re-apply preserved fields AFTER updates to prevent accidental clearing
       updatedAt: Date.now(),
       localVersion: (existing.localVersion || 0) + 1
     };
 
-    // DEBUG: Show what updated object contains
-    alert(`DEBUG MERGED OBJECT\n\nupdated.drawings: ${updated.drawings?.length || 'NULL'}\nupdated.imageId: ${updated.imageId}`);
-
     await db.localImages.put(updated);
-    console.log('[IndexedDB] Local image updated:', imageId, 'status:', updated.status, 'version:', updated.localVersion);
-
-    // DEBUG: Verify the write persisted by reading it back
-    if (updates.drawings !== undefined) {
-      const verify = await db.localImages.get(imageId);
-      alert(`DEBUG AFTER PUT\n\nimageId: ${imageId}\nupdates.drawings: ${updates.drawings?.length || 0} chars\nRead back drawings: ${verify?.drawings?.length || 'NULL'} chars\nMatch: ${verify?.drawings === updates.drawings}`);
-    }
+    console.log('[IndexedDB] Local image updated:', imageId, 'status:', updated.status, 'version:', updated.localVersion,
+      'drawings:', updated.drawings?.length || 0, 'chars');
 
     this.emitChange({
       store: 'localImages',
