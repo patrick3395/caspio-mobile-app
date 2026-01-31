@@ -38,6 +38,7 @@ interface VisualItem {
   photos?: any[];
   otherValue?: string;
   key?: string;  // Computed key: ${category}_${templateId}
+  lbwId?: string;  // LBWID from Caspio - stored directly on item for reliable navigation
 }
 
 @Component({
@@ -1048,7 +1049,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             answerType: 0,
             required: false,
             answer: visual.Answers || '',
-            photos: []
+            photos: [],
+            lbwId: LBWID  // Store LBWID directly for reliable navigation
           };
 
           // Add to appropriate section based on Kind
@@ -1094,7 +1096,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                 answerType: item.answerType || 0,
                 required: item.required || false,
                 answer: visual.Answers || '',
-                photos: []
+                photos: [],
+                lbwId: LBWID  // Store LBWID directly for reliable navigation
               };
 
               // Add to appropriate section
@@ -1131,7 +1134,9 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         // Update item with saved data from server
         item.answer = visual.Answers || '';
         item.otherValue = visual.OtherValue || '';
+        item.lbwId = LBWID;  // Store LBWID directly on item for reliable navigation
         console.log('[LOAD EXISTING] ✅ item.answer set to:', item.answer);
+        console.log('[LOAD EXISTING] ✅ item.lbwId set to:', LBWID);
 
         // WEBAPP FIX: Update name and text from server if edited in visual-detail
         // Server is source of truth for WEBAPP mode
@@ -3183,6 +3188,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       // Store the record ID (temp or real)
       this.visualRecordIds[key] = lbwId;
       this.selectedItems[key] = true;
+      item.lbwId = lbwId;  // Store LBWID directly on item for reliable navigation
 
       console.log('[CREATE VISUAL] ✅ Created with LBWID:', lbwId);
       console.log('[CREATE VISUAL] Stored in visualRecordIds[' + key + '] =', lbwId);
@@ -3332,6 +3338,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         if (visualId) {
           this.visualRecordIds[key] = visualId;
           this.selectedItems[key] = true;
+          item.lbwId = visualId;  // Store LBWID directly on item for reliable navigation
 
           // Initialize photo array
           this.visualPhotos[key] = [];
@@ -3481,6 +3488,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         if (visualId) {
           this.visualRecordIds[key] = visualId;
           this.selectedItems[key] = true;
+          item.lbwId = visualId;  // Store LBWID directly on item for reliable navigation
 
           // Initialize photo array
           this.visualPhotos[key] = [];
@@ -3655,6 +3663,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         const result = await this.hudData.createVisual(visualData);
         const newVisualId = String(result.LBWID || result.VisualID || result.PK_ID || result.id);
         this.visualRecordIds[key] = newVisualId;
+        item.lbwId = newVisualId;  // Store LBWID directly on item for reliable navigation
 
         await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
           tempVisualId: newVisualId,
@@ -5365,7 +5374,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         type: kind,
         category: category,
         isSelected: true, // Custom visuals are always selected
-        photos: []
+        photos: [],
+        lbwId: String(visualId)  // Store LBWID directly for reliable navigation
       };
 
       // WEBAPP: Use customItemId for key to match what loadExistingVisuals uses
@@ -5683,18 +5693,18 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         routeId = lbwId; // Use the numeric LBWID for the route
         console.log('[LBW] openVisualDetail WEBAPP: Custom visual, LBWID:', lbwId);
       } else {
-        // Template visual: look up in visualRecordIds
+        // Template visual: look up in visualRecordIds, fallback to item.lbwId
         const key = `${category}_${item.id}`;
-        lbwId = this.visualRecordIds[key] || '';
+        lbwId = this.visualRecordIds[key] || item.lbwId || '';
         routeId = item.templateId || item.id;
-        console.log('[LBW] openVisualDetail WEBAPP: Template visual, key:', key, 'LBWID:', lbwId);
+        console.log('[LBW] openVisualDetail WEBAPP: Template visual, key:', key, 'LBWID:', lbwId, 'item.lbwId:', item.lbwId);
       }
     } else {
-      // MOBILE: Use existing logic
+      // MOBILE: Use existing logic, with item.lbwId fallback
       const isCustomVisual = !item.templateId || item.templateId === 0;
       const keyId = isCustomVisual ? item.id : item.templateId;
       const key = `${category}_${keyId}`;
-      lbwId = this.visualRecordIds[key] || '';
+      lbwId = this.visualRecordIds[key] || item.lbwId || '';
       routeId = isCustomVisual ? item.id : item.templateId;
     }
 

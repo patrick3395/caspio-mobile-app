@@ -597,14 +597,20 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
           let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
 
-          // WEBAPP FIX: ALWAYS check for cached annotated image first
-          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          // WEBAPP FIX: Check for cached annotated image, but ONLY use if server also has annotations
+          // This prevents stale cached images from appearing when annotations were cleared
+          // or when the cache has an image from a different photo with the same attachId
           try {
             const cachedAnnotatedImage = cachedAnnotatedImages.get(attachId);
-            if (cachedAnnotatedImage) {
+            if (cachedAnnotatedImage && hasServerAnnotations) {
+              // Server has annotations AND we have a cached image - use the cached version
               thumbnailUrl = cachedAnnotatedImage;
               hasAnnotations = true;
-              console.log(`[VisualDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+              console.log(`[VisualDetail] WEBAPP: Using cached annotated image for ${attachId} (server has Drawings)`);
+            } else if (cachedAnnotatedImage && !hasServerAnnotations) {
+              // Cached image exists but server has NO annotations - cache is stale, clear it
+              console.log(`[VisualDetail] WEBAPP: Clearing stale cached annotated image for ${attachId} (server has no Drawings)`);
+              await this.indexedDb.deleteCachedAnnotatedImage(attachId);
             } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
               // No cached image but server has Drawings - render annotations on the fly
               console.log(`[VisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);

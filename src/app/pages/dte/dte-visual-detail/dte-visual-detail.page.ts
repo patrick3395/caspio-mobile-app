@@ -109,16 +109,19 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   }
 
   ionViewWillEnter() {
-    // WEBAPP & MOBILE: Reload data when returning to this page
-    // This ensures we show fresh data after edits or navigation
-    if (this.serviceId && this.templateId) {
-      console.log('[DteVisualDetail] ionViewWillEnter: Reloading data, isWeb:', environment.isWeb);
-      this.loadVisualData();
-    } else {
-      // Clear loading state if we can't reload
+    // WEBAPP: Clear loading state when returning to this page
+    // This prevents the page from hanging if route params aren't set yet
+    if (environment.isWeb) {
       this.loading = false;
       this.saving = false;
       this.changeDetectorRef.detectChanges();
+    } else {
+      // MOBILE: Reload data when returning to this page (sync may have happened)
+      // This ensures we show fresh data after sync completes
+      if (this.serviceId && this.templateId) {
+        console.log('[DteVisualDetail] ionViewWillEnter MOBILE: Reloading data');
+        this.loadVisualData();
+      }
     }
   }
 
@@ -494,14 +497,20 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
 
-          // WEBAPP FIX: ALWAYS check for cached annotated image first
-          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          // WEBAPP FIX: Check for cached annotated image, but ONLY use if server also has annotations
+          // This prevents stale cached images from appearing when annotations were cleared
+          // or when the cache has an image from a different photo with the same attachId
           try {
             const cachedAnnotated = annotatedImagesMap.get(attachId);
-            if (cachedAnnotated) {
+            if (cachedAnnotated && hasServerAnnotations) {
+              // Server has annotations AND we have a cached image - use the cached version
               thumbnailUrl = cachedAnnotated;
               hasAnnotations = true;
-              console.log(`[DteVisualDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+              console.log(`[DteVisualDetail] WEBAPP: Using cached annotated image for ${attachId} (server has Drawings)`);
+            } else if (cachedAnnotated && !hasServerAnnotations) {
+              // Cached image exists but server has NO annotations - cache is stale, clear it
+              console.log(`[DteVisualDetail] WEBAPP: Clearing stale cached annotated image for ${attachId} (server has no Drawings)`);
+              await this.indexedDb.deleteCachedAnnotatedImage(attachId);
             } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
               // No cached image but server has Drawings - render annotations on the fly
               console.log(`[DteVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);

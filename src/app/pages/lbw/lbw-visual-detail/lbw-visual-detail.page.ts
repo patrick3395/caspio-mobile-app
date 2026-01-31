@@ -300,6 +300,7 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // Load photos directly - this is the key part
       await this.loadPhotos();
       this.loading = false;
+      this.changeDetectorRef.detectChanges();
       return;
     }
 
@@ -730,14 +731,20 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
 
-          // WEBAPP FIX: ALWAYS check for cached annotated image first
-          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          // WEBAPP FIX: Check for cached annotated image, but ONLY use if server also has annotations
+          // This prevents stale cached images from appearing when annotations were cleared
+          // or when the cache has an image from a different photo with the same attachId
           try {
             const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
-            if (cachedAnnotated) {
+            if (cachedAnnotated && hasServerAnnotations) {
+              // Server has annotations AND we have a cached image - use the cached version
               thumbnailUrl = cachedAnnotated;
               hasAnnotations = true;
-              console.log(`[LbwVisualDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+              console.log(`[LbwVisualDetail] WEBAPP: Using cached annotated image for ${attachId} (server has Drawings)`);
+            } else if (cachedAnnotated && !hasServerAnnotations) {
+              // Cached image exists but server has NO annotations - cache is stale, clear it
+              console.log(`[LbwVisualDetail] WEBAPP: Clearing stale cached annotated image for ${attachId} (server has no Drawings)`);
+              await this.indexedDb.deleteCachedAnnotatedImage(attachId);
             } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
               // No cached image but server has Drawings - render annotations on the fly
               console.log(`[LbwVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);

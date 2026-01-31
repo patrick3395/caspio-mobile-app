@@ -1,30 +1,11 @@
 <div class="page-container">
   <div class="content-section">
     <!-- STANDARDIZED LOADING STATES -->
-
-    <!-- Loading State - Mobile only (spinner) -->
-    <div *ngIf="loading && !isWeb" class="loading-container">
+    
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Loading categories...</p>
-    </div>
-
-    <!-- WEBAPP: Skeleton loaders -->
-    <div *ngIf="loading && isWeb" class="skeleton-container">
-      <div class="skeleton-form-group">
-        <div class="skeleton-label"></div>
-        <div class="skeleton-select"></div>
-      </div>
-      <div class="skeleton-category-card" *ngFor="let i of [1,2,3,4,5,6,7]">
-        <div class="skeleton-icon"></div>
-        <div class="skeleton-content">
-          <div class="skeleton-title"></div>
-          <div class="skeleton-badges">
-            <div class="skeleton-badge"></div>
-            <div class="skeleton-badge"></div>
-            <div class="skeleton-badge"></div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Visual Assessment Location Question -->
@@ -38,7 +19,7 @@
           (ngModelChange)="onStructuralSystemsStatusChange($event)"
           class="styled-input">
           <option value="">-- Select --</option>
-          <option value="Provided in Property Inspection Report">Provided in Property Inspection Report (Support Documents)</option>
+          <option value="Provided in Property Inspection Report">Provided in Property Inspection Report</option>
           <option value="Completed Here">Completed Here</option>
         </select>
       </div>
@@ -64,17 +45,9 @@
             </div>
             <div class="title-container">
               <ion-card-title>{{ category.name }}</ion-card-title>
-              <div class="category-counts" *ngIf="category.commentCount > 0 || category.limitationCount > 0 || category.deficiencyCount > 0">
-                <span class="count-badge info" *ngIf="category.commentCount > 0">
-                  {{ category.commentCount }}
-                </span>
-                <span class="count-badge limitation" *ngIf="category.limitationCount > 0">
-                  {{ category.limitationCount }}
-                </span>
-                <span class="count-badge deficiency" *ngIf="category.deficiencyCount > 0">
-                  <span>{{ category.deficiencyCount }}</span>
-                </span>
-              </div>
+              <p class="deficiency-count" *ngIf="category.deficiencyCount > 0">
+                {{ category.deficiencyCount }} {{ category.deficiencyCount === 1 ? 'Defect' : 'Defects' }}
+              </p>
             </div>
           </div>
         </ion-card-header>

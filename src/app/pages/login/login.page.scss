@@ -112,37 +112,22 @@
   }
 }
 
-// Input wrapper for validation error display
-.input-wrapper {
-  margin-bottom: 15px;
-}
-
 .input-item {
   background: #f8f9fa;
   border-radius: 12px;
+  margin-bottom: 15px;
   --padding-start: 15px;
   --padding-end: 10px;
   --inner-padding-end: 0;
   border: 1px solid #e0e0e0;
-  transition: border-color 0.2s ease;
-  // Remove all Ionic item lines and highlights
-  --border-width: 0;
-  --inner-border-width: 0;
-  --highlight-background: transparent;
-  --highlight-color-focused: transparent;
-  --highlight-height: 0;
+  transition: all 0.3s ease;
+  --background: #f8f9fa;
+  --background-focused: #f8f9fa;
+  --background-hover: #f8f9fa;
 
   &:focus-within {
     border-color: #F15A27;
-  }
-
-  // Error state styling (web only)
-  &.input-error {
-    border-color: #dc3545;
-
-    ion-icon[slot="start"] {
-      color: #dc3545;
-    }
+    box-shadow: 0 0 0 3px rgba(241, 90, 39, 0.1);
   }
 
   ion-icon {
@@ -157,74 +142,49 @@
     font-size: 15px;
     --placeholder-color: #999;
     --placeholder-opacity: 1;
-    // Remove Ionic's native highlight/underline bars completely
-    --highlight-color: transparent !important;
-    --highlight-color-focused: transparent !important;
-    --highlight-color-valid: transparent !important;
-    --highlight-color-invalid: transparent !important;
-    --highlight-height: 0 !important;
-    --border-width: 0;
-    --border-color: transparent;
-
-    // Hide the internal highlight elements
-    &::part(native) {
-      border: none !important;
-      box-shadow: none !important;
-    }
+    --color: #333;
+    caret-color: #000 !important;
+    --background: transparent;
   }
 
-  // WEBAPP: Aggressively hide Ionic's internal highlight bars
-  ::ng-deep {
-    .input-highlight,
-    .highlight-text-prefix,
-    .highlight-text-suffix {
-      display: none !important;
-      opacity: 0 !important;
-      height: 0 !important;
-      background: transparent !important;
-    }
-
-    .native-wrapper::after,
-    .native-wrapper::before {
-      display: none !important;
-    }
-
-    // Target all possible highlight elements inside ion-input
-    ion-input {
-      .input-bottom,
-      .input-highlight {
-        display: none !important;
-      }
-    }
-  }
-
-  // Override browser autofill styling - must be outside ion-input for proper specificity
+  // CRITICAL: Override all browser autofill styling
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
   input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 50px transparent inset !important;
+    -webkit-box-shadow: 0 0 0 1000px #f8f9fa inset !important;
     -webkit-text-fill-color: #333 !important;
-    background-color: transparent !important;
-    background-clip: content-box !important;
+    background-color: #f8f9fa !important;
+    caret-color: #000 !important;
     transition: background-color 5000s ease-in-out 0s !important;
   }
 
-  // Target native input element inside ion-input
+  // Target native input element inside ion-input with ultra-high specificity
+  ion-input input,
+  ion-input input[type="text"],
+  ion-input input[type="email"],
+  ion-input input[type="password"] {
+    background-color: transparent !important;
+    background: transparent !important;
+    caret-color: #000 !important;
+    color: #333 !important;
+  }
+
   ion-input input:-webkit-autofill,
   ion-input input:-webkit-autofill:hover,
   ion-input input:-webkit-autofill:focus,
   ion-input input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 50px transparent inset !important;
+    -webkit-box-shadow: 0 0 0 1000px #f8f9fa inset !important;
     -webkit-text-fill-color: #333 !important;
-    background-color: transparent !important;
+    background-color: #f8f9fa !important;
+    caret-color: #000 !important;
     transition: background-color 5000s ease-in-out 0s !important;
   }
 
-  // Additional targeting for regular input state
-  ion-input input {
+  // Target shadow DOM parts
+  ion-input::part(native) {
+    caret-color: #000 !important;
     background-color: transparent !important;
-    background: transparent !important;
   }
 
   .visibility-toggle {
@@ -323,33 +283,5 @@
     ion-icon {
       font-size: 14px;
     }
-  }
-}
-
-// Validation error message styling (web only)
-.validation-error {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #dc3545;
-  font-size: 12px;
-  margin-top: 6px;
-  padding-left: 4px;
-  animation: fadeInError 0.2s ease-out;
-
-  ion-icon {
-    font-size: 14px;
-    flex-shrink: 0;
-  }
-}
-
-@keyframes fadeInError {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }

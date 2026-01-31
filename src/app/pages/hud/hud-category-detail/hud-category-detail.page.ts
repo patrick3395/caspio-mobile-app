@@ -9522,31 +9522,33 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         routeId = hudId; // Use the numeric HUDID for the route
         console.log('[CategoryDetail] WEBAPP: Custom visual, HUDID:', hudId);
       } else {
-        // Template visual: look up in visualRecordIds
+        // Template visual: look up in visualRecordIds, fallback to item.hudId (LBW pattern)
         const key = `${item.category || this.categoryName}_${item.id}`;
-        hudId = this.visualRecordIds[key] || '';
+        hudId = this.visualRecordIds[key] || (item as any).hudId || '';
         routeId = item.templateId || item.id;
-        console.log('[CategoryDetail] WEBAPP: Template visual, key:', key, 'HUDID:', hudId);
+        console.log('[CategoryDetail] WEBAPP: Template visual, key:', key, 'HUDID:', hudId, 'item.hudId:', (item as any).hudId);
       }
     } else {
-      // MOBILE: Use existing logic
-      const key = item.key || `${item.category || this.categoryName}_${item.templateId}`;
-      hudId = this.visualRecordIds[key] || '';
-      routeId = item.templateId;
+      // MOBILE: Use existing logic, with item.hudId fallback (LBW pattern)
+      const isCustomVisual = !item.templateId || item.templateId === 0;
+      const keyId = isCustomVisual ? item.id : item.templateId;
+      const key = `${item.category || this.categoryName}_${keyId}`;
+      hudId = this.visualRecordIds[key] || (item as any).hudId || '';
+      routeId = isCustomVisual ? item.id : item.templateId;
     }
 
     console.log('[CategoryDetail] FINAL: routeId:', routeId, 'hudId:', hudId);
 
-    const queryParams: any = { actualServiceId: this.actualServiceId || this.serviceId };
-    if (environment.isWeb && hudId) {
-      queryParams.hudId = String(hudId);
-    }
-
+    // LBW pattern: Always pass hudId in queryParams (even if empty)
+    // The visual-detail page uses priority-based matching when hudId is empty
     this.router.navigate(
       ['visual', routeId],
       {
         relativeTo: this.route.parent,
-        queryParams
+        queryParams: {
+          actualServiceId: this.actualServiceId || this.serviceId,
+          hudId
+        }
       }
     );
   }

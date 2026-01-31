@@ -1173,6 +1173,31 @@ export class IndexedDbService {
   }
 
   /**
+   * Delete cached annotated image
+   * Used when server indicates no annotations exist (stale cache cleanup)
+   */
+  async deleteCachedAnnotatedImage(attachId: string): Promise<void> {
+    const photoKey = `annotated_${attachId}`;
+
+    try {
+      // Get the record first to check if it has a blobKey pointer
+      const result = await db.cachedPhotos.get(photoKey);
+
+      if (result?.blobKey) {
+        // Also delete the referenced blob
+        await db.localBlobs.delete(result.blobKey);
+        console.log('[IndexedDB] Deleted annotated blob:', result.blobKey);
+      }
+
+      // Delete the cachedPhotos record
+      await db.cachedPhotos.delete(photoKey);
+      console.log('[IndexedDB] Deleted stale annotated cache:', attachId);
+    } catch (error) {
+      console.warn('[IndexedDB] Error deleting cached annotated image:', attachId, error);
+    }
+  }
+
+  /**
    * Convert blob to base64 data URL
    */
   private blobToBase64(blob: Blob): Promise<string> {

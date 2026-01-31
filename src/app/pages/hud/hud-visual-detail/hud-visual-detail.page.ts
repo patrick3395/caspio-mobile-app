@@ -109,12 +109,19 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
   }
 
   ionViewWillEnter() {
-    // Reload data when returning to this page for BOTH modes
-    // WEBAPP: Reloads from server API to get latest title/description edits
-    // MOBILE: Reloads from Dexie to get synced data
-    if (this.serviceId && this.templateId) {
-      console.log('[HudVisualDetail] ionViewWillEnter: Reloading data, isWeb:', environment.isWeb);
-      this.loadVisualData();
+    // WEBAPP: Clear loading state when returning to this page
+    // This prevents the page from hanging if route params aren't set yet
+    if (environment.isWeb) {
+      this.loading = false;
+      this.saving = false;
+      this.changeDetectorRef.detectChanges();
+    } else {
+      // MOBILE: Reload data when returning to this page (sync may have happened)
+      // This ensures we show fresh data after sync completes
+      if (this.serviceId && this.templateId) {
+        console.log('[HudVisualDetail] ionViewWillEnter MOBILE: Reloading data');
+        this.loadVisualData();
+      }
     }
   }
 
@@ -289,27 +296,80 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       // Load photos directly
       await this.loadPhotos();
       this.loading = false;
+      this.changeDetectorRef.detectChanges();
       return;
     }
 
-    // WEBAPP without hudId: Fall back to template matching
+    // WEBAPP without hudId: Use LBW-style priority matching
     if (environment.isWeb) {
-      console.log('[HudVisualDetail] WEBAPP: No hudId, falling back to template matching');
+      console.log('[HudVisualDetail] WEBAPP: No hudId, using priority-based matching (LBW pattern)');
 
       try {
         const queryServiceId = this.actualServiceId || this.serviceId;
         const hudRecords = await this.hudData.getHudByService(queryServiceId);
+        console.log('[HudVisualDetail] WEBAPP: Loaded', hudRecords.length, 'HUD records for ServiceID:', queryServiceId);
+
         const templates = (await this.caspioService.getServicesHUDTemplates().toPromise()) || [];
         const template = templates.find((t: any) => (t.TemplateID || t.PK_ID) == this.templateId);
+        console.log('[HudVisualDetail] WEBAPP: Template found for templateId', this.templateId, ':', template ? template.Name : '(NOT FOUND)');
 
+        // PRIORITY 1: Find by HUDID from query params (already handled above)
+        // If we reach here, hudIdFromQueryParams was empty
+
+        // PRIORITY 1.5: For custom visuals, templateId might BE the HUDID - try matching directly
         let visual: any = null;
-        if (template && template.Name) {
+        if (!visual && this.templateId > 0) {
+          console.log('[HudVisualDetail] WEBAPP: PRIORITY 1.5 - Looking for visual by templateId as HUDID:', this.templateId);
+          visual = hudRecords.find((v: any) =>
+            String(v.HUDID || v.PK_ID) === String(this.templateId)
+          );
+          if (visual) {
+            console.log('[HudVisualDetail] WEBAPP: PRIORITY 1.5 - Found custom visual by HUDID:', this.templateId);
+            this.hudId = String(visual.HUDID || visual.PK_ID);
+          }
+        }
+
+        // PRIORITY 2: Match by TemplateID fields
+        if (!visual && template) {
+          const templateIdToMatch = String(template.TemplateID || template.PK_ID);
+          console.log('[HudVisualDetail] WEBAPP: PRIORITY 2 - Looking for visual by TemplateID:', templateIdToMatch);
+          visual = hudRecords.find((v: any) =>
+            String(v.HUDTemplateID) === templateIdToMatch ||
+            String(v.VisualTemplateID) === templateIdToMatch ||
+            String(v.TemplateID) === templateIdToMatch
+          );
+          if (visual) {
+            console.log('[HudVisualDetail] WEBAPP: PRIORITY 2 - Matched HUD record by templateId:', templateIdToMatch);
+          }
+        }
+
+        // PRIORITY 3: Fall back to Name + Category matching
+        if (!visual && template && template.Name) {
+          console.log('[HudVisualDetail] WEBAPP: PRIORITY 3 - Looking for visual by Name+Category:', template.Name, template.Category);
           visual = hudRecords.find((v: any) =>
             v.Name === template.Name && v.Category === template.Category
           );
+          if (visual) {
+            console.log('[HudVisualDetail] WEBAPP: PRIORITY 3 - Matched HUD record by name+category:', template.Name, template.Category);
+          }
+        }
+
+        // PRIORITY 4: If only ONE visual in category, use it (LBW pattern)
+        if (!visual && template) {
+          const categoryVisuals = hudRecords.filter((v: any) => v.Category === (template.Category || this.categoryName));
+          if (categoryVisuals.length === 1) {
+            visual = categoryVisuals[0];
+            console.log('[HudVisualDetail] WEBAPP: PRIORITY 4 FALLBACK - Using only visual in category:', visual.HUDID, 'Name:', visual.Name);
+          } else if (categoryVisuals.length > 1) {
+            console.warn('[HudVisualDetail] WEBAPP: PRIORITY 4 SKIPPED - Multiple visuals in category (' + categoryVisuals.length + '). No hudId provided, cannot determine correct visual.');
+            console.warn('[HudVisualDetail] WEBAPP: Available visuals:', categoryVisuals.map((v: any) => ({ HUDID: v.HUDID, Name: v.Name })));
+          }
         }
 
         if (visual) {
+          const actualCategory = visual.Category || '';
+          const visualHudId = String(visual.HUDID || visual.PK_ID);
+
           this.item = {
             id: visual.HUDID || visual.PK_ID,
             templateId: this.templateId,
@@ -317,17 +377,22 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             text: visual.Text || '',
             originalText: visual.Text || '',
             type: visual.Kind || 'Comment',
-            category: visual.Category || '',
+            category: actualCategory,
             answerType: visual.AnswerType || 0,
             required: false,
             answer: visual.Answers || '',
             isSelected: true
           };
-          this.hudId = String(visual.HUDID || visual.PK_ID);
-          this.categoryName = visual.Category || this.categoryName;
+          // WEBAPP FIX: Always use the visual's actual HUDID from server data (matches LBW pattern)
+          this.hudId = visualHudId;
+          this.categoryName = actualCategory;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
+          console.log('[HudVisualDetail] WEBAPP: Loaded HUD record:', this.item.name, 'HUDID:', this.hudId, 'Category:', actualCategory);
         } else if (template) {
+          // No HUD record found - use template data
+          console.log('[HudVisualDetail] WEBAPP: HUD record not found, using template data');
+          const actualCategory = template.Category || '';
           this.item = {
             id: template.TemplateID || template.PK_ID,
             templateId: template.TemplateID || template.PK_ID,
@@ -335,22 +400,28 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             text: template.Text || '',
             originalText: template.Text || '',
             type: template.Kind || 'Comment',
-            category: template.Category || '',
+            category: actualCategory,
             answerType: template.AnswerType || 0,
             required: false,
             isSelected: false
           };
-          this.categoryName = template.Category || this.categoryName;
+          this.categoryName = actualCategory;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
+          console.log('[HudVisualDetail] WEBAPP: Loaded from template:', this.item.name, 'Category:', actualCategory);
+        } else {
+          // Neither visual nor template found
+          console.error('[HudVisualDetail] WEBAPP: ❌ Neither visual nor template found!');
         }
 
         await this.loadPhotos();
         this.loading = false;
+        this.changeDetectorRef.detectChanges();
         return;
       } catch (e) {
         console.error('[HudVisualDetail] WEBAPP: Error in fallback loading:', e);
         this.loading = false;
+        this.changeDetectorRef.detectChanges();
         return;
       }
     }
@@ -595,14 +666,20 @@ export class HudVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           let thumbnailUrl = displayUrl;
           let hasAnnotations = hasServerAnnotations;
 
-          // WEBAPP FIX: ALWAYS check for cached annotated image first
-          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          // WEBAPP FIX: Check for cached annotated image, but ONLY use if server also has annotations
+          // This prevents stale cached images from appearing when annotations were cleared
+          // or when the cache has an image from a different photo with the same attachId
           try {
             const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
-            if (cachedAnnotated) {
+            if (cachedAnnotated && hasServerAnnotations) {
+              // Server has annotations AND we have a cached image - use the cached version
               thumbnailUrl = cachedAnnotated;
               hasAnnotations = true;
-              console.log(`[HudVisualDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+              console.log(`[HudVisualDetail] WEBAPP: Using cached annotated image for ${attachId} (server has Drawings)`);
+            } else if (cachedAnnotated && !hasServerAnnotations) {
+              // Cached image exists but server has NO annotations - cache is stale, clear it
+              console.log(`[HudVisualDetail] WEBAPP: Clearing stale cached annotated image for ${attachId} (server has no Drawings)`);
+              await this.indexedDb.deleteCachedAnnotatedImage(attachId);
             } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
               // No cached image but server has Drawings - render annotations on the fly
               console.log(`[HudVisualDetail] WEBAPP: Rendering annotations for ${attachId}...`);
