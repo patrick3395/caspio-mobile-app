@@ -1105,10 +1105,19 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         // The API might not have them yet, so we need to merge from cache
         try {
           const cachedAttachments = await this.indexedDb.getCachedServiceData(String(visualId), 'visual_attachments') || [];
+
+          // DEBUG: Show what's in cache
+          const cachedWithDrawings = cachedAttachments.filter((c: any) => c.Drawings && c.Drawings.length > 10);
+          const cachedWithLocalUpdate = cachedAttachments.filter((c: any) => c._localUpdate);
+          if (cachedAttachments.length > 0) {
+            alert(`DEBUG loadPhotosFromAPI Cache Check\n\nVisualID: ${visualId}\nCached attachments: ${cachedAttachments.length}\nWith Drawings: ${cachedWithDrawings.length}\nWith _localUpdate: ${cachedWithLocalUpdate.length}`);
+          }
+
           for (const photo of photos) {
             const cachedAtt = cachedAttachments.find((c: any) => String(c.AttachID) === String(photo.AttachID));
             if (cachedAtt && cachedAtt._localUpdate && cachedAtt.Drawings) {
               console.log(`[WEBAPP FIX] Merging cached Drawings for photo ${photo.AttachID}, length: ${cachedAtt.Drawings.length}`);
+              alert(`DEBUG: Merging cached Drawings\nAttachID: ${photo.AttachID}\nDrawings length: ${cachedAtt.Drawings.length}`);
               photo.Drawings = cachedAtt.Drawings;
               photo.rawDrawingsString = cachedAtt.Drawings;
               photo.hasAnnotations = !!(cachedAtt.Drawings && cachedAtt.Drawings.length > 10);
@@ -6995,6 +7004,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         caption: photo.caption || photo.Annotation
       });
 
+      // DEBUG ALERT 1: Show annotation sources
+      alert(`DEBUG viewPhoto - AttachID: ${attachId}\n\n` +
+        `photo.annotations: ${photo.annotations ? 'EXISTS (' + (typeof photo.annotations === 'string' ? photo.annotations.length + ' chars' : 'object') + ')' : 'NULL'}\n` +
+        `photo.annotationsData: ${photo.annotationsData ? 'EXISTS' : 'NULL'}\n` +
+        `photo.rawDrawingsString: ${photo.rawDrawingsString ? photo.rawDrawingsString.length + ' chars' : 'NULL'}\n` +
+        `photo.Drawings: ${photo.Drawings ? photo.Drawings.length + ' chars' : 'NULL'}\n` +
+        `photo.hasAnnotations: ${photo.hasAnnotations}`);
+
       for (const source of annotationSources) {
         if (!source) {
           continue;
@@ -7022,6 +7039,11 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       }
 
       console.log('[VIEW PHOTO] Final existingAnnotations:', existingAnnotations ? 'LOADED' : 'NULL');
+
+      // DEBUG ALERT 2: Show final result
+      alert(`DEBUG viewPhoto RESULT\n\n` +
+        `existingAnnotations: ${existingAnnotations ? 'LOADED' : 'NULL'}\n` +
+        `Objects count: ${existingAnnotations?.objects?.length || 0}`);
 
       // ANNOTATION FLATTENING DETECTION (Attempt #1 - Issue #1 in Mobile_Issues.md)
       // If photo has hasAnnotations flag but no annotation data was found, the image may be flattened
