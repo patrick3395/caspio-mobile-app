@@ -1605,7 +1605,7 @@ export class IndexedDbService {
     const cached = await db.cachedServiceData.get(cacheKey);
     if (cached && cached.data) {
       console.log(`[IndexedDB] Retrieved cached photo counts for ${categoryName}: ${Object.keys(cached.data).length} items`);
-      return cached.data as { [key: string]: number };
+      return cached.data as unknown as { [key: string]: number };
     }
     return null;
   }
