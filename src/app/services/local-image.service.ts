@@ -1187,6 +1187,14 @@ export class LocalImageService {
           file,
           drawings
         ).toPromise();
+      } else if (entityType === 'dte') {
+        // Upload DTE attachment to LPS_Services_DTE_Attach
+        result = await this.caspioService.createServicesDTEAttachWithFile(
+          parseInt(entityId),
+          caption,
+          file,
+          drawings
+        ).toPromise();
       } else {
         throw new Error(`Unsupported entity type for web upload: ${entityType}`);
       }
