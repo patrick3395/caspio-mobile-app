@@ -131,6 +131,14 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
 
   // Select photos from gallery (camera roll) - multi-select without editor
   async addPhotosFromGallery() {
+    // WEBAPP: Use file input instead of Capacitor Camera API
+    if (this.isWeb) {
+      console.log('[ADD MODAL] Webapp mode - triggering file input');
+      this.fileInput?.nativeElement?.click();
+      return;
+    }
+
+    // MOBILE: Use Capacitor Camera API
     try {
       // Open gallery/photos to select MULTIPLE images
       const images = await Camera.pickImages({
@@ -140,7 +148,7 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
 
       if (images.photos && images.photos.length > 0) {
         console.log('[ADD MODAL] Selected', images.photos.length, 'photos from gallery');
-        
+
         // Process each selected photo
         for (let i = 0; i < images.photos.length; i++) {
           const photo = images.photos[i];
