@@ -20,6 +20,14 @@ import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { db } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 import { PhotoHandlerService, PhotoCaptureConfig, StandardPhotoEntry } from '../../../services/photo-handler.service';
+import {
+  AccordionStateService,
+  SearchFilterService,
+  MultiSelectService,
+  PhotoUIService,
+  VisualSelectionService,
+  VisualItem as SharedVisualItem
+} from '../../../services/template-ui';
 
 interface VisualItem {
   id: string | number;
@@ -120,7 +128,13 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     private backgroundSync: BackgroundSyncService,
     private localImageService: LocalImageService,
     private visualFieldRepo: VisualFieldRepoService,
-    private photoHandler: PhotoHandlerService
+    private photoHandler: PhotoHandlerService,
+    // Template UI Services (consolidated from duplicated code)
+    private accordionStateService: AccordionStateService,
+    private searchFilterService: SearchFilterService,
+    private multiSelectService: MultiSelectService,
+    private photoUIService: PhotoUIService,
+    private visualSelectionService: VisualSelectionService
   ) {}
 
   async ngOnInit() {
@@ -1588,45 +1602,21 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   filterItems(items: VisualItem[]): VisualItem[] {
-    if (!this.searchTerm || this.searchTerm.trim() === '') {
-      return items;
-    }
-
-    const term = this.searchTerm.toLowerCase().trim();
-    
-    return items.filter(item => {
-      const nameMatch = item.name?.toLowerCase().includes(term);
-      const textMatch = item.text?.toLowerCase().includes(term);
-      const originalTextMatch = item.originalText?.toLowerCase().includes(term);
-      
-      return nameMatch || textMatch || originalTextMatch;
-    });
+    // Delegate to shared SearchFilterService
+    return this.searchFilterService.filterItems(items as SharedVisualItem[], this.searchTerm) as VisualItem[];
   }
 
   /**
    * Escape HTML characters to prevent XSS (web only)
+   * @deprecated Use searchFilterService.escapeHtml() instead
    */
   private escapeHtml(text: string): string {
-    if (!environment.isWeb) return text;
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return this.searchFilterService.escapeHtml(text);
   }
 
   highlightText(text: string | undefined): string {
-    if (!text || !this.searchTerm || this.searchTerm.trim() === '') {
-      // Escape HTML even when no search term to prevent XSS (web only)
-      return environment.isWeb ? this.escapeHtml(text || '') : (text || '');
-    }
-
-    const term = this.searchTerm.trim();
-    // First escape the text to prevent XSS (web only)
-    const escapedText = environment.isWeb ? this.escapeHtml(text) : text;
-    // Create a case-insensitive regex to find all matches
-    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
-
-    // Replace matches with highlighted span
-    return escapedText.replace(regex, '<span class="highlight">$1</span>');
+    // Delegate to shared SearchFilterService
+    return this.searchFilterService.highlightText(text, this.searchTerm);
   }
 
   private escapeRegex(str: string): string {
@@ -1925,10 +1915,11 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   getDropdownOptions(templateId: number): string[] {
-    const templateIdStr = String(templateId);
-    const options = this.visualDropdownOptions[templateIdStr] || [];
-    
+    // Delegate to shared MultiSelectService
+    const options = this.multiSelectService.getDropdownOptions(templateId, this.visualDropdownOptions);
+
     // Debug logging to see what's available
+    const templateIdStr = String(templateId);
     if (options.length === 0 && !this._loggedPhotoKeys.has(templateIdStr)) {
       console.log('[GET DROPDOWN] No options found for TemplateID:', templateIdStr);
       console.log('[GET DROPDOWN] Available TemplateIDs:', Object.keys(this.visualDropdownOptions));
@@ -1937,7 +1928,7 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
       console.log('[GET DROPDOWN] TemplateID', templateIdStr, 'has', options.length, 'options:', options);
       this._loggedPhotoKeys.add(templateIdStr);
     }
-    
+
     return options;
   }
 
@@ -2265,9 +2256,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   isOptionSelectedV1(item: VisualItem, option: string): boolean {
-    if (!item.answer) return false;
-    const selectedOptions = item.answer.split(',').map(o => o.trim());
-    return selectedOptions.includes(option);
+    // Delegate to shared MultiSelectService
+    return this.multiSelectService.isOptionSelected(item as SharedVisualItem, option);
   }
 
   async onMultiSelectOtherChange(category: string, item: VisualItem) {

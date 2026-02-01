@@ -24,6 +24,15 @@ import { VisualFieldRepoService } from '../../../services/visual-field-repo.serv
 import { environment } from '../../../../environments/environment';
 import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
 import { LazyImageDirective } from '../../../directives/lazy-image.directive';
+import {
+  AccordionStateService,
+  SearchFilterService,
+  MultiSelectService,
+  PhotoUIService,
+  VisualSelectionService,
+  VisualItem as SharedVisualItem,
+  OrganizedData
+} from '../../../services/template-ui';
 
 interface VisualItem {
   id: string | number;
@@ -200,7 +209,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     private localImageService: LocalImageService,
     private ngZone: NgZone,
     private visualFieldRepo: VisualFieldRepoService,
-    private photoHandler: PhotoHandlerService
+    private photoHandler: PhotoHandlerService,
+    // Template UI Services (consolidated from duplicated code)
+    private accordionStateService: AccordionStateService,
+    private searchFilterService: SearchFilterService,
+    private multiSelectService: MultiSelectService,
+    private photoUIService: PhotoUIService,
+    private visualSelectionService: VisualSelectionService
   ) {
     // Set up global error handler for this page
     this.setupErrorTracking();
@@ -1963,9 +1978,29 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10) || existingPhoto.hasAnnotations;
               let thumbnailUrl = freshDisplayUrl;
               if (hasAnnotations) {
-                const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
+                // Check multiple sources for annotated thumbnail
+                let cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
+
+                // If not found in map, check IndexedDB directly (for newly added photos)
+                if (!cachedAnnotatedImage) {
+                  try {
+                    cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(imageId);
+                    if (cachedAnnotatedImage) {
+                      this.bulkAnnotatedImagesMap.set(imageId, cachedAnnotatedImage);
+                    }
+                  } catch (e) {
+                    console.warn('[HUD DEXIE-FIRST] Failed to get cached annotated image:', e);
+                  }
+                }
+
+                // If still not found, preserve existing displayUrl if it's a blob URL
                 if (cachedAnnotatedImage) {
                   thumbnailUrl = cachedAnnotatedImage;
+                } else {
+                  const existingDisplayUrl = existingPhoto.displayUrl;
+                  if (existingDisplayUrl && existingDisplayUrl.startsWith('blob:')) {
+                    thumbnailUrl = existingDisplayUrl;
+                  }
                 }
               }
 
@@ -2015,7 +2050,21 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         let thumbnailUrl = displayUrl;
         const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
         if (hasAnnotations) {
-          const cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
+          // Check multiple sources for annotated thumbnail
+          let cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
+
+          // If not found in map, check IndexedDB directly (for newly added photos)
+          if (!cachedAnnotatedImage) {
+            try {
+              cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(imageId);
+              if (cachedAnnotatedImage) {
+                this.bulkAnnotatedImagesMap.set(imageId, cachedAnnotatedImage);
+              }
+            } catch (e) {
+              console.warn('[HUD DEXIE-FIRST] Failed to get cached annotated image for new photo:', e);
+            }
+          }
+
           if (cachedAnnotatedImage) {
             thumbnailUrl = cachedAnnotatedImage;
             console.log(`[DEXIE-FIRST] Using cached annotated image for thumbnail: ${imageId}`);
@@ -6047,9 +6096,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   isOptionSelectedV1(item: VisualItem, option: string): boolean {
-    if (!item.answer) return false;
-    const selectedOptions = item.answer.split(',').map(o => o.trim());
-    return selectedOptions.includes(option);
+    // Delegate to shared MultiSelectService
+    return this.multiSelectService.isOptionSelected(item as SharedVisualItem, option);
   }
 
   async onMultiSelectOtherChange(category: string, item: VisualItem) {
@@ -8849,11 +8897,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    * STANDARDIZED: Matches LBW pattern for consistent multi-select functionality
    */
   getDropdownOptions(templateId: number): string[] {
-    // STANDARDIZED: Use string key first (matches LBW pattern), then fall back to number
-    const templateIdStr = String(templateId);
-    const options = this.visualDropdownOptions[templateIdStr as any] || this.visualDropdownOptions[templateId] || [];
+    // Delegate to shared MultiSelectService
+    const options = this.multiSelectService.getDropdownOptions(templateId, this.visualDropdownOptions);
 
     // Debug logging (only once per templateId)
+    const templateIdStr = String(templateId);
     if (options.length === 0 && !this._loggedPhotoKeys.has(`dropdown_${templateIdStr}`)) {
       console.log('[GET DROPDOWN] No options found for TemplateID:', templateIdStr);
       console.log('[GET DROPDOWN] Available TemplateIDs:', Object.keys(this.visualDropdownOptions));
@@ -8872,44 +8920,21 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   // ============================================
 
   filterItems(items: VisualItem[]): VisualItem[] {
-    if (!this.searchTerm || this.searchTerm.trim() === '') {
-      return items;
-    }
-
-    const term = this.searchTerm.toLowerCase().trim();
-    return items.filter(item => {
-      const nameMatch = item.name?.toLowerCase().includes(term);
-      const textMatch = item.text?.toLowerCase().includes(term);
-      const originalTextMatch = item.originalText?.toLowerCase().includes(term);
-
-      return nameMatch || textMatch || originalTextMatch;
-    });
+    // Delegate to shared SearchFilterService
+    return this.searchFilterService.filterItems(items as SharedVisualItem[], this.searchTerm) as VisualItem[];
   }
 
   /**
    * Escape HTML characters to prevent XSS (web only)
+   * @deprecated Use searchFilterService.escapeHtml() instead
    */
   private escapeHtml(text: string): string {
-    if (!environment.isWeb) return text;
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return this.searchFilterService.escapeHtml(text);
   }
 
   highlightText(text: string | undefined): string {
-    if (!text || !this.searchTerm || this.searchTerm.trim() === '') {
-      // Escape HTML even when no search term to prevent XSS (web only)
-      return environment.isWeb ? this.escapeHtml(text || '') : (text || '');
-    }
-
-    const term = this.searchTerm.trim();
-    // First escape the text to prevent XSS (web only)
-    const escapedText = environment.isWeb ? this.escapeHtml(text) : text;
-    // Create a case-insensitive regex to find all matches
-    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
-
-    // Replace matches with highlighted span
-    return escapedText.replace(regex, '<span class="highlight">$1</span>');
+    // Delegate to shared SearchFilterService
+    return this.searchFilterService.highlightText(text, this.searchTerm);
   }
 
   private escapeRegex(str: string): string {

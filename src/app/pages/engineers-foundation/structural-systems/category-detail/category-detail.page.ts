@@ -24,6 +24,14 @@ import { VisualFieldRepoService } from '../../../../services/visual-field-repo.s
 import { environment } from '../../../../../environments/environment';
 import { HasUnsavedChanges } from '../../../../services/unsaved-changes.service';
 import { LazyImageDirective } from '../../../../directives/lazy-image.directive';
+import {
+  AccordionStateService,
+  SearchFilterService,
+  MultiSelectService,
+  PhotoUIService,
+  VisualSelectionService,
+  VisualItem as SharedVisualItem
+} from '../../../../services/template-ui';
 
 interface VisualItem {
   id: string | number;
@@ -199,7 +207,13 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     private localImageService: LocalImageService,
     private ngZone: NgZone,
     private visualFieldRepo: VisualFieldRepoService,
-    private photoHandler: PhotoHandlerService
+    private photoHandler: PhotoHandlerService,
+    // Template UI Services (consolidated from duplicated code)
+    private accordionStateService: AccordionStateService,
+    private searchFilterService: SearchFilterService,
+    private multiSelectService: MultiSelectService,
+    private photoUIService: PhotoUIService,
+    private visualSelectionService: VisualSelectionService
   ) {
     // Set up global error handler for this page
     this.setupErrorTracking();
@@ -5214,9 +5228,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
   }
 
   isOptionSelectedV1(item: VisualItem, option: string): boolean {
-    if (!item.answer) return false;
-    const selectedOptions = item.answer.split(',').map(o => o.trim());
-    return selectedOptions.includes(option);
+    // Delegate to shared MultiSelectService
+    return this.multiSelectService.isOptionSelected(item as SharedVisualItem, option);
   }
 
   async onMultiSelectOtherChange(category: string, item: VisualItem) {
@@ -8021,9 +8034,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
    * STANDARDIZED: Matches LBW pattern for consistent multi-select functionality
    */
   getDropdownOptions(templateId: number): string[] {
-    // Try both number and string keys for compatibility
-    const options = this.visualDropdownOptions[templateId] || this.visualDropdownOptions[String(templateId) as any] || [];
-    return options;
+    // Delegate to shared MultiSelectService
+    return this.multiSelectService.getDropdownOptions(templateId, this.visualDropdownOptions);
   }
 
   getDropdownDebugInfo(item: VisualItem): string {
@@ -8035,44 +8047,21 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
   // ============================================
 
   filterItems(items: VisualItem[]): VisualItem[] {
-    if (!this.searchTerm || this.searchTerm.trim() === '') {
-      return items;
-    }
-
-    const term = this.searchTerm.toLowerCase().trim();
-    return items.filter(item => {
-      const nameMatch = item.name?.toLowerCase().includes(term);
-      const textMatch = item.text?.toLowerCase().includes(term);
-      const originalTextMatch = item.originalText?.toLowerCase().includes(term);
-
-      return nameMatch || textMatch || originalTextMatch;
-    });
+    // Delegate to shared SearchFilterService
+    return this.searchFilterService.filterItems(items as SharedVisualItem[], this.searchTerm) as VisualItem[];
   }
 
   /**
    * Escape HTML characters to prevent XSS (web only)
+   * @deprecated Use searchFilterService.escapeHtml() instead
    */
   private escapeHtml(text: string): string {
-    if (!environment.isWeb) return text;
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return this.searchFilterService.escapeHtml(text);
   }
 
   highlightText(text: string | undefined): string {
-    if (!text || !this.searchTerm || this.searchTerm.trim() === '') {
-      // Escape HTML even when no search term to prevent XSS (web only)
-      return environment.isWeb ? this.escapeHtml(text || '') : (text || '');
-    }
-
-    const term = this.searchTerm.trim();
-    // First escape the text to prevent XSS (web only)
-    const escapedText = environment.isWeb ? this.escapeHtml(text) : text;
-    // Create a case-insensitive regex to find all matches
-    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
-
-    // Replace matches with highlighted span
-    return escapedText.replace(regex, '<span class="highlight">$1</span>');
+    // Delegate to shared SearchFilterService
+    return this.searchFilterService.highlightText(text, this.searchTerm);
   }
 
   private escapeRegex(str: string): string {
