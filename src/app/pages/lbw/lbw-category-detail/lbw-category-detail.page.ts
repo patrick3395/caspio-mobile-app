@@ -5047,16 +5047,48 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             console.log('[VIEW PHOTO] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
           }
 
-          // Get fresh display URL
+          // FULL RESOLUTION FIX: For the annotator, we MUST get the FULL RESOLUTION image
+          // Do NOT use getDisplayUrl() directly as it may return a thumbnail when full-res is purged
+          // Use three-tier approach matching EFE template
           try {
-            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
-            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
-              photo.url = freshUrl;
-              photo.thumbnailUrl = freshUrl;
-              photo.originalUrl = freshUrl;
-              photo.displayUrl = freshUrl;
-              imageUrl = freshUrl;
-              console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));
+            let fullResUrl: string | null = null;
+
+            // First try: Get full-resolution blob directly
+            if (localImage.localBlobId) {
+              fullResUrl = await this.localImageService.getOriginalBlobUrl(localImage.localBlobId);
+              if (fullResUrl) {
+                console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION blob URL:', fullResUrl.substring(0, 50));
+                photo._hasFullResBlob = true;
+              }
+            }
+
+            // Second try: If no full-res blob (purged), fetch from S3
+            if (!fullResUrl && localImage.remoteS3Key) {
+              console.log('[VIEW PHOTO] Full-res blob purged, fetching from S3:', localImage.remoteS3Key);
+              try {
+                fullResUrl = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
+                if (fullResUrl) {
+                  console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION from S3:', fullResUrl.substring(0, 50));
+                  photo._hasFullResBlob = true;
+                }
+              } catch (s3Err) {
+                console.warn('[VIEW PHOTO] S3 fetch failed:', s3Err);
+              }
+            }
+
+            // Third try: Fall back to getDisplayUrl (may be thumbnail - last resort)
+            if (!fullResUrl) {
+              console.warn('[VIEW PHOTO] ⚠️ No full-res available, falling back to getDisplayUrl (may be thumbnail)');
+              fullResUrl = await this.localImageService.getDisplayUrl(localImage);
+            }
+
+            if (fullResUrl && fullResUrl !== 'assets/img/photo-placeholder.svg') {
+              photo.url = fullResUrl;
+              photo.thumbnailUrl = fullResUrl;
+              photo.originalUrl = fullResUrl;
+              photo.displayUrl = fullResUrl;
+              imageUrl = fullResUrl;
+              console.log('[VIEW PHOTO] Final LocalImage URL for annotator:', fullResUrl?.substring(0, 50));
             }
           } catch (err) {
             console.warn('[VIEW PHOTO] Failed to get LocalImage URL:', err);

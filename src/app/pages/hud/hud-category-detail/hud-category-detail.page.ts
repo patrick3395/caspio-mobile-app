@@ -7638,14 +7638,47 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
 
           try {
-            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
-            console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));
-            
-            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
-              photo.url = freshUrl;
-              photo.thumbnailUrl = freshUrl;
-              photo.originalUrl = freshUrl;
-              photo.displayUrl = freshUrl;
+            // FULL RESOLUTION FIX: For the annotator, we MUST get the FULL RESOLUTION image
+            // Do NOT use getDisplayUrl() directly as it may return a thumbnail when full-res is purged
+            // Use three-tier approach matching EFE template
+            let fullResUrl: string | null = null;
+
+            // First try: Get full-resolution blob directly
+            if (localImage.localBlobId) {
+              fullResUrl = await this.localImageService.getOriginalBlobUrl(localImage.localBlobId);
+              if (fullResUrl) {
+                console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION blob URL:', fullResUrl.substring(0, 50));
+                photo._hasFullResBlob = true;  // Flag to skip S3 fetch later
+              }
+            }
+
+            // Second try: If no full-res blob (purged), fetch from S3
+            if (!fullResUrl && localImage.remoteS3Key) {
+              console.log('[VIEW PHOTO] Full-res blob purged, fetching from S3:', localImage.remoteS3Key);
+              try {
+                fullResUrl = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
+                if (fullResUrl) {
+                  console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION from S3:', fullResUrl.substring(0, 50));
+                  photo._hasFullResBlob = true;  // S3 provides full resolution
+                }
+              } catch (s3Err) {
+                console.warn('[VIEW PHOTO] S3 fetch failed:', s3Err);
+              }
+            }
+
+            // Third try: Fall back to getDisplayUrl (may be thumbnail - last resort)
+            if (!fullResUrl) {
+              console.warn('[VIEW PHOTO] ⚠️ No full-res available, falling back to getDisplayUrl (may be thumbnail)');
+              fullResUrl = await this.localImageService.getDisplayUrl(localImage);
+            }
+
+            console.log('[VIEW PHOTO] Final LocalImage URL for annotator:', fullResUrl?.substring(0, 50));
+
+            if (fullResUrl && fullResUrl !== 'assets/img/photo-placeholder.svg') {
+              photo.url = fullResUrl;
+              photo.thumbnailUrl = fullResUrl;
+              photo.originalUrl = fullResUrl;
+              photo.displayUrl = fullResUrl;
             } else {
               // Fallback 1: Try cached photo by attachId (uses Dexie cachedPhotos table)
               let foundUrl = false;
@@ -7660,8 +7693,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   foundUrl = true;
                 }
               }
-              
-              // Fallback 2: Try S3 URL directly if image has remoteS3Key
+
+              // Fallback 2: Try S3 URL directly if image has remoteS3Key (already tried above, but retry as fallback)
               if (!foundUrl && localImage.remoteS3Key) {
                 try {
                   console.log('[VIEW PHOTO] Trying S3 URL for LocalImage:', localImage.remoteS3Key);
@@ -7678,7 +7711,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                   console.warn('[VIEW PHOTO] S3 URL fetch failed:', s3Err);
                 }
               }
-              
+
               // Fallback 3: Try to find in bulk cached photos map
               if (!foundUrl && localImage.attachId) {
                 const bulkCached = this.bulkCachedPhotosMap.get(String(localImage.attachId));

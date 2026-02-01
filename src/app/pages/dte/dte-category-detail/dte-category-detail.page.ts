@@ -3541,16 +3541,48 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
             console.log('[VIEW PHOTO] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
           }
 
-          // Get fresh display URL
+          // FULL RESOLUTION FIX: For the annotator, we MUST get the FULL RESOLUTION image
+          // Do NOT use getDisplayUrl() directly as it may return a thumbnail when full-res is purged
+          // Use three-tier approach matching EFE template
           try {
-            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
-            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
-              photo.url = freshUrl;
-              photo.thumbnailUrl = freshUrl;
-              photo.originalUrl = freshUrl;
-              photo.displayUrl = freshUrl;
-              imageUrl = freshUrl;
-              console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));
+            let fullResUrl: string | null = null;
+
+            // First try: Get full-resolution blob directly
+            if (localImage.localBlobId) {
+              fullResUrl = await this.localImageService.getOriginalBlobUrl(localImage.localBlobId);
+              if (fullResUrl) {
+                console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION blob URL:', fullResUrl.substring(0, 50));
+                photo._hasFullResBlob = true;
+              }
+            }
+
+            // Second try: If no full-res blob (purged), fetch from S3
+            if (!fullResUrl && localImage.remoteS3Key) {
+              console.log('[VIEW PHOTO] Full-res blob purged, fetching from S3:', localImage.remoteS3Key);
+              try {
+                fullResUrl = await this.caspioService.getS3FileUrl(localImage.remoteS3Key);
+                if (fullResUrl) {
+                  console.log('[VIEW PHOTO] ✅ Got FULL RESOLUTION from S3:', fullResUrl.substring(0, 50));
+                  photo._hasFullResBlob = true;
+                }
+              } catch (s3Err) {
+                console.warn('[VIEW PHOTO] S3 fetch failed:', s3Err);
+              }
+            }
+
+            // Third try: Fall back to getDisplayUrl (may be thumbnail - last resort)
+            if (!fullResUrl) {
+              console.warn('[VIEW PHOTO] ⚠️ No full-res available, falling back to getDisplayUrl (may be thumbnail)');
+              fullResUrl = await this.localImageService.getDisplayUrl(localImage);
+            }
+
+            if (fullResUrl && fullResUrl !== 'assets/img/photo-placeholder.svg') {
+              photo.url = fullResUrl;
+              photo.thumbnailUrl = fullResUrl;
+              photo.originalUrl = fullResUrl;
+              photo.displayUrl = fullResUrl;
+              imageUrl = fullResUrl;
+              console.log('[VIEW PHOTO] Final LocalImage URL for annotator:', fullResUrl?.substring(0, 50));
             }
           } catch (err) {
             console.warn('[VIEW PHOTO] Failed to get LocalImage URL:', err);
@@ -3726,57 +3758,79 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
         cssClass: 'custom-document-alert',
         buttons: [
           {
+            text: 'Delete',
+            role: 'destructive',
+            cssClass: 'alert-button-confirm'
+          },
+          {
             text: 'Cancel',
             role: 'cancel',
             cssClass: 'alert-button-cancel'
-          },
-          {
-            text: 'Delete',
-            cssClass: 'alert-button-confirm',
-            handler: () => {
-              // Return true to allow alert to dismiss, then process deletion
-              setTimeout(async () => {
-                const loading = await this.loadingController.create({
-                  message: 'Deleting photo...'
-                });
-                await loading.present();
-
-                try {
-                  const key = `${category}_${itemId}`;
-
-                  // Remove from UI immediately using filter
-                  if (this.visualPhotos[key]) {
-                    this.visualPhotos[key] = this.visualPhotos[key].filter(
-                      (p: any) => p.AttachID !== photo.AttachID
-                    );
-                  }
-
-                  // Delete from database
-                  if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
-                    await this.hudData.deleteVisualPhoto(photo.AttachID);
-                  }
-
-                  // Force UI update
-                  this.changeDetectorRef.detectChanges();
-
-                  await loading.dismiss();
-                } catch (error) {
-                  await loading.dismiss();
-                  console.error('Error deleting photo:', error);
-                  await this.showToast('Failed to delete photo', 'danger');
-                }
-              }, 100);
-
-              return true; // Allow alert to dismiss immediately
-            }
           }
         ]
       });
 
       await alert.present();
+
+      // Wait for dialog to dismiss and check if user confirmed deletion
+      const result = await alert.onDidDismiss();
+
+      if (result.role === 'destructive') {
+        // OFFLINE-FIRST: No loading spinner - immediate UI update
+        try {
+          const key = `${category}_${itemId}`;
+
+          // Remove from UI IMMEDIATELY (optimistic update)
+          if (this.visualPhotos[key]) {
+            this.visualPhotos[key] = this.visualPhotos[key].filter(
+              (p: any) => p.AttachID !== photo.AttachID
+            );
+            // Update photo count immediately
+            this.photoCountsByKey[key] = this.visualPhotos[key].length;
+          }
+
+          // Force UI update first
+          this.changeDetectorRef.detectChanges();
+
+          // Clear cached photo IMAGE from IndexedDB
+          await this.indexedDb.deleteCachedPhoto(String(photo.AttachID));
+
+          // Remove from cached ATTACHMENTS LIST in IndexedDB
+          await this.indexedDb.removeAttachmentFromCache(String(photo.AttachID), 'visual_attachments');
+
+          // Handle LocalImage (local-first system) deletion
+          const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId ||
+            (photo.imageId && String(photo.imageId).startsWith('img_'));
+
+          if (isLocalFirstPhoto) {
+            const localImageId = photo.localImageId || photo.imageId;
+            console.log('[Delete Photo] Deleting LocalImage:', localImageId);
+
+            // CRITICAL: Get LocalImage data BEFORE deleting to check if server deletion is needed
+            const localImage = await this.indexedDb.getLocalImage(localImageId);
+
+            // If the photo was already synced (has real attachId), queue delete for server
+            if (localImage?.attachId && !String(localImage.attachId).startsWith('img_')) {
+              console.log('[Delete Photo] LocalImage was synced, queueing server delete:', localImage.attachId);
+              await this.hudData.deleteVisualPhoto(localImage.attachId);
+            }
+
+            // NOW delete from LocalImage system (after queuing server delete)
+            await this.localImageService.deleteLocalImage(localImageId);
+          }
+          // Legacy photo deletion
+          else if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+            await this.hudData.deleteVisualPhoto(photo.AttachID);
+            console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
+          }
+
+          console.log('[Delete Photo] Photo removed successfully');
+        } catch (error) {
+          console.error('Error deleting photo:', error);
+        }
+      }
     } catch (error) {
       console.error('Error in deletePhoto:', error);
-      await this.showToast('Failed to delete photo', 'danger');
     }
   }
 
