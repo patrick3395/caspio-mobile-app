@@ -115,6 +115,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   private localImagesSubscription?: Subscription;
   // RACE CONDITION FIX: Prevent liveQuery from firing during camera capture
   private isCameraCaptureInProgress: boolean = false;
+  // DEBOUNCE: Timer for liveQuery change detection (matches EFE pattern)
+  private liveQueryDebounceTimer: any = null;
 
   // Hidden file input for camera/gallery
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -256,6 +258,10 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     }
     if (this.cacheInvalidationDebounceTimer) {
       clearTimeout(this.cacheInvalidationDebounceTimer);
+    }
+    // DEBOUNCE: Clean up liveQuery debounce timer
+    if (this.liveQueryDebounceTimer) {
+      clearTimeout(this.liveQueryDebounceTimer);
     }
     console.log('[LBW CATEGORY DETAIL] Component destroyed, but uploads continue in background');
   }
@@ -2131,9 +2137,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           return;
         }
 
+        // CRITICAL FIX: Update bulkLocalImagesMap reactively (matches EFE pattern)
+        // This keeps the map in sync when entityIds change from temp_ID to real_ID after sync
+        this.updateBulkLocalImagesMap(images);
+
         // Only process if we have lastConvertedFields
         if (this.lastConvertedFields.length === 0) {
-          console.log('[LBW LOCALIMAGES] Skipping - no lastConvertedFields');
+          console.log('[LBW LOCALIMAGES] Skipping populate - no lastConvertedFields');
           return;
         }
 
@@ -2143,12 +2153,81 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
         // Populate photos from the fresh LocalImages
         await this.populatePhotosFromDexie(this.lastConvertedFields);
-        this.changeDetectorRef.detectChanges();
+
+        // DEBOUNCE: Prevent multiple rapid UI updates (matches EFE pattern)
+        // This prevents the "hard refresh" feeling when multiple operations happen quickly
+        if (this.liveQueryDebounceTimer) {
+          clearTimeout(this.liveQueryDebounceTimer);
+        }
+        this.liveQueryDebounceTimer = setTimeout(() => {
+          this.changeDetectorRef.detectChanges();
+          this.liveQueryDebounceTimer = null;
+        }, 100); // 100ms debounce - fast enough to feel responsive, slow enough to batch updates
       },
       error: (err) => {
         console.error('[LBW LOCALIMAGES] Error in LocalImages subscription:', err);
       }
     });
+  }
+
+  /**
+   * Update bulkLocalImagesMap from liveQuery results
+   * Groups LocalImages by entityId for efficient lookup
+   * MATCHES EFE PATTERN for proper ID mapping after sync
+   */
+  private updateBulkLocalImagesMap(localImages: LocalImage[]): void {
+    // Clear existing map
+    this.bulkLocalImagesMap.clear();
+
+    // Group LocalImages by entityId
+    for (const img of localImages) {
+      if (!img.entityId) continue;
+      const entityId = String(img.entityId);
+      if (!this.bulkLocalImagesMap.has(entityId)) {
+        this.bulkLocalImagesMap.set(entityId, []);
+      }
+      this.bulkLocalImagesMap.get(entityId)!.push(img);
+    }
+
+    // US-001 FIX: Bidirectional ID mapping using cached temp->real mappings
+    // This handles the race condition where background-sync updates photo entityId to real_ID,
+    // but reloadVisualsAfterSync hasn't run yet to update visualRecordIds from temp_ID to real_ID.
+    // Without this, photos "disappear" between sync completing and UI refresh.
+
+    // Build reverse mapping: for each temp_ID in visualRecordIds, check tempIdToRealIdCache
+    // and also map images with real_ID back to temp_ID
+    for (const [key, tempOrRealId] of Object.entries(this.visualRecordIds)) {
+      if (!tempOrRealId || !String(tempOrRealId).startsWith('temp_')) continue;
+
+      const tempId = String(tempOrRealId);
+      const realId = this.tempIdToRealIdCache.get(tempId);
+
+      if (realId && this.bulkLocalImagesMap.has(realId)) {
+        // Copy images from real_ID to temp_ID for backward compatibility
+        const imagesUnderRealId = this.bulkLocalImagesMap.get(realId)!;
+        if (!this.bulkLocalImagesMap.has(tempId)) {
+          this.bulkLocalImagesMap.set(tempId, []);
+        }
+        const existing = this.bulkLocalImagesMap.get(tempId)!;
+        for (const img of imagesUnderRealId) {
+          if (!existing.some(e => e.imageId === img.imageId)) {
+            existing.push(img);
+          }
+        }
+      }
+    }
+
+    // Also do reverse: for each real_ID in visualRecordIds, check if there's a temp_ID mapping
+    // This handles the case where visualRecordIds was already updated to real_ID
+    for (const [tempId, realId] of this.tempIdToRealIdCache.entries()) {
+      if (this.bulkLocalImagesMap.has(tempId) && !this.bulkLocalImagesMap.has(realId)) {
+        // Copy images from temp_ID to real_ID
+        const imagesUnderTempId = this.bulkLocalImagesMap.get(tempId)!;
+        this.bulkLocalImagesMap.set(realId, [...imagesUnderTempId]);
+      }
+    }
+
+    console.log('[LBW LIVEQUERY] Updated bulkLocalImagesMap with', this.bulkLocalImagesMap.size, 'entity groups');
   }
 
   private findItemByName(name: string): VisualItem | undefined {
