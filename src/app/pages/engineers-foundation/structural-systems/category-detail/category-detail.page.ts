@@ -5748,11 +5748,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
           // Compress image before storage
           const originalSize = originalFile.size;
-          const compressedFile = await this.imageCompression.compressImage(originalFile, {
-            maxSizeMB: 0.8,
-            maxWidthOrHeight: 1280,
-            useWebWorker: true
-          }) as File;
+          let compressedFile: File;
+          try {
+            compressedFile = await this.imageCompression.compressImage(originalFile, {
+              maxSizeMB: 0.8,
+              maxWidthOrHeight: 1280,
+              useWebWorker: true
+            }) as File;
+          } catch (compressError) {
+            console.warn('[EFE UPLOAD] Compression failed, using original:', compressError);
+            compressedFile = originalFile;
+          }
           const compressedSize = compressedFile.size;
 
           // Get or create visual ID
@@ -6123,11 +6129,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
                 const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
 
                 // Compress image
-                const compressedFile = await this.imageCompression.compressImage(file, {
-                  maxSizeMB: 0.8,
-                  maxWidthOrHeight: 1280,
-                  useWebWorker: true
-                }) as File;
+                let compressedFile: File;
+                try {
+                  compressedFile = await this.imageCompression.compressImage(file, {
+                    maxSizeMB: 0.8,
+                    maxWidthOrHeight: 1280,
+                    useWebWorker: true
+                  }) as File;
+                } catch (compressError) {
+                  console.warn(`[GALLERY UPLOAD] EFE WEBAPP: Compression failed for photo ${i + 1}, using original:`, compressError);
+                  compressedFile = file;
+                }
 
                 // Create temp photo entry with loading state (show roller)
                 const tempId = `uploading_${Date.now()}_${i}`;
@@ -6268,11 +6280,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
                 }
 
                 // Compress image before storage
-                const compressedFile = await this.imageCompression.compressImage(file, {
-                  maxSizeMB: 0.8,
-                  maxWidthOrHeight: 1280,
-                  useWebWorker: true
-                }) as File;
+                let compressedFile: File;
+                try {
+                  compressedFile = await this.imageCompression.compressImage(file, {
+                    maxSizeMB: 0.8,
+                    maxWidthOrHeight: 1280,
+                    useWebWorker: true
+                  }) as File;
+                } catch (compressError) {
+                  console.warn(`[GALLERY UPLOAD] EFE MOBILE: Compression failed for photo ${i + 1}, using original:`, compressError);
+                  compressedFile = file;
+                }
 
                 // Create LocalImage with stable UUID
                 const localImage = await this.localImageService.captureImage(
@@ -6461,11 +6479,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
     // Compress the photo before upload
     const originalSize = photo.size;
-    const compressedPhoto = await this.imageCompression.compressImage(photo, {
-      maxSizeMB: 0.8,
-      maxWidthOrHeight: 1280,
-      useWebWorker: true
-    }) as File;
+    let compressedPhoto: File;
+    try {
+      compressedPhoto = await this.imageCompression.compressImage(photo, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
+    } catch (compressError) {
+      console.warn('[EFE UPLOAD] Compression failed, using original:', compressError);
+      compressedPhoto = photo;
+    }
     const compressedSize = compressedPhoto.size;
 
     const uploadFile = compressedPhoto || photo;
@@ -8212,11 +8236,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             const fileToUpload = originalFile || file;
 
             // Compress the photo
-            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
-              maxSizeMB: 0.8,
-              maxWidthOrHeight: 1280,
-              useWebWorker: true
-            }) as File;
+            let compressedPhoto: File;
+            try {
+              compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+                maxSizeMB: 0.8,
+                maxWidthOrHeight: 1280,
+                useWebWorker: true
+              }) as File;
+            } catch (compressError) {
+              console.warn('[EFE BATCH] Compression failed, using original:', compressError);
+              compressedPhoto = fileToUpload;
+            }
 
             const drawings = annotationData ? JSON.stringify(annotationData) : '';
 
@@ -8280,11 +8310,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             const fileToUpload = originalFile || file;
 
             // Compress the photo
-            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
-              maxSizeMB: 0.8,
-              maxWidthOrHeight: 1280,
-              useWebWorker: true
-            }) as File;
+            let compressedPhoto: File;
+            try {
+              compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+                maxSizeMB: 0.8,
+                maxWidthOrHeight: 1280,
+                useWebWorker: true
+              }) as File;
+            } catch (compressError) {
+              console.warn('[EFE BATCH MOBILE] Compression failed, using original:', compressError);
+              compressedPhoto = fileToUpload;
+            }
 
             // Upload to LocalImages via foundationData (persists to Dexie)
             const drawings = annotationData ? JSON.stringify(annotationData) : '';
@@ -8548,6 +8584,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
   trackByOption(index: number, option: string): string {
     return option;
+  }
+
+  /**
+   * Get dropdown options for a template - handles type conversion for reliable lookup
+   * STANDARDIZED: Matches LBW pattern for consistent multi-select functionality
+   */
+  getDropdownOptions(templateId: number): string[] {
+    // Try both number and string keys for compatibility
+    const options = this.visualDropdownOptions[templateId] || this.visualDropdownOptions[String(templateId) as any] || [];
+    return options;
   }
 
   getDropdownDebugInfo(item: VisualItem): string {

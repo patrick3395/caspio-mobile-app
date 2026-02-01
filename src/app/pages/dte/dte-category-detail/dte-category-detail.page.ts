@@ -19,6 +19,7 @@ import { LocalImageService } from '../../../services/local-image.service';
 import { environment } from '../../../../environments/environment';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { db } from '../../../services/caspio-db';
+import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
 
 interface VisualItem {
   id: string | number;
@@ -117,7 +118,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     private cache: CacheService,
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
-    private localImageService: LocalImageService
+    private localImageService: LocalImageService,
+    private visualFieldRepo: VisualFieldRepoService
   ) {}
 
   async ngOnInit() {
@@ -549,45 +551,113 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   /**
    * Load all dropdown options from Services_DTE_Drop table
    * This loads all options upfront and groups them by TemplateID
+   * WEBAPP FIX: Also merges custom options from Dexie visualFields
    */
   private async loadAllDropdownOptions() {
     try {
       const dropdownData = await firstValueFrom(
         this.caspioService.getServicesDTEDrop()
       );
-      
+
       console.log('[DTE Category] Loaded dropdown data:', dropdownData?.length || 0, 'rows');
-      
+
       if (dropdownData && dropdownData.length > 0) {
         // Group dropdown options by TemplateID
         dropdownData.forEach((row: any) => {
           const templateId = String(row.TemplateID); // Convert to string for consistency
           const dropdownValue = row.Dropdown;
-          
+
           if (templateId && dropdownValue) {
             if (!this.visualDropdownOptions[templateId]) {
               this.visualDropdownOptions[templateId] = [];
             }
-            // Add unique dropdown values for this template
-            if (!this.visualDropdownOptions[templateId].includes(dropdownValue)) {
+            // Add unique dropdown values for this template (excluding None/Other which we add at end)
+            if (!this.visualDropdownOptions[templateId].includes(dropdownValue) &&
+                dropdownValue !== 'None' && dropdownValue !== 'Other') {
               this.visualDropdownOptions[templateId].push(dropdownValue);
             }
           }
         });
-        
+
         console.log('[DTE Category] Grouped by TemplateID:', Object.keys(this.visualDropdownOptions).length, 'templates have options');
         console.log('[DTE Category] All TemplateIDs with options:', Object.keys(this.visualDropdownOptions));
-        
-        // Add "Other" option to all multi-select dropdowns if not already present
-        Object.entries(this.visualDropdownOptions).forEach(([templateId, options]) => {
-          const optionsArray = options as string[];
-          if (!optionsArray.includes('Other')) {
-            optionsArray.push('Other');
+
+        // WEBAPP FIX: Merge custom options from Dexie visualFields
+        // Custom options added via "Other" are saved to Dexie and need to be merged here
+        try {
+          const dexieFields = await this.visualFieldRepo.getFieldsForCategory(
+            this.serviceId,
+            this.categoryName
+          );
+          console.log(`[DTE Category] WEBAPP: Found ${dexieFields.length} Dexie fields to check for custom dropdown options`);
+
+          for (const field of dexieFields) {
+            if (field.dropdownOptions && field.dropdownOptions.length > 0) {
+              const templateId = String(field.templateId);
+              if (!this.visualDropdownOptions[templateId]) {
+                this.visualDropdownOptions[templateId] = [];
+              }
+              // Merge custom options from Dexie (excluding None/Other)
+              for (const opt of field.dropdownOptions) {
+                if (opt !== 'None' && opt !== 'Other' &&
+                    !this.visualDropdownOptions[templateId].includes(opt)) {
+                  this.visualDropdownOptions[templateId].push(opt);
+                  console.log(`[DTE Category] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
+                }
+              }
+            }
           }
-          console.log(`[DTE Category] TemplateID ${templateId}: ${optionsArray.length} options -`, optionsArray.join(', '));
+        } catch (dexieError) {
+          console.warn('[DTE Category] WEBAPP: Could not load custom options from Dexie:', dexieError);
+        }
+
+        // Sort options alphabetically and add "None" and "Other" at the end
+        Object.keys(this.visualDropdownOptions).forEach(templateId => {
+          const options = this.visualDropdownOptions[templateId];
+          if (options) {
+            // Sort alphabetically
+            options.sort((a: string, b: string) => a.localeCompare(b));
+            // Add "None" and "Other" at the end
+            if (!options.includes('None')) {
+              options.push('None');
+            }
+            if (!options.includes('Other')) {
+              options.push('Other');
+            }
+          }
         });
+
+        console.log('[DTE Category] Loaded dropdown options for', Object.keys(this.visualDropdownOptions).length, 'templates');
       } else {
         console.warn('[DTE Category] No dropdown data received from API');
+
+        // WEBAPP FIX: Even without API data, still load custom options from Dexie
+        try {
+          const dexieFields = await this.visualFieldRepo.getFieldsForCategory(
+            this.serviceId,
+            this.categoryName
+          );
+          console.log(`[DTE Category] WEBAPP: Found ${dexieFields.length} Dexie fields to check for custom dropdown options (no API data)`);
+
+          for (const field of dexieFields) {
+            if (field.dropdownOptions && field.dropdownOptions.length > 0) {
+              const templateId = String(field.templateId);
+              if (!this.visualDropdownOptions[templateId]) {
+                this.visualDropdownOptions[templateId] = [];
+              }
+              // Merge custom options from Dexie
+              for (const opt of field.dropdownOptions) {
+                if (!this.visualDropdownOptions[templateId].includes(opt)) {
+                  this.visualDropdownOptions[templateId].push(opt);
+                  console.log(`[DTE Category] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
+                }
+              }
+            }
+          }
+          this.changeDetectorRef.detectChanges();
+        } catch (dexieError) {
+          console.warn('[DTE Category] WEBAPP: Could not load custom options from Dexie:', dexieError);
+        }
       }
     } catch (error) {
       console.error('[DTE Category] Error loading dropdown options:', error);
@@ -2212,46 +2282,77 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   // Add custom option for category item multi-select
+  // STANDARDIZED: Matches EFE/LBW/HUD pattern - saves dropdownOptions to Dexie for persistence
   async addMultiSelectOther(category: string, item: VisualItem) {
     if (!item.otherValue || !item.otherValue.trim()) {
       return;
     }
 
     const customValue = item.otherValue.trim();
-    const templateId = item.templateId;
+    const templateId = String(item.templateId);
+    const actualCategory = item.category || category;
+    const key = `${actualCategory}_${item.templateId}`;
+
+    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'item.id:', item.id);
 
     // Ensure visualDropdownOptions array exists
     if (!this.visualDropdownOptions[templateId]) {
       this.visualDropdownOptions[templateId] = [];
     }
 
+    // Parse current selections
+    let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    selectedOptions = selectedOptions.filter(o => o !== 'None');
+
     // Check if this custom value already exists in options
-    if (!this.visualDropdownOptions[templateId].includes(customValue)) {
+    if (this.visualDropdownOptions[templateId].includes(customValue)) {
+      console.log(`[OTHER] Option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!selectedOptions.includes(customValue)) {
+        selectedOptions.push(customValue);
+      }
+    } else {
       // Add to options (before None and Other if they exist)
       const options = this.visualDropdownOptions[templateId];
       const noneIndex = options.indexOf('None');
-      const otherIndex = options.indexOf('Other');
-      const insertIndex = Math.min(
-        noneIndex > -1 ? noneIndex : options.length,
-        otherIndex > -1 ? otherIndex : options.length
-      );
-      options.splice(insertIndex, 0, customValue);
-    }
+      if (noneIndex > -1) {
+        options.splice(noneIndex, 0, customValue);
+      } else {
+        const otherIndex = options.indexOf('Other');
+        if (otherIndex > -1) {
+          options.splice(otherIndex, 0, customValue);
+        } else {
+          options.push(customValue);
+        }
+      }
+      console.log(`[OTHER] Added custom option: "${customValue}"`);
 
-    // Update the answer to include the custom value
-    let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
-
-    // Add custom value if not already there
-    if (!selectedOptions.includes(customValue)) {
+      // Select the new custom value
       selectedOptions.push(customValue);
     }
 
+    // Update item answer
     item.answer = selectedOptions.join(', ');
 
     // Clear the input
     item.otherValue = '';
 
-    console.log('[ADD OTHER] Custom value added:', customValue, 'New answer:', item.answer);
+    console.log('[OTHER] Custom value added:', customValue, 'New answer:', item.answer);
+
+    // DEXIE-FIRST: Write-through to visualFields including updated dropdownOptions
+    // This ensures custom options persist across page loads
+    // STANDARDIZED: Use 'category' (the route param passed from template) to match load path
+    // Load uses this.categoryName, so save must use the same value for Dexie key consistency
+    await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+      answer: item.answer,
+      otherValue: '',
+      isSelected: true,
+      dropdownOptions: [...this.visualDropdownOptions[templateId]]  // Save the updated options array to Dexie
+    });
+
+    console.log('[OTHER] Saved dropdownOptions to Dexie for category:', category, 'options:', this.visualDropdownOptions[templateId]);
 
     await this.onAnswerChange(category, item);
   }
@@ -2321,11 +2422,17 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           }
 
           // Compress image before upload
-          const compressedFile = await this.imageCompression.compressImage(originalFile, {
-            maxSizeMB: 0.8,
-            maxWidthOrHeight: 1280,
-            useWebWorker: true
-          }) as File;
+          let compressedFile: File;
+          try {
+            compressedFile = await this.imageCompression.compressImage(originalFile, {
+              maxSizeMB: 0.8,
+              maxWidthOrHeight: 1280,
+              useWebWorker: true
+            }) as File;
+          } catch (compressError) {
+            console.warn('[DTE UPLOAD] Compression failed, using original:', compressError);
+            compressedFile = originalFile;
+          }
 
           // Serialize and compress annotations data
           let drawingsString = '';
@@ -2725,11 +2832,17 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
                 const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
 
                 // Compress image
-                const compressedFile = await this.imageCompression.compressImage(file, {
-                  maxSizeMB: 0.8,
-                  maxWidthOrHeight: 1280,
-                  useWebWorker: true
-                }) as File;
+                let compressedFile: File;
+                try {
+                  compressedFile = await this.imageCompression.compressImage(file, {
+                    maxSizeMB: 0.8,
+                    maxWidthOrHeight: 1280,
+                    useWebWorker: true
+                  }) as File;
+                } catch (compressError) {
+                  console.warn(`[GALLERY UPLOAD] DTE: Compression failed for photo ${i + 1}, using original:`, compressError);
+                  compressedFile = file;
+                }
 
                 // Update skeleton to show preview + uploading state
                 const tempDisplayUrl = URL.createObjectURL(blob);

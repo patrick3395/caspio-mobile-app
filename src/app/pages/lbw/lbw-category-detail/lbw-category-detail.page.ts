@@ -3729,14 +3729,16 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
     // DEXIE-FIRST: Write-through to visualFields including updated dropdownOptions
     // This ensures custom options persist across page loads and liveQuery updates
-    await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
+    // STANDARDIZED: Use 'category' (the route param passed from template) to match load path
+    // Load uses this.categoryName, so save must use the same value for Dexie key consistency
+    await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
       answer: item.answer,
       otherValue: '',
       isSelected: true,
       dropdownOptions: [...options]  // Save the updated options array to Dexie
     });
 
-    console.log('[OTHER] Saved dropdownOptions to Dexie:', options);
+    console.log('[OTHER] Saved dropdownOptions to Dexie for category:', category, 'options:', options);
 
     // Save to database
     this.savingItems[key] = true;
@@ -5585,11 +5587,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             const fileToUpload = originalFile || file;
 
             // Compress the photo
-            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
-              maxSizeMB: 0.8,
-              maxWidthOrHeight: 1280,
-              useWebWorker: true
-            }) as File;
+            let compressedPhoto: File;
+            try {
+              compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+                maxSizeMB: 0.8,
+                maxWidthOrHeight: 1280,
+                useWebWorker: true
+              }) as File;
+            } catch (compressError) {
+              console.warn('[LBW UPLOAD] Compression failed, using original:', compressError);
+              compressedPhoto = fileToUpload;
+            }
 
             // Compress annotations if present
             const compressedDrawings = annotationData ? compressAnnotationData(JSON.stringify(annotationData)) : '';
@@ -5702,11 +5710,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             const fileToUpload = originalFile || file;
 
             // Compress the photo
-            const compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
-              maxSizeMB: 0.8,
-              maxWidthOrHeight: 1280,
-              useWebWorker: true
-            }) as File;
+            let compressedPhoto: File;
+            try {
+              compressedPhoto = await this.imageCompression.compressImage(fileToUpload, {
+                maxSizeMB: 0.8,
+                maxWidthOrHeight: 1280,
+                useWebWorker: true
+              }) as File;
+            } catch (compressError) {
+              console.warn('[LBW UPLOAD] Compression failed, using original:', compressError);
+              compressedPhoto = fileToUpload;
+            }
 
             // Upload to LocalImages via hudData (persists to Dexie)
             const drawings = annotationData ? JSON.stringify(annotationData) : '';
