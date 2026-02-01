@@ -2849,24 +2849,18 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
       // ===== STEP 2: Process visuals (uses pre-loaded bulkVisualsCache) =====
       this.loadExistingVisualsFromCache();
       console.log('[LOAD DATA] ✅ Visuals processed');
-      
-      // CRITICAL FIX: Show content immediately after templates and visuals are loaded
-      // Don't wait for photos - they load in background. This prevents black screen.
-      if (this.loading && (allTemplates as any[]).length > 0) {
-        this.loading = false;
-        this.changeDetectorRef.detectChanges();
-        console.log('[LOAD DATA] ✅ Content visible (photos loading in background)');
-      }
 
       // ===== STEP 3: Restore pending photos (uses bulkPendingPhotosMap) =====
       this.restorePendingPhotosFromIndexedDB();
       console.log('[LOAD DATA] ✅ Pending photos restored');
 
       // ===== STEP 3.5: Show initial photo counts from LocalImages (INSTANT - no I/O) =====
-      // This gives users immediate feedback on photo counts while server data loads
+      // CRITICAL: This MUST happen BEFORE loading = false to prevent "0 to N" pop effect
+      // Photo counts appear instantly when page renders, matching HUD behavior
       this.showInitialPhotoCountsFromLocalImages();
 
       // ===== STEP 3.6: Show page NOW - don't wait for photos =====
+      // Photo counts are already set, so icons and VIEW (X) appear instantly
       this.loading = false;
       this.expandedAccordions = ['information', 'limitations', 'deficiencies'];
       this.changeDetectorRef.detectChanges();
@@ -3041,7 +3035,9 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
       if (!item) continue;
 
-      const key = `${visual.Category}_${item.id}`;
+      // CRITICAL: Use templateId for key to match getTotalPhotoCount() and HTML bindings
+      const itemKey = item.templateId || item.id;
+      const key = `${visual.Category}_${itemKey}`;
 
       // Get counts from various sources (already in memory)
       const localImages = this.bulkLocalImagesMap.get(visualId) || [];
@@ -4841,6 +4837,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     }
 
     return false;
+  }
+
+  // Count how many items are selected/checked in a section
+  getSelectedCount(items: VisualItem[]): number {
+    if (!items) return 0;
+    return items.filter(item => this.isItemSelected(item.category || this.categoryName, item.id)).length;
   }
 
   private findItemById(itemId: string | number): VisualItem | undefined {
