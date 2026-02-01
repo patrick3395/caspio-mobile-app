@@ -2205,7 +2205,52 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     item.answer = selectedOptions.join(', ');
     
     console.log('[OTHER CHANGE] Custom value:', item.otherValue, 'New answer:', item.answer);
-    
+
+    await this.onAnswerChange(category, item);
+  }
+
+  // Add custom option for category item multi-select
+  async addMultiSelectOther(category: string, item: VisualItem) {
+    if (!item.otherValue || !item.otherValue.trim()) {
+      return;
+    }
+
+    const customValue = item.otherValue.trim();
+    const templateId = item.templateId;
+
+    // Ensure visualDropdownOptions array exists
+    if (!this.visualDropdownOptions[templateId]) {
+      this.visualDropdownOptions[templateId] = [];
+    }
+
+    // Check if this custom value already exists in options
+    if (!this.visualDropdownOptions[templateId].includes(customValue)) {
+      // Add to options (before None and Other if they exist)
+      const options = this.visualDropdownOptions[templateId];
+      const noneIndex = options.indexOf('None');
+      const otherIndex = options.indexOf('Other');
+      const insertIndex = Math.min(
+        noneIndex > -1 ? noneIndex : options.length,
+        otherIndex > -1 ? otherIndex : options.length
+      );
+      options.splice(insertIndex, 0, customValue);
+    }
+
+    // Update the answer to include the custom value
+    let selectedOptions = item.answer ? item.answer.split(',').map(s => s.trim()).filter(s => s) : [];
+
+    // Add custom value if not already there
+    if (!selectedOptions.includes(customValue)) {
+      selectedOptions.push(customValue);
+    }
+
+    item.answer = selectedOptions.join(', ');
+
+    // Clear the input
+    item.otherValue = '';
+
+    console.log('[ADD OTHER] Custom value added:', customValue, 'New answer:', item.answer);
+
     await this.onAnswerChange(category, item);
   }
 
@@ -3474,8 +3519,45 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
           }
         }
       }
+
+      // NEW: Handle LocalImages from the new local-first system (Dexie-based)
+      // These have imageId/localImageId like "img_abc" (not "temp_" which is legacy)
+      const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId ||
+        (photo.imageId && String(photo.imageId).startsWith('img_'));
+
+      if (isLocalFirstPhoto && !isPendingPhoto) {
+        const localImageId = photo.localImageId || photo.imageId;
+        console.log('[VIEW PHOTO] LocalImage detected, refreshing from Dexie:', localImageId);
+
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+        if (localImage) {
+          // ANNOTATION FIX: Update photo.Drawings with fresh data from Dexie
+          // This ensures annotations persist after page reload
+          if (localImage.drawings && localImage.drawings.length > 10) {
+            photo.Drawings = localImage.drawings;
+            photo.hasAnnotations = true;
+            console.log('[VIEW PHOTO] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
+          }
+
+          // Get fresh display URL
+          try {
+            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
+            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
+              photo.url = freshUrl;
+              photo.thumbnailUrl = freshUrl;
+              photo.originalUrl = freshUrl;
+              photo.displayUrl = freshUrl;
+              imageUrl = freshUrl;
+              console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));
+            }
+          } catch (err) {
+            console.warn('[VIEW PHOTO] Failed to get LocalImage URL:', err);
+          }
+        }
+      }
+
       // If no valid URL and we have a file path, try to fetch it
-      else if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') && (photo.filePath || photo.Photo || photo.Attachment)) {
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') && (photo.filePath || photo.Photo || photo.Attachment)) {
         try {
           // Check if this is an S3 key
           if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {
@@ -3919,25 +4001,43 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
    * Visual-detail will determine DTEID from Dexie field lookup (tempVisualId || visualId)
    */
   openVisualDetail(categoryName: string, item: VisualItem) {
-    // Get the actual DTEID from visualRecordIds (item.id is templateId, not DTEID)
-    const key = `${this.categoryName}_${item.id}`;
-    const dteId = this.visualRecordIds[key];
+    console.log('[DTE CategoryDetail] openVisualDetail - item:', item?.name, 'item.id:', item?.id, 'templateId:', item?.templateId);
 
-    console.log('[DTE CategoryDetail] Navigating to visual detail for templateId:', item.templateId, 'category:', categoryName, 'key:', key, 'dteId:', dteId);
+    // WEBAPP SIMPLIFIED: The DTEID is stored in visualRecordIds (LBW pattern)
+    let dteId = '';
+    let routeId: string | number = item.templateId || item.id;
 
-    // WEBAPP MODE: Pass dteId directly so visual-detail can fetch fresh data from API
-    // MOBILE MODE: Don't pass dteId - visual-detail looks it up from Dexie
-    const queryParams: any = {};
+    if (environment.isWeb) {
+      const itemIdStr = String(item.id || '');
 
-    if (environment.isWeb && dteId) {
-      // Pass DTEID for direct API lookup in WEBAPP mode
-      queryParams.dteId = String(dteId);
-      console.log('[DTE CategoryDetail] WEBAPP: Passing dteId:', queryParams.dteId);
+      // Custom visual: id = "custom_12345" -> extract DTEID directly
+      if (itemIdStr.startsWith('custom_')) {
+        dteId = itemIdStr.replace('custom_', '');
+        routeId = dteId; // Use the numeric DTEID for the route
+        console.log('[DTE CategoryDetail] WEBAPP: Custom visual, DTEID:', dteId);
+      } else {
+        // Template visual: look up in visualRecordIds, fallback to item.dteId (LBW pattern)
+        const key = `${categoryName}_${item.id}`;
+        dteId = this.visualRecordIds[key] || (item as any).dteId || '';
+        routeId = item.templateId || item.id;
+        console.log('[DTE CategoryDetail] WEBAPP: Template visual, key:', key, 'DTEID:', dteId, 'item.dteId:', (item as any).dteId);
+      }
+    } else {
+      // MOBILE: Use LBW pattern with isCustomVisual and item.dteId fallback
+      const isCustomVisual = !item.templateId || item.templateId === 0;
+      const keyId = isCustomVisual ? item.id : item.templateId;
+      const key = `${categoryName}_${keyId}`;
+      dteId = this.visualRecordIds[key] || (item as any).dteId || '';
+      routeId = isCustomVisual ? item.id : item.templateId;
     }
 
+    console.log('[DTE CategoryDetail] FINAL: routeId:', routeId, 'dteId:', dteId);
+
+    // LBW pattern: Always pass dteId in queryParams (even if empty)
+    // The visual-detail page uses priority-based matching when dteId is empty
     this.router.navigate(
-      ['/dte', this.projectId, this.serviceId, 'category', this.categoryName, 'visual', item.templateId],
-      { queryParams }
+      ['/dte', this.projectId, this.serviceId, 'category', this.categoryName, 'visual', routeId],
+      { queryParams: { dteId } }
     );
   }
 }

@@ -7624,11 +7624,19 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       if (isLocalFirstPhoto) {
         const localImageId = photo.localImageId || photo.imageId;
         console.log('[VIEW PHOTO] LocalImage detected, refreshing URL from Dexie:', localImageId);
-        
+
         // Get fresh URL from LocalImageService (uses Dexie under the hood)
         const localImage = await this.indexedDb.getLocalImage(localImageId);
-        
+
         if (localImage) {
+          // ANNOTATION FIX: Update photo.Drawings with fresh data from Dexie
+          // This ensures annotations persist after page reload
+          if (localImage.drawings && localImage.drawings.length > 10) {
+            photo.Drawings = localImage.drawings;
+            photo.hasAnnotations = true;
+            console.log('[VIEW PHOTO] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
+          }
+
           try {
             const freshUrl = await this.localImageService.getDisplayUrl(localImage);
             console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));

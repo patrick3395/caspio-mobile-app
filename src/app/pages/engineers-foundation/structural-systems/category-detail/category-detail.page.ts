@@ -6750,6 +6750,14 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         const localImage = await this.indexedDb.getLocalImage(localImageId);
 
         if (localImage) {
+          // ANNOTATION FIX: Update photo.Drawings with fresh data from Dexie
+          // This ensures annotations persist after page reload
+          if (localImage.drawings && localImage.drawings.length > 10) {
+            photo.Drawings = localImage.drawings;
+            photo.hasAnnotations = true;
+            console.log('[VIEW PHOTO] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
+          }
+
           try {
             // ANNOTATION FIX: For the annotator, we MUST get the FULL RESOLUTION image
             // Do NOT use getDisplayUrl() as it may return a thumbnail when full-res is purged

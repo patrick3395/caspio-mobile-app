@@ -5004,8 +5004,45 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           }
         }
       }
+
+      // NEW: Handle LocalImages from the new local-first system (Dexie-based)
+      // These have imageId/localImageId like "img_abc" (not "temp_" which is legacy)
+      const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId ||
+        (photo.imageId && String(photo.imageId).startsWith('img_'));
+
+      if (isLocalFirstPhoto && !isPendingPhoto) {
+        const localImageId = photo.localImageId || photo.imageId;
+        console.log('[VIEW PHOTO] LocalImage detected, refreshing from Dexie:', localImageId);
+
+        const localImage = await this.indexedDb.getLocalImage(localImageId);
+        if (localImage) {
+          // ANNOTATION FIX: Update photo.Drawings with fresh data from Dexie
+          // This ensures annotations persist after page reload
+          if (localImage.drawings && localImage.drawings.length > 10) {
+            photo.Drawings = localImage.drawings;
+            photo.hasAnnotations = true;
+            console.log('[VIEW PHOTO] Loaded fresh drawings from Dexie:', localImage.drawings.length, 'chars');
+          }
+
+          // Get fresh display URL
+          try {
+            const freshUrl = await this.localImageService.getDisplayUrl(localImage);
+            if (freshUrl && freshUrl !== 'assets/img/photo-placeholder.svg') {
+              photo.url = freshUrl;
+              photo.thumbnailUrl = freshUrl;
+              photo.originalUrl = freshUrl;
+              photo.displayUrl = freshUrl;
+              imageUrl = freshUrl;
+              console.log('[VIEW PHOTO] Got fresh LocalImage URL:', freshUrl?.substring(0, 50));
+            }
+          } catch (err) {
+            console.warn('[VIEW PHOTO] Failed to get LocalImage URL:', err);
+          }
+        }
+      }
+
       // If no valid URL and we have a file path, try to fetch it
-      else if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') && (photo.filePath || photo.Photo || photo.Attachment)) {
+      if ((!imageUrl || imageUrl === 'assets/img/photo-placeholder.svg') && (photo.filePath || photo.Photo || photo.Attachment)) {
         try {
           // Check if this is an S3 key
           if (photo.Attachment && this.caspioService.isS3Key(photo.Attachment)) {
@@ -5179,11 +5216,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         cssClass: 'custom-document-alert',
         buttons: [
           {
-            text: 'Cancel',
-            role: 'cancel',
-            cssClass: 'alert-button-cancel'
-          },
-          {
             text: 'Delete',
             cssClass: 'alert-button-confirm',
             handler: () => {
@@ -5251,6 +5283,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
               return true; // Allow alert to dismiss immediately
             }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'alert-button-cancel'
           }
         ]
       });
