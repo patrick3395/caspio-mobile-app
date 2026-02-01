@@ -1872,36 +1872,17 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
               const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
               if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
                 const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
-                let thumbnailUrl = freshDisplayUrl;
-                if (hasAnnotations) {
-                  // ANNOTATION FIX: Check multiple sources for annotated thumbnail
-                  // 1. First check bulkAnnotatedImagesMap (bulk loaded on page init)
-                  let cachedAnnotated = this.bulkAnnotatedImagesMap.get(imageId);
 
-                  // 2. If not found, check IndexedDB directly (for newly added photos)
-                  if (!cachedAnnotated) {
-                    try {
-                      cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(imageId);
-                      if (cachedAnnotated) {
-                        // Add to map for future lookups
-                        this.bulkAnnotatedImagesMap.set(imageId, cachedAnnotated);
-                      }
-                    } catch (e) {
-                      console.warn('[LBW DEXIE-FIRST] Failed to get cached annotated image:', e);
-                    }
-                  }
+                // Use centralized thumbnail URL resolution
+                const existingDisplayUrl = this.visualPhotos[key][existingPhotoIndex].displayUrl;
+                const thumbnailUrl = await this.localImageService.getThumbnailUrl(
+                  imageId,
+                  freshDisplayUrl,
+                  hasAnnotations,
+                  existingDisplayUrl,
+                  this.bulkAnnotatedImagesMap
+                );
 
-                  // 3. If still not found, preserve existing displayUrl if it's a blob URL
-                  //    (PhotoHandlerService set it with the annotated image)
-                  if (cachedAnnotated) {
-                    thumbnailUrl = cachedAnnotated;
-                  } else {
-                    const existingDisplayUrl = this.visualPhotos[key][existingPhotoIndex].displayUrl;
-                    if (existingDisplayUrl && existingDisplayUrl.startsWith('blob:')) {
-                      thumbnailUrl = existingDisplayUrl;
-                    }
-                  }
-                }
                 this.visualPhotos[key][existingPhotoIndex] = {
                   ...this.visualPhotos[key][existingPhotoIndex],
                   displayUrl: thumbnailUrl,
@@ -1935,29 +1916,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             console.warn('[LBW DEXIE-FIRST] Failed to get displayUrl:', e);
           }
 
-          // Check for annotated image
-          let thumbnailUrl = displayUrl;
+          // Use centralized thumbnail URL resolution
           const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
-          if (hasAnnotations) {
-            // ANNOTATION FIX: Check multiple sources for annotated thumbnail
-            let cachedAnnotated = this.bulkAnnotatedImagesMap.get(imageId);
-
-            // If not found in map, check IndexedDB directly
-            if (!cachedAnnotated) {
-              try {
-                cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(imageId);
-                if (cachedAnnotated) {
-                  this.bulkAnnotatedImagesMap.set(imageId, cachedAnnotated);
-                }
-              } catch (e) {
-                console.warn('[LBW DEXIE-FIRST] Failed to get cached annotated image for new photo:', e);
-              }
-            }
-
-            if (cachedAnnotated) {
-              thumbnailUrl = cachedAnnotated;
-            }
-          }
+          const thumbnailUrl = await this.localImageService.getThumbnailUrl(
+            imageId,
+            displayUrl,
+            hasAnnotations,
+            undefined,
+            this.bulkAnnotatedImagesMap
+          );
 
           // Add photo to array
           this.visualPhotos[key].unshift({

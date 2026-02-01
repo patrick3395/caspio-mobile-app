@@ -289,6 +289,92 @@ export class LocalImageService {
   }
 
   /**
+   * Get annotated thumbnail URL with full fallback chain
+   *
+   * This is the centralized method for getting annotated thumbnails.
+   * Templates should call this instead of implementing their own fallback logic.
+   *
+   * Fallback chain:
+   * 1. Check inMemoryCache (fast O(1) lookup from template's bulkAnnotatedImagesMap)
+   * 2. Check IndexedDB cachedAnnotatedImages table
+   * 3. Return null if not found (caller should use original displayUrl)
+   *
+   * @param imageId - The image ID to look up
+   * @param inMemoryCache - Optional template's in-memory cache (bulkAnnotatedImagesMap)
+   * @returns The annotated thumbnail URL, or null if not found
+   */
+  async getAnnotatedThumbnailUrl(
+    imageId: string,
+    inMemoryCache?: Map<string, string>
+  ): Promise<string | null> {
+    // 1. Check in-memory cache first (fastest)
+    if (inMemoryCache) {
+      const cached = inMemoryCache.get(imageId);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    // 2. Check IndexedDB (for newly added photos not yet in memory cache)
+    try {
+      const annotatedUrl = await this.indexedDb.getCachedAnnotatedImage(imageId);
+      if (annotatedUrl) {
+        // Add to in-memory cache for future lookups
+        if (inMemoryCache) {
+          inMemoryCache.set(imageId, annotatedUrl);
+        }
+        return annotatedUrl;
+      }
+    } catch (e) {
+      console.warn('[LocalImage] Failed to get cached annotated image:', e);
+    }
+
+    return null;
+  }
+
+  /**
+   * Get thumbnail URL for a photo, preferring annotated version if available
+   *
+   * This method handles the complete fallback chain for thumbnail display:
+   * 1. If photo has annotations, try to get annotated thumbnail
+   * 2. Fall back to original displayUrl
+   * 3. Optionally preserve existing blob URL if it was set by PhotoHandlerService
+   *
+   * @param imageId - The image ID
+   * @param originalDisplayUrl - The original (non-annotated) display URL
+   * @param hasAnnotations - Whether the photo has annotations
+   * @param existingDisplayUrl - Optional existing displayUrl to preserve if it's a blob URL
+   * @param inMemoryCache - Optional template's in-memory cache
+   * @returns The thumbnail URL to use
+   */
+  async getThumbnailUrl(
+    imageId: string,
+    originalDisplayUrl: string,
+    hasAnnotations: boolean,
+    existingDisplayUrl?: string,
+    inMemoryCache?: Map<string, string>
+  ): Promise<string> {
+    if (!hasAnnotations) {
+      return originalDisplayUrl;
+    }
+
+    // Try to get annotated thumbnail
+    const annotatedUrl = await this.getAnnotatedThumbnailUrl(imageId, inMemoryCache);
+
+    if (annotatedUrl) {
+      return annotatedUrl;
+    }
+
+    // If no cached annotated image found, preserve existing blob URL
+    // (PhotoHandlerService may have set it with the annotated image)
+    if (existingDisplayUrl && existingDisplayUrl.startsWith('blob:')) {
+      return existingDisplayUrl;
+    }
+
+    return originalDisplayUrl;
+  }
+
+  /**
    * Get blob URL with caching (avoids duplicate URL creation)
    */
   private async getBlobUrl(blobId: string): Promise<string | null> {

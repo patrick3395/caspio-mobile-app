@@ -1974,35 +1974,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
 
             if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
-              // ANNOTATION FIX: Check for cached annotated image for thumbnail display
+              // ANNOTATION FIX: Use centralized thumbnail URL resolution
               const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10) || existingPhoto.hasAnnotations;
-              let thumbnailUrl = freshDisplayUrl;
-              if (hasAnnotations) {
-                // Check multiple sources for annotated thumbnail
-                let cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
-
-                // If not found in map, check IndexedDB directly (for newly added photos)
-                if (!cachedAnnotatedImage) {
-                  try {
-                    cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(imageId);
-                    if (cachedAnnotatedImage) {
-                      this.bulkAnnotatedImagesMap.set(imageId, cachedAnnotatedImage);
-                    }
-                  } catch (e) {
-                    console.warn('[HUD DEXIE-FIRST] Failed to get cached annotated image:', e);
-                  }
-                }
-
-                // If still not found, preserve existing displayUrl if it's a blob URL
-                if (cachedAnnotatedImage) {
-                  thumbnailUrl = cachedAnnotatedImage;
-                } else {
-                  const existingDisplayUrl = existingPhoto.displayUrl;
-                  if (existingDisplayUrl && existingDisplayUrl.startsWith('blob:')) {
-                    thumbnailUrl = existingDisplayUrl;
-                  }
-                }
-              }
+              const thumbnailUrl = await this.localImageService.getThumbnailUrl(
+                imageId,
+                freshDisplayUrl,
+                hasAnnotations,
+                existingPhoto.displayUrl,
+                this.bulkAnnotatedImagesMap
+              );
 
               // Update displayUrl to fresh local blob (or annotated for thumbnail)
               this.visualPhotos[key][existingPhotoIndex] = {
@@ -2044,32 +2024,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           console.warn('[DEXIE-FIRST] Failed to get displayUrl:', e);
         }
 
-        // ANNOTATION FIX: Check for cached annotated image for thumbnail display
-        // The annotated image is cached separately when user adds annotations
-        // We use it for displayUrl/thumbnailUrl while keeping originalUrl as the base image
-        let thumbnailUrl = displayUrl;
+        // Use centralized thumbnail URL resolution for new photos
         const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
-        if (hasAnnotations) {
-          // Check multiple sources for annotated thumbnail
-          let cachedAnnotatedImage = this.bulkAnnotatedImagesMap.get(imageId);
-
-          // If not found in map, check IndexedDB directly (for newly added photos)
-          if (!cachedAnnotatedImage) {
-            try {
-              cachedAnnotatedImage = await this.indexedDb.getCachedAnnotatedImage(imageId);
-              if (cachedAnnotatedImage) {
-                this.bulkAnnotatedImagesMap.set(imageId, cachedAnnotatedImage);
-              }
-            } catch (e) {
-              console.warn('[HUD DEXIE-FIRST] Failed to get cached annotated image for new photo:', e);
-            }
-          }
-
-          if (cachedAnnotatedImage) {
-            thumbnailUrl = cachedAnnotatedImage;
-            console.log(`[DEXIE-FIRST] Using cached annotated image for thumbnail: ${imageId}`);
-          }
-        }
+        const thumbnailUrl = await this.localImageService.getThumbnailUrl(
+          imageId,
+          displayUrl,
+          hasAnnotations,
+          undefined,
+          this.bulkAnnotatedImagesMap
+        );
 
         // Add photo to array
         this.visualPhotos[key].unshift({
