@@ -1499,6 +1499,11 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
             if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
               this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
             }
+
+            // PHOTO COUNT FIX: Restore photo count from Dexie (prevents "0 to N" pop)
+            if (dexieField.photoCount !== undefined && dexieField.photoCount > 0) {
+              this.photoCountsByKey[key] = dexieField.photoCount;
+            }
           }
         }
 
@@ -1844,6 +1849,15 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
         // Update photo count
         this.photoCountsByKey[key] = this.visualPhotos[key].length;
+
+        // PERSIST photo count to Dexie for instant display on next page load
+        if (field.templateId) {
+          this.visualFieldRepo.setField(this.serviceId, field.category, field.templateId, {
+            photoCount: this.visualPhotos[key].length
+          }).catch(err => {
+            console.warn('[LBW DEXIE] Failed to save photoCount:', err);
+          });
+        }
       }
 
       console.log(`[LBW DEXIE-FIRST] Populated ${photosAddedCount} photos from Dexie`);
@@ -5202,13 +5216,6 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   async deletePhoto(photo: any, category: string, itemId: string | number) {
-    // WEBAPP FIX: Use itemId directly (which is item.id) - matches photo storage key pattern
-    // Capture these values BEFORE the setTimeout closure
-    const item = this.findItemById(itemId);
-    const key = environment.isWeb
-      ? `${category}_${itemId}`
-      : `${category}_${item?.templateId ?? itemId}`;
-
     try {
       const alert = await this.alertController.create({
         header: 'Delete Photo',
@@ -5217,72 +5224,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         buttons: [
           {
             text: 'Delete',
-            cssClass: 'alert-button-confirm',
-            handler: () => {
-              // Return true to allow alert to dismiss, then process deletion
-              setTimeout(async () => {
-                const loading = await this.loadingController.create({
-                  message: 'Deleting photo...'
-                });
-                await loading.present();
-
-                try {
-                  // Remove from UI immediately using filter
-                  if (this.visualPhotos[key]) {
-                    this.visualPhotos[key] = this.visualPhotos[key].filter(
-                      (p: any) => p.AttachID !== photo.AttachID && p.imageId !== photo.imageId
-                    );
-                  }
-
-                  // DEXIE-FIRST: Delete from local IndexedDB (localImages and localBlobs)
-                  const imageIdToDelete = photo.imageId || photo.localImageId;
-                  if (imageIdToDelete) {
-                    try {
-                      // Get the localImage to find the blobId
-                      const localImage = await db.localImages.get(imageIdToDelete);
-                      if (localImage) {
-                        // Delete the blob if exists
-                        if (localImage.localBlobId) {
-                          await db.localBlobs.delete(localImage.localBlobId);
-                          console.log('[DELETE PHOTO] Deleted blob:', localImage.localBlobId);
-                        }
-                        // Delete the localImage record
-                        await db.localImages.delete(imageIdToDelete);
-                        console.log('[DELETE PHOTO] Deleted localImage:', imageIdToDelete);
-                      }
-                    } catch (dexieError) {
-                      console.warn('[DELETE PHOTO] Error deleting from Dexie:', dexieError);
-                    }
-                  }
-
-                  // Delete from backend database (for synced photos)
-                  const attachIdToDelete = photo.AttachID || photo.attachId;
-                  if (attachIdToDelete && !String(attachIdToDelete).startsWith('temp_') && !String(attachIdToDelete).startsWith('img_')) {
-                    await this.hudData.deleteVisualPhoto(attachIdToDelete);
-                    console.log('[DELETE PHOTO] Queued backend deletion:', attachIdToDelete);
-                  }
-
-                  // CRITICAL: Clear attachment cache so next page load fetches fresh data from server
-                  const visualId = this.visualRecordIds[key];
-                  if (visualId) {
-                    this.hudData.clearAttachmentCache(String(visualId));
-                    console.log('[DELETE PHOTO] Cleared attachment cache for:', visualId);
-                  }
-
-                  // Force UI update
-                  this.changeDetectorRef.detectChanges();
-
-                  await loading.dismiss();
-                  await this.showToast('Photo deleted', 'success');
-                } catch (error) {
-                  await loading.dismiss();
-                  console.error('Error deleting photo:', error);
-                  await this.showToast('Failed to delete photo', 'danger');
-                }
-              }, 100);
-
-              return true; // Allow alert to dismiss immediately
-            }
+            role: 'destructive',
+            cssClass: 'alert-button-confirm'
           },
           {
             text: 'Cancel',
@@ -5293,9 +5236,70 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       });
 
       await alert.present();
+
+      // Wait for dialog to dismiss and check if user confirmed deletion
+      const result = await alert.onDidDismiss();
+
+      if (result.role === 'destructive') {
+        // OFFLINE-FIRST: No loading spinner - immediate UI update
+        try {
+          const key = `${category}_${itemId}`;
+
+          // Remove from UI IMMEDIATELY (optimistic update)
+          if (this.visualPhotos[key]) {
+            this.visualPhotos[key] = this.visualPhotos[key].filter(
+              (p: any) => p.AttachID !== photo.AttachID
+            );
+            // Update photo count immediately
+            this.photoCountsByKey[key] = this.visualPhotos[key].length;
+          }
+
+          // Force UI update first
+          this.changeDetectorRef.detectChanges();
+
+          // Clear cached photo IMAGE from IndexedDB
+          await this.indexedDb.deleteCachedPhoto(String(photo.AttachID));
+
+          // Remove from cached ATTACHMENTS LIST in IndexedDB
+          await this.indexedDb.removeAttachmentFromCache(String(photo.AttachID), 'visual_attachments');
+
+          // Handle LocalImage (new local-first system) deletion
+          const isLocalFirstPhoto = photo.isLocalFirst || photo.isLocalImage || photo.localImageId ||
+            (photo.imageId && String(photo.imageId).startsWith('img_'));
+
+          if (isLocalFirstPhoto) {
+            const localImageId = photo.localImageId || photo.imageId;
+            console.log('[Delete Photo] Deleting LocalImage:', localImageId);
+
+            // CRITICAL: Get LocalImage data BEFORE deleting to check if server deletion is needed
+            const localImage = await this.indexedDb.getLocalImage(localImageId);
+
+            // If the photo was already synced (has real attachId), queue delete for server
+            if (localImage?.attachId && !String(localImage.attachId).startsWith('img_')) {
+              console.log('[Delete Photo] LocalImage was synced, queueing server delete:', localImage.attachId);
+              await this.hudData.deleteVisualPhoto(localImage.attachId);
+            }
+
+            // NOW delete from LocalImage system (after queuing server delete)
+            await this.localImageService.deleteLocalImage(localImageId);
+          }
+          // Legacy photo deletion
+          else if (photo.AttachID && !String(photo.AttachID).startsWith('temp_')) {
+            await this.hudData.deleteVisualPhoto(photo.AttachID);
+            console.log('[Delete Photo] Deleted photo (or queued for sync):', photo.AttachID);
+          }
+
+          console.log('[Delete Photo] Photo removed successfully');
+        } catch (error) {
+          console.error('Error deleting photo:', error);
+          // Toast removed per user request
+          // await this.showToast('Failed to delete photo', 'danger');
+        }
+      }
     } catch (error) {
       console.error('Error in deletePhoto:', error);
-      await this.showToast('Failed to delete photo', 'danger');
+      // Toast removed per user request
+      // await this.showToast('Failed to delete photo', 'danger');
     }
   }
 
