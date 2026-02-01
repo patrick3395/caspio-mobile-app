@@ -6,8 +6,8 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../../services/caspio.service';
 import { FabricPhotoAnnotatorComponent } from '../../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { IndexedDbService } from '../../../../services/indexed-db.service';
+import { PhotoHandlerService, PhotoCaptureConfig, StandardPhotoEntry } from '../../../../services/photo-handler.service';
 import { ImageCompressionService } from '../../../../services/image-compression.service';
 import { db, VisualField } from '../../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../../services/visual-field-repo.service';
@@ -116,7 +116,8 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     private imageCompression: ImageCompressionService,
     private visualFieldRepo: VisualFieldRepoService,
     private localImageService: LocalImageService,
-    private foundationData: EngineersFoundationDataService
+    private foundationData: EngineersFoundationDataService,
+    private photoHandler: PhotoHandlerService
   ) {}
 
   ngOnInit() {
@@ -1026,28 +1027,78 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     }
   }
 
-  // ===== PHOTO METHODS =====
+  // ===== PHOTO METHODS (using centralized PhotoHandlerService) =====
 
+  /**
+   * Capture photo from camera using consolidated PhotoHandlerService
+   */
   async addPhotoFromCamera() {
+    if (!this.visualId) {
+      console.error('[VisualDetail] Cannot capture photo - no visualId found');
+      await this.showToast('Error: Visual not found', 'danger');
+      return;
+    }
+
     // GALLERY FIX: Set flag to prevent ionViewWillEnter from reloading photos
-    // This prevents race condition when app returns from native camera
     this.isPhotoCaptureInProgress = true;
     console.log('[VisualDetail] Camera capture starting - setting isPhotoCaptureInProgress=true');
 
     try {
-      const photo = await Camera.getPhoto({
-        quality: 70,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera,
-        saveToGallery: false
-      });
+      const config: PhotoCaptureConfig = {
+        entityType: 'visual',
+        entityId: this.visualId,
+        serviceId: this.serviceId,
+        category: this.categoryName,
+        itemId: this.templateId,
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.photos.unshift({
+            id: photo.imageId,
+            displayUrl: photo.displayUrl,
+            originalUrl: photo.originalUrl,
+            caption: photo.caption || '',
+            uploading: photo.uploading,
+            isLocal: photo.isLocal,
+            hasAnnotations: photo.hasAnnotations,
+            drawings: photo.Drawings || '',
+            imageId: photo.imageId,
+            attachId: photo.attachId
+          });
+          this.changeDetectorRef.detectChanges();
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          const tempIndex = this.photos.findIndex(p => p.id === tempId);
+          if (tempIndex >= 0) {
+            this.photos[tempIndex] = {
+              id: photo.imageId,
+              displayUrl: photo.displayUrl,
+              originalUrl: photo.originalUrl,
+              caption: photo.caption || '',
+              uploading: false,
+              isLocal: photo.isLocal,
+              hasAnnotations: photo.hasAnnotations,
+              drawings: photo.Drawings || '',
+              imageId: photo.imageId,
+              attachId: photo.attachId
+            };
+          }
+          // Clear attachment cache for fresh data
+          this.foundationData.clearEFEAttachmentsCache();
+          this.changeDetectorRef.detectChanges();
+        },
+        onUploadFailed: (tempId: string, error: any) => {
+          const tempIndex = this.photos.findIndex(p => p.id === tempId);
+          if (tempIndex >= 0) {
+            this.photos.splice(tempIndex, 1);
+          }
+          this.changeDetectorRef.detectChanges();
+        }
+      };
 
-      if (photo.dataUrl) {
-        await this.processAndSavePhoto(photo.dataUrl);
-      }
+      await this.photoHandler.captureFromCamera(config);
     } catch (error: any) {
-      if (error?.message !== 'User cancelled photos app') {
+      // Check if user cancelled
+      const errorMessage = typeof error === 'string' ? error : error?.message || '';
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('[VisualDetail] Camera error:', error);
         await this.showToast('Error taking photo', 'danger');
       }
@@ -1058,26 +1109,80 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
     }
   }
 
+  /**
+   * Select photos from gallery using consolidated PhotoHandlerService
+   */
   async addPhotoFromGallery() {
+    if (!this.visualId) {
+      console.error('[VisualDetail] Cannot select photo - no visualId found');
+      await this.showToast('Error: Visual not found', 'danger');
+      return;
+    }
+
     // GALLERY FIX: Set flag to prevent ionViewWillEnter from reloading photos
-    // This prevents race condition when app returns from native gallery picker
     this.isPhotoCaptureInProgress = true;
     console.log('[VisualDetail] Gallery capture starting - setting isPhotoCaptureInProgress=true');
 
     try {
-      const photo = await Camera.getPhoto({
-        quality: 70,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Photos,
-        saveToGallery: false
-      });
+      const config: PhotoCaptureConfig = {
+        entityType: 'visual',
+        entityId: this.visualId,
+        serviceId: this.serviceId,
+        category: this.categoryName,
+        itemId: this.templateId,
+        skipAnnotator: true,  // Multi-select skips annotator
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.photos.unshift({
+            id: photo.imageId,
+            displayUrl: photo.displayUrl,
+            originalUrl: photo.originalUrl,
+            caption: photo.caption || '',
+            uploading: photo.uploading || photo.isSkeleton,
+            isLocal: photo.isLocal,
+            hasAnnotations: photo.hasAnnotations,
+            drawings: photo.Drawings || '',
+            imageId: photo.imageId,
+            attachId: photo.attachId
+          });
+          this.changeDetectorRef.detectChanges();
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          const tempIndex = this.photos.findIndex(p => p.id === tempId);
+          if (tempIndex >= 0) {
+            this.photos[tempIndex] = {
+              id: photo.imageId,
+              displayUrl: photo.displayUrl,
+              originalUrl: photo.originalUrl,
+              caption: photo.caption || '',
+              uploading: false,
+              isLocal: photo.isLocal,
+              hasAnnotations: photo.hasAnnotations,
+              drawings: photo.Drawings || '',
+              imageId: photo.imageId,
+              attachId: photo.attachId
+            };
+          }
+          // Clear attachment cache for fresh data
+          this.foundationData.clearEFEAttachmentsCache();
+          this.changeDetectorRef.detectChanges();
+        },
+        onUploadFailed: (tempId: string, error: any) => {
+          const tempIndex = this.photos.findIndex(p => p.id === tempId);
+          if (tempIndex >= 0) {
+            this.photos[tempIndex] = {
+              ...this.photos[tempIndex],
+              uploading: false
+            };
+          }
+          this.changeDetectorRef.detectChanges();
+        }
+      };
 
-      if (photo.dataUrl) {
-        await this.processAndSavePhoto(photo.dataUrl);
-      }
+      await this.photoHandler.captureFromGallery(config);
     } catch (error: any) {
-      if (error?.message !== 'User cancelled photos app') {
+      // Check if user cancelled
+      const errorMessage = typeof error === 'string' ? error : error?.message || '';
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('[VisualDetail] Gallery error:', error);
         await this.showToast('Error selecting photo', 'danger');
       }
@@ -1085,156 +1190,6 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
       // GALLERY FIX: Clear flag after capture completes (success or cancel)
       this.isPhotoCaptureInProgress = false;
       console.log('[VisualDetail] Gallery capture complete - setting isPhotoCaptureInProgress=false');
-    }
-  }
-
-  private async processAndSavePhoto(dataUrl: string) {
-    try {
-      if (!this.visualId) {
-        console.error('[VisualDetail] Cannot save photo - no visualId found');
-        await this.showToast('Error: Visual not found', 'danger');
-        return;
-      }
-
-      // Convert dataUrl to blob then to File
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-
-      // Compress the image
-      const compressedBlob = await this.imageCompression.compressImage(blob as File, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
-        useWebWorker: true
-      });
-
-      // Create File object
-      const file = new File([compressedBlob], `photo_${Date.now()}.webp`, {
-        type: compressedBlob.type || 'image/webp'
-      });
-
-      // ============================================
-      // WEBAPP MODE: Direct S3 Upload
-      // MOBILE MODE: Local-first with background sync
-      // ============================================
-
-      if (environment.isWeb) {
-        console.log('[VisualDetail] WEBAPP MODE: Direct S3 upload starting...');
-
-        // Create temp display URL
-        const tempDisplayUrl = URL.createObjectURL(compressedBlob);
-        const tempId = `uploading_${Date.now()}`;
-
-        // Add temp photo entry with loading state
-        this.photos.unshift({
-          id: tempId,
-          displayUrl: tempDisplayUrl,
-          originalUrl: tempDisplayUrl,
-          caption: '',
-          uploading: true,
-          isLocal: false
-        });
-        this.changeDetectorRef.detectChanges();
-
-        try {
-          // DEBUG: Log the exact visualId being used for upload
-          console.log('[VisualDetail] WEBAPP: ⚠️ UPLOAD DEBUG - Using visualId:', this.visualId, 'for photo upload');
-
-          // Upload directly to S3
-          const uploadResult = await this.localImageService.uploadImageDirectToS3(
-            file,
-            'visual',
-            this.visualId,
-            this.serviceId,
-            '', // caption
-            ''  // drawings
-          );
-
-          console.log('[VisualDetail] WEBAPP: ✅ Upload complete, AttachID:', uploadResult.attachId, 'stored with VisualID:', this.visualId);
-
-          // Replace temp photo with real photo
-          const tempIndex = this.photos.findIndex(p => p.id === tempId);
-          if (tempIndex >= 0) {
-            this.photos[tempIndex] = {
-              id: uploadResult.attachId,
-              displayUrl: uploadResult.s3Url,
-              originalUrl: uploadResult.s3Url,
-              caption: '',
-              uploading: false,
-              isLocal: false,
-              hasAnnotations: false,
-              drawings: ''
-            };
-          }
-
-          this.changeDetectorRef.detectChanges();
-          await this.showToast('Photo uploaded successfully', 'success');
-
-          // CRITICAL: Clear attachment cache so next page load fetches fresh data from server
-          this.foundationData.clearEFEAttachmentsCache();
-
-          // Clean up temp blob URL
-          URL.revokeObjectURL(tempDisplayUrl);
-
-        } catch (uploadError: any) {
-          console.error('[VisualDetail] WEBAPP: ❌ Upload failed:', uploadError?.message || uploadError);
-
-          // Remove temp photo on error
-          const tempIndex = this.photos.findIndex(p => p.id === tempId);
-          if (tempIndex >= 0) {
-            this.photos.splice(tempIndex, 1);
-          }
-          this.changeDetectorRef.detectChanges();
-
-          URL.revokeObjectURL(tempDisplayUrl);
-          await this.showToast('Failed to upload photo. Please try again.', 'danger');
-        }
-
-        return;
-      }
-
-      // ============================================
-      // MOBILE MODE: Local-first with background sync
-      // ============================================
-
-      // DEXIE-FIRST: Use LocalImageService.captureImage() which:
-      // 1. Stores blob + metadata atomically
-      // 2. Adds to upload outbox for background sync
-      // 3. Returns stable imageId for UI
-      const localImage = await this.localImageService.captureImage(
-        file,
-        'visual',
-        this.visualId,
-        this.serviceId,
-        '', // caption
-        ''  // drawings
-      );
-
-      console.log('[VisualDetail] ✅ Photo captured via LocalImageService:', localImage.imageId);
-
-      // Get display URL from LocalImageService
-      const displayUrl = await this.localImageService.getDisplayUrl(localImage);
-
-      // Add to photos array immediately for UI display
-      // CRITICAL: Set originalUrl for annotation re-editing (so we can annotate from the original image)
-      // CRITICAL FIX: Also set imageId and attachId for consistent lookup in viewPhoto()
-      this.photos.unshift({
-        id: localImage.imageId,
-        displayUrl,
-        originalUrl: displayUrl,  // Store original for re-annotation
-        caption: '',
-        uploading: false,
-        isLocal: true,
-        hasAnnotations: false,
-        drawings: '',
-        // CRITICAL: These fields ensure viewPhoto() can find the localImage consistently
-        imageId: localImage.imageId,
-        attachId: localImage.attachId || undefined
-      });
-
-      this.changeDetectorRef.detectChanges();
-    } catch (error) {
-      console.error('[VisualDetail] Error processing photo:', error);
-      await this.showToast('Error processing photo', 'danger');
     }
   }
 

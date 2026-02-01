@@ -7,8 +7,8 @@ import { Subscription, firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../services/caspio.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { IndexedDbService } from '../../../services/indexed-db.service';
+import { PhotoHandlerService, PhotoCaptureConfig, StandardPhotoEntry } from '../../../services/photo-handler.service';
 import { ImageCompressionService } from '../../../services/image-compression.service';
 import { db, VisualField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
@@ -102,7 +102,8 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     private imageCompression: ImageCompressionService,
     private visualFieldRepo: VisualFieldRepoService,
     private localImageService: LocalImageService,
-    private lbwData: LbwDataService
+    private lbwData: LbwDataService,
+    private photoHandler: PhotoHandlerService
   ) {}
 
   ngOnInit() {
@@ -1170,193 +1171,145 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     }
   }
 
-  // ===== PHOTO METHODS =====
+  // ===== PHOTO METHODS (using centralized PhotoHandlerService) =====
 
+  /**
+   * Capture photo from camera using consolidated PhotoHandlerService
+   */
   async addPhotoFromCamera() {
-    try {
-      const photo = await Camera.getPhoto({
-        quality: 70,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera,
-        saveToGallery: false
-      });
+    if (!this.lbwId) {
+      console.error('[LbwVisualDetail] Cannot capture photo - no lbwId found');
+      await this.showToast('Error: Visual not found', 'danger');
+      return;
+    }
 
-      if (photo.dataUrl) {
-        await this.processAndSavePhoto(photo.dataUrl);
-      }
+    try {
+      const config: PhotoCaptureConfig = {
+        entityType: 'lbw',
+        entityId: this.lbwId,
+        serviceId: this.serviceId,
+        category: this.categoryName,
+        itemId: this.templateId,
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.photos.unshift({
+            id: photo.imageId,
+            displayUrl: photo.displayUrl,
+            originalUrl: photo.originalUrl,
+            caption: photo.caption || '',
+            uploading: photo.uploading,
+            isLocal: photo.isLocal,
+            hasAnnotations: photo.hasAnnotations,
+            drawings: photo.Drawings || ''
+          });
+          this.changeDetectorRef.detectChanges();
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          const tempIndex = this.photos.findIndex(p => p.id === tempId);
+          if (tempIndex >= 0) {
+            this.photos[tempIndex] = {
+              id: photo.imageId,
+              displayUrl: photo.displayUrl,
+              originalUrl: photo.originalUrl,
+              caption: photo.caption || '',
+              uploading: false,
+              isLocal: photo.isLocal,
+              hasAnnotations: photo.hasAnnotations,
+              drawings: photo.Drawings || ''
+            };
+          }
+          // Clear attachment cache for fresh data
+          this.lbwData.clearAttachmentCache(this.lbwId);
+          this.changeDetectorRef.detectChanges();
+        },
+        onUploadFailed: (tempId: string, error: any) => {
+          const tempIndex = this.photos.findIndex(p => p.id === tempId);
+          if (tempIndex >= 0) {
+            this.photos.splice(tempIndex, 1);
+          }
+          this.changeDetectorRef.detectChanges();
+        }
+      };
+
+      await this.photoHandler.captureFromCamera(config);
     } catch (error: any) {
-      if (error?.message !== 'User cancelled photos app') {
+      // Check if user cancelled
+      const errorMessage = typeof error === 'string' ? error : error?.message || '';
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
         console.error('[LbwVisualDetail] Camera error:', error);
         await this.showToast('Error taking photo', 'danger');
       }
     }
   }
 
+  /**
+   * Select photos from gallery using consolidated PhotoHandlerService
+   */
   async addPhotoFromGallery() {
-    try {
-      const photo = await Camera.getPhoto({
-        quality: 70,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Photos,
-        saveToGallery: false
-      });
-
-      if (photo.dataUrl) {
-        await this.processAndSavePhoto(photo.dataUrl);
-      }
-    } catch (error: any) {
-      if (error?.message !== 'User cancelled photos app') {
-        console.error('[LbwVisualDetail] Gallery error:', error);
-        await this.showToast('Error selecting photo', 'danger');
-      }
+    if (!this.lbwId) {
+      console.error('[LbwVisualDetail] Cannot select photo - no lbwId found');
+      await this.showToast('Error: Visual not found', 'danger');
+      return;
     }
-  }
 
-  private async processAndSavePhoto(dataUrl: string) {
     try {
-      if (!this.lbwId) {
-        console.error('[LbwVisualDetail] Cannot save photo - no lbwId found');
-        await this.showToast('Error: Visual not found', 'danger');
-        return;
-      }
-
-      // Convert dataUrl to blob then to File
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-
-      // Compress the image
-      const compressedBlob = await this.imageCompression.compressImage(blob as File, {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1280,
-        useWebWorker: true
-      });
-
-      // Create File object
-      const file = new File([compressedBlob], `photo_${Date.now()}.webp`, {
-        type: compressedBlob.type || 'image/webp'
-      });
-
-      // ============================================
-      // WEBAPP MODE: Direct S3 Upload
-      // MOBILE MODE: Local-first with background sync
-      // ============================================
-
-      if (environment.isWeb) {
-        console.log('[LbwVisualDetail] WEBAPP MODE: Direct S3 upload starting...');
-
-        // Create temp display URL
-        const tempDisplayUrl = URL.createObjectURL(compressedBlob);
-        const tempId = `uploading_${Date.now()}`;
-
-        // Add temp photo entry with loading state
-        this.photos.unshift({
-          id: tempId,
-          displayUrl: tempDisplayUrl,
-          originalUrl: tempDisplayUrl,
-          caption: '',
-          uploading: true,
-          isLocal: false
-        });
-        this.changeDetectorRef.detectChanges();
-
-        try {
-          // DEBUG: Log the exact lbwId being used for upload
-          console.log('[LbwVisualDetail] WEBAPP: ⚠️ UPLOAD DEBUG - Using lbwId:', this.lbwId, 'for photo upload');
-
-          // Upload directly to S3
-          const uploadResult = await this.localImageService.uploadImageDirectToS3(
-            file,
-            'lbw',
-            this.lbwId,
-            this.serviceId,
-            '', // caption
-            ''  // drawings
-          );
-
-          console.log('[LbwVisualDetail] WEBAPP: ✅ Upload complete, AttachID:', uploadResult.attachId, 'stored with LBWID:', this.lbwId);
-
-          // Replace temp photo with real photo
+      const config: PhotoCaptureConfig = {
+        entityType: 'lbw',
+        entityId: this.lbwId,
+        serviceId: this.serviceId,
+        category: this.categoryName,
+        itemId: this.templateId,
+        skipAnnotator: true,  // Multi-select skips annotator
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.photos.unshift({
+            id: photo.imageId,
+            displayUrl: photo.displayUrl,
+            originalUrl: photo.originalUrl,
+            caption: photo.caption || '',
+            uploading: photo.uploading || photo.isSkeleton,
+            isLocal: photo.isLocal,
+            hasAnnotations: photo.hasAnnotations,
+            drawings: photo.Drawings || ''
+          });
+          this.changeDetectorRef.detectChanges();
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
           const tempIndex = this.photos.findIndex(p => p.id === tempId);
           if (tempIndex >= 0) {
             this.photos[tempIndex] = {
-              id: uploadResult.attachId,
-              displayUrl: uploadResult.s3Url,
-              originalUrl: uploadResult.s3Url,
-              caption: '',
+              id: photo.imageId,
+              displayUrl: photo.displayUrl,
+              originalUrl: photo.originalUrl,
+              caption: photo.caption || '',
               uploading: false,
-              isLocal: false,
-              hasAnnotations: false,
-              drawings: ''
+              isLocal: photo.isLocal,
+              hasAnnotations: photo.hasAnnotations,
+              drawings: photo.Drawings || ''
             };
           }
-
-          this.changeDetectorRef.detectChanges();
-          await this.showToast('Photo uploaded successfully', 'success');
-
-          // CRITICAL: Clear attachment cache so next page load fetches fresh data from server
+          // Clear attachment cache for fresh data
           this.lbwData.clearAttachmentCache(this.lbwId);
-
-          // Clean up temp blob URL
-          URL.revokeObjectURL(tempDisplayUrl);
-
-        } catch (uploadError: any) {
-          console.error('[LbwVisualDetail] WEBAPP: ❌ Upload failed:', uploadError?.message || uploadError);
-
-          // Remove temp photo on error
+          this.changeDetectorRef.detectChanges();
+        },
+        onUploadFailed: (tempId: string, error: any) => {
           const tempIndex = this.photos.findIndex(p => p.id === tempId);
           if (tempIndex >= 0) {
-            this.photos.splice(tempIndex, 1);
+            this.photos[tempIndex] = {
+              ...this.photos[tempIndex],
+              uploading: false
+            };
           }
           this.changeDetectorRef.detectChanges();
-
-          URL.revokeObjectURL(tempDisplayUrl);
-          await this.showToast('Failed to upload photo. Please try again.', 'danger');
         }
+      };
 
-        return;
+      await this.photoHandler.captureFromGallery(config);
+    } catch (error: any) {
+      // Check if user cancelled
+      const errorMessage = typeof error === 'string' ? error : error?.message || '';
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('Cancel') && !errorMessage.includes('User')) {
+        console.error('[LbwVisualDetail] Gallery error:', error);
+        await this.showToast('Error selecting photo', 'danger');
       }
-
-      // ============================================
-      // MOBILE MODE: Local-first with background sync
-      // ============================================
-
-      // DEXIE-FIRST: Use LocalImageService.captureImage() which:
-      // 1. Stores blob + metadata atomically
-      // 2. Adds to upload outbox for background sync
-      // 3. Returns stable imageId for UI
-      const localImage = await this.localImageService.captureImage(
-        file,
-        'lbw',
-        this.lbwId,
-        this.serviceId,
-        '', // caption
-        ''  // drawings
-      );
-
-      console.log('[LbwVisualDetail] ✅ Photo captured via LocalImageService:', localImage.imageId);
-
-      // Get display URL from LocalImageService
-      const displayUrl = await this.localImageService.getDisplayUrl(localImage);
-
-      // Add to photos array immediately for UI display
-      // CRITICAL: Set originalUrl for annotation re-editing (so we can annotate from the original image)
-      this.photos.unshift({
-        id: localImage.imageId,
-        displayUrl,
-        originalUrl: displayUrl,  // Store original for re-annotation
-        caption: '',
-        uploading: false,
-        isLocal: true,
-        hasAnnotations: false,
-        drawings: ''
-      });
-
-      this.changeDetectorRef.detectChanges();
-    } catch (error) {
-      console.error('[LbwVisualDetail] Error processing photo:', error);
-      await this.showToast('Error processing photo', 'danger');
     }
   }
 

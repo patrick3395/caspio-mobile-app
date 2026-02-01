@@ -111,6 +111,9 @@ export class PhotoHandlerService {
    * @returns The created photo entry, or null if user cancelled
    */
   async captureFromCamera(config: PhotoCaptureConfig): Promise<StandardPhotoEntry | null> {
+    // DEBUG ALERT: Confirm all templates use this centralized function
+    alert(`[PhotoHandlerService] captureFromCamera called!\n\nTemplate: ${config.entityType.toUpperCase()}\nEntity ID: ${config.entityId}\nCategory: ${config.category}\nItem ID: ${config.itemId}`);
+
     try {
       // 1. Capture photo with camera
       const image = await Camera.getPhoto({
@@ -189,6 +192,9 @@ export class PhotoHandlerService {
    * @returns Array of created photo entries
    */
   async captureFromGallery(config: PhotoCaptureConfig): Promise<StandardPhotoEntry[]> {
+    // DEBUG ALERT: Confirm all templates use this centralized function
+    alert(`[PhotoHandlerService] captureFromGallery called!\n\nTemplate: ${config.entityType.toUpperCase()}\nEntity ID: ${config.entityId}\nCategory: ${config.category}\nItem ID: ${config.itemId}`);
+
     try {
       // 1. Pick images from gallery
       const images = await Camera.pickImages({
@@ -367,6 +373,9 @@ export class PhotoHandlerService {
 
     console.log('[PhotoHandler] WEBAPP: Starting direct S3 upload...');
 
+    // DEBUG ALERT: Confirm webapp path is being used
+    alert(`[PhotoHandlerService] WEBAPP PATH\n\nprocessWebappPhoto called!\n\nTemplate: ${config.entityType.toUpperCase()}\nDirect S3 upload starting...`);
+
     // Create temp photo entry with loading state
     const tempId = skeletonIdToReplace || `uploading_${Date.now()}`;
 
@@ -489,6 +498,9 @@ export class PhotoHandlerService {
   ): Promise<StandardPhotoEntry | null> {
 
     console.log('[PhotoHandler] MOBILE: Starting Dexie-first capture...');
+
+    // DEBUG ALERT: Confirm mobile path is being used
+    alert(`[PhotoHandlerService] MOBILE PATH\n\nprocessMobilePhoto called!\n\nTemplate: ${config.entityType.toUpperCase()}\nDexie-first capture starting...`);
 
     try {
       // Create LocalImage with stable UUID (stores blob + creates outbox item)
