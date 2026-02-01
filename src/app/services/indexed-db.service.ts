@@ -3017,7 +3017,15 @@ export class IndexedDbService {
       localVersion: (existing.localVersion || 0) + 1
     };
 
+    // DEBUG: Show what we're about to write
+    alert(`DEBUG updateLocalImage BEFORE PUT\n\nimageId: ${imageId}\nexisting.drawings: ${existing.drawings?.length || 'NULL'}\nupdates.drawings: ${updates.drawings?.length || 'NULL'}\nupdated.drawings: ${updated.drawings?.length || 'NULL'}`);
+
     await db.localImages.put(updated);
+
+    // DEBUG: Verify write immediately
+    const verify = await db.localImages.get(imageId);
+    alert(`DEBUG updateLocalImage AFTER PUT\n\nimageId: ${imageId}\nupdated.drawings: ${updated.drawings?.length || 'NULL'}\nread back: ${verify?.drawings?.length || 'NULL'}\nmatch: ${verify?.drawings === updated.drawings}`);
+
     console.log('[IndexedDB] Local image updated:', imageId, 'status:', updated.status, 'version:', updated.localVersion,
       'drawings:', updated.drawings?.length || 0, 'chars');
 
