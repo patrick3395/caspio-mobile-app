@@ -3017,8 +3017,9 @@ export class IndexedDbService {
       localVersion: (existing.localVersion || 0) + 1
     };
 
-    // DEBUG: Show what we're about to write
-    alert(`DEBUG updateLocalImage BEFORE PUT\n\nimageId: ${imageId}\nexisting.drawings: ${existing.drawings?.length || 'NULL'}\nupdates.drawings: ${updates.drawings?.length || 'NULL'}\nupdated.drawings: ${updated.drawings?.length || 'NULL'}`);
+    // DEBUG: Show what we're about to write AND where call came from
+    const stack = new Error().stack?.split('\n').slice(1, 8).join('\n') || 'no stack';
+    alert(`DEBUG updateLocalImage BEFORE PUT\n\nimageId: ${imageId}\nexisting.drawings: ${existing.drawings?.length || 'NULL'}\nupdates.drawings: ${updates.drawings?.length || 'NULL'}\nupdated.drawings: ${updated.drawings?.length || 'NULL'}\n\nSTACK:\n${stack}`);
 
     await db.localImages.put(updated);
 
