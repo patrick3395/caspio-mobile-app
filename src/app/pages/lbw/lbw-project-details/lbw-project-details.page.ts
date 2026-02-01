@@ -124,7 +124,7 @@ export class LbwProjectDetailsPage implements OnInit {
 
       // Load service data
       this.caspioService.getService(this.serviceId).subscribe({
-        next: (service) => {
+        next: async (service) => {
           this.serviceData = service || {};
 
           // Check if OccupancyFurnishings is a custom value
@@ -198,59 +198,21 @@ export class LbwProjectDetailsPage implements OnInit {
           }
 
           // Initialize multi-select arrays from stored comma-separated strings
+          // Don't filter out custom values - loadDropdownOptions() will add them to options
           if (this.serviceData.InAttendance) {
             this.inAttendanceSelections = this.serviceData.InAttendance.split(',').map((s: string) => s.trim()).filter((s: string) => s);
-
-            // Check if any selection is a custom value (not in predefined options)
-            const customValues = this.inAttendanceSelections.filter((val: string) =>
-              !this.inAttendanceOptions.includes(val)
-            );
-            if (customValues.length > 0) {
-              this.inAttendanceOtherValue = customValues.join(', ');
-              this.inAttendanceSelections = this.inAttendanceSelections.filter((val: string) =>
-                this.inAttendanceOptions.includes(val) || val === 'Other'
-              );
-              if (!this.inAttendanceSelections.includes('Other')) {
-                this.inAttendanceSelections.push('Other');
-              }
-            }
           }
 
           if (this.serviceData.SecondFoundationRooms) {
             this.secondFoundationRoomsSelections = this.serviceData.SecondFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
-
-            // Check if any selection is a custom value
-            const customValues = this.secondFoundationRoomsSelections.filter((val: string) =>
-              !this.secondFoundationRoomsOptions.includes(val)
-            );
-            if (customValues.length > 0) {
-              this.secondFoundationRoomsOtherValue = customValues.join(', ');
-              this.secondFoundationRoomsSelections = this.secondFoundationRoomsSelections.filter((val: string) =>
-                this.secondFoundationRoomsOptions.includes(val) || val === 'Other'
-              );
-              if (!this.secondFoundationRoomsSelections.includes('Other')) {
-                this.secondFoundationRoomsSelections.push('Other');
-              }
-            }
           }
 
           if (this.serviceData.ThirdFoundationRooms) {
             this.thirdFoundationRoomsSelections = this.serviceData.ThirdFoundationRooms.split(',').map((s: string) => s.trim()).filter((s: string) => s);
-
-            // Check if any selection is a custom value
-            const customValues = this.thirdFoundationRoomsSelections.filter((val: string) =>
-              !this.thirdFoundationRoomsOptions.includes(val)
-            );
-            if (customValues.length > 0) {
-              this.thirdFoundationRoomsOtherValue = customValues.join(', ');
-              this.thirdFoundationRoomsSelections = this.thirdFoundationRoomsSelections.filter((val: string) =>
-                this.thirdFoundationRoomsOptions.includes(val) || val === 'Other'
-              );
-              if (!this.thirdFoundationRoomsSelections.includes('Other')) {
-                this.thirdFoundationRoomsSelections.push('Other');
-              }
-            }
           }
+
+          // Reload dropdown options to restore custom values to the options arrays
+          await this.loadDropdownOptions();
 
           this.changeDetectorRef.detectChanges();
         },
@@ -310,12 +272,27 @@ export class LbwProjectDetailsPage implements OnInit {
           }
         }
 
-        // Set InAttendance options
+        // Set InAttendance options (multi-select - preserve custom selections)
         if (optionsByService['InAttendance'] && optionsByService['InAttendance'].length > 0) {
           this.inAttendanceOptions = optionsByService['InAttendance'];
-          if (!this.inAttendanceOptions.includes('Other')) {
-            this.inAttendanceOptions.push('Other');
+          // Restore custom values from saved selections
+          if (this.inAttendanceSelections && this.inAttendanceSelections.length > 0) {
+            this.inAttendanceSelections.forEach(selection => {
+              if (selection && selection !== 'Other' && selection !== 'None' && !this.inAttendanceOptions.includes(selection)) {
+                // Add missing custom selection to options
+                console.log(`[LBW ProjectDetails] Adding missing InAttendance selection to options: "${selection}"`);
+                this.inAttendanceOptions.push(selection);
+              }
+            });
           }
+          // Sort options alphabetically, keeping "None" and "Other" at the end
+          this.inAttendanceOptions = this.inAttendanceOptions
+            .filter(opt => opt !== 'Other' && opt !== 'None')
+            .sort((a, b) => a.localeCompare(b));
+          if (!this.inAttendanceOptions.includes('None')) {
+            this.inAttendanceOptions.push('None');
+          }
+          this.inAttendanceOptions.push('Other');
         }
 
         // Set FirstFoundationType options
@@ -342,20 +319,50 @@ export class LbwProjectDetailsPage implements OnInit {
           }
         }
 
-        // Set SecondFoundationRooms options
+        // Set SecondFoundationRooms options (multi-select - preserve custom selections)
         if (optionsByService['SecondFoundationRooms'] && optionsByService['SecondFoundationRooms'].length > 0) {
           this.secondFoundationRoomsOptions = optionsByService['SecondFoundationRooms'];
-          if (!this.secondFoundationRoomsOptions.includes('Other')) {
-            this.secondFoundationRoomsOptions.push('Other');
+          // Restore custom values from saved selections
+          if (this.secondFoundationRoomsSelections && this.secondFoundationRoomsSelections.length > 0) {
+            this.secondFoundationRoomsSelections.forEach(selection => {
+              if (selection && selection !== 'Other' && selection !== 'None' && !this.secondFoundationRoomsOptions.includes(selection)) {
+                // Add missing custom selection to options
+                console.log(`[LBW ProjectDetails] Adding missing SecondFoundationRooms selection to options: "${selection}"`);
+                this.secondFoundationRoomsOptions.push(selection);
+              }
+            });
           }
+          // Sort options alphabetically, keeping "None" and "Other" at the end
+          this.secondFoundationRoomsOptions = this.secondFoundationRoomsOptions
+            .filter(opt => opt !== 'Other' && opt !== 'None')
+            .sort((a, b) => a.localeCompare(b));
+          if (!this.secondFoundationRoomsOptions.includes('None')) {
+            this.secondFoundationRoomsOptions.push('None');
+          }
+          this.secondFoundationRoomsOptions.push('Other');
         }
 
-        // Set ThirdFoundationRooms options
+        // Set ThirdFoundationRooms options (multi-select - preserve custom selections)
         if (optionsByService['ThirdFoundationRooms'] && optionsByService['ThirdFoundationRooms'].length > 0) {
           this.thirdFoundationRoomsOptions = optionsByService['ThirdFoundationRooms'];
-          if (!this.thirdFoundationRoomsOptions.includes('Other')) {
-            this.thirdFoundationRoomsOptions.push('Other');
+          // Restore custom values from saved selections
+          if (this.thirdFoundationRoomsSelections && this.thirdFoundationRoomsSelections.length > 0) {
+            this.thirdFoundationRoomsSelections.forEach(selection => {
+              if (selection && selection !== 'Other' && selection !== 'None' && !this.thirdFoundationRoomsOptions.includes(selection)) {
+                // Add missing custom selection to options
+                console.log(`[LBW ProjectDetails] Adding missing ThirdFoundationRooms selection to options: "${selection}"`);
+                this.thirdFoundationRoomsOptions.push(selection);
+              }
+            });
           }
+          // Sort options alphabetically, keeping "None" and "Other" at the end
+          this.thirdFoundationRoomsOptions = this.thirdFoundationRoomsOptions
+            .filter(opt => opt !== 'Other' && opt !== 'None')
+            .sort((a, b) => a.localeCompare(b));
+          if (!this.thirdFoundationRoomsOptions.includes('None')) {
+            this.thirdFoundationRoomsOptions.push('None');
+          }
+          this.thirdFoundationRoomsOptions.push('Other');
         }
 
         // Set OwnerOccupantInterview options
@@ -491,33 +498,62 @@ export class LbwProjectDetailsPage implements OnInit {
     await this.saveInAttendance();
   }
 
-  async onInAttendanceOtherChange() {
-    if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+  async addInAttendanceOther() {
+    const customValue = this.inAttendanceOtherValue?.trim();
+    if (!customValue) {
+      return;
+    }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.inAttendanceSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.inAttendanceSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.inAttendanceOptions.includes(customValue)) {
+      console.log(`[LBW ProjectDetails] InAttendance option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.inAttendanceSelections.includes(customValue)) {
+        this.inAttendanceSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneOptIndex = this.inAttendanceOptions.indexOf('None');
+      if (noneOptIndex > -1) {
+        this.inAttendanceOptions.splice(noneOptIndex, 0, customValue);
+      } else {
+        // Fallback: add before Other
+        const otherIndex = this.inAttendanceOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.inAttendanceOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.inAttendanceOptions.push(customValue);
+        }
+      }
+      console.log(`[LBW ProjectDetails] Added custom InAttendance option: "${customValue}"`);
+
+      // Select the new custom value
       if (!this.inAttendanceSelections) {
         this.inAttendanceSelections = [];
       }
-      const otherIndex = this.inAttendanceSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.inAttendanceSelections[otherIndex] = this.inAttendanceOtherValue.trim();
-      } else {
-        const customIndex = this.inAttendanceSelections.findIndex((opt: string) =>
-          opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-        );
-        if (customIndex > -1) {
-          this.inAttendanceSelections[customIndex] = this.inAttendanceOtherValue.trim();
-        } else {
-          this.inAttendanceSelections.push(this.inAttendanceOtherValue.trim());
-        }
-      }
-    } else {
-      const customIndex = this.inAttendanceSelections.findIndex((opt: string) =>
-        opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-      );
-      if (customIndex > -1) {
-        this.inAttendanceSelections[customIndex] = 'Other';
-      }
+      this.inAttendanceSelections.push(customValue);
     }
+
+    // Clear the input field for the next entry
+    this.inAttendanceOtherValue = '';
+
+    // Save the updated selections
     await this.saveInAttendance();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // Legacy method for blur - only save if there's a pending value
+  async onInAttendanceOtherChange() {
+    // Only add if there's a value (blur without value should do nothing)
+    if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+      await this.addInAttendanceOther();
+    }
   }
 
   private async saveInAttendance() {
@@ -625,16 +661,60 @@ export class LbwProjectDetailsPage implements OnInit {
     await this.saveSecondFoundationRooms();
   }
 
-  async onSecondFoundationRoomsOtherChange() {
-    if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
-      const otherIndex = this.secondFoundationRoomsSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.secondFoundationRoomsSelections[otherIndex] = this.secondFoundationRoomsOtherValue.trim();
-      } else {
-        this.secondFoundationRoomsSelections.push(this.secondFoundationRoomsOtherValue.trim());
-      }
+  async addSecondFoundationRoomsOther() {
+    const customValue = this.secondFoundationRoomsOtherValue?.trim();
+    if (!customValue) {
+      return;
     }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.secondFoundationRoomsSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.secondFoundationRoomsSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.secondFoundationRoomsOptions.includes(customValue)) {
+      console.log(`[LBW ProjectDetails] SecondFoundationRooms option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.secondFoundationRoomsSelections.includes(customValue)) {
+        this.secondFoundationRoomsSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneOptIndex = this.secondFoundationRoomsOptions.indexOf('None');
+      if (noneOptIndex > -1) {
+        this.secondFoundationRoomsOptions.splice(noneOptIndex, 0, customValue);
+      } else {
+        const otherIndex = this.secondFoundationRoomsOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.secondFoundationRoomsOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.secondFoundationRoomsOptions.push(customValue);
+        }
+      }
+      console.log(`[LBW ProjectDetails] Added custom SecondFoundationRooms option: "${customValue}"`);
+
+      // Select the new custom value
+      if (!this.secondFoundationRoomsSelections) {
+        this.secondFoundationRoomsSelections = [];
+      }
+      this.secondFoundationRoomsSelections.push(customValue);
+    }
+
+    // Clear the input field for the next entry
+    this.secondFoundationRoomsOtherValue = '';
+
+    // Save the updated selections
     await this.saveSecondFoundationRooms();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  async onSecondFoundationRoomsOtherChange() {
+    // Only add if there's a value (blur without value should do nothing)
+    if (this.secondFoundationRoomsOtherValue && this.secondFoundationRoomsOtherValue.trim()) {
+      await this.addSecondFoundationRoomsOther();
+    }
   }
 
   private async saveSecondFoundationRooms() {
@@ -678,16 +758,60 @@ export class LbwProjectDetailsPage implements OnInit {
     await this.saveThirdFoundationRooms();
   }
 
-  async onThirdFoundationRoomsOtherChange() {
-    if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
-      const otherIndex = this.thirdFoundationRoomsSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        this.thirdFoundationRoomsSelections[otherIndex] = this.thirdFoundationRoomsOtherValue.trim();
-      } else {
-        this.thirdFoundationRoomsSelections.push(this.thirdFoundationRoomsOtherValue.trim());
-      }
+  async addThirdFoundationRoomsOther() {
+    const customValue = this.thirdFoundationRoomsOtherValue?.trim();
+    if (!customValue) {
+      return;
     }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.thirdFoundationRoomsSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.thirdFoundationRoomsSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.thirdFoundationRoomsOptions.includes(customValue)) {
+      console.log(`[LBW ProjectDetails] ThirdFoundationRooms option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.thirdFoundationRoomsSelections.includes(customValue)) {
+        this.thirdFoundationRoomsSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneOptIndex = this.thirdFoundationRoomsOptions.indexOf('None');
+      if (noneOptIndex > -1) {
+        this.thirdFoundationRoomsOptions.splice(noneOptIndex, 0, customValue);
+      } else {
+        const otherIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.thirdFoundationRoomsOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.thirdFoundationRoomsOptions.push(customValue);
+        }
+      }
+      console.log(`[LBW ProjectDetails] Added custom ThirdFoundationRooms option: "${customValue}"`);
+
+      // Select the new custom value
+      if (!this.thirdFoundationRoomsSelections) {
+        this.thirdFoundationRoomsSelections = [];
+      }
+      this.thirdFoundationRoomsSelections.push(customValue);
+    }
+
+    // Clear the input field for the next entry
+    this.thirdFoundationRoomsOtherValue = '';
+
+    // Save the updated selections
     await this.saveThirdFoundationRooms();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  async onThirdFoundationRoomsOtherChange() {
+    // Only add if there's a value (blur without value should do nothing)
+    if (this.thirdFoundationRoomsOtherValue && this.thirdFoundationRoomsOtherValue.trim()) {
+      await this.addThirdFoundationRoomsOther();
+    }
   }
 
   private async saveThirdFoundationRooms() {

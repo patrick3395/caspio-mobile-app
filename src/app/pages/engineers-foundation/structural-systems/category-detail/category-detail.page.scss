@@ -515,36 +515,59 @@ ion-content {
         .other-input-container {
           padding: 8px 16px 12px 16px;
           border-top: 1px solid #f0f0f0;
-          display: flex;
-          align-items: center;
-          gap: 8px;
 
-          .other-input {
-            flex: 1;
-            min-width: 0;
-            padding: 10px 12px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 14px;
+          &.other-input-inline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
 
-            &:focus {
-              outline: none;
-              border-color: var(--ion-color-primary);
-              box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb), 0.1);
+            .other-input {
+              flex: 1;
+              min-width: 0;
+              padding: 10px 12px;
+              border: 1px solid #e0e0e0;
+              border-radius: 6px;
+              font-size: 14px;
+
+              &:focus {
+                outline: none;
+                border-color: var(--ion-color-primary);
+                box-shadow: 0 0 0 3px rgba(var(--ion-color-primary-rgb), 0.1);
+              }
+
+              &::placeholder {
+                color: #999;
+                font-style: italic;
+              }
             }
 
-            &::placeholder {
-              color: #999;
-              font-style: italic;
-            }
-          }
+            .add-btn-inline {
+              width: 32px;
+              height: 32px;
+              min-width: 32px;
+              border-radius: 6px;
+              background: var(--ion-color-primary);
+              color: white;
+              border: none;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+              transition: background-color 0.2s, transform 0.1s;
+              flex-shrink: 0;
 
-          ion-button {
-            --padding-start: 12px;
-            --padding-end: 12px;
-            height: 36px;
-            margin: 0;
-            flex-shrink: 0;
+              ion-icon {
+                font-size: 18px;
+              }
+
+              &:hover {
+                background: var(--ion-color-primary-shade);
+              }
+
+              &:active {
+                transform: scale(0.95);
+              }
+            }
           }
         }
 

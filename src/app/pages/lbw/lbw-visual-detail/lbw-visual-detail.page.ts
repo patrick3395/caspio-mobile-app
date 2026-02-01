@@ -1386,6 +1386,9 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         this.photos.splice(index, 1);
       }
 
+      // Force UI update first
+      this.changeDetectorRef.detectChanges();
+
       // Get localImage data before deletion
       const localImage = await db.localImages.get(photo.id);
 
@@ -1405,11 +1408,9 @@ export class LbwVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         console.log('[LbwVisualDetail] ✅ Queued photo deletion to Caspio:', localImage.attachId);
       }
 
-      await this.showToast('Photo deleted', 'success');
-      this.changeDetectorRef.detectChanges();
+      console.log('[LbwVisualDetail] Photo removed successfully');
     } catch (error) {
       console.error('[LbwVisualDetail] Error deleting photo:', error);
-      await this.showToast('Error deleting photo', 'danger');
     }
   }
 

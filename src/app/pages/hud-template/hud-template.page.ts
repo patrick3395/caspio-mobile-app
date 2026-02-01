@@ -6879,59 +6879,50 @@ Stack: ${error?.stack}`;
         message: 'Are you sure you want to delete this photo?',
         buttons: [
           {
+            text: 'Delete',
+            role: 'destructive',
+            cssClass: 'alert-button-confirm'
+          },
+          {
             text: 'Cancel',
             role: 'cancel',
             cssClass: 'alert-button-cancel'
-          },
-          {
-            text: 'Delete',
-            cssClass: 'alert-button-confirm',
-            handler: () => {
-              // Return false to prevent auto-dismiss, dismiss manually after delete
-              // This prevents the handler from blocking the alert dismissal
-              setTimeout(async () => {
-                const loading = await this.loadingController.create({
-                  message: 'Deleting photo...'
-                });
-                await loading.present();
-                
-                try {
-                  const attachId = photo.AttachID || photo.id;
-                  const key = `${category}_${itemId}`;
-                  
-                  // Delete from database (Services_HUD_Attach table)
-                  await this.caspioService.deleteServicesHUDAttach(attachId).toPromise();
-                  
-                  // [v1.4.387] Remove from KEY-BASED storage
-                  if (this.visualPhotos[key]) {
-                    this.visualPhotos[key] = this.visualPhotos[key].filter(
-                      (p: any) => (p.AttachID || p.id) !== attachId
-                    );
-                  }
-                  
-                  // Force UI update
-                  this.changeDetectorRef.detectChanges();
-                  
-                  await loading.dismiss();
-                  // Success toast removed per user request
-                } catch (error) {
-                  await loading.dismiss();
-                  console.error('Failed to delete photo:', error);
-                  await this.showToast('Failed to delete photo', 'danger');
-                }
-              }, 100);
-              
-              return true; // Allow alert to dismiss immediately
-            }
           }
         ],
         cssClass: 'custom-document-alert'
       });
-      
+
       await alert.present();
+
+      // Wait for dialog to dismiss and check if user confirmed deletion
+      const result = await alert.onDidDismiss();
+
+      if (result.role === 'destructive') {
+        // OFFLINE-FIRST: No loading spinner - immediate UI update
+        try {
+          const attachId = photo.AttachID || photo.id;
+          const key = `${category}_${itemId}`;
+
+          // Remove from UI IMMEDIATELY (optimistic update)
+          if (this.visualPhotos[key]) {
+            this.visualPhotos[key] = this.visualPhotos[key].filter(
+              (p: any) => (p.AttachID || p.id) !== attachId
+            );
+          }
+
+          // Force UI update first
+          this.changeDetectorRef.detectChanges();
+
+          // Delete from database (Services_HUD_Attach table)
+          await this.caspioService.deleteServicesHUDAttach(attachId).toPromise();
+
+          console.log('[Delete Photo] Photo removed successfully');
+        } catch (error) {
+          console.error('Failed to delete photo:', error);
+        }
+      }
     } catch (error) {
       console.error('Error in deletePhoto:', error);
-      await this.showToast('Failed to delete photo', 'danger');
     }
   }
   

@@ -59,7 +59,7 @@
           <div class="simple-accordion-header" (click)="toggleSection('information')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <span class="count-badge info">{{ organizedData.comments.length }}</span>
+                <span class="count-badge info">{{ getSelectedCount(organizedData.comments) }}</span>
               </div>
               <span class="type-header">Information</span>
             </div>
@@ -141,17 +141,16 @@
                 </ion-item>
               </div>
               <!-- Custom input for "Other" option - allows adding multiple custom values -->
-              <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+              <div class="other-input-container other-input-inline" *ngIf="isOptionSelectedV1(item, 'Other')">
                 <input type="text"
                        [(ngModel)]="item.otherValue"
                        (keyup.enter)="addMultiSelectOther(categoryName, item)"
                        (click)="$event.stopPropagation()"
-                       placeholder="Type option and press Enter or Add..."
+                       placeholder="Type and press Enter..."
                        class="styled-input other-input">
-                <ion-button size="small" fill="solid" color="primary" (click)="addMultiSelectOther(categoryName, item)">
-                  <ion-icon name="add-outline" slot="start"></ion-icon>
-                  Add
-                </ion-button>
+                <button class="add-btn-inline" (click)="addMultiSelectOther(categoryName, item)" title="Add">
+                  <ion-icon name="add"></ion-icon>
+                </button>
               </div>
               <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
                 <p>No options available for this item</p>
@@ -263,7 +262,7 @@
 
             <!-- Large action button grid - shows when item is selected -->
             <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.templateId) && (!item.answerType || item.answerType === 0)">
-              <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
+              <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon name="camera"></ion-icon>
                 <span>Camera</span>
               </button>
@@ -349,7 +348,7 @@
           <div class="simple-accordion-header" (click)="toggleSection('limitations')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <span class="count-badge limitation">{{ organizedData.limitations.length }}</span>
+                <span class="count-badge limitation">{{ getSelectedCount(organizedData.limitations) }}</span>
               </div>
               <span class="type-header">Limitations</span>
             </div>
@@ -431,17 +430,16 @@
                 </ion-item>
               </div>
               <!-- Custom input for "Other" option - allows adding multiple custom values -->
-              <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+              <div class="other-input-container other-input-inline" *ngIf="isOptionSelectedV1(item, 'Other')">
                 <input type="text"
                        [(ngModel)]="item.otherValue"
                        (keyup.enter)="addMultiSelectOther(categoryName, item)"
                        (click)="$event.stopPropagation()"
-                       placeholder="Type option and press Enter or Add..."
+                       placeholder="Type and press Enter..."
                        class="styled-input other-input">
-                <ion-button size="small" fill="solid" color="primary" (click)="addMultiSelectOther(categoryName, item)">
-                  <ion-icon name="add-outline" slot="start"></ion-icon>
-                  Add
-                </ion-button>
+                <button class="add-btn-inline" (click)="addMultiSelectOther(categoryName, item)" title="Add">
+                  <ion-icon name="add"></ion-icon>
+                </button>
               </div>
             </div>
 
@@ -477,7 +475,7 @@
 
             <!-- Large action button grid - shows when item is selected -->
             <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.templateId) && (!item.answerType || item.answerType === 0)">
-              <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
+              <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon name="camera"></ion-icon>
                 <span>Camera</span>
               </button>
@@ -560,7 +558,7 @@
           <div class="simple-accordion-header" (click)="toggleSection('deficiencies')">
             <div class="accordion-header-content">
               <div class="icon-container">
-                <span class="count-badge deficiency"><span>{{ organizedData.deficiencies.length }}</span></span>
+                <span class="count-badge deficiency"><span>{{ getSelectedCount(organizedData.deficiencies) }}</span></span>
               </div>
               <span class="type-header">Deficiencies</span>
             </div>
@@ -642,17 +640,16 @@
                 </ion-item>
               </div>
               <!-- Custom input for "Other" option - allows adding multiple custom values -->
-              <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+              <div class="other-input-container other-input-inline" *ngIf="isOptionSelectedV1(item, 'Other')">
                 <input type="text"
                        [(ngModel)]="item.otherValue"
                        (keyup.enter)="addMultiSelectOther(categoryName, item)"
                        (click)="$event.stopPropagation()"
-                       placeholder="Type option and press Enter or Add..."
+                       placeholder="Type and press Enter..."
                        class="styled-input other-input">
-                <ion-button size="small" fill="solid" color="primary" (click)="addMultiSelectOther(categoryName, item)">
-                  <ion-icon name="add-outline" slot="start"></ion-icon>
-                  Add
-                </ion-button>
+                <button class="add-btn-inline" (click)="addMultiSelectOther(categoryName, item)" title="Add">
+                  <ion-icon name="add"></ion-icon>
+                </button>
               </div>
             </div>
 
@@ -688,7 +685,7 @@
 
             <!-- Large action button grid - shows when item is selected -->
             <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.templateId) && (!item.answerType || item.answerType === 0)">
-              <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
+              <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
                 <ion-icon name="camera"></ion-icon>
                 <span>Camera</span>
               </button>

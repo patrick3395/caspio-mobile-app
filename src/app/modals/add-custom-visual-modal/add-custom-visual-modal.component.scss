@@ -11,6 +11,12 @@ ion-header {
       text-align: center;
       padding: 0;
       margin: 0;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
     }
 
     // Header icon buttons

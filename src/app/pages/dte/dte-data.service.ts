@@ -157,12 +157,20 @@ export class DteDataService {
 
   async deleteVisualPhoto(attachId: string): Promise<any> {
     console.log('[DTE Photo] Deleting photo:', attachId);
-    const result = await firstValueFrom(this.caspioService.deleteServicesDTEAttach(attachId));
 
-    // Clear all attachment caches
+    // Clear all attachment caches first (optimistic update)
     this.hudAttachmentsCache.clear();
 
-    return result;
+    // DTE: Always delete directly via API (no offline queuing support)
+    console.log('[DTE Photo] Deleting photo directly via API:', attachId);
+    try {
+      await firstValueFrom(this.caspioService.deleteServicesDTEAttach(String(attachId)));
+      console.log('[DTE Photo] Photo deleted successfully:', attachId);
+      return { success: true, deleted: true };
+    } catch (error) {
+      console.error('[DTE Photo] Failed to delete photo:', error);
+      throw error;
+    }
   }
 
   async updateVisualPhotoCaption(attachId: string, caption: string): Promise<any> {

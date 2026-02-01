@@ -520,6 +520,41 @@ export class DteProjectDetailsPage implements OnInit {
     await this.saveInAttendance();
   }
 
+  // Add custom option for In Attendance multi-select
+  async addInAttendanceOther() {
+    if (!this.inAttendanceOtherValue || !this.inAttendanceOtherValue.trim()) {
+      return;
+    }
+
+    const customValue = this.inAttendanceOtherValue.trim();
+
+    // Check if this custom value already exists in options
+    if (!this.inAttendanceOptions.includes(customValue)) {
+      // Add to options (before None and Other)
+      const noneIndex = this.inAttendanceOptions.indexOf('None');
+      const otherIndex = this.inAttendanceOptions.indexOf('Other');
+      const insertIndex = Math.min(
+        noneIndex > -1 ? noneIndex : this.inAttendanceOptions.length,
+        otherIndex > -1 ? otherIndex : this.inAttendanceOptions.length
+      );
+      this.inAttendanceOptions.splice(insertIndex, 0, customValue);
+    }
+
+    // Add to selections if not already there
+    if (!this.inAttendanceSelections) {
+      this.inAttendanceSelections = [];
+    }
+    if (!this.inAttendanceSelections.includes(customValue)) {
+      this.inAttendanceSelections.push(customValue);
+    }
+
+    // Clear the input
+    this.inAttendanceOtherValue = '';
+
+    // Save the updated selections
+    await this.saveInAttendance();
+  }
+
   private async saveInAttendance() {
     const attendanceText = this.inAttendanceSelections.join(', ');
     this.serviceData.InAttendance = attendanceText;
@@ -637,6 +672,41 @@ export class DteProjectDetailsPage implements OnInit {
     await this.saveSecondFoundationRooms();
   }
 
+  // Add custom option for Second Foundation Rooms multi-select
+  async addSecondFoundationRoomsOther() {
+    if (!this.secondFoundationRoomsOtherValue || !this.secondFoundationRoomsOtherValue.trim()) {
+      return;
+    }
+
+    const customValue = this.secondFoundationRoomsOtherValue.trim();
+
+    // Check if this custom value already exists in options
+    if (!this.secondFoundationRoomsOptions.includes(customValue)) {
+      // Add to options (before None and Other)
+      const noneIndex = this.secondFoundationRoomsOptions.indexOf('None');
+      const otherIndex = this.secondFoundationRoomsOptions.indexOf('Other');
+      const insertIndex = Math.min(
+        noneIndex > -1 ? noneIndex : this.secondFoundationRoomsOptions.length,
+        otherIndex > -1 ? otherIndex : this.secondFoundationRoomsOptions.length
+      );
+      this.secondFoundationRoomsOptions.splice(insertIndex, 0, customValue);
+    }
+
+    // Add to selections if not already there
+    if (!this.secondFoundationRoomsSelections) {
+      this.secondFoundationRoomsSelections = [];
+    }
+    if (!this.secondFoundationRoomsSelections.includes(customValue)) {
+      this.secondFoundationRoomsSelections.push(customValue);
+    }
+
+    // Clear the input
+    this.secondFoundationRoomsOtherValue = '';
+
+    // Save the updated selections
+    await this.saveSecondFoundationRooms();
+  }
+
   private async saveSecondFoundationRooms() {
     const roomsText = this.secondFoundationRoomsSelections.join(', ');
     this.serviceData.SecondFoundationRooms = roomsText;
@@ -687,6 +757,41 @@ export class DteProjectDetailsPage implements OnInit {
         this.thirdFoundationRoomsSelections.push(this.thirdFoundationRoomsOtherValue.trim());
       }
     }
+    await this.saveThirdFoundationRooms();
+  }
+
+  // Add custom option for Third Foundation Rooms multi-select
+  async addThirdFoundationRoomsOther() {
+    if (!this.thirdFoundationRoomsOtherValue || !this.thirdFoundationRoomsOtherValue.trim()) {
+      return;
+    }
+
+    const customValue = this.thirdFoundationRoomsOtherValue.trim();
+
+    // Check if this custom value already exists in options
+    if (!this.thirdFoundationRoomsOptions.includes(customValue)) {
+      // Add to options (before None and Other)
+      const noneIndex = this.thirdFoundationRoomsOptions.indexOf('None');
+      const otherIndex = this.thirdFoundationRoomsOptions.indexOf('Other');
+      const insertIndex = Math.min(
+        noneIndex > -1 ? noneIndex : this.thirdFoundationRoomsOptions.length,
+        otherIndex > -1 ? otherIndex : this.thirdFoundationRoomsOptions.length
+      );
+      this.thirdFoundationRoomsOptions.splice(insertIndex, 0, customValue);
+    }
+
+    // Add to selections if not already there
+    if (!this.thirdFoundationRoomsSelections) {
+      this.thirdFoundationRoomsSelections = [];
+    }
+    if (!this.thirdFoundationRoomsSelections.includes(customValue)) {
+      this.thirdFoundationRoomsSelections.push(customValue);
+    }
+
+    // Clear the input
+    this.thirdFoundationRoomsOtherValue = '';
+
+    // Save the updated selections
     await this.saveThirdFoundationRooms();
   }
 

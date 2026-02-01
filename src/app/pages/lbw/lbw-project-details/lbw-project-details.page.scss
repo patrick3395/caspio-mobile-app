@@ -256,6 +256,64 @@
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid #f0f0f0;
+
+    &.other-input-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .other-input {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 14px;
+        background: #fafafa;
+        color: #333;
+        transition: all 0.2s ease;
+
+        &:focus {
+          outline: none;
+          border-color: var(--ion-color-primary);
+          background: white;
+          box-shadow: 0 0 0 2px rgba(var(--ion-color-primary-rgb, 66, 140, 255), 0.1);
+        }
+
+        &::placeholder {
+          color: #999;
+          font-size: 13px;
+        }
+      }
+
+      .add-btn-inline {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        padding: 0;
+        border: none;
+        border-radius: 6px;
+        background: var(--ion-color-primary);
+        color: white;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        ion-icon {
+          font-size: 18px;
+        }
+
+        &:hover {
+          background: var(--ion-color-primary-shade);
+          transform: scale(1.05);
+        }
+
+        &:active {
+          transform: scale(0.95);
+        }
+      }
+    }
   }
 }
 

@@ -1201,6 +1201,7 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
    * Load dropdown options from LPS_Services_Visuals_Drop table (API fallback)
    * Only called when cached data is not available
    * These are stored separately from templates and need to be fetched and matched by TemplateID
+   * WEBAPP FIX: Also merges custom options from Dexie visualFields
    */
   private async loadDropdownOptionsFromAPI(): Promise<void> {
     try {
@@ -1229,6 +1230,35 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
           }
         });
 
+        // WEBAPP FIX: Merge custom options from Dexie visualFields
+        // Custom options added via "Other" are saved to Dexie and need to be merged here
+        try {
+          const dexieFields = await this.visualFieldRepo.getFieldsForCategory(
+            this.serviceId,
+            this.categoryName
+          );
+          console.log(`[CategoryDetail] WEBAPP: Found ${dexieFields.length} Dexie fields to check for custom dropdown options`);
+
+          for (const field of dexieFields) {
+            if (field.dropdownOptions && field.dropdownOptions.length > 0) {
+              const templateId = field.templateId;
+              if (!this.visualDropdownOptions[templateId]) {
+                this.visualDropdownOptions[templateId] = [];
+              }
+              // Merge custom options from Dexie (excluding None/Other)
+              for (const opt of field.dropdownOptions) {
+                if (opt !== 'None' && opt !== 'Other' &&
+                    !this.visualDropdownOptions[templateId].includes(opt)) {
+                  this.visualDropdownOptions[templateId].push(opt);
+                  console.log(`[CategoryDetail] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
+                }
+              }
+            }
+          }
+        } catch (dexieError) {
+          console.warn('[CategoryDetail] WEBAPP: Could not load custom options from Dexie:', dexieError);
+        }
+
         // Sort options alphabetically and add "None" and "Other" at the end
         Object.keys(this.visualDropdownOptions).forEach(templateId => {
           const options = this.visualDropdownOptions[Number(templateId)];
@@ -1251,6 +1281,34 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         this.changeDetectorRef.detectChanges();
       } else {
         console.warn('[CategoryDetail] No dropdown data received from API');
+
+        // WEBAPP FIX: Even without API data, still load custom options from Dexie
+        try {
+          const dexieFields = await this.visualFieldRepo.getFieldsForCategory(
+            this.serviceId,
+            this.categoryName
+          );
+          console.log(`[CategoryDetail] WEBAPP: Found ${dexieFields.length} Dexie fields to check for custom dropdown options (no API data)`);
+
+          for (const field of dexieFields) {
+            if (field.dropdownOptions && field.dropdownOptions.length > 0) {
+              const templateId = field.templateId;
+              if (!this.visualDropdownOptions[templateId]) {
+                this.visualDropdownOptions[templateId] = [];
+              }
+              // Merge custom options from Dexie
+              for (const opt of field.dropdownOptions) {
+                if (!this.visualDropdownOptions[templateId].includes(opt)) {
+                  this.visualDropdownOptions[templateId].push(opt);
+                  console.log(`[CategoryDetail] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
+                }
+              }
+            }
+          }
+          this.changeDetectorRef.detectChanges();
+        } catch (dexieError) {
+          console.warn('[CategoryDetail] WEBAPP: Could not load custom options from Dexie:', dexieError);
+        }
       }
     } catch (error) {
       console.error('[CategoryDetail] Error loading dropdown options:', error);

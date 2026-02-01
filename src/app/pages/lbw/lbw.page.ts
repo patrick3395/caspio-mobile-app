@@ -4289,41 +4289,61 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
     await this.saveInAttendanceSelections();
   }
   
-  // Handle custom "Other" input for In Attendance
-  async onInAttendanceOtherChange() {
-    // Ensure "Other" is in selections when there's a custom value
-    if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+  // Add custom value for In Attendance multi-select
+  async addInAttendanceOther() {
+    const customValue = this.inAttendanceOtherValue?.trim();
+    if (!customValue) {
+      return;
+    }
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    const noneIndex = this.inAttendanceSelections.indexOf('None');
+    if (noneIndex > -1) {
+      this.inAttendanceSelections.splice(noneIndex, 1);
+    }
+
+    // Check if this value already exists in options
+    if (this.inAttendanceOptions.includes(customValue)) {
+      console.log(`[LBW] InAttendance option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!this.inAttendanceSelections.includes(customValue)) {
+        this.inAttendanceSelections.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneOptIndex = this.inAttendanceOptions.indexOf('None');
+      if (noneOptIndex > -1) {
+        this.inAttendanceOptions.splice(noneOptIndex, 0, customValue);
+      } else {
+        const otherIndex = this.inAttendanceOptions.indexOf('Other');
+        if (otherIndex > -1) {
+          this.inAttendanceOptions.splice(otherIndex, 0, customValue);
+        } else {
+          this.inAttendanceOptions.push(customValue);
+        }
+      }
+      console.log(`[LBW] Added custom InAttendance option: "${customValue}"`);
+
+      // Select the new custom value
       if (!this.inAttendanceSelections) {
         this.inAttendanceSelections = [];
       }
-      const otherIndex = this.inAttendanceSelections.indexOf('Other');
-      if (otherIndex > -1) {
-        // Replace "Other" with the actual custom value
-        this.inAttendanceSelections[otherIndex] = this.inAttendanceOtherValue.trim();
-      } else {
-        // Check if there's already a custom value and replace it
-        const customIndex = this.inAttendanceSelections.findIndex((opt: string) => 
-          opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-        );
-        if (customIndex > -1) {
-          this.inAttendanceSelections[customIndex] = this.inAttendanceOtherValue.trim();
-        } else {
-          // Add the custom value
-          this.inAttendanceSelections.push(this.inAttendanceOtherValue.trim());
-        }
-      }
-    } else {
-      // If custom value is cleared, revert to just "Other"
-      const customIndex = this.inAttendanceSelections.findIndex((opt: string) => 
-        opt !== 'Other' && !this.inAttendanceOptions.includes(opt)
-      );
-      if (customIndex > -1) {
-        this.inAttendanceSelections[customIndex] = 'Other';
-      }
+      this.inAttendanceSelections.push(customValue);
     }
-    
+
+    // Clear the input field for the next entry
+    this.inAttendanceOtherValue = '';
+
     // Save the updated selections
     await this.saveInAttendanceSelections();
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // Legacy method for blur - only add if there's a pending value
+  async onInAttendanceOtherChange() {
+    if (this.inAttendanceOtherValue && this.inAttendanceOtherValue.trim()) {
+      await this.addInAttendanceOther();
+    }
   }
 
   // Handler methods for "Other" option custom inputs
@@ -4510,37 +4530,67 @@ export class LbwPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // Handle custom "Other" input for multi-select
-  async onMultiSelectOtherChange(category: string, item: any) {
-    // CRITICAL FIX: Save just the custom value, not "Other: value"
-    if (item.otherValue && item.otherValue.trim()) {
-      const otherIndex = item.selectedOptions.indexOf('Other');
-      if (otherIndex > -1) {
-        // Replace "Other" with the actual custom value
-        item.selectedOptions[otherIndex] = item.otherValue.trim();
-      } else {
-        // Check if there's already a custom value and replace it
-        const customOtherIndex = item.selectedOptions.findIndex((opt: string) => 
-          opt !== 'Other' && !this.visualDropdownOptions[item.templateId]?.includes(opt)
-        );
-        if (customOtherIndex > -1) {
-          item.selectedOptions[customOtherIndex] = item.otherValue.trim();
-        } else {
-          // Add the custom value if not present
-          item.selectedOptions.push(item.otherValue.trim());
-        }
-      }
-    } else {
-      // If custom value is cleared, revert to just "Other"
-      const customOtherIndex = item.selectedOptions.findIndex((opt: string) => 
-        opt !== 'Other' && !this.visualDropdownOptions[item.templateId]?.includes(opt)
-      );
-      if (customOtherIndex > -1) {
-        item.selectedOptions[customOtherIndex] = 'Other';
+  // Add custom value for multi-select items
+  async addMultiSelectOther(category: string, item: any) {
+    const customValue = item.otherValue?.trim();
+    if (!customValue) {
+      return;
+    }
+
+    // Get options for this item
+    const options = this.visualDropdownOptions[item.templateId] || [];
+
+    // Remove "None" if adding a custom value (mutually exclusive)
+    if (item.selectedOptions) {
+      const noneIndex = item.selectedOptions.indexOf('None');
+      if (noneIndex > -1) {
+        item.selectedOptions.splice(noneIndex, 1);
       }
     }
 
+    // Check if this value already exists in options
+    if (options.includes(customValue)) {
+      console.log(`[LBW] Multi-select option "${customValue}" already exists`);
+      // Just select it if not already selected
+      if (!item.selectedOptions.includes(customValue)) {
+        item.selectedOptions.push(customValue);
+      }
+    } else {
+      // Add the custom value to options (before None and Other)
+      const noneOptIndex = options.indexOf('None');
+      if (noneOptIndex > -1) {
+        options.splice(noneOptIndex, 0, customValue);
+      } else {
+        const otherIndex = options.indexOf('Other');
+        if (otherIndex > -1) {
+          options.splice(otherIndex, 0, customValue);
+        } else {
+          options.push(customValue);
+        }
+      }
+      this.visualDropdownOptions[item.templateId] = options;
+      console.log(`[LBW] Added custom multi-select option: "${customValue}"`);
+
+      // Select the new custom value
+      if (!item.selectedOptions) {
+        item.selectedOptions = [];
+      }
+      item.selectedOptions.push(customValue);
+    }
+
+    // Clear the input field for the next entry
+    item.otherValue = '';
+
     // Save the updated selections
     await this.onMultiSelectChange(category, item);
+    this.changeDetectorRef.detectChanges();
+  }
+
+  // Legacy method for blur - only add if there's a pending value
+  async onMultiSelectOtherChange(category: string, item: any) {
+    if (item.otherValue && item.otherValue.trim()) {
+      await this.addMultiSelectOther(category, item);
+    }
   }
 
   // Save visual selection to Services_LBW table
@@ -7374,62 +7424,53 @@ Stack: ${error?.stack}`;
         message: 'Are you sure you want to delete this photo?',
         buttons: [
           {
+            text: 'Delete',
+            role: 'destructive',
+            cssClass: 'alert-button-confirm'
+          },
+          {
             text: 'Cancel',
             role: 'cancel',
             cssClass: 'alert-button-cancel'
-          },
-          {
-            text: 'Delete',
-            cssClass: 'alert-button-confirm',
-            handler: () => {
-              // Return false to prevent auto-dismiss, dismiss manually after delete
-              // This prevents the handler from blocking the alert dismissal
-              setTimeout(async () => {
-                const loading = await this.loadingController.create({
-                  message: 'Deleting photo...'
-                });
-                await loading.present();
-                
-                try {
-                  const attachId = photo.AttachID || photo.id;
-                  const key = `${category}_${itemId}`;
-                  
-                  // Delete from database
-                  await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
-
-                  // [v1.4.387] Remove from KEY-BASED storage
-                  if (this.visualPhotos[key]) {
-                    this.visualPhotos[key] = this.visualPhotos[key].filter(
-                      (p: any) => (p.AttachID || p.id) !== attachId
-                    );
-                  }
-
-                  // Clear PDF cache so deletion shows immediately
-                  this.clearPDFCache();
-
-                  // Force UI update
-                  this.changeDetectorRef.detectChanges();
-
-                  await loading.dismiss();
-                  // Success toast removed per user request
-                } catch (error) {
-                  await loading.dismiss();
-                  console.error('Failed to delete photo:', error);
-                  await this.showToast('Failed to delete photo', 'danger');
-                }
-              }, 100);
-              
-              return true; // Allow alert to dismiss immediately
-            }
           }
         ],
         cssClass: 'custom-document-alert'
       });
-      
+
       await alert.present();
+
+      // Wait for dialog to dismiss and check if user confirmed deletion
+      const result = await alert.onDidDismiss();
+
+      if (result.role === 'destructive') {
+        // OFFLINE-FIRST: No loading spinner - immediate UI update
+        try {
+          const attachId = photo.AttachID || photo.id;
+          const key = `${category}_${itemId}`;
+
+          // Remove from UI IMMEDIATELY (optimistic update)
+          if (this.visualPhotos[key]) {
+            this.visualPhotos[key] = this.visualPhotos[key].filter(
+              (p: any) => (p.AttachID || p.id) !== attachId
+            );
+          }
+
+          // Force UI update first
+          this.changeDetectorRef.detectChanges();
+
+          // Clear PDF cache so deletion shows immediately
+          this.clearPDFCache();
+
+          // Delete from database
+          await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
+
+          console.log('[Delete Photo] Photo removed successfully');
+        } catch (error) {
+          console.error('Failed to delete photo:', error);
+        }
+      }
     } catch (error) {
       console.error('Error in deletePhoto:', error);
-      await this.showToast('Failed to delete photo', 'danger');
     }
   }
   

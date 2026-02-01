@@ -112,14 +112,17 @@
                     <ion-label>{{ option }}</ion-label>
                   </div>
                 </div>
-                <!-- Custom input for "Other" option -->
-                <div class="other-input-container" *ngIf="isInAttendanceSelected('Other')">
+                <!-- Custom input for "Other" option - allows adding multiple custom values -->
+                <div class="other-input-container other-input-inline" *ngIf="isInAttendanceSelected('Other')">
                   <input type="text"
                          [(ngModel)]="inAttendanceOtherValue"
-                         (blur)="onInAttendanceOtherChange()"
+                         (keyup.enter)="addInAttendanceOther()"
                          (click)="$event.stopPropagation()"
-                         placeholder="Please specify..."
+                         placeholder="Type and press Enter..."
                          class="styled-input other-input">
+                  <button class="add-btn-inline" (click)="addInAttendanceOther()" title="Add">
+                    <ion-icon name="add"></ion-icon>
+                  </button>
                 </div>
               </div>
             </div>
@@ -401,14 +404,17 @@
                     <ion-label>{{ option }}</ion-label>
                   </div>
                 </div>
-                <!-- Custom input for "Other" option -->
-                <div class="other-input-container" *ngIf="isSecondFoundationRoomsSelected('Other')">
+                <!-- Custom input for "Other" option - allows adding multiple custom values -->
+                <div class="other-input-container other-input-inline" *ngIf="isSecondFoundationRoomsSelected('Other')">
                   <input type="text"
                          [(ngModel)]="secondFoundationRoomsOtherValue"
-                         (blur)="onSecondFoundationRoomsOtherChange()"
+                         (keyup.enter)="addSecondFoundationRoomsOther()"
                          (click)="$event.stopPropagation()"
-                         placeholder="Please specify..."
+                         placeholder="Type and press Enter..."
                          class="styled-input other-input">
+                  <button class="add-btn-inline" (click)="addSecondFoundationRoomsOther()" title="Add">
+                    <ion-icon name="add"></ion-icon>
+                  </button>
                 </div>
               </div>
             </div>
@@ -456,14 +462,17 @@
                     <ion-label>{{ option }}</ion-label>
                   </div>
                 </div>
-                <!-- Custom input for "Other" option -->
-                <div class="other-input-container" *ngIf="isThirdFoundationRoomsSelected('Other')">
+                <!-- Custom input for "Other" option - allows adding multiple custom values -->
+                <div class="other-input-container other-input-inline" *ngIf="isThirdFoundationRoomsSelected('Other')">
                   <input type="text"
                          [(ngModel)]="thirdFoundationRoomsOtherValue"
-                         (blur)="onThirdFoundationRoomsOtherChange()"
+                         (keyup.enter)="addThirdFoundationRoomsOther()"
                          (click)="$event.stopPropagation()"
-                         placeholder="Please specify..."
+                         placeholder="Type and press Enter..."
                          class="styled-input other-input">
+                  <button class="add-btn-inline" (click)="addThirdFoundationRoomsOther()" title="Add">
+                    <ion-icon name="add"></ion-icon>
+                  </button>
                 </div>
               </div>
             </div>
@@ -610,14 +619,17 @@
                             <ion-label>{{ option }}</ion-label>
                           </ion-item>
                         </div>
-                        <!-- Custom input for "Other" option -->
-                        <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                        <!-- Custom input for "Other" option - allows adding multiple custom values -->
+                        <div class="other-input-container other-input-inline" *ngIf="isOptionSelectedV1(item, 'Other')">
                           <input type="text"
                                  [(ngModel)]="item.otherValue"
-                                 (blur)="onMultiSelectOtherChange(category, item)"
+                                 (keyup.enter)="addMultiSelectOther(category, item)"
                                  (click)="$event.stopPropagation()"
-                                 placeholder="Please specify..."
+                                 placeholder="Type and press Enter..."
                                  class="styled-input other-input">
+                          <button class="add-btn-inline" (click)="addMultiSelectOther(category, item)" title="Add">
+                            <ion-icon name="add"></ion-icon>
+                          </button>
                         </div>
                         <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
                           <p>No options available for this item</p>
@@ -780,14 +792,17 @@
                             <ion-label>{{ option }}</ion-label>
                           </ion-item>
                         </div>
-                        <!-- Custom input for "Other" option -->
-                        <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                        <!-- Custom input for "Other" option - allows adding multiple custom values -->
+                        <div class="other-input-container other-input-inline" *ngIf="isOptionSelectedV1(item, 'Other')">
                           <input type="text"
                                  [(ngModel)]="item.otherValue"
-                                 (blur)="onMultiSelectOtherChange(category, item)"
+                                 (keyup.enter)="addMultiSelectOther(category, item)"
                                  (click)="$event.stopPropagation()"
-                                 placeholder="Please specify..."
+                                 placeholder="Type and press Enter..."
                                  class="styled-input other-input">
+                          <button class="add-btn-inline" (click)="addMultiSelectOther(category, item)" title="Add">
+                            <ion-icon name="add"></ion-icon>
+                          </button>
                         </div>
                         <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
                           <p>No options available for this item</p>
@@ -950,14 +965,17 @@
                             <ion-label>{{ option }}</ion-label>
                           </ion-item>
                         </div>
-                        <!-- Custom input for "Other" option -->
-                        <div class="other-input-container" *ngIf="isOptionSelectedV1(item, 'Other')">
+                        <!-- Custom input for "Other" option - allows adding multiple custom values -->
+                        <div class="other-input-container other-input-inline" *ngIf="isOptionSelectedV1(item, 'Other')">
                           <input type="text"
                                  [(ngModel)]="item.otherValue"
-                                 (blur)="onMultiSelectOtherChange(category, item)"
+                                 (keyup.enter)="addMultiSelectOther(category, item)"
                                  (click)="$event.stopPropagation()"
-                                 placeholder="Please specify..."
+                                 placeholder="Type and press Enter..."
                                  class="styled-input other-input">
+                          <button class="add-btn-inline" (click)="addMultiSelectOther(category, item)" title="Add">
+                            <ion-icon name="add"></ion-icon>
+                          </button>
                         </div>
                         <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
                           <p>No options available for this item</p>

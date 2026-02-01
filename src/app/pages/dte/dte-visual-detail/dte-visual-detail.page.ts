@@ -221,75 +221,87 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
     }
 
     try {
-      // WEBAPP MODE: Load directly from server API (no Dexie)
+      // WEBAPP MODE: Use LBW-style priority matching
       if (environment.isWeb) {
-        console.log('[DteVisualDetail] WEBAPP MODE: Loading DTE data from server');
+        console.log('[DteVisualDetail] WEBAPP MODE: Using priority-based matching (LBW pattern)');
 
         let visual: any = null;
+        const queryServiceId = this.actualServiceId || this.serviceId;
 
         // PRIORITY 1: If we have DTEID, fetch directly from table (most reliable, always fresh)
         if (dteIdFromQueryParams) {
-          console.log('[DteVisualDetail] WEBAPP: Fetching DTE record directly by DTEID:', dteIdFromQueryParams);
+          console.log('[DteVisualDetail] WEBAPP: PRIORITY 1 - Fetching DTE record directly by DTEID:', dteIdFromQueryParams);
           visual = await firstValueFrom(this.caspioService.getServicesDTEById(dteIdFromQueryParams));
           if (visual) {
-            console.log('[DteVisualDetail] WEBAPP: Got fresh DTE record - Name:', visual.Name, 'Text:', visual.Text?.substring(0, 50));
+            console.log('[DteVisualDetail] WEBAPP: PRIORITY 1 - Got fresh DTE record - Name:', visual.Name, 'DTEID:', visual.DTEID);
           }
         }
 
-        // PRIORITY 2: Fall back to service-level query + name matching
+        // Load all DTE records and templates for fallback matching
+        const dteRecords = !visual ? await this.dteData.getVisualsByService(queryServiceId, true) : [];
         if (!visual) {
-          const queryServiceId = this.actualServiceId || this.serviceId;
-          const dteRecords = await this.dteData.getVisualsByService(queryServiceId, true);
           console.log('[DteVisualDetail] WEBAPP: Loaded', dteRecords.length, 'DTE records for ServiceID:', queryServiceId);
+        }
 
-          // Load templates to get the Name and Category for matching
-          const templates = (await this.caspioService.getServicesDTETemplates().toPromise()) || [];
-          const template = templates.find((t: any) =>
-            (t.TemplateID || t.PK_ID) == this.templateId
+        const templates = (await this.caspioService.getServicesDTETemplates().toPromise()) || [];
+        const template = templates.find((t: any) =>
+          (t.TemplateID || t.PK_ID) == this.templateId
+        );
+        console.log('[DteVisualDetail] WEBAPP: Template found for templateId', this.templateId, ':', template ? template.Name : '(NOT FOUND)');
+
+        // PRIORITY 1.5: For custom visuals, templateId might BE the DTEID - try matching directly (LBW pattern)
+        if (!visual && this.templateId > 0) {
+          console.log('[DteVisualDetail] WEBAPP: PRIORITY 1.5 - Looking for visual by templateId as DTEID:', this.templateId);
+          visual = dteRecords.find((v: any) =>
+            String(v.DTEID || v.PK_ID) === String(this.templateId)
           );
-
-          if (template && template.Name) {
-            visual = dteRecords.find((v: any) =>
-              v.Name === template.Name && v.Category === template.Category
-            );
-            if (visual) {
-              console.log('[DteVisualDetail] WEBAPP: Matched DTE record by name+category:', template.Name, template.Category);
-            }
+          if (visual) {
+            console.log('[DteVisualDetail] WEBAPP: PRIORITY 1.5 - Found custom visual by DTEID:', this.templateId);
+            this.dteId = String(visual.DTEID || visual.PK_ID);
           }
+        }
 
-          // If still no visual, use template as fallback
-          if (!visual && template) {
-            console.log('[DteVisualDetail] WEBAPP: DTE record not found, using template data');
-            const effectiveTemplateId = template.TemplateID || template.PK_ID || this.templateId;
-            const actualCategory = template.Category || '';
-            this.item = {
-              id: effectiveTemplateId,
-              templateId: effectiveTemplateId,
-              name: template.Name || '',
-              text: template.Text || '',
-              originalText: template.Text || '',
-              type: template.Kind || 'Comment',
-              category: actualCategory,
-              answerType: template.AnswerType || 0,
-              required: false,
-              isSelected: false
-            };
-            this.categoryName = actualCategory;
-            this.editableTitle = this.item.name;
-            this.editableText = this.item.text;
+        // PRIORITY 2: Match by TemplateID fields (LBW pattern)
+        if (!visual && template) {
+          const templateIdToMatch = String(template.TemplateID || template.PK_ID);
+          console.log('[DteVisualDetail] WEBAPP: PRIORITY 2 - Looking for visual by TemplateID:', templateIdToMatch);
+          visual = dteRecords.find((v: any) =>
+            String(v.DTETemplateID) === templateIdToMatch ||
+            String(v.VisualTemplateID) === templateIdToMatch ||
+            String(v.TemplateID) === templateIdToMatch
+          );
+          if (visual) {
+            console.log('[DteVisualDetail] WEBAPP: PRIORITY 2 - Matched DTE record by templateId:', templateIdToMatch);
+          }
+        }
 
-            if (dteIdFromQueryParams) {
-              this.dteId = dteIdFromQueryParams;
-              console.log('[DteVisualDetail] WEBAPP: Using DTEID from query params for photos:', this.dteId);
-            }
+        // PRIORITY 3: Fall back to Name + Category matching
+        if (!visual && template && template.Name) {
+          console.log('[DteVisualDetail] WEBAPP: PRIORITY 3 - Looking for visual by Name+Category:', template.Name, template.Category);
+          visual = dteRecords.find((v: any) =>
+            v.Name === template.Name && v.Category === template.Category
+          );
+          if (visual) {
+            console.log('[DteVisualDetail] WEBAPP: PRIORITY 3 - Matched DTE record by name+category:', template.Name, template.Category);
+          }
+        }
 
-            await this.loadPhotos();
-            return;
+        // PRIORITY 4: If only ONE visual in category, use it (LBW pattern)
+        if (!visual && template) {
+          const categoryVisuals = dteRecords.filter((v: any) => v.Category === (template.Category || this.categoryName));
+          if (categoryVisuals.length === 1) {
+            visual = categoryVisuals[0];
+            console.log('[DteVisualDetail] WEBAPP: PRIORITY 4 FALLBACK - Using only visual in category:', visual.DTEID, 'Name:', visual.Name);
+          } else if (categoryVisuals.length > 1) {
+            console.warn('[DteVisualDetail] WEBAPP: PRIORITY 4 SKIPPED - Multiple visuals in category (' + categoryVisuals.length + '). No dteId provided, cannot determine correct visual.');
+            console.warn('[DteVisualDetail] WEBAPP: Available visuals:', categoryVisuals.map((v: any) => ({ DTEID: v.DTEID, Name: v.Name })));
           }
         }
 
         if (visual) {
           const actualCategory = visual.Category || '';
+          const visualDteId = String(visual.DTEID || visual.PK_ID);
+
           this.item = {
             id: visual.DTEID || visual.PK_ID,
             templateId: this.templateId,
@@ -303,11 +315,42 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
             answer: visual.Answers || '',
             isSelected: true
           };
-          this.dteId = String(visual.DTEID || visual.PK_ID);
+          // WEBAPP FIX: Always use the visual's actual DTEID from server data (matches LBW pattern)
+          this.dteId = visualDteId;
           this.categoryName = actualCategory;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[DteVisualDetail] WEBAPP: Loaded DTE record:', this.item.name, 'DTEID:', this.dteId);
+          console.log('[DteVisualDetail] WEBAPP: Loaded DTE record:', this.item.name, 'DTEID:', this.dteId, 'Category:', actualCategory);
+        } else if (template) {
+          // No DTE record found - use template data
+          console.log('[DteVisualDetail] WEBAPP: DTE record not found, using template data');
+          const effectiveTemplateId = template.TemplateID || template.PK_ID || this.templateId;
+          const actualCategory = template.Category || '';
+          this.item = {
+            id: effectiveTemplateId,
+            templateId: effectiveTemplateId,
+            name: template.Name || '',
+            text: template.Text || '',
+            originalText: template.Text || '',
+            type: template.Kind || 'Comment',
+            category: actualCategory,
+            answerType: template.AnswerType || 0,
+            required: false,
+            isSelected: false
+          };
+          this.categoryName = actualCategory;
+          this.editableTitle = this.item.name;
+          this.editableText = this.item.text;
+          console.log('[DteVisualDetail] WEBAPP: Loaded from template:', this.item.name, 'Category:', actualCategory);
+
+          // CRITICAL: Ensure we have the DTEID from query params for loading photos
+          if (dteIdFromQueryParams) {
+            this.dteId = dteIdFromQueryParams;
+            console.log('[DteVisualDetail] WEBAPP: Using DTEID from query params for photos:', this.dteId);
+          }
+        } else {
+          // Neither visual nor template found
+          console.error('[DteVisualDetail] WEBAPP: ❌ Neither visual nor template found!');
         }
 
         await this.loadPhotos();
@@ -943,6 +986,8 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
       if (index >= 0) {
         this.photos.splice(index, 1);
       }
+
+      // Force UI update first
       this.changeDetectorRef.detectChanges();
 
       // WEBAPP MODE: Direct API delete
@@ -951,7 +996,7 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
           await this.dteData.deleteVisualPhoto(photo.id);
           console.log('[DteVisualDetail] WEBAPP: Deleted photo from server:', photo.id);
         }
-        await this.showToast('Photo deleted', 'success');
+        console.log('[DteVisualDetail] Photo removed successfully');
         return;
       }
 
@@ -970,10 +1015,9 @@ export class DteVisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges
         console.log('[DteVisualDetail] MOBILE: Queued photo deletion to Caspio:', localImage.attachId);
       }
 
-      await this.showToast('Photo deleted', 'success');
+      console.log('[DteVisualDetail] Photo removed successfully');
     } catch (error) {
       console.error('[DteVisualDetail] Error deleting photo:', error);
-      await this.showToast('Error deleting photo', 'danger');
     }
   }
 

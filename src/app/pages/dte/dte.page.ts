@@ -4328,6 +4328,85 @@ export class DtePage implements OnInit, AfterViewInit, OnDestroy {
     await this.saveInAttendanceSelections();
   }
 
+  // Add custom option for In Attendance multi-select
+  async addInAttendanceOther() {
+    if (!this.inAttendanceOtherValue || !this.inAttendanceOtherValue.trim()) {
+      return;
+    }
+
+    const customValue = this.inAttendanceOtherValue.trim();
+
+    // Check if this custom value already exists in options
+    if (!this.inAttendanceOptions.includes(customValue)) {
+      // Add to options (before None and Other)
+      const noneIndex = this.inAttendanceOptions.indexOf('None');
+      const otherIndex = this.inAttendanceOptions.indexOf('Other');
+      const insertIndex = Math.min(
+        noneIndex > -1 ? noneIndex : this.inAttendanceOptions.length,
+        otherIndex > -1 ? otherIndex : this.inAttendanceOptions.length
+      );
+      this.inAttendanceOptions.splice(insertIndex, 0, customValue);
+    }
+
+    // Add to selections if not already there
+    if (!this.inAttendanceSelections) {
+      this.inAttendanceSelections = [];
+    }
+    if (!this.inAttendanceSelections.includes(customValue)) {
+      this.inAttendanceSelections.push(customValue);
+    }
+
+    // Clear the input
+    this.inAttendanceOtherValue = '';
+
+    // Save the updated selections
+    await this.saveInAttendanceSelections();
+  }
+
+  // Add custom option for category item multi-select
+  async addMultiSelectOther(category: any, item: any) {
+    if (!item.otherValue || !item.otherValue.trim()) {
+      return;
+    }
+
+    const customValue = item.otherValue.trim();
+    const templateId = item.templateId;
+
+    // Ensure visualDropdownOptions array exists
+    if (!this.visualDropdownOptions[templateId]) {
+      this.visualDropdownOptions[templateId] = [];
+    }
+
+    // Check if this custom value already exists in options
+    if (!this.visualDropdownOptions[templateId].includes(customValue)) {
+      // Add to options (before None and Other if they exist)
+      const options = this.visualDropdownOptions[templateId];
+      const noneIndex = options.indexOf('None');
+      const otherIndex = options.indexOf('Other');
+      const insertIndex = Math.min(
+        noneIndex > -1 ? noneIndex : options.length,
+        otherIndex > -1 ? otherIndex : options.length
+      );
+      options.splice(insertIndex, 0, customValue);
+    }
+
+    // Initialize selections if needed
+    if (!item.multiSelectSelections) {
+      item.multiSelectSelections = [];
+    }
+
+    // Add to selections if not already there
+    if (!item.multiSelectSelections.includes(customValue)) {
+      item.multiSelectSelections.push(customValue);
+    }
+
+    // Clear the input
+    item.otherValue = '';
+
+    // Save the selection
+    await this.saveMultiSelectSelection(category, item);
+  }
+
   // Handler methods for "Other" option custom inputs
   async onTypeOfBuildingOtherChange() {
     if (this.typeOfBuildingOtherValue && this.typeOfBuildingOtherValue.trim()) {
@@ -7375,62 +7454,53 @@ Stack: ${error?.stack}`;
         message: 'Are you sure you want to delete this photo?',
         buttons: [
           {
+            text: 'Delete',
+            role: 'destructive',
+            cssClass: 'alert-button-confirm'
+          },
+          {
             text: 'Cancel',
             role: 'cancel',
             cssClass: 'alert-button-cancel'
-          },
-          {
-            text: 'Delete',
-            cssClass: 'alert-button-confirm',
-            handler: () => {
-              // Return false to prevent auto-dismiss, dismiss manually after delete
-              // This prevents the handler from blocking the alert dismissal
-              setTimeout(async () => {
-                const loading = await this.loadingController.create({
-                  message: 'Deleting photo...'
-                });
-                await loading.present();
-                
-                try {
-                  const attachId = photo.AttachID || photo.id;
-                  const key = `${category}_${itemId}`;
-                  
-                  // Delete from database
-                  await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
-
-                  // [v1.4.387] Remove from KEY-BASED storage
-                  if (this.visualPhotos[key]) {
-                    this.visualPhotos[key] = this.visualPhotos[key].filter(
-                      (p: any) => (p.AttachID || p.id) !== attachId
-                    );
-                  }
-
-                  // Clear PDF cache so deletion shows immediately
-                  this.clearPDFCache();
-
-                  // Force UI update
-                  this.changeDetectorRef.detectChanges();
-
-                  await loading.dismiss();
-                  // Success toast removed per user request
-                } catch (error) {
-                  await loading.dismiss();
-                  console.error('Failed to delete photo:', error);
-                  await this.showToast('Failed to delete photo', 'danger');
-                }
-              }, 100);
-              
-              return true; // Allow alert to dismiss immediately
-            }
           }
         ],
         cssClass: 'custom-document-alert'
       });
-      
+
       await alert.present();
+
+      // Wait for dialog to dismiss and check if user confirmed deletion
+      const result = await alert.onDidDismiss();
+
+      if (result.role === 'destructive') {
+        // OFFLINE-FIRST: No loading spinner - immediate UI update
+        try {
+          const attachId = photo.AttachID || photo.id;
+          const key = `${category}_${itemId}`;
+
+          // Remove from UI IMMEDIATELY (optimistic update)
+          if (this.visualPhotos[key]) {
+            this.visualPhotos[key] = this.visualPhotos[key].filter(
+              (p: any) => (p.AttachID || p.id) !== attachId
+            );
+          }
+
+          // Force UI update first
+          this.changeDetectorRef.detectChanges();
+
+          // Clear PDF cache so deletion shows immediately
+          this.clearPDFCache();
+
+          // Delete from database
+          await this.caspioService.deleteServiceVisualsAttach(attachId).toPromise();
+
+          console.log('[Delete Photo] Photo removed successfully');
+        } catch (error) {
+          console.error('Failed to delete photo:', error);
+        }
+      }
     } catch (error) {
       console.error('Error in deletePhoto:', error);
-      await this.showToast('Failed to delete photo', 'danger');
     }
   }
   

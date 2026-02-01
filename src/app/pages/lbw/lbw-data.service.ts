@@ -642,8 +642,21 @@ export class LbwDataService {
     // Clear all attachment caches first (optimistic update)
     this.lbwAttachmentsCache.clear();
 
-    // QUEUE-FIRST: Always queue delete for background sync
-    console.log('[LBW Photo] Queuing delete for sync:', attachId);
+    // WEBAPP MODE: Delete immediately via direct API call
+    if (environment.isWeb) {
+      console.log('[LBW Photo] WEBAPP: Deleting photo directly via API:', attachId);
+      try {
+        await firstValueFrom(this.caspioService.deleteServicesLBWAttach(String(attachId)));
+        console.log('[LBW Photo] WEBAPP: Photo deleted successfully:', attachId);
+        return { success: true, deleted: true };
+      } catch (error) {
+        console.error('[LBW Photo] WEBAPP: Failed to delete photo:', error);
+        throw error;
+      }
+    }
+
+    // MOBILE MODE: Queue delete for background sync
+    console.log('[LBW Photo] MOBILE: Queuing delete for sync:', attachId);
     await this.indexedDb.addPendingRequest({
       type: 'DELETE',
       endpoint: `/api/caspio-proxy/tables/LPS_Services_LBW_Attach/records?q.where=AttachID=${attachId}`,
@@ -654,7 +667,7 @@ export class LbwDataService {
       priority: 'normal',
     });
 
-    return { success: true, attachId };
+    return { success: true, queued: true };
   }
 
   /**
