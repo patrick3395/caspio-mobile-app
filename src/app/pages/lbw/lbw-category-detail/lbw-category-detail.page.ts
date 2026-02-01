@@ -693,6 +693,36 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
         if (dexieField.answer && !item.answer) {
           item.answer = dexieField.answer;
         }
+
+        // WEBAPP FIX: Restore dropdownOptions from Dexie (custom "Other" options)
+        // This ensures custom options added via "Other" persist across page reloads
+        if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
+          const templateId = String(item.templateId);
+          const existingOptions = this.visualDropdownOptions[templateId] || [];
+          const mergedOptions = new Set<string>();
+
+          // Add all existing options (from cache) except None/Other
+          existingOptions.forEach((opt: string) => {
+            if (opt !== 'None' && opt !== 'Other') {
+              mergedOptions.add(opt);
+            }
+          });
+
+          // Add all options from Dexie (includes custom options) except None/Other
+          dexieField.dropdownOptions.forEach((opt: string) => {
+            if (opt !== 'None' && opt !== 'Other') {
+              mergedOptions.add(opt);
+            }
+          });
+
+          // Convert to sorted array and add None/Other at end
+          const sortedOptions = Array.from(mergedOptions).sort((a, b) => a.localeCompare(b));
+          sortedOptions.push('None');
+          sortedOptions.push('Other');
+
+          this.visualDropdownOptions[templateId] = sortedOptions;
+          console.log(`[MERGE DEXIE] WEBAPP: Merged custom dropdown options for templateId ${templateId}`);
+        }
       }
 
       this.changeDetectorRef.detectChanges();
@@ -1312,25 +1342,70 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
 
     try {
       // ===== STEP 1: Load ALL data from cache IN PARALLEL (before showing page) =====
-      // CRITICAL: Load dexieFields WITH templates to get photo counts BEFORE first render
-      const [templates, visuals, dropdownData, dexieFields] = await Promise.all([
+      // CRITICAL: Load LocalImages WITH templates for instant photo counts (matching HUD pattern)
+      const [templates, visuals, dropdownData, dexieFields, localImages] = await Promise.all([
         this.indexedDb.getCachedTemplates('lbw'),
         this.hudData.getVisualsByService(this.serviceId, false), // false = use cache
         this.indexedDb.getCachedTemplates('lbw_dropdown'),
-        this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName)
+        this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName),
+        this.indexedDb.getLocalImagesForService(this.serviceId)
       ]);
 
-      // ===== STEP 2: Restore photo counts from Dexie BEFORE rendering =====
-      // This prevents the "0 to N" pop effect - counts are already populated when page shows
+      // ===== STEP 2: Build bulkLocalImagesMap from LocalImages (matching HUD pattern) =====
+      // This enables instant photo counting without waiting for full photo load
+      this.bulkLocalImagesMap.clear();
+      for (const img of localImages) {
+        if (!img.entityId) continue;
+        const entityId = String(img.entityId);
+        if (!this.bulkLocalImagesMap.has(entityId)) {
+          this.bulkLocalImagesMap.set(entityId, []);
+        }
+        this.bulkLocalImagesMap.get(entityId)!.push(img);
+      }
+      console.log(`[LBW CategoryDetail] MOBILE: Built bulkLocalImagesMap with ${this.bulkLocalImagesMap.size} entity groups from ${localImages.length} LocalImages`);
+
+      // ===== STEP 3: Count photos from LocalImages (HUD pattern - instant display) =====
+      // dexieFields provides templateId->visualId mapping, bulkLocalImagesMap provides actual images
+      // Build a tempId->realId cache for bidirectional lookup
+      const tempToRealCache = new Map<string, string>();
       for (const field of dexieFields) {
-        if (field.photoCount !== undefined && field.photoCount > 0) {
-          const key = `${field.category}_${field.templateId}`;
+        if (field.tempVisualId && field.visualId) {
+          tempToRealCache.set(field.tempVisualId, field.visualId);
+        }
+      }
+
+      for (const field of dexieFields) {
+        const key = `${field.category}_${field.templateId}`;
+        const visualId = field.visualId || field.tempVisualId;
+
+        if (visualId) {
+          // Try to get LocalImages by visualId
+          let localImages = this.bulkLocalImagesMap.get(String(visualId)) || [];
+
+          // If visualId is real ID, also check for temp ID (images may still be under temp ID)
+          if (localImages.length === 0 && field.tempVisualId) {
+            localImages = this.bulkLocalImagesMap.get(field.tempVisualId) || [];
+          }
+
+          // If visualId is temp ID, also check for real ID
+          if (localImages.length === 0 && field.visualId && field.tempVisualId) {
+            localImages = this.bulkLocalImagesMap.get(field.visualId) || [];
+          }
+
+          if (localImages.length > 0) {
+            this.photoCountsByKey[key] = localImages.length;
+            console.log(`[LBW PHOTO COUNT] Key: ${key}, visualId: ${visualId}, count: ${localImages.length}`);
+          }
+        }
+
+        // Fallback to cached photoCount if no LocalImages found
+        if (this.photoCountsByKey[key] === undefined && field.photoCount !== undefined && field.photoCount > 0) {
           this.photoCountsByKey[key] = field.photoCount;
         }
       }
-      console.log(`[LBW CategoryDetail] MOBILE: Pre-loaded ${Object.keys(this.photoCountsByKey).length} photo counts from Dexie`);
+      console.log(`[LBW CategoryDetail] MOBILE: Pre-loaded ${Object.keys(this.photoCountsByKey).length} photo counts from LocalImages`);
 
-      // ===== STEP 3: Now safe to show page - photo counts are ready =====
+      // ===== STEP 4: Now safe to show page - photo counts are ready =====
       // PHASE 7.1: For MOBILE cache-first, don't show loading spinner
       this.loading = false;
       this.changeDetectorRef.detectChanges();
