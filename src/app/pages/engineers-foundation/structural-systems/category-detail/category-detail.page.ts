@@ -1574,6 +1574,16 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
       // Update photo count
       this.photoCountsByKey[key] = this.visualPhotos[key].length;
+
+      // PERSIST photo count to Dexie for instant display on next page load
+      // This prevents the "0 to N" pop effect by caching the count
+      if (field.templateId) {
+        this.visualFieldRepo.setField(this.serviceId, field.category, field.templateId, {
+          photoCount: this.visualPhotos[key].length
+        }).catch(err => {
+          console.warn('[DEXIE] Failed to save photoCount:', err);
+        });
+      }
     }
 
     // ===== US-001/US-003 DEBUG: populatePhotosFromDexie complete =====
@@ -3346,8 +3356,10 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         if (visual.Notes) item.otherValue = visual.Notes;
       }
       
-      // FAST PATH: Set initial photo count to 0, load in background
-      this.photoCountsByKey[key] = 0;
+      // FAST PATH: Only set to 0 if no cached count exists (prevents "0 to N" pop)
+      if (this.photoCountsByKey[key] === undefined) {
+        this.photoCountsByKey[key] = 0;
+      }
       this.loadingPhotosByKey[key] = true;
     }
     
