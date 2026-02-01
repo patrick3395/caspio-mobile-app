@@ -1582,6 +1582,35 @@ export class IndexedDbService {
   }
 
   /**
+   * Cache photo counts for instant display on page reload
+   * Prevents the "0 to N" count pop effect
+   */
+  async cachePhotoCounts(serviceId: string, categoryName: string, counts: { [key: string]: number }): Promise<void> {
+    const cacheKey = `photo_counts_${serviceId}_${categoryName}`;
+    await db.cachedServiceData.put({
+      cacheKey,
+      serviceId,
+      dataType: 'photo_counts' as any,
+      data: counts as any,
+      lastUpdated: Date.now()
+    });
+    console.log(`[IndexedDB] Cached photo counts for ${categoryName}: ${Object.keys(counts).length} items`);
+  }
+
+  /**
+   * Get cached photo counts for instant display
+   */
+  async getCachedPhotoCounts(serviceId: string, categoryName: string): Promise<{ [key: string]: number } | null> {
+    const cacheKey = `photo_counts_${serviceId}_${categoryName}`;
+    const cached = await db.cachedServiceData.get(cacheKey);
+    if (cached && cached.data) {
+      console.log(`[IndexedDB] Retrieved cached photo counts for ${categoryName}: ${Object.keys(cached.data).length} items`);
+      return cached.data as { [key: string]: number };
+    }
+    return null;
+  }
+
+  /**
    * Bulk get visual attachments for multiple visuals
    */
   async getAllVisualAttachmentsForVisuals(visualIds: string[]): Promise<Map<string, any[]>> {

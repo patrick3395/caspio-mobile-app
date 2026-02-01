@@ -397,6 +397,17 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
 
     const sectionKey = `${this.serviceId}_${this.categoryName}`;
 
+    // INSTANT PHOTO COUNTS: Load cached counts FIRST to prevent "0 to N" pop effect
+    // This runs before any data loading so users see correct counts immediately
+    if (Object.keys(this.photoCountsByKey).length === 0) {
+      const cachedCounts = await this.indexedDb.getCachedPhotoCounts(this.serviceId, this.categoryName);
+      if (cachedCounts) {
+        this.photoCountsByKey = { ...cachedCounts };
+        console.log(`[CategoryDetail] Restored ${Object.keys(cachedCounts).length} cached photo counts`);
+        this.changeDetectorRef.detectChanges();
+      }
+    }
+
     // Check if we have data in memory and if section is dirty
     const hasDataInMemory = Object.keys(this.visualPhotos).length > 0;
     const isDirty = this.backgroundSync.isSectionDirty(sectionKey);
@@ -2908,6 +2919,12 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
     // Track last loaded IDs to detect context changes on re-entry
     this.lastLoadedServiceId = this.serviceId;
     this.lastLoadedCategoryName = this.categoryName;
+
+    // INSTANT PHOTO COUNTS: Cache counts for next page load to prevent "0 to N" pop
+    if (Object.keys(this.photoCountsByKey).length > 0) {
+      this.indexedDb.cachePhotoCounts(this.serviceId, this.categoryName, this.photoCountsByKey)
+        .catch(err => console.warn('[LOAD DATA] Failed to cache photo counts:', err));
+    }
 
     console.log('[LOAD DATA] ========== loadData END ==========');
   }

@@ -291,10 +291,18 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
         return;
       }
 
-      // WEBAPP MODE: Fallback to template matching when no visualId in query params
+      // WEBAPP MODE: Use LBW-style priority matching when no visualId in query params
       if (environment.isWeb) {
-        console.log('[VisualDetail] WEBAPP: No visualId, falling back to template matching');
+        console.log('[VisualDetail] WEBAPP: No visualId, using priority-based matching (LBW pattern)');
         const visuals = await this.foundationData.getVisualsByService(this.serviceId);
+        console.log('[VisualDetail] WEBAPP: Loaded', visuals.length, 'visuals for ServiceID:', this.serviceId);
+
+        // Load templates for matching
+        const templates = await this.foundationData.getVisualsTemplates();
+        const template = templates.find((t: any) =>
+          ((t.TemplateID || t.PK_ID) == this.templateId) && t.Category === this.categoryName
+        );
+        console.log('[VisualDetail] WEBAPP: Template found for templateId', this.templateId, ':', template ? template.Name : '(NOT FOUND)');
 
         let visual: any = null;
 
@@ -310,8 +318,21 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
           }
         }
 
-        // PRIORITY 2: Match by TemplateID with type coercion (number/string mismatch)
+        // PRIORITY 1.5: For custom visuals, templateId might BE the VisualID - try matching directly (LBW pattern)
+        if (!visual && this.templateId > 0) {
+          console.log('[VisualDetail] WEBAPP: PRIORITY 1.5 - Looking for visual by templateId as VisualID:', this.templateId);
+          visual = visuals.find((v: any) =>
+            String(v.VisualID || v.PK_ID) === String(this.templateId)
+          );
+          if (visual) {
+            console.log('[VisualDetail] WEBAPP: PRIORITY 1.5 - Found custom visual by VisualID:', this.templateId);
+            this.visualId = String(visual.VisualID || visual.PK_ID);
+          }
+        }
+
+        // PRIORITY 2: Match by TemplateID fields with type coercion (number/string mismatch)
         if (!visual) {
+          console.log('[VisualDetail] WEBAPP: PRIORITY 2 - Looking for visual by TemplateID:', this.templateId);
           visual = visuals.find((v: any) => {
             const vTemplateId = v.VisualTemplateID || v.TemplateID;
             return vTemplateId == this.templateId && v.Category === this.categoryName;
@@ -321,23 +342,33 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
           }
         }
 
-        // PRIORITY 3: Fallback - load template name and match by name+category
-        if (!visual) {
-          const templates = await this.foundationData.getVisualsTemplates();
-          const template = templates.find((t: any) =>
-            ((t.TemplateID || t.PK_ID) == this.templateId) && t.Category === this.categoryName
+        // PRIORITY 3: Fallback - match by name+category from template
+        if (!visual && template && template.Name) {
+          console.log('[VisualDetail] WEBAPP: PRIORITY 3 - Looking for visual by Name+Category:', template.Name, this.categoryName);
+          visual = visuals.find((v: any) =>
+            v.Name === template.Name && v.Category === this.categoryName
           );
-          if (template && template.Name) {
-            visual = visuals.find((v: any) =>
-              v.Name === template.Name && v.Category === this.categoryName
-            );
-            if (visual) {
-              console.log('[VisualDetail] WEBAPP PRIORITY 3: Matched visual by name fallback:', template.Name);
-            }
+          if (visual) {
+            console.log('[VisualDetail] WEBAPP PRIORITY 3: Matched visual by name fallback:', template.Name);
+          }
+        }
+
+        // PRIORITY 4: If only ONE visual in category, use it (LBW pattern)
+        if (!visual && template) {
+          const categoryVisuals = visuals.filter((v: any) => v.Category === (template.Category || this.categoryName));
+          if (categoryVisuals.length === 1) {
+            visual = categoryVisuals[0];
+            console.log('[VisualDetail] WEBAPP: PRIORITY 4 FALLBACK - Using only visual in category:', visual.VisualID, 'Name:', visual.Name);
+          } else if (categoryVisuals.length > 1) {
+            console.warn('[VisualDetail] WEBAPP: PRIORITY 4 SKIPPED - Multiple visuals in category (' + categoryVisuals.length + '). No visualId provided, cannot determine correct visual.');
+            console.warn('[VisualDetail] WEBAPP: Available visuals:', categoryVisuals.map((v: any) => ({ VisualID: v.VisualID, Name: v.Name })));
           }
         }
 
         if (visual) {
+          const actualCategory = visual.Category || this.categoryName;
+          const visualIdStr = String(visual.VisualID || visual.PK_ID);
+
           this.item = {
             id: visual.VisualID || visual.PK_ID,
             templateId: visual.VisualTemplateID || visual.templateId || this.templateId,
@@ -345,42 +376,42 @@ export class VisualDetailPage implements OnInit, OnDestroy, HasUnsavedChanges {
             text: visual.VisualText || visual.Text || '',
             originalText: visual.VisualText || visual.Text || '',
             type: visual.Kind || 'Comment',
-            category: visual.Category || this.categoryName,
+            category: actualCategory,
             answerType: visual.AnswerType || 0,
             required: false,
             answer: visual.Answer || '',
             isSelected: true
           };
-          this.visualId = String(visual.VisualID || visual.PK_ID);
+          // WEBAPP FIX: Always use the visual's actual VisualID from server data (matches LBW pattern)
+          this.visualId = visualIdStr;
+          this.categoryName = actualCategory;
           this.editableTitle = this.item.name;
           this.editableText = this.item.text;
-          console.log('[VisualDetail] WEBAPP: Loaded visual from server:', this.item.name);
+          console.log('[VisualDetail] WEBAPP: Loaded visual:', this.item.name, 'VisualID:', this.visualId, 'Category:', actualCategory);
+        } else if (template) {
+          // No visual found - use template data
+          console.log('[VisualDetail] WEBAPP: Visual not found, using template data');
+          const effectiveTemplateId = template.TemplateID || template.PK_ID;
+          const actualCategory = template.Category || this.categoryName;
+          this.item = {
+            id: effectiveTemplateId,
+            templateId: effectiveTemplateId,
+            name: template.Name || '',
+            text: template.Text || '',
+            originalText: template.Text || '',
+            type: template.Kind || 'Comment',
+            category: actualCategory,
+            answerType: template.AnswerType || 0,
+            required: false,
+            isSelected: false
+          };
+          this.categoryName = actualCategory;
+          this.editableTitle = this.item.name;
+          this.editableText = this.item.text;
+          console.log('[VisualDetail] WEBAPP: Loaded from template:', this.item.name, 'Category:', actualCategory);
         } else {
-          // No visual found - may be a template that hasn't been selected yet
-          console.log('[VisualDetail] WEBAPP: Visual not found, loading template...');
-          const templates = await this.foundationData.getVisualsTemplates();
-          const template = templates.find((t: any) =>
-            ((t.TemplateID || t.PK_ID) == this.templateId) && t.Category === this.categoryName
-          );
-
-          if (template) {
-            const effectiveTemplateId = template.TemplateID || template.PK_ID;
-            this.item = {
-              id: effectiveTemplateId,
-              templateId: effectiveTemplateId,
-              name: template.Name || '',
-              text: template.Text || '',
-              originalText: template.Text || '',
-              type: template.Kind || 'Comment',
-              category: template.Category || this.categoryName,
-              answerType: template.AnswerType || 0,
-              required: false,
-              isSelected: false
-            };
-            this.editableTitle = this.item.name;
-            this.editableText = this.item.text;
-            console.log('[VisualDetail] WEBAPP: Loaded from template:', this.item.name);
-          }
+          // Neither visual nor template found
+          console.error('[VisualDetail] WEBAPP: ❌ Neither visual nor template found!');
         }
 
         // Load photos from server
