@@ -888,9 +888,37 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               this.selectedItems[key] = true;
             }
 
-            // Restore dropdownOptions from Dexie (includes custom options added via "Other")
+            // WEBAPP FIX: Restore dropdownOptions from Dexie (custom "Other" options)
+            // This ensures custom options added via "Other" persist across page reloads
+            // STANDARDIZED: Matches LBW pattern - uses string keys and proper merging
             if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
-              this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
+              const templateId = String(item.templateId);
+              const existingOptions = this.visualDropdownOptions[templateId] || this.visualDropdownOptions[item.templateId] || [];
+              const mergedOptions = new Set<string>();
+
+              // Add all existing options (from cache) except None/Other
+              existingOptions.forEach((opt: string) => {
+                if (opt !== 'None' && opt !== 'Other') {
+                  mergedOptions.add(opt);
+                }
+              });
+
+              // Add all options from Dexie (includes custom options) except None/Other
+              dexieField.dropdownOptions.forEach((opt: string) => {
+                if (opt !== 'None' && opt !== 'Other') {
+                  mergedOptions.add(opt);
+                }
+              });
+
+              // Convert to sorted array and add None/Other at end
+              const sortedOptions = Array.from(mergedOptions).sort((a, b) => a.localeCompare(b));
+              sortedOptions.push('None');
+              sortedOptions.push('Other');
+
+              // Store with both number and string keys for compatibility
+              this.visualDropdownOptions[item.templateId] = sortedOptions;
+              this.visualDropdownOptions[templateId as any] = sortedOptions;
+              console.log(`[MOBILE] Merged custom dropdown options for templateId ${templateId}`);
             }
           }
         }
@@ -1528,6 +1556,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    * Load dropdown options from LPS_Services_HUD_Drop table (API fallback)
    * Only called when cached data is not available
    * These are stored separately from templates and need to be fetched and matched by TemplateID
+   * WEBAPP FIX: Also merges custom options from Dexie visualFields
    */
   private async loadDropdownOptionsFromAPI(): Promise<void> {
     try {
@@ -1547,21 +1576,53 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         // Group dropdown options by TemplateID
         // HUD dropdown table may use HUDTemplateID instead of TemplateID
+        // STANDARDIZED: Store with string keys to match LBW pattern
         dropdownData.forEach((row: any) => {
           const templateId = row.HUDTemplateID || row.TemplateID; // HUD may use HUDTemplateID
+          const templateIdStr = String(templateId);
           const dropdownValue = row.Dropdown;
 
           if (templateId && dropdownValue) {
-            if (!this.visualDropdownOptions[templateId]) {
-              this.visualDropdownOptions[templateId] = [];
+            // Store with string key (primary) for consistency with LBW
+            if (!this.visualDropdownOptions[templateIdStr as any]) {
+              this.visualDropdownOptions[templateIdStr as any] = [];
             }
             // Add unique dropdown values for this template (excluding None/Other which we add at end)
-            if (!this.visualDropdownOptions[templateId].includes(dropdownValue) &&
+            if (!this.visualDropdownOptions[templateIdStr as any].includes(dropdownValue) &&
                 dropdownValue !== 'None' && dropdownValue !== 'Other') {
-              this.visualDropdownOptions[templateId].push(dropdownValue);
+              this.visualDropdownOptions[templateIdStr as any].push(dropdownValue);
             }
           }
         });
+
+        // WEBAPP FIX: Merge custom options from Dexie visualFields
+        // Custom options added via "Other" are saved to Dexie and need to be merged here
+        try {
+          const dexieFields = await this.visualFieldRepo.getFieldsForCategory(
+            this.serviceId,
+            this.categoryName
+          );
+          console.log(`[CategoryDetail] WEBAPP: Found ${dexieFields.length} Dexie fields to check for custom dropdown options`);
+
+          for (const field of dexieFields) {
+            if (field.dropdownOptions && field.dropdownOptions.length > 0) {
+              const templateId = field.templateId;
+              if (!this.visualDropdownOptions[templateId]) {
+                this.visualDropdownOptions[templateId] = [];
+              }
+              // Merge custom options from Dexie (excluding None/Other)
+              for (const opt of field.dropdownOptions) {
+                if (opt !== 'None' && opt !== 'Other' &&
+                    !this.visualDropdownOptions[templateId].includes(opt)) {
+                  this.visualDropdownOptions[templateId].push(opt);
+                  console.log(`[CategoryDetail] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
+                }
+              }
+            }
+          }
+        } catch (dexieError) {
+          console.warn('[CategoryDetail] WEBAPP: Could not load custom options from Dexie:', dexieError);
+        }
 
         // Sort options alphabetically and add "None" and "Other" at the end
         Object.keys(this.visualDropdownOptions).forEach(templateId => {
@@ -1585,6 +1646,34 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         this.changeDetectorRef.detectChanges();
       } else {
         console.warn('[CategoryDetail] No dropdown data received from API');
+
+        // WEBAPP FIX: Even without API data, still load custom options from Dexie
+        try {
+          const dexieFields = await this.visualFieldRepo.getFieldsForCategory(
+            this.serviceId,
+            this.categoryName
+          );
+          console.log(`[CategoryDetail] WEBAPP: Found ${dexieFields.length} Dexie fields to check for custom dropdown options (no API data)`);
+
+          for (const field of dexieFields) {
+            if (field.dropdownOptions && field.dropdownOptions.length > 0) {
+              const templateId = field.templateId;
+              if (!this.visualDropdownOptions[templateId]) {
+                this.visualDropdownOptions[templateId] = [];
+              }
+              // Merge custom options from Dexie
+              for (const opt of field.dropdownOptions) {
+                if (!this.visualDropdownOptions[templateId].includes(opt)) {
+                  this.visualDropdownOptions[templateId].push(opt);
+                  console.log(`[CategoryDetail] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
+                }
+              }
+            }
+          }
+          this.changeDetectorRef.detectChanges();
+        } catch (dexieError) {
+          console.warn('[CategoryDetail] WEBAPP: Could not load custom options from Dexie:', dexieError);
+        }
       }
     } catch (error) {
       console.error('[CategoryDetail] Error loading dropdown options:', error);
@@ -3496,13 +3585,41 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 this.selectedItems[key] = true;
               }
 
-              // Restore dropdownOptions from Dexie (includes custom options added via "Other")
+              // WEBAPP FIX: Restore dropdownOptions from Dexie (custom "Other" options)
+              // This ensures custom options added via "Other" persist across page reloads
+              // STANDARDIZED: Matches LBW pattern - uses string keys and proper merging
               if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
-                this.visualDropdownOptions[item.templateId] = dexieField.dropdownOptions;
+                const templateIdStr = String(item.templateId);
+                const existingOptions = this.visualDropdownOptions[templateIdStr] || this.visualDropdownOptions[item.templateId] || [];
+                const mergedOptions = new Set<string>();
+
+                // Add all existing options (from cache) except None/Other
+                existingOptions.forEach((opt: string) => {
+                  if (opt !== 'None' && opt !== 'Other') {
+                    mergedOptions.add(opt);
+                  }
+                });
+
+                // Add all options from Dexie (includes custom options) except None/Other
+                dexieField.dropdownOptions.forEach((opt: string) => {
+                  if (opt !== 'None' && opt !== 'Other') {
+                    mergedOptions.add(opt);
+                  }
+                });
+
+                // Convert to sorted array and add None/Other at end
+                const sortedOptions = Array.from(mergedOptions).sort((a, b) => a.localeCompare(b));
+                sortedOptions.push('None');
+                sortedOptions.push('Other');
+
+                // Store with both number and string keys for compatibility
+                this.visualDropdownOptions[item.templateId] = sortedOptions;
+                this.visualDropdownOptions[templateIdStr as any] = sortedOptions;
+                console.log(`[LOAD DATA] Merged custom dropdown options for templateId ${templateIdStr}`);
               }
             }
           }
-          console.log(`[LOAD DATA] ? Merged ${totalFieldsLoaded} VisualFields from Dexie (${uniqueCategories.size} categories)`);
+          console.log(`[LOAD DATA] ✅ Merged ${totalFieldsLoaded} VisualFields from Dexie (${uniqueCategories.size} categories)`);
 
           // CUSTOM VISUAL FIX: Add custom visuals from Dexie that aren't in organizedData
           // Custom visuals have negative templateIds (created via Add Modal)
@@ -6893,11 +7010,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
 
                 // Compress image
-                const compressedFile = await this.imageCompression.compressImage(file, {
-                  maxSizeMB: 0.8,
-                  maxWidthOrHeight: 1280,
-                  useWebWorker: true
-                }) as File;
+                let compressedFile: File;
+                try {
+                  compressedFile = await this.imageCompression.compressImage(file, {
+                    maxSizeMB: 0.8,
+                    maxWidthOrHeight: 1280,
+                    useWebWorker: true
+                  }) as File;
+                } catch (compressError) {
+                  console.warn(`[GALLERY UPLOAD] WEBAPP: Compression failed for photo ${i + 1}, using original:`, compressError);
+                  compressedFile = file;
+                }
 
                 // Create temp photo entry with loading state (show roller)
                 const tempId = `uploading_${Date.now()}_${i}`;
@@ -7042,11 +7165,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 }
 
                 // Compress image before storage
-                const compressedFile = await this.imageCompression.compressImage(file, {
-                  maxSizeMB: 0.8,
-                  maxWidthOrHeight: 1280,
-                  useWebWorker: true
-                }) as File;
+                let compressedFile: File;
+                try {
+                  compressedFile = await this.imageCompression.compressImage(file, {
+                    maxSizeMB: 0.8,
+                    maxWidthOrHeight: 1280,
+                    useWebWorker: true
+                  }) as File;
+                } catch (compressError) {
+                  console.warn(`[GALLERY UPLOAD] MOBILE: Compression failed for photo ${i + 1}, using original:`, compressError);
+                  compressedFile = file;
+                }
 
                 // Create LocalImage with stable UUID
                 const localImage = await this.localImageService.captureImage(
@@ -7235,11 +7364,17 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
     // Compress the photo before upload
     const originalSize = photo.size;
-    const compressedPhoto = await this.imageCompression.compressImage(photo, {
-      maxSizeMB: 0.8,
-      maxWidthOrHeight: 1280,
-      useWebWorker: true
-    }) as File;
+    let compressedPhoto: File;
+    try {
+      compressedPhoto = await this.imageCompression.compressImage(photo, {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      }) as File;
+    } catch (compressError) {
+      console.warn('[UPLOAD] Compression failed, using original photo:', compressError);
+      compressedPhoto = photo;
+    }
     const compressedSize = compressedPhoto.size;
 
     const uploadFile = compressedPhoto || photo;
@@ -9313,6 +9448,25 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   trackByOption(index: number, option: string): string {
     return option;
+  }
+
+  /**
+   * Get dropdown options for a template - handles type conversion for reliable lookup
+   * STANDARDIZED: Matches LBW pattern for consistent multi-select functionality
+   */
+  getDropdownOptions(templateId: number): string[] {
+    // STANDARDIZED: Use string key first (matches LBW pattern), then fall back to number
+    const templateIdStr = String(templateId);
+    const options = this.visualDropdownOptions[templateIdStr as any] || this.visualDropdownOptions[templateId] || [];
+
+    // Debug logging (only once per templateId)
+    if (options.length === 0 && !this._loggedPhotoKeys.has(`dropdown_${templateIdStr}`)) {
+      console.log('[GET DROPDOWN] No options found for TemplateID:', templateIdStr);
+      console.log('[GET DROPDOWN] Available TemplateIDs:', Object.keys(this.visualDropdownOptions));
+      this._loggedPhotoKeys.add(`dropdown_${templateIdStr}`);
+    }
+
+    return options;
   }
 
   getDropdownDebugInfo(item: VisualItem): string {

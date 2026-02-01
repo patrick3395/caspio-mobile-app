@@ -11095,11 +11095,17 @@ export class HudContainerPage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     // COMPRESS the photo before upload - OPTIMIZED for faster uploads
-    const compressedPhoto = await this.imageCompression.compressImage(photo, {
-      maxSizeMB: 0.8,  // Reduced from 1.5MB for faster uploads
-      maxWidthOrHeight: 1280,  // Reduced from 1920px - sufficient for reports
-      useWebWorker: true
-    }) as File;
+    let compressedPhoto: File;
+    try {
+      compressedPhoto = await this.imageCompression.compressImage(photo, {
+        maxSizeMB: 0.8,  // Reduced from 1.5MB for faster uploads
+        maxWidthOrHeight: 1280,  // Reduced from 1920px - sufficient for reports
+        useWebWorker: true
+      }) as File;
+    } catch (compressError) {
+      console.warn('[GALLERY UPLOAD] Compression failed, using original photo:', compressError);
+      compressedPhoto = photo; // Use original if compression fails
+    }
 
     const uploadFile = compressedPhoto || photo;
 

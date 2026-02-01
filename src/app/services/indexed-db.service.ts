@@ -2366,22 +2366,43 @@ export class IndexedDbService {
     const captionId = `caption_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const now = Date.now();
 
-    // Check for existing pending update for this attachment
+    // Check for existing pending/failed/syncing update for this attachment
+    // IMPORTANT: Include 'syncing' to prevent duplicates when sync gets stuck
     const existing = await db.pendingCaptions
       .where('attachId')
       .equals(data.attachId)
-      .filter(c => c.status === 'pending' || c.status === 'failed')
+      .filter(c => c.status === 'pending' || c.status === 'failed' || c.status === 'syncing')
       .toArray();
 
     if (existing.length > 0) {
-      // Update the most recent pending one
-      const toUpdate = existing[existing.length - 1];
+      // Update the most recent one (prefer pending over syncing)
+      // Sort: pending first, then failed, then syncing
+      existing.sort((a, b) => {
+        const order = { pending: 0, failed: 1, syncing: 2 };
+        return (order[a.status] || 3) - (order[b.status] || 3);
+      });
+      const toUpdate = existing[0];
+
+      // If updating a 'syncing' caption, reset it to pending (sync was likely stuck)
+      if (toUpdate.status === 'syncing') {
+        console.log('[IndexedDB] ⚠️ Resetting stuck syncing caption to pending:', toUpdate.captionId);
+        toUpdate.status = 'pending';
+        toUpdate.retryCount = 0;
+      }
+
       if (data.caption !== undefined) toUpdate.caption = data.caption;
       if (data.drawings !== undefined) toUpdate.drawings = data.drawings;
       toUpdate.updatedAt = now;
 
       await db.pendingCaptions.put(toUpdate);
       console.log('[IndexedDB] ✅ Updated pending caption:', toUpdate.captionId, 'for attach:', data.attachId);
+
+      // Clean up any extra duplicates for the same attachId
+      if (existing.length > 1) {
+        const toDelete = existing.slice(1).map(c => c.captionId);
+        await db.pendingCaptions.bulkDelete(toDelete);
+        console.log('[IndexedDB] 🧹 Cleaned up', toDelete.length, 'duplicate captions for attach:', data.attachId);
+      }
 
       // Emit sync queue change to reset rolling sync window
       this.emitSyncQueueChange('caption_update');
