@@ -1309,19 +1309,31 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
    */
   private async loadDataFromCache(): Promise<void> {
     console.log('[LBW CategoryDetail] MOBILE MODE: loadDataFromCache() starting...');
-    // PHASE 7.1: For MOBILE cache-first, don't show loading spinner initially
-    // Only show spinner if we need to fall back to API (no cached templates)
-    this.loading = false;
-    this.changeDetectorRef.detectChanges();
 
     try {
-      // Load LBW templates, visuals, AND dropdown options from cache IN PARALLEL
-      // CRITICAL: Load dropdown options with templates for instant multi-select display (no jumping)
-      const [templates, visuals, dropdownData] = await Promise.all([
+      // ===== STEP 1: Load ALL data from cache IN PARALLEL (before showing page) =====
+      // CRITICAL: Load dexieFields WITH templates to get photo counts BEFORE first render
+      const [templates, visuals, dropdownData, dexieFields] = await Promise.all([
         this.indexedDb.getCachedTemplates('lbw'),
         this.hudData.getVisualsByService(this.serviceId, false), // false = use cache
-        this.indexedDb.getCachedTemplates('lbw_dropdown')
+        this.indexedDb.getCachedTemplates('lbw_dropdown'),
+        this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName)
       ]);
+
+      // ===== STEP 2: Restore photo counts from Dexie BEFORE rendering =====
+      // This prevents the "0 to N" pop effect - counts are already populated when page shows
+      for (const field of dexieFields) {
+        if (field.photoCount !== undefined && field.photoCount > 0) {
+          const key = `${field.category}_${field.templateId}`;
+          this.photoCountsByKey[key] = field.photoCount;
+        }
+      }
+      console.log(`[LBW CategoryDetail] MOBILE: Pre-loaded ${Object.keys(this.photoCountsByKey).length} photo counts from Dexie`);
+
+      // ===== STEP 3: Now safe to show page - photo counts are ready =====
+      // PHASE 7.1: For MOBILE cache-first, don't show loading spinner
+      this.loading = false;
+      this.changeDetectorRef.detectChanges();
 
       console.log(`[LBW CategoryDetail] MOBILE: Loaded ${templates?.length || 0} templates, ${visuals?.length || 0} LBW records, ${dropdownData?.length || 0} dropdown options from cache`);
 
@@ -1351,10 +1363,7 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
       const categoryTemplates = (templates || []).filter((t: any) => t.Category === this.categoryName);
       const categoryVisuals = (visuals || []).filter((v: any) => v.Category === this.categoryName);
 
-      // TITLE EDIT FIX: Load Dexie visualFields FIRST to get templateId -> visualId mappings
-      // Use getFieldsForCategory() like HUD does - uses compound index for reliable lookup
-      const dexieFields = await this.visualFieldRepo.getFieldsForCategory(this.serviceId, this.categoryName);
-
+      // NOTE: dexieFields already loaded in initial Promise.all() above
       // Build templateId -> visualId map from Dexie
       const templateToVisualMap = new Map<number, string>();
       for (const field of dexieFields) {
