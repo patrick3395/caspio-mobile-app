@@ -157,11 +157,11 @@
 
               <!-- Action button grid for multi-select - shows when item is selected -->
               <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.templateId)">
-                <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
+                <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(item.category, item.templateId); $event.stopPropagation()">
                   <ion-icon name="camera"></ion-icon>
                   <span>Camera</span>
                 </button>
-                <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.templateId); $event.stopPropagation()">
+                <button class="action-btn" (click)="addPhotoFromGallery(item.category, item.templateId); $event.stopPropagation()">
                   <ion-icon name="images"></ion-icon>
                   <span>Gallery</span>
                 </button>
@@ -261,11 +261,11 @@
 
             <!-- Large action button grid - shows when item is selected -->
             <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.templateId) && (!item.answerType || item.answerType === 0)">
-              <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
+              <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(item.category, item.templateId); $event.stopPropagation()">
                 <ion-icon name="camera"></ion-icon>
                 <span>Camera</span>
               </button>
-              <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.templateId); $event.stopPropagation()">
+              <button class="action-btn" (click)="addPhotoFromGallery(item.category, item.templateId); $event.stopPropagation()">
                 <ion-icon name="images"></ion-icon>
                 <span>Gallery</span>
               </button>
@@ -442,11 +442,11 @@
 
               <!-- Action button grid for multi-select -->
               <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.templateId)">
-                <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
+                <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(item.category, item.templateId); $event.stopPropagation()">
                   <ion-icon name="camera"></ion-icon>
                   <span>Camera</span>
                 </button>
-                <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.templateId); $event.stopPropagation()">
+                <button class="action-btn" (click)="addPhotoFromGallery(item.category, item.templateId); $event.stopPropagation()">
                   <ion-icon name="images"></ion-icon>
                   <span>Gallery</span>
                 </button>
@@ -546,11 +546,11 @@
 
             <!-- Large action button grid - shows when item is selected -->
             <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.templateId) && (!item.answerType || item.answerType === 0)">
-              <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
+              <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(item.category, item.templateId); $event.stopPropagation()">
                 <ion-icon name="camera"></ion-icon>
                 <span>Camera</span>
               </button>
-              <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.templateId); $event.stopPropagation()">
+              <button class="action-btn" (click)="addPhotoFromGallery(item.category, item.templateId); $event.stopPropagation()">
                 <ion-icon name="images"></ion-icon>
                 <span>Gallery</span>
               </button>
@@ -724,11 +724,11 @@
 
               <!-- Action button grid for multi-select -->
               <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.templateId)">
-                <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
+                <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(item.category, item.templateId); $event.stopPropagation()">
                   <ion-icon name="camera"></ion-icon>
                   <span>Camera</span>
                 </button>
-                <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.templateId); $event.stopPropagation()">
+                <button class="action-btn" (click)="addPhotoFromGallery(item.category, item.templateId); $event.stopPropagation()">
                   <ion-icon name="images"></ion-icon>
                   <span>Gallery</span>
                 </button>
@@ -828,11 +828,11 @@
 
             <!-- Large action button grid - shows when item is selected -->
             <div class="action-button-grid" *ngIf="isItemSelected(categoryName, item.templateId) && (!item.answerType || item.answerType === 0)">
-              <button class="action-btn" (click)="addPhotoFromCamera(categoryName, item.templateId); $event.stopPropagation()">
+              <button class="action-btn" *ngIf="!isWeb" (click)="addPhotoFromCamera(item.category, item.templateId); $event.stopPropagation()">
                 <ion-icon name="camera"></ion-icon>
                 <span>Camera</span>
               </button>
-              <button class="action-btn" (click)="addPhotoFromGallery(categoryName, item.templateId); $event.stopPropagation()">
+              <button class="action-btn" (click)="addPhotoFromGallery(item.category, item.templateId); $event.stopPropagation()">
                 <ion-icon name="images"></ion-icon>
                 <span>Gallery</span>
               </button>
