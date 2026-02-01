@@ -1292,8 +1292,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           required: false,
           answer: visual.Answers || '',
           isSelected: true,
-          key: customKey
-        };
+          key: customKey,
+          hudId: hudId  // Store HUDID directly for reliable navigation (LBW pattern)
+        } as VisualItem;
 
         // Add to appropriate section
         if (kind === 'limitation') {
@@ -2739,7 +2740,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
             // Store the visual record ID for later operations (select/unselect/photo uploads)
             this.visualRecordIds[key] = visualId;
-            
+            // LBW pattern: Store HUDID directly on item for reliable navigation
+            (existingItem as any).hudId = visualId;
+
             // CRITICAL: Handle HIDDEN visuals - they should be DESELECTED
             if (isHidden) {
               // Check if currently selected - if so, we need to deselect
@@ -4071,11 +4074,13 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
       this.visualRecordIds[key] = visualId;
       assignedKeys.add(key);
-      
+      // LBW pattern: Store HUDID directly on item for reliable navigation
+      (item as any).hudId = visualId;
+
       // Restore edited values
       if (visual.Name) item.name = visual.Name;
       if (visual.Text) item.text = visual.Text;
-      
+
       // Set selected state
       if (!item.answerType || item.answerType === 0) {
         this.selectedItems[key] = true;
@@ -4289,6 +4294,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
         // Store the visual record ID (extract from response)
         this.visualRecordIds[key] = visualId;
+        // LBW pattern: Store HUDID directly on item for reliable navigation
+        (item as any).hudId = visualId;
 
         // WEBAPP FIX: Update name and text from server if edited in visual-detail
         // Server is source of truth for WEBAPP mode
@@ -5537,10 +5544,29 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       return true;
     }
 
+    // Find the item to check additional keys
+    const item = this.findItemById(itemId);
+
+    // LBW PATTERN FIX: For custom items, the key is stored with item.id (e.g., "custom_123")
+    // but this method is called with item.templateId (negative number)
+    // Check if selectedItems has the key using item.id instead
+    if (item && item.id && item.id !== itemId) {
+      const itemIdKey = `${category}_${item.id}`;
+      if (this.selectedItems[itemIdKey]) {
+        return true;
+      }
+      // Also check with item's actual category
+      if (item.category && item.category !== category) {
+        const itemCategoryIdKey = `${item.category}_${item.id}`;
+        if (this.selectedItems[itemCategoryIdKey]) {
+          return true;
+        }
+      }
+    }
+
     // HUD FIX: Also check using the item's actual category (template category)
     // because selectedItems may be stored with actual category (e.g., "Mobile/Manufactured Homes")
     // but template passes route category (e.g., "hud")
-    const item = this.findItemById(itemId);
     if (item && item.category && item.category !== category) {
       const itemCategoryKey = `${item.category}_${itemId}`;
       if (this.selectedItems[itemCategoryKey]) {
@@ -6134,8 +6160,37 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   // PHOTO RETRIEVAL AND DISPLAY METHODS
   // ============================================
 
+  // LBW PATTERN: Helper to get the correct key for custom items
+  // Custom items store their key with item.id (e.g., "custom_123") but template passes item.templateId
+  private getKeyForItem(category: string, itemId: string | number): string {
+    const primaryKey = `${category}_${itemId}`;
+
+    // Check if primary key exists in visualPhotos, selectedItems, or expandedPhotos
+    if (this.visualPhotos[primaryKey] || this.selectedItems[primaryKey] || this.expandedPhotos[primaryKey]) {
+      return primaryKey;
+    }
+
+    // For custom items, try using item.id instead
+    const item = this.findItemById(itemId);
+    if (item && item.id && item.id !== itemId) {
+      const itemIdKey = `${category}_${item.id}`;
+      if (this.visualPhotos[itemIdKey] || this.selectedItems[itemIdKey] || this.expandedPhotos[itemIdKey]) {
+        return itemIdKey;
+      }
+      // Also try item's actual category
+      if (item.category && item.category !== category) {
+        const itemCategoryKey = `${item.category}_${item.id}`;
+        if (this.visualPhotos[itemCategoryKey] || this.selectedItems[itemCategoryKey] || this.expandedPhotos[itemCategoryKey]) {
+          return itemCategoryKey;
+        }
+      }
+    }
+
+    return primaryKey;
+  }
+
   getPhotosForVisual(category: string, itemId: string | number): any[] {
-    const key = `${category}_${itemId}`;
+    const key = this.getKeyForItem(category, itemId);
     const photos = this.visualPhotos[key] || [];
 
     if (photos.length > 0) {
@@ -6150,18 +6205,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   isLoadingPhotosForVisual(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
+    const key = this.getKeyForItem(category, itemId);
     return this.loadingPhotosByKey[key] === true;
   }
 
   getExpectedPhotoCount(category: string, itemId: string | number): number {
-    const key = `${category}_${itemId}`;
+    const key = this.getKeyForItem(category, itemId);
     return this.photoCountsByKey[key] || 0;
   }
 
   // Get total photo count to display (direct array length like EFE)
   getTotalPhotoCount(category: string, itemId: string | number): number {
-    const key = `${category}_${itemId}`;
+    const key = this.getKeyForItem(category, itemId);
     return (this.visualPhotos[key] || []).length;
   }
 
@@ -6171,7 +6226,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    * Check if photos are expanded for a visual
    */
   isPhotosExpanded(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
+    const key = this.getKeyForItem(category, itemId);
     return this.expandedPhotos[key] === true;
   }
 
@@ -6179,15 +6234,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    * Toggle photos expansion - expands and loads photos on first click
    */
   togglePhotoExpansion(category: string, itemId: string | number): void {
-    const key = `${category}_${itemId}`;
-    
+    const key = this.getKeyForItem(category, itemId);
+
     if (this.expandedPhotos[key]) {
       // Collapse
       this.expandedPhotos[key] = false;
     } else {
       // Expand and load photos if not already loaded
       this.expandedPhotos[key] = true;
-      
+
       // Only load photos if we haven't loaded them yet
       const visualId = this.visualRecordIds[key];
       if (visualId && (!this.visualPhotos[key] || this.visualPhotos[key].length === 0)) {
@@ -6196,7 +6251,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         });
       }
     }
-    
+
     this.changeDetectorRef.detectChanges();
   }
 
@@ -6204,9 +6259,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
    * Expand photos for a visual
    */
   expandPhotos(category: string, itemId: string | number): void {
-    const key = `${category}_${itemId}`;
+    const key = this.getKeyForItem(category, itemId);
     this.expandedPhotos[key] = true;
-    
+
     // Load photos if not already loaded
     const visualId = this.visualRecordIds[key];
     if (visualId && (!this.visualPhotos[key] || this.visualPhotos[key].length === 0)) {
@@ -6233,12 +6288,12 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   isUploadingPhotos(category: string, itemId: string | number): boolean {
-    const key = `${category}_${itemId}`;
+    const key = this.getKeyForItem(category, itemId);
     return this.uploadingPhotosByKey[key] || false;
   }
 
   getUploadingCount(category: string, itemId: string | number): number {
-    const key = `${category}_${itemId}`;
+    const key = this.getKeyForItem(category, itemId);
     const photos = this.visualPhotos[key] || [];
     return photos.filter(p => p.uploading).length;
   }
@@ -7911,12 +7966,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           // CRITICAL: Use the CURRENT photo's AttachID, not the original one
           // The AttachID may have changed from temp to real while the modal was open
           const currentAttachId = currentPhoto.AttachID || currentPhoto.id || attachId;
-          const isCurrentlyTemp = String(currentAttachId).startsWith('temp_');
-          
-          console.log('[VIEW PHOTO] Saving annotations - Original AttachID:', attachId, 'Current AttachID:', currentAttachId, 'Is temp:', isCurrentlyTemp);
 
-          // Save annotations to database FIRST
-          if (currentAttachId && !isCurrentlyTemp) {
+          // Detect if this is an unsynced photo (temp_ prefix OR img_ prefix OR LocalImage flags)
+          const isLocalImagePhoto = currentPhoto.isLocalFirst || currentPhoto.isLocalImage ||
+            String(currentAttachId).startsWith('img_');
+          const isLegacyTempPhoto = String(currentAttachId).startsWith('temp_');
+          const isUnsyncedPhoto = isLocalImagePhoto || isLegacyTempPhoto;
+
+          console.log('[VIEW PHOTO] Saving annotations - Original AttachID:', attachId, 'Current AttachID:', currentAttachId,
+            'isLocalImage:', isLocalImagePhoto, 'isLegacyTemp:', isLegacyTempPhoto, 'isUnsynced:', isUnsyncedPhoto);
+
+          // Save annotations to database FIRST (for synced photos with real IDs)
+          if (currentAttachId && !isUnsyncedPhoto) {
             try {
               // CRITICAL: Save and get back the compressed drawings that were saved
               const compressedDrawings = await this.saveAnnotationToDatabase(currentAttachId, annotatedBlob, annotationsData, data.caption);
@@ -7968,21 +8029,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               // Toast removed per user request
               // await this.showToast('Failed to save annotations', 'danger');
             }
-          } else if (isCurrentlyTemp) {
-            // OFFLINE PHOTO: Update IndexedDB with the new annotations
-            // This ensures background sync will upload the photo WITH annotations
+          } else if (isUnsyncedPhoto) {
+            // OFFLINE/LOCAL PHOTO: Update IndexedDB with the new annotations
+            // This handles both legacy temp_ photos AND new LocalImage img_ photos
             try {
-              console.log('[SAVE OFFLINE] ========== SAVING ANNOTATIONS FOR TEMP PHOTO ==========');
-              console.log('[SAVE OFFLINE] attachId:', attachId);
-              console.log('[SAVE OFFLINE] currentPhoto._pendingFileId:', currentPhoto._pendingFileId);
-              console.log('[SAVE OFFLINE] currentPhoto.attachId:', currentPhoto.attachId);
-              console.log('[SAVE OFFLINE] currentPhoto.AttachID:', currentPhoto.AttachID);
-              console.log('[SAVE OFFLINE] currentPhoto._tempId:', currentPhoto._tempId);
-              console.log('[SAVE OFFLINE] currentPhoto.isPending:', currentPhoto.isPending);
+              console.log('[SAVE OFFLINE] ========== SAVING ANNOTATIONS FOR UNSYNCED PHOTO ==========');
+              console.log('[SAVE OFFLINE] isLocalImage:', isLocalImagePhoto, 'isLegacyTemp:', isLegacyTempPhoto);
 
               // Get the pending file ID - use multiple fallbacks
               const pendingFileId = currentPhoto._pendingFileId || currentPhoto.attachId || currentPhoto._tempId || attachId;
-              console.log('[SAVE OFFLINE] Using pendingFileId:', pendingFileId);
 
               // Compress the annotation data for storage (using static import for offline)
               let compressedDrawings = '';
@@ -7994,35 +8049,49 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 }
               }
 
-              // CRITICAL: Use updatePendingPhotoData for reliable caption/drawings update
-              // This is simpler and more reliable than re-reading and re-storing the entire file
-              const updated = await this.indexedDb.updatePendingPhotoData(pendingFileId, {
-                caption: data.caption || '',
-                drawings: compressedDrawings
-              });
-              
-              if (updated) {
-                console.log('[SAVE OFFLINE] ? Updated IndexedDB with drawings:', compressedDrawings.length, 'chars');
+              // Handle LocalImage photos (img_ prefix) differently from legacy temp photos (temp_ prefix)
+              if (isLocalImagePhoto) {
+                // LocalImage: Use updateLocalImage to save drawings
+                const localImageId = currentPhoto.imageId || currentPhoto.localImageId || pendingFileId;
+                console.log('[SAVE OFFLINE] Saving to LocalImage:', localImageId, 'drawings:', compressedDrawings?.length || 0, 'chars');
+
+                this.indexedDb.updateLocalImage(localImageId, {
+                  caption: data.caption || '',
+                  drawings: compressedDrawings
+                }).then(() => {
+                  console.log('[SAVE OFFLINE] ✅ Updated LocalImage with drawings');
+                }).catch(err => {
+                  console.error('[SAVE OFFLINE] LocalImage update failed:', err);
+                });
               } else {
-                console.warn('[SAVE OFFLINE] Could not find pending photo in IndexedDB for:', pendingFileId);
-                
-                // CRITICAL FIX: If file is not found, the photo may have been synced while user was annotating
-                // Try to save to the database using the _originalTempId or look for a real AttachID
-                const realAttachId = currentPhoto._originalTempId ? 
-                  await this.indexedDb.getRealId(String(currentPhoto._originalTempId)) : null;
-                  
-                if (realAttachId) {
-                  console.log('[SAVE OFFLINE] Photo was synced! Saving annotations to database with real ID:', realAttachId);
-                  try {
-                    await this.saveAnnotationToDatabase(realAttachId, annotatedBlob, annotationsData, data.caption || '');
-                    console.log('[SAVE OFFLINE] ? Annotations saved to database with real ID');
-                  } catch (dbError) {
-                    console.error('[SAVE OFFLINE] Failed to save annotations to database:', dbError);
-                  }
+                // Legacy temp photo: Use updatePendingPhotoData
+                const updated = await this.indexedDb.updatePendingPhotoData(pendingFileId, {
+                  caption: data.caption || '',
+                  drawings: compressedDrawings
+                });
+
+                if (updated) {
+                  console.log('[SAVE OFFLINE] ✅ Updated pending photo with drawings:', compressedDrawings.length, 'chars');
                 } else {
-                  console.warn('[SAVE OFFLINE] No real ID found, annotations will only be saved locally');
+                  console.warn('[SAVE OFFLINE] Could not find pending photo, checking if synced...');
+                  const realAttachId = currentPhoto._originalTempId ?
+                    await this.indexedDb.getRealId(String(currentPhoto._originalTempId)) : null;
+                  if (realAttachId) {
+                    this.saveAnnotationToDatabase(realAttachId, annotatedBlob, annotationsData, data.caption || '')
+                      .catch(err => console.error('[SAVE OFFLINE] Failed to save to database:', err));
+                  }
                 }
               }
+
+              // Queue caption/annotation update for sync in background
+              this.hudData.queueCaptionAndAnnotationUpdate(
+                pendingFileId,
+                data.caption || '',
+                compressedDrawings,
+                'visual',
+                { serviceId: this.serviceId }
+              );
+              console.log('[SAVE OFFLINE] ✅ Caption/annotation queued for sync:', pendingFileId);
 
               // Update local photo object with annotated image
               console.log('[SAVE OFFLINE] Updating local photo object, newUrl:', newUrl ? 'created' : 'missing');
@@ -8781,8 +8850,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         type: kind,
         category: category,
         isSelected: true, // Custom visuals are always selected
-        photos: []
-      };
+        photos: [],
+        hudId: String(visualId)  // Store HUDID directly for reliable navigation (LBW pattern)
+      } as VisualItem;
 
       // WEBAPP: Use customItemId for key to match what loadExistingVisuals uses
       // MOBILE: Use customTemplateId for consistency with Dexie patterns
@@ -8864,7 +8934,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             // Add temp photo to UI immediately (with loading roller)
             this.visualPhotos[key].push(tempPhotoEntry);
             this.loadingPhotosByKey[key] = false;
-            this.expandPhotos(category, customTemplateId);
+            // LBW PATTERN FIX: Use the already-correct key variable instead of calling expandPhotos
+            // (item isn't in organizedData yet, so getKeyForItem can't find it)
+            this.expandedPhotos[key] = true;
             this.changeDetectorRef.detectChanges();
 
             try {
@@ -9018,6 +9090,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       } else {
         this.organizedData.comments.push(customItem);
       }
+
+      // Re-sort to maintain uniform display (LBW pattern)
+      this.sortOrganizedDataByAnswerType();
       this.changeDetectorRef.detectChanges();
 
       // Clear PDF cache so new PDFs show updated data

@@ -3781,10 +3781,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
           // MOBILE MODE: Local-first with background sync
           // ============================================
 
-          // DEBUG ALERT: Show which path we're taking on mobile device
           // WEBAPP MODE: Upload directly to S3
           if (environment.isWeb) {
-            alert('[LBW DEBUG 2] Going to WEBAPP path - Direct S3 upload');
             console.log('[CAMERA UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
 
             // Initialize photo array if it doesn't exist
@@ -5230,6 +5228,13 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
                   if (attachIdToDelete && !String(attachIdToDelete).startsWith('temp_') && !String(attachIdToDelete).startsWith('img_')) {
                     await this.hudData.deleteVisualPhoto(attachIdToDelete);
                     console.log('[DELETE PHOTO] Queued backend deletion:', attachIdToDelete);
+                  }
+
+                  // CRITICAL: Clear attachment cache so next page load fetches fresh data from server
+                  const visualId = this.visualRecordIds[key];
+                  if (visualId) {
+                    this.hudData.clearAttachmentCache(String(visualId));
+                    console.log('[DELETE PHOTO] Cleared attachment cache for:', visualId);
                   }
 
                   // Force UI update
