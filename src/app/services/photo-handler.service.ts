@@ -347,6 +347,12 @@ export class PhotoHandlerService {
 
   /**
    * WEBAPP PATH: Direct S3 upload (no local storage)
+   *
+   * ANNOTATION FLATTENING FIX (EFE Pattern):
+   * - ALL URLs use the ORIGINAL image (no annotated blob URLs)
+   * - Annotations stored ONLY in Drawings field (compressed JSON)
+   * - Photo viewer renders annotations dynamically from Drawings field
+   * - This prevents annotations from being "baked in" and becoming uneditable
    */
   private async processWebappPhoto(
     originalBlob: Blob,
@@ -363,18 +369,20 @@ export class PhotoHandlerService {
 
     // Create temp photo entry with loading state
     const tempId = skeletonIdToReplace || `uploading_${Date.now()}`;
+
+    // ANNOTATION FLATTENING FIX: Always use original blob URL for ALL URLs
+    // Annotations stored in Drawings field (JSON) - no annotated blob URLs
     const originalBlobUrl = URL.createObjectURL(originalBlob);
-    const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : originalBlobUrl;
 
     const tempPhoto: StandardPhotoEntry = {
       imageId: tempId,
       AttachID: tempId,
       attachId: tempId,
       id: tempId,
-      url: originalBlobUrl,
-      displayUrl: annotatedDisplayUrl,
-      originalUrl: originalBlobUrl,
-      thumbnailUrl: annotatedDisplayUrl,
+      url: originalBlobUrl,              // Always original
+      displayUrl: originalBlobUrl,       // Always original - no annotated cache
+      originalUrl: originalBlobUrl,      // For re-editing
+      thumbnailUrl: originalBlobUrl,     // Always original - no annotated cache
       name: 'photo.jpg',
       caption: caption || '',
       annotation: caption || '',
@@ -413,6 +421,7 @@ export class PhotoHandlerService {
       console.log('[PhotoHandler] WEBAPP: Upload complete, AttachID:', uploadResult.attachId);
 
       // Create final photo entry
+      // ANNOTATION FLATTENING FIX: Always use original S3 URL for ALL URLs
       const finalPhoto: StandardPhotoEntry = {
         ...tempPhoto,
         imageId: uploadResult.attachId,
@@ -420,9 +429,9 @@ export class PhotoHandlerService {
         attachId: uploadResult.attachId,
         id: uploadResult.attachId,
         url: uploadResult.s3Url,
-        displayUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
-        originalUrl: uploadResult.s3Url,
-        thumbnailUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
+        displayUrl: uploadResult.s3Url,    // Always original - no annotated cache
+        originalUrl: uploadResult.s3Url,   // For re-editing
+        thumbnailUrl: uploadResult.s3Url,  // Always original - no annotated cache
         status: 'uploaded',
         isLocal: false,
         uploading: false,
@@ -452,11 +461,8 @@ export class PhotoHandlerService {
       });
       await toast.present();
 
-      // Clean up blob URLs
+      // Clean up blob URL
       URL.revokeObjectURL(originalBlobUrl);
-      if (annotatedBlob && annotatedDisplayUrl !== originalBlobUrl) {
-        URL.revokeObjectURL(annotatedDisplayUrl);
-      }
 
       return null;
     }
@@ -464,6 +470,12 @@ export class PhotoHandlerService {
 
   /**
    * MOBILE PATH: Dexie-first local storage with background sync
+   *
+   * ANNOTATION HANDLING (EFE Pattern):
+   * - url / originalUrl = original image (for re-editing)
+   * - displayUrl / thumbnailUrl = annotated blob (for thumbnail display)
+   * - Cache annotated blob to IndexedDB for persistence across navigation
+   * - Keeps annotations editable while showing them in thumbnails
    */
   private async processMobilePhoto(
     originalBlob: Blob,
@@ -515,15 +527,18 @@ export class PhotoHandlerService {
       }
 
       // Create photo entry using stable imageId
+      // EFE PATTERN: Different URLs for different purposes
+      // - url/originalUrl: Original image for API upload and re-editing
+      // - displayUrl/thumbnailUrl: Annotated version for thumbnail display
       const photoEntry: StandardPhotoEntry = {
         imageId: localImage.imageId,
         AttachID: localImage.imageId,
         attachId: localImage.imageId,
         id: localImage.imageId,
-        url: displayUrl,
-        displayUrl: annotatedDisplayUrl,
-        originalUrl: displayUrl,
-        thumbnailUrl: annotatedDisplayUrl,
+        url: displayUrl,                    // Original - for API
+        displayUrl: annotatedDisplayUrl,    // Annotated - for thumbnail display
+        originalUrl: displayUrl,            // CRITICAL: Original - for re-editing
+        thumbnailUrl: annotatedDisplayUrl,  // Annotated - for thumbnail display
         name: 'photo.jpg',
         caption: caption || '',
         annotation: caption || '',
