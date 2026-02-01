@@ -15,6 +15,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { BackgroundPhotoUploadService } from '../../../services/background-photo-upload.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
+import { LocalImageService } from '../../../services/local-image.service';
 import { environment } from '../../../../environments/environment';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { db } from '../../../services/caspio-db';
@@ -115,7 +116,8 @@ export class DteCategoryDetailPage implements OnInit, OnDestroy {
     private backgroundUploadService: BackgroundPhotoUploadService,
     private cache: CacheService,
     private indexedDb: IndexedDbService,
-    private backgroundSync: BackgroundSyncService
+    private backgroundSync: BackgroundSyncService,
+    private localImageService: LocalImageService
   ) {}
 
   async ngOnInit() {
