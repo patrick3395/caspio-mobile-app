@@ -892,8 +892,8 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
             // This ensures custom options added via "Other" persist across page reloads
             // STANDARDIZED: Matches LBW pattern - uses string keys and proper merging
             if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
-              const templateId = String(item.templateId);
-              const existingOptions = this.visualDropdownOptions[templateId] || this.visualDropdownOptions[item.templateId] || [];
+              const templateIdNum = Number(item.templateId);
+              const existingOptions = this.visualDropdownOptions[templateIdNum] || [];
               const mergedOptions = new Set<string>();
 
               // Add all existing options (from cache) except None/Other
@@ -1606,16 +1606,16 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           for (const field of dexieFields) {
             if (field.dropdownOptions && field.dropdownOptions.length > 0) {
-              const templateId = field.templateId;
-              if (!this.visualDropdownOptions[templateId]) {
-                this.visualDropdownOptions[templateId] = [];
+              const templateIdStr = String(field.templateId);
+              if (!this.visualDropdownOptions[templateIdStr as any]) {
+                this.visualDropdownOptions[templateIdStr as any] = [];
               }
               // Merge custom options from Dexie (excluding None/Other)
               for (const opt of field.dropdownOptions) {
                 if (opt !== 'None' && opt !== 'Other' &&
-                    !this.visualDropdownOptions[templateId].includes(opt)) {
-                  this.visualDropdownOptions[templateId].push(opt);
-                  console.log(`[CategoryDetail] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
+                    !this.visualDropdownOptions[templateIdStr as any].includes(opt)) {
+                  this.visualDropdownOptions[templateIdStr as any].push(opt);
+                  console.log(`[CategoryDetail] WEBAPP: Merged custom option "${opt}" for templateId ${templateIdStr}`);
                 }
               }
             }
@@ -1625,8 +1625,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         }
 
         // Sort options alphabetically and add "None" and "Other" at the end
-        Object.keys(this.visualDropdownOptions).forEach(templateId => {
-          const options = this.visualDropdownOptions[Number(templateId)];
+        // STANDARDIZED: Use string keys consistently
+        Object.keys(this.visualDropdownOptions).forEach(templateIdKey => {
+          const options = this.visualDropdownOptions[templateIdKey as any];
           if (options) {
             // Sort alphabetically
             options.sort((a, b) => a.localeCompare(b));
@@ -1657,15 +1658,15 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
           for (const field of dexieFields) {
             if (field.dropdownOptions && field.dropdownOptions.length > 0) {
-              const templateId = field.templateId;
-              if (!this.visualDropdownOptions[templateId]) {
-                this.visualDropdownOptions[templateId] = [];
+              const templateIdStr = String(field.templateId);
+              if (!this.visualDropdownOptions[templateIdStr as any]) {
+                this.visualDropdownOptions[templateIdStr as any] = [];
               }
               // Merge custom options from Dexie
               for (const opt of field.dropdownOptions) {
-                if (!this.visualDropdownOptions[templateId].includes(opt)) {
-                  this.visualDropdownOptions[templateId].push(opt);
-                  console.log(`[CategoryDetail] WEBAPP: Merged custom option "${opt}" for templateId ${templateId}`);
+                if (!this.visualDropdownOptions[templateIdStr as any].includes(opt)) {
+                  this.visualDropdownOptions[templateIdStr as any].push(opt);
+                  console.log(`[CategoryDetail] WEBAPP: Merged custom option "${opt}" for templateId ${templateIdStr}`);
                 }
               }
             }
@@ -3587,10 +3588,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
               // WEBAPP FIX: Restore dropdownOptions from Dexie (custom "Other" options)
               // This ensures custom options added via "Other" persist across page reloads
-              // STANDARDIZED: Matches LBW pattern - uses string keys and proper merging
+              // STANDARDIZED: Matches LBW pattern - uses number keys for consistency
               if (dexieField.dropdownOptions && dexieField.dropdownOptions.length > 0) {
-                const templateIdStr = String(item.templateId);
-                const existingOptions = this.visualDropdownOptions[templateIdStr] || this.visualDropdownOptions[item.templateId] || [];
+                const templateIdNum = Number(item.templateId);
+                const existingOptions = this.visualDropdownOptions[templateIdNum] || [];
                 const mergedOptions = new Set<string>();
 
                 // Add all existing options (from cache) except None/Other

@@ -2378,8 +2378,8 @@ export class IndexedDbService {
       // Update the most recent one (prefer pending over syncing)
       // Sort: pending first, then failed, then syncing
       existing.sort((a, b) => {
-        const order = { pending: 0, failed: 1, syncing: 2 };
-        return (order[a.status] || 3) - (order[b.status] || 3);
+        const order: { [key: string]: number } = { pending: 0, failed: 1, syncing: 2, synced: 3 };
+        return (order[a.status] || 4) - (order[b.status] || 4);
       });
       const toUpdate = existing[0];
 
