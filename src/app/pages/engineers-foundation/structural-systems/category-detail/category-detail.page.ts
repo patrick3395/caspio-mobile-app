@@ -1528,10 +1528,6 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         // ANNOTATION FLATTENING FIX: Always use original image
         // Annotations stored in Drawings field (JSON) - no blob caching
         const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
-
-        // DEBUG: Show what's being loaded from Dexie LocalImage
-        alert(`DEBUG LOAD FROM DEXIE\n\nimageId: ${localImage.imageId}\ndrawings: ${localImage.drawings ? localImage.drawings.length + ' chars' : 'NULL'}\ncaption: ${localImage.caption || 'EMPTY'}\nstatus: ${localImage.status}`);
-
         console.log(`[MOBILE] Loading LocalImage: ${localImage.imageId}, drawings: ${localImage.drawings?.length || 0} chars`);
 
         // Add photo to array - always use original URLs
@@ -7325,22 +7321,15 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
             if (isLocalImagePhoto) {
               // LocalImage: Use updateLocalImage to save drawings
               const localImageId = currentPhoto.imageId || currentPhoto.localImageId || pendingFileId;
-
-              // DEBUG: Show what we're about to save
-              alert(`DEBUG SAVE TO DEXIE\n\nlocalImageId: ${localImageId}\ndrawings: ${compressedDrawings?.length || 0} chars\ncaption: ${data.caption || 'EMPTY'}`);
+              console.log('[SAVE OFFLINE] Saving to LocalImage:', localImageId, 'drawings:', compressedDrawings?.length || 0, 'chars');
 
               this.indexedDb.updateLocalImage(localImageId, {
                 caption: data.caption || '',
                 drawings: compressedDrawings
-              }).then(async () => {
+              }).then(() => {
                 console.log('[SAVE OFFLINE] ✅ Updated LocalImage with drawings');
-
-                // DEBUG: Read back immediately to verify
-                const verify = await this.indexedDb.getLocalImage(localImageId);
-                alert(`DEBUG VERIFY SAVE\n\nlocalImageId: ${localImageId}\nRead back drawings: ${verify?.drawings ? verify.drawings.length + ' chars' : 'NULL'}\nRead back caption: ${verify?.caption || 'EMPTY'}`);
               }).catch(err => {
                 console.error('[SAVE OFFLINE] LocalImage update failed:', err);
-                alert(`DEBUG SAVE FAILED: ${err}`);
               });
             } else {
               // Legacy temp photo: Use updatePendingPhotoData

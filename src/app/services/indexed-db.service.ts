@@ -2996,48 +2996,28 @@ export class IndexedDbService {
       return;
     }
 
-    // CRITICAL FIX: Preserve existing drawings/caption if update would clear them
-    // This prevents race conditions where a second update without drawings overwrites the first
-    // Only overwrite drawings/caption if the update explicitly provides a non-null/non-undefined value
-    const preservedFields: Partial<LocalImage> = {};
-    if (existing.drawings && (updates.drawings === undefined || updates.drawings === null)) {
-      preservedFields.drawings = existing.drawings;
-      console.log('[IndexedDB] Preserving existing drawings:', existing.drawings.length, 'chars (update had', updates.drawings, ')');
-    }
-    if (existing.caption && (updates.caption === undefined || updates.caption === null)) {
-      preservedFields.caption = existing.caption;
-      console.log('[IndexedDB] Preserving existing caption:', existing.caption.substring(0, 30));
-    }
-
-    const updated: LocalImage = {
-      ...existing,
+    // CRITICAL FIX: Use Dexie's update() instead of put() to avoid race conditions
+    // put() replaces the entire record, causing concurrent updates to overwrite each other
+    // update() only modifies the specified fields, preserving other fields
+    const updateFields: Partial<LocalImage> = {
       ...updates,
-      ...preservedFields, // Re-apply preserved fields AFTER updates to prevent accidental clearing
       updatedAt: Date.now(),
       localVersion: (existing.localVersion || 0) + 1
     };
 
-    // DEBUG: Show imageId, what fields are in updates, and timestamp
-    const updateKeys = Object.keys(updates).join(', ');
-    const timestamp = Date.now();
-    alert(`DEBUG updateLocalImage #${timestamp}\n\nimageId: ${imageId}\nupdateKeys: ${updateKeys}\nexisting.drawings: ${existing.drawings?.length || 'NULL'}\nupdates.drawings: ${updates.drawings?.length || 'NULL'}\nupdated.drawings: ${updated.drawings?.length || 'NULL'}`);
+    await db.localImages.update(imageId, updateFields);
 
-    await db.localImages.put(updated);
-
-    // DEBUG: Verify write immediately
-    const verify = await db.localImages.get(imageId);
-    alert(`DEBUG updateLocalImage AFTER PUT\n\nimageId: ${imageId}\nupdated.drawings: ${updated.drawings?.length || 'NULL'}\nread back: ${verify?.drawings?.length || 'NULL'}\nmatch: ${verify?.drawings === updated.drawings}`);
-
-    console.log('[IndexedDB] Local image updated:', imageId, 'status:', updated.status, 'version:', updated.localVersion,
-      'drawings:', updated.drawings?.length || 0, 'chars');
+    console.log('[IndexedDB] Local image updated:', imageId,
+      'fields:', Object.keys(updates).join(', '),
+      'drawings:', updates.drawings !== undefined ? (updates.drawings?.length || 0) + ' chars' : 'unchanged');
 
     this.emitChange({
       store: 'localImages',
       action: 'update',
       key: imageId,
-      entityType: updated.entityType,
-      entityId: updated.entityId,
-      serviceId: updated.serviceId
+      entityType: updates.entityType || existing.entityType,
+      entityId: updates.entityId || existing.entityId,
+      serviceId: updates.serviceId || existing.serviceId
     });
 
     // CRITICAL FIX: Emit sync queue change if caption or drawings were updated
