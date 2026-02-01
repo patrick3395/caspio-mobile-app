@@ -18,6 +18,7 @@ import { IndexedDbService, LocalImage } from '../../../services/indexed-db.servi
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
+import { PhotoHandlerService, PhotoCaptureConfig, StandardPhotoEntry } from '../../../services/photo-handler.service';
 import { environment } from '../../../../environments/environment';
 import { db, VisualField } from '../../../services/caspio-db';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
@@ -144,7 +145,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
     private indexedDb: IndexedDbService,
     private backgroundSync: BackgroundSyncService,
     private localImageService: LocalImageService,
-    private visualFieldRepo: VisualFieldRepoService
+    private visualFieldRepo: VisualFieldRepoService,
+    private photoHandler: PhotoHandlerService
   ) {}
 
   async ngOnInit() {
@@ -3871,707 +3873,171 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   // ============================================
-  // CAMERA AND GALLERY CAPTURE METHODS (EXACT FROM STRUCTURAL SYSTEMS)
+  // CAMERA AND GALLERY CAPTURE METHODS (CONSOLIDATED VIA PhotoHandlerService)
   // ============================================
 
+  /**
+   * Get the key for photo storage based on platform
+   * WEBAPP uses itemId, MOBILE uses templateId
+   */
+  private getPhotoKey(category: string, itemId: string | number): string {
+    if (environment.isWeb) {
+      return `${category}_${itemId}`;
+    }
+    const item = this.findItemById(itemId);
+    return `${category}_${item?.templateId ?? itemId}`;
+  }
+
+  /**
+   * Capture photo from camera using consolidated PhotoHandlerService
+   */
   async addPhotoFromCamera(category: string, itemId: string | number) {
+    const key = this.getPhotoKey(category, itemId);
+
+    // Get or create visual record
+    let visualId = this.visualRecordIds[key];
+    if (!visualId) {
+      await this.saveVisualSelection(category, itemId);
+      visualId = this.visualRecordIds[key];
+    }
+
+    if (!visualId) {
+      console.error('[CAMERA UPLOAD] Failed to create visual record');
+      return;
+    }
+
+    // Initialize photo array if needed
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+
+    // RACE CONDITION FIX: Suppress liveQuery during camera capture
+    this.isCameraCaptureInProgress = true;
+
     try {
-      // Capture photo with camera
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Camera
-      });
-
-      if (image.webPath) {
-        // Convert to blob/file
-        const response = await fetch(image.webPath);
-        const blob = await response.blob();
-        const imageUrl = URL.createObjectURL(blob);
-
-        // Open photo editor directly
-        const modal = await this.modalController.create({
-          component: FabricPhotoAnnotatorComponent,
-          componentProps: {
-            imageUrl: imageUrl,
-            existingAnnotations: null,
-            existingCaption: '',
-            photoData: {
-              id: 'new',
-              caption: ''
-            },
-            isReEdit: false
-          },
-          cssClass: 'fullscreen-modal'
-        });
-
-        await modal.present();
-
-        // Handle annotated photo returned from annotator
-        const { data } = await modal.onWillDismiss();
-
-        if (data && data.annotatedBlob) {
-          // User saved the annotated photo
-          const annotatedBlob = data.blob || data.annotatedBlob;
-          const annotationsData = data.annotationData || data.annotationsData;
-          const caption = data.caption || '';
-
-          // CRITICAL: Upload the ORIGINAL photo, not the annotated one
-          const originalFile = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
-
-          // Get or create visual ID
-          // WEBAPP FIX: Use itemId directly (which is item.id) - matches photo storage key pattern
-          // In loadExistingVisuals and loadPhotosFromAPI, keys use item.id not templateId
-          const item = this.findItemById(itemId);
-          const key = environment.isWeb
-            ? `${category}_${itemId}`
-            : `${category}_${item?.templateId ?? itemId}`;
-          let visualId = this.visualRecordIds[key];
-
-          if (!visualId) {
-            await this.saveVisualSelection(category, itemId);
-            visualId = this.visualRecordIds[key];
-          }
-
-          if (!visualId) {
-            // DEBUG ALERT: visualId not obtained
-            console.error('[CAMERA UPLOAD] Failed to create visual record');
-            return;
-          }
-
-          // Compress annotations BEFORE creating photo entry
-          let compressedDrawings = '';
-          if (annotationsData) {
-            try {
-              const { compressAnnotationData } = await import('../../../utils/annotation-utils');
-              if (typeof annotationsData === 'object') {
-                compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
-              } else if (typeof annotationsData === 'string') {
-                compressedDrawings = compressAnnotationData(annotationsData);
-              }
-            } catch (e) {
-              console.error('[CAMERA UPLOAD] Failed to compress annotations:', e);
-            }
-          }
-
-          // ============================================
-          // WEBAPP MODE: Direct S3 Upload (No Local Storage)
-          // MOBILE MODE: Local-first with background sync
-          // ============================================
-
-          // WEBAPP MODE: Upload directly to S3
-          if (environment.isWeb) {
-            console.log('[CAMERA UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
-
-            // Initialize photo array if it doesn't exist
-            if (!this.visualPhotos[key]) {
-              this.visualPhotos[key] = [];
-            }
-
-            // Create temp photo entry with loading state (show roller)
-            const tempId = `uploading_${Date.now()}`;
-            // ANNOTATION FLATTENING FIX: Create SEPARATE URLs for original and annotated
-            // originalBlobUrl points to the original camera image (for re-editing)
-            // annotatedDisplayUrl points to the rendered annotations (for thumbnails)
-            const originalBlobUrl = URL.createObjectURL(blob);
-            const annotatedDisplayUrl = annotatedBlob ? URL.createObjectURL(annotatedBlob) : originalBlobUrl;
-            const tempPhotoEntry = {
-              imageId: tempId,
-              AttachID: tempId,
-              attachId: tempId,
-              id: tempId,
-              url: originalBlobUrl,              // Base image reference
-              displayUrl: annotatedDisplayUrl,   // Annotated version for thumbnails
-              originalUrl: originalBlobUrl,      // CRITICAL: Keep original for re-editing
-              thumbnailUrl: annotatedDisplayUrl, // Show annotations in thumbnails
-              name: 'camera-photo.jpg',
-              caption: caption || '',
-              annotation: caption || '',
-              Annotation: caption || '',
-              Drawings: compressedDrawings,
-              hasAnnotations: !!annotationsData,
-              status: 'uploading',
-              isLocal: false,
-              uploading: true,  // Show loading roller
-              isPending: true,
-              isSkeleton: false,
-              progress: 0
-            };
-
-            // Add temp photo to UI immediately (with loading roller)
-            this.visualPhotos[key].push(tempPhotoEntry);
-            this.expandedPhotos[key] = true;
-            this.changeDetectorRef.detectChanges();
-
-            try {
-              // Upload directly to S3
-              const uploadResult = await this.localImageService.uploadImageDirectToS3(
-                originalFile,
-                'lbw',
-                String(visualId),
-                this.serviceId,
-                caption,
-                compressedDrawings
-              );
-
-              console.log('[CAMERA UPLOAD] WEBAPP: Upload complete, AttachID:', uploadResult.attachId);
-
-              // Replace temp photo with real photo (remove loading roller)
-              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
-              if (tempIndex >= 0) {
-                this.visualPhotos[key][tempIndex] = {
-                  ...tempPhotoEntry,
-                  imageId: uploadResult.attachId,
-                  AttachID: uploadResult.attachId,
-                  attachId: uploadResult.attachId,
-                  id: uploadResult.attachId,
-                  url: uploadResult.s3Url,
-                  displayUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
-                  originalUrl: uploadResult.s3Url,
-                  thumbnailUrl: annotatedBlob ? annotatedDisplayUrl : uploadResult.s3Url,
-                  status: 'uploaded',
-                  isLocal: false,
-                  uploading: false,  // Remove loading roller
-                  isPending: false,
-                  _pendingFileId: undefined  // Clear pending flag - photo is now on backend
-                };
-              }
-
-              this.changeDetectorRef.detectChanges();
-
-              // CRITICAL: Clear attachment cache so next page load fetches fresh data from server
-              this.hudData.clearAttachmentCache(String(visualId));
-
-              // Clean up blob URL
-              URL.revokeObjectURL(imageUrl);
-              console.log('[CAMERA UPLOAD] WEBAPP: Photo added successfully');
-              return;
-
-            } catch (uploadError: any) {
-              console.error('[CAMERA UPLOAD] WEBAPP: Upload failed:', uploadError?.message || uploadError);
-
-              // Remove temp photo on error
-              const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
-              if (tempIndex >= 0) {
-                this.visualPhotos[key].splice(tempIndex, 1);
-              }
-              this.changeDetectorRef.detectChanges();
-
-              // Show error toast
-              const toast = await this.toastController.create({
-                message: 'Failed to upload photo. Please try again.',
-                duration: 3000,
-                color: 'danger'
-              });
-              await toast.present();
-              return;
-            }
-          }
-
-          // ============================================
-          // MOBILE MODE: Local-first with background sync
-          // ============================================
-
-          // ============================================
-          // MOBILE MODE: DEXIE-FIRST LOCAL IMAGE SYSTEM
-          // Uses localImageService.captureImage() for proper LocalImage creation
-          // Photos sync silently in background via BackgroundSyncService
-          // ============================================
-
-          console.log('[CAMERA UPLOAD] MOBILE MODE: Starting DEXIE-FIRST capture for visualId:', visualId);
-
-          // RACE CONDITION FIX: Suppress liveQuery during camera capture
-          // Without this, liveQuery fires after Dexie write but BEFORE we push to visualPhotos,
-          // causing populatePhotosFromDexie to add a duplicate entry with the original (non-annotated) URL
-          this.isCameraCaptureInProgress = true;
-
-          // Compress the original file before storing (matches HUD pattern)
-          let compressedFile = originalFile;
-          try {
-            const compressed = await this.imageCompression.compressImage(originalFile, {
-              maxWidth: 2048,
-              maxHeight: 2048,
-              quality: 0.85
-            });
-            compressedFile = new File([compressed], originalFile.name, { type: 'image/jpeg' });
-            console.log('[CAMERA UPLOAD] Compressed:', originalFile.size, '->', compressedFile.size);
-          } catch (compressError) {
-            console.warn('[CAMERA UPLOAD] Compression failed, using original:', compressError);
-          }
-
-          // Create LocalImage with stable UUID (this stores blob + creates outbox item)
-          let localImage: LocalImage;
-          try {
-            localImage = await this.localImageService.captureImage(
-              compressedFile,
-              'lbw',  // Entity type for LBW photos
-              String(visualId),
-              this.serviceId,
-              caption,
-              compressedDrawings
-            );
-            console.log('[CAMERA UPLOAD] Created LocalImage with stable ID:', localImage.imageId, 'status:', localImage.status);
-          } catch (captureError: any) {
-            console.error('[CAMERA UPLOAD] Failed to create LocalImage:', captureError);
-            this.isCameraCaptureInProgress = false;
-            throw captureError;
-          }
-
-          // US-001 FIX: Cache annotated image FIRST (before getDisplayUrl calls)
-          // This ensures liveQuery callbacks can find the cached annotated image
-          if (annotationsData && annotatedBlob) {
-            try {
-              await this.indexedDb.cacheAnnotatedImage(localImage.imageId, annotatedBlob);
-              console.log('[CAMERA UPLOAD] Cached annotated image for thumbnail:', localImage.imageId);
-            } catch (cacheError) {
-              console.warn('[CAMERA UPLOAD] Failed to cache annotated image:', cacheError);
-            }
-          }
-
-          // Get display URL from LocalImageService (always uses local blob first)
-          let displayUrl = await this.localImageService.getDisplayUrl(localImage);
-
-          // US-001 FIX: If getDisplayUrl returns placeholder, create blob URL directly from compressed file
-          // This handles timing issues where the Dexie transaction may not have fully committed
-          if (!displayUrl || displayUrl === 'assets/img/photo-placeholder.svg') {
-            console.warn('[CAMERA UPLOAD] US-001 FIX: getDisplayUrl returned placeholder, creating direct blob URL');
-            displayUrl = URL.createObjectURL(compressedFile);
-          }
-
-          // For annotated images, create a separate display URL showing annotations
-          let annotatedDisplayUrl = displayUrl;
-          if (annotatedBlob) {
-            annotatedDisplayUrl = URL.createObjectURL(annotatedBlob);
-          }
-
-          console.log('[CAMERA UPLOAD] MOBILE: displayUrl type:', displayUrl?.startsWith('blob:') ? 'BLOB' : 'OTHER');
-
-          // Initialize photo array if it doesn't exist
-          if (!this.visualPhotos[key]) {
-            this.visualPhotos[key] = [];
-          }
-
-          // Ensure loading flag is false so photo displays immediately
-          this.loadingPhotosByKey[key] = false;
-
-          // Create photo entry using STABLE imageId as the key
-          const photoEntry = {
-            // STABLE ID - never changes, safe for UI key
-            imageId: localImage.imageId,
-
-            // For compatibility with existing code
-            AttachID: localImage.imageId,
-            attachId: localImage.imageId,
-            id: localImage.imageId,
-
-            // Display URLs
-            url: displayUrl,
-            displayUrl: annotatedDisplayUrl,
-            originalUrl: displayUrl,
-            thumbnailUrl: annotatedDisplayUrl,
-
-            // Metadata
-            name: 'camera-photo.jpg',
-            caption: caption || '',
-            annotation: caption || '',
-            Annotation: caption || '',
-            Drawings: compressedDrawings,
-            hasAnnotations: !!annotationsData,
-
-            // Status from LocalImage system - SILENT SYNC
-            status: localImage.status,
-            isLocal: true,
-            isLocalFirst: true,
-            isLocalImage: true,
-            isObjectUrl: true,
-            uploading: false,         // SILENT SYNC: No spinner
-            queued: false,            // SILENT SYNC: No indicator
-            isPending: localImage.status !== 'verified',
-            isSkeleton: false,
-            progress: 0
-          };
-
-          // Check for duplicates before adding photo
+      const config: PhotoCaptureConfig = {
+        entityType: 'lbw',
+        entityId: String(visualId),
+        serviceId: this.serviceId,
+        category,
+        itemId,
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          // Check for duplicates before adding
           const existingIndex = this.visualPhotos[key].findIndex((p: any) =>
-            p.imageId === localImage.imageId ||
-            p.AttachID === localImage.imageId ||
-            p.id === localImage.imageId
+            p.imageId === photo.imageId || p.AttachID === photo.imageId
           );
-
           if (existingIndex === -1) {
-            // Add photo to UI immediately (no duplicate found)
-            this.visualPhotos[key].push(photoEntry);
-            console.log('[CAMERA UPLOAD] Photo added (silent sync):', localImage.imageId);
-          } else {
-            // Duplicate found - update existing entry instead of adding
-            console.log('[CAMERA UPLOAD] Photo already exists, updating:', localImage.imageId);
-            this.visualPhotos[key][existingIndex] = { ...this.visualPhotos[key][existingIndex], ...photoEntry };
+            this.visualPhotos[key].push(photo);
           }
-
-          // Expand photos section so user can see the newly added photo
-          this.expandedPhotos[key] = true;
+          this.loadingPhotosByKey[key] = false;
           this.changeDetectorRef.detectChanges();
-
-          // RACE CONDITION FIX: Re-enable liveQuery now that photo is in visualPhotos
-          this.isCameraCaptureInProgress = false;
-
-          console.log('[CAMERA UPLOAD] MOBILE: Photo capture complete');
-          console.log('  key:', key);
-          console.log('  imageId:', localImage.imageId);
-          console.log('  Total photos in key:', this.visualPhotos[key].length);
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          // Replace temp photo with final photo
+          const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+          if (tempIndex >= 0) {
+            this.visualPhotos[key][tempIndex] = photo;
+          }
+          // Clear attachment cache for fresh data
+          this.hudData.clearAttachmentCache(String(visualId));
+          this.changeDetectorRef.detectChanges();
+        },
+        onUploadFailed: (tempId: string, error: any) => {
+          // Remove failed temp photo
+          const tempIndex = this.visualPhotos[key].findIndex((p: any) => p.imageId === tempId);
+          if (tempIndex >= 0) {
+            this.visualPhotos[key].splice(tempIndex, 1);
+          }
+          this.changeDetectorRef.detectChanges();
+        },
+        onExpandPhotos: () => {
+          this.expandedPhotos[key] = true;
         }
+      };
 
-        // Clean up blob URL
-        URL.revokeObjectURL(imageUrl);
-      }
-    } catch (error) {
-      // Check if user cancelled
-      const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
-      const isCancelled = errorMessage.includes('cancel') ||
-                         errorMessage.includes('Cancel') ||
-                         errorMessage.includes('User') ||
-                         error === 'User cancelled photos app';
-
-      if (!isCancelled) {
-        console.error('Error capturing photo from camera:', error);
-      }
+      await this.photoHandler.captureFromCamera(config);
+    } finally {
+      // RACE CONDITION FIX: Re-enable liveQuery
+      this.isCameraCaptureInProgress = false;
     }
   }
 
+  /**
+   * Select photos from gallery using consolidated PhotoHandlerService
+   */
   async addPhotoFromGallery(category: string, itemId: string | number) {
+    const key = this.getPhotoKey(category, itemId);
+
+    // Get or create visual record
+    let visualId = this.visualRecordIds[key];
+    if (!visualId) {
+      await this.saveVisualSelection(category, itemId);
+      visualId = this.visualRecordIds[key];
+    }
+
+    if (!visualId) {
+      console.error('[GALLERY UPLOAD] Failed to create visual record');
+      return;
+    }
+
+    // Validate visualId for webapp
+    const isTempId = String(visualId).startsWith('temp_');
+    const visualIdNum = parseInt(visualId, 10);
+    if (!isTempId && isNaN(visualIdNum) && environment.isWeb) {
+      console.error('[GALLERY UPLOAD] Invalid LBW ID:', visualId);
+      return;
+    }
+
+    // Initialize photo array if needed
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+
     try {
-      // Use pickImages to allow multiple photo selection
-      const images = await Camera.pickImages({
-        quality: 90,
-        limit: 0 // 0 = no limit on number of photos
-      });
-
-      if (images.photos && images.photos.length > 0) {
-        // WEBAPP FIX: Use itemId directly (which is item.id) - matches photo storage key pattern
-        // In loadExistingVisuals and loadPhotosFromAPI, keys use item.id not templateId
-        const item = this.findItemById(itemId);
-        const key = environment.isWeb
-          ? `${category}_${itemId}`
-          : `${category}_${item?.templateId ?? itemId}`;
-
-        // Initialize photo array if it doesn't exist
-        if (!this.visualPhotos[key]) {
-          this.visualPhotos[key] = [];
-        }
-
-        console.log('[GALLERY UPLOAD] Starting upload for', images.photos.length, 'photos');
-
-        // CRITICAL: Create skeleton placeholders IMMEDIATELY for all photos
-        const skeletonPhotos = images.photos.map((image, i) => {
-          const tempId = `temp_skeleton_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`;
-          return {
-            AttachID: tempId,
-            id: tempId,
-            name: `photo_${i}.jpg`,
-            url: 'assets/img/photo-placeholder.svg',
-            thumbnailUrl: 'assets/img/photo-placeholder.svg',
-            isObjectUrl: false,
-            uploading: false,
-            isSkeleton: true,
-            hasAnnotations: false,
-            caption: '',
-            annotation: '',
-            progress: 0
-          };
-        });
-
-        // Add all skeleton placeholders to UI immediately
-        this.visualPhotos[key].push(...skeletonPhotos);
-        this.changeDetectorRef.detectChanges();
-        console.log('[GALLERY UPLOAD] Added', skeletonPhotos.length, 'skeleton placeholders');
-
-        // NOW create visual record if it doesn't exist
-        let visualId = this.visualRecordIds[key];
-        if (!visualId) {
-          console.log('[GALLERY UPLOAD] Creating HUD record...');
-          await this.saveVisualSelection(category, itemId);
-          visualId = this.visualRecordIds[key];
-        }
-
-        if (!visualId) {
-          console.error('[GALLERY UPLOAD] Failed to create HUD record');
-          // Mark all skeleton photos as failed
-          skeletonPhotos.forEach(skeleton => {
-            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-            if (photoIndex !== -1 && this.visualPhotos[key]) {
-              this.visualPhotos[key][photoIndex].uploading = false;
-              this.visualPhotos[key][photoIndex].uploadFailed = true;
-              this.visualPhotos[key][photoIndex].isSkeleton = false;
-            }
-          });
+      const config: PhotoCaptureConfig = {
+        entityType: 'lbw',
+        entityId: String(visualId),
+        serviceId: this.serviceId,
+        category,
+        itemId,
+        skipAnnotator: true,  // Multi-select skips annotator
+        onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+          this.visualPhotos[key].push(photo);
           this.changeDetectorRef.detectChanges();
-          return;
-        }
-
-        // MOBILE FIX: In MOBILE mode, visualId can be a temp ID like 'temp_lbw_xxx'
-        // Only validate that visualId is not empty, not that it's a number
-        // The parseInt check was causing gallery uploads to fail in MOBILE mode
-        const isTempId = String(visualId).startsWith('temp_');
-        const visualIdNum = parseInt(visualId, 10);
-
-        // Only validate as number for WEBAPP mode or if it's not a temp ID
-        if (!isTempId && isNaN(visualIdNum) && environment.isWeb) {
-          console.error('[GALLERY UPLOAD] Invalid LBW ID (not a number and not a temp ID):', visualId);
-          // Mark all skeleton photos as failed
-          skeletonPhotos.forEach(skeleton => {
-            const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-            if (photoIndex !== -1 && this.visualPhotos[key]) {
-              this.visualPhotos[key][photoIndex].uploading = false;
-              this.visualPhotos[key][photoIndex].uploadFailed = true;
-              this.visualPhotos[key][photoIndex].isSkeleton = false;
-            }
-          });
+        },
+        onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+          // Replace skeleton/temp with final photo
+          const tempIndex = this.visualPhotos[key].findIndex((p: any) =>
+            p.imageId === tempId || p.AttachID === tempId || p.id === tempId
+          );
+          if (tempIndex >= 0) {
+            this.visualPhotos[key][tempIndex] = photo;
+          }
+          // Clear attachment cache for fresh data
+          this.hudData.clearAttachmentCache(String(visualId));
           this.changeDetectorRef.detectChanges();
-          return;
-        }
-
-        console.log('[GALLERY UPLOAD] visualId validation passed:', visualId, 'isTempId:', isTempId);
-
-        console.log('[GALLERY UPLOAD] ✅ Valid LBW ID found:', visualId);
-
-        // ============================================
-        // WEBAPP MODE: Direct S3 Upload (No Local Storage)
-        // MOBILE MODE: Local-first with background sync
-        // ============================================
-
-        if (environment.isWeb) {
-          console.log('[GALLERY UPLOAD] WEBAPP MODE: Direct S3 upload starting...');
-
-          // Expand photos section
+        },
+        onUploadFailed: (tempId: string, error: any) => {
+          // Mark skeleton as failed
+          const tempIndex = this.visualPhotos[key].findIndex((p: any) =>
+            p.imageId === tempId || p.AttachID === tempId || p.id === tempId
+          );
+          if (tempIndex >= 0) {
+            this.visualPhotos[key][tempIndex] = {
+              ...this.visualPhotos[key][tempIndex],
+              uploading: false,
+              uploadFailed: true,
+              isSkeleton: false
+            };
+          }
+          this.changeDetectorRef.detectChanges();
+        },
+        onExpandPhotos: () => {
           this.expandedPhotos[key] = true;
-
-          // Process photos sequentially for WEBAPP
-          for (let i = 0; i < images.photos.length; i++) {
-            const image = images.photos[i];
-            const skeleton = skeletonPhotos[i];
-
-            if (image.webPath) {
-              try {
-                console.log(`[GALLERY UPLOAD] WEBAPP: Processing photo ${i + 1}/${images.photos.length}`);
-
-                // Fetch the blob
-                const response = await fetch(image.webPath);
-                const blob = await response.blob();
-                const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
-
-                // Update skeleton to show preview + uploading state
-                const previewUrl = URL.createObjectURL(blob);
-                const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-                if (skeletonIndex !== -1 && this.visualPhotos[key]) {
-                  this.visualPhotos[key][skeletonIndex] = {
-                    ...this.visualPhotos[key][skeletonIndex],
-                    url: previewUrl,
-                    displayUrl: previewUrl,
-                    thumbnailUrl: previewUrl,
-                    isObjectUrl: true,
-                    uploading: true,
-                    isSkeleton: false,
-                    progress: 0
-                  };
-                  this.changeDetectorRef.detectChanges();
-                }
-
-                // Upload directly to S3
-                const uploadResult = await this.localImageService.uploadImageDirectToS3(
-                  file,
-                  'lbw',
-                  String(visualId),
-                  this.serviceId,
-                  '', // caption
-                  ''  // drawings
-                );
-
-                console.log(`[GALLERY UPLOAD] WEBAPP: Photo ${i + 1} uploaded, AttachID:`, uploadResult.attachId);
-
-                // Replace skeleton with real photo
-                const finalIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-                if (finalIndex !== -1 && this.visualPhotos[key]) {
-                  this.visualPhotos[key][finalIndex] = {
-                    ...this.visualPhotos[key][finalIndex],
-                    imageId: uploadResult.attachId,
-                    AttachID: uploadResult.attachId,
-                    attachId: uploadResult.attachId,
-                    id: uploadResult.attachId,
-                    url: uploadResult.s3Url,
-                    displayUrl: uploadResult.s3Url,
-                    originalUrl: uploadResult.s3Url,
-                    thumbnailUrl: uploadResult.s3Url,
-                    status: 'uploaded',
-                    isLocal: false,
-                    uploading: false,
-                    isPending: false,
-                    _pendingFileId: undefined  // Clear pending flag - photo is now on backend
-                  };
-                }
-                this.changeDetectorRef.detectChanges();
-
-                // CRITICAL: Clear attachment cache so next page load fetches fresh data from server
-                this.hudData.clearAttachmentCache(String(visualId));
-
-              } catch (error) {
-                console.error(`[GALLERY UPLOAD] WEBAPP: Error uploading photo ${i + 1}:`, error);
-
-                // Mark the photo as failed
-                const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-                if (photoIndex !== -1 && this.visualPhotos[key]) {
-                  this.visualPhotos[key][photoIndex].uploading = false;
-                  this.visualPhotos[key][photoIndex].uploadFailed = true;
-                  this.visualPhotos[key][photoIndex].isSkeleton = false;
-                  this.changeDetectorRef.detectChanges();
-                }
-              }
-            }
-          }
-
-          console.log(`[GALLERY UPLOAD] WEBAPP: All ${images.photos.length} photos processed`);
-          return;
         }
+      };
 
-        // ============================================
-        // MOBILE MODE: DEXIE-FIRST LOCAL IMAGE SYSTEM
-        // Uses localImageService.captureImage() for proper LocalImage creation
-        // Photos sync silently in background via BackgroundSyncService
-        // ============================================
-
-        console.log('[GALLERY UPLOAD] MOBILE MODE: Starting DEXIE-FIRST capture...');
-
-        // Expand photos section
-        this.expandedPhotos[key] = true;
-
-        // RACE CONDITION FIX: Suppress liveQuery during gallery processing
-        this.isCameraCaptureInProgress = true;
-
-        // Process photos sequentially with DEXIE-FIRST pattern
-        for (let i = 0; i < images.photos.length; i++) {
-          const image = images.photos[i];
-          const skeleton = skeletonPhotos[i];
-
-          if (image.webPath) {
-            try {
-              console.log(`[GALLERY UPLOAD] MOBILE: Processing photo ${i + 1}/${images.photos.length}`);
-
-              // Fetch the blob
-              const response = await fetch(image.webPath);
-              const blob = await response.blob();
-              const file = new File([blob], `gallery-${Date.now()}_${i}.jpg`, { type: 'image/jpeg' });
-
-              // Compress the file before storing
-              let compressedFile = file;
-              try {
-                const compressed = await this.imageCompression.compressImage(file, {
-                  maxWidth: 2048,
-                  maxHeight: 2048,
-                  quality: 0.85
-                });
-                compressedFile = new File([compressed], file.name, { type: 'image/jpeg' });
-                console.log(`[GALLERY UPLOAD] Compressed ${i + 1}:`, file.size, '->', compressedFile.size);
-              } catch (compressError) {
-                console.warn(`[GALLERY UPLOAD] Compression failed for ${i + 1}, using original:`, compressError);
-              }
-
-              // Create LocalImage with stable UUID (this stores blob + creates outbox item)
-              let localImage: LocalImage;
-              try {
-                localImage = await this.localImageService.captureImage(
-                  compressedFile,
-                  'lbw',  // Entity type for LBW photos
-                  String(visualId),
-                  this.serviceId,
-                  '',  // No caption for gallery photos
-                  ''   // No drawings for gallery photos
-                );
-                console.log(`[GALLERY UPLOAD] Created LocalImage ${i + 1}:`, localImage.imageId);
-              } catch (captureError: any) {
-                console.error(`[GALLERY UPLOAD] Failed to create LocalImage ${i + 1}:`, captureError);
-                // Mark skeleton as failed
-                const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-                if (skeletonIndex !== -1 && this.visualPhotos[key]) {
-                  this.visualPhotos[key][skeletonIndex].uploading = false;
-                  this.visualPhotos[key][skeletonIndex].uploadFailed = true;
-                  this.visualPhotos[key][skeletonIndex].isSkeleton = false;
-                }
-                this.changeDetectorRef.detectChanges();
-                continue;
-              }
-
-              // Get display URL from LocalImageService
-              let displayUrl = await this.localImageService.getDisplayUrl(localImage);
-
-              // US-001 FIX: If getDisplayUrl returns placeholder, create blob URL directly from compressed file
-              if (!displayUrl || displayUrl === 'assets/img/photo-placeholder.svg') {
-                console.warn(`[GALLERY UPLOAD] US-001 FIX: getDisplayUrl returned placeholder for photo ${i + 1}, creating direct blob URL`);
-                displayUrl = URL.createObjectURL(compressedFile);
-              }
-
-              // Replace skeleton with actual photo entry
-              const skeletonIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-              if (skeletonIndex !== -1 && this.visualPhotos[key]) {
-                this.visualPhotos[key][skeletonIndex] = {
-                  // STABLE ID - never changes, safe for UI key
-                  imageId: localImage.imageId,
-
-                  // For compatibility with existing code
-                  AttachID: localImage.imageId,
-                  attachId: localImage.imageId,
-                  id: localImage.imageId,
-
-                  // Display URLs
-                  url: displayUrl,
-                  displayUrl: displayUrl,
-                  originalUrl: displayUrl,
-                  thumbnailUrl: displayUrl,
-
-                  // Metadata
-                  name: `gallery-photo-${i + 1}.jpg`,
-                  caption: '',
-                  annotation: '',
-                  Annotation: '',
-                  Drawings: '',
-                  hasAnnotations: false,
-
-                  // Status from LocalImage system - SILENT SYNC
-                  status: localImage.status,
-                  isLocal: true,
-                  isLocalFirst: true,
-                  isLocalImage: true,
-                  isObjectUrl: true,
-                  uploading: false,         // SILENT SYNC: No spinner
-                  queued: false,            // SILENT SYNC: No indicator
-                  isPending: localImage.status !== 'verified',
-                  isSkeleton: false,
-                  progress: 0
-                };
-                this.changeDetectorRef.detectChanges();
-              }
-
-              console.log(`[GALLERY UPLOAD] MOBILE: Photo ${i + 1}/${images.photos.length} added (silent sync)`);
-
-            } catch (error) {
-              console.error(`[GALLERY UPLOAD] MOBILE: Error processing photo ${i + 1}:`, error);
-
-              // Mark the skeleton as failed
-              const photoIndex = this.visualPhotos[key]?.findIndex(p => p.AttachID === skeleton.AttachID);
-              if (photoIndex !== -1 && this.visualPhotos[key]) {
-                this.visualPhotos[key][photoIndex].uploading = false;
-                this.visualPhotos[key][photoIndex].uploadFailed = true;
-                this.visualPhotos[key][photoIndex].isSkeleton = false;
-                this.changeDetectorRef.detectChanges();
-              }
-            }
-          }
-        }
-
-        // RACE CONDITION FIX: Re-enable liveQuery now that photos are in visualPhotos
-        this.isCameraCaptureInProgress = false;
-
-        console.log(`[GALLERY UPLOAD] MOBILE: All ${images.photos.length} photos processed with DEXIE-FIRST`);
-      }
+      await this.photoHandler.captureFromGallery(config);
     } catch (error) {
       // Check if user cancelled
       const errorMessage = typeof error === 'string' ? error : (error as any)?.message || '';
@@ -4587,6 +4053,8 @@ export class LbwCategoryDetailPage implements OnInit, OnDestroy {
   }
 
   // Perform HUD photo upload (matches performVisualPhotoUpload from structural systems)
+  // NOTE: This legacy method is kept for backwards compatibility but is no longer
+  // used by the new PhotoHandlerService flow
   private async performVisualPhotoUpload(
     LBWID: number,
     photo: File,

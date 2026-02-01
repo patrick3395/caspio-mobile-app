@@ -5873,7 +5873,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Text: item.text || item.originalText || '',
           Notes: '',
           Answers: item.answer || '',
-          TemplateID: templateIdInt
+          HUDTemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -5993,7 +5993,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
           Answers: item.answer,
-          TemplateID: templateIdInt
+          HUDTemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -6088,7 +6088,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
           Answers: item.answer || '',
-          TemplateID: templateIdInt
+          HUDTemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -6141,13 +6141,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       return;
     }
 
-    // WEBAPP FIX: Use item.id for key (matches photo functions) - template passes item.id to photo functions
-    // MOBILE: Use item.templateId to match Dexie lookup pattern
-    const actualCategory = item.category || category;
-    const key = environment.isWeb
-      ? `${actualCategory}_${item.id}`
-      : `${actualCategory}_${item.templateId}`;
-    console.log('[OTHER] Adding custom option:', customValue, 'for', key, 'item.id:', item.id);
+    // STANDARDIZED: Match EFE pattern exactly - use category (route param) and item.id
+    const key = `${category}_${item.id}`;
+    console.log('[OTHER] Adding custom option:', customValue, 'for', key);
 
     // Get current options for this template
     let options = this.visualDropdownOptions[item.templateId];
@@ -6198,12 +6194,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     item.otherValue = '';
 
     // DEXIE-FIRST: Write-through to visualFields including updated dropdownOptions
-    // This ensures custom options persist across page loads and liveQuery updates
-    await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
+    await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
       answer: item.answer,
       otherValue: '',
       isSelected: true,
-      dropdownOptions: [...options]  // Save the updated options array to Dexie
+      dropdownOptions: [...options]
     });
 
     console.log('[OTHER] Saved dropdownOptions to Dexie:', options);
@@ -6217,28 +6212,23 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         // Create new visual
         const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
         const templateIdInt = typeof item.templateId === 'string' ? parseInt(item.templateId, 10) : Number(item.templateId);
-        const visualData = {
+        const visualData: any = {
           ServiceID: serviceIdNum,
-          Category: item.category,  // FIX: Use template's actual category, not route param
+          Category: category,
           Kind: item.type,
           Name: item.name,
           Text: item.text || item.originalText || '',
           Notes: '',
           Answers: item.answer,
-          TemplateID: templateIdInt
+          HUDTemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
         const newVisualId = String(result.HUDID || result.VisualID || result.PK_ID || result.id);
         this.visualRecordIds[key] = newVisualId;
 
-        await this.visualFieldRepo.setField(this.serviceId, actualCategory, item.templateId, {
-          tempVisualId: newVisualId,
-          templateName: item.name || '',
-          templateText: item.text || item.originalText || '',
-          category: actualCategory,
-          kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',
-          isSelected: true
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          tempVisualId: newVisualId
         });
 
         console.log('[OTHER] Created visual:', newVisualId);
@@ -7595,7 +7585,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         Name: item.name,
         Text: item.text || item.originalText || '',
         Notes: '',
-        TemplateID: templateIdInt
+        HUDTemplateID: templateIdInt
       };
 
       console.log('[SAVE VISUAL] Visual data being saved:', visualData);
@@ -8978,7 +8968,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         Name: name,
         Text: text,
         Notes: '',
-        TemplateID: 0  // Custom visual - no template
+        HUDTemplateID: 0  // Custom visual - no template
       };
 
       console.log('[CREATE CUSTOM] Creating visual:', visualData);

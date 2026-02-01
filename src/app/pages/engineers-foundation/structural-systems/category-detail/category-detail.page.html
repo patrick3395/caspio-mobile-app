@@ -129,8 +129,8 @@
                   <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent"></ion-spinner>
                 </div>
               </div>
-              <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
-                <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
+              <div class="multi-select-options" *ngIf="getDropdownOptions(item.templateId).length > 0">
+                <ion-item lines="none" *ngFor="let option of getDropdownOptions(item.templateId); trackBy: trackByOption" class="option-item">
                   <ion-checkbox
                     slot="start"
                     [checked]="isOptionSelectedV1(item, option)"
@@ -152,7 +152,7 @@
                   <ion-icon name="add"></ion-icon>
                 </button>
               </div>
-              <div class="no-options-message" *ngIf="!visualDropdownOptions[item.templateId] || visualDropdownOptions[item.templateId].length === 0">
+              <div class="no-options-message" *ngIf="getDropdownOptions(item.templateId).length === 0">
                 <p>No options available for this item</p>
               </div>
 
@@ -418,8 +418,8 @@
                   <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent"></ion-spinner>
                 </div>
               </div>
-              <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
-                <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
+              <div class="multi-select-options" *ngIf="getDropdownOptions(item.templateId).length > 0">
+                <ion-item lines="none" *ngFor="let option of getDropdownOptions(item.templateId); trackBy: trackByOption" class="option-item">
                   <ion-checkbox
                     slot="start"
                     [checked]="isOptionSelectedV1(item, option)"
@@ -628,8 +628,8 @@
                   <ion-spinner *ngIf="isItemSaving(categoryName, item.templateId)" name="crescent"></ion-spinner>
                 </div>
               </div>
-              <div class="multi-select-options" *ngIf="visualDropdownOptions[item.templateId] && visualDropdownOptions[item.templateId].length > 0">
-                <ion-item lines="none" *ngFor="let option of visualDropdownOptions[item.templateId]; trackBy: trackByOption" class="option-item">
+              <div class="multi-select-options" *ngIf="getDropdownOptions(item.templateId).length > 0">
+                <ion-item lines="none" *ngFor="let option of getDropdownOptions(item.templateId); trackBy: trackByOption" class="option-item">
                   <ion-checkbox
                     slot="start"
                     [checked]="isOptionSelectedV1(item, option)"
