@@ -915,10 +915,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
               sortedOptions.push('None');
               sortedOptions.push('Other');
 
-              // Store with both number and string keys for compatibility
-              this.visualDropdownOptions[item.templateId] = sortedOptions;
-              this.visualDropdownOptions[templateId as any] = sortedOptions;
-              console.log(`[MOBILE] Merged custom dropdown options for templateId ${templateId}`);
+              // Store with number key (matching type definition)
+              this.visualDropdownOptions[templateIdNum] = sortedOptions;
+              console.log(`[MOBILE] Merged custom dropdown options for templateId ${templateIdNum}`);
             }
           }
         }
@@ -3613,10 +3612,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
                 sortedOptions.push('None');
                 sortedOptions.push('Other');
 
-                // Store with both number and string keys for compatibility
-                this.visualDropdownOptions[item.templateId] = sortedOptions;
-                this.visualDropdownOptions[templateIdStr as any] = sortedOptions;
-                console.log(`[LOAD DATA] Merged custom dropdown options for templateId ${templateIdStr}`);
+                // Store with number key (matching type definition)
+                this.visualDropdownOptions[templateIdNum] = sortedOptions;
+                console.log(`[LOAD DATA] Merged custom dropdown options for templateId ${templateIdNum}`);
               }
             }
           }
