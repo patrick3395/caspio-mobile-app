@@ -27,7 +27,7 @@ const config: CapacitorConfig = {
     // Performance optimizations
     allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: false,
+    webContentsDebuggingEnabled: true,
     // Memory management
     initialFocus: false,
     // Network security

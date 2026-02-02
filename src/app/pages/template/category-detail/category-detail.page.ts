@@ -2026,6 +2026,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         const localImage = await this.indexedDb.getLocalImage(localImageId);
 
         if (localImage) {
+          // SYNC FIX: If LocalImage has synced and now has a real attachId, update photo object
+          // This ensures the save callback uses the correct (real) ID for syncing annotations
+          if (localImage.attachId && !String(localImage.attachId).startsWith('img_')) {
+            const oldId = photo.AttachID || photo.id;
+            photo.AttachID = localImage.attachId;
+            photo.attachId = localImage.attachId;
+            photo.id = localImage.attachId;
+            this.logDebug('PHOTO', `Updated photo ID from synced LocalImage: ${oldId} -> ${localImage.attachId}`);
+          }
+
           // CRITICAL: Update photo.Drawings with fresh data from Dexie
           // This ensures annotations are shown in the editor even after page navigation
           if (localImage.drawings && localImage.drawings.length > 10) {

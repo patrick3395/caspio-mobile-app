@@ -438,19 +438,38 @@ export class TemplateDataAdapter {
       } else if (isTempId) {
         await this.indexedDb.updatePendingRequestData(attachId, attachmentData);
       } else {
-        // Real server ID - queue update for sync
-        await this.indexedDb.addPendingRequest({
-          type: 'UPDATE',
-          endpoint: `/api/caspio-proxy${endpoint}`,
-          method: 'PUT',
-          data: attachmentData,
-          dependencies: [],
-          status: 'pending',
-          priority: 'normal',
+        // Real server ID - queue caption/drawings update for sync
+        // SYNC FIX: Use queueCaptionUpdate instead of addPendingRequest
+        // This ensures annotation updates appear in the sync modal and are processed correctly
+        const attachType = this.getAttachTypeFromConfig(config);
+        console.log('[TemplateDataAdapter] Queuing caption update for synced photo:', attachId, 'type:', attachType);
+        await this.indexedDb.queueCaptionUpdate({
+          attachId: attachId,
+          attachType: attachType,
+          caption: attachmentData.Annotation,
+          drawings: attachmentData.Drawings
         });
       }
 
       return { success: true, AttachID: attachId, ...attachmentData };
+    }
+  }
+
+  /**
+   * Get the attach type string from template config for caption updates
+   */
+  private getAttachTypeFromConfig(config: TemplateConfig): 'visual' | 'efe_point' | 'fdf' | 'hud' | 'lbw' {
+    switch (config.id) {
+      case 'hud':
+        return 'hud';
+      case 'lbw':
+        return 'lbw';
+      case 'efe':
+        return 'visual';  // EFE uses 'visual' type for its attachments
+      case 'dte':
+        return 'visual';  // DTE also uses 'visual' type
+      default:
+        return 'visual';
     }
   }
 
