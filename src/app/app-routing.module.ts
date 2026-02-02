@@ -15,7 +15,6 @@ import { EngineersFoundationMainPage } from './pages/engineers-foundation/engine
 import { ProjectDetailsPage } from './pages/engineers-foundation/project-details/project-details.page';
 import { StructuralSystemsHubPage } from './pages/engineers-foundation/structural-systems/structural-systems-hub/structural-systems-hub.page';
 import { CategoryDetailPage } from './pages/engineers-foundation/structural-systems/category-detail/category-detail.page';
-import { VisualDetailPage } from './pages/engineers-foundation/structural-systems/visual-detail/visual-detail.page';
 import { ElevationPlotHubPage } from './pages/engineers-foundation/elevation-plot-hub/elevation-plot-hub.page';
 import { RoomElevationPage } from './pages/engineers-foundation/room-elevation/room-elevation.page';
 
@@ -24,7 +23,6 @@ import { HudContainerPage } from './pages/hud/hud-container/hud-container.page';
 import { HudMainPage } from './pages/hud/hud-main/hud-main.page';
 import { HudProjectDetailsPage } from './pages/hud/hud-project-details/hud-project-details.page';
 import { HudCategoryDetailPage } from './pages/hud/hud-category-detail/hud-category-detail.page';
-import { HudVisualDetailPage } from './pages/hud/hud-visual-detail/hud-visual-detail.page';
 
 // Eager load LBW components for offline support
 import { LbwContainerPage } from './pages/lbw/lbw-container/lbw-container.page';
@@ -32,7 +30,6 @@ import { LbwMainPage } from './pages/lbw/lbw-main/lbw-main.page';
 import { LbwProjectDetailsPage } from './pages/lbw/lbw-project-details/lbw-project-details.page';
 import { LbwCategoriesPage } from './pages/lbw/lbw-categories/lbw-categories.page';
 import { LbwCategoryDetailPage } from './pages/lbw/lbw-category-detail/lbw-category-detail.page';
-import { LbwVisualDetailPage } from './pages/lbw/lbw-visual-detail/lbw-visual-detail.page';
 
 // Eager load DTE components for offline support
 import { DteContainerPage } from './pages/dte/dte-container/dte-container.page';
@@ -40,7 +37,9 @@ import { DteMainPage } from './pages/dte/dte-main/dte-main.page';
 import { DteProjectDetailsPage } from './pages/dte/dte-project-details/dte-project-details.page';
 import { DteCategoriesPage } from './pages/dte/dte-categories/dte-categories.page';
 import { DteCategoryDetailPage } from './pages/dte/dte-category-detail/dte-category-detail.page';
-import { DteVisualDetailPage } from './pages/dte/dte-visual-detail/dte-visual-detail.page';
+
+// Generic visual-detail page (consolidation - replaces template-specific pages)
+import { GenericVisualDetailPage } from './pages/template/visual-detail/visual-detail.page';
 
 const routes: Routes = [
   {
@@ -94,7 +93,7 @@ const routes: Routes = [
             path: 'category/:category',
             children: [
               { path: '', component: CategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
-              { path: 'visual/:templateId', component: VisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
+              { path: 'visual/:templateId', component: GenericVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
             ]
           }
         ]
@@ -121,7 +120,7 @@ const routes: Routes = [
         path: 'category/:category',
         children: [
           { path: '', component: HudCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
-          { path: 'visual/:templateId', component: HudVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
+          { path: 'visual/:templateId', component: GenericVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
         ]
       }
     ]
@@ -139,7 +138,7 @@ const routes: Routes = [
         path: 'category/:category',
         children: [
           { path: '', component: LbwCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
-          { path: 'visual/:templateId', component: LbwVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
+          { path: 'visual/:templateId', component: GenericVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
         ]
       }
     ]
@@ -157,7 +156,7 @@ const routes: Routes = [
         path: 'category/:category',
         children: [
           { path: '', component: DteCategoryDetailPage, canDeactivate: [UnsavedChangesGuard] },
-          { path: 'visual/:templateId', component: DteVisualDetailPage }
+          { path: 'visual/:templateId', component: GenericVisualDetailPage, canDeactivate: [UnsavedChangesGuard] }
         ]
       }
     ]
