@@ -1878,7 +1878,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     };
 
-    await this.photoHandler.captureFromCamera(captureConfig);
+    // Set guard flag to suppress liveQuery during capture
+    this.isCameraCaptureInProgress = true;
+    try {
+      await this.photoHandler.captureFromCamera(captureConfig);
+    } finally {
+      this.isCameraCaptureInProgress = false;
+    }
   }
 
   async addPhotoFromGallery(category: string, itemId: string | number): Promise<void> {
@@ -1948,7 +1954,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     };
 
-    await this.photoHandler.captureFromGallery(captureConfig);
+    // Set guard flag to suppress liveQuery during gallery upload
+    this.isMultiImageUploadInProgress = true;
+    try {
+      await this.photoHandler.captureFromGallery(captureConfig);
+    } finally {
+      this.isMultiImageUploadInProgress = false;
+    }
   }
 
   async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event): Promise<void> {

@@ -80,7 +80,8 @@
       "Bash(java -version:*)",
       "Bash(echo:*)",
       "Bash(npx cap:*)",
-      "Bash(npx capacitor-assets:*)"
+      "Bash(npx capacitor-assets:*)",
+      "Skill(claude-supermemory:super-search)"
     ],
     "deny": [],
     "ask": []
