@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Table } from 'dexie';
-import { db, VisualField, HudField } from '../caspio-db';
+import { db, VisualField, HudField, LbwField, DteField } from '../caspio-db';
 import { ServiceMetadataService } from '../service-metadata.service';
 import { TemplateConfig } from './template-config.interface';
 
@@ -269,8 +269,12 @@ export class GenericFieldRepoService {
         return db.liveVisualFields$(serviceId, category);
       case 'hud':
         return db.liveHudFields$(serviceId, category);
+      case 'lbw':
+        return db.liveLbwFields$(serviceId, category);
+      case 'dte':
+        return db.liveDteFields$(serviceId, category);
       default:
-        return db.liveVisualFields$(serviceId, category);
+        throw new Error(`[GenericFieldRepo] Unknown template for liveQuery: ${config.id}`);
     }
   }
 
@@ -343,8 +347,12 @@ export class GenericFieldRepoService {
         return db.visualFields;
       case 'hud':
         return db.hudFields;
+      case 'lbw':
+        return db.lbwFields;
+      case 'dte':
+        return db.dteFields;
       default:
-        return db.visualFields;
+        throw new Error(`[GenericFieldRepo] Unknown template: ${config.id}`);
     }
   }
 
@@ -363,9 +371,16 @@ export class GenericFieldRepoService {
         field.hudId = recordId || null;
         field.tempHudId = null;
         break;
+      case 'lbw':
+        field.lbwId = recordId || null;
+        field.tempLbwId = null;
+        break;
+      case 'dte':
+        field.dteId = recordId || null;
+        field.tempDteId = null;
+        break;
       default:
-        field.visualId = recordId || null;
-        field.tempVisualId = null;
+        throw new Error(`[GenericFieldRepo] Unknown template for createField: ${config.id}`);
     }
 
     return field;
@@ -386,9 +401,16 @@ export class GenericFieldRepoService {
         update.hudId = recordId;
         update.tempHudId = null;
         break;
+      case 'lbw':
+        update.lbwId = recordId;
+        update.tempLbwId = null;
+        break;
+      case 'dte':
+        update.dteId = recordId;
+        update.tempDteId = null;
+        break;
       default:
-        update.visualId = recordId;
-        update.tempVisualId = null;
+        throw new Error(`[GenericFieldRepo] Unknown template for createUpdateWithRecordId: ${config.id}`);
     }
 
     return update;
@@ -403,8 +425,12 @@ export class GenericFieldRepoService {
         return field.visualId || field.tempVisualId || null;
       case 'hud':
         return field.hudId || field.tempHudId || null;
+      case 'lbw':
+        return field.lbwId || field.tempLbwId || null;
+      case 'dte':
+        return field.dteId || field.tempDteId || null;
       default:
-        return field.visualId || field.tempVisualId || null;
+        return null;
     }
   }
 
@@ -417,8 +443,12 @@ export class GenericFieldRepoService {
         return field.tempVisualId || null;
       case 'hud':
         return field.tempHudId || null;
+      case 'lbw':
+        return field.tempLbwId || null;
+      case 'dte':
+        return field.tempDteId || null;
       default:
-        return field.tempVisualId || null;
+        return null;
     }
   }
 
@@ -426,6 +456,6 @@ export class GenericFieldRepoService {
    * Check if Dexie-first is enabled for this template
    */
   isDexieFirstEnabled(config: TemplateConfig): boolean {
-    return config.id === 'efe' || config.id === 'hud';
+    return config.id === 'efe' || config.id === 'hud' || config.id === 'lbw' || config.id === 'dte';
   }
 }

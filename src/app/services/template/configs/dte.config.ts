@@ -3,11 +3,12 @@ import { TemplateConfig } from '../template-config.interface';
 /**
  * DTE (Damaged Truss Evaluation) Template Configuration
  *
- * DTE is the simplest template with:
- * - Basic online sync (no complex offline-first)
+ * DTE uses Dexie-first architecture with:
+ * - Offline-first data storage in dteFields table
+ * - Reactive UI via liveQuery subscriptions
  * - No custom visuals
  * - Explicit categories hub page
- * - Hardcoded dropdown options
+ * - Dynamic dropdowns from LPS_Services_DTE_Drop table
  */
 export const DTE_CONFIG: TemplateConfig = {
   // Identity
@@ -35,7 +36,7 @@ export const DTE_CONFIG: TemplateConfig = {
     hasCountIndicators: false,
     hasCategoriesHub: true,
     dynamicDropdowns: true,  // DTE uses LPS_Services_DTE_Drop table
-    offlineFirst: false,
+    offlineFirst: true,  // Dexie-first architecture enabled
   },
 
   // Navigation Cards
@@ -69,7 +70,7 @@ export const DTE_CONFIG: TemplateConfig = {
 
   // Category Detail Features
   categoryDetailFeatures: {
-    hasDexieFirstWithMutex: false,
+    hasDexieFirstWithMutex: true,  // Dexie-first with mutex for concurrent access
     hasActualServiceId: false,
     supportsAddCustomVisual: true,
     hasLazyPhotoLoading: false,

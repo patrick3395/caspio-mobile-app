@@ -118,6 +118,65 @@ export class TemplateDataAdapter {
   }
 
   /**
+   * DEXIE-FIRST: Ensure service data is cached before seeding
+   *
+   * This method is called before the Dexie-first seeding process to ensure
+   * that existing records from the server are cached in IndexedDB. This is
+   * essential because:
+   * 1. Seeding creates blank field records from templates
+   * 2. Merging needs cached server records to apply user selections
+   * 3. Without this, merging has nothing to merge and user data is lost
+   *
+   * @param config Template configuration
+   * @param serviceId Service ID to load data for
+   * @returns Cached or freshly fetched service records
+   */
+  async ensureServiceDataCached(config: TemplateConfig, serviceId: string): Promise<any[]> {
+    const cacheType = this.getCacheType(config);
+
+    // Check if already cached
+    const cached = await this.indexedDb.getCachedServiceData(serviceId, cacheType);
+    if (cached && cached.length > 0) {
+      console.log(`[DataAdapter] ensureServiceDataCached: ${config.id} has ${cached.length} cached records`);
+      return cached;
+    }
+
+    // Not cached - need to fetch
+    console.log(`[DataAdapter] ensureServiceDataCached: ${config.id} cache empty, fetching from API...`);
+
+    if (environment.isWeb) {
+      // Webapp: Direct API call
+      const endpoint = `/tables/${config.tableName}/records?q.where=ServiceID=${serviceId}&response=rows`;
+      try {
+        const response = await this.fetchApi<CaspioResponse>(endpoint);
+        const records = response.Result || [];
+        await this.indexedDb.cacheServiceData(serviceId, cacheType, records);
+        console.log(`[DataAdapter] ensureServiceDataCached: ${config.id} fetched and cached ${records.length} records`);
+        return records;
+      } catch (error) {
+        console.warn(`[DataAdapter] ensureServiceDataCached: API fetch failed:`, error);
+        return [];
+      }
+    } else {
+      // Mobile: Fetch from API if online
+      try {
+        const endpoint = `/tables/${config.tableName}/records?q.where=ServiceID=${serviceId}&response=rows`;
+        const response = await firstValueFrom(
+          this.caspioService.get<CaspioResponse>(endpoint)
+        );
+        const records = response.Result || [];
+        await this.indexedDb.cacheServiceData(serviceId, cacheType, records);
+        console.log(`[DataAdapter] ensureServiceDataCached: ${config.id} fetched and cached ${records.length} records`);
+        return records;
+      } catch (error) {
+        console.warn(`[DataAdapter] ensureServiceDataCached: API fetch failed (offline?):`, error);
+        // Return empty - offline with no cache, seeding will create blank fields
+        return [];
+      }
+    }
+  }
+
+  /**
    * Get a single visual by ID using current template config
    */
   async getVisualById(visualId: string): Promise<any | null> {
@@ -333,7 +392,8 @@ export class TemplateDataAdapter {
    * Get attachments for a visual with explicit config
    */
   async getAttachmentsWithConfig(config: TemplateConfig, visualId: string): Promise<any[]> {
-    const endpoint = `/tables/${config.attachTableName}/records?q.where=${config.idFieldName}=${visualId}`;
+    // Order by AttachID to maintain consistent photo order regardless of modifications
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=${config.idFieldName}=${visualId}&q.orderBy=AttachID`;
 
     if (environment.isWeb) {
       const response = await this.fetchApi<CaspioResponse>(endpoint);
@@ -656,9 +716,9 @@ export class TemplateDataAdapter {
       return [];
     }
 
-    // Build OR query for all visual IDs
+    // Build OR query for all visual IDs, order by AttachID for consistent photo order
     const idConditions = visualIds.map(id => `${config.idFieldName}=${id}`).join(' OR ');
-    const endpoint = `/tables/${config.attachTableName}/records?q.where=${encodeURIComponent(idConditions)}`;
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=${encodeURIComponent(idConditions)}&q.orderBy=AttachID`;
 
     if (environment.isWeb) {
       const response = await this.fetchApi<CaspioResponse>(endpoint);
@@ -695,9 +755,9 @@ export class TemplateDataAdapter {
       return result;
     }
 
-    // Build OR query for all visual IDs
+    // Build OR query for all visual IDs, order by AttachID for consistent photo order
     const idConditions = visualIds.map(id => `${config.idFieldName}=${id}`).join(' OR ');
-    const endpoint = `/tables/${config.attachTableName}/records?q.where=${encodeURIComponent(idConditions)}`;
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=${encodeURIComponent(idConditions)}&q.orderBy=AttachID`;
 
     let attachments: any[];
     if (environment.isWeb) {
@@ -710,7 +770,7 @@ export class TemplateDataAdapter {
       attachments = response.Result || [];
     }
 
-    // Group attachments by visual ID
+    // Group attachments by visual ID (order is preserved since we sorted by AttachID)
     for (const attachment of attachments) {
       const visualId = String(attachment[config.idFieldName]);
       if (!result.has(visualId)) {

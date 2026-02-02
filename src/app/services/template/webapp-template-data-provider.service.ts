@@ -95,7 +95,8 @@ export class WebappTemplateDataProvider extends ITemplateDataProvider {
   // ==================== Attachment Operations ====================
 
   async getAttachments(config: TemplateConfig, visualId: string): Promise<AttachmentRecord[]> {
-    const endpoint = `/tables/${config.attachTableName}/records?q.where=${config.idFieldName}=${visualId}`;
+    // Order by AttachID to maintain consistent photo order regardless of modifications
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=${config.idFieldName}=${visualId}&q.orderBy=AttachID`;
     const result = await this.fetchApi<any>(endpoint);
     return (result.Result || []).map((r: any) => this.mapToAttachmentRecord(config, r));
   }
@@ -112,9 +113,9 @@ export class WebappTemplateDataProvider extends ITemplateDataProvider {
       return new Map();
     }
 
-    // Build OR query for batch loading
+    // Build OR query for batch loading, order by AttachID to maintain consistent photo order
     const idConditions = visualIds.map(id => `${config.idFieldName}=${id}`).join(' OR ');
-    const endpoint = `/tables/${config.attachTableName}/records?q.where=${encodeURIComponent(idConditions)}&q.limit=1000`;
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=${encodeURIComponent(idConditions)}&q.orderBy=AttachID&q.limit=1000`;
 
     try {
       const result = await this.fetchApi<any>(endpoint);
