@@ -387,6 +387,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const isDexieFirstEnabled = this.genericFieldRepo.isDexieFirstEnabled(this.config);
 
     if (isDexieFirstEnabled) {
+      // DEBUG ALERT for mobile
+      alert(`[INIT] Starting Dexie-first for ${this.config.id}, serviceId=${this.serviceId}, category=${this.categoryName}`);
+
       // STEP 1: Ensure TEMPLATES are loaded (via offlineTemplate service)
       // This is critical - templates must be cached before we can seed fields
       this.logDebug('DEXIE', `Ensuring templates are ready for ${this.config.id}...`);
@@ -403,15 +406,25 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.categoryName
       );
 
+      // DEBUG ALERT for mobile
+      alert(`[CHECK] ${this.config.id}: hasFields=${hasFields} for [${this.serviceId}, ${this.categoryName}]`);
+
       if (!hasFields) {
         this.logDebug('DEXIE', `No fields found for ${this.config.id}, seeding from templates...`);
 
         // STEP 4: Get templates from cache (using config-driven cache key)
         // Templates should now be cached from STEP 1
-        const templates = await this.indexedDb.getCachedTemplates(this.config.templatesCacheKey as any) || [];
+        const templateCacheKey = this.config.templatesCacheKey;
+        this.logDebug('DEXIE', `Reading templates from cache key: "${templateCacheKey}"`);
+        const templates = await this.indexedDb.getCachedTemplates(templateCacheKey as any) || [];
+        this.logDebug('DEXIE', `Found ${templates.length} templates in cache for key "${templateCacheKey}"`);
+
+        // DEBUG ALERT for mobile
+        alert(`[DEBUG] ${this.config.id}: Found ${templates.length} templates in cache (key: ${templateCacheKey}), category: ${this.categoryName}`);
 
         if (templates.length === 0) {
           this.logDebug('WARN', 'No templates in cache after ensureTemplatesReady, falling back to loadData()');
+          alert(`[DEBUG] ${this.config.id}: No templates in cache! Falling back to loadData()`);
           await this.loadData();
           console.timeEnd('[GenericCategoryDetail] initializeVisualFields');
           return;
@@ -420,6 +433,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         // Get cached dropdown data (using config-driven dropdown cache key)
         const dropdownCacheKey = `${this.config.templatesCacheKey}_dropdown` as any;
         const cachedDropdownData = await this.indexedDb.getCachedTemplates(dropdownCacheKey) || [];
+        this.logDebug('DEXIE', `Found ${cachedDropdownData.length} dropdown items for key "${dropdownCacheKey}"`);
 
         // STEP 4: Seed templates into fields table
         await this.genericFieldRepo.seedFromTemplates(
@@ -464,6 +478,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.visualFieldsSubscription = fields$.subscribe({
         next: async (fields: any[]) => {
           this.logDebug('DEXIE', `Received ${fields.length} fields from liveQuery for ${this.config!.id}`);
+          // DEBUG ALERT for mobile (only first time or when count changes significantly)
+          if (!this.initialLoadComplete) {
+            alert(`[LIVEQUERY] ${this.config!.id}: Received ${fields.length} fields from Dexie for category "${this.categoryName}"`);
+          }
 
           // Convert to organized data using unified method
           this.convertGenericFieldsToOrganizedData(fields);

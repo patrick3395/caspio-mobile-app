@@ -64,10 +64,42 @@ export class GenericFieldRepoService {
   ): Promise<void> {
     console.log(`[GenericFieldRepo] Seeding ${templates.length} templates for ${config.id}/${category}`);
 
+    // Debug: Show what categories exist in the templates
+    if (templates.length > 0) {
+      const allCategories = [...new Set(templates.map(t => t.Category))];
+      console.log(`[GenericFieldRepo] Available categories in templates: ${JSON.stringify(allCategories)}`);
+      const typeIds = [...new Set(templates.map(t => t.TypeID))];
+      console.log(`[GenericFieldRepo] Available TypeIDs in templates: ${JSON.stringify(typeIds)}`);
+    }
+
     // Filter templates for this category
-    const categoryTemplates = templates.filter(t =>
-      t.TypeID === 1 && t.Category === category
-    );
+    // HUD has no categories hub - show ALL TypeID=1 templates for the single category page
+    // Other templates with categories hubs filter by category name
+    const hasCategoriesHub = config.features.hasCategoriesHub;
+    const categoryLower = category?.toLowerCase() || '';
+
+    const categoryTemplates = templates.filter(t => {
+      // For EFE and HUD, require TypeID === 1 (checklist items)
+      // Handle both number and string TypeID (API may return either)
+      if (config.id === 'efe' || config.id === 'hud') {
+        const typeMatch = t.TypeID === 1 || t.TypeID === '1' || Number(t.TypeID) === 1;
+        // HUD has no categories hub - show ALL TypeID=1 templates on the single page
+        if (config.id === 'hud' && !hasCategoriesHub) {
+          return typeMatch;
+        }
+        // EFE has a structural hub - filter by category (case-insensitive)
+        const templateCategory = (t.Category || '').toLowerCase();
+        return typeMatch && templateCategory === categoryLower;
+      }
+      // LBW, DTE - filter by category only (case-insensitive)
+      const templateCategory = (t.Category || '').toLowerCase();
+      return templateCategory === categoryLower;
+    });
+
+    console.log(`[GenericFieldRepo] Found ${categoryTemplates.length} templates for category "${category}" (template type: ${config.id})`);
+
+    // DEBUG ALERT for mobile
+    alert(`[SEED] ${config.id}: ${templates.length} total templates → ${categoryTemplates.length} passed filter for category "${category}"`);
 
     if (categoryTemplates.length === 0) {
       console.log('[GenericFieldRepo] No templates to seed for this category');
@@ -155,11 +187,19 @@ export class GenericFieldRepoService {
       newFields.push(field);
     }
 
+    const skippedCount = categoryTemplates.length - newFields.length;
+    console.log(`[GenericFieldRepo] Creating ${newFields.length} new fields (${skippedCount} already exist)`);
+
     if (newFields.length > 0) {
       await db.transaction('rw', table, async () => {
         await table.bulkAdd(newFields);
       });
-      console.log(`[GenericFieldRepo] Seeded ${newFields.length} new fields`);
+      console.log(`[GenericFieldRepo] ✅ Successfully seeded ${newFields.length} new fields to ${config.id}Fields table`);
+      // DEBUG ALERT for mobile
+      alert(`[SEED COMPLETE] ${config.id}: Created ${newFields.length} fields in ${config.id}Fields table`);
+    } else {
+      console.log(`[GenericFieldRepo] No new fields to seed (all ${categoryTemplates.length} templates already have fields)`);
+      alert(`[SEED] ${config.id}: No new fields created (${skippedCount} already exist)`);
     }
   }
 
