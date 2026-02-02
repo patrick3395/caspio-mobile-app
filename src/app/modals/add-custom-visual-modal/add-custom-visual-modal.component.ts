@@ -213,6 +213,9 @@ export class AddCustomVisualModalComponent implements OnInit, OnDestroy {
   async onFileSelected(event: any) {
     const files = event.target.files;
     if (files && files.length > 0) {
+      // DEBUG ALERT: Confirm add-custom-visual-modal photo selection is working
+      alert(`[AddCustomVisualModal] onFileSelected called!\n\nFiles: ${files.length}\nKind: ${this.kind}\nCategory: ${this.category}`);
+
       // Add photos directly without opening editor
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
