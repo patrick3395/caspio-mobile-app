@@ -97,13 +97,33 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
         break;
 
       case 'lbw':
-        records = await this.offlineTemplate.getLbwByService(serviceId);
-        records = records.map(r => this.mapToVisualRecord(config, r));
+        // Use lbwFields table for LBW (Dexie-first)
+        if (config.features.offlineFirst) {
+          const fields = await db.lbwFields
+            .where('serviceId')
+            .equals(serviceId)
+            .toArray();
+          records = fields.map(f => this.mapLbwFieldToVisualRecord(f));
+          hasPending = fields.some(f => !!f.tempLbwId && !f.lbwId);
+        } else {
+          records = await this.offlineTemplate.getLbwByService(serviceId);
+          records = records.map(r => this.mapToVisualRecord(config, r));
+        }
         break;
 
       case 'dte':
-        const cached = await this.indexedDb.getCachedServiceData(serviceId, 'visuals');
-        records = (cached || []).map(r => this.mapToVisualRecord(config, r));
+        // Use dteFields table for DTE (Dexie-first)
+        if (config.features.offlineFirst) {
+          const fields = await db.dteFields
+            .where('serviceId')
+            .equals(serviceId)
+            .toArray();
+          records = fields.map(f => this.mapDteFieldToVisualRecord(f));
+          hasPending = fields.some(f => !!f.tempDteId && !f.dteId);
+        } else {
+          const cached = await this.indexedDb.getCachedServiceData(serviceId, 'dte');
+          records = (cached || []).map(r => this.mapToVisualRecord(config, r));
+        }
         break;
     }
 
@@ -117,22 +137,42 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
   async getVisualById(config: TemplateConfig, visualId: string): Promise<VisualRecord | null> {
     // Check template-specific tables first
     if (config.features.offlineFirst) {
-      if (config.id === 'efe') {
-        const fields = await db.visualFields
-          .filter(f => f.visualId === visualId || f.tempVisualId === visualId)
-          .toArray();
+      switch (config.id) {
+        case 'efe':
+          const efeFields = await db.visualFields
+            .filter(f => f.visualId === visualId || f.tempVisualId === visualId)
+            .toArray();
+          if (efeFields.length > 0) {
+            return this.mapFieldToVisualRecord(efeFields[0]);
+          }
+          break;
 
-        if (fields.length > 0) {
-          return this.mapFieldToVisualRecord(fields[0]);
-        }
-      } else if (config.id === 'hud') {
-        const fields = await db.hudFields
-          .filter(f => f.hudId === visualId || f.tempHudId === visualId)
-          .toArray();
+        case 'hud':
+          const hudFields = await db.hudFields
+            .filter(f => f.hudId === visualId || f.tempHudId === visualId)
+            .toArray();
+          if (hudFields.length > 0) {
+            return this.mapHudFieldToVisualRecord(hudFields[0]);
+          }
+          break;
 
-        if (fields.length > 0) {
-          return this.mapHudFieldToVisualRecord(fields[0]);
-        }
+        case 'lbw':
+          const lbwFields = await db.lbwFields
+            .filter(f => f.lbwId === visualId || f.tempLbwId === visualId)
+            .toArray();
+          if (lbwFields.length > 0) {
+            return this.mapLbwFieldToVisualRecord(lbwFields[0]);
+          }
+          break;
+
+        case 'dte':
+          const dteFields = await db.dteFields
+            .filter(f => f.dteId === visualId || f.tempDteId === visualId)
+            .toArray();
+          if (dteFields.length > 0) {
+            return this.mapDteFieldToVisualRecord(dteFields[0]);
+          }
+          break;
       }
     }
 
@@ -144,8 +184,58 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
     serviceId: string,
     category: string
   ): Promise<DataResult<VisualRecord[]>> {
-    // Use VisualFields table for offlineFirst templates
-    if (config.features.offlineFirst && config.id === 'efe') {
+    // Use template-specific Dexie tables for offlineFirst templates
+    if (config.features.offlineFirst) {
+      let records: VisualRecord[] = [];
+      let hasPending = false;
+
+      switch (config.id) {
+        case 'efe':
+          const efeFields = await db.visualFields
+            .where('[serviceId+category]')
+            .equals([serviceId, category])
+            .toArray();
+          records = efeFields.map(f => this.mapFieldToVisualRecord(f));
+          hasPending = efeFields.some(f => !!f.tempVisualId && !f.visualId);
+          break;
+
+        case 'hud':
+          const hudFields = await db.hudFields
+            .where('[serviceId+category]')
+            .equals([serviceId, category])
+            .toArray();
+          records = hudFields.map(f => this.mapHudFieldToVisualRecord(f));
+          hasPending = hudFields.some(f => !!f.tempHudId && !f.hudId);
+          break;
+
+        case 'lbw':
+          const lbwFields = await db.lbwFields
+            .where('[serviceId+category]')
+            .equals([serviceId, category])
+            .toArray();
+          records = lbwFields.map(f => this.mapLbwFieldToVisualRecord(f));
+          hasPending = lbwFields.some(f => !!f.tempLbwId && !f.lbwId);
+          break;
+
+        case 'dte':
+          const dteFields = await db.dteFields
+            .where('[serviceId+category]')
+            .equals([serviceId, category])
+            .toArray();
+          records = dteFields.map(f => this.mapDteFieldToVisualRecord(f));
+          hasPending = dteFields.some(f => !!f.tempDteId && !f.dteId);
+          break;
+      }
+
+      return {
+        data: records,
+        isFromCache: true,
+        hasPendingSync: hasPending
+      };
+    }
+
+    // Fallback for templates without offlineFirst (EFE legacy path)
+    if (config.id === 'efe') {
       const fields = await db.visualFields
         .where('[serviceId+category]')
         .equals([serviceId, category])
@@ -477,6 +567,38 @@ export class MobileTemplateDataProvider extends ITemplateDataProvider {
       answer: field.answer || '',
       _tempId: field.tempHudId || undefined,
       _localOnly: !!field.tempHudId && !field.hudId
+    };
+  }
+
+  private mapLbwFieldToVisualRecord(field: any): VisualRecord {
+    return {
+      id: String(field.lbwId || field.tempLbwId || field.templateId),
+      templateId: field.templateId,
+      serviceId: field.serviceId,
+      category: field.category,
+      name: field.templateName || '',
+      text: field.answer || field.templateText || '',
+      kind: field.kind as any || 'Comment',
+      isSelected: field.isSelected,
+      answer: field.answer || '',
+      _tempId: field.tempLbwId || undefined,
+      _localOnly: !!field.tempLbwId && !field.lbwId
+    };
+  }
+
+  private mapDteFieldToVisualRecord(field: any): VisualRecord {
+    return {
+      id: String(field.dteId || field.tempDteId || field.templateId),
+      templateId: field.templateId,
+      serviceId: field.serviceId,
+      category: field.category,
+      name: field.templateName || '',
+      text: field.answer || field.templateText || '',
+      kind: field.kind as any || 'Comment',
+      isSelected: field.isSelected,
+      answer: field.answer || '',
+      _tempId: field.tempDteId || undefined,
+      _localOnly: !!field.tempDteId && !field.dteId
     };
   }
 

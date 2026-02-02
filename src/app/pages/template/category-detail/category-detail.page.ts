@@ -387,11 +387,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const isDexieFirstEnabled = this.genericFieldRepo.isDexieFirstEnabled(this.config);
 
     if (isDexieFirstEnabled) {
-      // STEP 1: Ensure service data is cached (required for seeding/merging)
+      // STEP 1: Ensure TEMPLATES are loaded (via offlineTemplate service)
+      // This is critical - templates must be cached before we can seed fields
+      this.logDebug('DEXIE', `Ensuring templates are ready for ${this.config.id}...`);
+      await this.ensureTemplatesReady();
+
+      // STEP 2: Ensure service data is cached (required for merging)
       // This fetches from API if not already cached
       await this.dataAdapter.ensureServiceDataCached(this.config, this.serviceId);
 
-      // STEP 2: Check if fields already seeded for this category
+      // STEP 3: Check if fields already seeded for this category
       const hasFields = await this.genericFieldRepo.hasFieldsForCategory(
         this.config,
         this.serviceId,
@@ -401,12 +406,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       if (!hasFields) {
         this.logDebug('DEXIE', `No fields found for ${this.config.id}, seeding from templates...`);
 
-        // STEP 3: Get templates from cache (using config-driven cache key)
-        // Cast to any to satisfy TypeScript - config.templatesCacheKey is always a valid cache key
+        // STEP 4: Get templates from cache (using config-driven cache key)
+        // Templates should now be cached from STEP 1
         const templates = await this.indexedDb.getCachedTemplates(this.config.templatesCacheKey as any) || [];
 
         if (templates.length === 0) {
-          this.logDebug('WARN', 'No templates in cache, falling back to loadData()');
+          this.logDebug('WARN', 'No templates in cache after ensureTemplatesReady, falling back to loadData()');
           await this.loadData();
           console.timeEnd('[GenericCategoryDetail] initializeVisualFields');
           return;
@@ -501,6 +506,58 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     this.initialLoadComplete = true;
 
     console.timeEnd('[GenericCategoryDetail] initializeVisualFields');
+  }
+
+  /**
+   * Ensure templates are loaded and cached (MOBILE ONLY - DEXIE-FIRST)
+   * This method calls the appropriate offlineTemplate method based on template type
+   * to ensure templates are available before seeding can occur.
+   */
+  private async ensureTemplatesReady(): Promise<void> {
+    if (!this.config) return;
+
+    try {
+      switch (this.config.id) {
+        case 'efe':
+          // EFE uses shared visual templates
+          await this.offlineTemplate.ensureVisualTemplatesReady();
+          // Also ensure dropdown options are cached
+          const visualDropdown = await this.indexedDb.getCachedTemplates('visual_dropdown');
+          if (!visualDropdown || visualDropdown.length === 0) {
+            this.logDebug('DEXIE', 'Visual dropdown not cached, fetching...');
+            // Dropdown is fetched during service download, just log warning
+          }
+          break;
+
+        case 'hud':
+          // HUD has its own templates
+          await this.offlineTemplate.ensureHudTemplatesReady();
+          await this.offlineTemplate.ensureHudDropdownReady();
+          break;
+
+        case 'lbw':
+          // LBW has its own templates
+          await this.offlineTemplate.getLbwTemplates();
+          await this.offlineTemplate.getLbwDropdownOptions();
+          break;
+
+        case 'dte':
+          // DTE templates - check cache first, then fallback
+          const dteTemplates = await this.indexedDb.getCachedTemplates('dte');
+          if (!dteTemplates || dteTemplates.length === 0) {
+            this.logDebug('WARN', 'DTE templates not cached - may need service download');
+          }
+          break;
+
+        default:
+          this.logDebug('WARN', `Unknown template type: ${this.config.id}`);
+      }
+
+      this.logDebug('DEXIE', `Templates ready for ${this.config.id}`);
+    } catch (error) {
+      this.logDebug('ERROR', `Failed to ensure templates ready: ${error}`);
+      // Don't throw - we'll fall back to loadData() if templates are missing
+    }
   }
 
   /**
