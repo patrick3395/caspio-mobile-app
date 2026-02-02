@@ -6,7 +6,8 @@ import { HudContainerPage } from './hud-container/hud-container.page';
 import { HudMainPage } from './hud-main/hud-main.page';
 import { HudProjectDetailsPage } from './hud-project-details/hud-project-details.page';
 import { HudCategoryDetailPage } from './hud-category-detail/hud-category-detail.page';
-import { HudVisualDetailPage } from './hud-visual-detail/hud-visual-detail.page';
+// Use generic visual-detail page (consolidation)
+import { GenericVisualDetailPage } from '../template/visual-detail/visual-detail.page';
 
 const routes: Routes = [
   {
@@ -25,7 +26,7 @@ const routes: Routes = [
         path: 'category/:category',
         children: [
           { path: '', component: HudCategoryDetailPage },
-          { path: 'visual/:templateId', component: HudVisualDetailPage }
+          { path: 'visual/:templateId', component: GenericVisualDetailPage }
         ]
       }
     ]

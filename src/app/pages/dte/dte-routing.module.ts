@@ -7,7 +7,8 @@ import { DteMainPage } from './dte-main/dte-main.page';
 import { DteProjectDetailsPage } from './dte-project-details/dte-project-details.page';
 import { DteCategoriesPage } from './dte-categories/dte-categories.page';
 import { DteCategoryDetailPage } from './dte-category-detail/dte-category-detail.page';
-import { DteVisualDetailPage } from './dte-visual-detail/dte-visual-detail.page';
+// Use generic visual-detail page (consolidation)
+import { GenericVisualDetailPage } from '../template/visual-detail/visual-detail.page';
 
 const routes: Routes = [
   {
@@ -30,7 +31,7 @@ const routes: Routes = [
         path: 'category/:category',
         children: [
           { path: '', component: DteCategoryDetailPage },
-          { path: 'visual/:templateId', component: DteVisualDetailPage }
+          { path: 'visual/:templateId', component: GenericVisualDetailPage }
         ]
       }
     ]

@@ -15,7 +15,7 @@ export class TempIdService {
    * Format: temp_{type}_{timestamp}_{random}
    * Example: temp_visual_1702345678_k3j9d2a1x
    */
-  generateTempId(type: 'visual' | 'efe' | 'project' | 'service' | 'hud' | 'lbw' | 'point'): string {
+  generateTempId(type: 'visual' | 'efe' | 'project' | 'service' | 'hud' | 'lbw' | 'dte' | 'point'): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 11);
     return `${this.prefix}${type}_${timestamp}_${random}`;
