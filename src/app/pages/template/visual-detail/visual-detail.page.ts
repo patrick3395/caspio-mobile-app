@@ -1193,11 +1193,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       }
     };
 
-    const result = await this.photoHandler.viewExistingPhoto(viewConfig);
-
-    if (result) {
-      await this.showToast('Annotation saved', 'success');
-    }
+    await this.photoHandler.viewExistingPhoto(viewConfig);
   }
 
   async openCaptionPopup(photo: PhotoItem) {
