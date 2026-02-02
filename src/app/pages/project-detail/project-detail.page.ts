@@ -870,7 +870,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
         this.changeDetectorRef.markForCheck();
         
         // Determine if the project has been completed (StatusID = 2)
-        // StatusID: 1 = Active, 2 = Completed, 3 = Cancelled, 4 = On Hold
+        // StatusID: 7 = Active, 2 = Completed, 3 = Cancelled, 4 = On Hold
         const statusId = project.StatusID;
         const isCompletedProject = this.isCompletedStatus(statusId);
         
@@ -1239,7 +1239,7 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
       });
       
       if (currentMode === 'add-service' && this.project) {
-        // Update project status to Active (StatusID = 1) when adding service to completed project
+        // Update project status to Active (StatusID = 7) when adding service to completed project
         const projectPkId = this.project.PK_ID;
         const projectId = this.project.ProjectID;
 
@@ -1247,13 +1247,13 @@ export class ProjectDetailPage implements OnInit, OnDestroy, ViewWillEnter {
           try {
             const updateUrl = `/tables/LPS_Projects/records?q.where=ProjectID=${projectId}`;
             const updateData = {
-              StatusID: 1  // Active status
+              StatusID: 7  // Active status
             };
 
             await this.caspioService.put<any>(updateUrl, updateData).toPromise();
 
             // Update local project object
-            this.project.StatusID = 1;
+            this.project.StatusID = 7;
             this.isReadOnly = false;
             this.changeDetectorRef.markForCheck();
             // Toast removed per user request

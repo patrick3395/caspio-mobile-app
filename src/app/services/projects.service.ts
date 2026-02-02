@@ -104,12 +104,12 @@ export class ProjectsService {
     }
     
     // Build the where clause
-    let whereClause = 'StatusID%3D1';
+    let whereClause = 'StatusID%3D7';
     if (companyId) {
       whereClause += `%20AND%20CompanyID%3D${companyId}`;
     }
-    
-    // Fetch projects with StatusID = 1 (Active) and optionally filter by CompanyID
+
+    // Fetch projects with StatusID = 7 (Active) and optionally filter by CompanyID
     return this.caspioService.get<any>(`/tables/LPS_Projects/records?q.where=${whereClause}`).pipe(
       map(response => response.Result || []),
       tap(projects => {
@@ -205,7 +205,7 @@ export class ProjectsService {
       CompanyID: 1, // Integer - Noble Property Inspections (REQUIRED)
       StateID: stateId, // Integer - must be numeric (VERIFIED)
       UserID: 1, // Integer - Default user (REQUIRED)
-      StatusID: 1, // Integer - Active status (REQUIRED)
+      StatusID: 7, // Integer - Active status (REQUIRED)
       Address: projectData.address.trim(), // Text(255) - Required
 
       // Date field - Date/Time type

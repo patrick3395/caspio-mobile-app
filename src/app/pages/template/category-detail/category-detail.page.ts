@@ -130,6 +130,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private lastLoadedServiceId: string = '';
   private lastLoadedCategoryName: string = '';
 
+  // ==================== Caption Popup State ====================
+  private isCaptionPopupOpen = false;
+
   // ==================== Accordion State ====================
   expandedSections: Set<string> = new Set(['information', 'limitations', 'deficiencies']);
 
@@ -909,7 +912,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   }
 
   /**
-   * Load templates and visuals using the appropriate service based on template type
+   * Load templates and visuals using the unified dataProvider
+   * This standardizes data loading across all templates (HUD, EFE, LBW, DTE)
    */
   private async loadTemplatesAndVisuals(): Promise<{ templates: any[]; visuals: any[] }> {
     if (!this.config) {
@@ -920,70 +924,68 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const serviceId = this.actualServiceId || this.serviceId;
     this.logDebug('LOAD', `Loading for ${this.config.id}, serviceId=${serviceId}, category=${this.categoryName}`);
 
-    switch (this.config.id) {
-      case 'hud':
-        // HUD: Use OfflineTemplateService for templates, HudDataService for visuals
-        // HUD loads ALL templates (no category filter) since HUD shows all on one page
-        this.logDebug('LOAD', 'Loading HUD templates and visuals...');
-        const [hudTemplates, hudVisuals] = await Promise.all([
-          this.offlineTemplate.ensureHudTemplatesReady(),
-          this.hudData.getHudByService(serviceId)
+    // Use unified dataProvider for all templates - handles webapp/mobile differences internally
+    // HUD loads ALL templates/visuals (single page shows everything)
+    // EFE/LBW/DTE filter by category
+    const isHud = this.config.id === 'hud';
+
+    try {
+      if (isHud) {
+        // HUD: Load all templates and visuals (no category filter)
+        this.logDebug('LOAD', 'Loading HUD templates and visuals via dataProvider...');
+        const [templates, visualsResult] = await Promise.all([
+          this.dataProvider.getTemplates(this.config),
+          this.dataProvider.getVisuals(this.config, serviceId)
         ]);
-        this.logDebug('LOAD', `HUD: ${hudTemplates?.length || 0} templates, ${hudVisuals?.length || 0} visuals`);
-        if (hudTemplates?.length > 0) {
-          this.logDebug('DEBUG', `First HUD template: ${JSON.stringify({ Name: hudTemplates[0].Name, Kind: hudTemplates[0].Kind, TemplateID: hudTemplates[0].TemplateID })}`);
+
+        this.logDebug('LOAD', `HUD: ${templates?.length || 0} templates, ${visualsResult.data?.length || 0} visuals`);
+        if (templates?.length > 0) {
+          this.logDebug('DEBUG', `First HUD template: ${JSON.stringify({ Name: templates[0].Name, Kind: templates[0].Kind, TemplateID: templates[0].TemplateID })}`);
         }
-        return { templates: hudTemplates || [], visuals: hudVisuals || [] };
 
-      case 'efe':
-        // EFE: Use OfflineTemplateService for templates, EfeDataService for visuals
-        this.logDebug('LOAD', 'Loading EFE templates and visuals...');
-        const [efeTemplates, efeVisuals] = await Promise.all([
-          this.offlineTemplate.ensureVisualTemplatesReady(),
-          this.efeData.getVisualsByService(serviceId)
+        // Convert VisualRecord[] back to raw format for compatibility with existing code
+        const visuals = visualsResult.data.map(v => this.visualRecordToRaw(v));
+        return { templates: templates || [], visuals };
+
+      } else {
+        // EFE/LBW/DTE: Load templates and visuals filtered by category
+        this.logDebug('LOAD', `Loading ${this.config.id.toUpperCase()} templates and visuals via dataProvider...`);
+        const [templates, visualsResult] = await Promise.all([
+          this.dataProvider.getTemplatesForCategory(this.config, this.categoryName),
+          this.dataProvider.getVisualsForCategory(this.config, serviceId, this.categoryName)
         ]);
-        this.logDebug('LOAD', `EFE raw: ${efeTemplates?.length || 0} templates, ${efeVisuals?.length || 0} visuals`);
-        console.log('[CategoryDetail] EFE raw visuals:', efeVisuals);
-        // EFE: Filter templates by category (route param is actual category)
-        const filteredEfeTemplates = (efeTemplates || []).filter((t: any) => t.Category === this.categoryName);
-        const filteredEfeVisuals = (efeVisuals || []).filter((v: any) => v.Category === this.categoryName);
-        this.logDebug('LOAD', `EFE filtered (category=${this.categoryName}): ${filteredEfeTemplates.length} templates, ${filteredEfeVisuals.length} visuals`);
-        console.log('[CategoryDetail] EFE filtered visuals for', this.categoryName, ':', filteredEfeVisuals);
-        return { templates: filteredEfeTemplates, visuals: filteredEfeVisuals };
 
-      case 'lbw':
-        // LBW: Use OfflineTemplateService for templates, LbwDataService for visuals
-        this.logDebug('LOAD', 'Loading LBW templates and visuals...');
-        const [lbwTemplates, lbwVisuals] = await Promise.all([
-          this.offlineTemplate.getLbwTemplates(),
-          this.lbwData.getVisualsByService(serviceId)
-        ]);
-        this.logDebug('LOAD', `LBW raw: ${lbwTemplates?.length || 0} templates, ${lbwVisuals?.length || 0} visuals`);
-        // LBW: Filter templates by category
-        const filteredLbwTemplates = (lbwTemplates || []).filter((t: any) => t.Category === this.categoryName);
-        const filteredLbwVisuals = (lbwVisuals || []).filter((v: any) => v.Category === this.categoryName);
-        this.logDebug('LOAD', `LBW filtered (category=${this.categoryName}): ${filteredLbwTemplates.length} templates, ${filteredLbwVisuals.length} visuals`);
-        return { templates: filteredLbwTemplates, visuals: filteredLbwVisuals };
+        this.logDebug('LOAD', `${this.config.id.toUpperCase()} (category=${this.categoryName}): ${templates?.length || 0} templates, ${visualsResult.data?.length || 0} visuals`);
 
-      case 'dte':
-        // DTE: Use CaspioService directly for templates (no OfflineTemplateService method)
-        // DTE: Use DteDataService for visuals
-        this.logDebug('LOAD', 'Loading DTE templates and visuals...');
-        const [dteTemplates, dteVisuals] = await Promise.all([
-          firstValueFrom(this.caspioService.getServicesDTETemplates()),
-          this.dteData.getVisualsByService(serviceId)
-        ]);
-        this.logDebug('LOAD', `DTE raw: ${dteTemplates?.length || 0} templates, ${dteVisuals?.length || 0} visuals`);
-        // DTE: Filter templates by category
-        const filteredDteTemplates = (dteTemplates || []).filter((t: any) => t.Category === this.categoryName);
-        const filteredDteVisuals = (dteVisuals || []).filter((v: any) => v.Category === this.categoryName);
-        this.logDebug('LOAD', `DTE filtered (category=${this.categoryName}): ${filteredDteTemplates.length} templates, ${filteredDteVisuals.length} visuals`);
-        return { templates: filteredDteTemplates, visuals: filteredDteVisuals };
-
-      default:
-        this.logDebug('ERROR', `Unknown template type: ${this.config.id}`);
-        return { templates: [], visuals: [] };
+        // Convert VisualRecord[] back to raw format for compatibility with existing code
+        const visuals = visualsResult.data.map(v => this.visualRecordToRaw(v));
+        return { templates: templates || [], visuals };
+      }
+    } catch (error) {
+      this.logDebug('ERROR', `Failed to load templates/visuals: ${error}`);
+      console.error('[CategoryDetail] loadTemplatesAndVisuals error:', error);
+      return { templates: [], visuals: [] };
     }
+  }
+
+  /**
+   * Convert normalized VisualRecord back to raw database format for compatibility
+   */
+  private visualRecordToRaw(record: any): any {
+    if (!this.config) return record;
+    return {
+      [this.config.idFieldName]: record.id,
+      [this.config.templateIdFieldName]: record.templateId,
+      ServiceID: record.serviceId,
+      Category: record.category,
+      Name: record.name,
+      Text: record.text,
+      Kind: record.kind,
+      Notes: record.isSelected ? '' : 'HIDDEN',
+      Answers: record.answer || '',
+      // Preserve any extra fields
+      ...record
+    };
   }
 
   private buildVisualRecordMap(visuals: any[]): void {
@@ -1022,16 +1024,27 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     this.logDebug('DROPDOWN', `Loading dropdown options for category: ${this.categoryName}`);
 
-    const optionsMap = await this.dataAdapter.getDropdownOptionsForCategoryWithConfig(
-      this.config,
-      this.categoryName
-    );
+    try {
+      // Use unified dataProvider - handles webapp/mobile differences internally
+      const optionsMap = await this.dataProvider.getDropdownOptions(this.config);
 
-    optionsMap.forEach((options, templateId) => {
-      this.visualDropdownOptions[templateId] = options;
-    });
+      optionsMap.forEach((options, templateId) => {
+        // Add "None" and "Other" options if not already present
+        const finalOptions = [...options];
+        if (!finalOptions.includes('None')) {
+          finalOptions.push('None');
+        }
+        if (!finalOptions.includes('Other')) {
+          finalOptions.push('Other');
+        }
+        this.visualDropdownOptions[templateId] = finalOptions;
+      });
 
-    this.logDebug('DROPDOWN', `Loaded options for ${optionsMap.size} templates`);
+      this.logDebug('DROPDOWN', `Loaded options for ${optionsMap.size} templates`);
+    } catch (error) {
+      this.logDebug('ERROR', `Failed to load dropdown options: ${error}`);
+      console.error('[CategoryDetail] Error loading dropdown options:', error);
+    }
   }
 
   private organizeItems(templates: any[], visuals: any[]): void {
@@ -1527,7 +1540,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     // Get the visual record ID for this item
     const itemId = this.getItemLookupId(item);
     const key = `${this.categoryName}_${itemId}`;
-    const visualId = this.visualRecordIds[key];
+    let visualId = this.visualRecordIds[key];
 
     // DEXIE-FIRST (MOBILE): Always persist to Dexie first
     if (!environment.isWeb && this.config.features.offlineFirst) {
@@ -1546,6 +1559,19 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
     }
 
+    // WEBAPP: If no visual record exists, create one first
+    if (!visualId && environment.isWeb) {
+      this.logDebug('SAVE', `No visual record for ${key}, creating one...`);
+      const createdId = await this.ensureVisualRecordExists(this.categoryName, itemId);
+      if (createdId) {
+        visualId = createdId;
+        this.logDebug('SAVE', `Created visual record: ${visualId}`);
+      } else {
+        this.logDebug('ERROR', `Failed to create visual record for ${key}`);
+        return;
+      }
+    }
+
     if (!visualId) {
       this.logDebug('SAVE', `No visual record for ${key}, cannot save to backend`);
       return;
@@ -1558,9 +1584,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     }
 
     try {
-      // All templates use 'Answers' field (plural)
-      await this.dataAdapter.updateVisualWithConfig(this.config, String(visualId), {
-        Answers: item.answer || ''
+      // Use unified dataProvider - handles webapp/mobile differences internally
+      await this.dataProvider.updateVisual(this.config, String(visualId), {
+        answer: item.answer || ''
       });
       this.logDebug('SAVE', `Saved Answers for ${key}: ${item.answer}`);
     } catch (error) {
@@ -2029,62 +2055,233 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   }
 
   async openCaptionPopup(photo: any, category: string, itemId: string | number): Promise<void> {
+    // Prevent multiple simultaneous popups
+    if (this.isCaptionPopupOpen) {
+      return;
+    }
+
+    this.isCaptionPopupOpen = true;
     const photoId = photo.AttachID || photo.id || photo.imageId;
     this.logDebug('CAPTION', `Edit caption for photo: ${photoId}`);
 
-    const alert = await this.alertController.create({
-      header: 'Edit Caption',
-      cssClass: 'custom-document-alert',
-      inputs: [
-        {
-          name: 'caption',
-          type: 'textarea',
-          placeholder: 'Enter caption...',
-          value: photo.caption || ''
-        }
-      ],
-      buttons: [
-        {
-          text: 'Save',
-          cssClass: 'alert-button-confirm',
-          handler: async (data) => {
-            const newCaption = data.caption?.trim() || '';
-            try {
-              // Save to API
-              if (photoId && !String(photoId).startsWith('temp_')) {
-                await this.dataAdapter.updateAttachmentWithConfig(this.config!, photoId, {
-                  Annotation: newCaption
-                });
-              }
+    try {
+      // Escape HTML to prevent injection and errors
+      const escapeHtml = (text: string) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
 
-              // Update local state
+      // Create a temporary caption value to work with
+      const tempCaption = escapeHtml(photo.caption || '');
+
+      // Define preset location buttons - 3 columns layout
+      const presetButtons = [
+        ['Front', '1st', 'Laundry'],
+        ['Left', '2nd', 'Kitchen'],
+        ['Right', '3rd', 'Living'],
+        ['Back', '4th', 'Dining'],
+        ['Top', '5th', 'Bedroom'],
+        ['Bottom', 'Floor', 'Bathroom'],
+        ['Middle', 'Unit', 'Closet'],
+        ['Primary', 'Attic', 'Entry'],
+        ['Supply', 'Porch', 'Office'],
+        ['Return', 'Deck', 'Garage'],
+        ['Staircase', 'Roof', 'Indoor'],
+        ['Hall', 'Ceiling', 'Outdoor']
+      ];
+
+      // Build custom HTML for the alert with preset buttons
+      let buttonsHtml = '<div class="preset-buttons-container">';
+      presetButtons.forEach(row => {
+        buttonsHtml += '<div class="preset-row">';
+        row.forEach(label => {
+          buttonsHtml += `<button type="button" class="preset-btn" data-text="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+        });
+        buttonsHtml += '</div>';
+      });
+      buttonsHtml += '</div>';
+
+      const alert = await this.alertController.create({
+        header: 'Photo Caption',
+        cssClass: 'caption-popup-alert',
+        message: ' ', // Empty space to prevent Ionic from hiding the message area
+        buttons: [
+          {
+            text: 'Save',
+            handler: () => {
+              // Get caption value
+              const input = document.getElementById('captionInput') as HTMLInputElement;
+              const newCaption = input?.value || '';
+
+              // Update photo caption in UI immediately
+              photo.caption = newCaption;
+              photo.Annotation = newCaption;
+
+              // Update in visualPhotos array
               const key = `${category}_${itemId}`;
               const photos = this.visualPhotos[key] || [];
-              const photoIndex = photos.findIndex(p =>
+              const photoIndex = photos.findIndex((p: any) =>
                 (p.AttachID || p.id || p.imageId) === photoId
               );
               if (photoIndex >= 0) {
                 photos[photoIndex].caption = newCaption;
                 photos[photoIndex].Annotation = newCaption;
-                this.changeDetectorRef.detectChanges();
               }
 
-              this.logDebug('CAPTION', 'Caption saved');
-            } catch (error) {
-              this.logDebug('ERROR', `Failed to save caption: ${error}`);
-              await this.showToast('Failed to save caption', 'danger');
+              this.changeDetectorRef.detectChanges();
+
+              // Close popup immediately (don't wait for save)
+              this.isCaptionPopupOpen = false;
+
+              // Save caption in background
+              this.saveCaptionInBackground(photoId, newCaption);
+
+              return true; // Close popup immediately
+            }
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              this.isCaptionPopupOpen = false;
+              return true;
             }
           }
-        },
-        {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'alert-button-cancel'
-        }
-      ]
-    });
+        ]
+      });
 
-    await alert.present();
+      await alert.present();
+
+      // Inject HTML content immediately after presentation
+      setTimeout(() => {
+        try {
+          const alertElement = document.querySelector('.caption-popup-alert .alert-message');
+          if (!alertElement) {
+            this.isCaptionPopupOpen = false;
+            return;
+          }
+
+          // Build the full HTML content with inline styles for mobile app compatibility
+          const htmlContent = `
+            <div class="caption-popup-content">
+              <div class="caption-input-container" style="position: relative; margin-bottom: 16px;">
+                <input type="text" id="captionInput" class="caption-text-input"
+                       placeholder="Enter caption..."
+                       value="${tempCaption}"
+                       maxlength="255"
+                       style="width: 100%; padding: 14px 54px 14px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; color: #333; background: white; box-sizing: border-box; height: 52px;" />
+                <button type="button" id="undoCaptionBtn" class="undo-caption-btn" title="Undo Last Word"
+                        style="position: absolute; right: 5px; top: 5px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 10;">
+                  <ion-icon name="backspace-outline" style="font-size: 20px; color: #666;"></ion-icon>
+                </button>
+              </div>
+              ${buttonsHtml}
+            </div>
+          `;
+          alertElement.innerHTML = htmlContent;
+
+          const captionInput = document.getElementById('captionInput') as HTMLInputElement;
+          const undoBtn = document.getElementById('undoCaptionBtn') as HTMLButtonElement;
+
+          // Use event delegation for better performance
+          const container = document.querySelector('.caption-popup-alert .preset-buttons-container');
+          if (container && captionInput) {
+            container.addEventListener('click', (e) => {
+              try {
+                const target = e.target as HTMLElement;
+                const btn = target.closest('.preset-btn') as HTMLElement;
+                if (btn) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const text = btn.getAttribute('data-text');
+                  if (text && captionInput) {
+                    // Add text + space to current caption
+                    captionInput.value = (captionInput.value || '') + text + ' ';
+                    // CRITICAL: Remove focus from button immediately to prevent orange highlight on mobile
+                    (btn as HTMLButtonElement).blur();
+                  }
+                }
+              } catch (error) {
+                console.error('Error handling preset button click:', error);
+              }
+            }, { passive: false });
+          }
+
+          // Add click handler for undo button
+          if (undoBtn && captionInput) {
+            undoBtn.addEventListener('click', (e) => {
+              try {
+                e.preventDefault();
+                e.stopPropagation();
+                const currentValue = captionInput.value || '';
+                if (currentValue.trim() === '') {
+                  return;
+                }
+                // Trim trailing spaces and split by spaces
+                const words = currentValue.trim().split(' ');
+                // Remove the last word
+                if (words.length > 0) {
+                  words.pop();
+                }
+                // Join back and update input
+                captionInput.value = words.join(' ');
+                // Add trailing space if there are still words
+                if (captionInput.value.length > 0) {
+                  captionInput.value += ' ';
+                }
+              } catch (error) {
+                console.error('Error handling undo button click:', error);
+              }
+            });
+          }
+
+          // CRITICAL: Add Enter key handler to prevent form submission and provide smooth save
+          if (captionInput) {
+            captionInput.addEventListener('keydown', (e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                // Find and click the Save button to trigger the save handler
+                const saveBtn = document.querySelector('.caption-popup-alert button.alert-button:not([data-role="cancel"])') as HTMLButtonElement;
+                if (saveBtn) {
+                  saveBtn.click();
+                }
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error injecting caption popup content:', error);
+          this.isCaptionPopupOpen = false;
+        }
+      }, 0);
+
+      // Reset flag when alert is dismissed
+      alert.onDidDismiss().then(() => {
+        this.isCaptionPopupOpen = false;
+      });
+
+    } catch (error) {
+      console.error('Error opening caption popup:', error);
+      this.isCaptionPopupOpen = false;
+    }
+  }
+
+  /**
+   * Save caption in background without blocking UI
+   */
+  private async saveCaptionInBackground(photoId: string | number, newCaption: string): Promise<void> {
+    try {
+      if (photoId && !String(photoId).startsWith('temp_')) {
+        await this.dataAdapter.updateAttachmentWithConfig(this.config!, String(photoId), {
+          Annotation: newCaption
+        });
+        this.logDebug('CAPTION', 'Caption saved successfully');
+      }
+    } catch (error) {
+      this.logDebug('ERROR', `Failed to save caption: ${error}`);
+      await this.showToast('Failed to save caption', 'danger');
+    }
   }
 
   /**

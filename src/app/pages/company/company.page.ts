@@ -2877,7 +2877,7 @@ export class CompanyPage implements OnInit, OnDestroy {
       // Calculate basic metrics
       this.clientMetrics = {
         totalProjects: projects.length,
-        activeProjects: projects.filter((p: any) => p.StatusID === 1 || p.StatusID === '1').length,
+        activeProjects: projects.filter((p: any) => p.StatusID === 7 || p.StatusID === '7').length,
         completedProjects: projects.filter((p: any) => p.StatusID === 2 || p.StatusID === '2').length
       };
 

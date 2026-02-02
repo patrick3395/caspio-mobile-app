@@ -130,12 +130,12 @@ export class AllProjectsPage implements OnInit {
       }
     }
     
-    // Load all projects and filter out StatusID: 1 (Active)
+    // Load all projects and filter out StatusID: 7 (Active)
     this.projectsService.getAllProjects(companyId).subscribe({
       next: (allProjects) => {
-        // Filter out projects with StatusID: 1 (Active projects)
-        this.projects = allProjects.filter(p => 
-          p.StatusID !== 1 && p.StatusID !== '1' && p.Status !== 'Active'
+        // Filter out projects with StatusID: 7 (Active projects)
+        this.projects = allProjects.filter(p =>
+          p.StatusID !== 7 && p.StatusID !== '7' && p.Status !== 'Active'
         );
         
         // Load service types and then services
