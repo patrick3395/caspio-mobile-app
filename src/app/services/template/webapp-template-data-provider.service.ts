@@ -1,0 +1,320 @@
+import { Injectable } from '@angular/core';
+import { Observable, EMPTY } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { TemplateConfig } from './template-config.interface';
+import {
+  ITemplateDataProvider,
+  VisualRecord,
+  AttachmentRecord,
+  DataResult,
+  SyncEvent
+} from './template-data-provider.interface';
+
+/**
+ * WebappTemplateDataProvider - Direct API implementation for webapp
+ *
+ * Characteristics:
+ * - All operations go directly to API Gateway
+ * - No local caching (IndexedDB not used)
+ * - No sync management (changes are immediate)
+ * - Stateless - each request is independent
+ * - Sync/cache operations are no-ops
+ */
+@Injectable()
+export class WebappTemplateDataProvider extends ITemplateDataProvider {
+
+  // ==================== Visual Operations ====================
+
+  async getVisuals(config: TemplateConfig, serviceId: string): Promise<DataResult<VisualRecord[]>> {
+    const endpoint = `/tables/${config.tableName}/records?q.where=ServiceID=${serviceId}&q.limit=1000`;
+    const result = await this.fetchApi<any>(endpoint);
+    const records = (result.Result || []).map((r: any) => this.mapToVisualRecord(config, r));
+
+    return {
+      data: records,
+      isFromCache: false,
+      hasPendingSync: false
+    };
+  }
+
+  async getVisualById(config: TemplateConfig, visualId: string): Promise<VisualRecord | null> {
+    const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${visualId}`;
+    const result = await this.fetchApi<any>(endpoint);
+    const record = result.Result?.[0];
+    return record ? this.mapToVisualRecord(config, record) : null;
+  }
+
+  async getVisualsForCategory(
+    config: TemplateConfig,
+    serviceId: string,
+    category: string
+  ): Promise<DataResult<VisualRecord[]>> {
+    const allResult = await this.getVisuals(config, serviceId);
+    return {
+      data: allResult.data.filter(v => v.category === category),
+      isFromCache: false,
+      hasPendingSync: false
+    };
+  }
+
+  async createVisual(config: TemplateConfig, visual: Partial<VisualRecord>): Promise<VisualRecord> {
+    const endpoint = `/tables/${config.tableName}/records?response=rows`;
+    const dbData = this.mapFromVisualRecord(config, visual);
+
+    console.log('[WebappDataProvider] Creating visual:', dbData);
+    const result = await this.fetchApi<any>(endpoint, 'POST', dbData);
+    console.log('[WebappDataProvider] Create response:', result);
+
+    const created = result.Result?.[0] || result;
+    return this.mapToVisualRecord(config, { ...dbData, ...created });
+  }
+
+  async updateVisual(
+    config: TemplateConfig,
+    visualId: string,
+    updates: Partial<VisualRecord>,
+    serviceId?: string
+  ): Promise<VisualRecord> {
+    const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${visualId}`;
+    const dbData = this.mapFromVisualRecord(config, updates);
+
+    await this.fetchApi(endpoint, 'PUT', dbData);
+    return { id: visualId, ...updates } as VisualRecord;
+  }
+
+  async deleteVisual(config: TemplateConfig, visualId: string, serviceId?: string): Promise<boolean> {
+    const endpoint = `/tables/${config.tableName}/records?q.where=${config.idFieldName}=${visualId}`;
+    await this.fetchApi(endpoint, 'DELETE');
+    return true;
+  }
+
+  // ==================== Attachment Operations ====================
+
+  async getAttachments(config: TemplateConfig, visualId: string): Promise<AttachmentRecord[]> {
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=${config.idFieldName}=${visualId}`;
+    const result = await this.fetchApi<any>(endpoint);
+    return (result.Result || []).map((r: any) => this.mapToAttachmentRecord(config, r));
+  }
+
+  async getAttachmentsForService(
+    config: TemplateConfig,
+    serviceId: string
+  ): Promise<Map<string, AttachmentRecord[]>> {
+    // First get all visual IDs for this service
+    const visualsResult = await this.getVisuals(config, serviceId);
+    const visualIds = visualsResult.data.map(v => v.id);
+
+    if (visualIds.length === 0) {
+      return new Map();
+    }
+
+    // Build OR query for batch loading
+    const idConditions = visualIds.map(id => `${config.idFieldName}=${id}`).join(' OR ');
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=${encodeURIComponent(idConditions)}&q.limit=1000`;
+
+    try {
+      const result = await this.fetchApi<any>(endpoint);
+
+      // Group by visual ID
+      const attachmentMap = new Map<string, AttachmentRecord[]>();
+      for (const record of (result.Result || [])) {
+        const visualId = String(record[config.idFieldName]);
+        if (!attachmentMap.has(visualId)) {
+          attachmentMap.set(visualId, []);
+        }
+        attachmentMap.get(visualId)!.push(this.mapToAttachmentRecord(config, record));
+      }
+
+      return attachmentMap;
+    } catch (error) {
+      console.error('[WebappDataProvider] Error loading attachments:', error);
+      return new Map();
+    }
+  }
+
+  async createAttachment(config: TemplateConfig, attachment: Partial<AttachmentRecord>): Promise<AttachmentRecord> {
+    const endpoint = `/tables/${config.attachTableName}/records?response=rows`;
+    const result = await this.fetchApi<any>(endpoint, 'POST', attachment);
+    const created = result.Result?.[0] || result;
+    return this.mapToAttachmentRecord(config, { ...attachment, ...created });
+  }
+
+  async updateAttachment(
+    config: TemplateConfig,
+    attachId: string,
+    updates: Partial<AttachmentRecord>
+  ): Promise<AttachmentRecord> {
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=AttachID=${attachId}`;
+    const dbData: any = {};
+    if (updates.caption !== undefined) dbData.Annotation = updates.caption;
+    if (updates.drawings !== undefined) dbData.Drawings = updates.drawings;
+
+    await this.fetchApi(endpoint, 'PUT', dbData);
+    return { attachId, ...updates } as AttachmentRecord;
+  }
+
+  async deleteAttachment(config: TemplateConfig, attachId: string): Promise<boolean> {
+    const endpoint = `/tables/${config.attachTableName}/records?q.where=AttachID=${attachId}`;
+    await this.fetchApi(endpoint, 'DELETE');
+    return true;
+  }
+
+  // ==================== Template Operations ====================
+
+  async getTemplates(config: TemplateConfig): Promise<any[]> {
+    const endpoint = `/tables/${config.templateTableName}/records?q.limit=1000`;
+    const result = await this.fetchApi<any>(endpoint);
+    let templates = result.Result || [];
+
+    // EFE uses shared visual templates table, filter by TypeID=1
+    if (config.id === 'efe') {
+      templates = templates.filter((t: any) => t.TypeID === 1);
+    }
+
+    return templates;
+  }
+
+  async getTemplatesForCategory(config: TemplateConfig, category: string): Promise<any[]> {
+    const templates = await this.getTemplates(config);
+    return templates.filter(t => t.Category === category);
+  }
+
+  async getDropdownOptions(config: TemplateConfig): Promise<Map<number, string[]>> {
+    if (!config.features.dynamicDropdowns || !config.dropdownTableName) {
+      return new Map();
+    }
+
+    const endpoint = `/tables/${config.dropdownTableName}/records?q.limit=1000`;
+    const result = await this.fetchApi<any>(endpoint);
+
+    const optionsMap = new Map<number, string[]>();
+    for (const option of (result.Result || [])) {
+      // Handle different template ID field names
+      const templateId = option.TemplateID ||
+                         option[`${config.id.toUpperCase()}TemplateID`] ||
+                         option.HUDTemplateID ||
+                         option.VisualTemplateID;
+
+      if (templateId) {
+        if (!optionsMap.has(templateId)) {
+          optionsMap.set(templateId, []);
+        }
+        const value = option.Dropdown || option.DropdownValue;
+        if (value && value !== 'None' && value !== 'Other') {
+          optionsMap.get(templateId)!.push(value);
+        }
+      }
+    }
+
+    return optionsMap;
+  }
+
+  // ==================== Service Operations ====================
+
+  async getService(serviceId: string): Promise<any> {
+    const endpoint = `/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`;
+    const result = await this.fetchApi<any>(endpoint);
+    return result.Result?.[0] || null;
+  }
+
+  async updateService(serviceId: string, updates: any): Promise<void> {
+    const endpoint = `/tables/LPS_Services/records?q.where=PK_ID=${serviceId}`;
+    await this.fetchApi(endpoint, 'PUT', updates);
+  }
+
+  // ==================== Sync Operations (No-op for webapp) ====================
+
+  onSyncComplete(): Observable<SyncEvent> {
+    return EMPTY; // Webapp doesn't have sync events
+  }
+
+  async hasPendingChanges(serviceId: string): Promise<boolean> {
+    return false; // Webapp changes are immediate
+  }
+
+  async forceSyncNow(): Promise<void> {
+    // No-op for webapp
+  }
+
+  // ==================== Cache Operations (No-op for webapp) ====================
+
+  async refreshCache(config: TemplateConfig, serviceId: string): Promise<void> {
+    // No-op for webapp - no cache to refresh
+  }
+
+  async clearCache(config: TemplateConfig, serviceId?: string): Promise<void> {
+    // No-op for webapp - no cache to clear
+  }
+
+  // ==================== Private Helpers ====================
+
+  private async fetchApi<T = any>(
+    endpoint: string,
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+    data?: any
+  ): Promise<T> {
+    const url = `${environment.apiGatewayUrl}/api/caspio-proxy${endpoint}`;
+    const options: RequestInit = {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+    };
+
+    if (data && (method === 'POST' || method === 'PUT')) {
+      options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API request failed: ${response.status} ${errorText}`);
+    }
+
+    if (method === 'DELETE') {
+      return {} as T;
+    }
+
+    return response.json();
+  }
+
+  private mapToVisualRecord(config: TemplateConfig, record: any): VisualRecord {
+    return {
+      id: String(record[config.idFieldName] || record.PK_ID),
+      templateId: record[config.templateIdFieldName] || record.TemplateID || 0,
+      serviceId: String(record.ServiceID),
+      category: record.Category || '',
+      name: record.Name || '',
+      text: record.Text || '',
+      kind: record.Kind || 'Comment',
+      isSelected: record.Notes !== 'HIDDEN',
+      answer: record.Answers || record.Answer || '',
+      notes: record.Notes || ''
+    };
+  }
+
+  private mapFromVisualRecord(config: TemplateConfig, record: Partial<VisualRecord>): any {
+    const dbRecord: any = {};
+    if (record.serviceId !== undefined) dbRecord.ServiceID = parseInt(String(record.serviceId), 10);
+    if (record.templateId !== undefined) dbRecord[config.templateIdFieldName] = record.templateId;
+    if (record.category !== undefined) dbRecord.Category = record.category;
+    if (record.name !== undefined) dbRecord.Name = record.name;
+    if (record.text !== undefined) dbRecord.Text = record.text;
+    if (record.kind !== undefined) dbRecord.Kind = record.kind;
+    if (record.answer !== undefined) dbRecord.Answers = record.answer;
+    if (record.notes !== undefined) dbRecord.Notes = record.notes;
+    return dbRecord;
+  }
+
+  private mapToAttachmentRecord(config: TemplateConfig, record: any): AttachmentRecord {
+    return {
+      attachId: String(record.AttachID || record.PK_ID),
+      visualId: String(record[config.idFieldName] || record.VisualID || record.HUDID || record.LBWID || record.DTEID),
+      fileName: record.FileName || '',
+      caption: record.Annotation || record.Caption || '',
+      drawings: record.Drawings,
+      displayUrl: record.FilePath || '',
+      isLocal: false,
+      isSynced: true
+    };
+  }
+}

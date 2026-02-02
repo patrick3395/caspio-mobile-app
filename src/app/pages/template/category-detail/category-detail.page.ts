@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -10,6 +10,8 @@ import { environment } from '../../../../environments/environment';
 import { TemplateConfig } from '../../../services/template/template-config.interface';
 import { TemplateConfigService } from '../../../services/template/template-config.service';
 import { TemplateDataAdapter } from '../../../services/template/template-data-adapter.service';
+import { TEMPLATE_DATA_PROVIDER } from '../../../services/template/template-data-provider.factory';
+import { ITemplateDataProvider } from '../../../services/template/template-data-provider.interface';
 import { IndexedDbService, LocalImage } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
 import { PhotoHandlerService, PhotoCaptureConfig, ViewPhotoConfig, ViewPhotoResult, StandardPhotoEntry } from '../../../services/photo-handler.service';
@@ -163,7 +165,8 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     private lbwData: LbwDataService,
     private dteData: DteDataService,
     private efeData: EngineersFoundationDataService,
-    private visualFieldRepo: VisualFieldRepoService
+    private visualFieldRepo: VisualFieldRepoService,
+    @Inject(TEMPLATE_DATA_PROVIDER) private dataProvider: ITemplateDataProvider
   ) {}
 
   // ==================== Lifecycle ====================
@@ -940,10 +943,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           this.efeData.getVisualsByService(serviceId)
         ]);
         this.logDebug('LOAD', `EFE raw: ${efeTemplates?.length || 0} templates, ${efeVisuals?.length || 0} visuals`);
+        console.log('[CategoryDetail] EFE raw visuals:', efeVisuals);
         // EFE: Filter templates by category (route param is actual category)
         const filteredEfeTemplates = (efeTemplates || []).filter((t: any) => t.Category === this.categoryName);
         const filteredEfeVisuals = (efeVisuals || []).filter((v: any) => v.Category === this.categoryName);
         this.logDebug('LOAD', `EFE filtered (category=${this.categoryName}): ${filteredEfeTemplates.length} templates, ${filteredEfeVisuals.length} visuals`);
+        console.log('[CategoryDetail] EFE filtered visuals for', this.categoryName, ':', filteredEfeVisuals);
         return { templates: filteredEfeTemplates, visuals: filteredEfeVisuals };
 
       case 'lbw':
@@ -987,6 +992,13 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const config = this.config;
     this.logDebug('MAP', `Building visual record map from ${visuals.length} visuals`);
 
+    // Log all visuals for debugging
+    visuals.forEach((v, i) => {
+      const tId = v[config.templateIdFieldName] || v.TemplateID;
+      const vId = v[config.idFieldName] || v.PK_ID;
+      this.logDebug('MAP', `Visual[${i}]: templateId=${tId}, visualId=${vId}, Category=${v.Category}, Name=${v.Name?.substring(0, 30)}`);
+    });
+
     for (const visual of visuals) {
       const templateId: string | number = visual[config.templateIdFieldName] || visual.TemplateID;
       const visualId: string | number = visual[config.idFieldName] || visual.PK_ID;
@@ -998,7 +1010,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         const key = `${category}_${templateId}`;
         this.visualRecordIds[key] = String(visualId);
         this.selectedItems[key] = visual.Notes !== 'HIDDEN';
-        this.logDebug('MAP', `Mapped: ${key} -> visualId=${visualId}`);
+        this.logDebug('MAP', `Mapped: ${key} -> visualId=${visualId}, selected=${this.selectedItems[key]}`);
       }
     }
 
@@ -1049,9 +1061,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       const answerValue = visual?.Answers || visual?.Answer || '';
 
       // Determine if item is selected:
-      // - If there's a visual record with answers, it's selected
+      // - If there's a visual record, it's selected (record existence = selection for AnswerType 0)
+      // - For AnswerType 2 (multi-select), also check if there's an answer value
       // - If there's no visual but was previously selected in session, keep that state
-      const hasVisualWithAnswer = visual && answerValue;
+      const answerType = template.AnswerType || 0;
+      const hasVisualRecord = !!visual;
+      const hasVisualWithAnswer = hasVisualRecord && (answerType === 0 || answerValue);
       const isSelected = hasVisualWithAnswer || this.selectedItems[key] || false;
 
       const item: VisualItem = {
@@ -2100,7 +2115,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     try {
       this.logDebug('VISUAL', `Creating visual record for ${category}_${itemId}`);
 
-      // Create visual record via adapter
+      // Create visual record using template-specific data service
       const visualData = {
         ServiceID: parseInt(this.serviceId, 10),
         Category: category,
@@ -2111,8 +2126,26 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         [this.config!.templateIdFieldName]: item.templateId
       };
 
-      const createdVisual = await this.dataAdapter.createVisualWithConfig(this.config!, visualData);
-      const visualId = createdVisual?.[this.config!.idFieldName] || createdVisual?.PK_ID;
+      console.log('[CategoryDetail] Creating visual with data:', visualData);
+
+      // Use unified dataProvider - handles webapp/mobile differences internally
+      const visualRecord = {
+        serviceId: this.serviceId,
+        templateId: item.templateId,
+        category: category,
+        name: item.name,
+        text: item.text || item.originalText || '',
+        kind: item.type as 'Comment' | 'Limitation' | 'Deficiency',
+        isSelected: true,
+        notes: ''
+      };
+
+      const createdVisual = await this.dataProvider.createVisual(this.config!, visualRecord);
+
+      console.log('[CategoryDetail] Create response:', createdVisual);
+      // dataProvider returns normalized VisualRecord with id property
+      const visualId = createdVisual?.id;
+      console.log('[CategoryDetail] Extracted visualId:', visualId);
 
       if (visualId) {
         this.visualRecordIds[key] = String(visualId);

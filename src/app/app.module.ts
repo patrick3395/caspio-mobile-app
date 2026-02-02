@@ -17,6 +17,7 @@ import { OfflineIndicatorComponent } from './components/offline-indicator/offlin
 import { SkipLinkComponent } from './components/skip-link/skip-link.component';
 import { GlobalErrorHandlerService } from './services/global-error-handler.service';
 import { AgentationComponent } from './components/agentation/agentation.component';
+import { TEMPLATE_DATA_PROVIDERS } from './services/template/template-data-provider.factory';
 
 @NgModule({
   declarations: [AppComponent],
@@ -26,7 +27,8 @@ import { AgentationComponent } from './components/agentation/agentation.componen
     { provide: HTTP_INTERCEPTORS, useClass: CaspioInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
     // G2-ERRORS-001: Global error handler for web platform
-    { provide: ErrorHandler, useClass: GlobalErrorHandlerService }
+    { provide: ErrorHandler, useClass: GlobalErrorHandlerService },
+    ...TEMPLATE_DATA_PROVIDERS
   ],
   bootstrap: [AppComponent],
 })

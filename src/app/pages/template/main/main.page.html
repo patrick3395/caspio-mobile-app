@@ -1,0 +1,49 @@
+<div class="main-container">
+  <div class="white-container">
+    <div class="cards-container">
+      <ion-card
+        *ngFor="let card of cards"
+        class="navigation-card"
+        [class.completed]="card.completed"
+        button="true"
+        (click)="navigateTo(card)">
+        <ion-card-header>
+          <div class="card-header-content">
+            <div class="icon-container">
+              <ion-icon [name]="card.icon"></ion-icon>
+            </div>
+            <div class="title-container">
+              <ion-card-title>{{ card.title }}</ion-card-title>
+              <!-- Count indicators: Circle=Info, Square=Limitation, Triangle=Deficiency -->
+              <div class="category-counts" *ngIf="card.commentCount! > 0 || card.limitationCount! > 0 || card.deficiencyCount! > 0">
+                <span class="count-badge info" *ngIf="card.commentCount! > 0">
+                  {{ card.commentCount }}
+                </span>
+                <span class="count-badge limitation" *ngIf="card.limitationCount! > 0">
+                  {{ card.limitationCount }}
+                </span>
+                <span class="count-badge deficiency" *ngIf="card.deficiencyCount! > 0">
+                  <span>{{ card.deficiencyCount }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </ion-card-header>
+      </ion-card>
+    </div>
+  </div>
+
+  <div class="footer-section">
+    <ion-button
+      expand="block"
+      size="large"
+      [color]="canFinalize ? 'primary' : 'medium'"
+      (click)="finalizeReport()">
+      <ion-icon slot="start" name="checkmark-done-outline"></ion-icon>
+      {{ isReportFinalized ? 'Update' : 'Finalize Report' }}
+    </ion-button>
+    <p class="footer-note" *ngIf="canFinalize">
+      All required fields complete
+    </p>
+  </div>
+</div>
