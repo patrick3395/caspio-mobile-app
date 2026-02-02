@@ -5764,14 +5764,18 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
 
   /**
    * Get the standardized photo key for a category/item combination.
-   * Webapp uses itemId directly, mobile uses templateId for consistency.
+   * HUD FIX: Always use item's actual category (not route param "hud")
+   * because visuals are stored with their real category like "Foundation"
    */
   private getPhotoKey(category: string, itemId: string | number): string {
-    if (environment.isWeb) {
-      return `${category}_${itemId}`;
-    }
+    // Find item to get its actual category
     const item = this.findItemById(itemId);
-    return `${category}_${item?.templateId ?? itemId}`;
+    const actualCategory = item?.category || category;
+
+    if (environment.isWeb) {
+      return `${actualCategory}_${itemId}`;
+    }
+    return `${actualCategory}_${item?.templateId ?? itemId}`;
   }
 
   async toggleItemSelection(category: string, itemId: string | number) {
@@ -6324,18 +6328,30 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       return primaryKey;
     }
 
-    // For custom items, try using item.id instead
+    // HUD FIX: Always try item's actual category (template category like "Foundation")
+    // because visuals are stored with their real category, not the route param "hud"
     const item = this.findItemById(itemId);
-    if (item && item.id && item.id !== itemId) {
-      const itemIdKey = `${category}_${item.id}`;
-      if (this.visualPhotos[itemIdKey] || this.selectedItems[itemIdKey] || this.expandedPhotos[itemIdKey]) {
-        return itemIdKey;
-      }
-      // Also try item's actual category
+    if (item) {
+      // Try item's actual category with templateId (most common case for HUD)
       if (item.category && item.category !== category) {
-        const itemCategoryKey = `${item.category}_${item.id}`;
+        const itemCategoryKey = `${item.category}_${itemId}`;
         if (this.visualPhotos[itemCategoryKey] || this.selectedItems[itemCategoryKey] || this.expandedPhotos[itemCategoryKey]) {
           return itemCategoryKey;
+        }
+      }
+
+      // For custom items, try using item.id instead (e.g., "custom_123")
+      if (item.id && item.id !== itemId) {
+        const itemIdKey = `${category}_${item.id}`;
+        if (this.visualPhotos[itemIdKey] || this.selectedItems[itemIdKey] || this.expandedPhotos[itemIdKey]) {
+          return itemIdKey;
+        }
+        // Also try item's actual category with item.id
+        if (item.category && item.category !== category) {
+          const itemCategoryIdKey = `${item.category}_${item.id}`;
+          if (this.visualPhotos[itemCategoryIdKey] || this.selectedItems[itemCategoryIdKey] || this.expandedPhotos[itemCategoryIdKey]) {
+            return itemCategoryIdKey;
+          }
         }
       }
     }
@@ -6764,7 +6780,10 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
     }
 
     const { category, itemId } = this.currentUploadContext;
-    const key = `${category}_${itemId}`;
+    // HUD FIX: Use item's actual category for key
+    const item = this.findItemById(itemId);
+    const actualCategory = item?.category || category;
+    const key = `${actualCategory}_${itemId}`;
 
     // Get or create visual ID
     let visualId = this.visualRecordIds[key];
@@ -6993,21 +7012,23 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
   }
 
   private async saveVisualSelection(category: string, itemId: string | number) {
-    const key = `${category}_${itemId}`;
+    // Find the item to get template information
+    const item = this.findItemByTemplateId(Number(itemId));
+    if (!item) {
+      console.error('[SAVE VISUAL] Template item not found for ID:', itemId);
+      return;
+    }
+
+    // HUD FIX: Use item's actual category for key, not route param "hud"
+    const actualCategory = item.category || category;
+    const key = `${actualCategory}_${itemId}`;
 
     try {
-      // Find the item to get template information
-      const item = this.findItemByTemplateId(Number(itemId));
-      if (!item) {
-        console.error('[SAVE VISUAL] Template item not found for ID:', itemId);
-        return;
-      }
-
       console.log('[SAVE VISUAL] Creating visual record for', key);
       console.log('[SAVE VISUAL] Item details:', {
         name: item.name,
         type: item.type,
-        category: category
+        category: actualCategory
       });
 
       const serviceIdNum = parseInt(this.actualServiceId || this.serviceId, 10);
@@ -7076,11 +7097,11 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
       // CRITICAL: Include templateName and templateText so visual-detail can load the title
       const templateId = typeof itemId === 'string' ? parseInt(itemId, 10) : itemId;
       try {
-        await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+        await this.visualFieldRepo.setField(this.serviceId, actualCategory, templateId, {
           tempVisualId: visualId,  // Always a temp ID at this point (temp_visual_xxx)
           templateName: item.name || '',  // Store template name for visual-detail
           templateText: item.text || item.originalText || '',  // Store template text
-          category: item.category || category,  // Store actual category
+          category: actualCategory,  // Store actual category
           kind: (item.type as 'Comment' | 'Limitation' | 'Deficiency') || 'Comment',  // Store kind
           isSelected: true
         });
