@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { Observable, EMPTY } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { Observable, EMPTY, firstValueFrom } from 'rxjs';
 import { TemplateConfig } from './template-config.interface';
+import { ApiGatewayService } from '../api-gateway.service';
 import {
   ITemplateDataProvider,
   VisualRecord,
@@ -22,6 +22,10 @@ import {
  */
 @Injectable()
 export class WebappTemplateDataProvider extends ITemplateDataProvider {
+
+  constructor(private apiGateway: ApiGatewayService) {
+    super();
+  }
 
   // ==================== Visual Operations ====================
 
@@ -253,28 +257,21 @@ export class WebappTemplateDataProvider extends ITemplateDataProvider {
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
     data?: any
   ): Promise<T> {
-    const url = `${environment.apiGatewayUrl}/api/caspio-proxy${endpoint}`;
-    const options: RequestInit = {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-    };
+    const proxyEndpoint = `/api/caspio-proxy${endpoint}`;
 
-    if (data && (method === 'POST' || method === 'PUT')) {
-      options.body = JSON.stringify(data);
+    switch (method) {
+      case 'GET':
+        return firstValueFrom(this.apiGateway.get<T>(proxyEndpoint));
+      case 'POST':
+        return firstValueFrom(this.apiGateway.post<T>(proxyEndpoint, data));
+      case 'PUT':
+        return firstValueFrom(this.apiGateway.put<T>(proxyEndpoint, data));
+      case 'DELETE':
+        await firstValueFrom(this.apiGateway.delete<T>(proxyEndpoint));
+        return {} as T;
+      default:
+        throw new Error(`Unsupported method: ${method}`);
     }
-
-    const response = await fetch(url, options);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API request failed: ${response.status} ${errorText}`);
-    }
-
-    if (method === 'DELETE') {
-      return {} as T;
-    }
-
-    return response.json();
   }
 
   private mapToVisualRecord(config: TemplateConfig, record: any): VisualRecord {
