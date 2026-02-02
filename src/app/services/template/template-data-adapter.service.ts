@@ -433,8 +433,18 @@ export class TemplateDataAdapter {
           attachmentData.Drawings    // compressed drawings data
         );
 
-        // Also cache the annotated image if we have blob data
-        // (This is handled by the photo handler when it creates the annotated blob)
+        // SYNC MODAL FIX: Also queue a pendingCaption entry for UI feedback
+        // This shows the user their annotation change is queued for sync
+        // When the photo syncs via upload outbox, it will include the annotations
+        // The pendingCaption will wait for photo sync, then sync (or be cleaned up)
+        const attachType = this.getAttachTypeFromConfig(config);
+        console.log('[TemplateDataAdapter] Queuing caption for unsynced photo (UI feedback):', attachId);
+        await this.indexedDb.queueCaptionUpdate({
+          attachId: attachId,
+          attachType: attachType,
+          caption: attachmentData.Annotation,
+          drawings: attachmentData.Drawings
+        });
       } else if (isTempId) {
         await this.indexedDb.updatePendingRequestData(attachId, attachmentData);
       } else {
@@ -449,6 +459,19 @@ export class TemplateDataAdapter {
           caption: attachmentData.Annotation,
           drawings: attachmentData.Drawings
         });
+
+        // THUMBNAIL/EDITOR FIX: Also update the LocalImage if one exists for this attachId
+        // This ensures thumbnails and editor show the updated annotations immediately
+        // The LocalImage might exist if this is a local-first photo that has synced
+        const localImage = await this.indexedDb.getLocalImageByAttachId(attachId);
+        if (localImage) {
+          console.log('[TemplateDataAdapter] Also updating LocalImage for synced photo:', localImage.imageId);
+          await this.localImageService.updateCaptionAndDrawings(
+            localImage.imageId,
+            attachmentData.Annotation,
+            attachmentData.Drawings
+          );
+        }
       }
 
       return { success: true, AttachID: attachId, ...attachmentData };
