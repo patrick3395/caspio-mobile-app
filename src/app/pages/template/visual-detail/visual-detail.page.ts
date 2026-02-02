@@ -45,6 +45,14 @@ interface PhotoItem {
   hasAnnotations?: boolean;
   drawings?: string;
   originalUrl?: string;
+  thumbnailUrl?: string;
+  // Additional ID fields for annotation cache lookup (matches EFE pattern)
+  imageId?: string;
+  attachId?: string;
+  // Additional annotation fields (matches EFE pattern)
+  annotations?: any;
+  rawDrawingsString?: string;
+  Drawings?: string;
 }
 
 /**
@@ -101,6 +109,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   photos: PhotoItem[] = [];
   loadingPhotos: boolean = false;
   uploadingPhotos: boolean = false;
+
+  // ANNOTATION THUMBNAIL FIX: In-memory cache for annotated image URLs
+  // This ensures thumbnails show annotations immediately after save (matches EFE pattern)
+  bulkAnnotatedImagesMap: Map<string, string> = new Map();
 
   // Subscriptions
   private routeSubscription?: Subscription;
@@ -684,9 +696,16 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         originalUrl: displayUrl,
         caption: att.Caption || att.Annotation || '',
         uploading: false,
+        loading: true,  // Image is loading until (load) event fires
         isLocal: false,
         hasAnnotations,
-        drawings: att.Drawings || ''
+        // Store drawings in MULTIPLE fields (matches EFE pattern)
+        drawings: att.Drawings || '',
+        rawDrawingsString: att.Drawings || '',
+        Drawings: att.Drawings || '',
+        // Include all ID fields for cache lookup (matches EFE pattern)
+        imageId: attachId,
+        attachId: attachId
       });
     }
   }
@@ -704,7 +723,16 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   private async loadPhotosMobile() {
     if (!this.config) return;
 
-    alert(`[DEBUG] loadPhotosMobile START\nserviceId: ${this.serviceId}\ntemplateId: ${this.templateId}`);
+    // ANNOTATION THUMBNAIL FIX: Load cached annotated images into memory map (matches EFE pattern)
+    if (this.bulkAnnotatedImagesMap.size === 0) {
+      try {
+        const cachedAnnotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService();
+        this.bulkAnnotatedImagesMap = cachedAnnotatedImages;
+        console.log('[GenericVisualDetail] Loaded', cachedAnnotatedImages.size, 'cached annotated images into memory');
+      } catch (e) {
+        console.warn('[GenericVisualDetail] Could not load cached annotated images:', e);
+      }
+    }
 
     // Re-query visualFields to get fresh data (EFE pattern)
     const allFields = await db.visualFields
@@ -712,11 +740,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       .equals(this.serviceId)
       .toArray();
 
-    alert(`[DEBUG] Found ${allFields.length} visualFields for serviceId: ${this.serviceId}`);
-
     const field = allFields.find(f => f.templateId === this.templateId);
-
-    alert(`[DEBUG] Field for templateId ${this.templateId}: ${field ? 'FOUND' : 'NOT FOUND'}\ntempVisualId: ${field?.tempVisualId || 'none'}\nvisualId: ${field?.visualId || 'none'}`);
 
     // CRITICAL: Use tempVisualId FIRST because localImages are stored with the original temp ID
     // After sync, visualId contains the real ID but photos still have entityId = tempVisualId
@@ -724,13 +748,11 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     this.lastKnownVisualId = this.visualId;
 
     if (!this.visualId) {
-      alert('[DEBUG] NO visualId - cannot load photos');
       console.log('[GenericVisualDetail] MOBILE: No visualId found, cannot load photos');
       this.photos = [];
       return;
     }
 
-    alert(`[DEBUG] Using visualId: ${this.visualId}`);
     console.log('[GenericVisualDetail] MOBILE: Loading photos - visualId:', this.visualId,
       'tempVisualId:', field?.tempVisualId, 'field.visualId:', field?.visualId);
 
@@ -742,22 +764,17 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     localImages = await db.localImages.where('entityId').equals(this.visualId).toArray();
     if (localImages.length > 0) {
       foundAtTier = 1;
-      alert(`[DEBUG] TIER 1 - Found ${localImages.length} photos with entityId: ${this.visualId}`);
       console.log('[GenericVisualDetail] MOBILE: TIER 1 - Found', localImages.length, 'photos');
-    } else {
-      alert(`[DEBUG] TIER 1 - No photos found with entityId: ${this.visualId}`);
     }
 
     // TIER 2: Try alternate ID (if field has both tempVisualId and visualId)
     if (localImages.length === 0 && field?.tempVisualId && field?.visualId) {
       const alternateId = (this.visualId === field.tempVisualId) ? field.visualId : field.tempVisualId;
       if (alternateId && alternateId !== this.visualId) {
-        alert(`[DEBUG] TIER 2 - Trying alternate ID: ${alternateId}`);
         console.log('[GenericVisualDetail] MOBILE: TIER 2 - Trying alternate ID:', alternateId);
         localImages = await db.localImages.where('entityId').equals(String(alternateId)).toArray();
         if (localImages.length > 0) {
           foundAtTier = 2;
-          alert(`[DEBUG] TIER 2 - Found ${localImages.length} photos`);
           console.log('[GenericVisualDetail] MOBILE: TIER 2 - Found', localImages.length, 'photos');
         }
       }
@@ -766,13 +783,11 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // TIER 3: Query by mapped realId from tempIdMappings
     if (localImages.length === 0 && field?.tempVisualId) {
       const mappedRealId = await this.indexedDb.getRealId(field.tempVisualId);
-      alert(`[DEBUG] TIER 3 - mappedRealId for ${field.tempVisualId}: ${mappedRealId || 'none'}`);
       if (mappedRealId) {
         console.log('[GenericVisualDetail] MOBILE: TIER 3 - Trying mapped realId:', mappedRealId);
         localImages = await db.localImages.where('entityId').equals(mappedRealId).toArray();
         if (localImages.length > 0) {
           foundAtTier = 3;
-          alert(`[DEBUG] TIER 3 - Found ${localImages.length} photos`);
           console.log('[GenericVisualDetail] MOBILE: TIER 3 - Found', localImages.length, 'photos');
         }
       }
@@ -781,13 +796,11 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     // TIER 4: Reverse lookup - query tempIdMappings by realId to find tempId
     if (localImages.length === 0 && field?.visualId && !field?.tempVisualId) {
       const reverseLookupTempId = await this.indexedDb.getTempId(field.visualId);
-      alert(`[DEBUG] TIER 4 - reverseLookupTempId for ${field.visualId}: ${reverseLookupTempId || 'none'}`);
       if (reverseLookupTempId) {
         console.log('[GenericVisualDetail] MOBILE: TIER 4 - Reverse lookup tempId:', reverseLookupTempId);
         localImages = await db.localImages.where('entityId').equals(reverseLookupTempId).toArray();
         if (localImages.length > 0) {
           foundAtTier = 4;
-          alert(`[DEBUG] TIER 4 - Found ${localImages.length} photos`);
           console.log('[GenericVisualDetail] MOBILE: TIER 4 - Found', localImages.length, 'photos');
         }
       }
@@ -795,74 +808,86 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
     // Log final result
     if (foundAtTier > 0) {
-      alert(`[DEBUG] FINAL: Photos found at TIER ${foundAtTier} - Total: ${localImages.length}`);
       console.log('[GenericVisualDetail] MOBILE: Photos found at TIER', foundAtTier, '- Total:', localImages.length);
     } else {
-      alert(`[DEBUG] FINAL: No photos found after all 4 tiers`);
       console.log('[GenericVisualDetail] MOBILE: No photos found after all 4 tiers');
     }
 
-    // Convert to PhotoItem format
+    // Convert to PhotoItem format (matches EFE pattern exactly)
     this.photos = [];
-    const loadedPhotoIds = new Set<string>();
 
     for (const img of localImages) {
-      // Skip duplicates
-      if (loadedPhotoIds.has(img.imageId)) continue;
-      if (img.attachId && loadedPhotoIds.has(img.attachId)) continue;
-
-      alert(`[DEBUG] Processing image:\nimageId: ${img.imageId}\nlocalBlobId: ${img.localBlobId || 'none'}\nremoteUrl: ${img.remoteUrl || 'none'}\nremoteS3Key: ${img.remoteS3Key || 'none'}`);
-
+      // Check if image has annotations
       const hasAnnotations = !!(img.drawings && img.drawings.length > 10);
+
+      // Get the blob data if available
       let displayUrl = 'assets/img/photo-placeholder.svg';
       let originalUrl = displayUrl;
 
-      // Check for cached annotated image (check multiple IDs)
+      // ANNOTATION THUMBNAIL FIX: Check multiple IDs for cached annotated image
+      // Annotations may be cached under imageId or attachId after sync
       const possibleIds = [img.imageId, img.attachId].filter(id => id);
+      let foundCachedAnnotated = false;
+
       for (const checkId of possibleIds) {
-        if (hasAnnotations) {
+        // First check in-memory map (fastest)
+        const memCached = this.bulkAnnotatedImagesMap.get(String(checkId));
+        if (memCached) {
+          displayUrl = memCached;
+          foundCachedAnnotated = true;
+          console.log('[GenericVisualDetail] Using memory-cached annotated image for:', checkId);
+          break;
+        }
+
+        // Then check IndexedDB if image has annotations
+        if (hasAnnotations && !foundCachedAnnotated) {
           const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(String(checkId));
           if (cachedAnnotated) {
             displayUrl = cachedAnnotated;
-            console.log('[GenericVisualDetail] MOBILE: Using cached annotated image for:', checkId);
+            foundCachedAnnotated = true;
+            // Also store in memory map for faster future lookups
+            this.bulkAnnotatedImagesMap.set(String(checkId), cachedAnnotated);
+            console.log('[GenericVisualDetail] Using IndexedDB-cached annotated image for:', checkId);
             break;
           }
         }
       }
 
-      // Get blob URL from local storage (Dexie localBlobs table)
+      // Get original blob URL
       if (img.localBlobId) {
         const blob = await db.localBlobs.get(img.localBlobId);
         if (blob) {
-          alert(`[DEBUG] Found blob in localBlobs - size: ${blob.data?.byteLength || 0} bytes`);
           const blobObj = new Blob([blob.data], { type: blob.contentType });
           originalUrl = URL.createObjectURL(blobObj);
-          if (displayUrl === 'assets/img/photo-placeholder.svg') {
+          // If no cached annotated image, use original
+          if (!foundCachedAnnotated) {
             displayUrl = originalUrl;
           }
-        } else {
-          alert(`[DEBUG] localBlobId ${img.localBlobId} NOT FOUND in localBlobs table`);
+        }
+      } else if (img.remoteUrl) {
+        originalUrl = img.remoteUrl;
+        if (!foundCachedAnnotated) {
+          displayUrl = img.remoteUrl;
         }
       }
 
-      // If no local blob but has remote URL cached in Dexie
-      if (originalUrl === 'assets/img/photo-placeholder.svg' && img.remoteUrl) {
-        alert(`[DEBUG] Using remoteUrl: ${img.remoteUrl.substring(0, 50)}...`);
-        originalUrl = img.remoteUrl;
-        displayUrl = img.remoteUrl;
+      // ANNOTATION THUMBNAIL FIX: If we have drawings but no cached image, render annotations
+      if (hasAnnotations && !foundCachedAnnotated && originalUrl !== 'assets/img/photo-placeholder.svg') {
+        try {
+          console.log('[GenericVisualDetail] Rendering annotations on the fly for:', img.imageId);
+          const renderedUrl = await renderAnnotationsOnPhoto(originalUrl, img.drawings);
+          if (renderedUrl && renderedUrl !== originalUrl) {
+            displayUrl = renderedUrl;
+            // Cache for future use
+            this.bulkAnnotatedImagesMap.set(img.imageId, renderedUrl);
+            if (img.attachId) {
+              this.bulkAnnotatedImagesMap.set(img.attachId, renderedUrl);
+            }
+          }
+        } catch (renderErr) {
+          console.warn('[GenericVisualDetail] Failed to render annotations:', renderErr);
+        }
       }
-
-      // If synced and has S3 key stored in Dexie
-      if (originalUrl === 'assets/img/photo-placeholder.svg' && img.remoteS3Key) {
-        alert(`[DEBUG] Using remoteS3Key: ${img.remoteS3Key}`);
-        originalUrl = img.remoteS3Key;
-        displayUrl = img.remoteS3Key;
-      }
-
-      alert(`[DEBUG] Final URLs:\ndisplayUrl: ${displayUrl.substring(0, 50)}...\noriginalUrl: ${originalUrl.substring(0, 50)}...`);
-
-      loadedPhotoIds.add(img.imageId);
-      if (img.attachId) loadedPhotoIds.add(img.attachId);
 
       this.photos.push({
         id: img.imageId,
@@ -872,11 +897,16 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         uploading: img.status === 'queued' || img.status === 'uploading',
         isLocal: !img.isSynced,
         hasAnnotations,
-        drawings: img.drawings || ''
+        // Store drawings in MULTIPLE fields (matches EFE pattern)
+        drawings: img.drawings || '',
+        rawDrawingsString: img.drawings || '',
+        Drawings: img.drawings || '',
+        // Store all IDs for cache lookup
+        imageId: img.imageId,
+        attachId: img.attachId || undefined
       });
     }
 
-    alert(`[DEBUG] COMPLETE: Loaded ${this.photos.length} photos from Dexie`);
     console.log('[GenericVisualDetail] MOBILE: Loaded', this.photos.length, 'photos from Dexie');
   }
 
@@ -912,17 +942,17 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
           console.log('[GenericVisualDetail] WEBAPP: Updated via API:', this.visualId);
         }
       } else {
-        // MOBILE: Dexie-first
+        // MOBILE: Dexie ONLY - no API calls
+        // Background sync will push changes to server
         const dexieUpdate: any = {};
         if (titleChanged) dexieUpdate.templateName = this.editableTitle;
         if (textChanged) dexieUpdate.templateText = this.editableText;
+        dexieUpdate.isSelected = true;
+        dexieUpdate.category = actualCategory;
+        if (this.visualId) dexieUpdate.visualId = this.visualId;
 
         await this.visualFieldRepo.setField(this.serviceId, actualCategory, this.templateId, dexieUpdate);
         console.log('[GenericVisualDetail] MOBILE: Updated Dexie:', dexieUpdate);
-
-        if (this.isValidVisualId(this.visualId)) {
-          await this.dataAdapter.updateVisual(this.visualId, caspioUpdate, this.actualServiceId || this.serviceId);
-        }
       }
 
       if (this.item) {
@@ -1110,7 +1140,13 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       uploading: isUploading || photo.uploading || photo.isSkeleton || false,
       isLocal: photo.isLocal,
       hasAnnotations: photo.hasAnnotations,
-      drawings: photo.Drawings || ''
+      // Store drawings in MULTIPLE fields (matches EFE pattern)
+      drawings: photo.Drawings || '',
+      rawDrawingsString: photo.Drawings || '',
+      Drawings: photo.Drawings || '',
+      // Include all ID fields for cache lookup
+      imageId: photo.imageId,
+      attachId: photo.attachId || undefined
     };
   }
 
