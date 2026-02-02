@@ -1,13 +1,12 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, AlertController, ModalController, NavController } from '@ionic/angular';
+import { IonicModule, ToastController, AlertController, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { CaspioService } from '../../../services/caspio.service';
-import { FabricPhotoAnnotatorComponent } from '../../../components/fabric-photo-annotator/fabric-photo-annotator.component';
 import { IndexedDbService, ImageEntityType } from '../../../services/indexed-db.service';
-import { PhotoHandlerService, PhotoCaptureConfig, StandardPhotoEntry } from '../../../services/photo-handler.service';
+import { PhotoHandlerService, PhotoCaptureConfig, StandardPhotoEntry, ViewPhotoConfig, ViewPhotoResult } from '../../../services/photo-handler.service';
 import { ImageCompressionService } from '../../../services/image-compression.service';
 import { db, VisualField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
@@ -15,7 +14,7 @@ import { LocalImageService } from '../../../services/local-image.service';
 import { TemplateConfig, TemplateType } from '../../../services/template/template-config.interface';
 import { TemplateConfigService } from '../../../services/template/template-config.service';
 import { TemplateDataAdapter } from '../../../services/template/template-data-adapter.service';
-import { compressAnnotationData, decompressAnnotationData, renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
+import { decompressAnnotationData, renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 import { liveQuery } from 'dexie';
 import { environment } from '../../../../environments/environment';
 import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
@@ -119,7 +118,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     private caspioService: CaspioService,
     private toastController: ToastController,
     private alertController: AlertController,
-    private modalController: ModalController,
     private changeDetectorRef: ChangeDetectorRef,
     private indexedDb: IndexedDbService,
     private imageCompression: ImageCompressionService,
@@ -1073,113 +1071,55 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   async viewPhoto(photo: PhotoItem) {
     if (!this.config) return;
 
-    // Store original index for reliable lookup after modal closes
+    // Store original index for reliable lookup after result
     const originalPhotoIndex = this.photos.findIndex(p => p.id === photo.id);
 
-    // Use ORIGINAL URL for editing (without annotations baked in)
-    const editUrl = photo.originalUrl || photo.displayUrl;
-
-    // Decompress existing annotations for the editor
-    let existingAnnotations: any = null;
-    if (photo.drawings && photo.drawings.length > 10) {
-      try {
-        existingAnnotations = decompressAnnotationData(photo.drawings);
-        console.log('[GenericVisualDetail] Found existing annotations from drawings');
-      } catch (e) {
-        console.warn('[GenericVisualDetail] Error loading annotations:', e);
-      }
-    }
-
-    const existingCaption = photo.caption || '';
-
-    const modal = await this.modalController.create({
-      component: FabricPhotoAnnotatorComponent,
-      componentProps: {
-        imageUrl: editUrl,
-        existingAnnotations: existingAnnotations,
-        existingCaption: existingCaption,
-        photoData: {
-          ...photo,
-          AttachID: photo.id,
-          id: photo.id,
-          caption: existingCaption
-        },
-        isReEdit: !!existingAnnotations
+    // Use the STANDARDIZED viewExistingPhoto method from PhotoHandlerService
+    const viewConfig: ViewPhotoConfig = {
+      photo: {
+        id: photo.id,
+        AttachID: photo.id,
+        displayUrl: photo.displayUrl,
+        originalUrl: photo.originalUrl,
+        drawings: photo.drawings,
+        Drawings: photo.drawings,
+        caption: photo.caption,
+        Annotation: photo.caption,
+        hasAnnotations: photo.hasAnnotations
       },
-      cssClass: 'fullscreen-modal'
-    });
+      entityType: this.config.entityType,
+      onSaveAnnotation: async (photoId: string, compressedDrawings: string, caption: string) => {
+        // Save annotation via the data adapter
+        await this.dataAdapter.updateAttachment(photoId, {
+          Annotation: caption,
+          Drawings: compressedDrawings
+        });
+        console.log('[GenericVisualDetail] WEBAPP: Updated annotation via API for:', photoId);
+      },
+      onUpdatePhoto: (result: ViewPhotoResult) => {
+        // Find photo in array
+        let photoIndex = this.photos.findIndex(p => p.id === result.photoId);
+        if (photoIndex === -1 && originalPhotoIndex !== -1 && originalPhotoIndex < this.photos.length) {
+          photoIndex = originalPhotoIndex;
+        }
 
-    await modal.present();
-
-    const { data } = await modal.onWillDismiss();
-
-    // Check if we have annotation data to save
-    const hasAnnotationData = data && (data.annotatedBlob || data.compressedAnnotationData || data.annotationsData);
-
-    if (hasAnnotationData) {
-      console.log('[GenericVisualDetail] Annotation saved, processing...');
-
-      const annotatedBlob = data.blob || data.annotatedBlob;
-      const annotationsData = data.annotationData || data.annotationsData;
-      const newCaption = data.caption !== undefined ? data.caption : photo.caption;
-
-      // Create blob URL for immediate display
-      let newUrl: string | null = null;
-      if (annotatedBlob) {
-        newUrl = URL.createObjectURL(annotatedBlob);
-      }
-
-      // Find photo in array
-      let photoIndex = this.photos.findIndex(p => p.id === photo.id);
-      if (photoIndex === -1 && originalPhotoIndex !== -1 && originalPhotoIndex < this.photos.length) {
-        photoIndex = originalPhotoIndex;
-      }
-
-      if (photoIndex !== -1) {
-        try {
-          // Compress annotation data for storage
-          let compressedDrawings = data.compressedAnnotationData || '';
-          if (!compressedDrawings && annotationsData) {
-            if (typeof annotationsData === 'object') {
-              compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
-            } else if (typeof annotationsData === 'string') {
-              compressedDrawings = compressAnnotationData(annotationsData);
-            }
-          }
-
-          // Cache annotated image for thumbnail display
-          if (annotatedBlob && annotatedBlob.size > 0) {
-            try {
-              await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
-              console.log('[GenericVisualDetail] WEBAPP: Cached annotated image for:', photo.id);
-            } catch (cacheErr) {
-              console.warn('[GenericVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
-            }
-          }
-
-          // Update annotation via API
-          await this.dataAdapter.updateAttachment(photo.id, {
-            Annotation: newCaption,
-            Drawings: compressedDrawings
-          });
-          console.log('[GenericVisualDetail] WEBAPP: Updated annotation via API for:', photo.id);
-
+        if (photoIndex !== -1) {
           // Update local photo state
-          this.photos[photoIndex].drawings = compressedDrawings;
-          this.photos[photoIndex].hasAnnotations = compressedDrawings.length > 10;
-          this.photos[photoIndex].caption = newCaption;
-          if (newUrl) {
-            this.photos[photoIndex].displayUrl = newUrl;
+          this.photos[photoIndex].drawings = result.compressedDrawings;
+          this.photos[photoIndex].hasAnnotations = result.hasAnnotations;
+          this.photos[photoIndex].caption = result.caption;
+          if (result.annotatedUrl) {
+            this.photos[photoIndex].displayUrl = result.annotatedUrl;
           }
-
-          await this.showToast('Annotation saved', 'success');
-        } catch (saveErr) {
-          console.error('[GenericVisualDetail] Error saving annotation:', saveErr);
-          await this.showToast('Error saving annotation', 'danger');
+          this.changeDetectorRef.detectChanges();
         }
       }
+    };
 
-      this.changeDetectorRef.detectChanges();
+    const result = await this.photoHandler.viewExistingPhoto(viewConfig);
+
+    if (result) {
+      await this.showToast('Annotation saved', 'success');
     }
   }
 

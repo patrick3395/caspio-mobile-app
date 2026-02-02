@@ -6,7 +6,8 @@ import { LocalImageService } from './local-image.service';
 import { IndexedDbService, LocalImage, ImageEntityType } from './indexed-db.service';
 import { ImageCompressionService } from './image-compression.service';
 import { FabricPhotoAnnotatorComponent } from '../components/fabric-photo-annotator/fabric-photo-annotator.component';
-import { compressAnnotationData } from '../utils/annotation-utils';
+import { compressAnnotationData, decompressAnnotationData } from '../utils/annotation-utils';
+import { CaspioService } from './caspio.service';
 
 /**
  * Configuration passed by each template for photo capture
@@ -91,7 +92,8 @@ export class PhotoHandlerService {
     private toastController: ToastController,
     private localImageService: LocalImageService,
     private indexedDb: IndexedDbService,
-    private imageCompression: ImageCompressionService
+    private imageCompression: ImageCompressionService,
+    private caspioService: CaspioService
   ) {}
 
   // ============================================================================
@@ -805,4 +807,215 @@ export class PhotoHandlerService {
     if (!photos || !Array.isArray(photos)) return [];
     return photos.filter(p => this.shouldPreservePhoto(p));
   }
+
+  // ============================================================================
+  // PUBLIC API: View/Edit Existing Photos (Standardized Annotation Handling)
+  // ============================================================================
+
+  /**
+   * View and edit an existing photo with annotations
+   *
+   * This is the STANDARDIZED method for viewing/editing photos across all templates.
+   * It handles:
+   * - Decompressing existing annotations from the Drawings field
+   * - Opening the FabricPhotoAnnotatorComponent modal
+   * - Compressing and saving annotations back to the API or IndexedDB
+   * - Caching annotated images for thumbnail display
+   *
+   * @param config - Configuration for viewing the photo
+   * @returns Result object with updated photo data, or null if user cancelled
+   */
+  async viewExistingPhoto(config: ViewPhotoConfig): Promise<ViewPhotoResult | null> {
+    const { photo, entityType, onSaveAnnotation, onUpdatePhoto } = config;
+
+    console.log('[PhotoHandler] viewExistingPhoto called for:', photo.id || photo.AttachID);
+
+    // Get the original URL for editing (without annotations baked in)
+    let editUrl = photo.originalUrl || photo.displayUrl || photo.url;
+
+    // If URL is placeholder or invalid, try to get from S3
+    if (!editUrl || editUrl === 'assets/img/photo-placeholder.svg') {
+      const s3Key = photo.Attachment || photo.Photo;
+      if (s3Key && this.caspioService.isS3Key && this.caspioService.isS3Key(s3Key)) {
+        try {
+          editUrl = await this.caspioService.getS3FileUrl(s3Key);
+          console.log('[PhotoHandler] Fetched S3 URL for editing:', editUrl?.substring(0, 50));
+        } catch (e) {
+          console.warn('[PhotoHandler] Failed to get S3 URL:', e);
+        }
+      }
+    }
+
+    // Validate we have a valid URL
+    if (!editUrl || editUrl === 'assets/img/photo-placeholder.svg') {
+      console.error('[PhotoHandler] Cannot view photo - no valid image URL');
+      const toast = await this.toastController.create({
+        message: 'Photo not available. Please try again later.',
+        duration: 3000,
+        color: 'warning'
+      });
+      await toast.present();
+      return null;
+    }
+
+    // Decompress existing annotations
+    let existingAnnotations: any = null;
+    const drawingsSource = photo.drawings || photo.Drawings || photo.rawDrawingsString;
+
+    if (drawingsSource && drawingsSource.length > 10) {
+      try {
+        existingAnnotations = decompressAnnotationData(drawingsSource);
+        console.log('[PhotoHandler] Decompressed existing annotations');
+      } catch (e) {
+        console.warn('[PhotoHandler] Error decompressing annotations:', e);
+      }
+    }
+
+    const existingCaption = photo.caption || photo.Annotation || photo.annotation || '';
+
+    // Open the annotator modal
+    const modal = await this.modalController.create({
+      component: FabricPhotoAnnotatorComponent,
+      componentProps: {
+        imageUrl: editUrl,
+        existingAnnotations: existingAnnotations,
+        existingCaption: existingCaption,
+        photoData: {
+          ...photo,
+          AttachID: photo.id || photo.AttachID,
+          id: photo.id || photo.AttachID,
+          caption: existingCaption
+        },
+        isReEdit: !!existingAnnotations
+      },
+      cssClass: 'fullscreen-modal'
+    });
+
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+
+    // User cancelled
+    if (!data) {
+      return null;
+    }
+
+    // Check if we have annotation data to save
+    const hasAnnotationData = data.annotatedBlob || data.compressedAnnotationData || data.annotationsData;
+
+    if (!hasAnnotationData) {
+      return null;
+    }
+
+    console.log('[PhotoHandler] Processing annotation save...');
+
+    const annotatedBlob = data.blob || data.annotatedBlob;
+    const annotationsData = data.annotationData || data.annotationsData;
+    const newCaption = data.caption !== undefined ? data.caption : photo.caption;
+
+    // Compress annotation data for storage
+    let compressedDrawings = data.compressedAnnotationData || '';
+    if (!compressedDrawings && annotationsData) {
+      if (typeof annotationsData === 'object') {
+        compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+      } else if (typeof annotationsData === 'string') {
+        compressedDrawings = compressAnnotationData(annotationsData);
+      }
+    }
+
+    // Create blob URL for display
+    let annotatedUrl: string | null = null;
+    if (annotatedBlob) {
+      annotatedUrl = URL.createObjectURL(annotatedBlob);
+    }
+
+    // Cache annotated image for thumbnail display
+    const photoId = photo.id || photo.AttachID || photo.attachId;
+    if (annotatedBlob && annotatedBlob.size > 0 && photoId) {
+      try {
+        await this.indexedDb.cacheAnnotatedImage(String(photoId), annotatedBlob);
+        console.log('[PhotoHandler] Cached annotated image for:', photoId);
+      } catch (cacheErr) {
+        console.warn('[PhotoHandler] Failed to cache annotated image:', cacheErr);
+      }
+    }
+
+    // Call the save callback if provided
+    if (onSaveAnnotation) {
+      try {
+        await onSaveAnnotation(photoId, compressedDrawings, newCaption);
+        console.log('[PhotoHandler] Annotation saved via callback');
+      } catch (saveErr) {
+        console.error('[PhotoHandler] Error in save callback:', saveErr);
+        const toast = await this.toastController.create({
+          message: 'Error saving annotation',
+          duration: 3000,
+          color: 'danger'
+        });
+        await toast.present();
+      }
+    }
+
+    // Build the result
+    const result: ViewPhotoResult = {
+      photoId: photoId,
+      compressedDrawings: compressedDrawings,
+      caption: newCaption,
+      annotatedUrl: annotatedUrl,
+      hasAnnotations: compressedDrawings.length > 10,
+      annotationsData: annotationsData
+    };
+
+    // Call the update callback if provided
+    if (onUpdatePhoto) {
+      onUpdatePhoto(result);
+    }
+
+    return result;
+  }
+}
+
+/**
+ * Configuration for viewing/editing an existing photo
+ */
+export interface ViewPhotoConfig {
+  // The photo object to view/edit
+  photo: {
+    id?: string;
+    AttachID?: string;
+    attachId?: string;
+    displayUrl?: string;
+    originalUrl?: string;
+    url?: string;
+    Attachment?: string;
+    Photo?: string;
+    drawings?: string;
+    Drawings?: string;
+    rawDrawingsString?: string;
+    caption?: string;
+    Annotation?: string;
+    annotation?: string;
+    hasAnnotations?: boolean;
+    [key: string]: any;
+  };
+
+  // Entity type (for context)
+  entityType: ImageEntityType;
+
+  // Callback to save annotation to API/IndexedDB
+  onSaveAnnotation?: (photoId: string, compressedDrawings: string, caption: string) => Promise<void>;
+
+  // Callback when photo is updated (for UI refresh)
+  onUpdatePhoto?: (result: ViewPhotoResult) => void;
+}
+
+/**
+ * Result from viewing/editing a photo
+ */
+export interface ViewPhotoResult {
+  photoId: string;
+  compressedDrawings: string;
+  caption: string;
+  annotatedUrl: string | null;
+  hasAnnotations: boolean;
+  annotationsData: any;
 }
