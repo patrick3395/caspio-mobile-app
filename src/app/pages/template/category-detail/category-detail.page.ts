@@ -1044,6 +1044,15 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         matchedVisualIds.add(visualId);
       }
 
+      // Get the answer from the visual record (field is 'Answers', plural)
+      const answerValue = visual?.Answers || visual?.Answer || '';
+
+      // Determine if item is selected:
+      // - If there's a visual record with answers, it's selected
+      // - If there's no visual but was previously selected in session, keep that state
+      const hasVisualWithAnswer = visual && answerValue;
+      const isSelected = hasVisualWithAnswer || this.selectedItems[key] || false;
+
       const item: VisualItem = {
         id: visual ? (visual[this.config!.idFieldName] || visual.PK_ID) : templateId,
         templateId: templateId,
@@ -1054,11 +1063,16 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         category: this.categoryName,
         answerType: template.AnswerType || 0,
         required: template.Required === 1 || template.Required === true,
-        answer: visual?.Answer || '',
-        isSelected: this.selectedItems[key] || false,
+        answer: answerValue,
+        isSelected: isSelected,
         otherValue: visual?.Notes || '',
         key: key
       };
+
+      // Update selection state
+      if (isSelected) {
+        this.selectedItems[key] = true;
+      }
 
       // Organize by type
       switch (item.type) {
@@ -1102,7 +1116,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         category: this.categoryName,
         answerType: 0,
         required: false,
-        answer: visual.Answer || '',
+        answer: visual.Answers || visual.Answer || '',
         isSelected: true,  // Custom visuals are always selected
         otherValue: visual.Notes || '',
         key: key
@@ -1127,6 +1141,57 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     this.organizedData = { comments, limitations, deficiencies };
     this.logDebug('ORGANIZE', `Organized: ${comments.length} comments, ${limitations.length} limitations, ${deficiencies.length} deficiencies`);
+
+    // Restore custom options from saved answers
+    this.restoreCustomOptionsFromAnswers();
+  }
+
+  /**
+   * Restore custom "Other" options from saved answers
+   * When user adds custom options via "Other", they're saved in the Answers field
+   * but not persisted to the dropdown table. On reload, we need to add them back
+   * to the dropdown options so they appear as selectable checkboxes.
+   */
+  private restoreCustomOptionsFromAnswers(): void {
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+
+    for (const item of allItems) {
+      // Only process multi-select items (answerType 2) with answers
+      if (item.answerType !== 2 || !item.answer) continue;
+
+      // Get the dropdown options for this template
+      let options = this.visualDropdownOptions[item.templateId];
+      if (!options) {
+        options = [];
+        this.visualDropdownOptions[item.templateId] = options;
+      }
+
+      // Parse the saved answers
+      const savedAnswers = item.answer.split(',').map(a => a.trim()).filter(a => a);
+
+      // Find answers that aren't in the current options (these are custom options)
+      for (const answer of savedAnswers) {
+        if (!options.includes(answer)) {
+          // This is a custom option - add it before "None" and "Other"
+          const noneIndex = options.indexOf('None');
+          if (noneIndex > -1) {
+            options.splice(noneIndex, 0, answer);
+          } else {
+            const otherIndex = options.indexOf('Other');
+            if (otherIndex > -1) {
+              options.splice(otherIndex, 0, answer);
+            } else {
+              options.push(answer);
+            }
+          }
+          this.logDebug('DROPDOWN', `Restored custom option: "${answer}" for templateId ${item.templateId}`);
+        }
+      }
+    }
   }
 
   private async loadPhotoCounts(): Promise<void> {
@@ -1235,8 +1300,43 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     this.logDebug('SELECT', `Item ${key} selection: ${newState}`);
 
-    // TODO: Implement save logic - create or update visual record
-    // For now, just update local state
+    // DEXIE-FIRST (MOBILE): Persist selection state to Dexie
+    if (!environment.isWeb && this.config?.features.offlineFirst) {
+      const templateId = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10);
+      if (!isNaN(templateId)) {
+        try {
+          await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+            isSelected: newState
+          });
+          this.logDebug('SELECT', `Persisted isSelected to Dexie: ${newState}`);
+        } catch (err) {
+          this.logDebug('ERROR', `Failed to write selection to Dexie: ${err}`);
+        }
+      }
+    }
+
+    // If selecting, ensure visual record exists
+    if (newState) {
+      const visualId = this.visualRecordIds[key];
+      if (!visualId) {
+        // Create visual record
+        const createdId = await this.ensureVisualRecordExists(category, itemId);
+        if (createdId) {
+          // Update Dexie with the visual ID
+          if (!environment.isWeb && this.config?.features.offlineFirst) {
+            const templateId = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10);
+            if (!isNaN(templateId)) {
+              const isTempId = createdId.startsWith('temp_');
+              await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+                visualId: isTempId ? null : createdId,
+                tempVisualId: isTempId ? createdId : null
+              }).catch(err => this.logDebug('ERROR', `Failed to update visualId: ${err}`));
+            }
+          }
+        }
+      }
+    }
+
     this.changeDetectorRef.detectChanges();
   }
 
@@ -1255,11 +1355,27 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     this.changeDetectorRef.detectChanges();
 
     try {
-      // TODO: Implement save logic - update visual record with new answer
-      await this.simulateApiCall();
-
       // Update selection state based on answer
-      this.selectedItems[key] = !!item.answer;
+      const isSelected = !!(item.answer && item.answer.trim() !== '');
+      this.selectedItems[key] = isSelected;
+
+      // DEXIE-FIRST (MOBILE): Persist answer and selection to Dexie
+      if (!environment.isWeb && this.config?.features.offlineFirst) {
+        await this.visualFieldRepo.setField(this.serviceId, category, item.templateId, {
+          answer: item.answer || '',
+          isSelected: isSelected
+        });
+        this.logDebug('ANSWER', `Persisted answer to Dexie`);
+      }
+
+      // Save to backend if we have a visual record
+      const visualId = this.visualRecordIds[key];
+      if (visualId && !String(visualId).startsWith('temp_')) {
+        await this.dataAdapter.updateVisualWithConfig(this.config!, visualId, {
+          Answers: item.answer || '',
+          Answer: item.answer || ''
+        });
+      }
 
     } catch (error) {
       this.logDebug('ERROR', `Failed to save answer: ${error}`);
@@ -1387,9 +1503,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
   /**
    * Save multi-select answer to backend (standardized for all templates)
-   * Field names vary by template:
-   * - HUD uses 'Answers' (plural)
-   * - EFE/LBW/DTE use 'Answer' (singular)
+   * All templates use 'Answers' field (plural)
    */
   private async saveMultiSelectAnswer(item: VisualItem, isSelected: boolean): Promise<void> {
     if (!this.config) return;
@@ -1399,8 +1513,25 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const key = `${this.categoryName}_${itemId}`;
     const visualId = this.visualRecordIds[key];
 
+    // DEXIE-FIRST (MOBILE): Always persist to Dexie first
+    if (!environment.isWeb && this.config.features.offlineFirst) {
+      const templateId = item.templateId;
+      if (templateId) {
+        try {
+          await this.visualFieldRepo.setField(this.serviceId, this.categoryName, templateId, {
+            answer: item.answer || '',
+            isSelected: isSelected,
+            otherValue: item.otherValue || ''
+          });
+          this.logDebug('SAVE', `Persisted multi-select to Dexie: ${item.answer}`);
+        } catch (err) {
+          this.logDebug('ERROR', `Failed to write multi-select to Dexie: ${err}`);
+        }
+      }
+    }
+
     if (!visualId) {
-      this.logDebug('SAVE', `No visual record for ${key}, cannot save answer`);
+      this.logDebug('SAVE', `No visual record for ${key}, cannot save to backend`);
       return;
     }
 
@@ -1411,15 +1542,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     }
 
     try {
-      // Determine the correct field name for this template
-      // HUD uses 'Answers' (plural), others use 'Answer'
-      const answerFieldName = this.config.id === 'hud' ? 'Answers' : 'Answer';
-
-      // Update the answer field in the database
+      // All templates use 'Answers' field (plural)
       await this.dataAdapter.updateVisualWithConfig(this.config, String(visualId), {
-        [answerFieldName]: item.answer || ''
+        Answers: item.answer || ''
       });
-      this.logDebug('SAVE', `Saved ${answerFieldName} for ${key}: ${item.answer}`);
+      this.logDebug('SAVE', `Saved Answers for ${key}: ${item.answer}`);
     } catch (error) {
       console.error('[SAVE] Failed to save answer:', error);
       await this.showToast('Failed to save selection', 'warning');
@@ -1790,42 +1917,50 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     const photoId = photo.AttachID || photo.id || photo.imageId;
     this.logDebug('PHOTO', `Delete photo: ${photoId}`);
 
-    // Confirm deletion
+    // Confirm deletion - styled to match app theme
     const alert = await this.alertController.create({
       header: 'Delete Photo',
       message: 'Are you sure you want to delete this photo?',
+      cssClass: 'custom-document-alert',
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
         {
           text: 'Delete',
           role: 'destructive',
-          handler: async () => {
-            try {
-              // Remove from API if it has a real ID
-              if (photoId && !String(photoId).startsWith('temp_') && !String(photoId).startsWith('uploading_')) {
-                await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photoId);
-                this.logDebug('PHOTO', `Deleted from API: ${photoId}`);
-              }
-
-              // Remove from local array
-              const photos = this.visualPhotos[key] || [];
-              this.visualPhotos[key] = photos.filter(p =>
-                (p.AttachID || p.id || p.imageId) !== photoId
-              );
-              this.photoCountsByKey[key] = this.visualPhotos[key].length;
-              this.changeDetectorRef.detectChanges();
-
-              await this.showToast('Photo deleted', 'success');
-            } catch (error) {
-              this.logDebug('ERROR', `Delete failed: ${error}`);
-              await this.showToast('Failed to delete photo', 'danger');
-            }
-          }
+          cssClass: 'alert-button-confirm'
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
 
     await alert.present();
+
+    // Wait for dialog to dismiss and check if user confirmed deletion
+    const result = await alert.onDidDismiss();
+
+    if (result.role === 'destructive') {
+      try {
+        // Remove from API if it has a real ID
+        if (photoId && !String(photoId).startsWith('temp_') && !String(photoId).startsWith('uploading_')) {
+          await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photoId);
+          this.logDebug('PHOTO', `Deleted from API: ${photoId}`);
+        }
+
+        // Remove from local array
+        const photos = this.visualPhotos[key] || [];
+        this.visualPhotos[key] = photos.filter(p =>
+          (p.AttachID || p.id || p.imageId) !== photoId
+        );
+        this.photoCountsByKey[key] = this.visualPhotos[key].length;
+        this.changeDetectorRef.detectChanges();
+      } catch (error) {
+        this.logDebug('ERROR', `Delete failed: ${error}`);
+        await this.showToast('Failed to delete photo', 'danger');
+      }
+    }
   }
 
   async openCaptionPopup(photo: any, category: string, itemId: string | number): Promise<void> {
@@ -1834,6 +1969,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
 
     const alert = await this.alertController.create({
       header: 'Edit Caption',
+      cssClass: 'custom-document-alert',
       inputs: [
         {
           name: 'caption',
@@ -1843,9 +1979,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         }
       ],
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
         {
           text: 'Save',
+          cssClass: 'alert-button-confirm',
           handler: async (data) => {
             const newCaption = data.caption?.trim() || '';
             try {
@@ -1874,6 +2010,11 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
               await this.showToast('Failed to save caption', 'danger');
             }
           }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
@@ -1927,6 +2068,25 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         this.visualRecordIds[key] = String(visualId);
         this.selectedItems[key] = true;
         this.logDebug('VISUAL', `Created visual record: ${visualId}`);
+
+        // DEXIE-FIRST (MOBILE): Persist to Dexie when visual record is created
+        if (!environment.isWeb && this.config?.features.offlineFirst) {
+          const templateId = typeof itemId === 'number' ? itemId : parseInt(String(itemId), 10);
+          if (!isNaN(templateId)) {
+            const isTempId = String(visualId).startsWith('temp_');
+            try {
+              await this.visualFieldRepo.setField(this.serviceId, category, templateId, {
+                isSelected: true,
+                visualId: isTempId ? null : String(visualId),
+                tempVisualId: isTempId ? String(visualId) : null
+              });
+              this.logDebug('VISUAL', `Persisted visual to Dexie: ${visualId}`);
+            } catch (err) {
+              this.logDebug('ERROR', `Failed to persist visual to Dexie: ${err}`);
+            }
+          }
+        }
+
         return String(visualId);
       }
 
@@ -2095,6 +2255,30 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.selectedItems[key] = true;
 
       this.logDebug('CUSTOM', `Stored visualId in visualRecordIds: ${key} = ${visualId}`);
+
+      // DEXIE-FIRST (MOBILE): Persist custom visual to Dexie
+      if (!environment.isWeb && this.config.features.offlineFirst) {
+        // Use a negative templateId for custom visuals (to avoid collision with real templates)
+        const customTemplateId = -Math.abs(parseInt(visualId, 10) || Date.now());
+        const isTempId = visualId.startsWith('temp_');
+
+        try {
+          await this.visualFieldRepo.setField(this.serviceId, category, customTemplateId, {
+            isSelected: true,
+            visualId: isTempId ? null : visualId,
+            tempVisualId: isTempId ? visualId : null,
+            templateName: name,
+            templateText: text,
+            kind: kind as 'Comment' | 'Limitation' | 'Deficiency',
+            answerType: 0,
+            answer: '',
+            photoCount: files?.length || 0
+          });
+          this.logDebug('CUSTOM', `Persisted custom visual to Dexie: templateId=${customTemplateId}`);
+        } catch (err) {
+          this.logDebug('ERROR', `Failed to persist custom visual to Dexie: ${err}`);
+        }
+      }
 
       // Add to the appropriate section in organized data
       const sectionMap: { [key: string]: keyof OrganizedData } = {
