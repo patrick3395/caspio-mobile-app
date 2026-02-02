@@ -76,16 +76,10 @@
       </div>
 
       <!-- No Photos -->
-      <div class="no-photos-message" *ngIf="!loadingPhotos && photos.length === 0">
+      <div class="no-photos-message" *ngIf="photos.length === 0">
         <ion-icon name="images-outline"></ion-icon>
         <p *ngIf="!isWeb">No photos yet. Tap Camera or Gallery to add photos.</p>
         <p *ngIf="isWeb">No photos yet. Click Gallery to add photos.</p>
-      </div>
-
-      <!-- Loading Photos -->
-      <div class="loading-photos" *ngIf="loadingPhotos">
-        <ion-spinner name="crescent"></ion-spinner>
-        <span>Loading photos...</span>
       </div>
     </div>
   </div>
