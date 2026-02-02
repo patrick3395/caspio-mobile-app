@@ -1,0 +1,187 @@
+<div class="page-container">
+  <div class="content-section">
+    <!-- Base Station Section -->
+    <div class="elevation-subsection" *ngIf="roomTemplates.length > 0">
+      <h3 class="subsection-header">Base Station</h3>
+      
+      <div class="rooms-list">
+        <div
+          *ngFor="let room of roomTemplates"
+          class="room-item"
+          [class.selected]="room.isSelected"
+          [class.saving]="room.isSaving"
+          [hidden]="!isBaseStation(room.RoomName)">
+
+          <!-- Room Card -->
+          <div class="room-card" (click)="navigateToRoom(room, $event)">
+            <div class="room-header">
+              <div class="room-title-section">
+                <h3 class="room-name">
+                  {{ room.RoomName }}
+                  <span class="required-indicator">*</span>
+                </h3>
+                <p class="room-info">{{ room.PointCount || 0 }} elevation points</p>
+              </div>
+
+              <div class="room-status-section">
+                <ion-spinner *ngIf="room.isSaving" name="crescent" class="saving-spinner"></ion-spinner>
+                <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
+              </div>
+            </div>
+
+            <!-- Room Management Actions for Base Station -->
+            <div class="room-actions" *ngIf="room.isSelected" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="room-action-btn"
+                (click)="duplicateRoom(room.RoomName, $event)"
+                title="Duplicate Room">
+                <ion-icon name="copy-outline"></ion-icon>
+              </button>
+
+              <button
+                type="button"
+                class="room-action-btn"
+                (click)="renameRoom(room.RoomName, $event)"
+                title="Rename Room">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+
+              <button
+                type="button"
+                class="room-action-btn delete-btn"
+                (click)="deleteRoom(room.RoomName, $event)"
+                title="Delete Room">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rooms Section -->
+    <div class="elevation-subsection" *ngIf="roomTemplates.length > 0" style="margin-top: 12px;">
+      <h3 class="subsection-header">Rooms</h3>
+      
+      <div class="rooms-list">
+        <div
+          *ngFor="let room of roomTemplates"
+          class="room-item"
+          [class.selected]="room.isSelected"
+          [class.saving]="room.isSaving"
+          [hidden]="isBaseStation(room.RoomName)">
+
+          <!-- Room Card -->
+          <div class="room-card" (click)="navigateToRoom(room, $event)">
+            <div class="room-header">
+              <div class="room-title-section">
+                <h3 class="room-name">
+                  {{ room.RoomName }}
+                </h3>
+                <p class="room-info">{{ room.PointCount || 0 }} elevation points</p>
+              </div>
+
+              <div class="room-status-section">
+                <ion-spinner *ngIf="room.isSaving" name="crescent" class="saving-spinner"></ion-spinner>
+                <ion-icon class="chevron-icon" name="chevron-forward-outline"></ion-icon>
+              </div>
+            </div>
+
+            <!-- Room Management Actions (not shown for Base Station) -->
+            <div class="room-actions" *ngIf="room.isSelected" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="room-action-btn"
+                (click)="duplicateRoom(room.RoomName, $event)"
+                title="Duplicate Room">
+                <ion-icon name="copy-outline"></ion-icon>
+              </button>
+
+              <button
+                type="button"
+                class="room-action-btn"
+                (click)="renameRoom(room.RoomName, $event)"
+                title="Rename Room">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+
+              <button
+                type="button"
+                class="room-action-btn delete-btn"
+                (click)="deleteRoom(room.RoomName, $event)"
+                title="Delete Room">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STANDARDIZED LOADING STATES -->
+
+    <!-- Loading State - Mobile only (spinner) -->
+    <div class="loading-container" *ngIf="loading && !isWeb">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading rooms...</p>
+    </div>
+
+    <!-- WEBAPP: Skeleton loaders -->
+    <div *ngIf="loading && isWeb" class="skeleton-rooms-container">
+      <div class="skeleton-subsection">
+        <div class="skeleton-subsection-header"></div>
+        <div class="skeleton-room-card">
+          <div class="skeleton-room-content">
+            <div class="skeleton-room-title"></div>
+            <div class="skeleton-room-info"></div>
+          </div>
+          <div class="skeleton-chevron"></div>
+        </div>
+      </div>
+      <div class="skeleton-subsection" style="margin-top: 12px;">
+        <div class="skeleton-subsection-header"></div>
+        <div class="skeleton-room-card" *ngFor="let i of [1,2,3,4,5,6]">
+          <div class="skeleton-room-content">
+            <div class="skeleton-room-title"></div>
+            <div class="skeleton-room-info"></div>
+          </div>
+          <div class="skeleton-chevron"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty Offline State -->
+    <div class="empty-offline" *ngIf="!loading && roomTemplates.length === 0 && !isOnline">
+      <ion-icon name="cloud-offline-outline"></ion-icon>
+      <p>You're offline</p>
+      <p class="empty-subtitle">Connect to internet to sync room data</p>
+    </div>
+
+    <!-- Empty Online State (truly no data) -->
+    <div class="empty-state" *ngIf="!loading && roomTemplates.length === 0 && isOnline && !hasPendingSync">
+      <ion-icon name="analytics-outline"></ion-icon>
+      <p>No room templates available</p>
+    </div>
+
+    <!-- Add Room Button -->
+    <div class="add-room-container" *ngIf="!loading" style="margin-top: 20px; margin-bottom: 30px; text-align: center;">
+      <button class="add-room-button" (click)="showAddRoomDialog()"
+              style="background: white; border: 1px solid #ddd; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #000; transition: all 0.3s ease;">
+        <ion-icon name="add-circle-outline" style="margin-right: 6px; vertical-align: middle; font-size: 18px; color: #000;"></ion-icon>
+        Add Room
+      </button>
+    </div>
+
+    <!-- Storage Debug Toggle (Mobile Only) -->
+    <div *ngIf="!isWeb" style="margin: 20px 8px;">
+      <ion-button expand="block" fill="outline" color="medium" (click)="showStorageDebug = !showStorageDebug">
+        <ion-icon [name]="showStorageDebug ? 'chevron-up' : 'bug'" slot="start"></ion-icon>
+        {{ showStorageDebug ? 'Hide' : 'Show' }} Storage Debug
+      </ion-button>
+    </div>
+
+    <!-- Storage Debug Panel -->
+    <app-storage-debug *ngIf="showStorageDebug && !isWeb"></app-storage-debug>
+  </div>
+</div>

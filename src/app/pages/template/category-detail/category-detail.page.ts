@@ -12,7 +12,7 @@ import { TemplateConfigService } from '../../../services/template/template-confi
 import { TemplateDataAdapter } from '../../../services/template/template-data-adapter.service';
 import { IndexedDbService } from '../../../services/indexed-db.service';
 import { BackgroundSyncService } from '../../../services/background-sync.service';
-import { PhotoHandlerService } from '../../../services/photo-handler.service';
+import { PhotoHandlerService, PhotoCaptureConfig, ViewPhotoConfig, ViewPhotoResult, StandardPhotoEntry } from '../../../services/photo-handler.service';
 import { OfflineTemplateService } from '../../../services/offline-template.service';
 import { CaspioService } from '../../../services/caspio.service';
 import { HudDataService } from '../../hud/hud-data.service';
@@ -106,6 +106,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
   loadingPhotosByKey: { [key: string]: boolean } = {};
   photoCountsByKey: { [key: string]: number } = {};
   expandedPhotos: { [key: string]: boolean } = {};
+  bulkAnnotatedImagesMap: Map<string, string> = new Map();
 
   // ==================== Accordion State ====================
   expandedSections: Set<string> = new Set(['information', 'limitations', 'deficiencies']);
@@ -225,9 +226,12 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
     try {
       // Resolve actualServiceId if needed
       if (this.config.categoryDetailFeatures.hasActualServiceId) {
+        this.logDebug('LOAD', `Resolving actualServiceId (hasActualServiceId=true)...`);
         await this.resolveActualServiceId();
+        this.logDebug('LOAD', `Resolved: actualServiceId=${this.actualServiceId}, routeServiceId=${this.serviceId}`);
       } else {
         this.actualServiceId = this.serviceId;
+        this.logDebug('LOAD', `Using route serviceId directly: ${this.serviceId}`);
       }
 
       // Load templates and visuals using the appropriate service based on config
@@ -251,6 +255,9 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
 
       // Load photo counts
       await this.loadPhotoCounts();
+
+      // Load cached annotated images for thumbnail display
+      await this.loadCachedAnnotatedImages();
 
       this.loading = false;
       this.changeDetectorRef.detectChanges();
@@ -378,17 +385,24 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
     if (!this.config) return;
 
     const config = this.config;
+    this.logDebug('MAP', `Building visual record map from ${visuals.length} visuals`);
+
     for (const visual of visuals) {
       const templateId: string | number = visual[config.templateIdFieldName] || visual.TemplateID;
       const visualId: string | number = visual[config.idFieldName] || visual.PK_ID;
-      const category: string = visual.Category || this.categoryName;
+      // IMPORTANT: Always use this.categoryName for consistent keys
+      // The visual.Category should match this.categoryName since we filter by category
+      const category: string = this.categoryName;
 
       if (templateId) {
         const key = `${category}_${templateId}`;
         this.visualRecordIds[key] = String(visualId);
         this.selectedItems[key] = visual.Notes !== 'HIDDEN';
+        this.logDebug('MAP', `Mapped: ${key} -> visualId=${visualId}`);
       }
     }
+
+    this.logDebug('MAP', `Built ${Object.keys(this.visualRecordIds).length} visual record mappings`);
   }
 
   private async loadDropdownOptions(): Promise<void> {
@@ -455,16 +469,40 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
 
   private async loadPhotoCounts(): Promise<void> {
     // Load photo counts for all items that have visual records
-    for (const key of Object.keys(this.visualRecordIds)) {
+    const visualKeys = Object.keys(this.visualRecordIds);
+    this.logDebug('PHOTO', `Loading photo counts for ${visualKeys.length} visual records`);
+
+    for (const key of visualKeys) {
       const visualId = this.visualRecordIds[key];
       if (visualId && !visualId.startsWith('temp_')) {
         try {
           const attachments = await this.dataAdapter.getAttachmentsWithConfig(this.config!, visualId);
           this.photoCountsByKey[key] = attachments.length;
+          if (attachments.length > 0) {
+            this.logDebug('PHOTO', `${key}: ${attachments.length} photos`);
+          }
         } catch (error) {
+          this.logDebug('ERROR', `Failed to load photo count for ${key}: ${error}`);
           this.photoCountsByKey[key] = 0;
         }
       }
+    }
+
+    const totalPhotos = Object.values(this.photoCountsByKey).reduce((sum, count) => sum + count, 0);
+    this.logDebug('PHOTO', `Total photos loaded: ${totalPhotos}`);
+  }
+
+  /**
+   * Load cached annotated images from IndexedDB for thumbnail display
+   */
+  private async loadCachedAnnotatedImages(): Promise<void> {
+    try {
+      const annotatedImages = await this.indexedDb.getAllCachedAnnotatedImagesForService(this.serviceId);
+      this.bulkAnnotatedImagesMap = annotatedImages;
+      this.logDebug('PHOTO', `Loaded ${annotatedImages.size} cached annotated images`);
+    } catch (error) {
+      this.logDebug('ERROR', `Failed to load cached annotated images: ${error}`);
+      this.bulkAnnotatedImagesMap = new Map();
     }
   }
 
@@ -654,31 +692,119 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
     const key = `${category}_${itemId}`;
     const visualId = this.visualRecordIds[key];
 
-    if (!visualId || !this.config) return;
+    this.logDebug('PHOTO', `loadPhotosForVisual called: key=${key}, visualId=${visualId}`);
+
+    if (!visualId || !this.config) {
+      this.logDebug('PHOTO', `Skipping photo load - visualId=${visualId}, config=${!!this.config}`);
+      return;
+    }
 
     this.loadingPhotosByKey[key] = true;
     this.changeDetectorRef.detectChanges();
 
     try {
       const attachments = await this.dataAdapter.getAttachmentsWithConfig(this.config, visualId);
-      this.visualPhotos[key] = attachments.map(a => ({
-        id: a.AttachID || a.PK_ID,
-        url: a.S3ImageUrl || a.ImageUrl,
-        displayUrl: a.S3ImageUrl || a.ImageUrl,
-        thumbnailUrl: a.S3ThumbnailUrl || a.S3ImageUrl,
-        caption: a.Caption || '',
-        name: a.Name || '',
-        hasAnnotations: !!a.Drawings,
-        uploading: false,
-        loading: false
-      }));
-      this.photoCountsByKey[key] = this.visualPhotos[key].length;
+      this.logDebug('PHOTO', `Loaded ${attachments.length} attachments for visualId=${visualId}`);
+
+      if (attachments.length > 0) {
+        this.logDebug('PHOTO', `First attachment fields: ${Object.keys(attachments[0]).join(', ')}`);
+        this.logDebug('PHOTO', `First attachment: Attachment=${attachments[0].Attachment?.substring(0, 50)}, S3ImageUrl=${attachments[0].S3ImageUrl?.substring(0, 50)}`);
+      }
+
+      // Process attachments with S3 URL handling
+      const photos = [];
+      for (const att of attachments) {
+        // Try multiple possible field names for the photo URL/key
+        // Note: S3 key is stored in 'Attachment' field, not 'Photo' or 'S3ImageUrl'
+        const rawPhotoValue = att.Attachment || att.Photo || att.S3ImageUrl || att.ImageUrl || att.url;
+        const attachId = String(att.AttachID || att.PK_ID);
+
+        let originalUrl = rawPhotoValue || 'assets/img/photo-placeholder.svg';
+        let displayUrl = originalUrl;
+
+        // WEBAPP: Get S3 signed URL if needed
+        if (this.isWeb && originalUrl && originalUrl !== 'assets/img/photo-placeholder.svg') {
+          originalUrl = await this.getSignedUrlIfNeeded(rawPhotoValue);
+          displayUrl = originalUrl;
+        }
+
+        // Check for cached annotated thumbnail
+        const hasDrawings = !!(att.Drawings && att.Drawings.length > 10);
+        if (hasDrawings) {
+          const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
+          if (cachedAnnotated) {
+            displayUrl = cachedAnnotated;
+            this.logDebug('ANNOTATED', `Using cached annotated thumbnail for ${attachId}`);
+          }
+        }
+
+        photos.push({
+          id: att.AttachID || att.PK_ID,
+          AttachID: att.AttachID || att.PK_ID,
+          url: rawPhotoValue,
+          originalUrl: originalUrl,
+          displayUrl: displayUrl,
+          thumbnailUrl: displayUrl,
+          caption: att.Annotation || att.Caption || '',
+          Annotation: att.Annotation || att.Caption || '',
+          name: att.Name || '',
+          Drawings: att.Drawings || '',
+          hasAnnotations: hasDrawings,
+          uploading: false,
+          loading: false
+        });
+      }
+
+      this.visualPhotos[key] = photos;
+      this.photoCountsByKey[key] = photos.length;
+      this.logDebug('PHOTO', `Processed ${photos.length} photos for ${key}`);
     } catch (error) {
       this.logDebug('ERROR', `Failed to load photos for ${key}: ${error}`);
       this.visualPhotos[key] = [];
     } finally {
       this.loadingPhotosByKey[key] = false;
       this.changeDetectorRef.detectChanges();
+    }
+  }
+
+  /**
+   * Convert S3 key or URL to a signed URL if needed
+   */
+  private async getSignedUrlIfNeeded(url: string): Promise<string> {
+    if (!url || url === 'assets/img/photo-placeholder.svg') {
+      return url;
+    }
+
+    try {
+      // Check if it's an S3 key (starts with 'uploads/')
+      const isS3Key = url.startsWith('uploads/');
+
+      // Check if it's a full S3 URL
+      const isFullS3Url = url.startsWith('https://') &&
+                          url.includes('.s3.') &&
+                          url.includes('amazonaws.com');
+
+      if (isS3Key) {
+        // S3 key like 'uploads/path/file.jpg' - get signed URL
+        this.logDebug('PHOTO', `Getting signed URL for S3 key: ${url.substring(0, 50)}`);
+        const signedUrl = await this.caspioService.getS3FileUrl(url);
+        return signedUrl || url;
+      } else if (isFullS3Url) {
+        // Full S3 URL - extract key and get signed URL
+        const urlObj = new URL(url);
+        const s3Key = urlObj.pathname.substring(1); // Remove leading '/'
+        if (s3Key && s3Key.startsWith('uploads/')) {
+          this.logDebug('PHOTO', `Getting signed URL for extracted key: ${s3Key.substring(0, 50)}`);
+          const signedUrl = await this.caspioService.getS3FileUrl(s3Key);
+          return signedUrl || url;
+        }
+      }
+
+      // Return as-is if not S3
+      return url;
+    } catch (error) {
+      this.logDebug('WARN', `Could not get signed URL: ${error}`);
+      return url;
     }
   }
 
@@ -704,37 +830,347 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, HasUnsavedC
 
   async addPhotoFromCamera(category: string, itemId: string | number): Promise<void> {
     this.logDebug('PHOTO', `Camera capture for ${category}_${itemId}`);
-    // TODO: Implement using PhotoHandlerService
-    await this.showToast('Camera capture not yet implemented', 'warning');
+
+    if (!this.config) {
+      await this.showToast('Configuration not loaded', 'danger');
+      return;
+    }
+
+    const key = `${category}_${itemId}`;
+
+    // Get or create visual record first
+    let visualId: string | null | undefined = this.visualRecordIds[key];
+    if (!visualId) {
+      visualId = await this.ensureVisualRecordExists(category, itemId);
+      if (!visualId) {
+        this.logDebug('ERROR', 'Failed to create visual record for photo');
+        await this.showToast('Failed to create record for photo', 'danger');
+        return;
+      }
+    }
+
+    // Initialize photo array if needed
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+
+    // Configure and call PhotoHandlerService
+    const captureConfig: PhotoCaptureConfig = {
+      entityType: this.config.entityType as any,
+      entityId: String(visualId),
+      serviceId: this.serviceId,
+      category,
+      itemId,
+      onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+        this.logDebug('PHOTO', `Temp photo added: ${photo.imageId}`);
+        this.visualPhotos[key].push(photo);
+        this.photoCountsByKey[key] = this.visualPhotos[key].length;
+        this.expandedPhotos[key] = true;
+        this.changeDetectorRef.detectChanges();
+      },
+      onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+        this.logDebug('PHOTO', `Upload complete: ${photo.imageId}, was: ${tempId}`);
+        // Replace temp photo with uploaded photo
+        const photoIndex = this.visualPhotos[key].findIndex(p =>
+          p.imageId === tempId || p.AttachID === tempId || p.id === tempId
+        );
+        if (photoIndex >= 0) {
+          this.visualPhotos[key][photoIndex] = photo;
+        }
+        this.changeDetectorRef.detectChanges();
+      },
+      onUploadFailed: (tempId: string, error: any) => {
+        this.logDebug('ERROR', `Upload failed for ${tempId}: ${error}`);
+        // Keep the photo but mark as failed
+        const photoIndex = this.visualPhotos[key].findIndex(p =>
+          p.imageId === tempId || p.AttachID === tempId || p.id === tempId
+        );
+        if (photoIndex >= 0) {
+          this.visualPhotos[key][photoIndex].uploadFailed = true;
+        }
+        this.changeDetectorRef.detectChanges();
+      },
+      onExpandPhotos: () => {
+        this.expandedPhotos[key] = true;
+        this.changeDetectorRef.detectChanges();
+      }
+    };
+
+    await this.photoHandler.captureFromCamera(captureConfig);
   }
 
   async addPhotoFromGallery(category: string, itemId: string | number): Promise<void> {
     this.logDebug('PHOTO', `Gallery select for ${category}_${itemId}`);
-    // TODO: Implement using PhotoHandlerService
-    await this.showToast('Gallery select not yet implemented', 'warning');
+
+    if (!this.config) {
+      await this.showToast('Configuration not loaded', 'danger');
+      return;
+    }
+
+    const key = `${category}_${itemId}`;
+
+    // Get or create visual record first
+    let visualId: string | null | undefined = this.visualRecordIds[key];
+    if (!visualId) {
+      visualId = await this.ensureVisualRecordExists(category, itemId);
+      if (!visualId) {
+        this.logDebug('ERROR', 'Failed to create visual record for photo');
+        await this.showToast('Failed to create record for photo', 'danger');
+        return;
+      }
+    }
+
+    // Initialize photo array if needed
+    if (!this.visualPhotos[key]) {
+      this.visualPhotos[key] = [];
+    }
+
+    // Configure and call PhotoHandlerService
+    const captureConfig: PhotoCaptureConfig = {
+      entityType: this.config.entityType as any,
+      entityId: String(visualId),
+      serviceId: this.serviceId,
+      category,
+      itemId,
+      skipAnnotator: true, // Gallery photos don't go through annotator by default
+      onTempPhotoAdded: (photo: StandardPhotoEntry) => {
+        this.logDebug('PHOTO', `Gallery photo added: ${photo.imageId}`);
+        this.visualPhotos[key].push(photo);
+        this.photoCountsByKey[key] = this.visualPhotos[key].length;
+        this.expandedPhotos[key] = true;
+        this.changeDetectorRef.detectChanges();
+      },
+      onUploadComplete: (photo: StandardPhotoEntry, tempId: string) => {
+        this.logDebug('PHOTO', `Gallery upload complete: ${photo.imageId}`);
+        const photoIndex = this.visualPhotos[key].findIndex(p =>
+          p.imageId === tempId || p.AttachID === tempId || p.id === tempId
+        );
+        if (photoIndex >= 0) {
+          this.visualPhotos[key][photoIndex] = photo;
+        }
+        this.changeDetectorRef.detectChanges();
+      },
+      onUploadFailed: (tempId: string, error: any) => {
+        this.logDebug('ERROR', `Gallery upload failed for ${tempId}: ${error}`);
+        const photoIndex = this.visualPhotos[key].findIndex(p =>
+          p.imageId === tempId || p.AttachID === tempId || p.id === tempId
+        );
+        if (photoIndex >= 0) {
+          this.visualPhotos[key][photoIndex].uploadFailed = true;
+        }
+        this.changeDetectorRef.detectChanges();
+      },
+      onExpandPhotos: () => {
+        this.expandedPhotos[key] = true;
+        this.changeDetectorRef.detectChanges();
+      }
+    };
+
+    await this.photoHandler.captureFromGallery(captureConfig);
   }
 
   async viewPhoto(photo: any, category: string, itemId: string | number, event?: Event): Promise<void> {
-    this.logDebug('PHOTO', `View photo: ${photo.id}`);
-    // TODO: Implement photo viewer/annotator
+    this.logDebug('PHOTO', `View photo: ${photo.id || photo.AttachID}`);
+
+    if (!this.config) return;
+
+    const key = `${category}_${itemId}`;
+
+    // Configure view photo
+    const viewConfig: ViewPhotoConfig = {
+      photo: photo,
+      entityType: this.config.entityType as any,
+      onSaveAnnotation: async (id: string, compressedDrawings: string, caption: string) => {
+        this.logDebug('PHOTO', `Saving annotation for ${id}`);
+        try {
+          // Save annotation via adapter
+          await this.dataAdapter.updateAttachmentWithConfig(this.config!, id, {
+            Drawings: compressedDrawings,
+            Annotation: caption
+          });
+          this.logDebug('PHOTO', 'Annotation saved successfully');
+        } catch (error) {
+          this.logDebug('ERROR', `Failed to save annotation: ${error}`);
+          throw error;
+        }
+      },
+      onUpdatePhoto: (result: ViewPhotoResult) => {
+        this.logDebug('PHOTO', `Photo updated: ${result.photoId}`);
+        // Update photo in local array
+        const photos = this.visualPhotos[key] || [];
+        const photoIndex = photos.findIndex(p =>
+          (p.AttachID || p.id || p.imageId) === result.photoId
+        );
+        if (photoIndex >= 0) {
+          photos[photoIndex].caption = result.caption;
+          photos[photoIndex].Annotation = result.caption;
+          photos[photoIndex].Drawings = result.compressedDrawings;
+          photos[photoIndex].hasAnnotations = result.hasAnnotations;
+          if (result.annotatedUrl) {
+            photos[photoIndex].displayUrl = result.annotatedUrl;
+            photos[photoIndex].thumbnailUrl = result.annotatedUrl;
+            // Cache annotated URL in memory map for persistence
+            this.bulkAnnotatedImagesMap.set(String(result.photoId), result.annotatedUrl);
+            this.logDebug('ANNOTATED', `Cached annotated thumbnail for ${result.photoId}`);
+          }
+          this.changeDetectorRef.detectChanges();
+        }
+      }
+    };
+
+    await this.photoHandler.viewExistingPhoto(viewConfig);
   }
 
   async deletePhoto(photo: any, category: string, itemId: string | number): Promise<void> {
     const key = `${category}_${itemId}`;
-    this.logDebug('PHOTO', `Delete photo: ${photo.id}`);
+    const photoId = photo.AttachID || photo.id || photo.imageId;
+    this.logDebug('PHOTO', `Delete photo: ${photoId}`);
 
-    // Remove from local array
-    const photos = this.visualPhotos[key] || [];
-    this.visualPhotos[key] = photos.filter(p => p.id !== photo.id);
-    this.photoCountsByKey[key] = this.visualPhotos[key].length;
+    // Confirm deletion
+    const alert = await this.alertController.create({
+      header: 'Delete Photo',
+      message: 'Are you sure you want to delete this photo?',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              // Remove from API if it has a real ID
+              if (photoId && !String(photoId).startsWith('temp_') && !String(photoId).startsWith('uploading_')) {
+                await this.dataAdapter.deleteAttachmentWithConfig(this.config!, photoId);
+                this.logDebug('PHOTO', `Deleted from API: ${photoId}`);
+              }
 
-    // TODO: Implement actual deletion via adapter
-    this.changeDetectorRef.detectChanges();
+              // Remove from local array
+              const photos = this.visualPhotos[key] || [];
+              this.visualPhotos[key] = photos.filter(p =>
+                (p.AttachID || p.id || p.imageId) !== photoId
+              );
+              this.photoCountsByKey[key] = this.visualPhotos[key].length;
+              this.changeDetectorRef.detectChanges();
+
+              await this.showToast('Photo deleted', 'success');
+            } catch (error) {
+              this.logDebug('ERROR', `Delete failed: ${error}`);
+              await this.showToast('Failed to delete photo', 'danger');
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   async openCaptionPopup(photo: any, category: string, itemId: string | number): Promise<void> {
-    this.logDebug('CAPTION', `Edit caption for photo: ${photo.id}`);
-    // TODO: Implement caption popup
+    const photoId = photo.AttachID || photo.id || photo.imageId;
+    this.logDebug('CAPTION', `Edit caption for photo: ${photoId}`);
+
+    const alert = await this.alertController.create({
+      header: 'Edit Caption',
+      inputs: [
+        {
+          name: 'caption',
+          type: 'textarea',
+          placeholder: 'Enter caption...',
+          value: photo.caption || ''
+        }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Save',
+          handler: async (data) => {
+            const newCaption = data.caption?.trim() || '';
+            try {
+              // Save to API
+              if (photoId && !String(photoId).startsWith('temp_')) {
+                await this.dataAdapter.updateAttachmentWithConfig(this.config!, photoId, {
+                  Annotation: newCaption
+                });
+              }
+
+              // Update local state
+              const key = `${category}_${itemId}`;
+              const photos = this.visualPhotos[key] || [];
+              const photoIndex = photos.findIndex(p =>
+                (p.AttachID || p.id || p.imageId) === photoId
+              );
+              if (photoIndex >= 0) {
+                photos[photoIndex].caption = newCaption;
+                photos[photoIndex].Annotation = newCaption;
+                this.changeDetectorRef.detectChanges();
+              }
+
+              this.logDebug('CAPTION', 'Caption saved');
+            } catch (error) {
+              this.logDebug('ERROR', `Failed to save caption: ${error}`);
+              await this.showToast('Failed to save caption', 'danger');
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  /**
+   * Ensure a visual record exists for the given item.
+   * Creates one if it doesn't exist.
+   */
+  private async ensureVisualRecordExists(category: string, itemId: string | number): Promise<string | null> {
+    const key = `${category}_${itemId}`;
+
+    // Check if we already have a visual ID
+    if (this.visualRecordIds[key]) {
+      return this.visualRecordIds[key];
+    }
+
+    // Find the item to get its details
+    const allItems = [
+      ...this.organizedData.comments,
+      ...this.organizedData.limitations,
+      ...this.organizedData.deficiencies
+    ];
+    const item = allItems.find(i => String(i.templateId) === String(itemId));
+
+    if (!item) {
+      this.logDebug('ERROR', `Item not found for templateId: ${itemId}`);
+      return null;
+    }
+
+    try {
+      this.logDebug('VISUAL', `Creating visual record for ${category}_${itemId}`);
+
+      // Create visual record via adapter
+      const visualData = {
+        ServiceID: parseInt(this.serviceId, 10),
+        Category: category,
+        Kind: item.type,
+        Name: item.name,
+        Text: item.text || item.originalText || '',
+        Notes: '',
+        [this.config!.templateIdFieldName]: item.templateId
+      };
+
+      const createdVisual = await this.dataAdapter.createVisualWithConfig(this.config!, visualData);
+      const visualId = createdVisual?.[this.config!.idFieldName] || createdVisual?.PK_ID;
+
+      if (visualId) {
+        this.visualRecordIds[key] = String(visualId);
+        this.selectedItems[key] = true;
+        this.logDebug('VISUAL', `Created visual record: ${visualId}`);
+        return String(visualId);
+      }
+
+      return null;
+    } catch (error) {
+      this.logDebug('ERROR', `Failed to create visual record: ${error}`);
+      return null;
+    }
   }
 
   handleImageError(event: Event, photo: any): void {

@@ -71,7 +71,7 @@ export const EFE_CONFIG: TemplateConfig = {
   // Category Detail Features
   categoryDetailFeatures: {
     hasDexieFirstWithMutex: true,
-    hasActualServiceId: true,
+    hasActualServiceId: false,  // EFE uses route serviceId directly (matches original behavior)
     supportsAddCustomVisual: true,
     hasLazyPhotoLoading: true,
     hasDebugPanel: true,
