@@ -328,13 +328,17 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   }
 
   /**
-   * Load visual data in mobile mode (Dexie-first with API fallback)
+   * Load visual data in mobile mode (Dexie-first ONLY - no API calls)
+   *
+   * IMPORTANT: Mobile app uses strict Dexie-first approach.
+   * All data comes from local Dexie storage, populated by background sync.
+   * Page loads should NEVER call API directly.
    */
   private async loadVisualDataMobile() {
     if (!this.config) return;
 
     try {
-      // Query visualFields by serviceId
+      // Query visualFields by serviceId from Dexie
       const allFields = await db.visualFields
         .where('serviceId')
         .equals(this.serviceId)
@@ -342,11 +346,10 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
 
       const field = allFields.find(f => f.templateId === this.templateId);
 
-      // Load templates for fallback
-      // Cast to expected type - templatesCacheKey is configured to match these values
+      // Load templates from Dexie cache
       const cacheKey = this.config.templatesCacheKey as 'visual' | 'hud' | 'lbw' | 'dte' | 'efe';
-      let cachedTemplates = await this.indexedDb.getCachedTemplates(cacheKey) || [];
-      let template = cachedTemplates.find((t: any) =>
+      const cachedTemplates = await this.indexedDb.getCachedTemplates(cacheKey) || [];
+      const template = cachedTemplates.find((t: any) =>
         Number(t.TemplateID || t.PK_ID) === this.templateId
       );
 
@@ -357,21 +360,6 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       // Get visualId from field if available
       if (field) {
         this.visualId = String(field.tempVisualId || field.visualId || '');
-      }
-
-      // If no visualId from field, try to find from API visuals
-      if (!this.visualId) {
-        try {
-          const queryServiceId = this.actualServiceId || this.serviceId;
-          const visuals = await this.dataAdapter.getVisualsWithConfig(this.config, queryServiceId);
-          const visual = this.findMatchingVisual(visuals);
-          if (visual) {
-            this.visualId = String(visual[this.config.idFieldName] || visual.PK_ID);
-            console.log('[GenericVisualDetail] MOBILE: Got visualId from API:', this.visualId);
-          }
-        } catch (apiErr) {
-          console.warn('[GenericVisualDetail] MOBILE: Could not fetch visuals from API:', apiErr);
-        }
       }
 
       if (field && field.templateName) {
@@ -395,35 +383,20 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         this.editableText = this.item.text;
         this.categoryName = template.Category || this.categoryName;
         console.log('[GenericVisualDetail] MOBILE: Loaded from template');
+      } else if (field) {
+        // Field exists but no template name - use field data
+        this.item = this.convertFieldToItem(field);
+        this.editableTitle = this.item.name || 'Visual ' + this.templateId;
+        this.editableText = this.item.text || '';
+        this.categoryName = field.category || this.categoryName;
+        console.log('[GenericVisualDetail] MOBILE: Loaded from field (no template)');
       } else {
-        // FALLBACK: Try API if cache is empty
-        console.log('[GenericVisualDetail] MOBILE: Cache empty, trying API fallback...');
-        try {
-          const templates = await this.dataAdapter.getTemplatesWithConfig(this.config);
-          template = templates.find((t: any) =>
-            (t.TemplateID || t.PK_ID) == this.templateId
-          );
-
-          if (template) {
-            this.item = this.convertTemplateToItem(template);
-            this.editableTitle = this.item.name;
-            this.editableText = this.item.text;
-            this.categoryName = template.Category || this.categoryName;
-            console.log('[GenericVisualDetail] MOBILE: Loaded from API template:', this.item.name);
-          } else {
-            // Last resort: create minimal item
-            console.warn('[GenericVisualDetail] MOBILE: Creating minimal item');
-            this.item = this.createMinimalItem();
-            this.editableTitle = this.item.name;
-            this.editableText = '';
-          }
-        } catch (apiErr) {
-          console.error('[GenericVisualDetail] MOBILE: API fallback failed:', apiErr);
-          // Create minimal item anyway so page doesn't show "not found"
-          this.item = this.createMinimalItem();
-          this.editableTitle = this.item.name;
-          this.editableText = '';
-        }
+        // No data in Dexie - create minimal item
+        // This can happen if sync hasn't completed yet
+        console.warn('[GenericVisualDetail] MOBILE: No data in Dexie, creating minimal item');
+        this.item = this.createMinimalItem();
+        this.editableTitle = this.item.name;
+        this.editableText = '';
       }
 
       // Set up Dexie subscription for real-time updates
@@ -434,8 +407,8 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       this.changeDetectorRef.detectChanges();
 
     } catch (error) {
-      console.error('[GenericVisualDetail] MOBILE: Error loading visual:', error);
-      // Even on error, create minimal item to avoid "not found" screen
+      console.error('[GenericVisualDetail] MOBILE: Error loading from Dexie:', error);
+      // Create minimal item so page doesn't show "not found"
       this.item = this.createMinimalItem();
       this.editableTitle = this.item.name;
       this.editableText = '';
@@ -719,7 +692,11 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   }
 
   /**
-   * Load photos in mobile mode (Dexie + API for synced photos)
+   * Load photos in mobile mode (Dexie ONLY - no API calls)
+   *
+   * IMPORTANT: Mobile app uses strict Dexie-first approach.
+   * Photos are loaded from localImages table in Dexie.
+   * Background sync populates Dexie with synced photos.
    */
   private async loadPhotosMobile() {
     if (!this.config) return;
@@ -741,19 +718,19 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       return;
     }
 
-    console.log('[GenericVisualDetail] MOBILE: Loading photos for visualId:', this.visualId);
+    console.log('[GenericVisualDetail] MOBILE: Loading photos from Dexie for visualId:', this.visualId);
 
     // Track loaded photo IDs to avoid duplicates
     const loadedPhotoIds = new Set<string>();
     this.photos = [];
 
-    // ===== STEP 1: Load local images from Dexie (unsynced photos) =====
+    // Load local images from Dexie
     let localImages: any[] = [];
 
     // Tier 1: By visualId as entityId
     localImages = await db.localImages.where('entityId').equals(this.visualId).toArray();
     if (localImages.length > 0) {
-      console.log('[GenericVisualDetail] MOBILE: Found', localImages.length, 'local images');
+      console.log('[GenericVisualDetail] MOBILE: Found', localImages.length, 'local images by visualId');
     }
 
     // Tier 2: By tempVisualId (if different)
@@ -765,11 +742,22 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
       }
     }
 
-    // Process local images
+    // Tier 3: Also check by field.visualId if different
+    if (field?.visualId && field.visualId !== this.visualId && field.visualId !== field?.tempVisualId) {
+      const realIdImages = await db.localImages.where('entityId').equals(String(field.visualId)).toArray();
+      if (realIdImages.length > 0) {
+        console.log('[GenericVisualDetail] MOBILE: Found', realIdImages.length, 'local images via realId');
+        localImages = [...localImages, ...realIdImages];
+      }
+    }
+
+    // Process local images from Dexie
     for (const img of localImages) {
-      // Skip if already synced and will be loaded from server
-      if (img.isSynced && img.attachId) {
-        loadedPhotoIds.add(img.attachId);
+      // Skip duplicates
+      if (loadedPhotoIds.has(img.imageId)) {
+        continue;
+      }
+      if (img.attachId && loadedPhotoIds.has(img.attachId)) {
         continue;
       }
 
@@ -785,7 +773,7 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         }
       }
 
-      // Get blob URL from local storage
+      // Get blob URL from local storage (Dexie localBlobs table)
       if (img.localBlobId) {
         const blob = await db.localBlobs.get(img.localBlobId);
         if (blob) {
@@ -795,111 +783,39 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
             displayUrl = originalUrl;
           }
         }
-      } else if (img.remoteUrl) {
+      }
+
+      // If no local blob but has remote URL cached in Dexie
+      if (originalUrl === 'assets/img/photo-placeholder.svg' && img.remoteUrl) {
         originalUrl = img.remoteUrl;
-        if (displayUrl === 'assets/img/photo-placeholder.svg') {
-          displayUrl = img.remoteUrl;
-        }
-      } else if (img.remoteS3Key) {
-        // Try to get S3 URL
-        try {
-          originalUrl = await this.caspioService.getS3FileUrl(img.remoteS3Key);
-          if (displayUrl === 'assets/img/photo-placeholder.svg') {
-            displayUrl = originalUrl;
-          }
-        } catch (e) {
-          console.warn('[GenericVisualDetail] MOBILE: Could not get S3 URL for local image:', e);
-        }
+        displayUrl = img.remoteUrl;
+      }
+
+      // If synced and has S3 key stored in Dexie, use that
+      if (originalUrl === 'assets/img/photo-placeholder.svg' && img.remoteS3Key) {
+        // Store S3 key - the lazy image directive can handle fetching signed URL
+        originalUrl = img.remoteS3Key;
+        displayUrl = img.remoteS3Key;
       }
 
       loadedPhotoIds.add(img.imageId);
+      if (img.attachId) {
+        loadedPhotoIds.add(img.attachId);
+      }
+
       this.photos.push({
         id: img.imageId,
         displayUrl,
         originalUrl,
         caption: img.caption || '',
         uploading: img.status === 'queued' || img.status === 'uploading',
-        isLocal: true,
+        isLocal: !img.isSynced,
         hasAnnotations,
         drawings: img.drawings || ''
       });
     }
 
-    console.log('[GenericVisualDetail] MOBILE: Added', this.photos.length, 'local photos');
-
-    // ===== STEP 2: Load synced attachments from API =====
-    // Only fetch if we have a real visualId (not temp_)
-    if (this.visualId && !this.visualId.startsWith('temp_')) {
-      try {
-        const attachments = await this.dataAdapter.getAttachmentsWithConfig(this.config, this.visualId);
-        console.log('[GenericVisualDetail] MOBILE: Fetched', attachments.length, 'synced attachments from API');
-
-        for (const att of attachments || []) {
-          const attachId = String(att.AttachID || att.attachId || att.PK_ID || '');
-
-          // Skip if already loaded from local images
-          if (loadedPhotoIds.has(attachId)) {
-            continue;
-          }
-
-          // Get display URL - convert S3 key if needed
-          let displayUrl = att.Attachment || att.Photo || att.url || 'assets/img/photo-placeholder.svg';
-          if (displayUrl && this.caspioService.isS3Key && this.caspioService.isS3Key(displayUrl)) {
-            try {
-              displayUrl = await this.caspioService.getS3FileUrl(displayUrl);
-            } catch (e) {
-              console.warn('[GenericVisualDetail] MOBILE: Could not get S3 URL:', e);
-            }
-          }
-
-          const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
-          let thumbnailUrl = displayUrl;
-          let hasAnnotations = hasServerAnnotations;
-
-          // Check for cached annotated image
-          try {
-            const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
-            if (cachedAnnotated && hasServerAnnotations) {
-              thumbnailUrl = cachedAnnotated;
-              hasAnnotations = true;
-            } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
-              // Render annotations on the fly
-              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
-              if (renderedUrl && renderedUrl !== displayUrl) {
-                thumbnailUrl = renderedUrl;
-                // Cache for next time
-                try {
-                  const response = await fetch(renderedUrl);
-                  const blob = await response.blob();
-                  await this.indexedDb.cacheAnnotatedImage(attachId, blob);
-                } catch (cacheErr) {
-                  console.warn('[GenericVisualDetail] MOBILE: Failed to cache annotated image:', cacheErr);
-                }
-              }
-            }
-          } catch (annotErr) {
-            console.warn('[GenericVisualDetail] MOBILE: Failed to process annotations:', annotErr);
-          }
-
-          loadedPhotoIds.add(attachId);
-          this.photos.push({
-            id: attachId,
-            displayUrl: thumbnailUrl,
-            originalUrl: displayUrl,
-            caption: att.Caption || att.Annotation || '',
-            uploading: false,
-            isLocal: false,
-            hasAnnotations,
-            drawings: att.Drawings || ''
-          });
-        }
-
-        console.log('[GenericVisualDetail] MOBILE: Total photos after API fetch:', this.photos.length);
-      } catch (apiErr) {
-        console.warn('[GenericVisualDetail] MOBILE: Could not fetch attachments from API:', apiErr);
-        // Continue with local photos only
-      }
-    }
+    console.log('[GenericVisualDetail] MOBILE: Loaded', this.photos.length, 'photos from Dexie');
   }
 
   // ===== SAVE METHODS =====
