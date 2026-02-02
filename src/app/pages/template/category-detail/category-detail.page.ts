@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { IonicModule, ToastController, LoadingController, AlertController, ModalController, ViewWillEnter } from '@ionic/angular';
-import { Subject, Subscription } from 'rxjs';
+import { Observable, Subject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, filter } from 'rxjs/operators';
 
 import { environment } from '../../../../environments/environment';
@@ -25,8 +25,9 @@ import { HasUnsavedChanges } from '../../../services/unsaved-changes.service';
 import { LocalImageService } from '../../../services/local-image.service';
 import { AddCustomVisualModalComponent } from '../../../modals/add-custom-visual-modal/add-custom-visual-modal.component';
 import { firstValueFrom } from 'rxjs';
-import { db, VisualField } from '../../../services/caspio-db';
+import { db, VisualField, HudField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
+import { HudFieldRepoService } from '../../../services/hud-field-repo.service';
 import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 
 /**
@@ -119,6 +120,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   private bulkLocalImagesMap: Map<string, LocalImage[]> = new Map();
   private tempIdToRealIdCache: Map<string, string> = new Map();
   private lastConvertedFields: VisualField[] = [];
+  private lastConvertedHudFields: HudField[] = [];
 
   // ==================== DEXIE-FIRST: Guard Flags (MOBILE ONLY) ====================
   private isPopulatingPhotos = false;
@@ -169,6 +171,7 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
     private dteData: DteDataService,
     private efeData: EngineersFoundationDataService,
     private visualFieldRepo: VisualFieldRepoService,
+    private hudFieldRepo: HudFieldRepoService,
     @Inject(TEMPLATE_DATA_PROVIDER) private dataProvider: ITemplateDataProvider
   ) {}
 
@@ -376,21 +379,28 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       this.visualFieldsSubscription = undefined;
     }
 
-    // Check if fields exist for this category (only for EFE with VisualField table)
-    // Other templates (HUD, LBW, DTE) use their own tables and existing data patterns
-    const isVisualFieldTemplate = this.config.id === 'efe';
+    // Determine which Dexie-first field system to use based on template
+    const isDexieFirstTemplate = this.config.id === 'efe' || this.config.id === 'hud';
 
-    if (isVisualFieldTemplate) {
-      const hasFields = await this.visualFieldRepo.hasFieldsForCategory(
+    if (isDexieFirstTemplate) {
+      // Use template-specific field repo
+      const isEfe = this.config.id === 'efe';
+      const isHud = this.config.id === 'hud';
+      const fieldRepo = isEfe ? this.visualFieldRepo : this.hudFieldRepo;
+      const cacheKey = isEfe ? 'visual' : 'hud';
+      const dropdownCacheKey = isEfe ? 'visual_dropdown' : 'hud_dropdown';
+      const dataCacheType = isEfe ? 'visuals' : 'hud';
+
+      const hasFields = await fieldRepo.hasFieldsForCategory(
         this.serviceId,
         this.categoryName
       );
 
       if (!hasFields) {
-        this.logDebug('DEXIE', 'No fields found, seeding from templates...');
+        this.logDebug('DEXIE', `No fields found for ${this.config.id}, seeding from templates...`);
 
         // Get templates from cache
-        const templates = await this.indexedDb.getCachedTemplates('visual') || [];
+        const templates = await this.indexedDb.getCachedTemplates(cacheKey) || [];
 
         if (templates.length === 0) {
           this.logDebug('WARN', 'No templates in cache, falling back to loadData()');
@@ -400,22 +410,22 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
         }
 
         // Get cached dropdown data
-        const cachedDropdownData = await this.indexedDb.getCachedTemplates('visual_dropdown') || [];
+        const cachedDropdownData = await this.indexedDb.getCachedTemplates(dropdownCacheKey) || [];
 
-        // Seed templates into visualFields
-        await this.visualFieldRepo.seedFromTemplates(
+        // Seed templates into fields table
+        await fieldRepo.seedFromTemplates(
           this.serviceId,
           this.categoryName,
           templates,
           cachedDropdownData
         );
 
-        // Get existing visuals and merge selections
-        const visuals = await this.indexedDb.getCachedServiceData(this.serviceId, 'visuals') || [];
-        await this.visualFieldRepo.mergeExistingVisuals(
+        // Get existing records and merge selections
+        const existingData = await this.indexedDb.getCachedServiceData(this.serviceId, dataCacheType as any) || [];
+        await fieldRepo.mergeExistingVisuals(
           this.serviceId,
           this.categoryName,
-          visuals as any[]
+          existingData as any[]
         );
 
         this.logDebug('DEXIE', 'Seeding complete');
@@ -429,36 +439,51 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
       }
 
       // Subscribe to reactive updates - this will trigger UI render
-      this.visualFieldsSubscription = this.visualFieldRepo
-        .getFieldsForCategory$(this.serviceId, this.categoryName)
-        .subscribe({
-          next: async (fields) => {
-            this.logDebug('DEXIE', `Received ${fields.length} fields from liveQuery`);
-            this.convertFieldsToOrganizedData(fields);
+      // Get the observable from the appropriate repo - cast to Observable<any[]> to avoid union type issues
+      const fields$: Observable<any[]> = isEfe
+        ? this.visualFieldRepo.getFieldsForCategory$(this.serviceId, this.categoryName)
+        : this.hudFieldRepo.getFieldsForCategory$(this.serviceId, this.categoryName);
 
-            // Show UI immediately - no loading screen
-            this.loading = false;
-            this.changeDetectorRef.detectChanges();
+      this.visualFieldsSubscription = fields$.subscribe({
+        next: async (fields: any[]) => {
+          this.logDebug('DEXIE', `Received ${fields.length} fields from liveQuery`);
 
-            // Suppress photo population during capture to prevent duplicates
-            if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
-              this.logDebug('DEXIE', 'Suppressing photo population - capture in progress');
-              return;
-            }
+          // Convert to organized data using appropriate method
+          if (isEfe) {
+            this.convertFieldsToOrganizedData(fields as VisualField[]);
+          } else {
+            this.convertHudFieldsToOrganizedData(fields as HudField[]);
+          }
 
-            // Populate photos in background (non-blocking)
-            this.populatePhotosFromDexie(fields).then(() => {
+          // Show UI immediately - no loading screen
+          this.loading = false;
+          this.changeDetectorRef.detectChanges();
+
+          // Suppress photo population during capture to prevent duplicates
+          if (this.isCameraCaptureInProgress || this.isMultiImageUploadInProgress) {
+            this.logDebug('DEXIE', 'Suppressing photo population - capture in progress');
+            return;
+          }
+
+          // Populate photos in background (non-blocking)
+          if (isEfe) {
+            this.populatePhotosFromDexie(fields as VisualField[]).then(() => {
               this.changeDetectorRef.detectChanges();
             });
-          },
-          error: (err) => {
-            this.logDebug('ERROR', `Error in visualFields subscription: ${err}`);
-            this.loading = false;
-            this.changeDetectorRef.detectChanges();
+          } else {
+            this.populateHudPhotosFromDexie(fields as HudField[]).then(() => {
+              this.changeDetectorRef.detectChanges();
+            });
           }
-        });
+        },
+        error: (err: any) => {
+          this.logDebug('ERROR', `Error in fields subscription: ${err}`);
+          this.loading = false;
+          this.changeDetectorRef.detectChanges();
+        }
+      });
     } else {
-      // For non-EFE templates (HUD, LBW, DTE), use existing loadData pattern but with Dexie photos
+      // For non-Dexie-first templates (LBW, DTE), use existing loadData pattern but with Dexie photos
       await this.loadData();
 
       // Set up LocalImages subscription for reactive photo updates
@@ -804,6 +829,223 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   }
 
   /**
+   * Populate HUD photos from Dexie LocalImages (MOBILE ONLY - HUD)
+   * Similar to populatePhotosFromDexie but for HudField
+   */
+  private async populateHudPhotosFromDexie(fields: HudField[]): Promise<void> {
+    if (this.isPopulatingPhotos) {
+      this.logDebug('DEXIE', 'Skipping - already populating photos (mutex)');
+      return;
+    }
+    this.isPopulatingPhotos = true;
+
+    try {
+      this.logDebug('DEXIE', `Populating HUD photos from Dexie for ${fields.length} fields...`);
+
+      // Load annotated images in background if not loaded
+      if (this.bulkAnnotatedImagesMap.size === 0) {
+        this.indexedDb.getAllCachedAnnotatedImagesForService().then(annotatedImages => {
+          this.bulkAnnotatedImagesMap = annotatedImages;
+          this.changeDetectorRef.detectChanges();
+        });
+      }
+
+      // Get ALL LocalImages for this service (entityType = 'hud')
+      const allLocalImages = await this.localImageService.getImagesForService(this.serviceId);
+
+      // Group by entityId for efficient lookup
+      const localImagesMap = new Map<string, LocalImage[]>();
+      for (const img of allLocalImages) {
+        if (!img.entityId) continue;
+        const entityId = String(img.entityId);
+        if (!localImagesMap.has(entityId)) {
+          localImagesMap.set(entityId, []);
+        }
+        localImagesMap.get(entityId)!.push(img);
+      }
+
+      this.logDebug('DEXIE', `Found ${allLocalImages.length} LocalImages for ${localImagesMap.size} entities`);
+
+      let photosAddedCount = 0;
+
+      for (const field of fields) {
+        const realId = field.hudId;
+        const tempId = field.tempHudId;
+        const hudId = realId || tempId;
+        if (!hudId) continue;
+
+        const key = `${field.category}_${field.templateId}`;
+        this.visualRecordIds[key] = hudId;
+
+        // 4-tier fallback lookup
+        let localImages = realId ? (localImagesMap.get(realId) || []) : [];
+
+        // Try tempId lookup
+        if (localImages.length === 0 && tempId && tempId !== realId) {
+          localImages = localImagesMap.get(tempId) || [];
+        }
+
+        // Check IndexedDB for temp-to-real mapping
+        if (localImages.length === 0 && tempId) {
+          const mappedRealId = await this.indexedDb.getRealId(tempId);
+          if (mappedRealId) {
+            localImages = localImagesMap.get(mappedRealId) || [];
+            // Update HudField with the real ID
+            if (localImages.length > 0 && field.templateId) {
+              this.hudFieldRepo.setField(this.serviceId, this.categoryName, field.templateId, {
+                hudId: mappedRealId,
+                tempHudId: null
+              }).catch(err => {
+                this.logDebug('ERROR', `Failed to update HudField with mapped realId: ${err}`);
+              });
+            }
+          }
+        }
+
+        if (localImages.length === 0) continue;
+
+        // Initialize photos array if not exists
+        if (!this.visualPhotos[key]) {
+          this.visualPhotos[key] = [];
+        }
+
+        // Track already loaded photos to avoid duplicates
+        const loadedPhotoIds = new Set<string>();
+        for (const p of this.visualPhotos[key]) {
+          if (p.imageId) loadedPhotoIds.add(p.imageId);
+          if (p.AttachID) loadedPhotoIds.add(String(p.AttachID));
+          if (p.localImageId) loadedPhotoIds.add(p.localImageId);
+        }
+
+        // Add LocalImages to visualPhotos
+        for (const localImage of localImages) {
+          const imageId = localImage.imageId;
+
+          // Check if photo already exists - refresh its displayUrl
+          const existingPhotoIndex = this.visualPhotos[key].findIndex(p =>
+            p.imageId === imageId ||
+            p.localImageId === imageId ||
+            (localImage.attachId && (String(p.AttachID) === localImage.attachId || p.attachId === localImage.attachId))
+          );
+
+          if (existingPhotoIndex !== -1) {
+            // Photo exists - refresh displayUrl
+            try {
+              const freshDisplayUrl = await this.localImageService.getDisplayUrl(localImage);
+              if (freshDisplayUrl && freshDisplayUrl !== 'assets/img/photo-placeholder.svg') {
+                const hasAnnotations = !!(localImage.drawings && localImage.drawings.length > 10);
+
+                // Check for cached annotated image
+                let cachedAnnotatedUrl = localImage.attachId
+                  ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
+                  : null;
+                if (!cachedAnnotatedUrl) {
+                  cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+                }
+                const thumbnailUrl = (cachedAnnotatedUrl && hasAnnotations) ? cachedAnnotatedUrl : freshDisplayUrl;
+
+                this.visualPhotos[key][existingPhotoIndex] = {
+                  ...this.visualPhotos[key][existingPhotoIndex],
+                  displayUrl: thumbnailUrl,
+                  url: freshDisplayUrl,
+                  thumbnailUrl: thumbnailUrl,
+                  originalUrl: freshDisplayUrl,
+                  localBlobId: localImage.localBlobId,
+                  caption: localImage.caption || '',
+                  Annotation: localImage.caption || '',
+                  Drawings: localImage.drawings || null,
+                  hasAnnotations: hasAnnotations,
+                  isLocalImage: true,
+                  isLocalFirst: true
+                };
+              }
+            } catch (e) {
+              this.logDebug('WARN', `Failed to refresh displayUrl for existing photo: ${e}`);
+            }
+            loadedPhotoIds.add(imageId);
+            if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+            continue;
+          }
+
+          // Skip if already loaded by other ID
+          if (loadedPhotoIds.has(imageId)) continue;
+          if (localImage.attachId && loadedPhotoIds.has(localImage.attachId)) continue;
+
+          // Get display URL
+          let displayUrl = 'assets/img/photo-placeholder.svg';
+          try {
+            displayUrl = await this.localImageService.getDisplayUrl(localImage);
+          } catch (e) {
+            this.logDebug('WARN', `Failed to get displayUrl: ${e}`);
+          }
+
+          const hasAnnotations = !!localImage.drawings && localImage.drawings.length > 10;
+
+          // Check for cached annotated image
+          let cachedAnnotatedUrl = localImage.attachId
+            ? this.bulkAnnotatedImagesMap.get(localImage.attachId)
+            : null;
+          if (!cachedAnnotatedUrl) {
+            cachedAnnotatedUrl = this.bulkAnnotatedImagesMap.get(localImage.imageId);
+          }
+
+          let thumbnailUrl = displayUrl;
+          if (cachedAnnotatedUrl && hasAnnotations) {
+            thumbnailUrl = cachedAnnotatedUrl;
+            this.logDebug('ANNOTATED', `Using cached annotated thumbnail for ${localImage.imageId}`);
+          }
+
+          // Add photo to array
+          this.visualPhotos[key].unshift({
+            AttachID: localImage.attachId || localImage.imageId,
+            attachId: localImage.attachId || localImage.imageId,
+            id: localImage.attachId || localImage.imageId,
+            imageId: localImage.imageId,
+            localImageId: localImage.imageId,
+            localBlobId: localImage.localBlobId,
+            displayUrl: thumbnailUrl,
+            url: displayUrl,
+            thumbnailUrl: thumbnailUrl,
+            originalUrl: displayUrl,
+            name: localImage.fileName,
+            caption: localImage.caption || '',
+            annotation: localImage.caption || '',
+            Annotation: localImage.caption || '',
+            Drawings: localImage.drawings || null,
+            hasAnnotations: hasAnnotations,
+            loading: false,
+            uploading: false,
+            queued: false,
+            isSkeleton: false,
+            isLocalImage: true,
+            isLocalFirst: true
+          });
+
+          loadedPhotoIds.add(imageId);
+          if (localImage.attachId) loadedPhotoIds.add(localImage.attachId);
+          photosAddedCount++;
+        }
+
+        // Update photo count
+        this.photoCountsByKey[key] = this.visualPhotos[key].length;
+
+        // Persist photo count to Dexie
+        if (field.templateId) {
+          this.hudFieldRepo.setField(this.serviceId, field.category, field.templateId, {
+            photoCount: this.visualPhotos[key].length
+          }).catch(err => {
+            this.logDebug('WARN', `Failed to save photoCount: ${err}`);
+          });
+        }
+      }
+
+      this.logDebug('DEXIE', `HUD Photos populated: ${photosAddedCount} new photos added`);
+    } finally {
+      this.isPopulatingPhotos = false;
+    }
+  }
+
+  /**
    * Convert VisualFields to organized data structure for template (MOBILE ONLY)
    */
   private convertFieldsToOrganizedData(fields: VisualField[]): void {
@@ -861,15 +1103,75 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
   }
 
   /**
+   * Convert HudFields to organized data structure for template (MOBILE ONLY - HUD)
+   */
+  private convertHudFieldsToOrganizedData(fields: HudField[]): void {
+    // Store reference for reactive photo updates
+    this.lastConvertedHudFields = fields;
+
+    const comments: VisualItem[] = [];
+    const limitations: VisualItem[] = [];
+    const deficiencies: VisualItem[] = [];
+
+    for (const field of fields) {
+      const item: VisualItem = {
+        id: field.hudId || field.tempHudId || field.templateId,
+        templateId: field.templateId,
+        name: field.templateName,
+        text: field.answer || field.templateText,
+        originalText: field.templateText,
+        type: field.kind,
+        category: field.category,
+        answerType: field.answerType,
+        required: false,
+        answer: field.answer,
+        isSelected: field.isSelected,
+        otherValue: field.otherValue,
+        key: `${field.category}_${field.templateId}`
+      };
+
+      // Store selection state and HUD record ID
+      const selectionKey = `${field.category}_${field.templateId}`;
+      if (field.hudId || field.tempHudId) {
+        this.visualRecordIds[selectionKey] = field.hudId || field.tempHudId || '';
+      }
+      this.selectedItems[selectionKey] = field.isSelected;
+      this.photoCountsByKey[selectionKey] = field.photoCount;
+
+      // Populate dropdown options if available
+      if (field.answerType === 2 && field.dropdownOptions) {
+        this.visualDropdownOptions[field.templateId] = field.dropdownOptions;
+      }
+
+      switch (field.kind) {
+        case 'Limitation':
+          limitations.push(item);
+          break;
+        case 'Deficiency':
+          deficiencies.push(item);
+          break;
+        default:
+          comments.push(item);
+      }
+    }
+
+    this.organizedData = { comments, limitations, deficiencies };
+    this.logDebug('DEXIE', `HUD Organized: ${comments.length} comments, ${limitations.length} limitations, ${deficiencies.length} deficiencies`);
+  }
+
+  /**
    * Refresh local state when returning to the page (MOBILE ONLY)
    * Regenerates blob URLs and restores pending captions
    */
   private async refreshLocalState(): Promise<void> {
     this.logDebug('DEXIE', 'Refreshing local state...');
 
-    // Reload photos from Dexie to refresh blob URLs
-    if (this.lastConvertedFields && this.lastConvertedFields.length > 0) {
+    // Reload photos from Dexie to refresh blob URLs - use appropriate method based on template
+    if (this.config?.id === 'efe' && this.lastConvertedFields && this.lastConvertedFields.length > 0) {
       await this.populatePhotosFromDexie(this.lastConvertedFields);
+      this.changeDetectorRef.detectChanges();
+    } else if (this.config?.id === 'hud' && this.lastConvertedHudFields && this.lastConvertedHudFields.length > 0) {
+      await this.populateHudPhotosFromDexie(this.lastConvertedHudFields);
       this.changeDetectorRef.detectChanges();
     }
 
