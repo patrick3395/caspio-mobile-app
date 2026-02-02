@@ -1172,18 +1172,28 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
     const alert = await this.alertController.create({
       header: 'Delete Photo',
       message: 'Are you sure you want to delete this photo?',
+      cssClass: 'custom-document-alert',
       buttons: [
-        { text: 'Cancel', role: 'cancel' },
         {
           text: 'Delete',
           role: 'destructive',
-          handler: async () => {
-            await this.confirmDeletePhoto(photo);
-          }
+          cssClass: 'alert-button-confirm'
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-button-cancel'
         }
       ]
     });
+
     await alert.present();
+
+    // Wait for dialog to dismiss and check if user confirmed deletion
+    const result = await alert.onDidDismiss();
+    if (result.role === 'destructive') {
+      await this.confirmDeletePhoto(photo);
+    }
   }
 
   private async confirmDeletePhoto(photo: PhotoItem) {
@@ -1244,12 +1254,27 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
         }
 
         if (photoIndex !== -1) {
-          // Update local photo state
+          // Update local photo state (store in MULTIPLE fields like EFE pattern)
           this.photos[photoIndex].drawings = result.compressedDrawings;
+          this.photos[photoIndex].rawDrawingsString = result.compressedDrawings;
+          this.photos[photoIndex].Drawings = result.compressedDrawings;
           this.photos[photoIndex].hasAnnotations = result.hasAnnotations;
           this.photos[photoIndex].caption = result.caption;
+
           if (result.annotatedUrl) {
             this.photos[photoIndex].displayUrl = result.annotatedUrl;
+            this.photos[photoIndex].thumbnailUrl = result.annotatedUrl;
+
+            // ANNOTATION FIX: Cache annotated URL in memory map for persistence (matches EFE pattern)
+            // Cache under BOTH photoId AND attachId for reliable lookup
+            this.bulkAnnotatedImagesMap.set(String(result.photoId), result.annotatedUrl);
+            if (this.photos[photoIndex].attachId && this.photos[photoIndex].attachId !== result.photoId) {
+              this.bulkAnnotatedImagesMap.set(String(this.photos[photoIndex].attachId), result.annotatedUrl);
+            }
+            if (this.photos[photoIndex].imageId && this.photos[photoIndex].imageId !== result.photoId) {
+              this.bulkAnnotatedImagesMap.set(String(this.photos[photoIndex].imageId), result.annotatedUrl);
+            }
+            console.log('[GenericVisualDetail] Cached annotated thumbnail in memory map for:', result.photoId);
           }
           this.changeDetectorRef.detectChanges();
         }

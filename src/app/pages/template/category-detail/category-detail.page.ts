@@ -25,6 +25,7 @@ import { AddCustomVisualModalComponent } from '../../../modals/add-custom-visual
 import { firstValueFrom } from 'rxjs';
 import { db, VisualField } from '../../../services/caspio-db';
 import { VisualFieldRepoService } from '../../../services/visual-field-repo.service';
+import { renderAnnotationsOnPhoto } from '../../../utils/annotation-utils';
 
 /**
  * Visual item interface for category detail pages
@@ -1619,13 +1620,59 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           displayUrl = originalUrl;
         }
 
-        // Check for cached annotated thumbnail
+        // ANNOTATION FIX: Check for cached annotated thumbnail with multi-tier fallback
         const hasDrawings = !!(att.Drawings && att.Drawings.length > 10);
+        let foundCachedAnnotated = false;
+
         if (hasDrawings) {
-          const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
-          if (cachedAnnotated) {
-            displayUrl = cachedAnnotated;
-            this.logDebug('ANNOTATED', `Using cached annotated thumbnail for ${attachId}`);
+          // TIER 1: Check in-memory map first (fastest)
+          const memCached = this.bulkAnnotatedImagesMap.get(attachId);
+          if (memCached) {
+            displayUrl = memCached;
+            foundCachedAnnotated = true;
+            this.logDebug('ANNOTATED', `Using memory-cached annotated thumbnail for ${attachId}`);
+          }
+
+          // TIER 2: Check IndexedDB cache
+          if (!foundCachedAnnotated) {
+            try {
+              const cachedAnnotated = await this.indexedDb.getCachedAnnotatedImage(attachId);
+              if (cachedAnnotated) {
+                displayUrl = cachedAnnotated;
+                foundCachedAnnotated = true;
+                // Store in memory map for faster future lookups
+                this.bulkAnnotatedImagesMap.set(attachId, cachedAnnotated);
+                this.logDebug('ANNOTATED', `Using IndexedDB-cached annotated thumbnail for ${attachId}`);
+              }
+            } catch (e) {
+              this.logDebug('WARN', `Failed to get cached annotated image: ${e}`);
+            }
+          }
+
+          // TIER 3: Render annotations on-the-fly and cache
+          if (!foundCachedAnnotated && originalUrl && originalUrl !== 'assets/img/photo-placeholder.svg') {
+            try {
+              this.logDebug('ANNOTATED', `Rendering annotations on-the-fly for ${attachId}`);
+              const renderedUrl = await renderAnnotationsOnPhoto(originalUrl, att.Drawings);
+              if (renderedUrl && renderedUrl !== originalUrl) {
+                displayUrl = renderedUrl;
+                foundCachedAnnotated = true;
+                // Cache in memory map
+                this.bulkAnnotatedImagesMap.set(attachId, renderedUrl);
+                // Cache to IndexedDB in background (non-blocking)
+                try {
+                  const response = await fetch(renderedUrl);
+                  const blob = await response.blob();
+                  this.indexedDb.cacheAnnotatedImage(attachId, blob)
+                    .then(() => this.logDebug('ANNOTATED', `Cached rendered annotation for ${attachId}`))
+                    .catch(err => this.logDebug('WARN', `Failed to cache annotated image: ${err}`));
+                } catch (fetchErr) {
+                  this.logDebug('WARN', `Failed to cache annotated blob: ${fetchErr}`);
+                }
+              }
+            } catch (renderErr) {
+              this.logDebug('WARN', `Failed to render annotations: ${renderErr}`);
+            }
           }
         }
 
@@ -1642,7 +1689,10 @@ export class GenericCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnt
           Drawings: att.Drawings || '',
           hasAnnotations: hasDrawings,
           uploading: false,
-          loading: false
+          loading: false,
+          // Include all ID fields for cache lookup (matches EFE pattern)
+          imageId: attachId,
+          attachId: attachId
         });
       }
 
