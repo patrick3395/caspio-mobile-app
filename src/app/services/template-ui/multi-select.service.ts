@@ -368,7 +368,7 @@ export class MultiSelectService {
     item: VisualItem,
     serviceId: number,
     category: string,
-    templateIdField: string = 'HUDTemplateID'
+    templateIdField: string = 'TemplateID'
   ): any {
     const templateIdInt = typeof item.templateId === 'string'
       ? parseInt(item.templateId, 10)

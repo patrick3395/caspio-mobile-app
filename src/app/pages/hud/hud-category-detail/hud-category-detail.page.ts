@@ -1475,15 +1475,39 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
 
           const attachId = String(att.AttachID || att.attachId || att.PK_ID);
-          const hasAnnotations = !!(att.Drawings && att.Drawings.length > 10);
-
-          // WEBAPP FIX: Check for cached annotated image to use as thumbnail
+          const hasServerAnnotations = !!(att.Drawings && att.Drawings.length > 10);
           let thumbnailUrl = displayUrl;
-          if (hasAnnotations) {
-            const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
-            if (cachedAnnotated) {
-              thumbnailUrl = cachedAnnotated;
-              console.log(`[CategoryDetail] WEBAPP: Using cached annotated image for ${attachId}`);
+          let hasAnnotations = hasServerAnnotations;
+          console.log(`[HUD] WEBAPP: Photo ${attachId} - hasAnnotations: ${hasAnnotations}, Drawings length: ${att.Drawings?.length || 0}`);
+
+          // WEBAPP FIX: Check for cached annotated image first
+          // CRITICAL: Annotations added locally may not be synced yet but are cached
+          const cachedAnnotated = this.bulkAnnotatedImagesMap.get(attachId);
+          if (cachedAnnotated) {
+            thumbnailUrl = cachedAnnotated;
+            hasAnnotations = true;
+            console.log(`[HUD] WEBAPP: Using cached annotated image for ${attachId}`);
+          } else if (hasServerAnnotations && displayUrl && displayUrl !== 'assets/img/photo-placeholder.svg') {
+            // No cached image but server has Drawings - render annotations on the fly
+            try {
+              console.log(`[HUD] WEBAPP: Rendering annotations for ${attachId}...`);
+              const renderedUrl = await renderAnnotationsOnPhoto(displayUrl, att.Drawings);
+              if (renderedUrl && renderedUrl !== displayUrl) {
+                thumbnailUrl = renderedUrl;
+                // Cache in memory for immediate use
+                this.bulkAnnotatedImagesMap.set(attachId, renderedUrl);
+                // Also persist to IndexedDB (convert data URL to blob first)
+                try {
+                  const response = await fetch(renderedUrl);
+                  const blob = await response.blob();
+                  await this.indexedDb.cacheAnnotatedImage(attachId, blob);
+                } catch (cacheErr) {
+                  console.warn('[HUD] WEBAPP: Failed to cache annotated image:', cacheErr);
+                }
+                console.log(`[HUD] WEBAPP: Rendered and cached annotations for ${attachId}`);
+              }
+            } catch (renderErr) {
+              console.warn(`[HUD] WEBAPP: Failed to render annotations for ${attachId}:`, renderErr);
             }
           }
 
@@ -5898,7 +5922,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Text: item.text || item.originalText || '',
           Notes: '',
           Answers: item.answer || '',
-          HUDTemplateID: templateIdInt
+          TemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -6018,7 +6042,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
           Answers: item.answer,
-          HUDTemplateID: templateIdInt
+          TemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -6112,7 +6136,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Text: item.text || item.originalText || '',
           Notes: item.otherValue || '',  // Store "Other" value in Notes
           Answers: item.answer || '',
-          HUDTemplateID: templateIdInt
+          TemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -6244,7 +6268,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           Text: item.text || item.originalText || '',
           Notes: '',
           Answers: item.answer,
-          HUDTemplateID: templateIdInt
+          TemplateID: templateIdInt
         };
 
         const result = await this.hudData.createVisual(visualData);
@@ -7001,7 +7025,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         Name: item.name,
         Text: item.text || item.originalText || '',
         Notes: '',
-        HUDTemplateID: templateIdInt
+        TemplateID: templateIdInt
       };
 
       console.log('[SAVE VISUAL] Visual data being saved:', visualData);
@@ -8384,7 +8408,7 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
         Name: name,
         Text: text,
         Notes: '',
-        HUDTemplateID: 0  // Custom visual - no template
+        TemplateID: 0  // Custom visual - no template
       };
 
       console.log('[CREATE CUSTOM] Creating visual:', visualData);
