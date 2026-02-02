@@ -733,4 +733,76 @@ export class PhotoHandlerService {
            errorMessage.includes('User') ||
            error === 'User cancelled photos app';
   }
+
+  // ============================================================================
+  // PUBLIC API: Photo Preservation (for template loadPhotosForVisual methods)
+  // ============================================================================
+
+  /**
+   * Check if a photo should be preserved during array rebuild/reload.
+   *
+   * Call this from template loadPhotosForVisual methods to determine which
+   * photos to keep when clearing and rebuilding the visualPhotos array.
+   *
+   * Preserves:
+   * - Skeleton placeholders (isSkeleton=true, imageId starts with 'temp_skeleton_')
+   * - Uploading photos (uploading=true, imageId starts with 'uploading_' or 'temp_')
+   * - In-progress captures (_isInProgressCapture=true)
+   * - Local-first photos with blob/data URLs
+   * - LocalImage photos
+   *
+   * @param photo - The photo object to check
+   * @returns true if the photo should be preserved
+   */
+  shouldPreservePhoto(photo: any): boolean {
+    if (!photo) return false;
+
+    const imageId = String(photo.imageId || '');
+
+    // Preserve skeleton placeholders (PhotoHandlerService gallery multi-select)
+    if (photo.isSkeleton === true && imageId.startsWith('temp_skeleton_')) {
+      return true;
+    }
+
+    // Preserve uploading photos with temp IDs
+    if (photo.uploading === true && (imageId.startsWith('uploading_') || imageId.startsWith('temp_'))) {
+      return true;
+    }
+
+    // Preserve in-progress captures (legacy pattern)
+    if (photo._isInProgressCapture === true && photo.uploading === true) {
+      return true;
+    }
+
+    // Preserve photos with valid blob or data URLs (local-first photos)
+    if (photo.displayUrl && (photo.displayUrl.startsWith('blob:') || photo.displayUrl.startsWith('data:'))) {
+      return true;
+    }
+
+    // Preserve LocalImage photos (they have valid local references)
+    if (photo.isLocalImage || photo.isLocalFirst || photo.localImageId) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Filter an array of photos to get only those that should be preserved.
+   *
+   * Use this in template loadPhotosForVisual methods:
+   * ```
+   * const existingPhotos = this.visualPhotos[key] || [];
+   * const preservedPhotos = this.photoHandler.getPhotosToPreserve(existingPhotos);
+   * this.visualPhotos[key] = [...preservedPhotos];
+   * // Then add photos from server...
+   * ```
+   *
+   * @param photos - Array of photo objects to filter
+   * @returns Array of photos that should be preserved
+   */
+  getPhotosToPreserve(photos: any[]): any[] {
+    if (!photos || !Array.isArray(photos)) return [];
+    return photos.filter(p => this.shouldPreservePhoto(p));
+  }
 }

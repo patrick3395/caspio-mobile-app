@@ -3872,23 +3872,8 @@ export class CategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, Has
         preservedPhotos = [...existingPhotos];
         console.log(`[LOAD PHOTOS] SYNC IN PROGRESS - preserving ALL ${preservedPhotos.length} existing photos for key: ${key}`);
       } else {
-        // NOT syncing: Preserve photos that have valid displayUrls OR are in-progress captures
-        // US-001 FIX: Must preserve photos with blob:/data: URLs to prevent disappearing after sync
-        preservedPhotos = existingPhotos.filter(p => {
-          // Always preserve in-progress captures
-          if (p._isInProgressCapture === true && p.uploading === true) {
-            return true;
-          }
-          // Preserve photos with valid blob or data URLs (local-first photos)
-          if (p.displayUrl && (p.displayUrl.startsWith('blob:') || p.displayUrl.startsWith('data:'))) {
-            return true;
-          }
-          // Preserve LocalImage photos (they have valid local references)
-          if (p.isLocalImage || p.isLocalFirst || p.localImageId) {
-            return true;
-          }
-          return false;
-        });
+        // Use centralized PhotoHandlerService preservation logic
+        preservedPhotos = this.photoHandler.getPhotosToPreserve(existingPhotos);
         console.log(`[LOAD PHOTOS] Preserving ${preservedPhotos.length}/${existingPhotos.length} photos with valid URLs`);
       }
 

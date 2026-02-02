@@ -4646,11 +4646,9 @@ export class HudCategoryDetailPage implements OnInit, OnDestroy, ViewWillEnter, 
           }
         }
 
-        // Preserve ONLY in-progress uploads (temp photos with uploading: true)
+        // Use centralized PhotoHandlerService preservation logic
         const existingPhotos = this.visualPhotos[key] || [];
-        const inProgressUploads = existingPhotos.filter(p =>
-          p.uploading === true && String(p.imageId || '').startsWith('uploading_')
-        );
+        const inProgressUploads = this.photoHandler.getPhotosToPreserve(existingPhotos);
 
         // WEBAPP FIX: Load cached annotated images if not already loaded
         if (this.bulkAnnotatedImagesMap.size === 0) {
