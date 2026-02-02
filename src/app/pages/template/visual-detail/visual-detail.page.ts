@@ -1073,30 +1073,112 @@ export class GenericVisualDetailPage implements OnInit, OnDestroy, HasUnsavedCha
   async viewPhoto(photo: PhotoItem) {
     if (!this.config) return;
 
+    // Store original index for reliable lookup after modal closes
+    const originalPhotoIndex = this.photos.findIndex(p => p.id === photo.id);
+
+    // Use ORIGINAL URL for editing (without annotations baked in)
+    const editUrl = photo.originalUrl || photo.displayUrl;
+
+    // Decompress existing annotations for the editor
+    let existingAnnotations: any = null;
+    if (photo.drawings && photo.drawings.length > 10) {
+      try {
+        existingAnnotations = decompressAnnotationData(photo.drawings);
+        console.log('[GenericVisualDetail] Found existing annotations from drawings');
+      } catch (e) {
+        console.warn('[GenericVisualDetail] Error loading annotations:', e);
+      }
+    }
+
+    const existingCaption = photo.caption || '';
+
     const modal = await this.modalController.create({
       component: FabricPhotoAnnotatorComponent,
       componentProps: {
-        imageUrl: photo.originalUrl || photo.displayUrl,
-        existingDrawings: photo.drawings || '',
-        entityType: this.config.entityType,
-        entityId: this.visualId,
-        serviceId: this.serviceId,
-        imageId: photo.id
-      }
+        imageUrl: editUrl,
+        existingAnnotations: existingAnnotations,
+        existingCaption: existingCaption,
+        photoData: {
+          ...photo,
+          AttachID: photo.id,
+          id: photo.id,
+          caption: existingCaption
+        },
+        isReEdit: !!existingAnnotations
+      },
+      cssClass: 'fullscreen-modal'
     });
 
     await modal.present();
 
     const { data } = await modal.onWillDismiss();
-    if (data?.saved) {
-      const photoIndex = this.photos.findIndex(p => p.id === photo.id);
-      if (photoIndex >= 0) {
-        this.photos[photoIndex].drawings = data.drawings || '';
-        this.photos[photoIndex].hasAnnotations = !!(data.drawings && data.drawings.length > 10);
-        if (data.annotatedImageUrl) {
-          this.photos[photoIndex].displayUrl = data.annotatedImageUrl;
+
+    // Check if we have annotation data to save
+    const hasAnnotationData = data && (data.annotatedBlob || data.compressedAnnotationData || data.annotationsData);
+
+    if (hasAnnotationData) {
+      console.log('[GenericVisualDetail] Annotation saved, processing...');
+
+      const annotatedBlob = data.blob || data.annotatedBlob;
+      const annotationsData = data.annotationData || data.annotationsData;
+      const newCaption = data.caption !== undefined ? data.caption : photo.caption;
+
+      // Create blob URL for immediate display
+      let newUrl: string | null = null;
+      if (annotatedBlob) {
+        newUrl = URL.createObjectURL(annotatedBlob);
+      }
+
+      // Find photo in array
+      let photoIndex = this.photos.findIndex(p => p.id === photo.id);
+      if (photoIndex === -1 && originalPhotoIndex !== -1 && originalPhotoIndex < this.photos.length) {
+        photoIndex = originalPhotoIndex;
+      }
+
+      if (photoIndex !== -1) {
+        try {
+          // Compress annotation data for storage
+          let compressedDrawings = data.compressedAnnotationData || '';
+          if (!compressedDrawings && annotationsData) {
+            if (typeof annotationsData === 'object') {
+              compressedDrawings = compressAnnotationData(JSON.stringify(annotationsData));
+            } else if (typeof annotationsData === 'string') {
+              compressedDrawings = compressAnnotationData(annotationsData);
+            }
+          }
+
+          // Cache annotated image for thumbnail display
+          if (annotatedBlob && annotatedBlob.size > 0) {
+            try {
+              await this.indexedDb.cacheAnnotatedImage(photo.id, annotatedBlob);
+              console.log('[GenericVisualDetail] WEBAPP: Cached annotated image for:', photo.id);
+            } catch (cacheErr) {
+              console.warn('[GenericVisualDetail] WEBAPP: Failed to cache annotated image:', cacheErr);
+            }
+          }
+
+          // Update annotation via API
+          await this.dataAdapter.updateAttachment(photo.id, {
+            Annotation: newCaption,
+            Drawings: compressedDrawings
+          });
+          console.log('[GenericVisualDetail] WEBAPP: Updated annotation via API for:', photo.id);
+
+          // Update local photo state
+          this.photos[photoIndex].drawings = compressedDrawings;
+          this.photos[photoIndex].hasAnnotations = compressedDrawings.length > 10;
+          this.photos[photoIndex].caption = newCaption;
+          if (newUrl) {
+            this.photos[photoIndex].displayUrl = newUrl;
+          }
+
+          await this.showToast('Annotation saved', 'success');
+        } catch (saveErr) {
+          console.error('[GenericVisualDetail] Error saving annotation:', saveErr);
+          await this.showToast('Error saving annotation', 'danger');
         }
       }
+
       this.changeDetectorRef.detectChanges();
     }
   }
